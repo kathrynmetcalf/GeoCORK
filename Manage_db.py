@@ -3,6 +3,7 @@ import sqlite3
 from PyQt5 import QtWidgets as QtW  # all windows
 from PyQt5 import QtCore as QtC  # more low-level stuff
 from PyQt5 import QtGui as QtG  # font and color classes, etc.
+from PyQt5 import QtSql as QtS  # sql stuff
 from PyQt5.uic import loadUi
 import database as db
 
@@ -18,8 +19,7 @@ class MainWindow(QtW.QMainWindow):
         loadUi(sources_ui_file, self)
 
         self.conn = db.create_connection(db_file)
-        self.model = QtG.QStandardItemModel()
-        self.model_list = []  # list of tableview instances
+        self.model = QtS.QSqlTableModel()
 
         if self.conn is not None:
             db.create_tables(self.conn)
