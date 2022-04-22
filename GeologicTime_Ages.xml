@@ -1,0 +1,237 @@
+<?xml version='1.0' encoding='utf-8'?>
+<!-- GSA Geologic Time Scale v. 5.0 -->
+
+<TimeScale>
+    <Eon name="Phanerozoic" oldest="541" youngest="0">
+        <Era name="Cenozoic" oldest="66" youngest="0">
+            <Period name="Quaternary" oldest="2.58" youngest="0">
+                <Epoch name="Holocene" oldest="0.012" youngest="0"></Epoch>
+                <Epoch name="Pleistocene" oldest="2.58" youngest="0.012">
+                    <Age name="Calabrian" oldest="1.8" youngest="0.012"></Age>
+                    <Age name="Gelasian" oldest="2.58" youngest="1.8"></Age>
+                </Epoch>
+            </Period>
+            <Period name="Neogene" oldest="23.03" youngest="2.58">
+                <Epoch name="Pliocene" oldest="5.333" youngest="2.58">
+                    <Age name="Piacenzian" oldest="3.600" youngest="2.58"></Age>
+                    <Age name="Zanclean" oldest="5.333" youngest="3.600"></Age>
+                </Epoch>
+                <Epoch name="Miocene" oldest="23.03" youngest="5.333">
+                    <Age name="Messinian" oldest="7.246" youngest="5.333"></Age>
+                    <Age name="Tortonian" oldest="11.63" youngest="7.246"></Age>
+                    <Age name="Serravallian" oldest="13.82" youngest="11.63"></Age>
+                    <Age name="Langhian" oldest="15.97" youngest="13.82"></Age>
+                    <Age name="Burdigalian" oldest="20.44" youngest="15.97"></Age>
+                    <Age name="Aquitanian" oldest="23.03" youngest="20.44"></Age>
+                </Epoch>
+            </Period>
+            <Paleogene oldest="66" youngest="23.03">
+                <Oligocene oldest="33.9" youngest="23.03">
+                    <Chattian oldest="27.82" youngest="23.03"></Chattian>
+                    <Rupelian oldest="33.9" youngest="27.82"></Rupelian>
+                </Oligocene>
+                <Eocene oldest="56" youngest="33.9">
+                    <Priabonian oldest="37.8" youngest="33.9"></Priabonian>
+                    <Batonian oldest="41.2" youngest="37.8"></Batonian>
+                    <Lutetian oldest="47.8" youngest="41.2"></Lutetian>
+                    <Ypresian oldest="56" youngest="47.8"></Ypresian>
+                </Eocene>
+                <Paleocene oldest="66" youngest="56">
+                    <Thanetian oldest="59.2" youngest="56"></Thanetian>
+                    <Selandian oldest="61.6" youngest="59.2"></Selandian>
+                    <Danian oldest="66" youngest="61.6"></Danian>
+                </Paleocene>
+            </Paleogene>
+            <Tertiary oldest="66" youngest="2.58"></Tertiary>
+        </Era>
+        <Mesozoic oldest="251.9" youngest="66">
+            <Cretaceous oldest="145" youngest="66">
+                <Late oldest="100.5" youngest="66">
+                    <Maastrichtian oldest="72.1" youngest="66"></Maastrichtian>
+                    <Campanian oldest="83.6" youngest="72.1"></Campanian>
+                    <Santonian oldest="86.3" youngest="83.6"></Santonian>
+                    <Coniacian oldest="89.8" youngest="86.3"></Coniacian>
+                    <Turonian oldest="93.9" youngest="89.8"></Turonian>
+                    <Cenomanian oldest="100.5" youngest="93.9"></Cenomanian>
+                </Late>
+                <Early oldest="145" youngest="100.5">
+                    <Albian oldest="113" youngest="100.5"></Albian>
+                    <Aptian oldest="125" youngest="113"></Aptian>
+                    <Barremian oldest="129.4" youngest="125"></Barremian>
+                    <Hauterivian oldest="132.9" youngest="129.4"></Hauterivian>
+                    <Valanginian oldest="139.8" youngest="132.9"></Valanginian>
+                    <Berriasian oldest="145" youngest="139.8"></Berriasian>
+                </Early>
+            </Cretaceous>
+            <Jurassic oldest="201.3" youngest="145">
+                <Late oldest="163.5" youngest="145">
+                    <Tithonian oldest="152.1" youngest="145"></Tithonian>
+                    <Kimmeridgian oldest="157.3" youngest="152.1"></Kimmeridgian>
+                    <Oxfordian oldest="163.5" youngest="157.3"></Oxfordian>
+                </Late>
+                <Middle oldest="174.1" youngest="163.5">
+                    <Callovian oldest="166.1" youngest="163.5"></Callovian>
+                    <Bathonian oldest="168.3" youngest="166.1"></Bathonian>
+                    <Bajocian oldest="170.3" youngest="168.3"></Bajocian>
+                    <Aalenian oldest="174.1" youngest="170.3"></Aalenian>
+                </Middle>
+                <Early oldest="201.3" youngest="174.1">
+                    <Toarcian oldest="182.7" youngest="174.1"></Toarcian>
+                    <Pliensbachian oldest="190.8" youngest="182.7"></Pliensbachian>
+                    <Sinemurian oldest="199.3" youngest="190.8"></Sinemurian>
+                    <Hettangian oldest="201.3" youngest="199.3"></Hettangian>
+                </Early>
+            </Jurassic>
+            <Triassic oldest="251.9" youngest="201.3">
+                <Late oldest="237" youngest="201.3">
+                    <Rhaetian oldest="208.5" youngest="201.3"></Rhaetian>
+                    <Norian oldest="227" youngest="208.5"></Norian>
+                    <Carnian oldest="237" youngest="227"></Carnian>
+                </Late>
+                <Middle oldest="247.2" youngest="237">
+                    <Landinian oldest="242" youngest="237"></Landinian>
+                    <Anisian oldest="247.2" youngest="242"></Anisian>
+                </Middle>
+                <Early oldest="251.9" youngest="247.2">
+                    <Olenekian oldest="251.2" youngest="247.2"></Olenekian>
+                    <Induan oldest="251.9" youngest="251.2"></Induan>
+                </Early>
+            </Triassic>
+        </Mesozoic>
+        <Paleozoic oldest="541" youngest="251.9">
+            <Permian oldest="298.9" youngest="251.9">
+                <Lopingian oldest="259.1" youngest="251.9">
+                    <Changhsingian oldest="254.14" youngest="251.9"></Changhsingian>
+                    <Wuchiapingian oldest="259.1" youngest="254.14"></Wuchiapingian>
+                </Lopingian>
+                <Guadalupian oldest="272.95" youngest="259.1">
+                    <Capitanian oldest="265.1" youngest="272.95"></Capitanian>
+                    <Wordian oldest="268.8" youngest="265.1"></Wordian>
+                    <Roadian oldest="272.95" youngest="268.8"></Roadian>
+                </Guadalupian>
+                <Cisuralian oldest="298.9" youngest="272.95">
+                    <Kungurian oldest="283.5" youngest="272.95"></Kungurian>
+                    <Artinskian oldest="290.1" youngest="283.5"></Artinskian>
+                    <Sakmarian oldest="295.0" youngest="290.1"></Sakmarian>
+                    <Asselian oldest="298.9" youngest="295.0"></Asselian>
+                </Cisuralian>
+            </Permian>
+            <Carboniferous oldest="358.9" youngest="298.9">
+                <Pennsylvanian oldest="323.2" youngest="298.9">
+                    <Late oldest="307.0" youngest="298.9">
+                        <Gzhelian oldest="303.7" youngest="298.9"></Gzhelian>
+                        <Kasimovian oldest="307.0" youngest="303.7"></Kasimovian>
+                    </Late>
+                    <Middle oldest="315.2" youngest="307.0">
+                        <Moscovian oldest="315.2" youngest="307.0"></Moscovian>
+                    </Middle>
+                    <Early oldest="323.2" youngest="315.2">
+                        <Bashkirian oldest="323.2" youngest="315.2"></Bashkirian>
+                    </Early>
+                </Pennsylvanian>
+                <Mississippian oldest="358.9" youngest="323.2">
+                    <Late oldest="330.9" youngest="323.2">
+                        <Serpukhovian oldest="330.9" youngest="323.2"></Serpukhovian>
+                    </Late>
+                    <Middle oldest="346.7" youngest="330.9">
+                        <Visean oldest="346.7" youngest="330.9"></Visean>
+                    </Middle>
+                    <Early oldest="358.9" youngest="346.7">
+                        <Tournaisian oldest="358.9" youngest="346.7"></Tournaisian>
+                    </Early>
+                </Mississippian>
+            </Carboniferous>
+            <Devonian oldest="419.2" youngest="358.9">
+                <Late oldest="382.7" youngest="358.9">
+                    <Famennian oldest="372.2" youngest="358.9"></Famennian>
+                    <Frasnian oldest="382.7" youngest="372.2"></Frasnian>
+                </Late>
+                <Middle oldest="393.3" youngest="382.7">
+                    <Givetian oldest="387.7" youngest="382.7"></Givetian>
+                    <Eifelian oldest="393.3" youngest="387.7"></Eifelian>
+                </Middle>
+                <Early oldest="419.2" youngest="393.3">
+                    <Emsian oldest="407.6" youngest="393.3"></Emsian>
+                    <Pragian oldest="410.8" youngest="407.6"></Pragian>
+                    <Lochovian oldest="419.2" youngest="410.8"></Lochovian>
+                </Early>
+            </Devonian>
+            <Silurian oldest="443.8" youngest="419.2">
+                <Pridoli oldest="423.0" youngest="419.2"></Pridoli>
+                <Ludlow oldest="427.4" youngest="423.0">
+                    <Ludfordian oldest="425.6" youngest="423.0"></Ludfordian>
+                    <Gorstian oldest="427.4" youngest="425.6"></Gorstian>
+                </Ludlow>
+                <Wenlock oldest="433.4" youngest="427.4">
+                    <Homerian oldest="430.5" youngest="427.4"></Homerian>
+                    <Sheinwoodian oldest="433.4" youngest="430.5"></Sheinwoodian>
+                </Wenlock>
+                <Llandovery oldest="443.8" youngest="433.4">
+                    <Telychian oldest="438.5" youngest="433.4"></Telychian>
+                    <Aeronian oldest="440.8" youngest="438.5"></Aeronian>
+                    <Rhuddanian oldest="443.8" youngest="440.8"></Rhuddanian>
+                </Llandovery>
+            </Silurian>
+            <Ordovician oldest="485.4" youngest="443.8">
+                <Late oldest="458.4" youngest="443.8">
+                    <Hirnantian oldest="445.2" youngest="443.8"></Hirnantian>
+                    <Katian oldest="453.0" youngest="445.2"></Katian>
+                    <Sandbian oldest="458.4" youngest="453.0"></Sandbian>
+                </Late>
+                <Middle oldest="470.0" youngest="458.4">
+                    <Darriwilian oldest="467.3" youngest="458.4"></Darriwilian>
+                    <Dapingian oldest="470.0" youngest="467.3"></Dapingian>
+                </Middle>
+                <Early oldest="485.4" youngest="470.0">
+                    <Floian oldest="477.7" youngest="470.0"></Floian>
+                    <Tremadocian oldest="485.4" youngest="477.7"></Tremadocian>
+                </Early>
+            </Ordovician>
+            <Cambrian oldest="541" youngest="485.4">
+                <Furongian oldest="497" youngest="485.4">
+                    <Age10 oldest="489.5" youngest="485.4"></Age10>
+                    <Jiangshanian oldest="494" youngest="489.5"></Jiangshanian>
+                    <Paibian oldest="497" youngest="494"></Paibian>
+                </Furongian>
+                <Epoch3 oldest="509" youngest="497">
+                    <Guzhangian oldest="500.5" youngest="497"></Guzhangian>
+                    <Drumian oldest="504" youngest="500.5"></Drumian>
+                    <Age5 oldest="509" youngest="504"></Age5>
+                </Epoch3>
+                <Epoch2 oldest="521" youngest="509">
+                    <Age4 oldest="514" youngest="509"></Age4>
+                    <Age3 oldest="521" youngest="514"></Age3>
+                </Epoch2>
+                <Terreneuvian oldest="541" youngest="521">
+                    <Age2 oldest="529" youngest="521"></Age2>
+                    <Fortunian oldest="541" youngest="529"></Fortunian>
+                </Terreneuvian>
+            </Cambrian>
+        </Paleozoic>
+    </Eon>
+    <Proterozoic oldest="2500" youngest="541">
+        <Neoproterozoic oldest="1000" youngest="541">
+            <Ediacaran oldest="635" youngest="541"></Ediacaran>
+            <Cryogenian oldest="720" youngest="635"></Cryogenian>
+            <Tonian oldest="1000" youngest="720"></Tonian>
+        </Neoproterozoic>
+        <Mesoproterozoic oldest="1600" youngest="1000">
+            <Stenian oldest="1200" youngest="1000"></Stenian>
+            <Ectasian oldest="1400" youngest="1200"></Ectasian>
+            <Calymmian oldest="1600" youngest="1400"></Calymmian>
+        </Mesoproterozoic>
+        <Paleoproterozoic oldest="2500" youngest="1600">
+            <Statherian oldest="1800" youngest="1600"></Statherian>
+            <Orosirian oldest="2050" youngest="1800"></Orosirian>
+            <Rhyacian oldest="2300" youngest="2050"></Rhyacian>
+            <Siderian oldest="2500" youngest="2500"></Siderian>
+        </Paleoproterozoic>
+    </Proterozoic>
+    <Archean oldest="4000" youngest="2500">
+        <Neoarchean oldest="2800" youngest="2500"></Neoarchean>
+        <Mesoarchean oldest="3200" youngest="2800"></Mesoarchean>
+        <Paloarchean oldest="3600" youngest="3200"></Paloarchean>
+        <Eoarchean oldest="4000" youngest="3600"></Eoarchean>
+    </Archean>
+    <Hadean oldest="4540" youngest="4000"></Hadean>
+</TimeScale>
