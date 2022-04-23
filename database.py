@@ -128,44 +128,27 @@ CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "Geochem Data"(
 
 
 # Commands and queries
-def create_connection(db_file):
-    """ create a database connection to the SQLite database
-        specified by db_file
-    :param db_file: database file
-    :return: Connection object or None
-    """
-    conn = None
-    try:
-        conn = sqlite3.connect(db_file)
-        return conn
-    except Error as e:
-        print(e)
+def create_tables(query):
 
-    return conn
+    query.exec(CREATE_SOURCES_TABLE)
 
+    query.exec(CREATE_REGIONS_TABLE)
 
-def create_tables(conn):
-    c = conn.cursor()
+    query.exec(CREATE_SETTINGS_TABLE)
 
-    c.execute(CREATE_SOURCES_TABLE)
+    query.exec(CREATE_ROCKTYPES_TABLE)
 
-    c.execute(CREATE_REGIONS_TABLE)
+    query.exec(CREATE_UNITS_TABLE)
 
-    c.execute(CREATE_SETTINGS_TABLE)
+    query.exec(CREATE_AGESIGNATURES_TABLE)
 
-    c.execute(CREATE_ROCKTYPES_TABLE)
+    query.exec(CREATE_AGES_TABLE)
 
-    c.execute(CREATE_UNITS_TABLE)
+    query.exec(CREATE_UPBDATA_TABLE)
 
-    c.execute(CREATE_AGESIGNATURES_TABLE)
+    query.exec(CREATE_GEOCHEMDATA_TABLE)
 
-    c.execute(CREATE_AGES_TABLE)
-
-    c.execute(CREATE_UPBDATA_TABLE)
-
-    c.execute(CREATE_GEOCHEMDATA_TABLE)
-
-    c.execute(CREATE_SAMPLES_TABLE)
+    query.exec(CREATE_SAMPLES_TABLE)
 
 
 def list_tables(conn):
@@ -186,16 +169,16 @@ def list_tables(conn):
     return tablelist
 
 
-def retrieve_table(conn, table):
+def retrieve_table(query, table):
     """Retrieve the headers and data for the specified table
     :param conn:
     :param table:
     :return: entries, headers"""
-    c = conn.cursor()
     sql = f'SELECT * FROM "{table}"'  # table name must be in "" to catch spaces in table names
-    data = c.execute(sql)
+    query.exec(sql)
+    data = enumerate(query.result())
     headers = []
-    for column in data.description:
+    for column in data:
         if 'ID' not in column[0]:  # omit columns with keys
             headers.append(column[0])
     #     else:
@@ -204,7 +187,7 @@ def retrieve_table(conn, table):
     #                 citation =
     # sql = f'SELECT {headers} FROM {table}'
     # c.execute(sql)
-    entries = c.fetchall()
+    entries = query.fetchall()
     return entries, headers
 
 

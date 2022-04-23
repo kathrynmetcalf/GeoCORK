@@ -18,27 +18,33 @@ class MainWindow(QtW.QMainWindow):
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
 
-        self.conn = db.create_connection(db_file)
+        self.conn = QtS.QSqlDatabase.addDatabase('QSQLITE')
+        self.conn.setDatabaseName(db_file)
+        self.conn.open()
         self.model = QtS.QSqlTableModel()
 
-        if self.conn is not None:
-            db.create_tables(self.conn)
+        # Try to open the connection and handle possible errors
+        if not self.conn.open():
+            QtW.QMessageBox.critical(
+                None,
+                "Database Error!",
+                "Database Error: %s" % self.conn.lastError().databaseText(),
+            )
+            sys.exit(1)
 
-            with self.conn:
+        # Create the tables if they don't already exist
+        query = QtS.QSqlQuery()
+        db.create_tables(query)
 
-                # Create the tables if they don't already exist
-                db.create_tables(self.conn)
+        # Add data for testing
+        # self.create_source()
 
-                # Add data for testing
-                self.create_source()
+        # Display the list of tables
+        dbtable_list = self.conn.tables()
+        self.dbTable_comboBox.addItems(dbtable_list)
 
-
-                # Display the list of tables
-                dbtable_list = db.list_tables(self.conn)
-                self.dbTable_comboBox.addItems(dbtable_list)
-
-                # Display the selected table
-                self.dbTable_comboBox.activated.connect(self.display_table)
+        # Display the selected table
+        self.dbTable_comboBox.activated.connect(self.display_table)
 
 
         # Close connection
@@ -51,16 +57,27 @@ class MainWindow(QtW.QMainWindow):
 
     def display_table(self):
         table = self.dbTable_comboBox.currentText()
-        for model in reversed(self.model_list):
-            if model[0] is table:  # look for most recent view for this table
-                self.dbTable_tableView.setModel(model[1])
+        if self.model.isDirty() is not None:
+            self.commit_popup
+        self.model.setTable(table)
+        self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
 
-        (table_data, table_headers) = db.retrieve_table(self.conn, table)
-        self.model.setHorizontalHeaderLabels(table_headers)
-        for row in table_data:
-            self.model.appendRow(row)
-        self.dbTable_tableView.setModel(self.model)
+        query = QtS.QSqlQuery()
+        (table_data, table_headers) = db.retrieve_table(query, table)
+        self.model.setHeaderData(table_headers)
 
+    def commit_popup(self):
+        msg = QtW.QMessageBox()
+        msg.setIcon(QtW.QMessageBox.Information)
+        msg.setWindowTitle('Commit changes')
+        msg.setText('Save changes to the database? This cannot be undone.')
+        msg.setStandardButtons(QtW.QMessageBox.No | QtW.QMessageBox.Yes)
+
+    def commit_popup_clicked(self, click):
+        if click.text == 'Yes':
+            self.model.submitAll()
+        if click.text == 'No':
+            self.model.revertAll()
 
     def create_source(self):
         source = ('Hu et al.', '2016', 'The timing of India-Asia collision onset – Facts, theories, controversies',
@@ -68,10 +85,6 @@ class MainWindow(QtW.QMainWindow):
         db.create_source(self.conn, source)
 
 
-    def save(self):
-        # pop-up asking if the user is sure, changes cannot be undone
-        db.commit_changes(self.conn, self.model_list)
-        self.model_list = []  # reset the list of table views
 
     # End methods here
 
