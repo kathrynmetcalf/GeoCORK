@@ -22,6 +22,7 @@ class MainWindow(QtW.QMainWindow):
         self.conn.setDatabaseName(db_file)
         self.conn.open()
         self.model = QtS.QSqlTableModel()
+        self.sample_model = QtS.QSqlRelationalTableModel()
 
         # Try to open the connection and handle possible errors
         if not self.conn.open():
@@ -35,9 +36,6 @@ class MainWindow(QtW.QMainWindow):
         # Create the tables if they don't already exist
         query = QtS.QSqlQuery()
         db.create_tables(query)
-
-        # Add data for testing
-        self.create_source()
 
         # Display the list of tables
         dbtable_list = self.conn.tables()
@@ -85,22 +83,38 @@ class MainWindow(QtW.QMainWindow):
         if i.text() == 'Discard' or i.text() == 'Don\'t Save':
             self.model.revertAll()
 
+    def contextMenuEvent(self, event: QtG.QContextMenuEvent) -> None:
+        table = self.dbTable_comboBox.currentText()
+        menu = QtW.QMenu(self)
+        addAct = menu.addAction('Add item')
+        deleteAct = menu.addAction('Remove selected')
+        bulkAct = menu.addAction('Bulk edit selected')
+        action = menu.exec_(self.mapToGlobal(event.pos()))
+        if action == addAct:
+            if table == 'Sources':
+                self.create_source()
+        if action == deleteAct:
+            index_list = []
+            for model_index in self.dbTable_tableView.selectionModel().selectedRows():
+                index = QtC.QPersistentModelIndex(model_index)
+                index_list.append(index)
+            for index in index_list:
+                self.model.removeRow(index.row())
+
     def create_source(self):
         self.model.setTable('Sources')
-        newSource = self.model.record()
-        source = ('Hu et al.', '2016', 'The timing of India-Asia collision onset – Facts, theories, controversies',
-                  'Earth-Science Reviews', '10.1016/j.earscirev.2016.07.014', 'Hu et al., 2016, ESR')
-        newSource.setValue('Authors', source[0])
-        newSource.setValue('Year', source[1])
-        newSource.setValue('Title', source[2])
-        newSource.setValue('Source', source[3])
-        newSource.setValue('doi', source[4])
-        newSource.setValue('Short Citation', source[5])
-        if self.model.insertRecord(-1, newSource) is True:
-            print('Record added successfully')
+        # newSource = self.model.record()
+        # source = ('', '', '', '', '', '')
+        # newSource.setValue('Authors', source[0])
+        # newSource.setValue('Year', source[1])
+        # newSource.setValue('Title', source[2])
+        # newSource.setValue('Source', source[3])
+        # newSource.setValue('doi', source[4])
+        # newSource.setValue('Short Citation', source[5])
+        # if self.model.insertRecord(-1, newSource) is True:
+        #     self.model.submitAll()
+        if self.model.insertRows(self.model.rowCount(), 1) is True:
             self.model.submitAll()
-        elif self.model.insertRecord(-1, newSource) is False:
-            print('Record not added')
 
 
 
