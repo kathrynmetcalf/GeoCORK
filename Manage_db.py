@@ -37,7 +37,7 @@ class MainWindow(QtW.QMainWindow):
         db.create_tables(query)
 
         # Add data for testing
-        # self.create_source()
+        self.create_source()
 
         # Display the list of tables
         dbtable_list = self.conn.tables()
@@ -45,6 +45,9 @@ class MainWindow(QtW.QMainWindow):
 
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
+
+        # Signal for saving
+        self.save_pushButton.clicked.connect(self.commit_popup)
 
 
         # Close connection
@@ -61,28 +64,43 @@ class MainWindow(QtW.QMainWindow):
             self.commit_popup
         self.model.setTable(table)
         self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
-
-        query = QtS.QSqlQuery()
-        (table_data, table_headers) = db.retrieve_table(query, table)
-        self.model.setHeaderData(table_headers)
+        self.model.select()
+        self.dbTable_tableView.setModel(self.model)
+        self.dbTable_tableView.hideColumn(0)  # don't show ID column
 
     def commit_popup(self):
+        print('save clicked')
         msg = QtW.QMessageBox()
         msg.setIcon(QtW.QMessageBox.Information)
         msg.setWindowTitle('Commit changes')
         msg.setText('Save changes to the database? This cannot be undone.')
-        msg.setStandardButtons(QtW.QMessageBox.No | QtW.QMessageBox.Yes)
+        msg.setStandardButtons(QtW.QMessageBox.Save | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
+        msg.buttonClicked.connect(self.commit_popup_clicked)
+        msg.exec()
 
-    def commit_popup_clicked(self, click):
-        if click.text == 'Yes':
+    def commit_popup_clicked(self, i):
+        print(f'user clicked {i.text()}')
+        if i.text() == 'Save':
             self.model.submitAll()
-        if click.text == 'No':
+        if i.text() == 'Discard' or i.text() == 'Don\'t Save':
             self.model.revertAll()
 
     def create_source(self):
+        self.model.setTable('Sources')
+        newSource = self.model.record()
         source = ('Hu et al.', '2016', 'The timing of India-Asia collision onset – Facts, theories, controversies',
                   'Earth-Science Reviews', '10.1016/j.earscirev.2016.07.014', 'Hu et al., 2016, ESR')
-        db.create_source(self.conn, source)
+        newSource.setValue('Authors', source[0])
+        newSource.setValue('Year', source[1])
+        newSource.setValue('Title', source[2])
+        newSource.setValue('Source', source[3])
+        newSource.setValue('doi', source[4])
+        newSource.setValue('Short Citation', source[5])
+        if self.model.insertRecord(-1, newSource) is True:
+            print('Record added successfully')
+            self.model.submitAll()
+        elif self.model.insertRecord(-1, newSource) is False:
+            print('Record not added')
 
 
 

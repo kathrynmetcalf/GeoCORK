@@ -176,19 +176,10 @@ def retrieve_table(query, table):
     :return: entries, headers"""
     sql = f'SELECT * FROM "{table}"'  # table name must be in "" to catch spaces in table names
     query.exec(sql)
-    data = enumerate(query.result())
-    headers = []
-    for column in data:
-        if 'ID' not in column[0]:  # omit columns with keys
-            headers.append(column[0])
-    #     else:
-    #         if table is 'Samples':
-    #             if column[0] is 'Source ID':
-    #                 citation =
-    # sql = f'SELECT {headers} FROM {table}'
-    # c.execute(sql)
-    entries = query.fetchall()
-    return entries, headers
+    data = []
+    while query.next():
+        data.append(query.value)
+    return data
 
 
 def create_source(conn, source):
