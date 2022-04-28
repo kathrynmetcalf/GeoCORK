@@ -65,6 +65,7 @@ class MainWindow(QtW.QMainWindow):
         self.model.select()
         self.dbTable_tableView.setModel(self.model)
         self.dbTable_tableView.hideColumn(0)  # don't show ID column
+        self.dbTable_tableView.resizeColumnsToContents()
 
     def commit_popup(self):
         print('save clicked')
@@ -103,18 +104,20 @@ class MainWindow(QtW.QMainWindow):
 
     def create_source(self):
         self.model.setTable('Sources')
-        # newSource = self.model.record()
-        # source = ('', '', '', '', '', '')
-        # newSource.setValue('Authors', source[0])
-        # newSource.setValue('Year', source[1])
-        # newSource.setValue('Title', source[2])
-        # newSource.setValue('Source', source[3])
-        # newSource.setValue('doi', source[4])
-        # newSource.setValue('Short Citation', source[5])
-        # if self.model.insertRecord(-1, newSource) is True:
-        #     self.model.submitAll()
-        if self.model.insertRows(self.model.rowCount(), 1) is True:
+        newSource = self.model.record()
+        source = ('', '', '', '', '', '')
+        newSource.setValue('Authors', source[0])
+        newSource.setValue('Year', source[1])
+        newSource.setValue('Title', source[2])
+        newSource.setValue('Source', source[3])
+        newSource.setValue('doi', source[4])
+        newSource.setValue('Short Citation', source[5])
+        if self.model.insertRecord(-1, newSource) is True:
             self.model.submitAll()
+            self.dbTable_tableView.hideColumn(0)  # don't show ID column
+            self.dbTable_tableView.resizeColumnsToContents()
+        # if self.model.insertRows(self.model.rowCount(), 1) is True:
+        #     self.model.submitAll()
 
 
 
