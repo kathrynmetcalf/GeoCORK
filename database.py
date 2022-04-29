@@ -104,7 +104,7 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS "Ages"(
                     "Age ID" INTEGER PRIMARY KEY,
-                    "Parent" TEXT
+                    "Parent" TEXT,
                     Name TEXT,
                     "Max Ma" REAL,
                     "Min Ma" REAL
@@ -152,11 +152,15 @@ def create_tables(query):
 
     query.exec(CREATE_SAMPLES_TABLE)
 
-'''Working on populating the age table during init'''
-    # sql = '''SELECT count(*) FROM Ages'''
-    # count = query.exec(sql)
-    # if not count > 0:  # if the table is empty, populate it
-    #     populate_ages(query)
+    '''Working on populating the age table during init'''
+    sql = '''SELECT * FROM Ages'''
+    if query.exec(sql):
+        if query.next():
+            print(query.value(0))
+        else:
+            populate_ages(query)
+    else:
+        print(f'query returned {query.first()}')
 
 
 def populate_ages(query):
@@ -186,7 +190,12 @@ def populate_ages(query):
 def add_age(query, age):
     sql = '''INSERT INTO Ages(Parent,Name,"Max Ma","Min Ma")
                 VALUES(?,?,?,?)'''
-    query.execute(sql, age)
+    query.prepare(sql)
+    query.bindValue(0, age[0])
+    query.bindValue(1, age[1])
+    query.bindValue(2, age[2])
+    query.bindValue(3, age[3])
+    query.exec()
 
 
 def list_tables(conn):
