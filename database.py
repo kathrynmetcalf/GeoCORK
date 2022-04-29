@@ -104,7 +104,7 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS "Ages"(
                     "Age ID" INTEGER PRIMARY KEY,
-                    "Parent" TEXT,
+                    "Parent ID" INTEGER,
                     Name TEXT,
                     "Max Ma" REAL,
                     "Min Ma" REAL
@@ -174,17 +174,30 @@ def populate_ages(query):
         age_item = ('', f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
         add_age(query, age_item)
         for era in eon.findall('Era'):
-            age_item = (f'{eon.get("name")}', f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
-            add_age(query, age_item)
-            for period in era.findall('Period'):
-                age_item = (f'{era.get("name")}', f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
+            eon_name = eon.get("name")
+            if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{eon_name}"'):
+                eon_id = query.value(0)
+                age_item = (eon_id, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
                 add_age(query, age_item)
-                for epoch in period.findall('Epoch'):
-                    age_item = (f'{period.get("name")}', f'{epoch.get("name")}', f'{epoch.get("oldest")}', f'{epoch.get("youngest")}')
-                    add_age(query, age_item)
-                    for age in epoch.findall('Age'):
-                        age_item = (f'{epoch.get("name")}', f'{age.get("name")}', f'{age.get("oldest")}', f'{age.get("youngest")}')
+                for period in era.findall('Period'):
+                    era_name = era.get("name")
+                    if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{era_name}"'):
+                        era_id = query.value(0)
+                        age_item = (era_id, f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
                         add_age(query, age_item)
+                        for epoch in period.findall('Epoch'):
+                            period_name = period.get("name")
+                            if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{period_name}"'):
+                                period_id = query.value(0)
+                                age_item = (period_id, f'{epoch.get("name")}', f'{epoch.get("oldest")}', f'{epoch.get("youngest")}')
+                                add_age(query, age_item)
+                                for age in epoch.findall('Age'):
+                                    epoch_name = period.get("name")
+                                    # Many epochs have the same name, need to get most recent one
+                                    if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{epoch_name}" ORDER BY "Age ID" DESC'):
+                                        epoch_id = query.value(0)
+                                        age_item = (epoch_id, f'{age.get("name")}', f'{age.get("oldest")}', f'{age.get("youngest")}')
+                                        add_age(query, age_item)
 
 
 def add_age(query, age):

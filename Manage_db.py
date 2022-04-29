@@ -35,29 +35,30 @@ class MainWindow(QtW.QMainWindow):
         else:
             self.statusBar().showMessage(f'Database opened: {db_file}', 4000)
 
-        # Create the tables if they don't already exist
-        query = QtS.QSqlQuery()
-        db.create_tables(query)
+            with self.conn:
+
+                # Create the tables if they don't already exist
+                db.create_tables(self.conn)
 
 
-        # Display the list of tables in combobox
-        dbtable_list = self.conn.tables()
-        self.dbTable_comboBox.addItems(dbtable_list)
-        # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
-        # self.dbTable_comboBox.setCurrentIndex(-1)
+                # Display the list of tables in combobox
+                dbtable_list = self.conn.tables()
+                self.dbTable_comboBox.addItems(dbtable_list)
+                # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
+                # self.dbTable_comboBox.setCurrentIndex(-1)
 
-        # Display the selected table
-        self.dbTable_comboBox.activated.connect(self.display_table)
+                # Display the selected table
+                self.dbTable_comboBox.activated.connect(self.display_table)
 
-        # Signal for saving
-        self.save_pushButton.clicked.connect(self.commit_popup)
+                # Signal for saving
+                self.save_pushButton.clicked.connect(self.commit_popup)
 
 
-        # Close connection
-        # self.conn.close()
+                # Close connection
+                # self.conn.close()
 
-        # End widgets here
-        self.show()  # show the window when done, used for making a top-level window
+                # End widgets here
+                self.show()  # show the window when done, used for making a top-level window
 
     # Define any methods here
 
