@@ -1,4 +1,5 @@
 import sqlite3
+import xml.etree.ElementTree as ET  # xml reader
 from sqlite3 import Error
 
 '''Commands to define, create, modify, and query the database
@@ -103,6 +104,7 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS "Ages"(
                     "Age ID" INTEGER PRIMARY KEY,
+                    "Parent" TEXT
                     Name TEXT,
                     "Max Ma" REAL,
                     "Min Ma" REAL
@@ -149,6 +151,42 @@ def create_tables(query):
     query.exec(CREATE_GEOCHEMDATA_TABLE)
 
     query.exec(CREATE_SAMPLES_TABLE)
+
+'''Working on populating the age table during init'''
+    # sql = '''SELECT count(*) FROM Ages'''
+    # count = query.exec(sql)
+    # if not count > 0:  # if the table is empty, populate it
+    #     populate_ages(query)
+
+
+def populate_ages(query):
+    #Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM Ages'
+    query.exec(sql)
+    xml_file = "GeologicTime_Ages.xml"
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+    for eon in root.findall('Eon'):
+        age_item = ('', f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
+        add_age(query, age_item)
+        for era in eon.findall('Era'):
+            age_item = (f'{eon.get("name")}', f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
+            add_age(query, age_item)
+            for period in era.findall('Period'):
+                age_item = (f'{era.get("name")}', f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
+                add_age(query, age_item)
+                for epoch in period.findall('Epoch'):
+                    age_item = (f'{period.get("name")}', f'{epoch.get("name")}', f'{epoch.get("oldest")}', f'{epoch.get("youngest")}')
+                    add_age(query, age_item)
+                    for age in epoch.findall('Age'):
+                        age_item = (f'{epoch.get("name")}', f'{age.get("name")}', f'{age.get("oldest")}', f'{age.get("youngest")}')
+                        add_age(query, age_item)
+
+
+def add_age(query, age):
+    sql = '''INSERT INTO Ages(Parent,Name,"Max Ma","Min Ma")
+                VALUES(?,?,?,?)'''
+    query.execute(sql, age)
 
 
 def list_tables(conn):

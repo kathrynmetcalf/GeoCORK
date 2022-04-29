@@ -32,14 +32,19 @@ class MainWindow(QtW.QMainWindow):
                 "Database Error: %s" % self.conn.lastError().databaseText(),
             )
             sys.exit(1)
+        else:
+            self.statusBar().showMessage(f'Database opened: {db_file}', 4000)
 
         # Create the tables if they don't already exist
         query = QtS.QSqlQuery()
         db.create_tables(query)
 
-        # Display the list of tables
+
+        # Display the list of tables in combobox
         dbtable_list = self.conn.tables()
         self.dbTable_comboBox.addItems(dbtable_list)
+        # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
+        # self.dbTable_comboBox.setCurrentIndex(-1)
 
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
@@ -58,7 +63,7 @@ class MainWindow(QtW.QMainWindow):
 
     def display_table(self):
         table = self.dbTable_comboBox.currentText()
-        if self.model.isDirty() is not None:
+        if self.model.isDirty() is True:
             self.commit_popup
         self.model.setTable(table)
         self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
@@ -81,20 +86,32 @@ class MainWindow(QtW.QMainWindow):
         print(f'user clicked {i.text()}')
         if i.text() == 'Save':
             self.model.submitAll()
+            self.display_table()
         if i.text() == 'Discard' or i.text() == 'Don\'t Save':
             self.model.revertAll()
+            self.display_table()
 
     def contextMenuEvent(self, event: QtG.QContextMenuEvent) -> None:
         table = self.dbTable_comboBox.currentText()
         menu = QtW.QMenu(self)
-        addAct = menu.addAction('Add item')
-        deleteAct = menu.addAction('Remove selected')
-        bulkAct = menu.addAction('Bulk edit selected')
+        add_act = menu.addAction('Add item')
+        delete_act = menu.addAction('Remove selected')
+        # bulkAct = menu.addAction('Bulk edit selected')
         action = menu.exec_(self.mapToGlobal(event.pos()))
-        if action == addAct:
+        if action == add_act:
             if table == 'Sources':
                 self.create_source()
-        if action == deleteAct:
+            if table == 'Regions':
+                self.create_region()
+            if table == 'Settings':
+                self.create_setting()
+            if table == 'Rock Types':
+                self.create_rocktype()
+            if table == 'Units':
+                self.create_unit()
+            if table == 'Age Signatures':
+                self.create_agesignature()
+        if action == delete_act:
             index_list = []
             for model_index in self.dbTable_tableView.selectionModel().selectedRows():
                 index = QtC.QPersistentModelIndex(model_index)
@@ -114,10 +131,74 @@ class MainWindow(QtW.QMainWindow):
         newSource.setValue('Short Citation', source[5])
         if self.model.insertRecord(-1, newSource) is True:
             self.model.submitAll()
-            self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            self.dbTable_tableView.resizeColumnsToContents()
-        # if self.model.insertRows(self.model.rowCount(), 1) is True:
-        #     self.model.submitAll()
+            '''This will commit all previous changes too, 
+            but we only want to change the model before committing to the database'''
+
+    def create_region(self):
+        self.model.setTable('Regions')
+        newRegion = self.model.record()
+        source = ('', '')
+        newRegion.setValue('Name', source[0])
+        newRegion.setValue('Description', source[1])
+        if self.model.insertRecord(-1, newRegion) is True:
+            self.model.submitAll()
+            self.display_table()
+
+    def create_setting(self):
+        self.model.setTable('Settings')
+        newSetting = self.model.record()
+        source = ('', '')
+        newSetting.setValue('Name', source[0])
+        newSetting.setValue('Description', source[1])
+        if self.model.insertRecord(-1, newSetting) is True:
+            self.model.submitAll()
+            self.display_table()
+
+    def create_rocktype(self):
+        self.model.setTable('Rock Types')
+        newRockType = self.model.record()
+        source = ('', '')
+        newRockType.setValue('Name', source[0])
+        newRockType.setValue('Description', source[1])
+        if self.model.insertRecord(-1, newRockType) is True:
+            self.model.submitAll()
+            self.display_table()
+
+    def create_unit(self):
+        self.model.setTable('Units')
+        newUnit = self.model.record()
+        source = ('', '')
+        newUnit.setValue('Name', source[0])
+        newUnit.setValue('Description', source[1])
+        if self.model.insertRecord(-1, newUnit) is True:
+            self.model.submitAll()
+            self.display_table()
+
+    def create_agesignature(self):
+        self.model.setTable('Age Signatures')
+        newAgeSignature = self.model.record()
+        source = ('', '')
+        newAgeSignature.setValue('Name', source[0])
+        newAgeSignature.setValue('Description', source[1])
+        if self.model.insertRecord(-1, newAgeSignature) is True:
+            self.model.submitAll()
+            self.display_table()
+
+    # def create_sample(self):
+    #     self.model.setTable('Samples')
+    #     newSample = self.model.record()
+    #     source = ('', '', '', '', '', '')
+    #     newSample.setValue('Authors', source[0])
+    #     newSample.setValue('Year', source[1])
+    #     newSample.setValue('Title', source[2])
+    #     newSample.setValue('Source', source[3])
+    #     newSample.setValue('doi', source[4])
+    #     newSample.setValue('Short Citation', source[5])
+    #     if self.model.insertRecord(-1, newSample) is True:
+    #         self.model.submitAll()
+    #         self.display_table()
+
+
 
 
 
