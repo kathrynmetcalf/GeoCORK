@@ -6,6 +6,7 @@ from PyQt5 import QtGui as QtG  # font and color classes, etc.
 from PyQt5 import QtSql as QtS  # sql stuff
 from PyQt5.uic import loadUi
 import database as db
+# import Select_Database as sd  # Eventually get database file from initial dialog
 
 
 class MainWindow(QtW.QMainWindow):
@@ -14,64 +15,56 @@ class MainWindow(QtW.QMainWindow):
 
         # Define any widgets here
 
-        db_file = 'geochron_samples.db'
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
+        self.db_file = 'geochron_samples.db'
+        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+        self.db.setDatabaseName(self.db_file)
 
-        self.conn = QtS.QSqlDatabase.addDatabase('QSQLITE')
-        self.conn.setDatabaseName(db_file)
-        self.conn.open()
-        self.model = QtS.QSqlTableModel()
+        self.model = QtS.QSqlRelationalTableModel()
         self.sample_model = QtS.QSqlRelationalTableModel()
 
-        # Try to open the connection and handle possible errors
-        if not self.conn.open():
-            QtW.QMessageBox.critical(
-                None,
-                "Database Error!",
-                "Database Error: %s" % self.conn.lastError().databaseText(),
-            )
-            sys.exit(1)
-        else:
-            self.statusBar().showMessage(f'Database opened: {db_file}', 4000)
+        db.create_tables(self.db_file)
+        self.display_table_list()
 
-            with self.conn:
+        # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
+        # self.dbTable_comboBox.setCurrentIndex(-1)
 
-                # Create the tables if they don't already exist
-                db.create_tables(self.conn)
+        # Display the selected table
+        self.dbTable_comboBox.activated.connect(self.display_table)
 
+        # Signal for saving
+        self.save_pushButton.clicked.connect(self.commit_popup)
 
-                # Display the list of tables in combobox
-                dbtable_list = self.conn.tables()
-                self.dbTable_comboBox.addItems(dbtable_list)
-                # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
-                # self.dbTable_comboBox.setCurrentIndex(-1)
-
-                # Display the selected table
-                self.dbTable_comboBox.activated.connect(self.display_table)
-
-                # Signal for saving
-                self.save_pushButton.clicked.connect(self.commit_popup)
-
-
-                # Close connection
-                # self.conn.close()
-
-                # End widgets here
-                self.show()  # show the window when done, used for making a top-level window
+        # End widgets here
+        self.show()  # show the window when done, used for making a top-level window
 
     # Define any methods here
 
+    def display_table_list(self):
+        dbtable_list = db.list_tables(self.db_file)
+        self.dbTable_comboBox.addItems(dbtable_list)
+        self.dbTable_comboBox.setCurrentText('Samples')
+        self.display_table()
+
     def display_table(self):
         table = self.dbTable_comboBox.currentText()
-        if self.model.isDirty() is True:
-            self.commit_popup
-        self.model.setTable(table)
-        self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
-        self.model.select()
-        self.dbTable_tableView.setModel(self.model)
-        self.dbTable_tableView.hideColumn(0)  # don't show ID column
-        self.dbTable_tableView.resizeColumnsToContents()
+        # if self.model.isDirty() is True:
+        #     self.commit_popup
+        # self.model.setTable(table)
+        # self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
+        # self.model.select()
+        model = QtS.QSqlRelationalTableModel()
+        model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
+        if table == 'Samples':
+            model.setTable(table)
+            # model.setRelation(2, QtS.QSqlRelation("Sources", "Source ID", "Short Citation"))  # Currently breaking the table display
+            model.select()
+            self.dbTable_tableView.setModel(model)
+
+        # self.dbTable_tableView.setModel(self.model)
+        # self.dbTable_tableView.hideColumn(0)  # don't show ID column
+        # self.dbTable_tableView.resizeColumnsToContents()
 
     def commit_popup(self):
         print('save clicked')
@@ -204,6 +197,7 @@ class MainWindow(QtW.QMainWindow):
 
 
     # End methods here
+
 
 
 
