@@ -1,30 +1,31 @@
 import sys
-import sqlite3
-from PyQt6 import QtWidgets as QtW  # all windows
-from PyQt6 import QtCore as QtC  # more low-level stuff
-from PyQt6 import QtGui as QtG  # font and color classes, etc.
-from PyQt6 import QtSql as QtS  # sql stuff
+
+from PyQt6 import QtWidgets as QtW
+from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
+from PyQt6 import QtSql as QtS
+
 from PyQt6.uic import loadUi
 import database as db
+
+
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
 
-class MainWindow(QtW.QMainWindow):
+class GeoChron(QtW.QMainWindow):
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
-
-        # Define any widgets here
-
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
+
+        self.setWindowTitle("GeoChron")
         self.db_file = 'geochron_samples.db'
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
 
-        self.model = QtS.QSqlRelationalTableModel()
-        self.sample_model = QtS.QSqlRelationalTableModel()
-
         db.create_tables(self.db_file)
+
+        self.model = QtS.QSqlRelationalTableModel(self)
         self.display_table_list()
 
         # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
@@ -51,20 +52,17 @@ class MainWindow(QtW.QMainWindow):
         table = self.dbTable_comboBox.currentText()
         # if self.model.isDirty() is True:
         #     self.commit_popup
-        # self.model.setTable(table)
-        # self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
-        # self.model.select()
-        model = QtS.QSqlRelationalTableModel()
-        model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-        if table == 'Samples':
-            model.setTable(table)
-            # model.setRelation(2, QtS.QSqlRelation("Sources", "Source ID", "Short Citation"))  # Currently breaking the table display
-            model.select()
-            self.dbTable_tableView.setModel(model)
 
-        # self.dbTable_tableView.setModel(self.model)
-        # self.dbTable_tableView.hideColumn(0)  # don't show ID column
-        # self.dbTable_tableView.resizeColumnsToContents()
+        self.model.setTable(table)
+        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
+
+        if table == 'Samples':
+            self.model.setRelation(2, QtS.QSqlRelation('Sources', '"Source ID"', '"Short Citation"'))
+
+        self.model.select()
+        self.dbTable_tableView.setModel(self.model)
+        self.dbTable_tableView.hideColumn(0)  # don't show ID column
+        self.dbTable_tableView.resizeColumnsToContents()
 
     def commit_popup(self):
         print('save clicked')
@@ -192,18 +190,12 @@ class MainWindow(QtW.QMainWindow):
     #         self.model.submitAll()
     #         self.display_table()
 
-
-
-
-
     # End methods here
-
-
 
 
 if __name__ == '__main__':
     # only run these commands if this script is run
     # Can't be run when used as a library for another script
     app = QtW.QApplication(sys.argv)  # pass command line arguments
-    w = MainWindow()
+    w = GeoChron()
     sys.exit(app.exec())  # runs event loop, pass exit status to the system
