@@ -1,6 +1,5 @@
 import sqlite3
 import xml.etree.ElementTree as ET  # xml reader
-from sqlite3 import Error
 
 '''Commands to define, create, modify, and query the database
 Foreign keys are set to cascade on update, null on delete'''
@@ -9,10 +8,7 @@ CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
                     "Sample ID" INTEGER PRIMARY KEY,
                     "Sample name" TEXT,
                     "Source ID" INTEGER,
-                    "Best ages ID" INTEGER,
                     "Age signature ID" INTEGER, 
-                    "UPb data ID" INTEGER, 
-                    "GeoChem data ID" INTEGER,
                     "Average age" REAL,
                     "Average age error" REAL,
                     "Error type" TEXT,
@@ -27,6 +23,7 @@ CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
                     "Sampling method" TEXT,
                     "Column name" TEXT,
                     "Height depth" REAL,
+                    "Height depth error" REAL,
                     "Height depth unit" TEXT,
                     "Lat deg" REAL,
                     "Lat min" REAL,
@@ -35,7 +32,9 @@ CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
                     "Lon min" REAL,
                     "Lon sec" REAL,
                     "Elev" REAL,
+                    "Elev error" REAL,
                     "Elev unit" TEXT,
+                    "Description" TEXT,
                     FOREIGN KEY("Source ID") REFERENCES Sources("Source ID")
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
@@ -60,9 +59,6 @@ CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
                     FOREIGN KEY ("Age signature ID") REFERENCES "Age Signatures" ("Age signature ID")
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
-                    FOREIGN KEY ("UPb data ID") REFERENCES "UPb Data" ("UPb data ID")
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL,
                     FOREIGN KEY ("Region ID") REFERENCES Regions ("Region ID")
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
@@ -80,153 +76,190 @@ CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
 
 CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     "Region ID" INTEGER PRIMARY KEY,
-                    Name TEXT,
-                    Description TEXT
+                    "Region name" TEXT,
+                    "Region description" TEXT
                     )'''
 
 CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
                     "Setting ID" INTEGER PRIMARY KEY,
-                    Name TEXT,
-                    Description TEXT
+                    "Setting name" TEXT,
+                    "Setting description" TEXT
                     )'''
 
 CREATE_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS "Rock Types"(
                     "Rock type ID" INTEGER PRIMARY KEY,
-                    Name TEXT,
-                    Description TEXT
+                    "Rock type name" TEXT,
+                    "Rock type description" TEXT
                     )'''
 
 CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     "Unit ID" INTEGER PRIMARY KEY,
-                    Name TEXT,
-                    Description TEXT
+                    "Parent unit key" INTEGER,
+                    "Unit name" TEXT,
+                    "Unit description" TEXT
                     )'''
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS "Ages"(
                     "Age ID" INTEGER PRIMARY KEY,
-                    "Parent ID" INTEGER,
-                    Name TEXT,
+                    "Parent age ID" INTEGER,
+                    "Age name" TEXT,
                     "Max Ma" REAL,
                     "Min Ma" REAL
                     )'''
 
 CREATE_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS "Age Signatures"(
                     "Age signature ID" INTEGER PRIMARY KEY,
-                    Name TEXT,
-                    Description TEXT
+                    "Age signature name" TEXT,
+                    "Age signature description" TEXT
                     )'''
 
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Data"(
-                    "UPb data ID" INTEGER PRIMARY KEY,
+                    "UPb analysis ID" INTEGER PRIMARY KEY,
                     "Sample ID" INTEGER,
-                    "Best age" REAL
+                    "U ppm" REAL,
+                    "206Pb/204Pb" REAL,
+                    "U/Th" REAL,
+                    "206Pb/207Pb" REAL,
+                    "206Pb/207Pb error" REAL,
+                    "207Pb/235U" REAL,
+                    "207Pb/235U error" REAL,
+                    "206Pb/238U" REAL,
+                    "206Pb/238U error" REAL,
+                    "Error corr" REAL,
+                    "206Pb/207Pb age" REAL,
+                    "206Pb/207Pb age error" REAL,
+                    "207Pb/235U age" REAL,
+                    "207Pb/235U age error" REAL,
+                    "206Pb/238U age" REAL,
+                    "206Pb/238U age error" REAL,
+                    "Best age" REAL,
+                    "Error" REAL,
+                    "Conc" REAL,
+                    "Location" TEXT,
+                    FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
                     )'''
+
 CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "Geochem Data"(
-                    "Geochem data ID" INTEGER PRIMARY KEY,
+                    "Geochem analysis ID" INTEGER PRIMARY KEY,
                     "Sample ID" INTEGER,
-                    Name TEXT,
-                    Description TEXT
+                    "Major elements" TEXT,
+                    "Trace elements" TEXT,
+                    FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
                     )'''
 
 
 # Commands and queries
-def create_tables(query):
+def create_tables(db_file):
+    conn = sqlite3.connect(db_file)
+    with conn:
+        c = conn.cursor()
 
-    query.exec(CREATE_SOURCES_TABLE)
+        c.execute(CREATE_SOURCES_TABLE)
 
-    query.exec(CREATE_REGIONS_TABLE)
+        c.execute(CREATE_REGIONS_TABLE)
 
-    query.exec(CREATE_SETTINGS_TABLE)
+        c.execute(CREATE_SETTINGS_TABLE)
 
-    query.exec(CREATE_ROCKTYPES_TABLE)
+        c.execute(CREATE_ROCKTYPES_TABLE)
 
-    query.exec(CREATE_UNITS_TABLE)
+        c.execute(CREATE_UNITS_TABLE)
 
-    query.exec(CREATE_AGESIGNATURES_TABLE)
+        c.execute(CREATE_AGESIGNATURES_TABLE)
 
-    query.exec(CREATE_AGES_TABLE)
+        c.execute(CREATE_AGES_TABLE)
 
-    query.exec(CREATE_UPBDATA_TABLE)
+        c.execute(CREATE_SAMPLES_TABLE)
 
-    query.exec(CREATE_GEOCHEMDATA_TABLE)
+        c.execute(CREATE_UPBDATA_TABLE)
 
-    query.exec(CREATE_SAMPLES_TABLE)
+        c.execute(CREATE_GEOCHEMDATA_TABLE)
 
-    '''Working on populating the age table during init'''
-    sql = '''SELECT * FROM Ages'''
-    if query.exec(sql):
-        if query.next():
-            print(query.value(0))
+        # Populate the age table during initiation
+        sql = '''SELECT * FROM Ages'''
+        if c.execute(sql):
+            out = c.fetchall()
+            if not out:
+                populate_ages(conn)
         else:
-            populate_ages(query)
-    else:
-        print(f'query returned {query.first()}')
+            print(f'query failed')
 
 
-def populate_ages(query):
-    #Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM Ages'
-    query.exec(sql)
-    xml_file = "GeologicTime_Ages.xml"
-    tree = ET.parse(xml_file)
-    root = tree.getroot()
-    for eon in root.findall('Eon'):
-        age_item = ('', f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
-        add_age(query, age_item)
-        for era in eon.findall('Era'):
-            eon_name = eon.get("name")
-            if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{eon_name}"'):
-                eon_id = query.value(0)
-                age_item = (eon_id, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
-                add_age(query, age_item)
-                for period in era.findall('Period'):
-                    era_name = era.get("name")
-                    if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{era_name}"'):
-                        era_id = query.value(0)
-                        age_item = (era_id, f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
-                        add_age(query, age_item)
-                        for epoch in period.findall('Epoch'):
-                            period_name = period.get("name")
-                            if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{period_name}"'):
-                                period_id = query.value(0)
-                                age_item = (period_id, f'{epoch.get("name")}', f'{epoch.get("oldest")}', f'{epoch.get("youngest")}')
-                                add_age(query, age_item)
-                                for age in epoch.findall('Age'):
-                                    epoch_name = period.get("name")
-                                    # Many epochs have the same name, need to get most recent one
-                                    if query.exec(f'SELECT "Age ID" FROM AGES WHERE Name = "{epoch_name}" ORDER BY "Age ID" DESC'):
-                                        epoch_id = query.value(0)
-                                        age_item = (epoch_id, f'{age.get("name")}', f'{age.get("oldest")}', f'{age.get("youngest")}')
-                                        add_age(query, age_item)
+def populate_ages(conn):
+    with conn:
+        c = conn.cursor()
+        # Begin by deleting all rows in the table to allow for a reset if things get changed
+        sql = 'DELETE FROM Ages'
+        c.execute(sql)
+        xml_file = "GeologicTime_Ages.xml"
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+        for eon in root.findall('Eon'):
+            age_item = ('', f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
+            add_age(c, age_item)
+            for era in eon.findall('Era'):
+                eon_name = eon.get("name")
+                if c.execute(f'SELECT "Age ID" FROM AGES WHERE "Age name" = "{eon_name}"'):
+                    out = c.fetchall()
+                    eon_id = out[0][0]
+                    age_item = (eon_id, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
+                    add_age(c, age_item)
+                    for period in era.findall('Period'):
+                        era_name = era.get("name")
+                        if c.execute(f'SELECT "Age ID" FROM AGES WHERE "Age name" = "{era_name}"'):
+                            out = c.fetchall()
+                            era_id = out[0][0]
+                            age_item = (
+                            era_id, f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
+                            add_age(c, age_item)
+                            for epoch in period.findall('Epoch'):
+                                period_name = period.get("name")
+                                if c.execute(f'SELECT "Age ID" FROM AGES WHERE "Age name" = "{period_name}"'):
+                                    out = c.fetchall()
+                                    period_id = out[0][0]
+                                    age_item = (period_id, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
+                                                f'{epoch.get("youngest")}')
+                                    add_age(c, age_item)
+                                    for age in epoch.findall('Age'):
+                                        epoch_name = epoch.get("name")
+                                        # Many epochs have the same name, need to get most recent one
+                                        if c.execute(
+                                                f'SELECT "Age ID" FROM AGES WHERE "Age name" = "{epoch_name}" ORDER BY "Age ID" DESC'):
+                                            out = c.fetchall()
+                                            epoch_id = out[0][0]
+                                            age_item = (epoch_id, f'{age.get("name")}', f'{age.get("oldest")}',
+                                                        f'{age.get("youngest")}')
+                                            add_age(c, age_item)
 
 
-def add_age(query, age):
-    sql = '''INSERT INTO Ages(Parent,Name,"Max Ma","Min Ma")
-                VALUES(?,?,?,?)'''
-    query.prepare(sql)
-    query.bindValue(0, age[0])
-    query.bindValue(1, age[1])
-    query.bindValue(2, age[2])
-    query.bindValue(3, age[3])
-    query.exec()
+def add_age(c, age):
+    sql = '''INSERT INTO Ages("Parent age ID", "Age name", "Max Ma", "Min Ma")
+                    VALUES(?,?,?,?)'''
+    values = (age[0], age[1], age[2], age[3])
+    c.execute(sql, values)
 
 
-def list_tables(conn):
+def list_tables(db_file):
     """Create a new source in the sources table
     :param conn:
     :param source:
     :return: SourceID"""
-    c = conn.cursor()
-    sql = '''SELECT name FROM sqlite_schema 
-            WHERE type = "table" AND name NOT LIKE "%Data%" 
-            ORDER BY name'''
-    c.execute(sql)
-    tables = c.fetchall()
-    tablelist = []
-    for item in tables:
-        table = item[0]
-        tablelist.append(table)
-    return tablelist
+    conn = sqlite3.connect(db_file)
+    with conn:
+        c = conn.cursor()
+        sql = '''SELECT name FROM sqlite_schema 
+                WHERE type = "table"
+                ORDER BY name'''
+        c.execute(sql)
+        tables = c.fetchall()
+        tablelist = []
+        for item in tables:
+            table = item[0]
+            tablelist.append(table)
+        return tablelist
 
 
 def retrieve_table(query, table):
@@ -243,10 +276,12 @@ def retrieve_table(query, table):
 
 
 def create_source(conn, source):
-    """Create a new source in the sources table
+    """
+
     :param conn:
     :param source:
-    :return: SourceID"""
+    :return:
+    """
     c = conn.cursor()
     sql = '''INSERT INTO sources(Authors,Year,Title,Source,doi,"Short Citation")
             VALUES(?,?,?,?,?,?)'''
@@ -254,25 +289,14 @@ def create_source(conn, source):
     conn.commit()
     return c.lastrowid
 
+
 def commit_changes(conn, model_list):
     # look through the table views for edits
     conn.commit()
 
 
 def main():
-    db_file = 'geochron_samples.db'
-    conn = create_connection(db_file)
-
-    if conn is not None:
-        create_tables(conn)
-
-        with conn:
-            # Create new source
-            source = ('Hu et al.', '2016', 'The timing of India-Asia collision onset – Facts, theories, controversies', 'Earth-Science Reviews', '10.1016/j.earscirev.2016.07.014', 'Hu et al., 2016, ESR')
-            create_source(conn, source)
-
-    else:
-        print("Error! cannot create the database connection.")
+    pass
 
 
 if __name__ == '__main__':
