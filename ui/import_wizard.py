@@ -5,6 +5,7 @@ from PyQt6.QtCore import QSize, QRect, Qt, QCoreApplication, QMetaObject
 from PyQt6.QtWidgets import QDialogButtonBox, QWidget, QGridLayout, QTableView, QComboBox, QLabel, QApplication, QDialog
 
 
+# noinspection PyArgumentList
 class ImportWizardDialog(QDialog):
     def __init__(self):
         super().__init__()
@@ -108,226 +109,145 @@ class ImportWizardDialog(QDialog):
         super().rejected()
 
     def add_combo_boxes(self):
-        self.comboBox = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox.setObjectName(u"comboBox")
-
+        self.comboBox = QComboBox(self.gridLayoutWidget_2, objectName='comboBox')
         self.gridLayout_2.addWidget(self.comboBox, 3, 0, 1, 1)
 
-        self.comboBox_2 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_2.setObjectName(u"comboBox_2")
-
+        self.comboBox_2 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_2')
         self.gridLayout_2.addWidget(self.comboBox_2, 3, 1, 1, 1)
 
-        self.comboBox_3 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_3.setObjectName(u"comboBox_3")
-
+        self.comboBox_3 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_3')
         self.gridLayout_2.addWidget(self.comboBox_3, 3, 2, 1, 1)
 
-        self.comboBox_4 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_4.setObjectName(u"comboBox_4")
-
+        self.comboBox_4 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_4')
         self.gridLayout_2.addWidget(self.comboBox_4, 3, 3, 1, 1)
 
-        self.comboBox_5 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_5.setObjectName(u"comboBox_5")
-
+        self.comboBox_5 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_5')
         self.gridLayout_2.addWidget(self.comboBox_5, 3, 4, 1, 1)
 
-        self.comboBox_6 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_6.setObjectName(u"comboBox_6")
-
+        self.comboBox_6 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_6')
         self.gridLayout_2.addWidget(self.comboBox_6, 3, 7, 1, 1)
 
-        self.comboBox_7 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_7.setObjectName(u"comboBox_7")
-
+        self.comboBox_7 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_7')
         self.gridLayout_2.addWidget(self.comboBox_7, 3, 8, 1, 1)
 
-        self.comboBox_8 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_8.setObjectName(u"comboBox_8")
-
+        self.comboBox_8 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_8')
         self.gridLayout_2.addWidget(self.comboBox_8, 3, 10, 1, 1)
 
-        self.comboBox_9 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_9.setObjectName(u"comboBox_9")
-
+        self.comboBox_9 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_9')
         self.gridLayout_2.addWidget(self.comboBox_9, 3, 12, 1, 1)
 
-        self.comboBox_10 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_10.setObjectName(u"comboBox_10")
-
+        self.comboBox_10 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_10')
         self.gridLayout_2.addWidget(self.comboBox_10, 3, 13, 1, 1)
 
-        self.comboBox_11 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_11.setObjectName(u"comboBox_11")
-
+        self.comboBox_11 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_11')
         self.gridLayout_2.addWidget(self.comboBox_11, 7, 0, 1, 1)
 
         self.comboBox_12 = QComboBox(parent=self.gridLayoutWidget_2, objectName='comboBox_12')
-        #self.comboBox_12.setObjectName(u"comboBox_12")
-        print(self.comboBox_12.objectName())
-
         self.gridLayout_2.addWidget(self.comboBox_12, 7, 1, 1, 1)
 
-        self.comboBox_13 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_13.setObjectName(u"comboBox_13")
-
+        self.comboBox_13 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_13')
         self.gridLayout_2.addWidget(self.comboBox_13, 7, 2, 1, 1)
 
-        self.comboBox_14 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_14.setObjectName(u"comboBox_14")
-
+        self.comboBox_14 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_14')
         self.gridLayout_2.addWidget(self.comboBox_14, 7, 3, 1, 1)
 
-        self.comboBox_15 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_15.setObjectName(u"comboBox_15")
-
+        self.comboBox_15 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_15')
         self.gridLayout_2.addWidget(self.comboBox_15, 7, 4, 1, 1)
 
-        self.comboBox_16 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_16.setObjectName(u"comboBox_16")
-
+        self.comboBox_16 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_16')
         self.gridLayout_2.addWidget(self.comboBox_16, 7, 7, 1, 1)
 
-        self.comboBox_17 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_17.setObjectName(u"comboBox_17")
-
+        self.comboBox_17 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_17')
         self.gridLayout_2.addWidget(self.comboBox_17, 7, 8, 1, 1)
 
-        self.comboBox_18 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_18.setObjectName(u"comboBox_18")
-
+        self.comboBox_18 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_18')
         self.gridLayout_2.addWidget(self.comboBox_18, 7, 10, 1, 1)
 
-        self.comboBox_19 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_19.setObjectName(u"comboBox_19")
-
+        self.comboBox_19 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_19')
         self.gridLayout_2.addWidget(self.comboBox_19, 7, 12, 1, 1)
 
-        self.comboBox_20 = QComboBox(self.gridLayoutWidget_2)
-        self.comboBox_20.setObjectName(u"comboBox_20")
-
+        self.comboBox_20 = QComboBox(self.gridLayoutWidget_2, objectName='comboBox_20')
         self.gridLayout_2.addWidget(self.comboBox_20, 7, 13, 1, 1)
 
     def add_labels(self):
-        self.label = QLabel(self.gridLayoutWidget_2)
-        self.label.setObjectName(u"label")
+        self.label = QLabel(self.gridLayoutWidget_2, objectName='label')
         self.label.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label, 1, 0, 1, 1)
 
-        self.label_2 = QLabel(self.gridLayoutWidget_2)
-        self.label_2.setObjectName(u"label_2")
+        self.label_2 = QLabel(self.gridLayoutWidget_2, objectName='label_2')
         self.label_2.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_2, 1, 1, 1, 1)
 
-        self.label_3 = QLabel(self.gridLayoutWidget_2)
-        self.label_3.setObjectName(u"label_3")
+        self.label_3 = QLabel(self.gridLayoutWidget_2, objectName='label_3')
         self.label_3.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_3, 1, 2, 1, 1)
 
-        self.label_4 = QLabel(self.gridLayoutWidget_2)
-        self.label_4.setObjectName(u"label_4")
+        self.label_4 = QLabel(self.gridLayoutWidget_2, objectName='label_4')
         self.label_4.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_4, 1, 3, 1, 1)
 
-        self.label_5 = QLabel(self.gridLayoutWidget_2)
-        self.label_5.setObjectName(u"label_5")
+        self.label_5 = QLabel(self.gridLayoutWidget_2, objectName='label_5')
         self.label_5.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_5, 1, 4, 1, 1)
 
-        self.label_6 = QLabel(self.gridLayoutWidget_2)
-        self.label_6.setObjectName(u"label_6")
+        self.label_6 = QLabel(self.gridLayoutWidget_2, objectName='label_6')
         self.label_6.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_6, 1, 7, 1, 1)
 
-        self.label_7 = QLabel(self.gridLayoutWidget_2)
-        self.label_7.setObjectName(u"label_7")
+        self.label_7 = QLabel(self.gridLayoutWidget_2, objectName='label_7')
         self.label_7.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_7, 1, 8, 1, 1)
 
-        self.label_8 = QLabel(self.gridLayoutWidget_2)
-        self.label_8.setObjectName(u"label_8")
+        self.label_8 = QLabel(self.gridLayoutWidget_2, objectName='label_8')
         self.label_8.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_8, 1, 10, 1, 1)
 
-        self.label_9 = QLabel(self.gridLayoutWidget_2)
-        self.label_9.setObjectName(u"label_9")
+        self.label_9 = QLabel(self.gridLayoutWidget_2, objectName='label_9')
         self.label_9.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_9, 1, 12, 1, 1)
 
-        self.label_11 = QLabel(self.gridLayoutWidget_2)
-        self.label_11.setObjectName(u"label_11")
-        self.label_11.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
-        self.gridLayout_2.addWidget(self.label_11, 6, 0, 1, 1)
-
-        self.label_10 = QLabel(self.gridLayoutWidget_2)
-        self.label_10.setObjectName(u"label_10")
+        self.label_10 = QLabel(self.gridLayoutWidget_2, objectName='label_10')
         self.label_10.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_10, 1, 13, 1, 1)
 
-        self.label_12 = QLabel(self.gridLayoutWidget_2)
-        self.label_12.setObjectName(u"label_12")
-        self.label_12.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
+        self.label_11 = QLabel(self.gridLayoutWidget_2, objectName='label_11')
+        self.label_11.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
+        self.gridLayout_2.addWidget(self.label_11, 6, 0, 1, 1)
 
+        self.label_12 = QLabel(self.gridLayoutWidget_2, objectName='label_12')
+        self.label_12.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
         self.gridLayout_2.addWidget(self.label_12, 6, 1, 1, 1)
 
-        self.label_13 = QLabel(self.gridLayoutWidget_2)
-        self.label_13.setObjectName(u"label_13")
+        self.label_13 = QLabel(self.gridLayoutWidget_2, objectName='label_13')
         self.label_13.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_13, 6, 2, 1, 1)
 
-        self.label_14 = QLabel(self.gridLayoutWidget_2)
-        self.label_14.setObjectName(u"label_14")
+        self.label_14 = QLabel(self.gridLayoutWidget_2, objectName='label_14')
         self.label_14.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_14, 6, 3, 1, 1)
 
-        self.label_15 = QLabel(self.gridLayoutWidget_2)
-        self.label_15.setObjectName(u"label_15")
+        self.label_15 = QLabel(self.gridLayoutWidget_2, objectName='label_15')
         self.label_15.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_15, 6, 4, 1, 1)
 
-        self.label_16 = QLabel(self.gridLayoutWidget_2)
-        self.label_16.setObjectName(u"label_16")
+        self.label_16 = QLabel(self.gridLayoutWidget_2, objectName='label_16')
         self.label_16.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_16, 6, 7, 1, 1)
 
-        self.label_17 = QLabel(self.gridLayoutWidget_2)
-        self.label_17.setObjectName(u"label_17")
+        self.label_17 = QLabel(self.gridLayoutWidget_2, objectName='label_17')
         self.label_17.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_17, 6, 8, 1, 1)
 
-        self.label_18 = QLabel(self.gridLayoutWidget_2)
-        self.label_18.setObjectName(u"label_18")
+        self.label_18 = QLabel(self.gridLayoutWidget_2, objectName='label_18')
         self.label_18.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_18, 6, 10, 1, 1)
 
-        self.label_19 = QLabel(self.gridLayoutWidget_2)
-        self.label_19.setObjectName(u"label_19")
+        self.label_19 = QLabel(self.gridLayoutWidget_2, objectName='19')
         self.label_19.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_19, 6, 12, 1, 1)
 
-        self.label_20 = QLabel(self.gridLayoutWidget_2)
-        self.label_20.setObjectName(u"label_20")
+        self.label_20 = QLabel(self.gridLayoutWidget_2, objectName='label_20')
         self.label_20.setAlignment(Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter)
-
         self.gridLayout_2.addWidget(self.label_20, 6, 13, 1, 1)
 
     def re_translate_ui(self, dialog):
@@ -355,9 +275,3 @@ class ImportWizardDialog(QDialog):
         self.label_20.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
 
 
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    app = QApplication(sys.argv)  # pass command line arguments
-    w = ImportWizardDialog()
-    sys.exit(app.exec())  # runs event loop, pass exit status to the system
