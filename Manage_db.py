@@ -7,6 +7,7 @@ from PyQt6 import QtSql as QtS
 
 from PyQt6.uic import loadUi
 import database as db
+import ui.import_wizard
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -36,11 +37,16 @@ class GeoChron(QtW.QMainWindow):
 
         # Signal for saving
         self.save_pushButton.clicked.connect(self.commit_popup)
+        self.actionImport.triggered.connect(self.show_import_wizard_dialog)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
 
     # Define any methods here
+
+    def show_import_wizard_dialog(self):
+        import_wizard = ui.import_wizard.ImportWizardDialog()
+        import_wizard.exec()
 
     def display_table_list(self):
         dbtable_list = db.list_tables(self.db_file)
@@ -67,10 +73,12 @@ class GeoChron(QtW.QMainWindow):
     def commit_popup(self):
         print('save clicked')
         msg = QtW.QMessageBox()
-        msg.setIcon(QtW.QMessageBox.Information)
+        msg.setIcon(QtW.QMessageBox.Icon.Information)
         msg.setWindowTitle('Commit changes')
         msg.setText('Save changes to the database? This cannot be undone.')
-        msg.setStandardButtons(QtW.QMessageBox.Save | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
+        msg.setStandardButtons(QtW.QMessageBox.StandardButton.Save
+                               | QtW.QMessageBox.StandardButton.Discard
+                               | QtW.QMessageBox.StandardButton.Cancel)
         msg.buttonClicked.connect(self.commit_popup_clicked)
         msg.exec()
 
