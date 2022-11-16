@@ -1,10 +1,10 @@
 import sys
 import sqlite3
-from PyQt5 import QtWidgets as QtW  # all windows
-from PyQt5 import QtCore as QtC  # more low-level stuff
-from PyQt5 import QtGui as QtG  # font and color classes, etc.
-from PyQt5 import QtSql as QtS  # sql stuff
-from PyQt5.uic import loadUi
+from PyQt6 import QtWidgets as QtW  # all windows
+from PyQt6 import QtCore as QtC  # more low-level stuff
+from PyQt6 import QtGui as QtG  # font and color classes, etc.
+from PyQt6 import QtSql as QtS  # sql stuff
+from PyQt6.uic import loadUi
 import database as db
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
@@ -60,7 +60,8 @@ class MainWindow(QtW.QMainWindow):
         # self.model.setTable(table)
         # self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
         # self.model.select()
-        self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
+        self.model.setEditStrategy(QtS.QSqlRelationalTableModel.EditStrategy.OnManualSubmit)
+        self.model.setJoinMode(QtS.QSqlRelationalTableModel.JoinMode.LeftJoin)
         if table == 'Samples':
             self.model.setTable(table)
             # self.model.setRelation(3, QtS.QSqlRelation('Age signature ID', 'Age signature ID', 'Age signature name'))
@@ -98,13 +99,13 @@ class MainWindow(QtW.QMainWindow):
         msg = QtW.QMessageBox()
         msg.setIcon(QtW.QMessageBox.Information)
         msg.setWindowTitle('Commit changes')
-        msg.setText('Commit changes to the database? This cannot be undone.')
-        msg.setStandardButtons(QtW.QMessageBox.Commit | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
+        msg.setText('Save all changes to the database? This cannot be undone.')
+        msg.setStandardButtons(QtW.QMessageBox.SaveAll | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
         msg.buttonClicked.connect(self.commit_popup_clicked)
         msg.exec()
 
     def commit_popup_clicked(self, i):
-        if i.text() == 'Commit':
+        if i.text() == 'SaveAll':
             self.model.submitAll()
             self.display_table()
         if i.text() == 'Discard' or i.text() == 'Don\'t Commit':
