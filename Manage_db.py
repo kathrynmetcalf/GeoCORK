@@ -1,5 +1,6 @@
 import sys
 
+import pandas as pd
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
