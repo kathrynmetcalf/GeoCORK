@@ -1,9 +1,11 @@
 import sys
+from pathlib import Path
 
 import PyQt6.QtCore
+from PyQt6 import QtWidgets
 from PyQt6.QtCore import QSize, QRect, Qt, QCoreApplication, QMetaObject
 from PyQt6.QtWidgets import QDialogButtonBox, QWidget, QGridLayout, QTableView, QComboBox, QLabel, QApplication, \
-    QDialog, QTabWidget, QTableWidgetItem, QTableWidget
+    QDialog, QTabWidget, QTableWidgetItem, QTableWidget, QFileDialog
 import pandas as pd
 
 
@@ -11,16 +13,16 @@ import pandas as pd
 class ImportWizardDialog(QDialog):
     DEFAULT_LABEL_ALIGNMENT: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter
 
-    def __init__(self):
-
+    def __init__(self, filename):
         super().__init__()
-
         if not self.objectName():
             self.setObjectName(u"ImportWizardDialog")
 
         self.resize(1024, 720)
         self.setMinimumSize(QSize(1024, 720))
         self.setMaximumSize(QSize(1024, 720))
+        split_filename = filename.split('/')
+        self.setWindowTitle(split_filename[len(split_filename)-1])
 
         # button box setup
         self.buttonBox = QDialogButtonBox(self)
@@ -31,10 +33,18 @@ class ImportWizardDialog(QDialog):
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.rejected)
 
+        # table widget + selected label
         self.tableWidget = QTableWidget(self)
         self.tableWidget.setObjectName(u"tableWidget")
-        self.tableWidget.setGeometry(QRect(12, 10, 1000, 480))
-        self.populate_table_widget()
+        self.tableWidget.setGeometry(QRect(12, 50, 1000, 440))
+        self.tableWidget.setAlternatingRowColors(True)
+        self.tableWidget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.selected_table_widget_item_label = QLabel(self, objectName='selected_table_widget_item_label',
+                                                       alignment=self.DEFAULT_LABEL_ALIGNMENT)
+        self.selected_table_widget_item_label.setGeometry(QRect(12, 10, 1000, 35))
+        self.tableWidget.itemSelectionChanged.connect(
+            lambda: self.selected_table_widget_item_label.setText(self.tableWidget.selectedItems()[0].text()))
+        self.populate_table_widget(file=filename)
 
         self.tabWidget = QTabWidget(self)
         self.tabWidget.setObjectName(u"tabWidget")
@@ -101,8 +111,6 @@ class ImportWizardDialog(QDialog):
         self.grid_layout_ratios_age.setObjectName(u"grid_layout_ratios_age")
         self.grid_layout_ratios_age.setContentsMargins(0, 0, 0, 0)
         # ---END Isotope Ages Tab---#
-
-        # todo rename all to _best_age_combobox\
 
         # sample id
         self.sample_id_combobox = QComboBox(self.grid_layout_widget_main_info, objectName='sample_id_combobox')
@@ -330,26 +338,29 @@ class ImportWizardDialog(QDialog):
                             grid_layout.addWidget(label, row % 4, col % 10)
                             col += 1
 
-    def populate_table_widget(self):
-        df = pd.read_excel(r'C:\Users\WittySwat\Downloads\Archive\data.xlsx')
+    def populate_table_widget(self, file):
+        df = pd.read_excel(file)
         if df.size == 0:
             return
 
         df.fillna('', inplace=True)
         self.tableWidget.setRowCount(df.shape[0])
         self.tableWidget.setColumnCount(df.shape[1])
-        self.tableWidget.setHorizontalHeaderLabels(df.columns)
 
         # returns pandas array object
         for row in df.iterrows():
             values = row[1]
             for col_index, value in enumerate(values):
                 if isinstance(value, (float, int)):
-                    value = '{0:0,.0f}'.format(value)
+                    value = '{0:5,.5f}'.format(value)
                 tableItem = QTableWidgetItem(str(value))
                 self.tableWidget.setItem(row[0], col_index, tableItem)
 
-        self.tableWidget.setColumnWidth(2, 300)
+        self.tableWidget.resizeColumnsToContents()
+        for column in range(0, self.tableWidget.columnCount()):
+            if self.tableWidget.columnWidth(column) >= 75:
+                self.tableWidget.setColumnWidth(column, 75)
+        self.tableWidget.resizeRowsToContents()
 
     def re_translate_ui(self, dialog):
         dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Dialog", None))

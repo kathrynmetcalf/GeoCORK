@@ -1,10 +1,12 @@
 import sys
+from pathlib import Path
 
 import pandas as pd
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
 import database as db
@@ -46,7 +48,10 @@ class GeoChron(QtW.QMainWindow):
     # Define any methods here
 
     def show_import_wizard_dialog(self):
-        import_wizard = ui.import_wizard.ImportWizardDialog()
+        home_dir = str(Path.home()) + '\Downloads'
+        fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
+        print(fname[0])
+        import_wizard = ui.import_wizard.ImportWizardDialog(fname[0])
         import_wizard.exec()
 
     def display_table_list(self):
