@@ -11,105 +11,104 @@ import pandas as pd
 
 # noinspection PyArgumentList
 class ImportWizardDialog(QDialog):
-    DEFAULT_LABEL_ALIGNMENT: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignHCenter
+    DEFAULT_LABEL_ALIGNMENT: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter
 
     def __init__(self, filename):
         super().__init__()
         if not self.objectName():
             self.setObjectName(u"ImportWizardDialog")
 
-        self.resize(1024, 720)
-        self.setMinimumSize(QSize(1024, 720))
-        self.setMaximumSize(QSize(1024, 720))
+        self.resize(1024, 850)
+        self.setMinimumSize(QSize(1024, 850))
+        self.setMaximumSize(QSize(1024, 850))
         split_filename = filename.split('/')
-        self.setWindowTitle(split_filename[len(split_filename)-1])
+        self.setWindowTitle(split_filename[len(split_filename) - 1])
+
+        # top level grid
+        self.grid_layout_widget_top_level = QWidget(self)
+        self.grid_layout_widget_top_level.setObjectName(u"grid_layout_widget_top_level")
+        self.grid_layout_widget_top_level.setGeometry(QRect(10, 10, 1004, 830))
+
+        self.grid_layout_top_level = QGridLayout(self.grid_layout_widget_top_level)
+        self.grid_layout_top_level.setObjectName(u"grid_layout_top_level")
+        self.grid_layout_top_level.setContentsMargins(0, 0, 0, 0)
+        self.grid_layout_top_level.setRowMinimumHeight(2, 500)
+        self.grid_layout_top_level.setColumnMinimumWidth(0, 800)
+
+        # table widget + selected label
+        self.selected_table_widget_item_label = QLabel(self.grid_layout_widget_top_level,
+                                                       objectName='selected_table_widget_item_label',
+                                                       alignment=self.DEFAULT_LABEL_ALIGNMENT)
+        self.grid_layout_top_level.addWidget(self.selected_table_widget_item_label, 1, 0)
+
+        self.tableWidget = QTableWidget(self.grid_layout_widget_top_level)
+        self.tableWidget.setObjectName(u"tableWidget")
+        self.grid_layout_top_level.addWidget(self.tableWidget, 2, 0)
+        self.tableWidget.setAlternatingRowColors(True)
+        self.tableWidget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tableWidget.itemSelectionChanged.connect(
+            lambda: self.selected_table_widget_item_label.setText(self.tableWidget.selectedItems()[0].text()))
+        self.populate_table_widget(file=filename)
+
+        self.tabWidget = QTabWidget(self.grid_layout_widget_top_level)
+        self.tabWidget.setObjectName(u"tabWidget")
+        self.grid_layout_top_level.addWidget(self.tabWidget, 3, 0)
 
         # button box setup
-        self.buttonBox = QDialogButtonBox(self)
+        self.buttonBox = QDialogButtonBox(self.grid_layout_widget_top_level)
         self.buttonBox.setObjectName(u"buttonBox")
-        self.buttonBox.setGeometry(QRect(410, 660, 161, 32))
+        self.grid_layout_top_level.addWidget(self.buttonBox, 4, 0, Qt.AlignmentFlag.AlignCenter)
         self.buttonBox.setOrientation(Qt.Orientation.Horizontal)
         self.buttonBox.setStandardButtons(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
         self.buttonBox.accepted.connect(self.accept)
         self.buttonBox.rejected.connect(self.rejected)
 
-        # table widget + selected label
-        self.tableWidget = QTableWidget(self)
-        self.tableWidget.setObjectName(u"tableWidget")
-        self.tableWidget.setGeometry(QRect(12, 50, 1000, 440))
-        self.tableWidget.setAlternatingRowColors(True)
-        self.tableWidget.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.selected_table_widget_item_label = QLabel(self, objectName='selected_table_widget_item_label',
-                                                       alignment=self.DEFAULT_LABEL_ALIGNMENT)
-        self.selected_table_widget_item_label.setGeometry(QRect(12, 10, 1000, 35))
-        self.tableWidget.itemSelectionChanged.connect(
-            lambda: self.selected_table_widget_item_label.setText(self.tableWidget.selectedItems()[0].text()))
-        self.populate_table_widget(file=filename)
-
-        self.tabWidget = QTabWidget(self)
-        self.tabWidget.setObjectName(u"tabWidget")
-        self.tabWidget.setGeometry(QRect(12, 500, 1000, 200))
-
-        self.tab_names_array = []
-
         # ---Main Info Tab---#
         self.tab_main_info = QWidget(self.tabWidget)
         self.tab_main_info.setObjectName(u"tab_main_info")
         self.tabWidget.addTab(self.tab_main_info, "Main Info")
-        self.tab_names_array.append(self.tab_main_info.objectName())
 
         self.grid_layout_widget_main_info = QWidget(self.tab_main_info)
         self.grid_layout_widget_main_info.setObjectName(u"grid_layout_widget_main_info")
-        self.grid_layout_widget_main_info.setGeometry(QRect(10, 10, 975, 150))
 
         self.grid_layout_main_info = QGridLayout(self.grid_layout_widget_main_info)
         self.grid_layout_main_info.setObjectName(u"grid_layout_main_info")
-        self.grid_layout_main_info.setContentsMargins(0, 0, 0, 0)
         # ---END Main Info Tab---#
 
         # ---Ages Tab---#
-        self.tab_main_info = QWidget(self.tabWidget)
-        self.tab_main_info.setObjectName(u"tab_ages")
-        self.tabWidget.addTab(self.tab_main_info, "Ages")
-        self.tab_names_array.append(self.tab_main_info.objectName())
+        self.tab_main_ages = QWidget(self.tabWidget)
+        self.tab_main_ages.setObjectName(u"tab_ages")
+        self.tabWidget.addTab(self.tab_main_ages, "Ages")
 
-        self.grid_layout_widget_ages = QWidget(self.tab_main_info)
+        self.grid_layout_widget_ages = QWidget(self.tab_main_ages)
         self.grid_layout_widget_ages.setObjectName(u"grid_layout_widget_ages")
-        self.grid_layout_widget_ages.setGeometry(QRect(10, 10, 975, 150))
 
         self.grid_layout_ages = QGridLayout(self.grid_layout_widget_ages)
         self.grid_layout_ages.setObjectName(u"grid_layout_ages")
-        self.grid_layout_ages.setContentsMargins(0, 0, 0, 0)
         # ---END Ages Tab---#
 
         # ---Isotope Ratios Tab---#
         self.tab_ratios = QWidget(self.tabWidget)
         self.tab_ratios.setObjectName(u"tab_ratios")
         self.tabWidget.addTab(self.tab_ratios, "Isotope Ratios")
-        self.tab_names_array.append(self.tab_ratios.objectName())
 
         self.grid_layout_widget_ratios = QWidget(self.tab_ratios)
         self.grid_layout_widget_ratios.setObjectName(u"grid_layout_widget_ages_ratios")
-        self.grid_layout_widget_ratios.setGeometry(QRect(10, 10, 975, 150))
 
         self.grid_layout_ratios = QGridLayout(self.grid_layout_widget_ratios)
         self.grid_layout_ratios.setObjectName(u"grid_layout_ratios")
-        self.grid_layout_ratios.setContentsMargins(0, 0, 0, 0)
         # ---END Isotope Ratios Tab---#
 
         # ---Isotope Ages Tab---#
         self.tab_ratios_age = QWidget(self.tabWidget)
         self.tab_ratios_age.setObjectName(u"tab_ratios_age")
         self.tabWidget.addTab(self.tab_ratios_age, "Isotope Ages")
-        self.tab_names_array.append(self.tab_ratios_age.objectName())
 
         self.grid_layout_widget_ratios_age = QWidget(self.tab_ratios_age)
         self.grid_layout_widget_ratios_age.setObjectName(u"grid_layout_widget_ages_ratios_age")
-        self.grid_layout_widget_ratios_age.setGeometry(QRect(10, 10, 975, 150))
 
         self.grid_layout_ratios_age = QGridLayout(self.grid_layout_widget_ratios_age)
         self.grid_layout_ratios_age.setObjectName(u"grid_layout_ratios_age")
-        self.grid_layout_ratios_age.setContentsMargins(0, 0, 0, 0)
         # ---END Isotope Ages Tab---#
 
         # sample id
@@ -289,11 +288,9 @@ class ImportWizardDialog(QDialog):
                                                   objectName='Pb208_Th232_age_sigma_label',
                                                   alignment=self.DEFAULT_LABEL_ALIGNMENT)
 
-        # for combo_box in self.grid_layout_widget_ages.findChildren(QGridLayout).__iter__():
-        #     print(combo_box.objectName() + " = " + combo_box.__repr__())
-
         self.add_labels()
         self.add_combo_boxes()
+        self.re_translate_ui()
 
     @PyQt6.QtCore.pyqtSlot()
     def accepted(self) -> None:
@@ -311,14 +308,16 @@ class ImportWizardDialog(QDialog):
                         row, col = 1, 0
                         combo_box: QComboBox
                         for combo_box in grid_layout_widget.findChildren(QComboBox).__iter__():
-                            combo_box.addItem(str(row) + str(col))
-                            combo_box.addItem(str(combo_box.objectName()))
-                            if col >= 10:
-                                row = 3
+                            for num in range(1, self.tableWidget.columnCount()):
+                                combo_box.addItem(str(num))
+                                combo_box.setFixedWidth(125)
+                                combo_box.setFixedHeight(25)
+                            if col >= 9:
+                                row += 2
                                 col = 0
 
-                            grid_layout = (grid_layout_widget.findChild(QGridLayout))
-                            grid_layout.addWidget(combo_box, row % 4, col % 10)
+                            grid_layout = grid_layout_widget.findChild(QGridLayout)
+                            grid_layout.addWidget(combo_box, row, col % 9, Qt.AlignmentFlag.AlignCenter)
                             col += 1
 
     def add_labels(self):
@@ -330,12 +329,14 @@ class ImportWizardDialog(QDialog):
                         label: QLabel
                         for label in grid_layout_widget.findChildren(QLabel).__iter__():
                             label.setText(label.objectName())
-                            if col >= 10:
-                                row = 2
+                            label.setFixedWidth(125)
+                            label.setFixedHeight(25)
+                            if col >= 9:
+                                row += 2
                                 col = 0
 
-                            grid_layout = (grid_layout_widget.findChild(QGridLayout))
-                            grid_layout.addWidget(label, row % 4, col % 10)
+                            grid_layout = grid_layout_widget.findChild(QGridLayout)
+                            grid_layout.addWidget(label, row, col % 9, Qt.AlignmentFlag.AlignCenter)
                             col += 1
 
     def populate_table_widget(self, file):
@@ -362,26 +363,10 @@ class ImportWizardDialog(QDialog):
                 self.tableWidget.setColumnWidth(column, 75)
         self.tableWidget.resizeRowsToContents()
 
-    def re_translate_ui(self, dialog):
-        dialog.setWindowTitle(QCoreApplication.translate("Dialog", u"Dialog", None))
+    def re_translate_ui(self):
+        self.setWindowTitle(QCoreApplication.translate("Dialog", u"Import Wizard", None))
 
-        self._best_age_label.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_2.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_3.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_4.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_5.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_6.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_7.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_8.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_9.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_10.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_11.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_12.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_13.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_14.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_15.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_16.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_17.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_18.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_19.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
-        self.label_20.setText(QCoreApplication.translate("Dialog", u"Best Age", None))
+        label: QLabel
+        for label in self.findChildren(QLabel).__iter__():
+            text = label.objectName().replace('_', ' ').replace('label', '')
+            label.setText(QCoreApplication.translate("Dialog", text, None))
