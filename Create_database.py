@@ -30,7 +30,7 @@ CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
                     "Description" TEXT,
                     FOREIGN KEY("Column ID") REFERENCES Columns("Column ID")
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL,
+                        ON DELETE SET NULL
                     )"""
 
 CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots"(
@@ -39,20 +39,20 @@ CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots"(
                     "Sample ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE,
+                        ON DELETE CASCADE
                     )'''
 
 CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS "Spots"(
                     "Spot ID" INTEGER PRIMARY KEY,
                     "Spot name" TEXT,
                     "Aliquot ID" INTEGER,
-                    "Spot composition ID" INTEGER
+                    "Spot composition ID" INTEGER,
                     FOREIGN KEY("Aliquot ID") REFERENCES Aliquots("Aliquot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
                     FOREIGN KEY("Spot composition ID") REFERENCES "Spot compositions"("Spot composition ID")
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL,
+                        ON DELETE SET NULL
                     )'''
 
 CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Sample context"(
@@ -171,13 +171,13 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Data"(
                         ON DELETE CASCADE
                     FOREIGN KEY("Source ID") REFERENCES Sources("Source ID")
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL,
+                        ON DELETE SET NULL
                     FOREIGN KEY("Lab facility ID") REFERENCES "Lab facilities"("Lab facility ID")
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL,
+                        ON DELETE SET NULL
                     FOREIGN KEY("UPb analysis method ID") REFERENCES "UPb analysis methods"("UPb analysis method ID")
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL,
+                        ON DELETE SET NULL
                     )'''
 
 CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "Geochem Data"(
@@ -185,30 +185,30 @@ CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "Geochem Data"(
                     "Spot ID" INTEGER,
                     "Major elements" TEXT,
                     "Trace elements" TEXT,
-                    "REEs" TEXT
+                    "REEs" TEXT,
                     FOREIGN KEY("Spot ID") REFERENCES Spots("Spot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
 
 CREATE_LAB_FACILITIES_TABLE = '''CREATE TABLE IF NOT EXISTS "Lab facilities"(
-                    "Lab facility ID" INTEGER PRIMARY KEY
-                    "Lab facility name" TEXT
+                    "Lab facility ID" INTEGER PRIMARY KEY,
+                    "Lab facility name" TEXT,
                     "Lab facility description" TEXT
                     )'''
 
 CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb analysis methods"(
-                    "UPb analysis method ID" INTEGER PRIMARY KEY
-                    "UPb analysis name" TEXT
+                    "UPb analysis method ID" INTEGER PRIMARY KEY,
+                    "UPb analysis name" TEXT,
                     "UPb analysis description" TEXT
                     )'''
 
 CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Spots_SpotContext"(
                     "Spot ID" INTEGER,
-                    "Spot context ID" Integer
+                    "Spot context ID" Integer,
                     FOREIGN KEY("Spot ID") REFERENCES Spots("Spot ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Spot context ID") REFERENCES "Spot context"("Spot context ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -216,10 +216,10 @@ CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Spots_SpotContex
 
 CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots_AliquotContext"(
                     "Aliquot ID" INTEGER,
-                    "Aliquot context ID" Integer
+                    "Aliquot context ID" Integer,
                     FOREIGN KEY("Aliquot ID") REFERENCES Aliquots("Aliquot ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Aliquot context ID") REFERENCES "Aliquot context"("Aliquot context ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -227,10 +227,10 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots_A
 
 CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_SampleContext"(
                     "Sample ID" INTEGER,
-                    "Sample context ID" Integer
+                    "Sample context ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Sample context ID") REFERENCES "Sample context"("Sample context ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -238,10 +238,10 @@ CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Samp
 
 CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_AgeSignatures"(
                     "Sample ID" INTEGER,
-                    "Age signature ID" Integer
+                    "Age signature ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Age signature ID") REFERENCES "Age signatures"("Age signature ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -249,10 +249,10 @@ CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_AgeS
 
 CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Regions"(
                     "Sample ID" INTEGER,
-                    "Region ID" Integer
+                    "Region ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Region ID") REFERENCES "Regions"("Region ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -260,10 +260,10 @@ CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Regions"(
 
 CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Columns"(
                     "Sample ID" INTEGER,
-                    "Column ID" Integer
+                    "Column ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Column ID") REFERENCES "Column"("Region ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -271,10 +271,10 @@ CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Columns"(
 
 CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_RockTypes"(
                     "Sample ID" INTEGER,
-                    "Rock type ID" Integer
+                    "Rock type ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Rock type ID") REFERENCES "Regions"("Rock type ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -282,10 +282,10 @@ CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_RockType
 
 CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_SamplingMethods"(
                     "Sample ID" INTEGER,
-                    "Sampling method ID" Integer
+                    "Sampling method ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Sampling method ID") REFERENCES "Sampling methods"("Sampling method ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -293,10 +293,10 @@ CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Sa
 
 CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Settings"(
                     "Sample ID" INTEGER,
-                    "Setting ID" Integer
+                    "Setting ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Setting ID") REFERENCES "Settings"("Setting ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -304,10 +304,10 @@ CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Settings"
 
 CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Units"(
                     "Sample ID" INTEGER,
-                    "Unit ID" Integer
+                    "Unit ID" Integer,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY("Unit ID") REFERENCES "Units"("Unit ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE

@@ -9,6 +9,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
+import Create_database as create_db
 import database as db
 import ui.import_wizard
 
@@ -33,7 +34,7 @@ class GeoChron(QtW.QMainWindow):
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
 
-        db.create_tables(self.db_file)
+        create_db.create_tables(self.db_file)
         self.display_table_list()
 
         # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
@@ -47,6 +48,7 @@ class GeoChron(QtW.QMainWindow):
 
         # Signal for committing changes to the database file
         self.commit_pushButton.clicked.connect(self.commit_popup)
+        self.actionImport.triggered.connect(self.show_import_wizard_dialog)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -80,7 +82,7 @@ class GeoChron(QtW.QMainWindow):
         # self.model.setTable(table)
         # self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
         # self.model.select()
-        self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
+        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
         if table == 'Samples':
             self.model.setTable(table)
             # self.model.setRelation(3, QtS.QSqlRelation('Age signature ID', 'Age signature ID', 'Age signature name'))
