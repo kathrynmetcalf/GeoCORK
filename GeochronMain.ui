@@ -6,21 +6,9 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1600</width>
-    <height>900</height>
+    <width>1920</width>
+    <height>955</height>
    </rect>
-  </property>
-  <property name="minimumSize">
-   <size>
-    <width>1600</width>
-    <height>900</height>
-   </size>
-  </property>
-  <property name="maximumSize">
-   <size>
-    <width>1600</width>
-    <height>900</height>
-   </size>
   </property>
   <property name="windowTitle">
    <string>MainWindow</string>
@@ -39,7 +27,7 @@
      <enum>QTabWidget::North</enum>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>0</number>
     </property>
     <property name="elideMode">
      <enum>Qt::ElideRight</enum>
@@ -94,6 +82,13 @@
           <widget class="QPushButton" name="save_pushButton">
            <property name="text">
             <string>Save changes</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="commit_pushButton">
+           <property name="text">
+            <string>Commit changes</string>
            </property>
           </widget>
          </item>
@@ -185,8 +180,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1600</width>
-     <height>22</height>
+     <width>1314</width>
+     <height>24</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">

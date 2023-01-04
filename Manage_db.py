@@ -19,17 +19,21 @@ import ui.import_wizard
 class GeoChron(QtW.QMainWindow):
     def __init__(self, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
+
+        # Define any widgets here
+
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-
-        self.setWindowTitle("GeoChron")
         self.db_file = 'geochron_samples.db'
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
 
-        db.create_tables(self.db_file)
+        self.model = QtS.QSqlRelationalTableModel()
+        self.sample_model = QtS.QSqlRelationalTableModel()
+        self.status_bar = QtW.QStatusBar()
+        # self.status_bar.show()
 
-        self.model = QtS.QSqlRelationalTableModel(self)
+        db.create_tables(self.db_file)
         self.display_table_list()
 
         # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
@@ -38,9 +42,11 @@ class GeoChron(QtW.QMainWindow):
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
 
-        # Signal for saving
-        self.save_pushButton.clicked.connect(self.commit_popup)
-        self.actionImport.triggered.connect(self.show_import_wizard_dialog)
+        # Signal for saving before switching tables, only saves the model, doesn't update the db file
+        self.save_pushButton.clicked.connect(self.save_popup)
+
+        # Signal for committing changes to the database file
+        self.commit_pushButton.clicked.connect(self.commit_popup)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -60,23 +66,37 @@ class GeoChron(QtW.QMainWindow):
         self.dbTable_comboBox.setCurrentText('Samples')
         self.display_table()
 
+    def display_table_list(self):
+        dbtable_list = db.list_tables(self.db_file)
+        self.dbTable_comboBox.addItems(dbtable_list)
+        self.dbTable_comboBox.setCurrentText('Samples')
+        self.display_table()
+
     def display_table(self):
+        if self.model.isDirty() is True:
+            self.save_popup()
+            '''Click cancel should stop this method'''
         table = self.dbTable_comboBox.currentText()
-        # if self.model.isDirty() is True:
-        #     self.commit_popup
-
-        self.model.setTable(table)
-        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-
+        # self.model.setTable(table)
+        # self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
+        # self.model.select()
+        self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
         if table == 'Samples':
-            self.model.setRelation(2, QtS.QSqlRelation('Sources', '"Source ID"', '"Short Citation"'))
+            self.model.setTable(table)
+            # self.model.setRelation(3, QtS.QSqlRelation('Age signature ID', 'Age signature ID', 'Age signature name'))
+            self.model.setRelation(2, QtS.QSqlRelation("Sources", "Source ID", "Short Citation"))  # Currently breaking the table display
+            self.model.select()
+            self.dbTable_tableView.setModel(self.model)
+            self.dbTable_tableView.hideColumn(0)  # don't show ID column
+            self.dbTable_tableView.resizeColumnsToContents()
+        else:
+            self.model.setTable(table)
+            self.model.select()
+            self.dbTable_tableView.setModel(self.model)
+            self.dbTable_tableView.hideColumn(0)  # don't show ID column
+            self.dbTable_tableView.resizeColumnsToContents()
 
-        self.model.select()
-        self.dbTable_tableView.setModel(self.model)
-        self.dbTable_tableView.hideColumn(0)  # don't show ID column
-        self.dbTable_tableView.resizeColumnsToContents()
-
-    def commit_popup(self):
+    def save_popup(self):
         print('save clicked')
         msg = QtW.QMessageBox()
         msg.setIcon(QtW.QMessageBox.Icon.Information)
@@ -85,15 +105,33 @@ class GeoChron(QtW.QMainWindow):
         msg.setStandardButtons(QtW.QMessageBox.StandardButton.Save
                                | QtW.QMessageBox.StandardButton.Discard
                                | QtW.QMessageBox.StandardButton.Cancel)
+        msg.setText('Save changes to the database view? This does not commit changes to the database file.')
+        msg.setStandardButtons(QtW.QMessageBox.Save | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
+        msg.buttonClicked.connect(self.save_popup_clicked)
+        msg.exec()
+
+    def save_popup_clicked(self, i):
+        if i.text() == 'Save':
+            '''Find a way to save the display when switching tables but not commit to database'''
+        if i.text() == 'Discard' or i.text() == 'Don\'t Save':
+            self.model.revertAll()
+            self.display_table()
+            self.status_bar.showMessage('Changes discarded', 1000)
+
+    def commit_popup(self):
+        msg = QtW.QMessageBox()
+        msg.setIcon(QtW.QMessageBox.Information)
+        msg.setWindowTitle('Commit changes')
+        msg.setText('Commit changes to the database? This cannot be undone.')
+        msg.setStandardButtons(QtW.QMessageBox.Commit | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
         msg.buttonClicked.connect(self.commit_popup_clicked)
         msg.exec()
 
     def commit_popup_clicked(self, i):
-        print(f'user clicked {i.text()}')
-        if i.text() == 'Save':
+        if i.text() == 'Commit':
             self.model.submitAll()
             self.display_table()
-        if i.text() == 'Discard' or i.text() == 'Don\'t Save':
+        if i.text() == 'Discard' or i.text() == 'Don\'t Commit':
             self.model.revertAll()
             self.display_table()
 
