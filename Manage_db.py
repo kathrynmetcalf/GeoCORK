@@ -124,13 +124,13 @@ class GeoChron(QtW.QMainWindow):
         msg = QtW.QMessageBox()
         msg.setIcon(QtW.QMessageBox.Information)
         msg.setWindowTitle('Commit changes')
-        msg.setText('Commit changes to the database? This cannot be undone.')
-        msg.setStandardButtons(QtW.QMessageBox.Commit | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
+        msg.setText('Save all changes to the database? This cannot be undone.')
+        msg.setStandardButtons(QtW.QMessageBox.SaveAll | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
         msg.buttonClicked.connect(self.commit_popup_clicked)
         msg.exec()
 
     def commit_popup_clicked(self, i):
-        if i.text() == 'Commit':
+        if i.text() == 'SaveAll':
             self.model.submitAll()
             self.display_table()
         if i.text() == 'Discard' or i.text() == 'Don\'t Commit':
