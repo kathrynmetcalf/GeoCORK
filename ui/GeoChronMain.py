@@ -9,7 +9,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
-import Create_database as create_db
+import Functions.Create_database as create_db
 import database as db
 import ui.import_wizard
 
