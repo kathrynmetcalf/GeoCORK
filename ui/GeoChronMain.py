@@ -25,7 +25,7 @@ class GeoChron(QtW.QMainWindow):
 
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-        self.db_file = 'geochron_samples.db'
+        self.db_file = '../geochron_samples.db'
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
 
@@ -80,15 +80,17 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             self.model.setTable('Samples')
             # self.model.setRelation(3, QtS.QSqlRelation('Age signature ID', 'Age signature ID', 'Age signature name'))
-            # self.model.setRelation(2, QtS.QSqlRelation("Sources", "Source ID", "Short Citation"))  # Currently breaking the table display
+            self.model.setRelation(2, QtS.QSqlRelation("Sources", "Source ID", "Short Citation"))  # Currently breaking the table display
             self.model.select()
             self.dbTable_tableView.setModel(self.model)
+            self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
         else:
             self.model.setTable(table)
             self.model.select()
             self.dbTable_tableView.setModel(self.model)
+            self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
 
