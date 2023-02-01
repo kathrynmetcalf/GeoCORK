@@ -3,7 +3,7 @@ import xml.etree.ElementTree as ET  # xml reader
 
 '''Commands to create the database
 Foreign keys are set to cascade on update
-When a foreign key is deleted, it will either delete or cascade'''
+When a foreign key is deleted, most will be set to null'''
 
 '''SQL strings to create each table'''
 
@@ -321,6 +321,11 @@ CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Units"(
 
 
 def create_tables(db_file):
+    """
+    Connect to the database and execute the sql strings defined above to create the database tables
+    Only creates tables that do not already exist - does not overwrite existing tables
+    :param db_file: Database file with full path
+    """
     conn = sqlite3.connect(db_file)
     with conn:
         c = conn.cursor()
@@ -395,7 +400,14 @@ def create_tables(db_file):
             print(f'query failed')
 
 
-def populate_ages(conn):
+def populate_ages(db_file):
+    """
+    Connect to the database and add the Geologic Times scale tree structure with names and ages
+    GSA Geologic Time Scale v. 5.0 as a xml file
+    Overwrites any previous changes to this table
+    :param db_file: Database file with full path
+    """
+    conn = sqlite3.connect(db_file)
     with conn:
         c = conn.cursor()
         # Begin by deleting all rows in the table to allow for a reset if things get changed
@@ -441,3 +453,16 @@ def populate_ages(conn):
                                             age_item = (epoch_id, f'{age.get("name")}', f'{age.get("oldest")}',
                                                         f'{age.get("youngest")}')
                                             add_age(c, age_item)
+
+
+def add_age(c, age):
+    """
+    Called by populate_ages
+    Adds each age item to the table with its parent ID
+    :param c: database connection cursor
+    :param age: tuple that contains (Parent age ID, age name, Max Ma, Min Ma)
+    """
+    sql = '''INSERT INTO Ages("Parent age ID", "Age name", "Max Ma", "Min Ma")
+                    VALUES(?,?,?,?)'''
+    values = (age[0], age[1], age[2], age[3])
+    c.execute(sql, values)
