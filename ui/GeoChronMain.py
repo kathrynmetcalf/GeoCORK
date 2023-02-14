@@ -43,12 +43,12 @@ class GeoChron(QtW.QMainWindow):
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
 
-        # Signal for saving before switching tables, only saves the model, doesn't update the db file
-        self.save_pushButton.clicked.connect(self.save_popup)
-
-        # Signal for committing changes to the database file
-        self.commit_pushButton.clicked.connect(self.commit_popup)
-        self.actionImport.triggered.connect(self.show_import_wizard_dialog)
+        # # Signal for saving before switching tables, only saves the model, doesn't update the db file
+        # self.save_pushButton.clicked.connect(self.save_popup)
+        #
+        # # Signal for committing changes to the database file
+        # self.commit_pushButton.clicked.connect(self.commit_popup)
+        # self.actionImport.triggered.connect(self.show_import_wizard_dialog)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -80,8 +80,8 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             self.model.setTable('Samples')
             # SetRelation currently breaking the table display
-            # self.model.setRelation(3, QtS.QSqlRelation('Age signature ID', 'Age signature ID', 'Age signature name'))
-            self.model.setRelation(2, QtS.QSqlRelation("Sources", "Source ID", "Short Citation"))
+            self.model.setRelation(3, QtS.QSqlRelation('"Age Signatures"', '"Age signature ID"', '"Age signature name"'))
+            self.model.setRelation(2, QtS.QSqlRelation('"Sources"', '"Source ID"', '"Short Citation"'))
             self.model.select()
             self.dbTable_tableView.setModel(self.model)
             self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))

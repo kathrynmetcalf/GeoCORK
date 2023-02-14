@@ -241,7 +241,7 @@ CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Samp
 
 CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_AgeSignatures"(
                     "Sample ID" INTEGER,
-                    "Age signature ID" Integer,
+                    "Age signature ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -252,7 +252,7 @@ CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_AgeS
 
 CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Regions"(
                     "Sample ID" INTEGER,
-                    "Region ID" Integer,
+                    "Region ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -263,7 +263,7 @@ CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Regions"(
 
 CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Columns"(
                     "Sample ID" INTEGER,
-                    "Column ID" Integer,
+                    "Column ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -274,7 +274,7 @@ CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Columns"(
 
 CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_RockTypes"(
                     "Sample ID" INTEGER,
-                    "Rock type ID" Integer,
+                    "Rock type ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -285,7 +285,7 @@ CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_RockType
 
 CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_SamplingMethods"(
                     "Sample ID" INTEGER,
-                    "Sampling method ID" Integer,
+                    "Sampling method ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -296,7 +296,7 @@ CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Sa
 
 CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Settings"(
                     "Sample ID" INTEGER,
-                    "Setting ID" Integer,
+                    "Setting ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -307,7 +307,7 @@ CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Settings"
 
 CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Units"(
                     "Sample ID" INTEGER,
-                    "Unit ID" Integer,
+                    "Unit ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
