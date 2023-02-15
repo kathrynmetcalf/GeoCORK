@@ -147,8 +147,8 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Data"(
                     "UPb analysis ID" INTEGER PRIMARY KEY,
                     "Spot ID" INTEGER,
                     "Source ID" INTEGER,
-                    "Lab facility ID" Integer,
-                    "UPb analysis method ID" Integer
+                    "Lab facility ID" INTEGER,
+                    "UPb analysis method ID" INTEGER
                     "U ppm" REAL,
                     "206Pb/204Pb" REAL,
                     "U/Th" REAL,
@@ -208,7 +208,7 @@ CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb analysis 
 
 CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Spots_SpotContext"(
                     "Spot ID" INTEGER,
-                    "Spot context ID" Integer,
+                    "Spot context ID" INTEGER,
                     FOREIGN KEY("Spot ID") REFERENCES Spots("Spot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -219,7 +219,7 @@ CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Spots_SpotContex
 
 CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots_AliquotContext"(
                     "Aliquot ID" INTEGER,
-                    "Aliquot context ID" Integer,
+                    "Aliquot context ID" INTEGER,
                     FOREIGN KEY("Aliquot ID") REFERENCES Aliquots("Aliquot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -230,7 +230,7 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots_A
 
 CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_SampleContext"(
                     "Sample ID" INTEGER,
-                    "Sample context ID" Integer,
+                    "Sample context ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -400,20 +400,20 @@ def create_tables(db_file):
             print(f'query failed')
 
 
-def populate_ages(db_file):
+def populate_ages(conn):
     """
     Connect to the database and add the Geologic Times scale tree structure with names and ages
     GSA Geologic Time Scale v. 5.0 as a xml file
     Overwrites any previous changes to this table
-    :param db_file: Database file with full path
+    :param conn: Database connection from create_tables
     """
-    conn = sqlite3.connect(db_file)
+
     with conn:
         c = conn.cursor()
         # Begin by deleting all rows in the table to allow for a reset if things get changed
         sql = 'DELETE FROM Ages'
         c.execute(sql)
-        xml_file = "GeologicTime_Ages.xml"
+        xml_file = "../Reference/GeologicTime_Ages.xml"
         tree = ET.parse(xml_file)
         root = tree.getroot()
         for eon in root.findall('Eon'):
@@ -466,3 +466,8 @@ def add_age(c, age):
                     VALUES(?,?,?,?)'''
     values = (age[0], age[1], age[2], age[3])
     c.execute(sql, values)
+
+
+if __name__ == '__main__':
+    db_file = '../TestSchema.db'
+    create_tables(db_file)

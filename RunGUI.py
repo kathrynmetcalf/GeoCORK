@@ -17,7 +17,7 @@ class MainWindow(QtW.QWidget):  # know what you chose for your window, that has 
 
         # self.ui = Ui_SampleDataForm()  # create instance
         # self.ui.setupUi(self)  # build it
-        xml_file = "GeologicTime_Ages.xml"
+        xml_file = "Reference/GeologicTime_Ages.xml"
         self.tree = ET.parse(xml_file)
         self.model = QtG.QStandardItemModel()
         self.treeToModel()
