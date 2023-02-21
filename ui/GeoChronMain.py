@@ -79,7 +79,6 @@ class GeoChron(QtW.QMainWindow):
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         if table == 'Samples':
             self.model.setTable('Samples')
-            # SetRelation currently breaking the table display
             self.model.setRelation(2, QtS.QSqlRelation('"Sources"', '"Source ID"', '"Short Citation"'))
             self.model.setRelation(3, QtS.QSqlRelation('"Age Signatures"', '"Age signature ID"', '"Age signature name"'))
             # self.model.setRelation(9, QtS.QSqlRelation('"Ages"', '"Age ID"', '"Age name"'))
