@@ -7,6 +7,7 @@ from PyQt6.QtCore import QSize, QRect, Qt, QCoreApplication, QMetaObject
 from PyQt6.QtWidgets import QDialogButtonBox, QWidget, QGridLayout, QTableView, QComboBox, QLabel, QApplication, \
     QDialog, QTabWidget, QTableWidgetItem, QTableWidget, QFileDialog
 import pandas as pd
+from pandas.core.interchange import dataframe
 
 
 # noinspection PyArgumentList
@@ -17,7 +18,7 @@ class ImportWizardDialog(QDialog):
         super().__init__()
         if not self.objectName():
             self.setObjectName(u"ImportWizardDialog")
-
+        self.df: dataframe = None
         self.resize(1024, 850)
         self.setMinimumSize(QSize(1024, 850))
         self.setMaximumSize(QSize(1024, 850))
@@ -60,7 +61,7 @@ class ImportWizardDialog(QDialog):
         self.grid_layout_top_level.addWidget(self.buttonBox, 4, 0, Qt.AlignmentFlag.AlignCenter)
         self.buttonBox.setOrientation(Qt.Orientation.Horizontal)
         self.buttonBox.setStandardButtons(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
-        self.buttonBox.accepted.connect(self.accept)
+        self.buttonBox.accepted.connect(self.accepted)
         self.buttonBox.rejected.connect(self.rejected)
 
         # ---Main Info Tab---#
@@ -288,19 +289,35 @@ class ImportWizardDialog(QDialog):
                                                   objectName='Pb208_Th232_age_sigma_label',
                                                   alignment=self.DEFAULT_LABEL_ALIGNMENT)
 
+        self.combo_boxes_object_names = "best_age_sigma_combobox", "concord_discord_combobox", "accepted_rejected_combobox", \
+                                   'Pb207_Pb206_age_combobox', "Pb207_Pb206_age_sigma_combobox", "Pb207_U238_age_combobox", \
+                                   "Pb207_U238_age_sigma_combobox", "Pb206_U238_age_combobox", "Pb206_U238_age_sigma_combobox", \
+                                   "Pb208_Th232_age_combobox", "Pb208_Th232_age_sigma_combobox", "Pb207_Pb206_ratio_combobox", \
+                                   "Pb207_Pb206_ratio_sigma_combobox", "Pb207_U238_ratio_combobox", "Pb207_U238_ratio_sigma_combobox", \
+                                   "Pb206_U238_ratio_combobox", "Pb206_U238_ratio_sigma_combobox", "Pb208_Th232_ratio_combobox", \
+                                   "Pb208_Th232_ratio_sigma_combobox", "sample_id_combobox", "location_data_combobox", \
+                                   "location_data_units_combobox", "elevation_data_combobox", "elevation_data_error_combobox", \
+                                   "elevation_data_units_combobox", "height_depth_combobox", "height_depth_error_combobox", \
+                                   "height_depth_units_combobox",
+
         self.add_labels()
         self.add_combo_boxes()
         self.re_translate_ui()
 
     @PyQt6.QtCore.pyqtSlot()
     def accepted(self) -> None:
-        super().accepted()
+        print(self.df)
+        # for object_name in self.combo_boxes_object_names:
+        #     combobox: QComboBox = self.findChild(QComboBox, object_name)
+        #     print(self.df.iloc[:, int(combobox.currentText())])
+        super().accept()
 
     @PyQt6.QtCore.pyqtSlot()
     def rejected(self) -> None:
         self.hide()
 
     def add_combo_boxes(self):
+        col_num = 7
         for tab in self.tabWidget.findChildren(QWidget).__iter__():
             if tab.objectName().__contains__("tab_"):
                 for grid_layout_widget in tab.findChildren(QWidget).__iter__():
@@ -312,15 +329,16 @@ class ImportWizardDialog(QDialog):
                                 combo_box.addItem(str(num))
                                 combo_box.setFixedWidth(125)
                                 combo_box.setFixedHeight(25)
-                            if col >= 9:
+                            if col >= col_num:
                                 row += 2
                                 col = 0
 
                             grid_layout = grid_layout_widget.findChild(QGridLayout)
-                            grid_layout.addWidget(combo_box, row, col % 9, Qt.AlignmentFlag.AlignCenter)
+                            grid_layout.addWidget(combo_box, row, col % col_num, Qt.AlignmentFlag.AlignCenter)
                             col += 1
 
     def add_labels(self):
+        col_num = 7
         for tab in self.tabWidget.findChildren(QWidget).__iter__():
             if tab.objectName().__contains__("tab_"):
                 for grid_layout_widget in tab.findChildren(QWidget).__iter__():
@@ -331,25 +349,25 @@ class ImportWizardDialog(QDialog):
                             label.setText(label.objectName())
                             label.setFixedWidth(125)
                             label.setFixedHeight(25)
-                            if col >= 9:
+                            if col >= col_num:
                                 row += 2
                                 col = 0
 
                             grid_layout = grid_layout_widget.findChild(QGridLayout)
-                            grid_layout.addWidget(label, row, col % 9, Qt.AlignmentFlag.AlignCenter)
+                            grid_layout.addWidget(label, row, col % col_num, Qt.AlignmentFlag.AlignCenter)
                             col += 1
 
     def populate_table_widget(self, file):
-        df = pd.read_excel(file)
-        if df.size == 0:
+        self.df = pd.read_excel(file)
+        if self.df.size == 0:
             return
 
-        df.fillna('', inplace=True)
-        self.tableWidget.setRowCount(df.shape[0])
-        self.tableWidget.setColumnCount(df.shape[1])
+        self.df.fillna('', inplace=True)
+        self.tableWidget.setRowCount(self.df.shape[0])
+        self.tableWidget.setColumnCount(self.df.shape[1])
 
         # returns pandas array object
-        for row in df.iterrows():
+        for row in self.df.iterrows():
             values = row[1]
             for col_index, value in enumerate(values):
                 if isinstance(value, (float, int)):
