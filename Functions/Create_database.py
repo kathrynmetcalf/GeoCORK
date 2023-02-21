@@ -9,18 +9,18 @@ When a foreign key is deleted, most will be set to null'''
 
 CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
                     "Sample ID" INTEGER PRIMARY KEY,
-                    "Sample name" TEXT, 
-                    "Average age" REAL,
-                    "Average age error" REAL,
-                    "Error sigma" TEXT,
-                    "Oldest age" REAL,
-                    "Youngest age" REAL,
-                    "Oldest age ID" INTEGER,
-                    "Youngest age ID" INTEGER,
+                    "Sample Name" TEXT, 
+                    "Average Age" REAL,
+                    "Average Age error" REAL,
+                    "Error Sigma" TEXT,
+                    "Oldest Age" REAL,
+                    "Youngest Age" REAL,
+                    "Oldest Age ID" INTEGER,
+                    "Youngest Age ID" INTEGER,
                     "Column ID" INTEGER,
-                    "Height depth" REAL,
-                    "Height depth error" REAL,
-                    "Height depth unit" TEXT,
+                    "Height Depth" REAL,
+                    "Height Depth Error" REAL,
+                    "Height Depth Unit" TEXT,
                     "Lat deg" REAL,
                     "Lat min" REAL,
                     "Lat sec" REAL,
@@ -28,8 +28,8 @@ CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
                     "Lon min" REAL,
                     "Lon sec" REAL,
                     "Elev" REAL,
-                    "Elev error" REAL,
-                    "Elev unit" TEXT,
+                    "Elev Error" REAL,
+                    "Elev Unit" TEXT,
                     "Description" TEXT,
                     FOREIGN KEY("Column ID") REFERENCES Columns("Column ID")
                         ON UPDATE CASCADE
@@ -38,7 +38,7 @@ CREATE_SAMPLES_TABLE = """CREATE TABLE IF NOT EXISTS Samples(
 
 CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots"(
                     "Aliquot ID" INTEGER PRIMARY KEY,
-                    "Aliquot name" TEXT,
+                    "Aliquot Name" TEXT,
                     "Sample ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
@@ -47,39 +47,39 @@ CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots"(
 
 CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS "Spots"(
                     "Spot ID" INTEGER PRIMARY KEY,
-                    "Spot name" TEXT,
+                    "Spot Name" TEXT,
                     "Aliquot ID" INTEGER,
-                    "Spot composition ID" INTEGER,
+                    "Spot Composition ID" INTEGER,
                     FOREIGN KEY("Aliquot ID") REFERENCES Aliquots("Aliquot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY("Spot composition ID") REFERENCES "Spot compositions"("Spot composition ID")
+                    FOREIGN KEY("Spot Composition ID") REFERENCES "Spot Compositions"("Spot Composition ID")
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
 
-CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Sample context"(
-                    "Sample context ID" INTEGER PRIMARY KEY,
-                    "sample context name" TEXT,
-                    "sample context description" TEXT
+CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Sample Context"(
+                    "Sample Context ID" INTEGER PRIMARY KEY,
+                    "sample Context Name" TEXT,
+                    "sample Context Description" TEXT
                     )'''
 
-CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquot context"(
-                    "Aliquot context ID" INTEGER PRIMARY KEY,
-                    "Aliquot context name" TEXT,
-                    "Aliquot context description" TEXT
+CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquot Context"(
+                    "Aliquot Context ID" INTEGER PRIMARY KEY,
+                    "Aliquot Context Name" TEXT,
+                    "Aliquot Context Description" TEXT
                     )'''
 
-CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Spot context"(
-                    "Spot context ID" INTEGER PRIMARY KEY,
-                    "Spot context name" TEXT,
-                    "Spot context description" TEXT
+CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Spot Context"(
+                    "Spot Context ID" INTEGER PRIMARY KEY,
+                    "Spot Context Name" TEXT,
+                    "Spot Context Description" TEXT
                     )'''
 
 CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS "Spot compositions"(
-                    "Spot composition ID" INTEGER PRIMARY KEY,
-                    "Spot composition name" TEXT,
-                    "Spot composition description" TEXT
+                    "Spot Composition ID" INTEGER PRIMARY KEY,
+                    "Spot Composition Name" TEXT,
+                    "Spot Composition Description" TEXT
                     )'''
 
 CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
@@ -94,61 +94,61 @@ CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
 
 CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     "Region ID" INTEGER PRIMARY KEY,
-                    "Region name" TEXT,
-                    "Region description" TEXT
+                    "Region Name" TEXT,
+                    "Region Description" TEXT
                     )'''
 
 CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
                     "Setting ID" INTEGER PRIMARY KEY,
-                    "Setting name" TEXT,
-                    "Setting description" TEXT
+                    "Setting Name" TEXT,
+                    "Setting Description" TEXT
                     )'''
 
 CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                     "Column ID" INTEGER PRIMARY KEY,
-                    "Column name" TEXT,
-                    "Column description" TEXT
+                    "Column Name" TEXT,
+                    "Column Description" TEXT
                     )'''
 
 CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "Sampling methods"(
-                    "Sampling method ID" INTEGER PRIMARY KEY,
-                    "Sampling method name" TEXT,
-                    "Sampling method description" TEXT
+                    "Sampling Method ID" INTEGER PRIMARY KEY,
+                    "Sampling Method Name" TEXT,
+                    "Sampling Method Description" TEXT
                     )'''
 
 CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS "Rock Types"(
-                    "Rock type ID" INTEGER PRIMARY KEY,
-                    "Rock type name" TEXT,
-                    "Rock type description" TEXT
+                    "Rock Type ID" INTEGER PRIMARY KEY,
+                    "Rock Type Name" TEXT,
+                    "Rock Type Description" TEXT
                     )'''
 
 CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     "Unit ID" INTEGER PRIMARY KEY,
-                    "Parent unit key" INTEGER,
-                    "Unit name" TEXT,
-                    "Unit description" TEXT
+                    "Parent Unit key" INTEGER,
+                    "Unit Name" TEXT,
+                    "Unit Description" TEXT
                     )'''
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS "Ages"(
                     "Age ID" INTEGER PRIMARY KEY,
-                    "Parent age ID" INTEGER,
-                    "Age name" TEXT,
+                    "Parent Age ID" INTEGER,
+                    "Age Name" TEXT,
                     "Max Ma" REAL,
                     "Min Ma" REAL
                     )'''
 
 CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS "Age Signatures"(
-                    "Age signature ID" INTEGER PRIMARY KEY,
-                    "Age signature name" TEXT,
-                    "Age signature description" TEXT
+                    "Age Signature ID" INTEGER PRIMARY KEY,
+                    "Age Signature Name" TEXT,
+                    "Age Signature Description" TEXT
                     )'''
 
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Data"(
                     "UPb analysis ID" INTEGER PRIMARY KEY,
                     "Spot ID" INTEGER,
                     "Source ID" INTEGER,
-                    "Lab facility ID" INTEGER,
-                    "UPb analysis method ID" INTEGER
+                    "Lab Facility ID" INTEGER,
+                    "UPb Analysis Method ID" INTEGER
                     "U ppm" REAL,
                     "206Pb/204Pb" REAL,
                     "U/Th" REAL,
@@ -158,7 +158,7 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Data"(
                     "207Pb/235U error" REAL,
                     "206Pb/238U" REAL,
                     "206Pb/238U error" REAL,
-                    "Error corr" REAL,
+                    "Error Corr" REAL,
                     "206Pb/207Pb age" REAL,
                     "206Pb/207Pb age error" REAL,
                     "207Pb/235U age" REAL,
@@ -175,10 +175,10 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Data"(
                     FOREIGN KEY("Source ID") REFERENCES Sources("Source ID")
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
-                    FOREIGN KEY("Lab facility ID") REFERENCES "Lab facilities"("Lab facility ID")
+                    FOREIGN KEY("Lab Facility ID") REFERENCES "Lab Facilities"("Lab Facility ID")
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
-                    FOREIGN KEY("UPb analysis method ID") REFERENCES "UPb analysis methods"("UPb analysis method ID")
+                    FOREIGN KEY("UPb Analysis Method ID") REFERENCES "UPb Analysis Methods"("UPb analysis method ID")
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
@@ -186,66 +186,66 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Data"(
 CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS "Geochem Data"(
                     "Geochem analysis ID" INTEGER PRIMARY KEY,
                     "Spot ID" INTEGER,
-                    "Major elements" TEXT,
-                    "Trace elements" TEXT,
+                    "Major Elements" TEXT,
+                    "Trace Elements" TEXT,
                     "REEs" TEXT,
                     FOREIGN KEY("Spot ID") REFERENCES Spots("Spot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
 
-CREATE_LAB_FACILITIES_TABLE = '''CREATE TABLE IF NOT EXISTS "Lab facilities"(
-                    "Lab facility ID" INTEGER PRIMARY KEY,
-                    "Lab facility name" TEXT,
-                    "Lab facility description" TEXT
+CREATE_LAB_FACILITIES_TABLE = '''CREATE TABLE IF NOT EXISTS "Lab Facilities"(
+                    "Lab Facility ID" INTEGER PRIMARY KEY,
+                    "Lab Facility Name" TEXT,
+                    "Lab Facility Description" TEXT
                     )'''
 
-CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb analysis methods"(
-                    "UPb analysis method ID" INTEGER PRIMARY KEY,
-                    "UPb analysis name" TEXT,
-                    "UPb analysis description" TEXT
+CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "UPb Analysis Methods"(
+                    "UPb Analysis Method ID" INTEGER PRIMARY KEY,
+                    "UPb Analysis Name" TEXT,
+                    "UPb Analysis Description" TEXT
                     )'''
 
 CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Spots_SpotContext"(
                     "Spot ID" INTEGER,
-                    "Spot context ID" INTEGER,
+                    "Spot Context ID" INTEGER,
                     FOREIGN KEY("Spot ID") REFERENCES Spots("Spot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY("Spot context ID") REFERENCES "Spot context"("Spot context ID")
+                    FOREIGN KEY("Spot Context ID") REFERENCES "Spot Context"("Spot Context ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
 
 CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Aliquots_AliquotContext"(
                     "Aliquot ID" INTEGER,
-                    "Aliquot context ID" INTEGER,
+                    "Aliquot Context ID" INTEGER,
                     FOREIGN KEY("Aliquot ID") REFERENCES Aliquots("Aliquot ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY("Aliquot context ID") REFERENCES "Aliquot context"("Aliquot context ID")
+                    FOREIGN KEY("Aliquot Context ID") REFERENCES "Aliquot Context"("Aliquot Context ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
 
 CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_SampleContext"(
                     "Sample ID" INTEGER,
-                    "Sample context ID" INTEGER,
+                    "Sample Context ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY("Sample context ID") REFERENCES "Sample context"("Sample context ID")
+                    FOREIGN KEY("Sample Context ID") REFERENCES "Sample Context"("Sample Context ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
 
 CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_AgeSignatures"(
                     "Sample ID" INTEGER,
-                    "Age signature ID" INTEGER,
+                    "Age Signature ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY("Age signature ID") REFERENCES "Age signatures"("Age signature ID")
+                    FOREIGN KEY("Age Signature ID") REFERENCES "Age Signatures"("Age Signature ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -274,22 +274,22 @@ CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Columns"(
 
 CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_RockTypes"(
                     "Sample ID" INTEGER,
-                    "Rock type ID" INTEGER,
+                    "Rock Type ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY("Rock type ID") REFERENCES "Regions"("Rock type ID")
+                    FOREIGN KEY("Rock Type ID") REFERENCES "Regions"("Rock Type ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
 
 CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_SamplingMethods"(
                     "Sample ID" INTEGER,
-                    "Sampling method ID" INTEGER,
+                    "Sampling Method ID" INTEGER,
                     FOREIGN KEY("Sample ID") REFERENCES Samples("Sample ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY("Sampling method ID") REFERENCES "Sampling methods"("Sampling method ID")
+                    FOREIGN KEY("Sampling Method ID") REFERENCES "Sampling Methods"("Sampling Method ID")
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -316,6 +316,14 @@ CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Units"(
                         ON DELETE CASCADE
                     )'''
 
+CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS "Filter Groups"(
+                    "Filter Group ID" INTEGER PRIMARY KEY,
+                    “Filter Group name” TEXT,
+                    "SQL Query" TEXT,
+                    "Default Color" TEXT,
+                    "Filter Group Description" TEXT
+                    )'''
+
 
 '''Commands to create tables and populate default tables'''
 
@@ -324,6 +332,7 @@ def create_tables(db_file):
     """
     Connect to the database and execute the sql strings defined above to create the database tables
     Only creates tables that do not already exist - does not overwrite existing tables
+    If the Ages table is empty, it will fill it from the Geologic timescale xml file
     :param db_file: Database file with full path
     """
     conn = sqlite3.connect(db_file)
@@ -390,6 +399,8 @@ def create_tables(db_file):
 
         c.execute(CREATE_SPOTS_SPOTCONTEXT_TABLE)
 
+        c.execute(CREATE_FILTER_GROUPS_TABLE)
+
         # Populate the age table during initiation
         sql = '''SELECT * FROM Ages'''
         if c.execute(sql):
@@ -402,7 +413,7 @@ def create_tables(db_file):
 
 def populate_ages(conn):
     """
-    Connect to the database and add the Geologic Times scale tree structure with names and ages
+    Connect to the database and add the Geologic timescale tree structure with names and ages
     GSA Geologic Time Scale v. 5.0 as a xml file
     Overwrites any previous changes to this table
     :param conn: Database connection from create_tables
@@ -462,7 +473,7 @@ def add_age(c, age):
     :param c: database connection cursor
     :param age: tuple that contains (Parent age ID, age name, Max Ma, Min Ma)
     """
-    sql = '''INSERT INTO Ages("Parent age ID", "Age name", "Max Ma", "Min Ma")
+    sql = '''INSERT INTO Ages("Parent age ID", "Age Name", "Max Ma", "Min Ma")
                     VALUES(?,?,?,?)'''
     values = (age[0], age[1], age[2], age[3])
     c.execute(sql, values)

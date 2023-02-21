@@ -63,7 +63,9 @@ class GeoChron(QtW.QMainWindow):
         import_wizard.exec()
 
     def display_table_list(self):
-        dbtable_list = db.list_tables(self.db_file)
+        dbtable_list = ['Age Signatures', 'Aliquot Context', 'Aliquots',  'Columns', 'Lab Facilities', 'Regions',
+                        'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
+                        'Spot Compositions', 'Spot Context', 'Spots', 'UPb Data', "UPb Analysis Methods", 'Units']
         self.dbTable_comboBox.addItems(dbtable_list)
         self.dbTable_comboBox.setCurrentText('Samples')
         self.display_table()
