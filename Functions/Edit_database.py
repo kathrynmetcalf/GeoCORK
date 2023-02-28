@@ -6,9 +6,11 @@ from PyQt6 import QtWidgets as QtW
 import ui.New_source as NS
 
 
-def create_source(db_file):
+def create_source(db_file, new_source):
     """
-    Called by GeoChronMain.py
+    Add a new row to the Sources table
+    :param new_source: tuple of data to be added to the table in the order
+        ("Authors", "Year", "Title", "Source", "doi", "Short Citation")
     :param db_file: database file
     :return:
     """
@@ -16,7 +18,6 @@ def create_source(db_file):
     conn = sqlite3.connect(db_file)
     with conn:
         c = conn.cursor()
-        new_source = read_source_form(c)
         sql = '''INSERT INTO Sources ("Authors", "Year", "Title", "Source", "doi", "Short Citation")
             VALUES(?,?,?,?,?,?)'''
         c.execute(sql, new_source)
