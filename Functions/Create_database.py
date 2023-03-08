@@ -318,7 +318,7 @@ CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS "Samples_Units"(
 
 CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS "Filter Groups"(
                     "Filter Group ID" INTEGER PRIMARY KEY,
-                    “Filter Group name” TEXT,
+                    "Filter Group Name" TEXT,
                     "SQL Query" TEXT,
                     "Default Color" TEXT,
                     "Filter Group Description" TEXT

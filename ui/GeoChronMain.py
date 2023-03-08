@@ -1,6 +1,6 @@
 import sys
 from pathlib import Path
-
+import sqlite3
 # import pandas as pd
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -9,9 +9,10 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
-import Functions.Create_database as create_db
+import Functions.Create_database as Create_db
 import database as db
 import ui.import_wizard
+import ui.New_source
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -25,16 +26,17 @@ class GeoChron(QtW.QMainWindow):
 
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-        self.db_file = '../geochron_samples.db'
+        self.db_file = self.open_db()
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
 
         self.model = QtS.QSqlRelationalTableModel()
         self.sample_model = QtS.QSqlRelationalTableModel()
+        self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
 
-        create_db.create_tables(self.db_file)
+        Create_db.create_tables(self.db_file)
         self.display_table_list()
 
         # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
@@ -42,6 +44,9 @@ class GeoChron(QtW.QMainWindow):
 
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
+
+        # Try out the add functions
+        self.addNew_pushButton.clicked.connect(self.open_new_source)
 
         # # Signal for saving before switching tables, only saves the model, doesn't update the db file
         # self.save_pushButton.clicked.connect(self.save_popup)
@@ -54,6 +59,15 @@ class GeoChron(QtW.QMainWindow):
         self.show()  # show the window when done, used for making a top-level window
 
     # Define any methods here
+
+    def open_db(self):
+        """
+        Opens a file dialog to select an existing database file, must be in the format .db
+        :return: database file name with path
+        """
+        home_dir = str(Path.home())
+        db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
+        return db_file[0]
 
     def show_import_wizard_dialog(self):
         home_dir = str(Path.home()) + '\Downloads'
@@ -101,6 +115,22 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
+
+    def get_existing(self, field, table):
+        conn = sqlite3.connect(self.db_file)
+        with conn:
+            c = conn.cursor()
+            sql = f'''SELECT {field} FROM {table}'''
+            if c.execute(sql):
+                existing = c.fetchall()
+                print(existing)
+                return existing
+
+    def open_new_source(self):
+        source_list = self.get_existing('"Short Citation"', '"Sources"')
+        new_source = ui.New_source.NewSource(source_list[0])
+        new_source.exec()
+
 
     # def save_popup(self):
     #     print('save clicked')

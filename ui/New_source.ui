@@ -29,65 +29,64 @@
     <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
    </property>
   </widget>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>10</y>
+     <y>20</y>
      <width>351</width>
      <height>204</height>
     </rect>
    </property>
    <layout class="QGridLayout" name="gridLayout">
-    <item row="0" column="0">
-     <widget class="QLabel" name="required_label">
+    <item row="4" column="0">
+     <widget class="QLabel" name="doi_label">
       <property name="text">
-       <string>*Required</string>
+       <string>DOI:</string>
       </property>
      </widget>
-    </item>
-    <item row="1" column="0">
-     <widget class="QLabel" name="authors_label">
-      <property name="text">
-       <string>Authors:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="1" column="1">
-     <widget class="QLineEdit" name="authors_lineEdit"/>
     </item>
     <item row="2" column="0">
-     <widget class="QLabel" name="year_label">
-      <property name="text">
-       <string>Year:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="2" column="1">
-     <widget class="QLineEdit" name="year_lineEdit"/>
-    </item>
-    <item row="3" column="0">
      <widget class="QLabel" name="title_label">
       <property name="text">
        <string>Title:</string>
       </property>
      </widget>
     </item>
-    <item row="3" column="1">
-     <widget class="QLineEdit" name="title_lineEdit">
+    <item row="0" column="0">
+     <widget class="QLabel" name="authors_label">
       <property name="text">
-       <string/>
+       <string>Authors:</string>
       </property>
      </widget>
     </item>
-    <item row="4" column="0">
+    <item row="1" column="0">
+     <widget class="QLabel" name="year_label">
+      <property name="text">
+       <string>Year:</string>
+      </property>
+     </widget>
+    </item>
+    <item row="1" column="1">
+     <widget class="QLineEdit" name="year_lineEdit"/>
+    </item>
+    <item row="5" column="1">
+     <widget class="QLineEdit" name="short_lineEdit"/>
+    </item>
+    <item row="3" column="0">
      <widget class="QLabel" name="source_label">
       <property name="text">
        <string>Source:</string>
       </property>
      </widget>
     </item>
+    <item row="0" column="1">
+     <widget class="QLineEdit" name="authors_lineEdit"/>
+    </item>
     <item row="4" column="1">
+     <widget class="QLineEdit" name="doi_lineEdit"/>
+    </item>
+    <item row="3" column="1">
      <widget class="QLineEdit" name="source_lineEdit">
       <property name="text">
        <string/>
@@ -95,26 +94,33 @@
      </widget>
     </item>
     <item row="5" column="0">
-     <widget class="QLabel" name="doi_label">
-      <property name="text">
-       <string>DOI:</string>
-      </property>
-     </widget>
-    </item>
-    <item row="5" column="1">
-     <widget class="QLineEdit" name="doi_lineEdit"/>
-    </item>
-    <item row="6" column="0">
      <widget class="QLabel" name="short_label">
       <property name="text">
-       <string>*Short Citation:</string>
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff2600;&quot;&gt;*&lt;/span&gt;Short Citation:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>
      </widget>
     </item>
-    <item row="6" column="1">
-     <widget class="QLineEdit" name="short_lineEdit"/>
+    <item row="2" column="1">
+     <widget class="QLineEdit" name="title_lineEdit">
+      <property name="text">
+       <string/>
+      </property>
+     </widget>
     </item>
    </layout>
+  </widget>
+  <widget class="QLabel" name="required_label">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>240</y>
+     <width>92</width>
+     <height>16</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff2600;&quot;&gt;*&lt;/span&gt;Required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+   </property>
   </widget>
  </widget>
  <resources/>

@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1920</width>
-    <height>955</height>
+    <height>942</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -96,6 +96,19 @@
        </item>
       </layout>
      </widget>
+     <widget class="QPushButton" name="addNew_pushButton">
+      <property name="geometry">
+       <rect>
+        <x>830</x>
+        <y>10</y>
+        <width>100</width>
+        <height>32</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Add new</string>
+      </property>
+     </widget>
     </widget>
     <widget class="QWidget" name="organize_tab">
      <attribute name="title">
@@ -180,7 +193,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1314</width>
+     <width>1920</width>
      <height>24</height>
     </rect>
    </property>

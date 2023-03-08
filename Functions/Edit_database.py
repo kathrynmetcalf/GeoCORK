@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 from PyQt6 import QtWidgets as QtW
 import ui.New_source as NS
+import ui.New_lab_facility as NLF
 
 
 def create_source(db_file, new_source):
@@ -54,70 +55,47 @@ def read_source_form(c):
             msg.setWindowTitle("Error")
             msg.exec_()
 
-# def create_region(self):
-#     self.model.setTable('Regions')
-#     new_region = self.model.record()
-#     source = ('', '')
-#     newRegion.setValue('Name', source[0])
-#     newRegion.setValue('Description', source[1])
-#     if self.model.insertRecord(-1, newRegion) is True:
-#         self.model.submitAll()
-#         self.display_table()
-#
-#
-# def create_setting(self):
-#     self.model.setTable('Settings')
-#     newSetting = self.model.record()
-#     source = ('', '')
-#     newSetting.setValue('Name', source[0])
-#     newSetting.setValue('Description', source[1])
-#     if self.model.insertRecord(-1, newSetting) is True:
-#         self.model.submitAll()
-#         self.display_table()
-#
-#
-# def create_rocktype(self):
-#     self.model.setTable('Rock Types')
-#     newRockType = self.model.record()
-#     source = ('', '')
-#     newRockType.setValue('Name', source[0])
-#     newRockType.setValue('Description', source[1])
-#     if self.model.insertRecord(-1, newRockType) is True:
-#         self.model.submitAll()
-#         self.display_table()
-#
-#
-# def create_unit(self):
-#     self.model.setTable('Units')
-#     newUnit = self.model.record()
-#     source = ('', '')
-#     newUnit.setValue('Name', source[0])
-#     newUnit.setValue('Description', source[1])
-#     if self.model.insertRecord(-1, newUnit) is True:
-#         self.model.submitAll()
-#         self.display_table()
-#
-#
-# def create_agesignature(self):
-#     self.model.setTable('Age Signatures')
-#     newAgeSignature = self.model.record()
-#     source = ('', '')
-#     newAgeSignature.setValue('Name', source[0])
-#     newAgeSignature.setValue('Description', source[1])
-#     if self.model.insertRecord(-1, newAgeSignature) is True:
-#         self.model.submitAll()
-#         self.display_table()
 
-# def create_sample(self):
-#     self.model.setTable('Samples')
-#     newSample = self.model.record()
-#     source = ('', '', '', '', '', '')
-#     newSample.setValue('Authors', source[0])
-#     newSample.setValue('Year', source[1])
-#     newSample.setValue('Title', source[2])
-#     newSample.setValue('Source', source[3])
-#     newSample.setValue('doi', source[4])
-#     newSample.setValue('Short Citation', source[5])
-#     if self.model.insertRecord(-1, newSample) is True:
-#         self.model.submitAll()
-#         self.display_table()
+def create_lab_facility(db_file, new_facility):
+    """
+    Add a new row to the Lab facilities table
+    :param new_facility: tuple of data to be added to the table in the order
+        ("Lab Facility Name", "Lab Facility Description")
+    :param db_file: database file
+    :return:
+    """
+    # run New_source window
+    conn = sqlite3.connect(db_file)
+    with conn:
+        c = conn.cursor()
+        sql = '''INSERT INTO "Lab Facilities" ("Lab Facility Name", "Lab Facility Description")
+            VALUES(?,?)'''
+        c.execute(sql, new_facility)
+
+
+def read_lab_facility_form(c):
+    if NLF.rejected:
+        return []
+    elif NLF.accepted:
+        name = NLF.name_lineEdit.text()
+        description = NLF.description_lineEdit.text()
+        new_lab_facility = (name, description)
+        if name:
+            sql = '''SELECT "Lab Facility Name" FROM "Lab Facilities"'''
+            if c.execute(sql):
+                existing = c.fetchall()
+                if name in existing:
+                    msg = QtW.QMessageBox()
+                    msg.setIcon(QtW.QMessageBox.Critical)
+                    msg.setText("Error")
+                    msg.setInformativeText('This facility name already exists. Enter a unique facility')
+                    msg.setWindowTitle("Error")
+                    msg.exec_()
+            return new_lab_facility
+        else:
+            msg = QtW.QMessageBox()
+            msg.setIcon(QtW.QMessageBox.Critical)
+            msg.setText("Error")
+            msg.setInformativeText('Facility name is required')
+            msg.setWindowTitle("Error")
+            msg.exec_()
