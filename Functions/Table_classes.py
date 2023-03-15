@@ -9,18 +9,20 @@ from PyQt6 import QtSql as QtS
 
 
 class SampleTableModel(QtS.QSqlQueryModel):
-    tag_IDs = ["Age Signature ID",]
-    tag_names = [AgeSignatures, ]
-    tables = ["Samples_AgeSignatures", "Samples_Columns", ""]
+    # tag_IDs = ["Age Signature ID",]
+    # tag_names = [AgeSignatures, ]
+    # tables = ["Samples_AgeSignatures", "Samples_Columns", ""]
 
     def __init__(self, filename):
         super().__init__()
         setup_query = '''
                     SELECT 
                         SampleName as "Sample Name",
-                        ColumnName as "Measured Column Name"
-                        
-                        GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures"
+                        ColumnName as "Measured Column Name",
+                        GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots",
+                        GROUP_CONCAT(DISTINCT SpotName) as "Spots",
+                        GROUP_CONCAT(DISTINCT ShortCitation) as "References",
+                        GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures",
                         GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"
                     FROM Samples as S
                     LEFT JOIN Columns as C
@@ -35,7 +37,14 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         ON RT.RockTypeID=S_RT.RockTypeID
                     LEFT JOIN Aliquots as AQ
                         ON AQ.SampleID=S.SampleID
+                    LEFT JOIN Spots as SP
+                        ON SP.AliquotID=AQ.AliquotID
+                    LEFT JOIN UPbData as UPB
+                        ON UPB.SpotID=SP.SpotID
+                    LEFT JOIN Sources as SO
+                        ON SO.SourceID=UPB.SourceID
                     GROUP BY SampleName
                     '''
+
     def get_tags(self, tag_name, tag_table, table):
         all_tags = f'Select {tag_name} FROM {table}'
