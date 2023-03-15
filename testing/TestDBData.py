@@ -15,8 +15,11 @@ def add_data(db_file):
     with conn:
         c = conn.cursor()
         c.execute('DELETE FROM Samples')
-        c.execute('INSERT INTO Samples (SampleName, AverageAge) VALUES("S1", 230)')
-        c.execute('INSERT INTO Samples (SampleName, AverageAge) VALUES("S2", 59)')
+        c.execute('INSERT INTO Samples (SampleName, AverageAge, OldestAgeID, YoungestAgeID, '
+                  'LatDeg, LatMin, LatSec, LonDeg, LonMin, LonSec) '
+                  'VALUES("S1", 230, 68, 42, 33, 59, 34, -118, 8, 36)')
+        c.execute('INSERT INTO Samples (SampleName, AverageAge, OldestAgeID, YoungestAgeID) VALUES("S2", 59, 28, 28)')
+        c.execute('INSERT INTO Samples (SampleName) VALUES("S3")')
         c.execute('DELETE FROM RockTypes')
         c.execute('INSERT INTO RockTypes (RockTypeName, RockTypeDescription) '
                   'VALUES("Sandstone", "All types")')

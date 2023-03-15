@@ -46,7 +46,7 @@
         </Era>
         <Era name="Mesozoic" oldest="251.9" youngest="66">
             <Period name="Cretaceous" oldest="145" youngest="66">
-                <Epoch name="Late" oldest="100.5" youngest="66">
+                <Epoch name="Late Cretaceous" oldest="100.5" youngest="66">
                     <Age name="Maastrichtian" oldest="72.1" youngest="66"></Age>
                     <Age name="Campanian" oldest="83.6" youngest="72.1"></Age>
                     <Age name="Santonian" oldest="86.3" youngest="83.6"></Age>
@@ -54,7 +54,7 @@
                     <Age name="Turonian" oldest="93.9" youngest="89.8"></Age>
                     <Age name="Cenomanian" oldest="100.5" youngest="93.9"></Age>
                 </Epoch>
-                <Epoch name="Early" oldest="145" youngest="100.5">
+                <Epoch name="Early Cretaceous" oldest="145" youngest="100.5">
                     <Age name="Albian" oldest="113" youngest="100.5"></Age>
                     <Age name="Aptian" oldest="125" youngest="113"></Age>
                     <Age name="Barremian" oldest="129.4" youngest="125"></Age>
@@ -64,18 +64,18 @@
                 </Epoch>
             </Period>
             <Period name="Jurassic" oldest="201.3" youngest="145">
-                <Epoch name="Late" oldest="163.5" youngest="145">
+                <Epoch name="Late Jurassic" oldest="163.5" youngest="145">
                     <Age name="Tithonian" oldest="152.1" youngest="145"></Age>
                     <Age name="Kimmeridgian" oldest="157.3" youngest="152.1"></Age>
                     <Age name="Oxfordian" oldest="163.5" youngest="157.3"></Age>
                 </Epoch>
-                <Epoch name="Middle" oldest="174.1" youngest="163.5">
+                <Epoch name="Middle Jurassic" oldest="174.1" youngest="163.5">
                     <Age name="Callovian" oldest="166.1" youngest="163.5"></Age>
                     <Age name="Bathonian" oldest="168.3" youngest="166.1"></Age>
                     <Age name="Bajocian" oldest="170.3" youngest="168.3"></Age>
                     <Age name="Aalenian" oldest="174.1" youngest="170.3"></Age>
                 </Epoch>
-                <Epoch name="Early" oldest="201.3" youngest="174.1">
+                <Epoch name="Early Jurassic" oldest="201.3" youngest="174.1">
                     <Age name="Toarcian" oldest="182.7" youngest="174.1"></Age>
                     <Age name="Pliensbachian" oldest="190.8" youngest="182.7"></Age>
                     <Age name="Sinemurian" oldest="199.3" youngest="190.8"></Age>
@@ -83,16 +83,16 @@
                 </Epoch>
             </Period>
             <Period name="Triassic" oldest="251.9" youngest="201.3">
-                <Epoch name="Late" oldest="237" youngest="201.3">
+                <Epoch name="Late Triassic" oldest="237" youngest="201.3">
                     <Age name="Rhaetian" oldest="208.5" youngest="201.3"></Age>
                     <Age name="Norian" oldest="227" youngest="208.5"></Age>
                     <Age name="Carnian" oldest="237" youngest="227"></Age>
                 </Epoch>
-                <Epoch name="Middle" oldest="247.2" youngest="237">
+                <Epoch name="Middle Triassic" oldest="247.2" youngest="237">
                     <Age name="Landinian" oldest="242" youngest="237"></Age>
                     <Age name="Anisian" oldest="247.2" youngest="242"></Age>
                 </Epoch>
-                <Epoch name="Early" oldest="251.9" youngest="247.2">
+                <Epoch name="Early Triassic" oldest="251.9" youngest="247.2">
                     <Age name="Olenekian" oldest="251.2" youngest="247.2"></Age>
                     <Age name="Induan" oldest="251.9" youngest="251.2"></Age>
                 </Epoch>
@@ -118,38 +118,38 @@
             </Period>
             <Period name="Carboniferous" oldest="358.9" youngest="298.9"></Period>
             <Period name="Pennsylvanian" oldest="323.2" youngest="298.9">
-                <Epoch name="Late" oldest="307.0" youngest="298.9">
+                <Epoch name="Late Pennsylvanian" oldest="307.0" youngest="298.9">
                     <Age name="Gzhelian" oldest="303.7" youngest="298.9"></Age>
                     <Age name="Kasimovian" oldest="307.0" youngest="303.7"></Age>
                 </Epoch>
-                <Epoch name="Middle" oldest="315.2" youngest="307.0">
+                <Epoch name="Middle Pennsylvanian" oldest="315.2" youngest="307.0">
                     <Age name="Moscovian" oldest="315.2" youngest="307.0"></Age>
                 </Epoch>
-                <Epoch name="Early" oldest="323.2" youngest="315.2">
+                <Epoch name="Early Pennsylvanian" oldest="323.2" youngest="315.2">
                     <Age name="Bashkirian" oldest="323.2" youngest="315.2"></Age>
                 </Epoch>
             </Period>
             <Period name="Mississippian" oldest="358.9" youngest="323.2">
-                <Epoch name="Late" oldest="330.9" youngest="323.2">
+                <Epoch name="Late Mississippian" oldest="330.9" youngest="323.2">
                     <Age name="Serpukhovian" oldest="330.9" youngest="323.2"></Age>
                 </Epoch>
-                <Epoch name="Middle" oldest="346.7" youngest="330.9">
+                <Epoch name="Middle Mississippian" oldest="346.7" youngest="330.9">
                     <Age name="Visean" oldest="346.7" youngest="330.9"></Age>
                 </Epoch>
-                <Epoch name="Early" oldest="358.9" youngest="346.7">
+                <Epoch name="Early Mississippian" oldest="358.9" youngest="346.7">
                     <Age name="Tournaisian" oldest="358.9" youngest="346.7"></Age>
                 </Epoch>
             </Period>
             <Period name="Devonian" oldest="419.2" youngest="358.9">
-                <Epoch name="Late" oldest="382.7" youngest="358.9">
+                <Epoch name="Late Devonian" oldest="382.7" youngest="358.9">
                     <Age name="Famennian" oldest="372.2" youngest="358.9"></Age>
                     <Age name="Frasnian" oldest="382.7" youngest="372.2"></Age>
                 </Epoch>
-                <Epoch name="Middle" oldest="393.3" youngest="382.7">
+                <Epoch name="Middle Devonian" oldest="393.3" youngest="382.7">
                     <Age name="Givetian" oldest="387.7" youngest="382.7"></Age>
                     <Age name="Eifelian" oldest="393.3" youngest="387.7"></Age>
                 </Epoch>
-                <Epoch name="Early" oldest="419.2" youngest="393.3">
+                <Epoch name="Early Devonian" oldest="419.2" youngest="393.3">
                     <Age name="Emsian" oldest="407.6" youngest="393.3"></Age>
                     <Age name="Pragian" oldest="410.8" youngest="407.6"></Age>
                     <Age name="Lochovian" oldest="419.2" youngest="410.8"></Age>
@@ -172,16 +172,16 @@
                 </Epoch>
             </Period>
             <Period name="Ordovician" oldest="485.4" youngest="443.8">
-                <Epoch name="Late" oldest="458.4" youngest="443.8">
+                <Epoch name="Late Ordovician" oldest="458.4" youngest="443.8">
                     <Age name="Hirnantian" oldest="445.2" youngest="443.8"></Age>
                     <Age name="Katian" oldest="453.0" youngest="445.2"></Age>
                     <Age name="Sandbian" oldest="458.4" youngest="453.0"></Age>
                 </Epoch>
-                <Epoch name="Middle" oldest="470.0" youngest="458.4">
+                <Epoch name="Middle Ordovician" oldest="470.0" youngest="458.4">
                     <Age name="Darriwilian" oldest="467.3" youngest="458.4"></Age>
                     <Age name="Dapingian" oldest="470.0" youngest="467.3"></Age>
                 </Epoch>
-                <Epoch name="Early" oldest="485.4" youngest="470.0">
+                <Epoch name="Early Ordovician" oldest="485.4" youngest="470.0">
                     <Age name="Floian" oldest="477.7" youngest="470.0"></Age>
                     <Age name="Tremadocian" oldest="485.4" youngest="477.7"></Age>
                 </Epoch>

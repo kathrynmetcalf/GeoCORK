@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
+import Functions.Table_classes as TC
 import database as db
 import ui.import_wizard
 import ui.New_source
@@ -31,7 +32,7 @@ class GeoChron(QtW.QMainWindow):
         self.db.setDatabaseName(self.db_file)
 
         self.model = QtS.QSqlRelationalTableModel()
-        self.sample_model = QtS.QSqlRelationalTableModel()
+        self.sample_model = TC.SampleTableModel(self.db_file)
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
@@ -94,20 +95,22 @@ class GeoChron(QtW.QMainWindow):
         # self.model.select()
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         if table == 'Samples':
-            self.model.setTable('Samples')
-            self.model.setRelation(2, QtS.QSqlRelation('"Sources"', '"Source ID"', '"Short Citation"'))
-            self.model.setRelation(3, QtS.QSqlRelation('"Age Signatures"', '"Age signature ID"', '"Age signature name"'))
-            # self.model.setRelation(9, QtS.QSqlRelation('"Ages"', '"Age ID"', '"Age name"'))
-            # self.model.setRelation(10, QtS.QSqlRelation('"Ages"', '"Age ID"', '"Age name"'))
-            self.model.setRelation(11, QtS.QSqlRelation('"Rock Types"', '"Rock type ID"', '"Rock type name"'))
-            self.model.setRelation(12, QtS.QSqlRelation('"Units"', '"Unit ID"', '"Unit name"'))
-            self.model.setRelation(13, QtS.QSqlRelation('"Regions"', '"Region ID"', '"Region name"'))
-            self.model.setRelation(14, QtS.QSqlRelation('"Settings"', '"Setting ID"', '"Setting name"'))
-            self.model.select()
-            self.dbTable_tableView.setModel(self.model)
-            self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
-            self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            self.dbTable_tableView.resizeColumnsToContents()
+            # self.model.setTable('Samples')
+            # self.model.setRelation(2, QtS.QSqlRelation('"Sources"', '"Source ID"', '"Short Citation"'))
+            # self.model.setRelation(3, QtS.QSqlRelation('"Age Signatures"', '"Age signature ID"', '"Age signature name"'))
+            # # self.model.setRelation(9, QtS.QSqlRelation('"Ages"', '"Age ID"', '"Age name"'))
+            # # self.model.setRelation(10, QtS.QSqlRelation('"Ages"', '"Age ID"', '"Age name"'))
+            # self.model.setRelation(11, QtS.QSqlRelation('"Rock Types"', '"Rock type ID"', '"Rock type name"'))
+            # self.model.setRelation(12, QtS.QSqlRelation('"Units"', '"Unit ID"', '"Unit name"'))
+            # self.model.setRelation(13, QtS.QSqlRelation('"Regions"', '"Region ID"', '"Region name"'))
+            # self.model.setRelation(14, QtS.QSqlRelation('"Settings"', '"Setting ID"', '"Setting name"'))
+            # self.model.select()
+            # self.dbTable_tableView.setModel(self.model)
+            # self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
+            # self.dbTable_tableView.hideColumn(0)  # don't show ID column
+            self.sample_model
+            self.dbTable_tableView.setModel(self.sample_model)
+            # self.dbTable_tableView.resizeColumnsToContents()
         else:
             self.model.setTable(table)
             self.model.select()
