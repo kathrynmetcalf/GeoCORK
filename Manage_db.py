@@ -86,7 +86,7 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             self.model.setTable(table)
             # self.model.setRelation(3, QtS.QSqlRelation('Age signature ID', 'Age signature ID', 'Age signature name'))
-            self.model.setRelation(2, QtS.QSqlRelation("Sources", "Source ID", "Short Citation"))  # Currently breaking the table display
+            self.model.setRelation(2, QtS.QSqlRelation("Sources", "'Source ID'", "'Short Citation'"))  # Currently breaking the table display
             self.model.select()
             self.dbTable_tableView.setModel(self.model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
