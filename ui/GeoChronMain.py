@@ -27,12 +27,13 @@ class GeoChron(QtW.QMainWindow):
 
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-        self.db_file = self.open_db()
+        self.db_file = '../TestSchema.db'
+        # self.db_file = self.open_db()
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
 
+        self.sample_model = QtS.QSqlQueryModel()
         self.model = QtS.QSqlRelationalTableModel()
-        self.sample_model = TC.SampleTableModel(self.db_file)
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
@@ -90,27 +91,11 @@ class GeoChron(QtW.QMainWindow):
         #     self.save_popup()
         #     '''Click cancel should stop this method'''
         table = self.dbTable_comboBox.currentText()
-        # self.model.setTable(table)
-        # self.model.setEditStrategy(QtS.QSqlTableModel.OnManualSubmit)
-        # self.model.select()
-        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         if table == 'Samples':
-            # self.model.setTable('Samples')
-            # self.model.setRelation(2, QtS.QSqlRelation('"Sources"', '"Source ID"', '"Short Citation"'))
-            # self.model.setRelation(3, QtS.QSqlRelation('"Age Signatures"', '"Age signature ID"', '"Age signature name"'))
-            # # self.model.setRelation(9, QtS.QSqlRelation('"Ages"', '"Age ID"', '"Age name"'))
-            # # self.model.setRelation(10, QtS.QSqlRelation('"Ages"', '"Age ID"', '"Age name"'))
-            # self.model.setRelation(11, QtS.QSqlRelation('"Rock Types"', '"Rock type ID"', '"Rock type name"'))
-            # self.model.setRelation(12, QtS.QSqlRelation('"Units"', '"Unit ID"', '"Unit name"'))
-            # self.model.setRelation(13, QtS.QSqlRelation('"Regions"', '"Region ID"', '"Region name"'))
-            # self.model.setRelation(14, QtS.QSqlRelation('"Settings"', '"Setting ID"', '"Setting name"'))
-            # self.model.select()
-            # self.dbTable_tableView.setModel(self.model)
-            # self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
-            # self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            self.sample_model
+            query = TC.SampleTableModel.setupQuery(self)
+            self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.dbTable_tableView.setModel(self.sample_model)
-            # self.dbTable_tableView.resizeColumnsToContents()
+            self.dbTable_tableView.resizeColumnsToContents()
         else:
             self.model.setTable(table)
             self.model.select()
@@ -133,7 +118,6 @@ class GeoChron(QtW.QMainWindow):
         source_list = self.get_existing('"Short Citation"', '"Sources"')
         new_source = ui.New_source.NewSource(source_list[0])
         new_source.exec()
-
 
     # def save_popup(self):
     #     print('save clicked')

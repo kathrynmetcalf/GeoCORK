@@ -1,10 +1,5 @@
 import sqlite3
 
-samples = '''
-            INSERT INTO Samples (SampleName, AverageAge)
-            VALUES("S1", 200)
-            '''
-
 
 def add_data(db_file):
     """
@@ -43,12 +38,16 @@ def add_data(db_file):
         c.execute('INSERT INTO Samples_AgeSignatures (SampleID, AgeSignatureID) VALUES(1, 2)')
         c.execute('INSERT INTO Samples_AgeSignatures (SampleID, AgeSignatureID) VALUES(2, 2)')
         c.execute('INSERT INTO Samples_AgeSignatures (SampleID, AgeSignatureID) VALUES(2, 3)')
+        c.execute('DELETE FROM Aliquots')
         c.execute('INSERT INTO Aliquots (AliquotName, SampleID) VALUES("S1", 1)')
+        c.execute('DELETE FROM Spots')
         c.execute('INSERT INTO Spots (SpotName, AliquotID) VALUES("S1_1", 1)')
         c.execute('INSERT INTO Spots (SpotName, AliquotID) VALUES("S1_2", 1)')
         c.execute('INSERT INTO Spots (SpotName, AliquotID) VALUES("S1_3", 1)')
+        c.execute('DELETE FROM Sources')
         c.execute('INSERT INTO Sources (Authors, Year, ShortCitation) '
                   'VALUES("Kathryn Metcalf, Paul Kapp",2019,"Metcalf and Kapp, 2019")')
+        c.execute('DELETE FROM UPbData')
         c.execute('INSERT INTO UPbData (SpotID, SourceID) VALUES(1, 1)')
         c.execute('INSERT INTO UPbData (SpotID, SourceID) VALUES(2, 1)')
         c.execute('INSERT INTO UPbData (SpotID, SourceID) VALUES(3, 1)')
