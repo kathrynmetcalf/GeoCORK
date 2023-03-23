@@ -22,6 +22,7 @@ class FlowLayout(QLayout):
         self._horizontalSpacing = 10
         self.needAni = needAni
 
+
     def addItem(self, item):
         self._items.append(item)
 
