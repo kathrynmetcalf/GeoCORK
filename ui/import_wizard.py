@@ -8,7 +8,9 @@ from PyQt6.QtCore import QSize, QRect, Qt, QCoreApplication, QMetaObject
 from PyQt6.QtWidgets import QDialogButtonBox, QWidget, QVBoxLayout, QTableView, QComboBox, QLabel, QApplication, \
     QDialog, QTabWidget, QTableWidgetItem, QTableWidget, QFileDialog, QGroupBox, QScrollArea, QCheckBox
 import pandas as pd
-from ui.preferences import FlowLayout
+
+from ui.QComboBoxLabel import QComboBoxLabel
+from ui.FlowLayout import FlowLayout
 from pandas.core.interchange import dataframe
 
 
@@ -59,13 +61,13 @@ class ImportWizardDialog(QDialog):
         self.flowlayout_checkboxes.addWidget(self.checkbox_linebyline)
 
         self.top_layout.addWidget(self.checkboxes_widget)
-        self.checkboxes_widget.setMinimumHeight(75)
+        self.checkboxes_widget.setFixedHeight(50)
 
         # tab widget
         self.tabWidget = QTabWidget(self)
         self.tabWidget.setObjectName(u'tabWidget')
         self.top_layout.addWidget(self.tabWidget)
-        self.tabWidget.setMaximumHeight(200)
+        self.tabWidget.setMaximumHeight(300)
         # ------------------------------#
 
         # button box setup
@@ -96,54 +98,58 @@ class ImportWizardDialog(QDialog):
 
         # --- MAIN INFO --- #
         # sample id
-        self.sample_id_combobox = QComboBox(self.tab_main_info, objectName='sample_id_combobox')
+        self.sample_id_combobox = QComboBoxLabel(label_name='Sample Id', parent=self.tab_main_info,
+                                                 objectName='sample_id_combobox')
         self.sample_id_combobox.setToolTip('Sample ID Selector')
         self.flowlayout_main_info.addWidget(self.sample_id_combobox)
 
         # location data
-        self.location_data_combobox = QComboBox(self.tab_main_info, objectName='location_data_combobox')
+        self.location_data_combobox = QComboBoxLabel(label_name='Location Data', parent=self.tab_main_info,
+                                                     objectName='location_data_combobox')
         self.location_data_combobox.setToolTip('Location Data Selector')
         self.flowlayout_main_info.addWidget(self.location_data_combobox)
 
         # location data units
-        self.location_data_units_combobox = QComboBox(self.tab_main_info,
-                                                      objectName='location_data_units_combobox')
+        self.location_data_units_combobox = QComboBoxLabel(label_name='Location Data Units', parent=self.tab_main_info,
+                                                           objectName='location_data_units_combobox')
         self.location_data_units_combobox.setToolTip('Location Units Selector')
         self.flowlayout_main_info.addWidget(self.location_data_units_combobox)
 
         # elevation data
-        self.elevation_data_combobox = QComboBox(self.tab_main_info,
-                                                 objectName='elevation_data_combobox')
+        self.elevation_data_combobox = QComboBoxLabel(label_name='Elevation Data', parent=self.tab_main_info,
+                                                      objectName='elevation_data_combobox')
         self.elevation_data_combobox.setToolTip('Elevation Data Selector')
         self.flowlayout_main_info.addWidget(self.elevation_data_combobox)
 
         # elevation data error
-        self.elevation_data_error_combobox = QComboBox(self.tab_main_info,
-                                                       objectName='elevation_data_error_combobox')
+        self.elevation_data_error_combobox = QComboBoxLabel(label_name='Elevation Data Error',
+                                                            parent=self.tab_main_info,
+                                                            objectName='elevation_data_error_combobox')
         self.elevation_data_error_combobox.setToolTip('Elevation Data Error Selector')
         self.flowlayout_main_info.addWidget(self.elevation_data_error_combobox)
 
         # elevation data units
-        self.elevation_data_units_combobox = QComboBox(self.tab_main_info,
-                                                       objectName='elevation_data_units_combobox')
+        self.elevation_data_units_combobox = QComboBoxLabel(label_name='Elevation Data Units',
+                                                            parent=self.tab_main_info,
+                                                            objectName='elevation_data_units_combobox')
         self.elevation_data_units_combobox.setToolTip('Elevation Data Units Selector')
         self.flowlayout_main_info.addWidget(self.elevation_data_units_combobox)
 
         # height depth data
-        self.height_depth_data_combobox = QComboBox(self.tab_main_info,
-                                                    objectName='height_depth_combobox')
+        self.height_depth_data_combobox = QComboBoxLabel(label_name='Height Depth Data', parent=self.tab_main_info,
+                                                         objectName='height_depth_combobox')
         self.height_depth_data_combobox.setToolTip('Height Depth Data Selector')
         self.flowlayout_main_info.addWidget(self.height_depth_data_combobox)
 
         # height depth error
-        self.height_depth_error_combobox = QComboBox(self.tab_main_info,
-                                                     objectName='height_depth_error_combobox')
+        self.height_depth_error_combobox = QComboBoxLabel(label_name='Height Depth Error', parent=self.tab_main_info,
+                                                          objectName='height_depth_error_combobox')
         self.height_depth_error_combobox.setToolTip('Height Depth Error Selector')
         self.flowlayout_main_info.addWidget(self.height_depth_error_combobox)
 
         # height depth units
-        self.height_depth_units_combobox = QComboBox(self.tab_main_info,
-                                                     objectName='height_depth_units_combobox')
+        self.height_depth_units_combobox = QComboBoxLabel(label_name='Height Depth Units', parent=self.tab_main_info,
+                                                          objectName='height_depth_units_combobox')
         self.height_depth_units_combobox.setToolTip('Height Depth Units Selector')
         self.flowlayout_main_info.addWidget(self.height_depth_units_combobox)
 
@@ -167,46 +173,50 @@ class ImportWizardDialog(QDialog):
         # --- Ratio --- #
 
         # element ratio Pb207/Pb206
-        self._Pb207_Pb206_ratio_combobox = QComboBox(self.tab_ratio,
-                                                     objectName='Pb207_Pb206_ratio_combobox')
+        self._Pb207_Pb206_ratio_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Ratio', parent=self.tab_ratio,
+                                                          objectName='Pb207_Pb206_ratio_combobox')
         self._Pb207_Pb206_ratio_combobox.setToolTip('Pb207/Pb206 Ratio Selector')
         self.flowlayout_ratio.addWidget(self._Pb207_Pb206_ratio_combobox)
 
-        self._Pb207_Pb206_ratio_sigma_combobox = QComboBox(self.tab_ratio,
-                                                           objectName='Pb207_Pb206_ratio_sigma_combobox')
+        self._Pb207_Pb206_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Ratio Sigma',
+                                                                parent=self.tab_ratio,
+                                                                objectName='Pb207_Pb206_ratio_sigma_combobox')
         self._Pb207_Pb206_ratio_sigma_combobox.setToolTip('Pb207/Pb206 Ratio Sigma Selector')
         self.flowlayout_ratio.addWidget(self._Pb207_Pb206_ratio_sigma_combobox)
 
         # element ratio Pb207/U238
-        self.Pb207_U238_ratio_combobox = QComboBox(self.tab_ratio,
-                                                   objectName='Pb207_U238_ratio_combobox')
+        self.Pb207_U238_ratio_combobox = QComboBoxLabel(label_name='Pb207/U238 Ratio', parent=self.tab_ratio,
+                                                        objectName='Pb207_U238_ratio_combobox')
         self.Pb207_U238_ratio_combobox.setToolTip('Pb207/U238 Ratio Selector')
         self.flowlayout_ratio.addWidget(self.Pb207_U238_ratio_combobox)
 
-        self.Pb207_U238_ratio_sigma_combobox = QComboBox(self.tab_ratio,
-                                                         objectName='Pb207_U238_ratio_sigma_combobox')
+        self.Pb207_U238_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb207/U238 Ratio Sigma',
+                                                              parent=self.tab_ratio,
+                                                              objectName='Pb207_U238_ratio_sigma_combobox')
         self.Pb207_U238_ratio_sigma_combobox.setToolTip('Pb207/U238 Sigma Ratio Selector')
         self.flowlayout_ratio.addWidget(self.Pb207_U238_ratio_sigma_combobox)
 
         # element ratio Pb206/U238
-        self.Pb206_U238_ratio_combobox = QComboBox(self.tab_ratio,
-                                                   objectName='Pb206_U238_ratio_combobox')
+        self.Pb206_U238_ratio_combobox = QComboBoxLabel(label_name='Pb206/U238 Ratio', parent=self.tab_ratio,
+                                                        objectName='Pb206_U238_ratio_combobox')
         self.Pb206_U238_ratio_combobox.setToolTip('Pb206/U238 Ratio Selector')
         self.flowlayout_ratio.addWidget(self.Pb206_U238_ratio_combobox)
 
-        self.Pb206_U238_ratio_sigma_combobox = QComboBox(self.tab_ratio,
-                                                         objectName='Pb206_U238_ratio_sigma_combobox')
+        self.Pb206_U238_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb206/U238 Ratio Sigma',
+                                                              parent=self.tab_ratio,
+                                                              objectName='Pb206_U238_ratio_sigma_combobox')
         self.Pb206_U238_ratio_sigma_combobox.setToolTip('Pb206/U238 Sigma Ratio Selector')
         self.flowlayout_ratio.addWidget(self.Pb206_U238_ratio_sigma_combobox)
 
         # element ratio Pb208/Th232
-        self.Pb208_Th232_ratio_combobox = QComboBox(self.tab_ratio,
-                                                    objectName='Pb208_Th232_ratio_combobox')
+        self.Pb208_Th232_ratio_combobox = QComboBoxLabel(label_name='Pb208/Th232 Ratio', parent=self.tab_ratio,
+                                                         objectName='Pb208_Th232_ratio_combobox')
         self.Pb208_Th232_ratio_combobox.setToolTip('Pb207/Th232 Sigma Ratio Selector')
         self.flowlayout_ratio.addWidget(self.Pb208_Th232_ratio_combobox)
 
-        self.Pb208_Th232_ratio_sigma_combobox = QComboBox(self.tab_ratio,
-                                                          objectName='Pb208_Th232_ratio_sigma_combobox')
+        self.Pb208_Th232_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb208/Th232 Ratio Sigma',
+                                                               parent=self.tab_ratio,
+                                                               objectName='Pb208_Th232_ratio_sigma_combobox')
         self.Pb208_Th232_ratio_sigma_combobox.setToolTip('Pb207/Th232 Sigma Ratio Selector')
         self.flowlayout_ratio.addWidget(self.Pb208_Th232_ratio_sigma_combobox)
 
@@ -228,70 +238,71 @@ class ImportWizardDialog(QDialog):
         # ---END Ages Info Tab---#
 
         # best ages
-        self.best_age_combobox = QComboBox(self.tab_ages, objectName='best_age_combobox')
+        self.best_age_combobox = QComboBoxLabel(label_name='Best Ages', parent=self.tab_ages,
+                                                objectName='best_age_combobox')
         self.best_age_combobox.setToolTip('Best Age Selector')
         self.flowlayout_ages.addWidget(self.best_age_combobox)
 
-        self.best_age_sigma_combobox = QComboBox(self.tab_ages,
-                                                 objectName='best_age_sigma_combobox')
+        self.best_age_sigma_combobox = QComboBoxLabel(label_name='Best Age Sigma', parent=self.tab_ages,
+                                                      objectName='best_age_sigma_combobox')
         self.best_age_sigma_combobox.setToolTip('Best Age Sigma Selector')
         self.flowlayout_ages.addWidget(self.best_age_sigma_combobox)
 
         # concordance/discord
-        self.concord_discord_combobox = QComboBox(self.tab_ages,
-                                                  objectName='concord_discord_combobox')
+        self.concord_discord_combobox = QComboBoxLabel(label_name='Concordance/Discordance', parent=self.tab_ages,
+                                                       objectName='concord_discord_combobox')
         self.concord_discord_combobox.addItems({'Concordance', 'Discordance'})
         self.concord_discord_combobox.setToolTip('Concordance/Discordance Sigma Selector')
         self.flowlayout_ages.addWidget(self.concord_discord_combobox)
 
         # accepted rejected
-        self.accepted_rejected_combobox = QComboBox(self.tab_ages,
-                                                    objectName='accepted_rejected_combobox')
+        self.accepted_rejected_combobox = QComboBoxLabel(label_name='Accepted/Rejected', parent=self.tab_ages,
+                                                         objectName='accepted_rejected_combobox')
         self.accepted_rejected_combobox.addItems({'Accepted', 'Rejected'})
         self.accepted_rejected_combobox.setToolTip('Accepted/Rejected Selector')
         self.flowlayout_ages.addWidget(self.accepted_rejected_combobox)
 
         # element age Pb207/Pb206
-        self.Pb207_Pb206_age_combobox = QComboBox(self.tab_ages,
-                                                  objectName='Pb207_Pb206_age_combobox')
+        self.Pb207_Pb206_age_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Age', parent=self.tab_ages,
+                                                       objectName='Pb207_Pb206_age_combobox')
         self.Pb207_Pb206_age_combobox.setToolTip('Pb207/Pb206 Age Selector')
         self.flowlayout_ages.addWidget(self.Pb207_Pb206_age_combobox)
 
-        self.Pb207_Pb206_age_sigma_combobox = QComboBox(self.tab_ages,
-                                                        objectName='Pb207_Pb206_age_sigma_combobox')
+        self.Pb207_Pb206_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Age Sigma', parent=self.tab_ages,
+                                                             objectName='Pb207_Pb206_age_sigma_combobox')
         self.Pb207_Pb206_age_sigma_combobox.setToolTip('Pb207/Pb206 Age Sigma Selector')
         self.flowlayout_ages.addWidget(self.Pb207_Pb206_age_sigma_combobox)
 
         # element age Pb207/U238
-        self.Pb207_U238_age_combobox = QComboBox(self.tab_ages,
-                                                 objectName='Pb207_U238_age_combobox')
+        self.Pb207_U238_age_combobox = QComboBoxLabel(label_name='Pb207/U238 Age', parent=self.tab_ages,
+                                                      objectName='Pb207_U238_age_combobox')
         self.Pb207_U238_age_combobox.setToolTip('Pb207/U238 Age Selector')
         self.flowlayout_ages.addWidget(self.Pb207_U238_age_combobox)
 
-        self.Pb207_U238_age_sigma_combobox = QComboBox(self.tab_ages,
-                                                       objectName='Pb207_U238_age_sigma_combobox')
+        self.Pb207_U238_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/U238 Age Sigma', parent=self.tab_ages,
+                                                            objectName='Pb207_U238_age_sigma_combobox')
         self.Pb207_U238_age_sigma_combobox.setToolTip('Pb207/U238 Age Sigma Selector')
         self.flowlayout_ages.addWidget(self.Pb207_U238_age_sigma_combobox)
 
         # element age Pb206/U238
-        self.Pb206_U238_age_combobox = QComboBox(self.tab_ages,
-                                                 objectName='Pb206_U238_age_combobox')
+        self.Pb206_U238_age_combobox = QComboBoxLabel(label_name='Pb206/U238 Age', parent=self.tab_ages,
+                                                      objectName='Pb206_U238_age_combobox')
         self.Pb206_U238_age_combobox.setToolTip('Pb206/U238 Age Selector')
         self.flowlayout_ages.addWidget(self.Pb206_U238_age_combobox)
 
-        self.Pb206_U238_age_sigma_combobox = QComboBox(self.tab_ages,
-                                                       objectName='Pb206_U238_age_sigma_combobox')
+        self.Pb206_U238_age_sigma_combobox = QComboBoxLabel(label_name='Pb206/U238 Age Sigma', parent=self.tab_ages,
+                                                            objectName='Pb206_U238_age_sigma_combobox')
         self.Pb206_U238_age_sigma_combobox.setToolTip('Pb206/U238 Age Sigma Selector')
         self.flowlayout_ages.addWidget(self.Pb206_U238_age_sigma_combobox)
 
         # element age Pb208/Th232
-        self.Pb208_Th232_age_combobox = QComboBox(self.tab_ages,
-                                                  objectName='Pb208_Th232_age_combobox')
+        self.Pb208_Th232_age_combobox = QComboBoxLabel(label_name='Pb207/Th232 Age', parent=self.tab_ages,
+                                                       objectName='Pb208_Th232_age_combobox')
         self.Pb208_Th232_age_combobox.setToolTip('Pb206/Th232 Age Selector')
         self.flowlayout_ages.addWidget(self.Pb208_Th232_age_combobox)
 
-        self.Pb208_Th232_age_sigma_combobox = QComboBox(self.tab_ages,
-                                                        objectName='Pb208_Th232_age_sigma_combobox')
+        self.Pb208_Th232_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/Th232 Age Sigma', parent=self.tab_ages,
+                                                             objectName='Pb208_Th232_age_sigma_combobox')
         self.Pb208_Th232_age_sigma_combobox.setToolTip('Pb206/Th232 Age Sigma Selector')
         self.flowlayout_ages.addWidget(self.Pb208_Th232_age_sigma_combobox)
 
@@ -308,7 +319,6 @@ class ImportWizardDialog(QDialog):
 
         # self.add_labels()
         self.fill_combo_boxes()
-        self.re_translate_ui()
 
         # self.master_dict = {
         #     self.sample_id_combobox.objectName(): 'Sample Name',
@@ -348,33 +358,11 @@ class ImportWizardDialog(QDialog):
     def fill_combo_boxes(self):
         for tab in self.tabWidget.findChildren(QWidget).__iter__():
             if tab.objectName().__contains__('tab_'):
-                combo_box: QComboBox
-                for combo_box in tab.findChildren(QComboBox).__iter__():
-                    name = combo_box.objectName().replace('combobox', '').replace('_', ' ').title()
-                    combo_box.addItem(name)
-                    combo_box.addItem('N/A')
+                combo_box: QComboBoxLabel
+                for combo_box in tab.findChildren(QComboBoxLabel).__iter__():
+                    combo_box.combobox.addItem('N/A')
                     for num in range(1, self.tableWidget.columnCount()):
-                        combo_box.addItem(str(num))
-
-    def add_labels(self):
-        col_num = 7
-        for tab in self.tabWidget.findChildren(QWidget).__iter__():
-            if tab.objectName().__contains__('tab_'):
-                for grid_layout_widget in tab.findChildren(QWidget).__iter__():
-                    if (grid_layout_widget.__class__ is not QComboBox) and (grid_layout_widget.__class__ is not QLabel):
-                        row, col = 0, 0
-                        label: QLabel
-                        for label in grid_layout_widget.findChildren(QLabel).__iter__():
-                            label.setText(label.objectName())
-                            # label.setFixedWidth(125)
-                            # label.setFixedHeight(25)
-                            if col >= col_num:
-                                row += 2
-                                col = 0
-
-                            grid_layout = grid_layout_widget.findChild(FlowLayout)
-                            grid_layout.addWidget(label)
-                            col += 1
+                        combo_box.combobox.addItem(str(num))
 
     def populate_table_widget(self, file):
         self.df = pd.read_excel(file)
@@ -410,3 +398,9 @@ class ImportWizardDialog(QDialog):
         for label in self.findChildren(QLabel).__iter__():
             text = label.objectName().replace('_', ' ').replace('label', '')
             label.setText(QCoreApplication.translate('Dialog', text, None))
+
+
+if __name__ == '__main__':
+    app = QApplication(sys.argv)
+    dialog = ImportWizardDialog(sys.argv[1])
+    dialog.exec()
