@@ -253,3 +253,4 @@ if __name__ == '__main__':
     app = QtW.QApplication(sys.argv)  # pass command line arguments
     w = GeoChron()
     sys.exit(app.exec())  # runs event loop, pass exit status to the system
+
