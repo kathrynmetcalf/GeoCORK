@@ -17,8 +17,10 @@ class SampleTableModel(QtS.QSqlQueryModel):
         geo_age = 'COALESCE(OldA.AgeName, " ") || "-" || COALESCE(YoungA.AgeName, " ") as "Geologic Age"'
         column_name = 'ColumnName as "Measured Column Name"'
         column_data = 'HeightDepth || "±" || COALESCE(HeightDepthError, " " || HeightDepthUnit) as "Column Data"'
-        lat = f'LatDeg || "°" || LatMin || \' || LatSec || \" as "Latitude"'
-        lon = f'LonDeg || "°" || LonMin || \' || LonSec || \" as "Longitude"'
+        minquote = "'"
+        secquote = '"'
+        lat = f'''LatDeg || "°" || LatMin || "'" || LatSec || '"' as "Latitude"'''
+        lon = f'''LonDeg || "°" || LonMin || "'" || LonSec || '"' as "Longitude"'''
         aliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
         spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
         references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
@@ -42,6 +44,8 @@ class SampleTableModel(QtS.QSqlQueryModel):
         sample_query = f'''
                     SELECT 
                         {sample_name},
+                        {lat},
+                        {lon},
                         {age},
                         {age_range},
                         {geo_age},
