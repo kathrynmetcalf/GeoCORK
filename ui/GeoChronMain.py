@@ -33,7 +33,9 @@ class GeoChron(QtW.QMainWindow):
         self.db.setDatabaseName(self.db_file)
 
         self.sample_model = QtS.QSqlQueryModel()
-        self.model = QtS.QSqlRelationalTableModel()
+        self.aliquot_model = QtS.QSqlQueryModel()
+        self.spot_model = QtS.QSqlQueryModel()
+        self.model = QtS.QSqlTableModel()
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
@@ -79,28 +81,34 @@ class GeoChron(QtW.QMainWindow):
         import_wizard.exec()
 
     def display_table_list(self):
-        dbtable_list = ['Age Signatures', 'Aliquot Context', 'Aliquots',  'Columns', 'Lab Facilities', 'Regions',
+        dbtable_list = ['Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Regions',
                         'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
-                        'Spot Compositions', 'Spot Context', 'Spots', 'UPb Data', "UPb Analysis Methods", 'Units']
+                        'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
         self.dbTable_comboBox.addItems(dbtable_list)
-        self.dbTable_comboBox.setCurrentText('Samples')
+        self.dbTable_comboBox.setCurrentText('Aliquots')
         self.display_table()
 
     def display_table(self):
         # if self.model.isDirty() is True:
         #     self.save_popup()
         #     '''Click cancel should stop this method'''
-        table = self.dbTable_comboBox.currentText()
+        table_name = self.dbTable_comboBox.currentText()
+        # Remove spaces from display names
+        table = table_name.replace(" ", "")
         if table == 'Samples':
             query = TC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.dbTable_tableView.setModel(self.sample_model)
             self.dbTable_tableView.resizeColumnsToContents()
+        if table == 'Aliquots':
+            query = TC.AliquotTableModel.setupQuery(self)
+            self.aliquot_model.setQuery(QtS.QSqlQuery(query))
+            self.dbTable_tableView.setModel(self.aliquot_model)
+            self.dbTable_tableView.resizeColumnsToContents()
         else:
             self.model.setTable(table)
             self.model.select()
             self.dbTable_tableView.setModel(self.model)
-            self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
 

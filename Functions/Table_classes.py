@@ -15,17 +15,26 @@ class SampleTableModel(QtS.QSqlQueryModel):
         age = 'AverageAge || "±" || COALESCE(AverageAgeError, " ") as "Age (Ma)"'
         age_range = 'COALESCE(OldestAge, " ") || "-" || COALESCE(YoungestAge, " ") as "Age Range (Ma)"'
         geo_age = 'COALESCE(OldA.AgeName, " ") || "-" || COALESCE(YoungA.AgeName, " ") as "Geologic Age"'
+        age_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures"'
         column_name = 'ColumnName as "Measured Column Name"'
         column_data = 'HeightDepth || "±" || COALESCE(HeightDepthError, " " || HeightDepthUnit) as "Column Data"'
-        minquote = "'"
-        secquote = '"'
         lat = f'''LatDeg || "°" || LatMin || "'" || LatSec || '"' as "Latitude"'''
         lon = f'''LonDeg || "°" || LonMin || "'" || LonSec || '"' as "Longitude"'''
+        elev = 'Elev || "±" || COALESCE(ElevError, " " || ElevUnit) as "Elevation"'
         aliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
         spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
         references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-        age_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures"'
-        rock_type = 'GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"'
+        context = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Context"'
+        sampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) as "Sampling Method"'
+        rock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"'
+        regions = 'GROUP_CONCAT(DISTINCT RegionName) as "Regions"'
+        settings = 'GROUP_CONCAT(DISTINCT SettingName) as "Settings"'
+        units = 'GROUP_CONCAT(DISTINCT UnitName) as "Units"'
+        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
+        labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
+        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+        spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
+        aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
 
         # Join lines
         column_join = 'LEFT JOIN Columns as C ON C.ColumnID=S.ColumnID'
@@ -35,17 +44,34 @@ class SampleTableModel(QtS.QSqlQueryModel):
                                 LEFT JOIN AgeSignatures as AgS ON Ags.AgeSignatureID=S_AS.AgeSignatureID'''
         rock_type_join = '''LEFT JOIN Samples_RockTypes as S_RT ON S.SampleID=S_RT.SampleID
                             LEFT JOIN RockTypes as RT ON RT.RockTypeID=S_RT.RockTypeID'''
+        region_join = '''LEFT JOIN Samples_Regions as S_R ON S.SampleID=S_R.SampleID
+                            LEFT JOIN Regions as R ON R.RegionID=S_R.RegionID'''
+        setting_join = '''LEFT JOIN Samples_Settings as S_ST ON S.SampleID=S_ST.SampleID
+                            LEFT JOIN Settings as ST ON ST.SettingID=S_ST.SettingID'''
+        unit_join = '''LEFT JOIN Samples_Units as S_U ON S.SampleID=S_U.SampleID
+                            LEFT JOIN Units as U ON U.UnitID=S_U.UnitID'''
+        sample_context_join = '''LEFT JOIN Samples_SampleContext as S_SC ON S.SampleID=S_SC.SampleID
+                            LEFT JOIN SampleContext as SC ON SC.SampleContextID=S_SC.SampleContextID'''
+        sampling_method_join = '''LEFT JOIN Samples_SamplingMethods as S_SM ON S.SampleID=S_SM.SampleID
+                            LEFT JOIN SamplingMethods as SM ON SM.SamplingMethodID=S_SM.SamplingMethodID'''
         aliquot_join = 'LEFT JOIN Aliquots as AQ ON AQ.SampleID=S.SampleID'
         spot_join = 'LEFT JOIN Spots as SP ON SP.AliquotID=AQ.AliquotID'
         upb_data_join = 'LEFT JOIN UPbData as UPB ON UPB.SpotID=SP.SpotID'
         source_join = 'LEFT JOIN Sources as SO ON SO.SourceID=UPB.SourceID'
+        upb_method_join = 'LEFT JOIN UPbAnalysisMethods as UAM ON UAM.UPbAnalysisMethodID=UPB.UPbAnalysisMethodID'
+        labs_join = 'LEFT JOIN LabFacilities as LF ON LF.LabFacilityID=UPB.LabFacilityID'
+        spot_context_join = '''LEFT JOIN Spots_SpotContext as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
+                            LEFT JOIN SpotContext as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
+        spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
+        aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext as AQ_AQCX ON AQ.AliquotID=AQ_AQCX.AliquotID
+                            LEFT JOIN AliquotContext as AQCX ON AQCX.AliquotContextID=AQ_AQCX.AliquotContextID'''
 
-        # Omit lat/lon for now
         sample_query = f'''
-                    SELECT 
+                    SELECT
                         {sample_name},
                         {lat},
                         {lon},
+                        {elev},
                         {age},
                         {age_range},
                         {geo_age},
@@ -55,20 +81,92 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         {spots},
                         {references},
                         {age_signature},
-                        {rock_type}
+                        {context},
+                        {rock_types},
+                        {regions},
+                        {sampling_methods},
+                        {settings},
+                        {units},
+                        {upb_methods},
+                        {labs},
+                        {spot_context},
+                        {spot_compositions},
+                        {aliquot_context}
                     FROM Samples as S
                     {column_join}
                     {old_age_join}
                     {young_age_join}
                     {age_signature_join}
                     {rock_type_join}
+                    {sample_context_join}
                     {aliquot_join}
                     {spot_join}
                     {upb_data_join}
                     {source_join}
+                    {region_join}
+                    {sampling_method_join}
+                    {setting_join}
+                    {unit_join}
+                    {upb_method_join}
+                    {labs_join}
+                    {spot_context_join}
+                    {spot_composition_join}
+                    {aliquot_context_join}
                     GROUP BY SampleName
                     '''
 
         return sample_query
+
+
+class AliquotTableModel(QtS.QSqlQueryModel):
+    def setupQuery(self):
+        # Select lines
+        aliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
+        aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
+        spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
+        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+        spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
+        references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
+        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
+        labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
+
+        # Join lines
+        aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext as AQ_AQCX ON AQ.AliquotID=AQ_AQCX.AliquotID
+                            LEFT JOIN AliquotContext as AQCX ON AQCX.AliquotContextID=AQ_AQCX.AliquotContextID'''
+        spot_join = 'LEFT JOIN Spots as SP ON SP.AliquotID=AQ.AliquotID'
+        spot_context_join = '''LEFT JOIN Spots_SpotContext as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
+                            LEFT JOIN SpotContext as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
+        spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
+        upb_data_join = 'LEFT JOIN UPbData as UPB ON UPB.SpotID=SP.SpotID'
+        source_join = 'LEFT JOIN Sources as SO ON SO.SourceID=UPB.SourceID'
+        upb_method_join = 'LEFT JOIN UPbAnalysisMethods as UAM ON UAM.UPbAnalysisMethodID=UPB.UPbAnalysisMethodID'
+        labs_join = 'LEFT JOIN LabFacilities as LF ON LF.LabFacilityID=UPB.LabFacilityID'
+
+        aliquot_query = f'''
+                    SELECT
+                        {aliquots},
+                        {aliquot_context},
+                        {spots},
+                        {spot_context},
+                        {spot_compositions},
+                        {references},
+                        {upb_methods},
+                        {labs}
+                    FROM Aliquots as AQ
+                    {aliquot_context_join}
+                    {spot_join}
+                    {spot_context_join}
+                    {spot_composition_join}
+                    {upb_data_join}
+                    {source_join}
+                    {upb_method_join}
+                    {labs_join}
+                    GROUP BY AliquotName
+                    '''
+
+        return aliquot_query
+
+
+
 
 
