@@ -49,15 +49,15 @@ class GeoChron(QtW.QMainWindow):
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
 
-        # Try out the add functions
-        self.addNew_pushButton.clicked.connect(self.open_new_source)
-
         # # Signal for saving before switching tables, only saves the model, doesn't update the db file
         # self.save_pushButton.clicked.connect(self.save_popup)
         #
         # # Signal for committing changes to the database file
         # self.commit_pushButton.clicked.connect(self.commit_popup)
         # self.actionImport.triggered.connect(self.show_import_wizard_dialog)
+
+        # Signal for double-clicked cell in dbTable_TableView
+        self.dbTable_tableView.doubleClicked.connect(self.edit_popup)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -85,7 +85,7 @@ class GeoChron(QtW.QMainWindow):
                         'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
                         'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
         self.dbTable_comboBox.addItems(dbtable_list)
-        self.dbTable_comboBox.setCurrentText('Aliquots')
+        self.dbTable_comboBox.setCurrentText('Samples')
         self.display_table()
 
     def display_table(self):
@@ -99,11 +99,7 @@ class GeoChron(QtW.QMainWindow):
             query = TC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.dbTable_tableView.setModel(self.sample_model)
-            self.dbTable_tableView.resizeColumnsToContents()
-        if table == 'Aliquots':
-            query = TC.AliquotTableModel.setupQuery(self)
-            self.aliquot_model.setQuery(QtS.QSqlQuery(query))
-            self.dbTable_tableView.setModel(self.aliquot_model)
+            self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
         else:
             self.model.setTable(table)
@@ -127,72 +123,16 @@ class GeoChron(QtW.QMainWindow):
         new_source = ui.New_source.NewSource(source_list[0])
         new_source.exec()
 
-    # def save_popup(self):
-    #     print('save clicked')
-    #     msg = QtW.QMessageBox()
-    #     msg.setIcon(QtW.QMessageBox.Icon.Information)
-    #     msg.setWindowTitle('Commit changes')
-    #     msg.setText('Save changes to the database? This cannot be undone.')
-    #     msg.setStandardButtons(QtW.QMessageBox.StandardButton.Save
-    #                            | QtW.QMessageBox.StandardButton.Discard
-    #                            | QtW.QMessageBox.StandardButton.Cancel)
-    #     msg.setText('Save changes to the database view? This does not commit changes to the database file.')
-    #     msg.setStandardButtons(QtW.QMessageBox.Save | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
-    #     msg.buttonClicked.connect(self.save_popup_clicked)
-    #     msg.exec()
-    #
-    # def save_popup_clicked(self, i):
-    #     if i.text() == 'Save':
-    #         '''Find a way to save the display when switching tables but not commit to database'''
-    #     if i.text() == 'Discard' or i.text() == 'Don\'t Save':
-    #         self.model.revertAll()
-    #         self.display_table()
-    #         self.status_bar.showMessage('Changes discarded', 1000)
-    #
-    # def commit_popup(self):
-    #     msg = QtW.QMessageBox()
-    #     msg.setIcon(QtW.QMessageBox.Information)
-    #     msg.setWindowTitle('Commit changes')
-    #     msg.setText('Save all changes to the database? This cannot be undone.')
-    #     msg.setStandardButtons(QtW.QMessageBox.SaveAll | QtW.QMessageBox.Discard | QtW.QMessageBox.Cancel)
-    #     msg.buttonClicked.connect(self.commit_popup_clicked)
-    #     msg.exec()
-    #
-    # def commit_popup_clicked(self, i):
-    #     if i.text() == 'SaveAll':
-    #         self.model.submitAll()
-    #         self.display_table()
-    #     if i.text() == 'Discard' or i.text() == 'Don\'t Commit':
-    #         self.model.revertAll()
-    #         self.display_table()
-    #
-    # def contextMenuEvent(self, event: QtG.QContextMenuEvent) -> None:
-    #     table = self.dbTable_comboBox.currentText()
-    #     menu = QtW.QMenu(self)
-    #     add_act = menu.addAction('Add item')
-    #     delete_act = menu.addAction('Remove selected')
-    #     # bulkAct = menu.addAction('Bulk edit selected')
-    #     action = menu.exec_(self.mapToGlobal(event.pos()))
-    #     if action == add_act:
-    #         if table == 'Sources':
-    #             self.create_source()
-    #         if table == 'Regions':
-    #             self.create_region()
-    #         if table == 'Settings':
-    #             self.create_setting()
-    #         if table == 'Rock Types':
-    #             self.create_rocktype()
-    #         if table == 'Units':
-    #             self.create_unit()
-    #         if table == 'Age Signatures':
-    #             self.create_agesignature()
-    #     if action == delete_act:
-    #         index_list = []
-    #         for model_index in self.dbTable_tableView.selectionModel().selectedRows():
-    #             index = QtC.QPersistentModelIndex(model_index)
-    #             index_list.append(index)
-    #         for index in index_list:
-    #             self.model.removeRow(index.row())
+    def edit_popup(self, index):
+        col = index.column()
+        id_index = index.siblingAtColumn(0)
+        table_name = self.dbTable_comboBox.currentText()
+        if table_name == 'Samples':
+            sample_id = self.sample_model.data(id_index)
+            column_name = self.sample_model.record(index.row()).fieldName(col)
+
+        # QtC.QModelIndex.siblingAtColumn(0).
+        return
 
     # End methods here
 

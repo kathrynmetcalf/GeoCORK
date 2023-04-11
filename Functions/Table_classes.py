@@ -6,35 +6,43 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from collections import namedtuple
+
+# Map model column names back to database items
+table_model_cols = namedtuple('table_model_cols', ['model_col_name', 'source_table', 'table_cols', 'tag_table'])
+sample_name = table_model_cols("Sample Name", "Samples", ["SampleName"], '')
+age = table_model_cols("Age (Ma)", "Samples", ["AverageAge", "AverageAgeError"], '')
+age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatureName"], "Samples_AgeSignatures")
 
 
 class SampleTableModel(QtS.QSqlQueryModel):
     def setupQuery(self):
         # Select lines
-        sample_name = 'SampleName AS "Sample Name"'
-        age = 'AverageAge || "±" || COALESCE(AverageAgeError, " ") as "Age (Ma)"'
-        age_range = 'COALESCE(OldestAge, " ") || "-" || COALESCE(YoungestAge, " ") as "Age Range (Ma)"'
-        geo_age = 'COALESCE(OldA.AgeName, " ") || "-" || COALESCE(YoungA.AgeName, " ") as "Geologic Age"'
-        age_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures"'
-        column_name = 'ColumnName as "Measured Column Name"'
-        column_data = 'HeightDepth || "±" || COALESCE(HeightDepthError, " " || HeightDepthUnit) as "Column Data"'
-        lat = f'''LatDeg || "°" || LatMin || "'" || LatSec || '"' as "Latitude"'''
-        lon = f'''LonDeg || "°" || LonMin || "'" || LonSec || '"' as "Longitude"'''
-        elev = 'Elev || "±" || COALESCE(ElevError, " " || ElevUnit) as "Elevation"'
-        aliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
-        spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
-        references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-        context = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Context"'
-        sampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) as "Sampling Method"'
-        rock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"'
-        regions = 'GROUP_CONCAT(DISTINCT RegionName) as "Regions"'
-        settings = 'GROUP_CONCAT(DISTINCT SettingName) as "Settings"'
-        units = 'GROUP_CONCAT(DISTINCT UnitName) as "Units"'
-        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
-        labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
-        spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
+        qsample_id = 'S.SampleID'
+        qsample_name = 'SampleName AS "Sample Name"'
+        qage = 'AverageAge || "±" || COALESCE(AverageAgeError, " ") as "Age (Ma)"'
+        qage_range = 'COALESCE(OldestAge, " ") || "-" || COALESCE(YoungestAge, " ") as "Age Range (Ma)"'
+        qgeo_age = 'COALESCE(OldA.AgeName, " ") || "-" || COALESCE(YoungA.AgeName, " ") as "Geologic Age"'
+        qage_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures"'
+        qcolumn_name = 'ColumnName as "Measured Column Name"'
+        qcolumn_data = 'HeightDepth || "±" || COALESCE(HeightDepthError, " " || HeightDepthUnit) as "Column Data"'
+        qlat = f'''LatDeg || "°" || LatMin || "'" || LatSec || '"' as "Latitude"'''
+        qlon = f'''LonDeg || "°" || LonMin || "'" || LonSec || '"' as "Longitude"'''
+        qelev = 'Elev || "±" || COALESCE(ElevError, " " || ElevUnit) as "Elevation"'
+        qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
+        qspots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
+        qreferences = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
+        qcontext = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Context"'
+        qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) as "Sampling Method"'
+        qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"'
+        qregions = 'GROUP_CONCAT(DISTINCT RegionName) as "Regions"'
+        qsettings = 'GROUP_CONCAT(DISTINCT SettingName) as "Settings"'
+        qunits = 'GROUP_CONCAT(DISTINCT UnitName) as "Units"'
+        qupb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
+        qlabs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
+        qspot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+        qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
+        qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
 
         # Join lines
         column_join = 'LEFT JOIN Columns as C ON C.ColumnID=S.ColumnID'
@@ -68,30 +76,31 @@ class SampleTableModel(QtS.QSqlQueryModel):
 
         sample_query = f'''
                     SELECT
-                        {sample_name},
-                        {lat},
-                        {lon},
-                        {elev},
-                        {age},
-                        {age_range},
-                        {geo_age},
-                        {column_name},
-                        {column_data},
-                        {aliquots},
-                        {spots},
-                        {references},
-                        {age_signature},
-                        {context},
-                        {rock_types},
-                        {regions},
-                        {sampling_methods},
-                        {settings},
-                        {units},
-                        {upb_methods},
-                        {labs},
-                        {spot_context},
-                        {spot_compositions},
-                        {aliquot_context}
+                        {qsample_id},
+                        {qsample_name},
+                        {qlat},
+                        {qlon},
+                        {qelev},
+                        {qage},
+                        {qage_range},
+                        {qgeo_age},
+                        {qcolumn_name},
+                        {qcolumn_data},
+                        {qaliquots},
+                        {qspots},
+                        {qreferences},
+                        {qage_signature},
+                        {qcontext},
+                        {qrock_types},
+                        {qregions},
+                        {qsampling_methods},
+                        {qsettings},
+                        {qunits},
+                        {qupb_methods},
+                        {qlabs},
+                        {qspot_context},
+                        {qspot_compositions},
+                        {qaliquot_context}
                     FROM Samples as S
                     {column_join}
                     {old_age_join}
@@ -113,15 +122,16 @@ class SampleTableModel(QtS.QSqlQueryModel):
                     {spot_composition_join}
                     {aliquot_context_join}
                     GROUP BY SampleName
+                    ORDER BY SampleName
                     '''
 
         return sample_query
 
 
 class AliquotTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self):
+    def setupQuery(self, sample_ID):
         # Select lines
-        aliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
+        aliquots = 'AliquotName as "Aliquots"'
         aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
         spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
         spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
@@ -161,12 +171,57 @@ class AliquotTableModel(QtS.QSqlQueryModel):
                     {source_join}
                     {upb_method_join}
                     {labs_join}
+                    WHERE SampleID = {sample_ID}
                     GROUP BY AliquotName
                     '''
 
         return aliquot_query
 
 
+class SpotTableModel(QtS.QSqlQueryModel):
+    def setupQuery(self, parent_id, id_type='sample'):
+        # Select lines
+        spots = 'SpotName as "Spots"'
+        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+        spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
+        references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
+        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
+        labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
 
+        # Join lines'
+        spot_context_join = '''LEFT JOIN Spots_SpotContext as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
+                            LEFT JOIN SpotContext as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
+        spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
+        upb_data_join = 'LEFT JOIN UPbData as UPB ON UPB.SpotID=SP.SpotID'
+        source_join = 'LEFT JOIN Sources as SO ON SO.SourceID=UPB.SourceID'
+        upb_method_join = 'LEFT JOIN UPbAnalysisMethods as UAM ON UAM.UPbAnalysisMethodID=UPB.UPbAnalysisMethodID'
+        labs_join = 'LEFT JOIN LabFacilities as LF ON LF.LabFacilityID=UPB.LabFacilityID'
 
+        # Where statement
+        if id_type == 'sample':
+            where = f'WHERE SampleID = {parent_id}'
+        elif id_type == 'aliquot':
+            where = f'WHERE AliquotID = {parent_id}'
+        else:
+            return 'Error - must select a parent ID'
 
+        spot_query = f'''
+                    SELECT
+                        {spots},
+                        {spot_context},
+                        {spot_compositions},
+                        {references},
+                        {upb_methods},
+                        {labs}
+                    FROM Spots as SP
+                    {spot_context_join}
+                    {spot_composition_join}
+                    {upb_data_join}
+                    {source_join}
+                    {upb_method_join}
+                    {labs_join}
+                    {where}
+                    GROUP BY SpotName
+                    '''
+
+        return spot_query
