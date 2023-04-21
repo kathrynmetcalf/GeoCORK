@@ -11,9 +11,9 @@ from PyQt6.QtWidgets import QFileDialog
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Table_classes as TC
-import database as db
 import ui.import_wizard
 import ui.New_source
+from ui.EditTags import EditTags
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -58,6 +58,8 @@ class GeoChron(QtW.QMainWindow):
 
         # Signal for double-clicked cell in dbTable_TableView
         self.dbTable_tableView.doubleClicked.connect(self.edit_popup)
+        # Signal for clicked edit button in main window
+        self.edit_pushButton.clicked.connect(self.edit_popup)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -107,6 +109,7 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.setModel(self.model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
+            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)
@@ -124,12 +127,17 @@ class GeoChron(QtW.QMainWindow):
         new_source.exec()
 
     def edit_popup(self, index):
-        col = index.column()
-        id_index = index.siblingAtColumn(0)
         table_name = self.dbTable_comboBox.currentText()
         if table_name == 'Samples':
+            col = index.column()
+            id_index = index.siblingAtColumn(0)
             sample_id = self.sample_model.data(id_index)
             column_name = self.sample_model.record(index.row()).fieldName(col)
+        elif table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
+            pass
+        else:
+            dlg = EditTags(self.db, self.model, table_name)
+            dlg.exec()
 
         # QtC.QModelIndex.siblingAtColumn(0).
         return

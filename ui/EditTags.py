@@ -1,21 +1,37 @@
 import sys
+from pathlib import Path
+import sqlite3
 from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 
 
 class EditTags(QtW.QDialog):
-    def __init__(self, existing):
+    def __init__(self, database, model, table_name):
         super().__init__()
 
         # Define any widgets here
-        self.db_file = '../geochron_samples.db'
-        sources_ui_file = "EditTags.ui"
-        loadUi(sources_ui_file, self)
+        tags_ui_file = "EditTags.ui"
+        loadUi(tags_ui_file, self)
+        self.db = database
+        self.model = model
+        self.selectTags_label.setText(table_name)
+        self.display_tags()
+        self.addNewTag_pushButton.clicked.connect(self.add_tag)
 
+    def display_tags(self):
+        self.tags_tableView.setModel(self.model)
+        self.tags_tableView.hideColumn(0)
+        self.tags_tableView.resizeColumnsToContents()
 
+    def add_tag(self):
+        name = self.newName_lineEdit.text()
+        description = self.newDescription_lineEdit.text()
+        table = self.table_name.replace(" ", "")
+        sql = f'PRAGMA table_info({table})'
 
-        self.ok_buttonBox.clicked()
-        self.ok_buttonBox.rejected(self.rejected)
+        sql = '''INSERT INTO Ages(ParentAgeID, AgeName, MaxMa, MinMa)
+                        VALUES(?,?,?,?)'''
+        values = (name, description)
 
 
 if __name__ == '__main__':
