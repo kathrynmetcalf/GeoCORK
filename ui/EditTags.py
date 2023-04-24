@@ -30,6 +30,8 @@ class EditTags(QtW.QDialog):
 
         self.display_tags()
         self.addNewTag_pushButton.clicked.connect(self.add_tag)
+        self.ok_buttonBox.accepted.connect(self.commit)
+        self.ok_buttonBox.rejected.connect(self.rollback)
 
     def display_tags(self):
         self.tags_tableView.setModel(self.filter_proxy_model)
@@ -54,12 +56,15 @@ class EditTags(QtW.QDialog):
     def add_tag(self):
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
+        name_exists = False
+        # Check to see if name exists, throw error if so
         if name in self.existing_names:
             name_exists = True
             error_dialog = QtW.QErrorMessage()
             error_dialog.showMessage('This name already exists')
 
         if not name_exists:
+            self.db.transaction()
             query = QtS.QSqlQuery()
             query.prepare(f'INSERT INTO {self.table}({self.columns[1]}, {self.columns[2]}) VALUES(?, ?)')
             query.addBindValue(name)
@@ -70,6 +75,12 @@ class EditTags(QtW.QDialog):
                 self.newName_lineEdit.clear()
                 self.newDescription_lineEdit.clear()
                 self.display_tags()
+
+    def commit(self):
+        self.db.commit()
+
+    def rollback(self):
+        self.db.rollback()
 
 
 if __name__ == '__main__':
