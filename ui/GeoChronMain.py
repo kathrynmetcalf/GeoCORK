@@ -14,6 +14,7 @@ import Functions.Table_classes as TC
 import ui.import_wizard
 import ui.New_source
 from ui.EditTags import EditTags
+from ui.AddTags import AddTags
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -36,6 +37,7 @@ class GeoChron(QtW.QMainWindow):
         self.aliquot_model = QtS.QSqlQueryModel()
         self.spot_model = QtS.QSqlQueryModel()
         self.model = QtS.QSqlTableModel()
+        self.filter_proxy_model = QtC.QSortFilterProxyModel()
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
@@ -49,17 +51,12 @@ class GeoChron(QtW.QMainWindow):
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
 
-        # # Signal for saving before switching tables, only saves the model, doesn't update the db file
-        # self.save_pushButton.clicked.connect(self.save_popup)
-        #
-        # # Signal for committing changes to the database file
-        # self.commit_pushButton.clicked.connect(self.commit_popup)
-        # self.actionImport.triggered.connect(self.show_import_wizard_dialog)
-
+        # Signal for search bar
+        self.search_lineEdit.textChanged.connect(self.filter_proxy_model.setFilterRegularExpression)
         # Signal for double-clicked cell in dbTable_TableView
         self.dbTable_tableView.doubleClicked.connect(self.edit_popup)
-        # Signal for clicked edit button in main window
-        self.edit_pushButton.clicked.connect(self.edit_popup)
+        # Signal for clicked add button in main window
+        self.add_pushButton.clicked.connect(self.add_popup)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -106,10 +103,14 @@ class GeoChron(QtW.QMainWindow):
         else:
             self.model.setTable(table)
             self.model.select()
-            self.dbTable_tableView.setModel(self.model)
+            self.filter_proxy_model.setSourceModel(self.model)
+            self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView.setModel(self.filter_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.add_pushButton.setText(f"Add {table_name}")
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)
@@ -126,21 +127,30 @@ class GeoChron(QtW.QMainWindow):
         new_source = ui.New_source.NewSource(source_list[0])
         new_source.exec()
 
-    def edit_popup(self, index):
+    def edit_popup(self):
+        index = self.dbTable_tableView.indexAt(QtC.QPoint())
         table_name = self.dbTable_comboBox.currentText()
+        col = index.column()
+        id_index = index.siblingAtColumn(0)
         if table_name == 'Samples':
-            col = index.column()
-            id_index = index.siblingAtColumn(0)
             sample_id = self.sample_model.data(id_index)
             column_name = self.sample_model.record(index.row()).fieldName(col)
         elif table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
             pass
         else:
-            dlg = EditTags(self.db, self.model, table_name)
+            tag_id = self.model.data(id_index)
+            dlg = EditTags(self.db, self.model, table_name, tag_id)
             dlg.exec()
+            self.display_table()
 
-        # QtC.QModelIndex.siblingAtColumn(0).
-        return
+    def add_popup(self):
+        table_name = self.dbTable_comboBox.currentText()
+        if table_name == 'Samples' or table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
+            pass
+        else:
+            dlg = AddTags(self.db, self.model, table_name)
+            dlg.exec()
+            self.display_table()
 
     # End methods here
 

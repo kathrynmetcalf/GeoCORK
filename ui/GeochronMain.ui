@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1920</width>
-    <height>942</height>
+    <width>1440</width>
+    <height>772</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -49,17 +49,17 @@
        </rect>
       </property>
      </widget>
-     <widget class="QPushButton" name="edit_pushButton">
+     <widget class="QPushButton" name="add_pushButton">
       <property name="geometry">
        <rect>
         <x>250</x>
         <y>10</y>
-        <width>100</width>
+        <width>201</width>
         <height>32</height>
        </rect>
       </property>
       <property name="text">
-       <string>Edit</string>
+       <string>Add item</string>
       </property>
      </widget>
      <widget class="QComboBox" name="dbTable_comboBox">
@@ -76,6 +76,32 @@
       </property>
       <property name="placeholderText">
        <string/>
+      </property>
+     </widget>
+     <widget class="QLineEdit" name="search_lineEdit">
+      <property name="geometry">
+       <rect>
+        <x>1120</x>
+        <y>20</y>
+        <width>291</width>
+        <height>21</height>
+       </rect>
+      </property>
+     </widget>
+     <widget class="QLabel" name="search_label">
+      <property name="geometry">
+       <rect>
+        <x>1050</x>
+        <y>20</y>
+        <width>58</width>
+        <height>16</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Search:</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
       </property>
      </widget>
     </widget>
@@ -162,7 +188,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1920</width>
+     <width>1440</width>
      <height>24</height>
     </rect>
    </property>

@@ -7,61 +7,71 @@ from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
 
 
-class EditTags(QtW.QDialog):
-    def __init__(self, database, model, table_name, tag_id):
+class AddTags(QtW.QDialog):
+    def __init__(self, database, model, table_name):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "EditTags.ui"
+        tags_ui_file = "AddTags.ui"
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
         self.table = table_name.replace(" ", "")
-        self.id = tag_id
         self.selectTags_label.setText(table_name)
-        self.completer()
+
+        self.filter_proxy_model = QtC.QSortFilterProxyModel()
+        self.filter_proxy_model.setSourceModel(self.model)
+        self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.filter_proxy_model.setFilterKeyColumn(1)
+        self.newName_lineEdit.textChanged.connect(self.filter_proxy_model.setFilterRegularExpression)
 
         self.columns = []
         self.existing_names = []
 
-        self.ok_buttonBox.accepted.connect(self.edit_tag())
+        self.display_tags()
+        self.ok_buttonBox.accepted.connect(self.add_tag)
 
-    def completer(self):
-        # Get a list of the existing tag names
+    def display_tags(self):
+        self.tags_tableView.setModel(self.filter_proxy_model)
+        self.tags_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tags_tableView.hideColumn(0)
+        self.tags_tableView.resizeColumnsToContents()
         query = QtS.QSqlQuery()
+
         # Get a list of column names for the selected table
         query.prepare(f'PRAGMA table_info({self.table})')
         query.exec()
         while query.next():
             self.columns.append(query.value(1))
+
+        # Get a list of the existing tag names
         query.prepare(f'SELECT {self.columns[1]} FROM {self.table}')
         query.exec()
         while query.next():
             self.existing_names.append(query.value(0))
         completer = QtW.QCompleter(self.existing_names)
-        self.name_lineEdit.setCompleter(completer)
+        self.newName_lineEdit.setCompleter(completer)
 
-    def edit_tag(self):
-        name = self.name_lineEdit.text()
-        description = self.description_lineEdit.text()
+    def add_tag(self):
+        name = self.newName_lineEdit.text()
+        description = self.newDescription_lineEdit.text()
         name_exists = False
         # Check to see if name exists, throw error if so
         if name in self.existing_names:
             name_exists = True
             error_dialog = QtW.QErrorMessage()
-            error_dialog.showMessage('Name must be unique')
+            error_dialog.showMessage('This name already exists')
 
         if not name_exists:
             query = QtS.QSqlQuery()
-            query.prepare(f'''
-                UPDATE {self.table} SET {self.columns[1]} = {name}, {self.columns[2]} = {description} 
-                WHERE {self.columns[0]} = {self.id}
-                ''')
+            query.prepare(f'INSERT INTO {self.table}({self.columns[1]}, {self.columns[2]}) VALUES(?, ?)')
+            query.addBindValue(name)
+            query.addBindValue(description)
             if query.exec():
                 self.model.setTable(self.table)
                 self.model.select()
-                self.name_lineEdit.clear()
-                self.description_lineEdit.clear()
+                self.newName_lineEdit.clear()
+                self.newDescription_lineEdit.clear()
                 self.display_tags()
 
 
@@ -69,5 +79,5 @@ if __name__ == '__main__':
     # only run these commands if this script is run
     # Can't be run when used as a library for another script
     app = QtW.QDialog(sys.argv)  # pass command line arguments
-    w = EditTags()
+    w = AddTags()
     sys.exit(app.exec())  # runs event loop, pass exit status to the system

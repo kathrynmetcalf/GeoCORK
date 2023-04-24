@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>661</width>
-    <height>173</height>
+    <width>391</width>
+    <height>576</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -16,8 +16,8 @@
   <widget class="QDialogButtonBox" name="ok_buttonBox">
    <property name="geometry">
     <rect>
-     <x>290</x>
-     <y>110</y>
+     <x>20</x>
+     <y>100</y>
      <width>341</width>
      <height>32</height>
     </rect>
@@ -29,11 +29,21 @@
     <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
    </property>
   </widget>
+  <widget class="QTableView" name="tags_tableView">
+   <property name="geometry">
+    <rect>
+     <x>30</x>
+     <y>200</y>
+     <width>331</width>
+     <height>331</height>
+    </rect>
+   </property>
+  </widget>
   <widget class="QLineEdit" name="newName_lineEdit">
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>60</y>
+     <y>50</y>
      <width>113</width>
      <height>41</height>
     </rect>
@@ -43,8 +53,8 @@
    <property name="geometry">
     <rect>
      <x>160</x>
-     <y>60</y>
-     <width>471</width>
+     <y>50</y>
+     <width>201</width>
      <height>41</height>
     </rect>
    </property>
@@ -53,33 +63,33 @@
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>40</y>
+     <y>30</y>
      <width>111</width>
      <height>16</height>
     </rect>
    </property>
    <property name="text">
-    <string>Unique Name</string>
+    <string>New Unique Name</string>
    </property>
   </widget>
   <widget class="QLabel" name="newDescription_label">
    <property name="geometry">
     <rect>
      <x>160</x>
-     <y>40</y>
+     <y>30</y>
      <width>201</width>
      <height>16</height>
     </rect>
    </property>
    <property name="text">
-    <string>Description</string>
+    <string>New Description</string>
    </property>
   </widget>
   <widget class="QLabel" name="selectTags_label">
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>10</y>
+     <y>170</y>
      <width>331</width>
      <height>16</height>
     </rect>
@@ -91,7 +101,7 @@
     </font>
    </property>
    <property name="text">
-    <string>Edit Tag</string>
+    <string>Existing Tags</string>
    </property>
   </widget>
  </widget>
