@@ -31,7 +31,7 @@ class EditTags(QtW.QDialog):
         self.description_lineEdit.setText(self.model.record(self.row).value(self.columns[2]))
 
         self.ok_pushButton.clicked.connect(self.edit_tag)
-        # self.name_lineEdit.textChanged.connect(self.clear_warning)
+        self.cancel_pushButton.clicked.connect(self.reject)
 
     def completer(self):
         # Get a list of the existing tag names

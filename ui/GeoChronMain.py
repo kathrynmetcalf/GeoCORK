@@ -58,6 +58,8 @@ class GeoChron(QtW.QMainWindow):
         self.dbTable_tableView.doubleClicked.connect(self.edit_popup)
         # Signal for clicked add button in main window
         self.add_pushButton.clicked.connect(self.add_popup)
+        # Signal for clicked submit button in main window
+        self.submitall_pushButton.clicked.connect(self.submit)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -105,10 +107,11 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
-            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
         else:
             self.model.setTable(table)
             self.model.select()
+            # self.model.editStrategy.OnManualSubmit
             self.filter_proxy_model.setSourceModel(self.model)
             self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
@@ -168,6 +171,16 @@ class GeoChron(QtW.QMainWindow):
             dlg = AddTags(self.db, self.model, table_name)
             dlg.exec()
             self.display_table()
+
+    def submit(self):
+        table_name = self.dbTable_comboBox.currentText()
+        # Remove spaces from display names
+        table = table_name.replace(" ", "")
+        if table == 'Samples':
+            # self.sample_model.submitAll()
+            pass
+        else:
+            self.model.submitAll()
 
     # End methods here
 

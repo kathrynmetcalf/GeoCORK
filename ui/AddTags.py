@@ -28,16 +28,17 @@ class AddTags(QtW.QDialog):
 
         self.columns = []
         self.existing_names = []
-        self.completer()
 
         self.display_tags()
         self.ok_pushButton.clicked.connect(self.add_tag)
+        self.cancel_pushButton.clicked.connect(self.reject)
 
     def display_tags(self):
         self.tags_tableView.setModel(self.filter_proxy_model)
         self.tags_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tags_tableView.hideColumn(0)
         self.tags_tableView.resizeColumnsToContents()
+        self.tags_tableView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
         query = QtS.QSqlQuery()
 
         # Get a list of column names for the selected table
@@ -47,21 +48,6 @@ class AddTags(QtW.QDialog):
             self.columns.append(query.value(1))
 
         # Get a list of the existing tag names
-        query.prepare(f'SELECT {self.columns[1]} FROM {self.table}')
-        query.exec()
-        while query.next():
-            self.existing_names.append(query.value(0))
-        completer = QtW.QCompleter(self.existing_names)
-        self.newName_lineEdit.setCompleter(completer)
-
-    def completer(self):
-        # Get a list of the existing tag names
-        query = QtS.QSqlQuery()
-        # Get a list of column names for the selected table
-        query.prepare(f'PRAGMA table_info({self.table})')
-        query.exec()
-        while query.next():
-            self.columns.append(query.value(1))
         query.prepare(f'SELECT {self.columns[1]} FROM {self.table}')
         query.exec()
         while query.next():
