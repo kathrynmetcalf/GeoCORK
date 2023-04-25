@@ -8,7 +8,7 @@ from PyQt6.uic import loadUi
 
 
 class EditTags(QtW.QDialog):
-    def __init__(self, database, model, table_name, tag_id):
+    def __init__(self, database, model, table_name, row):
         super().__init__()
 
         # Define any widgets here
@@ -17,14 +17,14 @@ class EditTags(QtW.QDialog):
         self.db = database
         self.model = model
         self.table = table_name.replace(" ", "")
-        self.id = tag_id
+        self.row = row
         self.selectTags_label.setText(table_name)
-        self.completer()
 
         self.columns = []
         self.existing_names = []
+        self.completer()
 
-        self.ok_buttonBox.accepted.connect(self.edit_tag())
+        self.ok_buttonBox.accepted.connect(self.edit_tag)
 
     def completer(self):
         # Get a list of the existing tag names
@@ -52,17 +52,18 @@ class EditTags(QtW.QDialog):
             error_dialog.showMessage('Name must be unique')
 
         if not name_exists:
+            item_id = self.model.record(self.row).value(self.columns[0])
+            print(item_id)
             query = QtS.QSqlQuery()
             query.prepare(f'''
-                UPDATE {self.table} SET {self.columns[1]} = {name}, {self.columns[2]} = {description} 
-                WHERE {self.columns[0]} = {self.id}
+                UPDATE {self.table} SET {self.columns[1]} = '{name}', {self.columns[2]} = '{description}'
+                WHERE {self.columns[0]} = {item_id}
                 ''')
             if query.exec():
                 self.model.setTable(self.table)
                 self.model.select()
                 self.name_lineEdit.clear()
                 self.description_lineEdit.clear()
-                self.display_tags()
 
 
 if __name__ == '__main__':

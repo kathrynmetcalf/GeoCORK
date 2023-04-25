@@ -29,7 +29,7 @@
     <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
    </property>
   </widget>
-  <widget class="QLineEdit" name="newName_lineEdit">
+  <widget class="QLineEdit" name="name_lineEdit">
    <property name="geometry">
     <rect>
      <x>30</x>
@@ -39,7 +39,7 @@
     </rect>
    </property>
   </widget>
-  <widget class="QLineEdit" name="newDescription_lineEdit">
+  <widget class="QLineEdit" name="description_lineEdit">
    <property name="geometry">
     <rect>
      <x>160</x>

@@ -127,19 +127,20 @@ class GeoChron(QtW.QMainWindow):
         new_source = ui.New_source.NewSource(source_list[0])
         new_source.exec()
 
-    def edit_popup(self):
-        index = self.dbTable_tableView.indexAt(QtC.QPoint())
+    def edit_popup(self, index):
+        # index = self.dbTable_tableView.indexAt(QtC.QPoint())
         table_name = self.dbTable_comboBox.currentText()
-        col = index.column()
-        id_index = index.siblingAtColumn(0)
+        # col = index.column()
+        # id_index = index.siblingAtColumn(0)
         if table_name == 'Samples':
-            sample_id = self.sample_model.data(id_index)
-            column_name = self.sample_model.record(index.row()).fieldName(col)
+            # sample_id = self.sample_model.data(id_index)
+            # column_name = self.sample_model.record(index.row()).fieldName(col)
+            pass
         elif table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
             pass
         else:
-            tag_id = self.model.data(id_index)
-            dlg = EditTags(self.db, self.model, table_name, tag_id)
+            row = index.row()
+            dlg = EditTags(self.db, self.model, table_name, row)
             dlg.exec()
             self.display_table()
 
