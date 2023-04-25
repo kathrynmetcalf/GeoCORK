@@ -6,19 +6,19 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>661</width>
+    <width>662</width>
     <height>173</height>
    </rect>
   </property>
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="QDialogButtonBox" name="ok_buttonBox">
+  <widget class="QDialogButtonBox" name="cancel_buttonBox">
    <property name="geometry">
     <rect>
      <x>290</x>
      <y>110</y>
-     <width>341</width>
+     <width>261</width>
      <height>32</height>
     </rect>
    </property>
@@ -26,7 +26,7 @@
     <enum>Qt::Horizontal</enum>
    </property>
    <property name="standardButtons">
-    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
+    <set>QDialogButtonBox::Cancel</set>
    </property>
   </widget>
   <widget class="QLineEdit" name="name_lineEdit">
@@ -113,18 +113,31 @@
      <x>160</x>
      <y>110</y>
      <width>301</width>
-     <height>20</height>
+     <height>31</height>
     </rect>
    </property>
    <property name="text">
     <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p align=&quot;right&quot;&gt;&lt;span style=&quot; color:#ff2600;&quot;&gt;Warning&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
    </property>
   </widget>
+  <widget class="QPushButton" name="ok_pushButton">
+   <property name="geometry">
+    <rect>
+     <x>560</x>
+     <y>110</y>
+     <width>71</width>
+     <height>32</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Ok</string>
+   </property>
+  </widget>
  </widget>
  <resources/>
  <connections>
   <connection>
-   <sender>ok_buttonBox</sender>
+   <sender>cancel_buttonBox</sender>
    <signal>accepted()</signal>
    <receiver>Dialog</receiver>
    <slot>accept()</slot>
@@ -140,7 +153,7 @@
    </hints>
   </connection>
   <connection>
-   <sender>ok_buttonBox</sender>
+   <sender>cancel_buttonBox</sender>
    <signal>rejected()</signal>
    <receiver>Dialog</receiver>
    <slot>reject()</slot>

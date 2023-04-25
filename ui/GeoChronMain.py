@@ -37,6 +37,7 @@ class GeoChron(QtW.QMainWindow):
         self.aliquot_model = QtS.QSqlQueryModel()
         self.spot_model = QtS.QSqlQueryModel()
         self.model = QtS.QSqlTableModel()
+        self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
@@ -52,7 +53,7 @@ class GeoChron(QtW.QMainWindow):
         self.dbTable_comboBox.activated.connect(self.display_table)
 
         # Signal for search bar
-        self.search_lineEdit.textChanged.connect(self.filter_proxy_model.setFilterRegularExpression)
+        self.search_lineEdit.textChanged.connect(self.search)
         # Signal for double-clicked cell in dbTable_TableView
         self.dbTable_tableView.doubleClicked.connect(self.edit_popup)
         # Signal for clicked add button in main window
@@ -97,9 +98,14 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             query = TC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
-            self.dbTable_tableView.setModel(self.sample_model)
+            self.sample_proxy_model.setSourceModel(self.sample_model)
+            self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
+            self.dbTable_tableView.setSortingEnabled(True)
+            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         else:
             self.model.setTable(table)
             self.model.select()
@@ -109,8 +115,18 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.setModel(self.filter_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
+            self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.add_pushButton.setText(f"Add {table_name}")
+
+    def search(self):
+        table_name = self.dbTable_comboBox.currentText()
+        # Remove spaces from display names
+        table = table_name.replace(" ", "")
+        if table == 'Samples':
+            self.sample_proxy_model.setFilterRegularExpression
+        else:
+            self.filter_proxy_model.setFilterRegularExpression
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)
@@ -128,7 +144,6 @@ class GeoChron(QtW.QMainWindow):
         new_source.exec()
 
     def edit_popup(self, index):
-        # index = self.dbTable_tableView.indexAt(QtC.QPoint())
         table_name = self.dbTable_comboBox.currentText()
         # col = index.column()
         # id_index = index.siblingAtColumn(0)
@@ -139,7 +154,8 @@ class GeoChron(QtW.QMainWindow):
         elif table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
             pass
         else:
-            row = index.row()
+            source_index = self.filter_proxy_model.mapToSource(index)
+            row = source_index.row()
             dlg = EditTags(self.db, self.model, table_name, row)
             dlg.exec()
             self.display_table()

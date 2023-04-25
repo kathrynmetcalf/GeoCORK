@@ -4,6 +4,7 @@ import sqlite3
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 
 
@@ -25,8 +26,12 @@ class EditTags(QtW.QDialog):
         self.existing_names = []
         self.completer()
 
-        self.ok_buttonBox.accepted.connect(self.edit_tag)
-        self.name_lineEdit.textChanged.connect(self.clear_warning)
+        # Populate line edits with existing values
+        self.name_lineEdit.setText(self.model.record(self.row).value(self.columns[1]))
+        self.description_lineEdit.setText(self.model.record(self.row).value(self.columns[2]))
+
+        self.ok_pushButton.clicked.connect(self.edit_tag)
+        # self.name_lineEdit.textChanged.connect(self.clear_warning)
 
     def completer(self):
         # Get a list of the existing tag names
@@ -44,19 +49,25 @@ class EditTags(QtW.QDialog):
         self.name_lineEdit.setCompleter(completer)
 
     def clear_warning(self):
-        self.warning_label.setText('')
+        self.warning_label.hide()
 
     def edit_tag(self):
         name = self.name_lineEdit.text()
         description = self.description_lineEdit.text()
-        # Check to see if name is empty or exists, throw error if so
+        # Check to see if name is empty
         if name == '':
-            self.warning_label.setText('Name cannot be blank')
-        elif name in self.existing_names:
-            self.warning_label.setText('Name must be unique')
+            self.warning_label.show()
+            self.warning_label.setText('<font color="red">Name cannot be blank</font>')
+            self.warning_label.setAlignment(QtC.Qt.AlignmentFlag.AlignRight | QtC.Qt.AlignmentFlag.AlignVCenter)
+            self.name_lineEdit.setText(self.model.record(self.row).value(self.columns[1]))
+        # Check to see if name is same as any row except the current one
+        elif name in self.existing_names and name != self.model.record(self.row).value(self.columns[1]):
+            self.warning_label.show()
+            self.warning_label.setText('<font color="red">Name must be unique</font>')
+            self.warning_label.setAlignment(QtC.Qt.AlignmentFlag.AlignRight | QtC.Qt.AlignmentFlag.AlignVCenter)
+            self.name_lineEdit.setText(self.model.record(self.row).value(self.columns[1]))
         else:
             item_id = self.model.record(self.row).value(self.columns[0])
-            print(item_id)
             query = QtS.QSqlQuery()
             query.prepare(f'''
                 UPDATE {self.table} SET {self.columns[1]} = '{name}', {self.columns[2]} = '{description}'
@@ -65,8 +76,7 @@ class EditTags(QtW.QDialog):
             if query.exec():
                 self.model.setTable(self.table)
                 self.model.select()
-                self.name_lineEdit.clear()
-                self.description_lineEdit.clear()
+                self.accept()
 
 
 if __name__ == '__main__':

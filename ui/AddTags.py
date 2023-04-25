@@ -18,6 +18,7 @@ class AddTags(QtW.QDialog):
         self.model = model
         self.table = table_name.replace(" ", "")
         self.selectTags_label.setText(table_name)
+        self.clear_warning()
 
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
@@ -27,9 +28,10 @@ class AddTags(QtW.QDialog):
 
         self.columns = []
         self.existing_names = []
+        self.completer()
 
         self.display_tags()
-        self.ok_buttonBox.accepted.connect(self.add_tag)
+        self.ok_pushButton.clicked.connect(self.add_tag)
 
     def display_tags(self):
         self.tags_tableView.setModel(self.filter_proxy_model)
@@ -52,22 +54,37 @@ class AddTags(QtW.QDialog):
         completer = QtW.QCompleter(self.existing_names)
         self.newName_lineEdit.setCompleter(completer)
 
+    def completer(self):
+        # Get a list of the existing tag names
+        query = QtS.QSqlQuery()
+        # Get a list of column names for the selected table
+        query.prepare(f'PRAGMA table_info({self.table})')
+        query.exec()
+        while query.next():
+            self.columns.append(query.value(1))
+        query.prepare(f'SELECT {self.columns[1]} FROM {self.table}')
+        query.exec()
+        while query.next():
+            self.existing_names.append(query.value(0))
+        completer = QtW.QCompleter(self.existing_names)
+        self.newName_lineEdit.setCompleter(completer)
+
+    def clear_warning(self):
+        self.warning_label.hide()
+
     def add_tag(self):
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
-        name_exists = False
         # Check to see if name is empty or exists, throw error if so
         if name == '':
-            error_dialog = QtW.QErrorMessage()
-            error_dialog.showMessage('Name cannot be blank')
-            return
-        if name in self.existing_names:
-            name_exists = True
-            error_dialog = QtW.QErrorMessage()
-            error_dialog.showMessage('This name already exists')
-            return
-
-        if not name_exists:
+            self.warning_label.show()
+            self.warning_label.setText('<font color="red">Name cannot be blank</font>')
+            self.warning_label.setAlignment(QtC.Qt.AlignmentFlag.AlignRight | QtC.Qt.AlignmentFlag.AlignVCenter)
+        elif name in self.existing_names:
+            self.warning_label.show()
+            self.warning_label.setText('<font color="red">Name must be unique</font>')
+            self.warning_label.setAlignment(QtC.Qt.AlignmentFlag.AlignRight | QtC.Qt.AlignmentFlag.AlignVCenter)
+        else:
             query = QtS.QSqlQuery()
             query.prepare(f'INSERT INTO {self.table}({self.columns[1]}, {self.columns[2]}) VALUES(?, ?)')
             query.addBindValue(name)
@@ -78,6 +95,7 @@ class AddTags(QtW.QDialog):
                 self.newName_lineEdit.clear()
                 self.newDescription_lineEdit.clear()
                 self.display_tags()
+                self.accept()
 
 
 if __name__ == '__main__':
