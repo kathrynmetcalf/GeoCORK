@@ -56,11 +56,16 @@ class AddTags(QtW.QDialog):
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         name_exists = False
-        # Check to see if name exists, throw error if so
+        # Check to see if name is empty or exists, throw error if so
+        if name == '':
+            error_dialog = QtW.QErrorMessage()
+            error_dialog.showMessage('Name cannot be blank')
+            return
         if name in self.existing_names:
             name_exists = True
             error_dialog = QtW.QErrorMessage()
             error_dialog.showMessage('This name already exists')
+            return
 
         if not name_exists:
             query = QtS.QSqlQuery()

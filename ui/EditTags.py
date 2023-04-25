@@ -19,12 +19,14 @@ class EditTags(QtW.QDialog):
         self.table = table_name.replace(" ", "")
         self.row = row
         self.selectTags_label.setText(table_name)
+        self.clear_warning()
 
         self.columns = []
         self.existing_names = []
         self.completer()
 
         self.ok_buttonBox.accepted.connect(self.edit_tag)
+        self.name_lineEdit.textChanged.connect(self.clear_warning)
 
     def completer(self):
         # Get a list of the existing tag names
@@ -41,17 +43,18 @@ class EditTags(QtW.QDialog):
         completer = QtW.QCompleter(self.existing_names)
         self.name_lineEdit.setCompleter(completer)
 
+    def clear_warning(self):
+        self.warning_label.setText('')
+
     def edit_tag(self):
         name = self.name_lineEdit.text()
         description = self.description_lineEdit.text()
-        name_exists = False
-        # Check to see if name exists, throw error if so
-        if name in self.existing_names:
-            name_exists = True
-            error_dialog = QtW.QErrorMessage()
-            error_dialog.showMessage('Name must be unique')
-
-        if not name_exists:
+        # Check to see if name is empty or exists, throw error if so
+        if name == '':
+            self.warning_label.setText('Name cannot be blank')
+        elif name in self.existing_names:
+            self.warning_label.setText('Name must be unique')
+        else:
             item_id = self.model.record(self.row).value(self.columns[0])
             print(item_id)
             query = QtS.QSqlQuery()
