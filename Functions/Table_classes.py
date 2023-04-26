@@ -225,3 +225,5 @@ class SpotTableModel(QtS.QSqlQueryModel):
                     '''
 
         return spot_query
+
+

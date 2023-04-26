@@ -42,6 +42,7 @@ class GeoChron(QtW.QMainWindow):
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
+        self.dbTable_treeView.hide()
 
         Create_db.create_tables(self.db_file)
         self.display_table_list()
@@ -83,7 +84,7 @@ class GeoChron(QtW.QMainWindow):
         import_wizard.exec()
 
     def display_table_list(self):
-        dbtable_list = ['Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Regions',
+        dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Regions',
                         'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
                         'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
         self.dbTable_comboBox.addItems(dbtable_list)
@@ -98,6 +99,8 @@ class GeoChron(QtW.QMainWindow):
         # Remove spaces from display names
         table = table_name.replace(" ", "")
         if table == 'Samples':
+            self.dbTable_tableView.show()
+            self.dbTable_treeView.hide()
             query = TC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.sample_proxy_model.setSourceModel(self.sample_model)
@@ -108,7 +111,14 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+        if table == 'Ages':
+            self.dbTable_tableView.hide()
+            self.dbTable_treeView.show()
+            age_tree_model = TC.build_age_tree(self)
+            self.dbTable_treeView.setModel(age_tree_model)
         else:
+            self.dbTable_tableView.show()
+            self.dbTable_treeView.hide()
             self.model.setTable(table)
             self.model.select()
             # self.model.editStrategy.OnManualSubmit
