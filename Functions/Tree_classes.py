@@ -18,12 +18,15 @@ class TreeItem:
 
         self.childItems = []
 
+    def __del__(self):
+        del self.childItems
+
     def append_child(self):
         # add all child items
         for item in self.itemData:
             self.childItems.append(item)
 
-    def child(self, row):
+    def child(self, row: int):
         # child in given row
         if row < 0 or row >= len(self.childItems):
             return None
@@ -46,7 +49,7 @@ class TreeItem:
         # number of columns in input data
         return self.itemData.count()
 
-    def data(self, column):
+    def data(self, column: int):
         # get data at given column
         if column < 0 or column >= len(self.itemData):
             return QtC.QVariant()
@@ -67,7 +70,10 @@ class TreeModel(QtC.QAbstractItemModel):
         self.childItem = TreeItem()
         self.setupModelData(data.split('\n'), self.rootItem)
 
-    def index_of(self, row, column, parent):
+    def __del__(self):
+        del self.rootItem
+
+    def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
         # parent is QModelIndex
         # index for views and delegates
         if not self.hasIndex(row, column, parent):
@@ -82,7 +88,7 @@ class TreeModel(QtC.QAbstractItemModel):
             else:
                 return QtC.QModelIndex()
 
-    def parent(self, index):
+    def parent(self, index: QtC.QModelIndex):
         if not index.isValid():
             return QtC.QModelIndex()
         self.childItem = TreeItem(index.internalPointer())
@@ -101,19 +107,34 @@ class TreeModel(QtC.QAbstractItemModel):
             self.parentItem = TreeItem(parent.internalPointer())
             return self.parentItem.childCount()
 
-    def columnCount(self, index: QtC.QModelIndex = ...) -> int:
+    def columnCount(self, parent: QtC.QModelIndex = ...) -> int:
+        if parent.isValid():
+            return TreeItem(parent.internalPointer()).columnCount()
+        return self.rootItem.columnCount()
+
+    def data(self, index: QtC.QModelIndex, role: int):
         if not index.isValid():
-            return QtC.QVariant()
-        if role != QtC.Qt.DisplayRole:
-            return QtC.QVariant()
+            return QtC.QVariant
+        if role != QtC.Qt.ItemDataRole.DisplayRole:
+            return QtC.QVariant
         item = TreeItem(index.internalPointer())
         return item.data(index.column())
 
+    def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
+        if not index.isValid():
+            return QtC.Qt.ItemFlag.NoItemFlags
+        return QtC.QAbstractItemModel.flags(index)
+
+    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...) -> typing.Any:
+        if orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.DisplayRole:
+            return self.rootItem.data(section)
+        return QtC.QVariant
+
+
 def build_age_tree(self):
-    age_tree_model = QtG.QStandardItemModel()
-    root_node = age_tree_model.invisibleRootItem()
+    age_tree_model = TreeModel()
     query = QtS.QSqlQuery()
-    query.prepare("SELECT * FROM Ages WHERE ParentAgeID = ''")
+    query.prepare("SELECT * FROM Ages")
     query.exec()
     while query.next():
         age_item = AgeItem(query.value(2))
