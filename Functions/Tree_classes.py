@@ -1,53 +1,83 @@
-import sys
-from pathlib import Path
-import sqlite3
-
-from PyQt6 import QtWidgets as QtW
+import typing
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
+from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
-
+from PyQt6.uic import loadUi
+import sys
 
 # Working off of examples from Qt and PyQt:
 # https://doc-snapshots.qt.io/qtforpython-dev/overviews/qtwidgets-itemviews-simpletreemodel-example.html
 
-class TreeItem:
-    def __init__(self, data, parent):
-        self.itemData = data
-        self.parentItem = parent
 
+class TreeItem:
+    def __init__(self):
+        self.table = None
+        self.itemData = None
+        self.parentItem = []
         self.childItems = []
 
     def __del__(self):
         del self.childItems
 
-    def append_child(self):
+    def setData(self, table, data):
+        self.table = table
+        self.itemData = data
+        self.appendChild()
+        self.parent()
+        
+    def appendChild(self):
         # add all child items
-        for item in self.itemData:
-            self.childItems.append(item)
+        if self.itemData is None or type(self.itemData[0]) is not int:
+            pass
+        else:
+            item_id = self.itemData[0]
+            query = QtS.QSqlQuery()
+            if self.table == 'Ages':
+                id_col = 'ParentAgeID'
+            query.prepare(f'SELECT * FROM {self.table} WHERE {id_col} = {item_id}')
+            query.exec()
+            while query.next():
+                child_data = []
+                column_indexes = self.columnCount() - 1
+                for c in range(column_indexes):
+                    child_data.append(query.value(c))
+                self.childItems.append(child_data)
 
     def child(self, row: int):
         # child in given row
         if row < 0 or row >= len(self.childItems):
             return None
         else:
-            pass  # return child item at given row
+            return self.childItems[row]
 
     def childCount(self):
         # number of children
-        return self.childItems.count()
+        return len(self.childItems)
 
     def row(self):
         # row of item in its parent's list of children
         if self.parentItem:
             # return self.parentItem.childItems.indexOf(TreeItem(self))
-            pass
+            item_id = self.itemData[0]
+            parent_id = self.itemData[1]
+            query = QtS.QSqlQuery()
+            if self.table == 'Ages':
+                pid_col = 'ParentAgeID'
+            # Select all with the same parent ID as the item
+            query.prepare(f'SELECT * FROM {self.table} WHERE {pid_col} = {parent_id}')
+            query.exec()
+            r = 0
+            while query.next():
+                if query.value(0) == item_id:
+                    return r
+                else:
+                    r += 1
         else:
             return 0
 
     def columnCount(self):
         # number of columns in input data
-        return self.itemData.count()
+        return len(self.itemData)
 
     def data(self, column: int):
         # get data at given column
@@ -58,20 +88,61 @@ class TreeItem:
 
     def parent(self):
         # parent for given item
-        pass
+        if self.itemData is None or type(self.itemData[1]) is not int:
+            return None
+        else:
+            parent_id = self.itemData[1]
+            query = QtS.QSqlQuery()
+            if self.table == 'Ages':
+                id_col = 'AgeID'
+            query.prepare(f'SELECT * FROM {self.table} WHERE {id_col} = {parent_id}')
+            query.exec()
+            while query.next():
+                parent_data = []
+                i = 0
+                for item in self.itemData:
+                    parent_data.append(query.value(i))
+                    i += 1
+                self.parentItem.append(parent_data)
 
 
 class TreeModel(QtC.QAbstractItemModel):
-    def __init__(self, data, parent):
+    def __init__(self, table, parent):
+        # database table
         super().__init__(parent)
 
-        self.rootItem = TreeItem({})  # pass column headings to TreeItem
+        self.table = table
+        self.rootItem = TreeItem()
+        self.headers = []
+        self.column_headers()
         self.parentItem = TreeItem()
         self.childItem = TreeItem()
-        self.setupModelData(data.split('\n'), self.rootItem)
+        self.setup_model_data()
 
     def __del__(self):
         del self.rootItem
+
+    def setup_model_data(self):
+        query = QtS.QSqlQuery()
+        query.prepare(f'SELECT * FROM {self.table} WHERE ifnull(ParentAgeID, "") = ""')
+        if query.exec():
+            while query.next():
+                data = []
+                for col in self.headers:
+                    data.append(query.value(col))
+                self.parentItem.setData(self.table, data)
+
+                n_child = self.parentItem.childCount()
+        else:
+            print('Problem executing the query')
+
+    def column_headers(self):
+        query = QtS.QSqlQuery()
+        query.prepare(f'PRAGMA table_info({self.table})')
+        if query.exec():
+            while query.next():
+                self.headers.append(query.value(1))
+            self.rootItem.setData(self.table, self.headers)
 
     def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
         # parent is QModelIndex
@@ -98,7 +169,6 @@ class TreeModel(QtC.QAbstractItemModel):
         return self.createIndex(self.parentItem.row(), 0, self.parentItem)
 
     def rowCount(self, parent: QtC.QModelIndex = ...) -> int:
-        self.parentItem = TreeItem()
         if parent.column() > 0:
             return 0
         if not parent.isValid():
@@ -131,20 +201,4 @@ class TreeModel(QtC.QAbstractItemModel):
         return QtC.QVariant
 
 
-def build_age_tree(self):
-    age_tree_model = TreeModel()
-    query = QtS.QSqlQuery()
-    query.prepare("SELECT * FROM Ages")
-    query.exec()
-    while query.next():
-        age_item = AgeItem(query.value(2))
-        root_node.appendRow(age_item)
 
-    return age_tree_model
-
-
-class UnitTreeModel(QtG.QStandardItemModel):
-    def __init__(self, db):
-        super().__init__()
-
-        self.db = db

@@ -10,7 +10,8 @@ from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
-import Functions.Table_classes as TC
+import Functions.Table_classes as TbC
+import Functions.Tree_classes as TrC
 import ui.import_wizard
 import ui.New_source
 from ui.EditTags import EditTags
@@ -38,11 +39,12 @@ class GeoChron(QtW.QMainWindow):
         self.spot_model = QtS.QSqlQueryModel()
         self.model = QtS.QSqlTableModel()
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
-        self.filter_proxy_model = QtC.QSortFilterProxyModel()
+        self.table_proxy_model = QtC.QSortFilterProxyModel()
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
-        self.dbTable_treeView.hide()
+
+        self.switch_to_table()
 
         Create_db.create_tables(self.db_file)
         self.display_table_list()
@@ -76,6 +78,12 @@ class GeoChron(QtW.QMainWindow):
         db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
         return db_file[0]
 
+    def switch_to_table(self):
+        self.db_stackedWidget.setCurrentWidget(self.db_table)
+        
+    def switch_to_tree(self):
+        self.db_stackedWidget.setCurrentWidget(self.db_tree)
+
     def show_import_wizard_dialog(self):
         home_dir = str(Path.home()) + '\Downloads'
         fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
@@ -99,9 +107,8 @@ class GeoChron(QtW.QMainWindow):
         # Remove spaces from display names
         table = table_name.replace(" ", "")
         if table == 'Samples':
-            self.dbTable_tableView.show()
-            self.dbTable_treeView.hide()
-            query = TC.SampleTableModel.setupQuery(self)
+            self.switch_to_table()
+            query = TbC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.sample_proxy_model.setSourceModel(self.sample_model)
             self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -111,21 +118,19 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
-        if table == 'Ages':
-            self.dbTable_tableView.hide()
-            self.dbTable_treeView.show()
-            age_tree_model = TC.build_age_tree(self)
+        elif table == 'Ages':
+            self.switch_to_tree()
+            age_tree_model = TrC.TreeModel(table, None)
             self.dbTable_treeView.setModel(age_tree_model)
         else:
-            self.dbTable_tableView.show()
-            self.dbTable_treeView.hide()
+            self.switch_to_table()
             self.model.setTable(table)
             self.model.select()
             # self.model.editStrategy.OnManualSubmit
-            self.filter_proxy_model.setSourceModel(self.model)
-            self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-            self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            self.dbTable_tableView.setModel(self.filter_proxy_model)
+            self.table_proxy_model.setSourceModel(self.model)
+            self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
@@ -139,7 +144,7 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             self.sample_proxy_model.setFilterRegularExpression
         else:
-            self.filter_proxy_model.setFilterRegularExpression
+            self.table_proxy_model.setFilterRegularExpression
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)
@@ -167,7 +172,7 @@ class GeoChron(QtW.QMainWindow):
         elif table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
             pass
         else:
-            source_index = self.filter_proxy_model.mapToSource(index)
+            source_index = self.table_proxy_model.mapToSource(index)
             row = source_index.row()
             dlg = EditTags(self.db, self.model, table_name, row)
             dlg.exec()
