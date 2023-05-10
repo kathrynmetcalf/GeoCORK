@@ -58,7 +58,7 @@ class TreeItem:
 
     def parent(self):
         # parent for given item
-        if self.itemData is None or type(self.itemData[0]) is not str:
+        if self.itemData is None or type(self.itemData[0]) is not int:
             return None
         else:
             return self.parentItem
@@ -70,10 +70,10 @@ class TreeModel(QtC.QAbstractItemModel):
         super().__init__(parent)
 
         self.table = table
-        self.rootItem = TreeItem(None, None)
-        self.parents = {0 : self.rootItem}
         self.headers = []
         self.column_headers()
+        self.rootItem = TreeItem(self.headers, None)
+        self.parents = {0 : self.rootItem}
         self.parentItem = TreeItem(None, None)
         self.childItem = TreeItem(None, None)
         self.setup_model_data()
@@ -113,10 +113,10 @@ class TreeModel(QtC.QAbstractItemModel):
             query.prepare(f'SELECT * FROM {self.table} WHERE {self.headers[0]} = {item_id}')
             if query.exec():
                 while query.next():
-                    data = query.value(2)
-                    # data = []
-                    # for col in self.headers:
-                    #     data.append(query.value(col))
+                    # data = query.value(2)
+                    data = []
+                    for col in self.headers:
+                        data.append(query.value(col))
                     item = TreeItem(data, parent)
                     parent.appendChild(item)
             new_parent = item
@@ -167,26 +167,28 @@ class TreeModel(QtC.QAbstractItemModel):
         return self.parentItem.childCount()
 
     def columnCount(self, parent: QtC.QModelIndex) -> int:
-        return 1
-        # return len(self.headers)
+        # return 1
+        return len(self.headers)
 
-    def data(self, index: QtC.QModelIndex, role: int):
+    def data(self, index: QtC.QModelIndex, role):
         if not index.isValid():
-            return QtC.QVariant
-        if role != QtC.Qt.ItemDataRole.DisplayRole:
-            return QtC.QVariant
+            return None
         item = index.internalPointer()
-        return item.data(index.column())
+        if role == QtC.Qt.ItemDataRole.DisplayRole:
+            return item.data(index.column())
+
+        return None
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
             return QtC.Qt.ItemFlag.NoItemFlags
         return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
 
-    # def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...) -> typing.Any:
-    #     if orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.DisplayRole:
-    #         return self.headers[section]
-    #     return QtC.QVariant
+    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...) -> typing.Any:
+        if orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.DisplayRole:
+            return self.rootItem.data(section)
+        return QtC.QVariant
+
 
 
 

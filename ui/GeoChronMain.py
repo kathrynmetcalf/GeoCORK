@@ -122,6 +122,9 @@ class GeoChron(QtW.QMainWindow):
             self.switch_to_tree()
             unit_tree_model = TrC.TreeModel(table, None)
             self.dbTable_treeView.setModel(unit_tree_model)
+            # self.dbTable_treeView.hideColumn(0)  # don't show ID column
+            self.dbTable_treeView.hideColumn(1)  # don't show parent ID column
+            self.dbTable_treeView.setSortingEnabled(True)
         elif table == 'Ages':
             self.switch_to_tree()
             age_tree_model = TrC.TreeModel(table, None)
