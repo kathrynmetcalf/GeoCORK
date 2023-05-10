@@ -17,7 +17,6 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     YoungestAge REAL,
                     OldestAgeID INTEGER,
                     YoungestAgeID INTEGER,
-                    ColumnID INTEGER,
                     HeightDepth REAL,
                     HeightDepthError REAL,
                     HeightDepthUnit TEXT,
@@ -35,9 +34,6 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     FOREIGN KEY(YoungestAgeID) REFERENCES Ages(AgeID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL
-                    FOREIGN KEY(ColumnID) REFERENCES Columns(ColumnID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
@@ -273,7 +269,7 @@ CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Columns(
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(ColumnID) REFERENCES Column(ColumnID)
+                    FOREIGN KEY(ColumnID) REFERENCES Columns(ColumnID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
