@@ -24,7 +24,7 @@ class SampleTableModel(QtS.QSqlQueryModel):
         qage_range = 'COALESCE(OldestAge, " ") || "-" || COALESCE(YoungestAge, " ") as "Age Range (Ma)"'
         qgeo_age = 'COALESCE(OldA.AgeName, " ") || "-" || COALESCE(YoungA.AgeName, " ") as "Geologic Age"'
         qage_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures"'
-        qcolumn_name = 'ColumnName as "Measured Column Name"'
+        qcolumn_name = 'GROUP_CONCAT(DISTINCT ColumnName) as "Measured Column Name"'
         qcolumn_data = 'HeightDepth || "±" || COALESCE(HeightDepthError, " " || HeightDepthUnit) as "Column Data"'
         qlat = f'''LatDeg || "°" || LatMin || "'" || LatSec || '"' as "Latitude"'''
         qlon = f'''LonDeg || "°" || LonMin || "'" || LonSec || '"' as "Longitude"'''
@@ -45,11 +45,12 @@ class SampleTableModel(QtS.QSqlQueryModel):
         qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
 
         # Join lines
-        column_join = 'LEFT JOIN Columns as C ON C.ColumnID=S.ColumnID'
         old_age_join = 'LEFT JOIN Ages as OldA ON S.OldestAgeID=OldA.AgeID'
         young_age_join = 'LEFT JOIN Ages as YoungA ON S.YoungestAgeID=YoungA.AgeID'
         age_signature_join = '''LEFT JOIN Samples_AgeSignatures as S_AS ON S.SampleID=S_AS.SampleID
                                 LEFT JOIN AgeSignatures as AgS ON Ags.AgeSignatureID=S_AS.AgeSignatureID'''
+        column_join = '''LEFT JOIN Samples_Columns as S_C ON S.SampleID=S_C.SampleID
+                                LEFT JOIN Columns as C ON C.ColumnID=S_C.ColumnID'''
         rock_type_join = '''LEFT JOIN Samples_RockTypes as S_RT ON S.SampleID=S_RT.SampleID
                             LEFT JOIN RockTypes as RT ON RT.RockTypeID=S_RT.RockTypeID'''
         region_join = '''LEFT JOIN Samples_Regions as S_R ON S.SampleID=S_R.SampleID

@@ -58,7 +58,7 @@ class TreeItem:
 
     def parent(self):
         # parent for given item
-        if self.itemData is None or type(self.itemData[0]) is not int:
+        if self.itemData is None or type(self.itemData[1]) is not int:
             return None
         else:
             return self.parentItem
@@ -117,6 +117,7 @@ class TreeModel(QtC.QAbstractItemModel):
                     data = []
                     for col in self.headers:
                         data.append(query.value(col))
+                    data.insert(0, data.pop(2))
                     item = TreeItem(data, parent)
                     parent.appendChild(item)
             new_parent = item

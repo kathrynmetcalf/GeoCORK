@@ -475,10 +475,17 @@ def add_age(c, age):
     :param c: database connection cursor
     :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma)
     """
-    sql = '''INSERT INTO Ages(ParentAgeID, AgeName, MaxMa, MinMa)
-                    VALUES(?,?,?,?)'''
-    values = (age[0], age[1], age[2], age[3])
-    c.execute(sql, values)
+    if age[0]:
+        # if there is a parent
+        sql = '''INSERT INTO Ages(ParentAgeID, AgeName, MaxMa, MinMa)
+                        VALUES(?,?,?,?)'''
+        values = (age[0], age[1], age[2], age[3])
+        c.execute(sql, values)
+    else:
+        sql = '''INSERT INTO Ages(AgeName, MaxMa, MinMa)
+                        VALUES(?,?,?)'''
+        values = (age[1], age[2], age[3])
+        c.execute(sql, values)
 
 
 if __name__ == '__main__':
