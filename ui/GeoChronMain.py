@@ -118,6 +118,10 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+        elif table == 'Units':
+            self.switch_to_tree()
+            unit_tree_model = TrC.TreeModel(table, None)
+            self.dbTable_treeView.setModel(unit_tree_model)
         elif table == 'Ages':
             self.switch_to_tree()
             age_tree_model = TrC.TreeModel(table, None)
