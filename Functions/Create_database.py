@@ -170,6 +170,8 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     BestAge REAL,
                     Error REAL,
                     Conc REAL,
+                    SpotSize Real,
+                    SpotSizeUnit TEXT,
                     Accepted INTEGER,
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
