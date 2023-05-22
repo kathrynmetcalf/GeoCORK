@@ -63,6 +63,7 @@ class GeoChron(QtW.QMainWindow):
         self.add_pushButton.clicked.connect(self.add_popup)
         # Signal for clicked submit button in main window
         self.submitall_pushButton.clicked.connect(self.submit)
+        self.actionImport.triggered.connect(self.show_import_wizard_dialog)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
