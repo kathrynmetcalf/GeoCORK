@@ -1,4 +1,6 @@
+import sqlite3
 import sys
+import time
 from pathlib import Path
 
 import PyQt6.QtCore
@@ -6,10 +8,11 @@ import pandas
 from PyQt6 import QtWidgets, QtGui
 from PyQt6.QtCore import QSize, QRect, Qt, QCoreApplication, QMetaObject
 from PyQt6.QtWidgets import QDialogButtonBox, QWidget, QVBoxLayout, QTableView, QComboBox, QLabel, QApplication, \
-    QDialog, QTabWidget, QTableWidgetItem, QTableWidget, QFileDialog, QGroupBox, QScrollArea, QCheckBox
+    QDialog, QTabWidget, QTableWidgetItem, QTableWidget, QFileDialog, QGroupBox, QScrollArea, QCheckBox, QLineEdit
 import pandas as pd
 
 from ui.QComboBoxLabel import QComboBoxLabel
+from ui.QLineEditLabel import QLineEditLabel
 from ui.FlowLayout import FlowLayout
 from pandas.core.interchange import dataframe
 
@@ -20,6 +23,7 @@ class ImportWizardDialog(QDialog):
 
     def __init__(self, filename):
         super().__init__()
+        self.df = pandas.DataFrame
         if not self.objectName():
             self.setObjectName(u'ImportWizardDialog')
         self.df: dataframe = None
@@ -98,10 +102,28 @@ class ImportWizardDialog(QDialog):
 
         # --- MAIN INFO --- #
         # sample id
-        self.sample_id_combobox = QComboBoxLabel(label_name='Sample Id', parent=self.tab_main_info,
+        self.sample_id_lineedit = QLineEditLabel(label_name='Sample Id', parent=self.tab_main_info,
                                                  objectName='sample_id_combobox')
-        self.sample_id_combobox.setToolTip('Sample ID Selector')
-        self.flowlayout_main_info.addWidget(self.sample_id_combobox)
+        self.sample_id_lineedit.setToolTip('Sample ID Selector')
+        self.flowlayout_main_info.addWidget(self.sample_id_lineedit)
+
+        # aliqout id
+        self.aliqout_id_lineedit = QLineEditLabel(label_name='Aliqout Id', parent=self.tab_main_info,
+                                                  objectName='aliqout_id_combobox')
+        self.aliqout_id_lineedit.setToolTip('Aliquot ID Selector')
+        self.flowlayout_main_info.addWidget(self.aliqout_id_lineedit)
+
+        # analysis id
+        self.analysis_id_combobox = QComboBoxLabel(label_name='Analysis Id', parent=self.tab_main_info,
+                                                   objectName='analysis_id_combobox')
+        self.analysis_id_combobox.setToolTip('Analysis ID Selector')
+        self.flowlayout_main_info.addWidget(self.analysis_id_combobox)
+
+        # analysis id row start
+        self.analysis_row_start_lineedit = QLineEditLabel(label_name='Analysis Row # Start', parent=self.tab_main_info,
+                                                          objectName='analysis__row_start_combobox')
+        self.analysis_row_start_lineedit.setToolTip('Analysis Row # Start')
+        self.flowlayout_main_info.addWidget(self.analysis_row_start_lineedit)
 
         # location data
         self.location_data_combobox = QComboBoxLabel(label_name='Location Data', parent=self.tab_main_info,
@@ -172,29 +194,42 @@ class ImportWizardDialog(QDialog):
 
         # --- Ratio --- #
 
-        # element ratio Pb207/Pb206
-        self._Pb207_Pb206_ratio_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Ratio', parent=self.tab_ratio,
-                                                          objectName='Pb207_Pb206_ratio_combobox')
-        self._Pb207_Pb206_ratio_combobox.setToolTip('Pb207/Pb206 Ratio Selector')
-        self.flowlayout_ratio.addWidget(self._Pb207_Pb206_ratio_combobox)
+        # element ratio Pb206/Pb204
+        self.Pb206_Pb204_ratio_combobox = QComboBoxLabel(label_name='Pb206/Pb204 Ratio', parent=self.tab_ratio,
+                                                         objectName='Pb206_Pb204_ratio_combobox',
+                                                         include_checkbox=True)
+        self.Pb206_Pb204_ratio_combobox.setToolTip('Pb206/Pb204 Ratio Selector')
+        self.flowlayout_ratio.addWidget(self.Pb206_Pb204_ratio_combobox)
 
-        self._Pb207_Pb206_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Ratio Sigma',
-                                                                parent=self.tab_ratio,
-                                                                objectName='Pb207_Pb206_ratio_sigma_combobox')
-        self._Pb207_Pb206_ratio_sigma_combobox.setToolTip('Pb207/Pb206 Ratio Sigma Selector')
-        self.flowlayout_ratio.addWidget(self._Pb207_Pb206_ratio_sigma_combobox)
+        # element ratio U/Th
+        self.U_Th_ratio_combobox = QComboBoxLabel(label_name='U/Th Ratio', parent=self.tab_ratio,
+                                                  objectName='U_Th_ratio_combobox', include_checkbox=True)
+        self.U_Th_ratio_combobox.setToolTip('U/Th Ratio Selector')
+        self.flowlayout_ratio.addWidget(self.U_Th_ratio_combobox)
 
-        # element ratio Pb207/U238
-        self.Pb207_U238_ratio_combobox = QComboBoxLabel(label_name='Pb207/U238 Ratio', parent=self.tab_ratio,
-                                                        objectName='Pb207_U238_ratio_combobox')
-        self.Pb207_U238_ratio_combobox.setToolTip('Pb207/U238 Ratio Selector')
-        self.flowlayout_ratio.addWidget(self.Pb207_U238_ratio_combobox)
+        # element ratio Pb206/Pb207
+        self.Pb206_Pb207_ratio_combobox = QComboBoxLabel(label_name='Pb206/Pb207 Ratio', parent=self.tab_ratio,
+                                                         objectName='Pb206_Pb207_ratio_combobox')
+        self.Pb206_Pb207_ratio_combobox.setToolTip('Pb206/Pb207 Ratio Selector')
+        self.flowlayout_ratio.addWidget(self.Pb206_Pb207_ratio_combobox)
 
-        self.Pb207_U238_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb207/U238 Ratio Sigma',
+        self.Pb206_Pb207_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb206/Pb207 Ratio Sigma',
+                                                               parent=self.tab_ratio,
+                                                               objectName='Pb206_Pb207_ratio_sigma_combobox')
+        self.Pb206_Pb207_ratio_sigma_combobox.setToolTip('Pb206/Pb207 Ratio Sigma Selector')
+        self.flowlayout_ratio.addWidget(self.Pb206_Pb207_ratio_sigma_combobox)
+
+        # element ratio Pb207/U235
+        self.Pb207_U235_ratio_combobox = QComboBoxLabel(label_name='Pb207/U235 Ratio', parent=self.tab_ratio,
+                                                        objectName='Pb207_U235_ratio_combobox')
+        self.Pb207_U235_ratio_combobox.setToolTip('Pb207/U235 Ratio Selector')
+        self.flowlayout_ratio.addWidget(self.Pb207_U235_ratio_combobox)
+
+        self.Pb207_U235_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb207/U235 Ratio Sigma',
                                                               parent=self.tab_ratio,
-                                                              objectName='Pb207_U238_ratio_sigma_combobox')
-        self.Pb207_U238_ratio_sigma_combobox.setToolTip('Pb207/U238 Sigma Ratio Selector')
-        self.flowlayout_ratio.addWidget(self.Pb207_U238_ratio_sigma_combobox)
+                                                              objectName='Pb207_U235_ratio_sigma_combobox')
+        self.Pb207_U235_ratio_sigma_combobox.setToolTip('Pb207/U235 Sigma Ratio Selector')
+        self.flowlayout_ratio.addWidget(self.Pb207_U235_ratio_sigma_combobox)
 
         # element ratio Pb206/U238
         self.Pb206_U238_ratio_combobox = QComboBoxLabel(label_name='Pb206/U238 Ratio', parent=self.tab_ratio,
@@ -208,17 +243,17 @@ class ImportWizardDialog(QDialog):
         self.Pb206_U238_ratio_sigma_combobox.setToolTip('Pb206/U238 Sigma Ratio Selector')
         self.flowlayout_ratio.addWidget(self.Pb206_U238_ratio_sigma_combobox)
 
-        # element ratio Pb208/Th232
-        self.Pb208_Th232_ratio_combobox = QComboBoxLabel(label_name='Pb208/Th232 Ratio', parent=self.tab_ratio,
-                                                         objectName='Pb208_Th232_ratio_combobox')
-        self.Pb208_Th232_ratio_combobox.setToolTip('Pb207/Th232 Sigma Ratio Selector')
-        self.flowlayout_ratio.addWidget(self.Pb208_Th232_ratio_combobox)
-
-        self.Pb208_Th232_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb208/Th232 Ratio Sigma',
-                                                               parent=self.tab_ratio,
-                                                               objectName='Pb208_Th232_ratio_sigma_combobox')
-        self.Pb208_Th232_ratio_sigma_combobox.setToolTip('Pb207/Th232 Sigma Ratio Selector')
-        self.flowlayout_ratio.addWidget(self.Pb208_Th232_ratio_sigma_combobox)
+        # # element ratio Pb208/Th232
+        # self.Pb208_Th232_ratio_combobox = QComboBoxLabel(label_name='Pb208/Th232 Ratio', parent=self.tab_ratio,
+        #                                                  objectName='Pb208_Th232_ratio_combobox')
+        # self.Pb208_Th232_ratio_combobox.setToolTip('Pb207/Th232 Sigma Ratio Selector')
+        # self.flowlayout_ratio.addWidget(self.Pb208_Th232_ratio_combobox)
+        #
+        # self.Pb208_Th232_ratio_sigma_combobox = QComboBoxLabel(label_name='Pb208/Th232 Ratio Sigma',
+        #                                                        parent=self.tab_ratio,
+        #                                                        objectName='Pb208_Th232_ratio_sigma_combobox')
+        # self.Pb208_Th232_ratio_sigma_combobox.setToolTip('Pb207/Th232 Sigma Ratio Selector')
+        # self.flowlayout_ratio.addWidget(self.Pb208_Th232_ratio_sigma_combobox)
 
         # --- END Ratio --- #
 
@@ -262,27 +297,27 @@ class ImportWizardDialog(QDialog):
         self.accepted_rejected_combobox.setToolTip('Accepted/Rejected Selector')
         self.flowlayout_ages.addWidget(self.accepted_rejected_combobox)
 
-        # element age Pb207/Pb206
-        self.Pb207_Pb206_age_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Age', parent=self.tab_ages,
-                                                       objectName='Pb207_Pb206_age_combobox')
-        self.Pb207_Pb206_age_combobox.setToolTip('Pb207/Pb206 Age Selector')
-        self.flowlayout_ages.addWidget(self.Pb207_Pb206_age_combobox)
+        # element age Pb206/Pb207
+        self.Pb206_Pb207_age_combobox = QComboBoxLabel(label_name='Pb206/Pb207 Age', parent=self.tab_ages,
+                                                       objectName='Pb206_Pb207_age_combobox')
+        self.Pb206_Pb207_age_combobox.setToolTip('Pb207/Pb206 Age Selector')
+        self.flowlayout_ages.addWidget(self.Pb206_Pb207_age_combobox)
 
-        self.Pb207_Pb206_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/Pb206 Age Sigma', parent=self.tab_ages,
-                                                             objectName='Pb207_Pb206_age_sigma_combobox')
-        self.Pb207_Pb206_age_sigma_combobox.setToolTip('Pb207/Pb206 Age Sigma Selector')
-        self.flowlayout_ages.addWidget(self.Pb207_Pb206_age_sigma_combobox)
+        self.Pb206_Pb207_age_sigma_combobox = QComboBoxLabel(label_name='Pb206/Pb207 Age Sigma', parent=self.tab_ages,
+                                                             objectName='Pb206_Pb207_age_sigma_combobox')
+        self.Pb206_Pb207_age_sigma_combobox.setToolTip('Pb206/Pb207 Age Sigma Selector')
+        self.flowlayout_ages.addWidget(self.Pb206_Pb207_age_sigma_combobox)
 
-        # element age Pb207/U238
-        self.Pb207_U238_age_combobox = QComboBoxLabel(label_name='Pb207/U238 Age', parent=self.tab_ages,
-                                                      objectName='Pb207_U238_age_combobox')
-        self.Pb207_U238_age_combobox.setToolTip('Pb207/U238 Age Selector')
-        self.flowlayout_ages.addWidget(self.Pb207_U238_age_combobox)
+        # element age Pb207/U235
+        self.Pb207_U235_age_combobox = QComboBoxLabel(label_name='Pb207/U235 Age', parent=self.tab_ages,
+                                                      objectName='Pb207_U235_age_combobox')
+        self.Pb207_U235_age_combobox.setToolTip('Pb207/U235 Age Selector')
+        self.flowlayout_ages.addWidget(self.Pb207_U235_age_combobox)
 
-        self.Pb207_U238_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/U238 Age Sigma', parent=self.tab_ages,
-                                                            objectName='Pb207_U238_age_sigma_combobox')
-        self.Pb207_U238_age_sigma_combobox.setToolTip('Pb207/U238 Age Sigma Selector')
-        self.flowlayout_ages.addWidget(self.Pb207_U238_age_sigma_combobox)
+        self.Pb207_U235_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/U235 Age Sigma', parent=self.tab_ages,
+                                                            objectName='Pb207_U235_age_sigma_combobox')
+        self.Pb207_U235_age_sigma_combobox.setToolTip('Pb207/U235 Age Sigma Selector')
+        self.flowlayout_ages.addWidget(self.Pb207_U235_age_sigma_combobox)
 
         # element age Pb206/U238
         self.Pb206_U238_age_combobox = QComboBoxLabel(label_name='Pb206/U238 Age', parent=self.tab_ages,
@@ -295,16 +330,16 @@ class ImportWizardDialog(QDialog):
         self.Pb206_U238_age_sigma_combobox.setToolTip('Pb206/U238 Age Sigma Selector')
         self.flowlayout_ages.addWidget(self.Pb206_U238_age_sigma_combobox)
 
-        # element age Pb208/Th232
-        self.Pb208_Th232_age_combobox = QComboBoxLabel(label_name='Pb207/Th232 Age', parent=self.tab_ages,
-                                                       objectName='Pb208_Th232_age_combobox')
-        self.Pb208_Th232_age_combobox.setToolTip('Pb206/Th232 Age Selector')
-        self.flowlayout_ages.addWidget(self.Pb208_Th232_age_combobox)
-
-        self.Pb208_Th232_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/Th232 Age Sigma', parent=self.tab_ages,
-                                                             objectName='Pb208_Th232_age_sigma_combobox')
-        self.Pb208_Th232_age_sigma_combobox.setToolTip('Pb206/Th232 Age Sigma Selector')
-        self.flowlayout_ages.addWidget(self.Pb208_Th232_age_sigma_combobox)
+        # # element age Pb208/Th232
+        # self.Pb208_Th232_age_combobox = QComboBoxLabel(label_name='Pb207/Th232 Age', parent=self.tab_ages,
+        #                                                objectName='Pb208_Th232_age_combobox')
+        # self.Pb208_Th232_age_combobox.setToolTip('Pb206/Th232 Age Selector')
+        # self.flowlayout_ages.addWidget(self.Pb208_Th232_age_combobox)
+        #
+        # self.Pb208_Th232_age_sigma_combobox = QComboBoxLabel(label_name='Pb207/Th232 Age Sigma', parent=self.tab_ages,
+        #                                                      objectName='Pb208_Th232_age_sigma_combobox')
+        # self.Pb208_Th232_age_sigma_combobox.setToolTip('Pb206/Th232 Age Sigma Selector')
+        # self.flowlayout_ages.addWidget(self.Pb208_Th232_age_sigma_combobox)
 
         self.combo_boxes_object_names = 'best_age_sigma_combobox', 'concord_discord_combobox', 'accepted_rejected_combobox', \
             'Pb207_Pb206_age_combobox', 'Pb207_Pb206_age_sigma_combobox', 'Pb207_U238_age_combobox', \
@@ -319,37 +354,248 @@ class ImportWizardDialog(QDialog):
 
         # self.add_labels()
         self.fill_combo_boxes()
+        self.findRowsWhereData()
+        self.assignTestValues()
+        # count = 1
+        # for row in self.df.iterrows():
+        #     if count < int(self.analysis_row_start_lineedit.lineedit.text()):
+        #         count += 1
+        #         continue
+        #     row = row[1].array
+        #     break
+            # print(row)
+            # print(row[0])
+            # print(row[1])
+            # print(row[2])
+            # string = '''Insert into UPBData (
+            #     SpotID, SourceID, LabFacilityID, UPbAnalysisMethodID,
+            #     "206Pb/204Pb", "U/Th",
+            #     "206Pb/207Pb", "206Pb/207Pberror",
+            #     "207Pb/235U", "207Pb/235Uerror",
+            #     "206Pb/238U", "206Pb/238Uerror",
+            #     "ErrorCorr",
+            #     "206Pb/207PbAge", "206Pb/207PbAgeError",
+            #     "207Pb/235UAge", "235UAgeError",
+            #     "206Pb/238UAge", "206Pb/238UAgeError",
+            #     "BestAge", "Error", "Conc", "SpotSize", "SpotSizeUnit", "Accepted")
+            #     VALUES ({SpotID}, {SourceID}, {LabFacilityID}, {UPbAnalysisMethodID},
+            #     {Pb206204Pb}, {UTh},
+            #     {Pb206207Pb}, {Pb206207Pberror},
+            #     {Pb207235U}, {Pb207235Uerror},
+            #     {Pb206238U}, {Pb206238Uerror},
+            #     {ErrorCorr},
+            #     {Pb206207PbAge}, {Pb206207PbAgeError},
+            #     {Pb207235UAge}, {Pb207235UAgeError},
+            #     {Pb206238UAge}, {Pb206238UAgeError},
+            #     {BestAge}, {Error}, {Conc}, {SpotSize}, {SpotSizeUnit}, {Accepted});
+            #     '''.format(SpotID=6,
+            #                SourceID="",
+            #                LabFacilityID="",
+            #                UPbAnalysisMethodID="",
+            #                # Pb206204Pb=row[self.int_or_none(self.Pb206_Pb204_ratio_combobox.combobox.currentText())],
+            #                Pb206204Pb='',
+            #                UTh=row[self.int_or_none(self.U_Th_ratio_combobox.combobox.currentText())],
+            #
+            #                Pb206207Pb=row[self.int_or_none(self.Pb206_Pb207_ratio_combobox.combobox.currentText())],
+            #                Pb206207Pberror=row[
+            #                    self.int_or_none(self.Pb206_Pb207_ratio_sigma_combobox.combobox.currentText())],
+            #
+            #                Pb207235U=row[self.int_or_none(self.Pb207_U235_ratio_combobox.combobox.currentText())],
+            #                Pb207235Uerror=row[
+            #                    self.int_or_none(self.Pb207_U235_ratio_sigma_combobox.combobox.currentText())],
+            #
+            #                Pb206238U=row[self.int_or_none(self.Pb206_U238_ratio_combobox.combobox.currentText())],
+            #                Pb206238Uerror=row[
+            #                    self.int_or_none(self.Pb206_U238_ratio_sigma_combobox.combobox.currentText())],
+            #
+            #                ErrorCorr="",
+            #
+            #                Pb206207PbAge=row[self.int_or_none(self.Pb206_Pb207_age_combobox.combobox.currentText())],
+            #                Pb206207PbAgeError=row[
+            #                    self.int_or_none(self.Pb206_Pb207_age_sigma_combobox.combobox.currentText())],
+            #
+            #                Pb207235UAge=row[self.int_or_none(self.Pb207_U235_age_combobox.combobox.currentText())],
+            #                Pb207235UAgeError=row[
+            #                    self.int_or_none(self.Pb207_U235_age_sigma_combobox.combobox.currentText())],
+            #
+            #                Pb206238UAge=row[self.int_or_none(self.Pb206_U238_age_combobox.combobox.currentText())],
+            #                Pb206238UAgeError=row[
+            #                    self.int_or_none(self.Pb206_U238_age_sigma_combobox.combobox.currentText())],
+            #
+            #                BestAge=row[self.int_or_none(self.best_age_combobox.combobox.currentText())],
+            #                Error=row[self.int_or_none(self.best_age_sigma_combobox.combobox.currentText())],
+            #                Conc="",
+            #                SpotSize="",
+            #                SpotSizeUnit="",
+            #                Accepted="")
 
-        # self.master_dict = {
-        #     self.sample_id_combobox.objectName(): 'Sample Name',
-        #     self.best_age_combobox.objectName(): 'Average Age',
-        #     self.best_age_sigma_combobox.objectName(): 'Average Age Error',
-        #     self.height_depth_data_combobox.objectName(): 'Height Depth',
-        #     self.height_depth_error_combobox.objectName(): 'Height Depth Error',
-        #     self.height_depth_units_combobox.objectName(): 'Height Depth Unit',
-        #     self._Uppm_combobox.objectName(): 'U ppm'
-        # }
+
+    def assignTestValues(self):
+        self.sample_id_lineedit.lineedit.setText(time.time().__str__())
+        self.aliqout_id_lineedit.lineedit.setText((time.time() + 1).__str__())
+        self.analysis_id_combobox.combobox.setCurrentText("1")
+
+        self.U_Th_ratio_combobox.combobox.setCurrentText("3")
+        self.Pb207_U235_ratio_combobox.combobox.setCurrentText("4")
+        self.Pb207_U235_ratio_sigma_combobox.combobox.setCurrentText("5")
+        self.Pb206_U238_ratio_combobox.combobox.setCurrentText("6")
+        self.Pb206_U238_ratio_sigma_combobox.combobox.setCurrentText("7")
+        self.Pb206_Pb207_ratio_combobox.combobox.setCurrentText("8")
+        self.Pb206_Pb207_ratio_sigma_combobox.combobox.setCurrentText("9")
+
+        self.Pb207_U235_age_combobox.combobox.setCurrentText("10")
+        self.Pb207_U235_age_sigma_combobox.combobox.setCurrentText("11")
+        self.Pb206_U238_age_combobox.combobox.setCurrentText("12")
+        self.Pb206_U238_age_sigma_combobox.combobox.setCurrentText("13")
+        self.Pb206_Pb207_age_combobox.combobox.setCurrentText("14")
+        self.Pb206_Pb207_age_sigma_combobox.combobox.setCurrentText("15")
+
+        self.best_age_combobox.combobox.setCurrentText("16")
+        self.best_age_sigma_combobox.combobox.setCurrentText("17")
+
+        self.concord_discord_combobox.combobox.setCurrentText("N/A")
+        self.accepted_rejected_combobox.combobox.setCurrentText("N/A")
 
     def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
         super().resizeEvent(a0)
-        # self.resize(a0.size().shrunkBy(PyQt6.QtCore.QMargins(10, 10, 10, 10)))
-        # print(self.tabWidget.rect().__str__())
         self.flowlayout_main_info.setGeometry(self.rect())
-        # self.grid_layout_ages.setGeometry(self.tabWidget.rect())
-        # self.grid_layout_ratios_age.setGeometry(self.tabWidget.rect())
-        # self.grid_layout_ratios.setGeometry(self.tabWidget.rect())
+
+    def findRowsWhereData(self):
+        # returns pandas array object
+        count = 0
+        done = False
+        for row in self.df.iterrows():
+            values = row[1]
+            count += 1
+            for col_index, value in enumerate(values):
+                if isinstance(value, (float, int)):
+                    value = '{0:5,.5f}'.format(value)
+                    done = True
+                    self.analysis_row_start_lineedit.lineedit.setText(str(count))
+                    print(count)
+                    break
+            if done:
+                break
+
+    def int_or_none(self, str):
+        if str == '' or str == 'N/A':
+            return 'NULL'
+        else:
+            return int(str) - 1
 
     @PyQt6.QtCore.pyqtSlot()
     def accepted(self) -> None:
-        map = dict()
         for combo_box in self.findChildren(QComboBox).__iter__():
             combo_box: QComboBox
             if combo_box.currentText() == 'N/A':
-                continue
-            # map[self.master_dict.get(combo_box.objectName())] = combo_box.currentIndex() - 1
-        # for key in map:
+                combo_box.setCurrentText('')
 
-        super().accept()
+        conn = sqlite3.connect('../TestSchema2.db')
+        with conn:
+            c = conn.cursor()
+            print(self.sample_id_lineedit.lineedit.text())
+            if self.sample_id_lineedit.lineedit.text() != "":
+                c.execute(
+                    '''INSERT INTO Samples (SampleName) 
+                    Values ('{}');'''.format(self.sample_id_lineedit.lineedit.text()).__str__())
+            else:
+                error = QDialog()
+                error.show()
+            if self.aliqout_id_lineedit.lineedit.text() != "":
+                c.execute(
+                    '''Insert into Aliquots (AliquotName, SampleID) 
+                    VALUES ('{}', {});'''.format(self.aliqout_id_lineedit.lineedit.text(), c.lastrowid).__str__())
+                c.execute(
+                    '''Insert into Spots (SpotName, AliquotID) 
+                    VALUES ('{}', {});'''.format("", c.lastrowid).__str__())
+            spot_last_id = c.lastrowid
+            count = 1
+            for row in self.df.iterrows():
+                if count < int(self.analysis_row_start_lineedit.lineedit.text()):
+                    count += 1
+                    continue
+                row = row[1].array
+
+                c.execute('''
+                INSERT INTO
+                    UPBData
+                    (
+                    SpotID,
+                    SourceID,
+                    LabFacilityID,
+                    UPbAnalysisMethodID,
+                    '206Pb/204Pb',
+                    'U/Th',
+                    '206Pb/207Pb',
+                    '206Pb/207Pberror',
+                    '207Pb/235U',
+                    '207Pb/235Uerror',
+                    '206Pb/238U',
+                    '206Pb/238Uerror',
+                    ErrorCorr,
+                    '206Pb/207PbAge',
+                    '206Pb/207PbAgeError',
+                    '207Pb/235UAge',
+                    '207Pb/235UAgeError',
+                    '206Pb/238UAge',
+                    '206Pb/238UAgeError',
+                    BestAge,
+                    Error,
+                    Conc,
+                    SpotSize,
+                    SpotSizeUnit,
+                    Accepted
+                    )
+                VALUES ({},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{});'''
+                          .format(
+                                  'NULL',
+                                  'NULL',
+                                  'NULL',
+                                  'NULL',
+                                  'NULL',
+                                  # Pb206204Pb=row[self.int_or_none(self.Pb206_Pb204_ratio_combobox.combobox.currentText())],
+                                  row[self.int_or_none(self.U_Th_ratio_combobox.combobox.currentText())],
+
+                                  row[
+                                      self.int_or_none(self.Pb206_Pb207_ratio_combobox.combobox.currentText())],
+                                  row[
+                                      self.int_or_none(self.Pb206_Pb207_ratio_sigma_combobox.combobox.currentText())],
+
+                                  row[
+                                      self.int_or_none(self.Pb207_U235_ratio_combobox.combobox.currentText())],
+                                  row[
+                                      self.int_or_none(self.Pb207_U235_ratio_sigma_combobox.combobox.currentText())],
+
+                                  row[
+                                      self.int_or_none(self.Pb206_U238_ratio_combobox.combobox.currentText())],
+                                  row[
+                                      self.int_or_none(self.Pb206_U238_ratio_sigma_combobox.combobox.currentText())],
+
+                                  'NULL',
+
+                                  row[
+                                      self.int_or_none(self.Pb206_Pb207_age_combobox.combobox.currentText())],
+                                  row[
+                                      self.int_or_none(self.Pb206_Pb207_age_sigma_combobox.combobox.currentText())],
+
+                                  row[
+                                      self.int_or_none(self.Pb207_U235_age_combobox.combobox.currentText())],
+                                  row[
+                                      self.int_or_none(self.Pb207_U235_age_sigma_combobox.combobox.currentText())],
+
+                                  row[
+                                      self.int_or_none(self.Pb206_U238_age_combobox.combobox.currentText())],
+                                  row[
+                                      self.int_or_none(self.Pb206_U238_age_sigma_combobox.combobox.currentText())],
+
+                                  row[self.int_or_none(self.best_age_combobox.combobox.currentText())],
+                                  row[self.int_or_none(self.best_age_sigma_combobox.combobox.currentText())],
+                                  'NULL',
+                                  'NULL',
+                                  'NULL',
+                                  'NULL'))
+
+
 
     @PyQt6.QtCore.pyqtSlot()
     def rejected(self) -> None:
@@ -361,7 +607,7 @@ class ImportWizardDialog(QDialog):
                 combo_box: QComboBoxLabel
                 for combo_box in tab.findChildren(QComboBoxLabel).__iter__():
                     combo_box.combobox.addItem('N/A')
-                    for num in range(1, self.tableWidget.columnCount()):
+                    for num in range(1, self.tableWidget.columnCount() + 1):
                         combo_box.combobox.addItem(str(num))
 
     def populate_table_widget(self, file):

@@ -29,7 +29,7 @@ class GeoChron(QtW.QMainWindow):
 
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-        self.db_file = '../TestSchema.db'
+        self.db_file = '../TestSchema2.db'
         # self.db_file = self.open_db()
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
@@ -94,7 +94,7 @@ class GeoChron(QtW.QMainWindow):
 
     def display_table_list(self):
         dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Regions',
-                        'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
+                        'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources', 'Spots',
                         'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
         self.dbTable_comboBox.addItems(dbtable_list)
         self.dbTable_comboBox.setCurrentText('Samples')

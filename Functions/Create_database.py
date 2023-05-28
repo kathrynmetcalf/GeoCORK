@@ -146,7 +146,7 @@ CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
                     )'''
 
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
-                    UPbAnalysisID INTEGER PRIMARY KEY,
+                    UPbAnalysisID INTEGER PRIMARY KEY AUTOINCREMENT,
                     SpotID INTEGER,
                     SourceID INTEGER,
                     LabFacilityID INTEGER,

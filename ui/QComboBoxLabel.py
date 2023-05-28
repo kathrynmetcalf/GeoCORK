@@ -1,11 +1,11 @@
 import typing
 
 from PyQt6 import QtCore, QtGui
-from PyQt6.QtWidgets import QWidget, QComboBox, QLabel, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QComboBox, QLabel, QVBoxLayout, QCheckBox
 
 
 class QComboBoxLabel(QWidget):
-    def __init__(self, label_name=None, parent=None, objectName=None):
+    def __init__(self, label_name=None, parent=None, objectName=None, include_checkbox=False):
         super().__init__()
         self.setParent(parent)
         self.setObjectName(objectName)
@@ -19,6 +19,9 @@ class QComboBoxLabel(QWidget):
         self.label.setObjectName(objectName + '_label')
 
         layout.addWidget(self.label, alignment=QtCore.Qt.AlignmentFlag.AlignHCenter)
+        if include_checkbox:
+            self.checkbox = QCheckBox("Inverse?", parent=self)
+            layout.addWidget(self.checkbox, alignment=QtCore.Qt.AlignmentFlag.AlignHCenter)
         layout.addWidget(self.combobox, alignment=QtCore.Qt.AlignmentFlag.AlignHCenter)
         self.combobox.setMinimumWidth(self.label.width())
 
