@@ -13,3 +13,4 @@ venv/
 
 #git
 .git
+/testing/.ipynb_checkpoints/JupyterTesting-checkpoint.ipynb
