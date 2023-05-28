@@ -444,90 +444,79 @@ class ImportWizardDialog(QDialog):
                     continue
                 row = row[1].array
 
+                datatuple = ('NULL',
+                             'NULL',
+                             'NULL',
+                             'NULL',
+                             'NULL',
+                             # Pb206204Pb=row[self.int_or_none(self.Pb206_Pb204_ratio_combobox.combobox.currentText())],
+                             row[self.int_or_none(self.U_Th_ratio_combobox.combobox.currentText())],
+
+                             row[self.int_or_none(self.Pb206_Pb207_ratio_combobox.combobox.currentText())],
+                             row[self.int_or_none(self.Pb206_Pb207_ratio_sigma_combobox.combobox.currentText())],
+
+                             row[self.int_or_none(self.Pb207_U235_ratio_combobox.combobox.currentText())],
+                             row[self.int_or_none(self.Pb207_U235_ratio_sigma_combobox.combobox.currentText())],
+
+                             row[self.int_or_none(self.Pb206_U238_ratio_combobox.combobox.currentText())],
+                             row[self.int_or_none(self.Pb206_U238_ratio_sigma_combobox.combobox.currentText())],
+                             'NULL',
+                             row[
+                                 self.int_or_none(self.Pb206_Pb207_age_combobox.combobox.currentText())],
+                             row[
+                                 self.int_or_none(self.Pb206_Pb207_age_sigma_combobox.combobox.currentText())],
+
+                             row[
+                                 self.int_or_none(self.Pb207_U235_age_combobox.combobox.currentText())],
+                             row[
+                                 self.int_or_none(self.Pb207_U235_age_sigma_combobox.combobox.currentText())],
+
+                             row[
+                                 self.int_or_none(self.Pb206_U238_age_combobox.combobox.currentText())],
+                             row[
+                                 self.int_or_none(self.Pb206_U238_age_sigma_combobox.combobox.currentText())],
+
+                             row[self.int_or_none(self.best_age_combobox.combobox.currentText())],
+                             row[self.int_or_none(self.best_age_sigma_combobox.combobox.currentText())],
+                             'NULL',
+                             'NULL',
+                             'NULL',
+                             'NULL')
+
                 c.execute('''
                 INSERT INTO
                     UPBData
-                    (
-                    SpotID,
+                    (SpotID,
                     SourceID,
                     LabFacilityID,
                     UPbAnalysisMethodID,
-                    '206Pb/204Pb',
-                    'U/Th',
-                    '206Pb/207Pb',
-                    '206Pb/207Pberror',
-                    '207Pb/235U',
-                    '207Pb/235Uerror',
-                    '206Pb/238U',
-                    '206Pb/238Uerror',
+                    "206Pb/204Pb",
+                    "U/Th",
+                    "206Pb/207Pb",
+                    "206Pb/207Pberror",
+                    "207Pb/235U",
+                    "207Pb/235Uerror",
+                    "206Pb/238U",
+                    "206Pb/238Uerror",
                     ErrorCorr,
-                    '206Pb/207PbAge',
-                    '206Pb/207PbAgeError',
-                    '207Pb/235UAge',
-                    '207Pb/235UAgeError',
-                    '206Pb/238UAge',
-                    '206Pb/238UAgeError',
+                    "206Pb/207PbAge",
+                    "206Pb/207PbAgeError",
+                    "207Pb/235UAge",
+                    "207Pb/235UAgeError",
+                    "206Pb/238UAge",
+                    "206Pb/238UAgeError",
                     BestAge,
                     Error,
                     Conc,
                     SpotSize,
                     SpotSizeUnit,
-                    Accepted
-                    )
-                VALUES ({},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{},{});'''
-                          .format(
-                                  'NULL',
-                                  'NULL',
-                                  'NULL',
-                                  'NULL',
-                                  'NULL',
-                                  # Pb206204Pb=row[self.int_or_none(self.Pb206_Pb204_ratio_combobox.combobox.currentText())],
-                                  row[self.int_or_none(self.U_Th_ratio_combobox.combobox.currentText())],
-
-                                  row[
-                                      self.int_or_none(self.Pb206_Pb207_ratio_combobox.combobox.currentText())],
-                                  row[
-                                      self.int_or_none(self.Pb206_Pb207_ratio_sigma_combobox.combobox.currentText())],
-
-                                  row[
-                                      self.int_or_none(self.Pb207_U235_ratio_combobox.combobox.currentText())],
-                                  row[
-                                      self.int_or_none(self.Pb207_U235_ratio_sigma_combobox.combobox.currentText())],
-
-                                  row[
-                                      self.int_or_none(self.Pb206_U238_ratio_combobox.combobox.currentText())],
-                                  row[
-                                      self.int_or_none(self.Pb206_U238_ratio_sigma_combobox.combobox.currentText())],
-
-                                  'NULL',
-
-                                  row[
-                                      self.int_or_none(self.Pb206_Pb207_age_combobox.combobox.currentText())],
-                                  row[
-                                      self.int_or_none(self.Pb206_Pb207_age_sigma_combobox.combobox.currentText())],
-
-                                  row[
-                                      self.int_or_none(self.Pb207_U235_age_combobox.combobox.currentText())],
-                                  row[
-                                      self.int_or_none(self.Pb207_U235_age_sigma_combobox.combobox.currentText())],
-
-                                  row[
-                                      self.int_or_none(self.Pb206_U238_age_combobox.combobox.currentText())],
-                                  row[
-                                      self.int_or_none(self.Pb206_U238_age_sigma_combobox.combobox.currentText())],
-
-                                  row[self.int_or_none(self.best_age_combobox.combobox.currentText())],
-                                  row[self.int_or_none(self.best_age_sigma_combobox.combobox.currentText())],
-                                  'NULL',
-                                  'NULL',
-                                  'NULL',
-                                  'NULL'))
-
-
+                    Accepted)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);''', datatuple)
+        self.done(0)
 
     @PyQt6.QtCore.pyqtSlot()
     def rejected(self) -> None:
-        self.hide()
+        self.done(0)
 
     def fill_combo_boxes(self):
         for tab in self.tabWidget.findChildren(QWidget).__iter__():
