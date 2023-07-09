@@ -49,6 +49,8 @@ class GeoChron(QtW.QMainWindow):
         Create_db.create_tables(self.db_file)
         self.display_table_list()
 
+        self.ui_widgets()
+
         # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
         # self.dbTable_comboBox.setCurrentIndex(-1)
 
@@ -69,6 +71,17 @@ class GeoChron(QtW.QMainWindow):
 
     # Define any methods here
 
+    def ui_widgets(self):
+        self.dbTable_tableView: QtW.QTableView
+        self.dbTable_treeView: QtW.QTableView
+        self.dbTable_comboBox: QtW.QComboBox
+        self.search_lineEdit: QtW.QLineEdit
+        self.add_pushButton: QtW.QPushButton
+        self.submitall_pushButton: QtW.QPushButton
+        self.status_label: QtW.QLabel
+        self.db_stackedWidget: QtW.QStackedWidget
+        self.case_checkBox: QtW.QCheckBox
+
     def open_db(self):
         """
         Opens a file dialog to select an existing database file, must be in the format .db
@@ -79,12 +92,27 @@ class GeoChron(QtW.QMainWindow):
         return db_file[0]
 
     def switch_to_table(self):
+        """
+        Sets the current widget to a table view
+        :return:
+        """
+        self.db_stackedWidget: QtW.QStackedWidget
         self.db_stackedWidget.setCurrentWidget(self.db_table)
         
     def switch_to_tree(self):
+        """
+        Sets the current widget to a tree view
+        :return:
+        """
+        self.db_stackedWidget: QtW.QStackedWidget
         self.db_stackedWidget.setCurrentWidget(self.db_tree)
 
     def show_import_wizard_dialog(self):
+        """
+        Opens a file dialog to select a file to import
+        Executes the import wizard with that file
+        :return:
+        """
         home_dir = str(Path.home()) + '\Downloads'
         fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
         print(fname[0])
@@ -92,6 +120,12 @@ class GeoChron(QtW.QMainWindow):
         import_wizard.exec()
 
     def display_table_list(self):
+        """
+        Populates the tables combo box with the editable tables
+        Displays the default table
+        :return:
+        """
+        self.dbTable_comboBox: QtW.QComboBox
         dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Regions',
                         'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
                         'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
@@ -100,6 +134,15 @@ class GeoChron(QtW.QMainWindow):
         self.display_table()
 
     def display_table(self):
+        """
+        Displays the selected table
+        :return:
+        """
+        self.dbTable_tableView: QtW.QTableView
+        self.dbTable_treeView: QtW.QTableView
+        self.dbTable_comboBox: QtW.QComboBox
+        self.add_pushButton: QtW.QPushButton
+        self.case_checkBox: QtW.QCheckBox
         # if self.model.isDirty() is True:
         #     self.save_popup()
         #     '''Click cancel should stop this method'''
@@ -111,7 +154,10 @@ class GeoChron(QtW.QMainWindow):
             query = TbC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.sample_proxy_model.setSourceModel(self.sample_model)
-            self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            if self.case_checkBox.isChecked():
+                self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+            else:
+                self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
@@ -138,7 +184,10 @@ class GeoChron(QtW.QMainWindow):
             self.model.select()
             # self.model.editStrategy.OnManualSubmit
             self.table_proxy_model.setSourceModel(self.model)
-            self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            if self.case_checkBox.isChecked():
+                self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+            else:
+                self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
@@ -148,13 +197,20 @@ class GeoChron(QtW.QMainWindow):
         self.add_pushButton.setText(f"Add {table_name}")
 
     def search(self):
+        """
+        Search the current table for the text in
+        :return:
+        """
+        self.search_lineEdit: QtW.QLineEdit
+        self.dbtable_comboBox: QtW.QComboBox
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
         table = table_name.replace(" ", "")
         if table == 'Samples':
-            self.sample_proxy_model.setFilterRegularExpression
+            self.sample_proxy_model.setFilterRegularExpression(search_expression)
         else:
-            self.table_proxy_model.setFilterRegularExpression
+            self.table_proxy_model.setFilterRegularExpression(search_expression)
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)

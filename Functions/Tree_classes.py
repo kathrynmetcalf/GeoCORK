@@ -5,9 +5,6 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import sys
 
-# Working off of examples from Qt and PyQt:
-# https://doc-snapshots.qt.io/qtforpython-dev/overviews/qtwidgets-itemviews-simpletreemodel-example.html
-
 
 class TreeItem:
     def __init__(self, itemData, parentItem):
@@ -73,7 +70,7 @@ class TreeModel(QtC.QAbstractItemModel):
         self.headers = []
         self.column_headers()
         self.rootItem = TreeItem(self.headers, None)
-        self.parents = {0 : self.rootItem}
+        self.parents = {0: self.rootItem}
         self.parentItem = TreeItem(None, None)
         self.childItem = TreeItem(None, None)
         self.setup_model_data()
