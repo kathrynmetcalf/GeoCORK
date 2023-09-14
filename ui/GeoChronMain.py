@@ -17,6 +17,7 @@ import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
 from ui.EditTags import EditTags
+from ui.EditTable import EditTable
 from ui.AddTags import AddTags
 
 
@@ -40,8 +41,10 @@ class GeoChron(QtW.QMainWindow):
         self.aliquot_model = QtS.QSqlQueryModel()
         self.spot_model = QtS.QSqlQueryModel()
         self.model = QtS.QSqlTableModel()
+        self.tree_model = TrC.TreeModel
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.table_proxy_model = QtC.QSortFilterProxyModel()
+        self.tree_proxy_model = QtC.QSortFilterProxyModel()
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
@@ -66,12 +69,8 @@ class GeoChron(QtW.QMainWindow):
 
         # Signal for search bar
         self.search_lineEdit.textChanged.connect(self.search)
-        # Signal for double-clicked cell in dbTable_TableView
-        self.dbTable_tableView.doubleClicked.connect(self.edit_popup)
         # Signal for clicked add button in main window
-        self.add_pushButton.clicked.connect(self.add_popup)
-        # Signal for clicked submit button in main window
-        self.submitall_pushButton.clicked.connect(self.submit)
+        self.edit_pushButton.clicked.connect(self.edit_popup)
 
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
@@ -158,10 +157,6 @@ class GeoChron(QtW.QMainWindow):
             query = TbC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.sample_proxy_model.setSourceModel(self.sample_model)
-            # if self.case_checkBox.isChecked():
-            #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-            # else:
-            #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
@@ -170,8 +165,9 @@ class GeoChron(QtW.QMainWindow):
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
         elif table in self.dbtree_list:
             self.switch_to_tree()
-            tree_model = TrC.TreeModel(table, None)
-            self.dbTable_treeView.setModel(tree_model)
+            self.tree_model = TrC.TreeModel(table, None)
+            self.tree_proxy_model.setSourceModel(self.tree_model)
+            self.dbTable_treeView.setModel(self.tree_proxy_model)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
@@ -192,21 +188,32 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.add_pushButton.setText(f"Add {table_name}")
+        self.edit_pushButton.setText(f"Edit {table_name}")
 
     def search(self):
         """
-        Search the current table for the text in
+        Search the current table for the text in the search box
+        Check if the case-sensitive box is checked or not
         :return:
         """
         self.search_lineEdit: QtW.QLineEdit
         self.dbtable_comboBox: QtW.QComboBox
+        # if self.case_checkBox.isChecked():
+        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+        # else:
+        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
         table = table_name.replace(" ", "")
         if table == 'Samples':
             self.sample_proxy_model.setFilterRegularExpression(search_expression)
+        elif table in self.dbtree_list:
+            self.tree_proxy_model.setFilterRegularExpression(search_expression)
         else:
             self.table_proxy_model.setFilterRegularExpression(search_expression)
 
@@ -225,27 +232,28 @@ class GeoChron(QtW.QMainWindow):
         new_source = ui.New_source.NewSource(source_list[0])
         new_source.exec()
 
-    def edit_popup(self, index):
+    def edit_popup(self):
         table_name = self.dbTable_comboBox.currentText()
-        # col = index.column()
-        # id_index = index.siblingAtColumn(0)
+        table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            # sample_id = self.sample_model.data(id_index)
-            # column_name = self.sample_model.record(index.row()).fieldName(col)
-            pass
-        elif table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
-            pass
+            dlg = EditTable(self.db, self.sample_model, table_name, 'table')
+        elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
+            return
+        elif table in self.dbtree_list:
+            dlg = EditTable(self.db, self.tree_model, table_name, 'tree')
         else:
-            source_index = self.table_proxy_model.mapToSource(index)
-            row = source_index.row()
-            dlg = EditTags(self.db, self.model, table_name, row)
-            dlg.exec()
-            self.display_table()
+            dlg = EditTable(self.db, self.model, table_name, 'table')
+        dlg.exec()
+        self.display_table()
 
     def add_popup(self):
         table_name = self.dbTable_comboBox.currentText()
         if table_name == 'Samples' or table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
             pass
+        elif table_name in self.dbtree_list:
+            dlg = AddTags(self.db, self.tree_model, table_name)
+            dlg.exec()
+            self.display_table()
         else:
             dlg = AddTags(self.db, self.model, table_name)
             dlg.exec()
