@@ -69,7 +69,8 @@ class TreeModel(QtC.QAbstractItemModel):
         self.table = table
         self.headers = []
         self.column_headers()
-        self.rootItem = TreeItem(self.headers, None)
+        self.rootItem = TreeItem(tuple(self.headers), None)
+        # self.rootItem = TreeItem(("ID", "Parent ID", "Name", "Description"), None)
         self.parents = {0: self.rootItem}
         self.parentItem = TreeItem(None, None)
         self.childItem = TreeItem(None, None)

@@ -47,6 +47,11 @@ class GeoChron(QtW.QMainWindow):
         self.switch_to_table()
 
         Create_db.create_tables(self.db_file)
+        self.dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
+                        'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
+                        'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
+        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Regions', 'RockTypes', 'SampleContext',
+                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
         self.display_table_list()
 
         self.ui_widgets()
@@ -73,7 +78,7 @@ class GeoChron(QtW.QMainWindow):
 
     def ui_widgets(self):
         self.dbTable_tableView: QtW.QTableView
-        self.dbTable_treeView: QtW.QTableView
+        self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
         self.search_lineEdit: QtW.QLineEdit
         self.add_pushButton: QtW.QPushButton
@@ -126,10 +131,7 @@ class GeoChron(QtW.QMainWindow):
         :return:
         """
         self.dbTable_comboBox: QtW.QComboBox
-        dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Regions',
-                        'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
-                        'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
-        self.dbTable_comboBox.addItems(dbtable_list)
+        self.dbTable_comboBox.addItems(self.dbtable_list)
         self.dbTable_comboBox.setCurrentText('Samples')
         self.display_table()
 
@@ -139,7 +141,7 @@ class GeoChron(QtW.QMainWindow):
         :return:
         """
         self.dbTable_tableView: QtW.QTableView
-        self.dbTable_treeView: QtW.QTableView
+        self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
         self.add_pushButton: QtW.QPushButton
         self.case_checkBox: QtW.QCheckBox
@@ -164,20 +166,14 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
-        elif table == 'Units':
+        elif table in self.dbtree_list:
             self.switch_to_tree()
-            unit_tree_model = TrC.TreeModel(table, None)
-            self.dbTable_treeView.setModel(unit_tree_model)
+            tree_model = TrC.TreeModel(table, None)
+            self.dbTable_treeView.setModel(tree_model)
+            self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView.setSortingEnabled(True)
-        elif table == 'Ages':
-            self.switch_to_tree()
-            age_tree_model = TrC.TreeModel(table, None)
-            self.dbTable_treeView.setModel(age_tree_model)
-            self.dbTable_treeView.header().sectionResizeMode(0, QtW.QHeaderView.ResizeMode.ResizeToContents)
-            self.dbTable_treeView.hideColumn(1)  # don't show ID column
-            self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
         else:
             self.switch_to_table()
             self.model.setTable(table)

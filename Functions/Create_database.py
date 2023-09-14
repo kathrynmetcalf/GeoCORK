@@ -62,24 +62,28 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
 
 CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContext(
                     SampleContextID INTEGER PRIMARY KEY,
+                    ParentSampleContextID INTEGER,
                     SampleContextName TEXT,
                     SampleContextDescription TEXT
                     )'''
 
 CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContext(
                     AliquotContextID INTEGER PRIMARY KEY,
+                    ParentAliquotContextID INTEGER,
                     AliquotContextName TEXT,
                     AliquotContextDescription TEXT
                     )'''
 
 CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContext(
                     SpotContextID INTEGER PRIMARY KEY,
+                    ParentSpotContextID INTEGER,
                     SpotContextName TEXT,
                     SpotContextDescription TEXT
                     )'''
 
 CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
                     SpotCompositionID INTEGER PRIMARY KEY,
+                    ParentSpotCompositionID INTEGER,
                     SpotCompositionName TEXT,
                     SpotCompositionDescription TEXT
                     )'''
@@ -96,12 +100,14 @@ CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
 
 CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     RegionID INTEGER PRIMARY KEY,
+                    ParentRegionID INTEGER,
                     RegionName TEXT,
                     RegionDescription TEXT
                     )'''
 
 CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
                     SettingID INTEGER PRIMARY KEY,
+                    ParentSettingID INTEGER,
                     SettingName TEXT,
                     SettingDescription TEXT
                     )'''
@@ -114,12 +120,14 @@ CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
 
 CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplingMethods(
                     SamplingMethodID INTEGER PRIMARY KEY,
+                    ParentSamplingMethodID INTEGER,
                     SamplingMethodName TEXT,
                     SamplingMethodDescription TEXT
                     )'''
 
 CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     RockTypeID INTEGER PRIMARY KEY,
+                    ParentRockTypeID INTEGER,
                     RockTypeName TEXT,
                     RockTypeDescription TEXT
                     )'''
@@ -141,6 +149,7 @@ CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
 
 CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
                     AgeSignatureID INTEGER PRIMARY KEY,
+                    ParentAgeSignatureID INTEGER,
                     AgeSignatureName TEXT,
                     AgeSignatureDescription TEXT
                     )'''
@@ -150,7 +159,8 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     SpotID INTEGER,
                     SourceID INTEGER,
                     LabFacilityID INTEGER,
-                    UPbAnalysisMethodID INTEGER
+                    InstrumentID INTEGER,
+                    UPbAnalysisMethodID INTEGER,
                     Uppm REAL,
                     "206Pb/204Pb" REAL,
                     "U/Th" REAL,
@@ -185,6 +195,9 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     FOREIGN KEY(UPbAnalysisMethodID) REFERENCES UPbAnalysisMethods(UPbAnalysisMethodID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
+                    FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
                     )'''
 
 CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
@@ -208,6 +221,12 @@ CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMet
                     UPbAnalysisMethodID INTEGER PRIMARY KEY,
                     UPbAnalysisName TEXT,
                     UPbAnalysisDescription TEXT
+                    )'''
+
+CREATE_INSTRUMENTS_TABLE = '''CREATE TABLE IF NOT EXISTS Instruments(
+                    InstrumentID INTEGER PRIMARY KEY,
+                    InstrumentName TEXT,
+                    InstrumentDescription TEXT
                     )'''
 
 CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContext(
@@ -376,6 +395,8 @@ def create_tables(db_file):
         c.execute(CREATE_SPOTS_TABLE)
 
         c.execute(CREATE_LAB_FACILITIES_TABLE)
+
+        c.execute(CREATE_INSTRUMENTS_TABLE)
 
         c.execute(CREATE_UPB_ANALYSIS_METHODS_TABLE)
 

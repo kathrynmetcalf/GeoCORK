@@ -21,9 +21,11 @@ def add_data(db_file):
         c.execute('DELETE FROM Sources')
         c.execute('DELETE FROM UPbData')
         c.execute('INSERT INTO RockTypes (RockTypeName, RockTypeDescription) '
-                  'VALUES("Sandstone", "All types")')
-        c.execute('INSERT INTO RockTypes (RockTypeName, RockTypeDescription) '
-                  'VALUES("Siliciclastic matrix", "Melange matrix")')
+                  'VALUES("Sedimentary", "Sedimentary rocks types")')
+        c.execute('INSERT INTO RockTypes (ParentRockTypeID, RockTypeName, RockTypeDescription) '
+                  'VALUES(1, "Sandstone", "All types")')
+        c.execute('INSERT INTO RockTypes (ParentRockTypeID, RockTypeName, RockTypeDescription) '
+                  'VALUES(1, "Siliciclastic matrix", "Melange matrix")')
         c.execute('INSERT INTO RockTypes (RockTypeName, RockTypeDescription) '
                   'VALUES("Tuffaceous chert", "Chert with volcanic tuff")')
         c.execute('INSERT INTO Samples (SampleName, AverageAge, OldestAgeID, YoungestAgeID, '
