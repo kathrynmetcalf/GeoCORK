@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import sqlite3
+import re
 # import pandas as pd
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -12,6 +13,7 @@ from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
+import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
 from ui.EditTags import EditTags
@@ -150,16 +152,16 @@ class GeoChron(QtW.QMainWindow):
         #     '''Click cancel should stop this method'''
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
-        table = table_name.replace(" ", "")
+        table = TxM.remove_spaces(table_name)
         if table == 'Samples':
             self.switch_to_table()
             query = TbC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.sample_proxy_model.setSourceModel(self.sample_model)
-            if self.case_checkBox.isChecked():
-                self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-            else:
-                self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            # if self.case_checkBox.isChecked():
+            #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+            # else:
+            #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column

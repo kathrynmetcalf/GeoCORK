@@ -3,7 +3,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
-import sys
+import Functions.Text_manipulations as TxM
 
 
 class TreeItem:
@@ -183,10 +183,12 @@ class TreeModel(QtC.QAbstractItemModel):
             return QtC.Qt.ItemFlag.NoItemFlags
         return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
 
-    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...) -> typing.Any:
-        if orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.DisplayRole:
-            return self.rootItem.data(section)
-        return QtC.QVariant
+    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
+        if role != QtC.Qt.ItemDataRole.DisplayRole:
+            return QtC.QVariant()
+        if orientation == QtC.Qt.Orientation.Horizontal:
+            return TxM.add_spaces_camel(self.rootItem.data(section))
+        return QtC.QVariant()
 
 
 
