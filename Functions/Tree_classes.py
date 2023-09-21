@@ -53,6 +53,9 @@ class TreeItem:
         else:
             return self.itemData[column]
 
+    # def setData(self, column: int, value: typing.Any):
+
+
     def parent(self):
         # parent for given item
         if self.itemData is None or type(self.itemData[1]) is not int:
@@ -175,13 +178,12 @@ class TreeModel(QtC.QAbstractItemModel):
         item = index.internalPointer()
         if role == QtC.Qt.ItemDataRole.DisplayRole:
             return item.data(index.column())
-
         return None
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
             return QtC.Qt.ItemFlag.NoItemFlags
-        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
+        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
         if role != QtC.Qt.ItemDataRole.DisplayRole:
@@ -189,6 +191,10 @@ class TreeModel(QtC.QAbstractItemModel):
         if orientation == QtC.Qt.Orientation.Horizontal:
             return TxM.add_spaces_camel(self.rootItem.data(section))
         return QtC.QVariant()
+
+    # def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = ...) -> bool:
+    #     if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
+    #         self._data(index, role) = value
 
 
 

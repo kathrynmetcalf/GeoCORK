@@ -5,9 +5,10 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
+from ui.AddTags import AddTags
 
 class EditTable(QtW.QDialog):
-    def __init__(self, database, model, table_name, type):
+    def __init__(self, database, model, table_name, tree_list, table_type):
         super().__init__()
 
         # Define any widgets here
@@ -15,20 +16,34 @@ class EditTable(QtW.QDialog):
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
-        self.type = type  # table or tree
+        self.dbtree_list = tree_list
+        self.table_type = table_type  # table or tree
         self.table = TxM.remove_spaces(table_name)
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
         self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
-        if self.type == 'table':
+        if self.table_type == 'table':
             self.display_table()
-        if self.type == 'tree':
+        if self.table_type == 'tree':
             self.display_tree()
 
+        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
+            pass
+        elif self.table in self.dbtree_list:
+            pass
+        else:
+            self.model: QtS.QSqlTableModel
+            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
+            self.model.dataChanged.connect(self.change_notice)
+
+        self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.apply_pushButton.clicked.connect(self.apply)
         self.cancel_pushButton.clicked.connect(self.rollback)
+
+    def change_notice(self):
+        print('Change detected')
 
     def display_table(self):
         self.switch_to_table()
@@ -59,15 +74,38 @@ class EditTable(QtW.QDialog):
         """
         self.edit_stackedWidget.setCurrentWidget(self.edit_tree)
 
+    def add_popup(self):
+        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
+            pass
+        elif self.table in self.dbtree_list:
+            dlg = AddTags(self.db, self.tree_model, self.table)
+            dlg.exec()
+            self.display_table()
+        else:
+            dlg = AddTags(self.db, self.model, self.table)
+            dlg.exec()
+            self.display_table()
+
     def rollback(self):
-        pass
+        self.rejected()
 
     def apply(self):
         pass
 
     def commit(self):
-        pass
+        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
+            success = True
+        elif self.table in self.dbtree_list:
+            success = True
+        else:
+            success = self.model.submitAll()
+            err = self.model.lastError()
 
+        if success:
+            self.accept()
+        else:
+            error_popup = QtW.QErrorMessage()
+            error_popup.showMessage(err.text())
 
 if __name__ == '__main__':
     # only run these commands if this script is run

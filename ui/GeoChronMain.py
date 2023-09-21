@@ -61,9 +61,6 @@ class GeoChron(QtW.QMainWindow):
 
         self.ui_widgets()
 
-        # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
-        # self.dbTable_comboBox.setCurrentIndex(-1)
-
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
 
@@ -176,12 +173,11 @@ class GeoChron(QtW.QMainWindow):
             self.switch_to_table()
             self.model.setTable(table)
             self.model.select()
-            # self.model.editStrategy.OnManualSubmit
             self.table_proxy_model.setSourceModel(self.model)
-            if self.case_checkBox.isChecked():
-                self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-            else:
-                self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            # if self.case_checkBox.isChecked():
+            #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+            # else:
+            #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
@@ -227,47 +223,36 @@ class GeoChron(QtW.QMainWindow):
                 print(existing)
                 return existing
 
-    def open_new_source(self):
-        source_list = self.get_existing('"Short Citation"', '"Sources"')
-        new_source = ui.New_source.NewSource(source_list[0])
-        new_source.exec()
+    # def open_new_source(self):
+    #     source_list = self.get_existing('"Short Citation"', '"Sources"')
+    #     new_source = ui.New_source.NewSource(source_list[0])
+    #     new_source.exec()
 
     def edit_popup(self):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditTable(self.db, self.sample_model, table_name, 'table')
+            dlg = EditTable(self.db, self.sample_model, table_name, self.dbtree_list, 'table')
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
-            dlg = EditTable(self.db, self.tree_model, table_name, 'tree')
+            dlg = EditTable(self.db, self.tree_model, table_name, self.dbtree_list, 'tree')
         else:
-            dlg = EditTable(self.db, self.model, table_name, 'table')
+            dlg = EditTable(self.db, self.model, table_name, self.dbtree_list, 'table')
         dlg.exec()
         self.display_table()
 
-    def add_popup(self):
-        table_name = self.dbTable_comboBox.currentText()
-        if table_name == 'Samples' or table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
-            pass
-        elif table_name in self.dbtree_list:
-            dlg = AddTags(self.db, self.tree_model, table_name)
-            dlg.exec()
-            self.display_table()
-        else:
-            dlg = AddTags(self.db, self.model, table_name)
-            dlg.exec()
-            self.display_table()
 
-    def submit(self):
-        table_name = self.dbTable_comboBox.currentText()
-        # Remove spaces from display names
-        table = table_name.replace(" ", "")
-        if table == 'Samples':
-            # self.sample_model.submitAll()
-            pass
-        else:
-            self.model.submitAll()
+
+    # def submit(self):
+    #     table_name = self.dbTable_comboBox.currentText()
+    #     # Remove spaces from display names
+    #     table = table_name.replace(" ", "")
+    #     if table == 'Samples':
+    #         # self.sample_model.submitAll()
+    #         pass
+    #     else:
+    #         self.model.submitAll()
 
     # End methods here
 

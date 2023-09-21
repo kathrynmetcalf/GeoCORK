@@ -5,10 +5,10 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
-
+import Functions.Text_manipulations as TxM
 
 class AddTags(QtW.QDialog):
-    def __init__(self, database, model, table_name):
+    def __init__(self, database, model, table):
         super().__init__()
 
         # Define any widgets here
@@ -16,8 +16,9 @@ class AddTags(QtW.QDialog):
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
-        self.table = table_name.replace(" ", "")
-        self.selectTags_label.setText(table_name)
+        self.table = table
+        self.table_name = TxM.add_spaces_camel(self.table)
+        self.selectTags_label.setText(self.table_name)
         self.clear_warning()
 
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
