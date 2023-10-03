@@ -126,6 +126,9 @@ class TreeModel(QtC.QAbstractItemModel):
             new_child_ids = self.find_children(new_parent_id)
             self.add_to_tree(new_child_ids, new_parent)
 
+    def add_top_item(self, data):
+        TreeItem(data, 0)
+
     def column_headers(self):
         query = QtS.QSqlQuery()
         query.prepare(f'PRAGMA table_info({self.table})')

@@ -173,6 +173,9 @@ class GeoChron(QtW.QMainWindow):
             self.switch_to_table()
             self.model.setTable(table)
             self.model.select()
+            for col in range(self.model.columnCount()):
+                header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             self.table_proxy_model.setSourceModel(self.model)
             # if self.case_checkBox.isChecked():
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)

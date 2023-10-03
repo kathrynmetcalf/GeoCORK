@@ -5,6 +5,8 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
+import Functions.Errors as Er
+import Functions.Tree_classes as TrC
 from ui.AddTags import AddTags
 
 class EditTable(QtW.QDialog):
@@ -34,16 +36,33 @@ class EditTable(QtW.QDialog):
             pass
         else:
             self.model: QtS.QSqlTableModel
+
             self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-            self.model.dataChanged.connect(self.change_notice)
+            self.model.dataChanged.connect(self.error_check)
 
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.apply_pushButton.clicked.connect(self.apply)
         self.cancel_pushButton.clicked.connect(self.rollback)
 
-    def change_notice(self):
-        print('Change detected')
+    def error_check(self):
+        entries = []
+        duplicates = []
+        unique_header = TxM.remove_spaces(self.model.headerData(1, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+        for row in range(self.model.rowCount()):
+            next_entry = self.model.record(row).value(unique_header)
+            if not next_entry: # If the required field is blank
+                Er.Errors.blank_entry(self, unique_header)
+                return True
+            if next_entry.casefold() not in (entry.casefold() for entry in entries):
+                entries.append(next_entry)
+            else:
+                duplicates.append(next_entry)
+        if duplicates: # pass self to Errors file to show
+            Er.Errors.duplicate_entry(self, unique_header, duplicates)
+            # error_dialog = QtW.QErrorMessage()
+            # error_dialog.showMessage(text)
+            return True
 
     def display_table(self):
         self.switch_to_table()
@@ -86,8 +105,24 @@ class EditTable(QtW.QDialog):
             dlg.exec()
             self.display_table()
 
+    # def contextMenuEvent(self, pos):
+    #     self.model: TrC.TreeModel
+    #     if (self.model.
+    #         ().selection().indexes()):
+    #         for i in self.selectionModel().selection().indexes():
+    #             row, column = i.row(), i.column()
+    #         menu = QtGui.QMenu()
+    #         childAction = menu.addAction("Add child")
+    #         parentAction = menu.addAction("Add parent")
+    #         action = menu.exec_(self.mapToGlobal(pos))
+    #         if action == childAction:
+    #             # add child
+    #         if action == parentAction:
+    #             # add parent
+
+
     def rollback(self):
-        self.rejected()
+        self.reject()
 
     def apply(self):
         pass
@@ -98,14 +133,18 @@ class EditTable(QtW.QDialog):
         elif self.table in self.dbtree_list:
             success = True
         else:
-            success = self.model.submitAll()
-            err = self.model.lastError()
+            if not self.error_check(): # If there are no errors
+                success = self.model.submitAll()
+                err = self.model.lastError()
+            else:
+                return
 
         if success:
             self.accept()
         else:
-            error_popup = QtW.QErrorMessage()
-            error_popup.showMessage(err.text())
+            if err.isValid():
+                error_popup = QtW.QErrorMessage()
+                error_popup.showMessage(err.text())
 
 if __name__ == '__main__':
     # only run these commands if this script is run
