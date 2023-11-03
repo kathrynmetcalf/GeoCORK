@@ -3,13 +3,15 @@ import xml.etree.ElementTree as ET  # xml reader
 
 '''Commands to create the database
 Foreign keys are set to cascade on update
-When a foreign key is deleted, most will be set to null'''
+When a foreign key is deleted, most will be set to null
+The only exception is the AliquotID in the Spots table, which will cascade on delete
+Names must be unique and are checked for case sensitivity'''
 
 '''SQL strings to create each table'''
 
 CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleID INTEGER PRIMARY KEY,
-                    SampleName TEXT, 
+                    SampleName TEXT NOT NULL CHECK (SampleName <> '') UNIQUE (SampleName COLLATE NOCASE), 
                     AverageAge REAL,
                     AverageAgeError REAL,
                     ErrorSigma TEXT,
@@ -43,7 +45,7 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
 
 CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
                     AliquotID INTEGER PRIMARY KEY,
-                    AliquotName TEXT,
+                    AliquotName TEXT NOT NULL CHECK (AliquotName <> '') UNIQUE (AliquotName COLLATE NOCASE),
                     SampleID INTEGER,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
@@ -52,7 +54,7 @@ CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
 
 CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     SpotID INTEGER PRIMARY KEY,
-                    SpotName TEXT,
+                    SpotName TEXT NOT NULL CHECK (SpotName <> '') UNIQUE (SpotName COLLATE NOCASE),
                     AliquotID INTEGER,
                     SpotCompositionID INTEGER,
                     FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
@@ -66,28 +68,28 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
 CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContext(
                     SampleContextID INTEGER PRIMARY KEY,
                     ParentSampleContextID INTEGER,
-                    SampleContextName TEXT,
+                    SampleContextName TEXT NOT NULL CHECK (SampleContextName <> '') UNIQUE (SampleContextName COLLATE NOCASE),
                     SampleContextDescription TEXT
                     )'''
 
 CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContext(
                     AliquotContextID INTEGER PRIMARY KEY,
                     ParentAliquotContextID INTEGER,
-                    AliquotContextName TEXT,
+                    AliquotContextName TEXT NOT NULL CHECK (AliquotContextName <> '') UNIQUE (AliquotContextName COLLATE NOCASE),
                     AliquotContextDescription TEXT
                     )'''
 
 CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContext(
                     SpotContextID INTEGER PRIMARY KEY,
                     ParentSpotContextID INTEGER,
-                    SpotContextName TEXT,
+                    SpotContextName TEXT NOT NULL CHECK (SpotContextName <> '') UNIQUE (SpotContextName COLLATE NOCASE),
                     SpotContextDescription TEXT
                     )'''
 
 CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
                     SpotCompositionID INTEGER PRIMARY KEY,
                     ParentSpotCompositionID INTEGER,
-                    SpotCompositionName TEXT,
+                    SpotCompositionName TEXT NOT NULL CHECK (SpotCompositionName <> '') UNIQUE (SpotCompositionName COLLATE NOCASE),
                     SpotCompositionDescription TEXT
                     )'''
 
@@ -98,54 +100,54 @@ CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
                     Title TEXT,
                     Source TEXT,
                     doi TEXT,
-                    ShortCitation TEXT
+                    ShortCitation TEXT NOT NULL CHECK (ShortCitation <> '') UNIQUE (ShortCitation COLLATE NOCASE),
                     )'''
 
 CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     RegionID INTEGER PRIMARY KEY,
                     ParentRegionID INTEGER,
-                    RegionName TEXT,
+                    RegionName TEXT NOT NULL CHECK (RegionName <> '') UNIQUE (RegionName COLLATE NOCASE),
                     RegionDescription TEXT
                     )'''
 
 CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
                     SettingID INTEGER PRIMARY KEY,
                     ParentSettingID INTEGER,
-                    SettingName TEXT,
+                    SettingName TEXT NOT NULL CHECK (SettingName <> '') UNIQUE (SettingName COLLATE NOCASE),
                     SettingDescription TEXT
                     )'''
 
 CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                     ColumnID INTEGER PRIMARY KEY,
-                    ColumnName TEXT,
+                    ColumnName TEXT NOT NULL CHECK (ColumnName <> '') UNIQUE (ColumnName COLLATE NOCASE),
                     ColumnDescription TEXT
                     )'''
 
 CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplingMethods(
                     SamplingMethodID INTEGER PRIMARY KEY,
                     ParentSamplingMethodID INTEGER,
-                    SamplingMethodName TEXT,
+                    SamplingMethodName TEXT NOT NULL CHECK (SamplingMethodName <> '') UNIQUE (SamplingMethodName COLLATE NOCASE),
                     SamplingMethodDescription TEXT
                     )'''
 
 CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     RockTypeID INTEGER PRIMARY KEY,
                     ParentRockTypeID INTEGER,
-                    RockTypeName TEXT,
+                    RockTypeName TEXT NOT NULL CHECK (RockTypeName <> '') UNIQUE (RockTypeName COLLATE NOCASE),
                     RockTypeDescription TEXT
                     )'''
 
 CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UnitID INTEGER PRIMARY KEY,
                     ParentUnitID INTEGER,
-                    UnitName TEXT,
+                    UnitName TEXT NOT NULL CHECK (UnitName <> '') UNIQUE (UnitName COLLATE NOCASE),
                     UnitDescription TEXT
                     )'''
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
                     AgeID INTEGER PRIMARY KEY,
                     ParentAgeID INTEGER,
-                    AgeName TEXT,
+                    AgeName TEXT NOT NULL CHECK (AgeName <> '') UNIQUE (AgeName COLLATE NOCASE),
                     MaxMa REAL,
                     MinMa REAL
                     )'''
@@ -153,13 +155,13 @@ CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
 CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
                     AgeSignatureID INTEGER PRIMARY KEY,
                     ParentAgeSignatureID INTEGER,
-                    AgeSignatureName TEXT,
+                    AgeSignatureName TEXT NOT NULL CHECK (AgeSignatureName <> '') UNIQUE (AgeSignatureName COLLATE NOCASE),
                     AgeSignatureDescription TEXT
                     )'''
 
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     UPbAnalysisID INTEGER PRIMARY KEY,
-                    SpotID INTEGER,
+                    SpotID INTEGER NOT NULL,
                     SourceID INTEGER,
                     LabFacilityID INTEGER,
                     InstrumentID INTEGER,
@@ -205,7 +207,7 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
 
 CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
                     GeochemAnalysisID INTEGER PRIMARY KEY,
-                    SpotID INTEGER,
+                    SpotID INTEGER NOT NULL,
                     MajorElements TEXT,
                     TraceElements TEXT,
                     REEs TEXT,
@@ -216,19 +218,19 @@ CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
 
 CREATE_LAB_FACILITIES_TABLE = '''CREATE TABLE IF NOT EXISTS LabFacilities(
                     LabFacilityID INTEGER PRIMARY KEY,
-                    LabFacilityName TEXT,
+                    LabFacilityName TEXT NOT NULL CHECK (LabFacilityName <> '') UNIQUE (LabFacilityName COLLATE NOCASE),
                     LabFacilityDescription TEXT
                     )'''
 
 CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
                     UPbAnalysisMethodID INTEGER PRIMARY KEY,
-                    UPbAnalysisName TEXT,
+                    UPbAnalysisName TEXT NOT NULL CHECK (UPbAnalysisName <> '') UNIQUE (UPbAnalysisName COLLATE NOCASE),
                     UPbAnalysisDescription TEXT
                     )'''
 
 CREATE_INSTRUMENTS_TABLE = '''CREATE TABLE IF NOT EXISTS Instruments(
                     InstrumentID INTEGER PRIMARY KEY,
-                    InstrumentName TEXT,
+                    InstrumentName TEXT NOT NULL CHECK (InstrumentName <> '') UNIQUE (InstrumentName COLLATE NOCASE),
                     InstrumentDescription TEXT
                     )'''
 
@@ -344,7 +346,7 @@ CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Units(
 
 CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS FilterGroups(
                     FilterGroupID INTEGER PRIMARY KEY,
-                    FilterGroupName TEXT,
+                    FilterGroupName TEXT NOT NULL CHECK (FilterGroupName <> '') UNIQUE (FilterGroupName COLLATE NOCASE),
                     SQLQuery TEXT,
                     DefaultColor TEXT,
                     FilterGroupDescription TEXT
