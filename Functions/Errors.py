@@ -1,19 +1,19 @@
+import sys
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 
-class Errors(QtW.QErrorMessage):
+def duplicate_entry(header, duplicates):
+    strlst = ', '.join(duplicates)
+    text = f'''Each entry in {header} must be unique (case insensitive)
+                Duplicates: {strlst}'''
+    return text
 
-    def show_error(self, parent, text: str):
-        error_message = QtW.QErrorMessage(parent)
-        error_message.showMessage(text)
-        error_message.exec()
+def blank_entry(header):
+    text = f'{header} cannot be blank'
+    return text
 
-    def duplicate_entry(self, parent, header: str, duplicates: list):
-        text = f'''Each entry in {header} must be unique (case insensitive)
-                    Duplicates: {duplicates}'''
-        self.show_error(text)
-
-    def blank_entry(self, parent, header: str):
-        text = f'{header} cannot be blank'
-        self.show_error(parent, text)
+if __name__ == '__main__':
+    # only run these commands if this script is run
+    # Can't be run when used as a library for another script
+    pass

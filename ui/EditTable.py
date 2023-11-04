@@ -24,6 +24,7 @@ class EditTable(QtW.QDialog):
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
         self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+        self.errmsg = QtW.QMessageBox(self)
 
         if self.table_type == 'table':
             self.display_table()
@@ -38,31 +39,33 @@ class EditTable(QtW.QDialog):
             self.model: QtS.QSqlTableModel
 
             self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-            self.model.dataChanged.connect(self.error_check)
 
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.apply_pushButton.clicked.connect(self.apply)
         self.cancel_pushButton.clicked.connect(self.rollback)
+        self.model.dataChanged.connect(self.handleDataChanged)
 
-    def error_check(self):
-        entries = []
-        duplicates = []
-        unique_header = TxM.remove_spaces(self.model.headerData(1, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-        for row in range(self.model.rowCount()):
-            next_entry = self.model.record(row).value(unique_header)
-            if not next_entry: # If the required field is blank
-                Er.Errors.blank_entry(self, unique_header)
-                return True
-            if next_entry.casefold() not in (entry.casefold() for entry in entries):
-                entries.append(next_entry)
+
+    def handleDataChanged(self, index):
+        row = index.row()
+        column = index.column()
+        if index.isValid():
+            source_index = self.filter_proxy_model.mapToSource(index)
+            source_model = self.filter_proxy_model.sourceModel()
+            if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
+                pass
+            elif self.table in self.dbtree_list:
+                pass
             else:
-                duplicates.append(next_entry)
-        if duplicates: # pass self to Errors file to show
-            Er.Errors.duplicate_entry(self, unique_header, duplicates)
-            # error_dialog = QtW.QErrorMessage()
-            # error_dialog.showMessage(text)
-            return True
+                if row == 1 and index.data() is None:
+                    errtxt = Er.blank_entry('Name')
+                    self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok,
+                                         QtW.QMessageBox.StandardButton.Ok)
+                else:
+                    source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
+
+
 
     def display_table(self):
         self.switch_to_table()
@@ -128,23 +131,8 @@ class EditTable(QtW.QDialog):
         pass
 
     def commit(self):
-        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
-            success = True
-        elif self.table in self.dbtree_list:
-            success = True
-        else:
-            if not self.error_check(): # If there are no errors
-                success = self.model.submitAll()
-                err = self.model.lastError()
-            else:
-                return
+        self.accept()
 
-        if success:
-            self.accept()
-        else:
-            if err.isValid():
-                error_popup = QtW.QErrorMessage()
-                error_popup.showMessage(err.text())
 
 if __name__ == '__main__':
     # only run these commands if this script is run

@@ -5,118 +5,155 @@ import sqlite3
 
 '''Triggers for missing pairs and units, only triggers if there is corresponding data'''
 '''e.g. there is latitude but not longitude or an elevation value but no unit'''
-INSERT_MISSING_PAIRS_TRIGGERS = '''
-CREATE TRIGGER validate_hd_units_before_insert BEFORE INSERT ON Samples
+INSERT_HD_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_hd_units_before_insert BEFORE INSERT ON Samples
+BEGIN
+    SELECT CASE
+        WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL THEN
+            RAISE (ABORT,'Height/depth value with missing units')
+        END;
+END;'''
+INSERT_ELEV_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_elev_units_before_insert BEFORE INSERT ON Samples
+BEGIN
+    SELECT CASE
+        WHEN NEW.Elev IS NOT NULL AND NEW.ElevUnit IS NULL THEN
+            RAISE (ABORT,'Elevation value with missing units')
+        END;
+END;'''
+INSERT_SPOT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_spot_units_before_insert BEFORE INSERT ON UPbData
+BEGIN
+    SELECT CASE
+        WHEN NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnit IS NULL THEN
+            RAISE (ABORT,'Spot size value with missing units')
+        END;
+END;
+'''
+INSERT_LATLON_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_latlon_deg_before_insert BEFORE INSERT ON Samples
+BEGIN
+    SELECT CASE
+        WHEN NEW.LatDeg IS NOT NULL AND NEW.LonDeg IS NULL THEN
+            RAISE (ABORT,'Latitude degrees is missing corresponding longitude degrees')
+        END;
+    SELECT CASE
+        WHEN NEW.LonDeg IS NOT NULL AND NEW.LatDeg IS NULL THEN
+            RAISE (ABORT,'Longitude degrees is missing corresponding latitude degrees')
+        END;
+    SELECT CASE
+        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
+            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
+        END;
+END;
+'''
+INSERT_UTM_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_utm_before_insert BEFORE INSERT ON Samples
+BEGIN
+    SELECT CASE
+        WHEN NEW.UTMN IS NOT NULL AND NEW.UTMZone IS NULL THEN
+            RAISE (ABORT,'UTM coordinates with missing zone')
+        END;
+    SELECT CASE
+        WHEN NEW.UTMN IS NOT NULL AND NEW.UTME IS NULL THEN
+            RAISE (ABORT,'UTM northing missing corresponding easting')
+        END;
+    SELECT CASE
+        WHEN NEW.UTME IS NOT NULL AND NEW.UTMN IS NULL THEN
+            RAISE (ABORT,'UTM easting missing corresponding northing')
+        END;
+    SELECT CASE
+        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
+            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
+        END;
+END;
+'''
+
+UPDATE_HD_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_hd_units_before_update BEFORE UPDATE ON Samples
 BEGIN
     SELECT CASE
         WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL THEN
             RAISE (ABORT,'Height/depth value with missing units')
         END;
 END;
-CREATE TRIGGER validate_elev_units_before_insert BEFORE INSERT ON Samples
+'''
+UPDATE_ELEV_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_elev_units_before_update BEFORE UPDATE ON Samples
 BEGIN
     SELECT CASE
-        WHEN Elev IS NOT NULL AND ElevUnit IS NULL THEN
+        WHEN NEW.Elev IS NOT NULL AND NEW.ElevUnit IS NULL THEN
             RAISE (ABORT,'Elevation value with missing units')
         END;
 END;
-CREATE TRIGGER validate_spot_units_before_insert BEFORE INSERT ON UPbData
+'''
+UPDATE_SPOT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_spot_units_before_update BEFORE UPDATE ON UPbData
 BEGIN
     SELECT CASE
-        WHEN SpotSize IS NOT NULL AND SpotSizeUnit IS NULL THEN
+        WHEN NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnit IS NULL THEN
             RAISE (ABORT,'Spot size value with missing units')
         END;
 END;
-CREATE TRIGGER validate_latlon_deg_before_insert BEFORE INSERT ON Samples
+'''
+UPDATE_LATLON_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_latlon_deg_before_update BEFORE UPDATE ON Samples
 BEGIN
     SELECT CASE
-        WHEN LatDeg IS NOT NULL AND LonDeg IS NULL THEN
+        WHEN NEW.LatDeg IS NOT NULL AND NEW.LonDeg IS NULL THEN
             RAISE (ABORT,'Latitude degrees is missing corresponding longitude degrees')
         END;
     SELECT CASE
-        WHEN LonDeg IS NOT NULL AND LatDeg IS NULL THEN
+        WHEN NEW.LonDeg IS NOT NULL AND NEW.LatDeg IS NULL THEN
             RAISE (ABORT,'Longitude degrees is missing corresponding latitude degrees')
         END;
+    SELECT CASE
+        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
+            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
+        END;
 END;
-CREATE TRIGGER validate_utm_before_insert BEFORE INSERT ON Samples
+'''
+UPDATE_UTM_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS validate_utm_before_update BEFORE UPDATE ON Samples
 BEGIN
     SELECT CASE
-        WHEN UTMN IS NOT NULL AND UTMZone IS NULL THEN
+        WHEN NEW.UTMN IS NOT NULL AND NEW.UTMZone IS NULL THEN
             RAISE (ABORT,'UTM coordinates with missing zone')
         END;
     SELECT CASE
-        WHEN UTMN IS NOT NULL AND UTME IS NULL THEN
+        WHEN NEW.UTMN IS NOT NULL AND NEW.UTME IS NULL THEN
             RAISE (ABORT,'UTM northing missing corresponding easting')
         END;
     SELECT CASE
-        WHEN UTME IS NOT NULL AND UTMN IS NULL THEN
+        WHEN NEW.UTME IS NOT NULL AND NEW.UTMN IS NULL THEN
             RAISE (ABORT,'UTM easting missing corresponding northing')
+        END;
+    SELECT CASE
+        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
+            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
         END;
 END;
 '''
 
-UPDATE_MISSING_PAIRS_TRIGGERS = '''
-CREATE TRIGGER validate_hd_units_before_update BEFORE UPDATE ON Samples
-BEGIN
-    SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing units')
-        END;
-END;
-CREATE TRIGGER validate_elev_units_before_update BEFORE UPDATE ON Samples
-BEGIN
-    SELECT CASE
-        WHEN Elev IS NOT NULL AND ElevUnit IS NULL THEN
-            RAISE (ABORT,'Elevation value with missing units')
-        END;
-END;
-CREATE TRIGGER validate_spot_units_before_update BEFORE UPDATE ON UPbData
-BEGIN
-    SELECT CASE
-        WHEN SpotSize IS NOT NULL AND SpotSizeUnit IS NULL THEN
-            RAISE (ABORT,'Spot size value with missing units')
-        END;
-END;
-CREATE TRIGGER validate_latlon_deg_before_update BEFORE UPDATE ON Samples
-BEGIN
-    SELECT CASE
-        WHEN LatDeg IS NOT NULL AND LonDeg IS NULL THEN
-            RAISE (ABORT,'Latitude degrees is missing corresponding longitude degrees')
-        END;
-    SELECT CASE
-        WHEN LonDeg IS NOT NULL AND LatDeg IS NULL THEN
-            RAISE (ABORT,'Longitude degrees is missing corresponding latitude degrees')
-        END;
-END;
-CREATE TRIGGER validate_utm_before_update BEFORE UPDATE ON Samples
-BEGIN
-    SELECT CASE
-        WHEN UTMN IS NOT NULL AND UTMZone IS NULL THEN
-            RAISE (ABORT,'UTM coordinates with missing zone')
-        END;
-    SELECT CASE
-        WHEN UTMN IS NOT NULL AND UTME IS NULL THEN
-            RAISE (ABORT,'UTM northing missing corresponding easting')
-        END;
-    SELECT CASE
-        WHEN UTME IS NOT NULL AND UTMN IS NULL THEN
-            RAISE (ABORT,'UTM easting missing corresponding northing')
-        END;
-END;
-'''
-
-def create_triggers(db_file):
+def create_triggers(c):
     """
-    Connect to the database and execute the sql strings defined above to create the database indexes
-    :param db_file: Database file with full path
+    Take database cursor and execute the sql strings defined above to create the database triggers
+    :param c: Cursor of database connection
     """
-    conn = sqlite3.connect(db_file)
-    with conn:
-        c = conn.cursor()
-
-        c.execute(INSERT_MISSING_PAIRS_TRIGGERS)
-        c.execute(UPDATE_MISSING_PAIRS_TRIGGERS)
+    c.execute(INSERT_HD_TRIGGER)
+    c.execute(INSERT_ELEV_TRIGGER)
+    c.execute(INSERT_SPOT_TRIGGER)
+    c.execute(INSERT_LATLON_TRIGGER)
+    c.execute(INSERT_UTM_TRIGGER)
+    c.execute(UPDATE_HD_TRIGGER)
+    c.execute(UPDATE_ELEV_TRIGGER)
+    c.execute(UPDATE_SPOT_TRIGGER)
+    c.execute(UPDATE_LATLON_TRIGGER)
+    c.execute(UPDATE_UTM_TRIGGER)
 
 if __name__ == '__main__':
     db_file = '../TestSchema.db'
-    create_triggers(db_file)
+    conn = sqlite3.connect(db_file)
+    with conn:
+        c = conn.cursor()
+        create_triggers(db_file)

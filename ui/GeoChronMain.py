@@ -143,9 +143,6 @@ class GeoChron(QtW.QMainWindow):
         self.dbTable_comboBox: QtW.QComboBox
         self.add_pushButton: QtW.QPushButton
         self.case_checkBox: QtW.QCheckBox
-        # if self.model.isDirty() is True:
-        #     self.save_popup()
-        #     '''Click cancel should stop this method'''
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
@@ -226,11 +223,6 @@ class GeoChron(QtW.QMainWindow):
                 print(existing)
                 return existing
 
-    # def open_new_source(self):
-    #     source_list = self.get_existing('"Short Citation"', '"Sources"')
-    #     new_source = ui.New_source.NewSource(source_list[0])
-    #     new_source.exec()
-
     def edit_popup(self):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
@@ -244,18 +236,6 @@ class GeoChron(QtW.QMainWindow):
             dlg = EditTable(self.db, self.model, table_name, self.dbtree_list, 'table')
         dlg.exec()
         self.display_table()
-
-
-
-    # def submit(self):
-    #     table_name = self.dbTable_comboBox.currentText()
-    #     # Remove spaces from display names
-    #     table = table_name.replace(" ", "")
-    #     if table == 'Samples':
-    #         # self.sample_model.submitAll()
-    #         pass
-    #     else:
-    #         self.model.submitAll()
 
     # End methods here
 

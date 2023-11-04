@@ -28,6 +28,9 @@ class SampleTableModel(QtS.QSqlQueryModel):
         qcolumn_data = 'HeightDepth || "±" || COALESCE(HeightDepthError, " " || HeightDepthUnit) as "Column Data"'
         qlat = f'''LatDeg || "°" || LatMin || "'" || LatSec || '"' as "Latitude"'''
         qlon = f'''LonDeg || "°" || LonMin || "'" || LonSec || '"' as "Longitude"'''
+        qutm_zone = 'UTMZone As "UTM Zone"'
+        qutm_n = 'UTMN As "UTM Northing"'
+        qutm_e = 'UTME As "UTM Easting"'
         qelev = 'Elev || "±" || COALESCE(ElevError, " " || ElevUnit) as "Elevation"'
         qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
         qspots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
@@ -38,7 +41,7 @@ class SampleTableModel(QtS.QSqlQueryModel):
         qregions = 'GROUP_CONCAT(DISTINCT RegionName) as "Regions"'
         qsettings = 'GROUP_CONCAT(DISTINCT SettingName) as "Settings"'
         qunits = 'GROUP_CONCAT(DISTINCT UnitName) as "Units"'
-        qupb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
+        qupb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         qlabs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
         qspot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
         qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
@@ -81,6 +84,9 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         {qsample_name},
                         {qlat},
                         {qlon},
+                        {qutm_zone},
+                        {qutm_n},
+                        {qutm_e},
                         {qelev},
                         {qage},
                         {qage_range},
@@ -138,7 +144,7 @@ class AliquotTableModel(QtS.QSqlQueryModel):
         spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
         spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
         references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
+        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
 
         # Join lines
@@ -186,7 +192,7 @@ class SpotTableModel(QtS.QSqlQueryModel):
         spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
         spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
         references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisName) as "UPb Analysis Methods"'
+        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
 
         # Join lines'

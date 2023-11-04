@@ -6,6 +6,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
+import Functions.Errors as Er
 
 class AddTags(QtW.QDialog):
     def __init__(self, database, model, table):
@@ -19,7 +20,7 @@ class AddTags(QtW.QDialog):
         self.table = table
         self.table_name = TxM.add_spaces_camel(self.table)
         self.selectTags_label.setText(self.table_name)
-        self.clear_warning()
+        self.errmsg = QtW.QMessageBox(self)
 
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
@@ -56,34 +57,39 @@ class AddTags(QtW.QDialog):
         completer = QtW.QCompleter(self.existing_names)
         self.newName_lineEdit.setCompleter(completer)
 
-    def clear_warning(self):
-        self.warning_label.hide()
+    # def clear_warning(self):
+    #     self.warning_label.hide()
 
     def add_tag(self):
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
-        # Check to see if name is empty or exists, throw error if so
-        if name == '':
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Name cannot be blank</font>')
-            self.warning_label.setAlignment(QtC.Qt.AlignmentFlag.AlignRight | QtC.Qt.AlignmentFlag.AlignVCenter)
-        elif name in self.existing_names:
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Name must be unique</font>')
-            self.warning_label.setAlignment(QtC.Qt.AlignmentFlag.AlignRight | QtC.Qt.AlignmentFlag.AlignVCenter)
+        query = QtS.QSqlQuery()
+        query.prepare(f'INSERT INTO {self.table}({self.columns[1]}, {self.columns[2]}) VALUES(?, ?)')
+        query.addBindValue(name)
+        query.addBindValue(description)
+        if query.exec():
+            self.model.setTable(self.table)
+            self.model.select()
+            self.newName_lineEdit.clear()
+            self.newDescription_lineEdit.clear()
+            self.display_tags()
+            self.accept()
         else:
-            query = QtS.QSqlQuery()
-            query.prepare(f'INSERT INTO {self.table}({self.columns[1]}, {self.columns[2]}) VALUES(?, ?)')
-            query.addBindValue(name)
-            query.addBindValue(description)
-            if query.exec():
-                self.model.setTable(self.table)
-                self.model.select()
-                self.newName_lineEdit.clear()
-                self.newDescription_lineEdit.clear()
-                self.display_tags()
-                self.accept()
-
+            err = query.lastError().text()
+            header = TxM.add_spaces_camel(self.columns[1])
+            if 'UNIQUE constraint failed:' in err:
+                duplicates = []
+                for entry in self.existing_names:
+                    if name.casefold() == entry.casefold():
+                        duplicates.append(entry)
+                errtxt = Er.duplicate_entry(header, duplicates)
+                self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+            elif 'CHECK constraint failed:' in err:
+                errtxt = Er.blank_entry(header)
+                self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok,
+                                     QtW.QMessageBox.StandardButton.Ok)
+            else:
+                self.errmsg.critical(self, 'Error', err, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
 
 if __name__ == '__main__':
     # only run these commands if this script is run

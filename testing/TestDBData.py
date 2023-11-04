@@ -28,9 +28,9 @@ def add_data(db_file):
                   'VALUES(1, "Siliciclastic matrix", "Melange matrix")')
         c.execute('INSERT INTO RockTypes (RockTypeName, RockTypeDescription) '
                   'VALUES("Tuffaceous chert", "Chert with volcanic tuff")')
-        c.execute('INSERT INTO Samples (SampleName, AverageAge, OldestAgeID, YoungestAgeID, '
-                  'LatDeg, LatMin, LatSec, LonDeg, LonMin, LonSec) '
-                  'VALUES("S3", 230, 68, 42, 33, 59, 34, -118, 8, 36)')
+        c.execute('''INSERT INTO Samples (SampleName, AverageAge, OldestAgeID, YoungestAgeID,
+                  LatDeg, LatMin, LatSec, LonDeg, LonMin, LonSec)
+                  VALUES("S3", 230, 68, 42, 33, 59, 34, -118, 8, 36)''')
         c.execute('INSERT INTO Samples (SampleName, AverageAge, OldestAgeID, YoungestAgeID) VALUES("S2", 59, 28, 28)')
         c.execute('INSERT INTO Samples (SampleName) VALUES("S1")')
         c.execute('INSERT INTO Samples_RockTypes (SampleID, RockTypeID) VALUES(1, 1)')
