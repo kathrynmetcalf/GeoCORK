@@ -6,6 +6,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths
 from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
@@ -16,20 +17,28 @@ import ui.import_wizard
 import ui.New_source
 from ui.EditTags import EditTags
 from ui.AddTags import AddTags
+from ui.LandingUI import LandingPage
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
 
 class GeoChron(QtW.QMainWindow):
-    def __init__(self, *arg, **kwargs):
+    def __init__(self, filename, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
+
+        window = LandingPage()
+        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        window.show()
+        loop = QEventLoop()
+        window.destroyed.connect(loop.quit)
+        loop.exec()
 
         # Define any widgets here
 
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-        self.db_file = '../TestSchema2.db'
+        self.db_file = window.get_filename()
         # self.db_file = self.open_db()
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
@@ -215,5 +224,5 @@ if __name__ == '__main__':
     # only run these commands if this script is run
     # Can't be run when used as a library for another script
     app = QtW.QApplication(sys.argv)  # pass command line arguments
-    w = GeoChron()
+    w = GeoChron(None)
     sys.exit(app.exec())  # runs event loop, pass exit status to the system

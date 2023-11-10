@@ -28,5 +28,3 @@ class QComboBoxLabel(QWidget):
     def addItems(self, setparam):
         self.combobox.addItems(setparam)
         self.label.adjustSize()
-
-
