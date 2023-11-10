@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import sqlite3
+import re
 # import pandas as pd
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -13,9 +14,11 @@ from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
+import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
 from ui.EditTags import EditTags
+from ui.EditTable import EditTable
 from ui.AddTags import AddTags
 from ui.LandingUI import LandingPage
 
@@ -47,8 +50,10 @@ class GeoChron(QtW.QMainWindow):
         self.aliquot_model = QtS.QSqlQueryModel()
         self.spot_model = QtS.QSqlQueryModel()
         self.model = QtS.QSqlTableModel()
+        self.tree_model = TrC.TreeModel
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.table_proxy_model = QtC.QSortFilterProxyModel()
+        self.tree_proxy_model = QtC.QSortFilterProxyModel()
         self.delegate = QtS.QSqlRelationalDelegate()
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
@@ -56,28 +61,38 @@ class GeoChron(QtW.QMainWindow):
         self.switch_to_table()
 
         Create_db.create_tables(self.db_file)
+        self.dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
+                        'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
+                        'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
+        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Regions', 'RockTypes', 'SampleContext',
+                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
         self.display_table_list()
 
-        # self.dbTable_comboBox.setPlaceholderText('Select table')  # Bug in Qt5.15, broke this in 5.15.2
-        # self.dbTable_comboBox.setCurrentIndex(-1)
+        self.ui_widgets()
 
         # Display the selected table
         self.dbTable_comboBox.activated.connect(self.display_table)
 
         # Signal for search bar
         self.search_lineEdit.textChanged.connect(self.search)
-        # Signal for double-clicked cell in dbTable_TableView
-        self.dbTable_tableView.doubleClicked.connect(self.edit_popup)
         # Signal for clicked add button in main window
-        self.add_pushButton.clicked.connect(self.add_popup)
-        # Signal for clicked submit button in main window
-        self.submitall_pushButton.clicked.connect(self.submit)
+        self.edit_pushButton.clicked.connect(self.edit_popup)
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
-
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
 
     # Define any methods here
+
+    def ui_widgets(self):
+        self.dbTable_tableView: QtW.QTableView
+        self.dbTable_treeView: QtW.QTreeView
+        self.dbTable_comboBox: QtW.QComboBox
+        self.search_lineEdit: QtW.QLineEdit
+        self.add_pushButton: QtW.QPushButton
+        self.submitall_pushButton: QtW.QPushButton
+        self.status_label: QtW.QLabel
+        self.db_stackedWidget: QtW.QStackedWidget
+        self.case_checkBox: QtW.QCheckBox
 
     def open_db(self):
         """
@@ -89,12 +104,27 @@ class GeoChron(QtW.QMainWindow):
         return db_file[0]
 
     def switch_to_table(self):
+        """
+        Sets the current widget to a table view
+        :return:
+        """
+        self.db_stackedWidget: QtW.QStackedWidget
         self.db_stackedWidget.setCurrentWidget(self.db_table)
         
     def switch_to_tree(self):
+        """
+        Sets the current widget to a tree view
+        :return:
+        """
+        self.db_stackedWidget: QtW.QStackedWidget
         self.db_stackedWidget.setCurrentWidget(self.db_tree)
 
     def show_import_wizard_dialog(self):
+        """
+        Opens a file dialog to select a file to import
+        Executes the import wizard with that file
+        :return:
+        """
         home_dir = str(Path.home()) + '\Downloads'
         fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
         print(fname[0])
@@ -102,69 +132,95 @@ class GeoChron(QtW.QMainWindow):
         import_wizard.exec()
 
     def display_table_list(self):
-        dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Regions',
-                        'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources', 'Spots',
-                        'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
-        self.dbTable_comboBox.addItems(dbtable_list)
+        """
+        Populates the tables combo box with the editable tables
+        Displays the default table
+        :return:
+        """
+        self.dbTable_comboBox: QtW.QComboBox
+        self.dbTable_comboBox.addItems(self.dbtable_list)
         self.dbTable_comboBox.setCurrentText('Samples')
         self.display_table()
 
     def display_table(self):
-        # if self.model.isDirty() is True:
-        #     self.save_popup()
-        #     '''Click cancel should stop this method'''
+        """
+        Displays the selected table
+        :return:
+        """
+        self.dbTable_tableView: QtW.QTableView
+        self.dbTable_treeView: QtW.QTreeView
+        self.dbTable_comboBox: QtW.QComboBox
+        self.add_pushButton: QtW.QPushButton
+        self.case_checkBox: QtW.QCheckBox
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
-        table = table_name.replace(" ", "")
+        table = TxM.remove_spaces(table_name)
         if table == 'Samples':
             self.switch_to_table()
             query = TbC.SampleTableModel.setupQuery(self)
             self.sample_model.setQuery(QtS.QSqlQuery(query))
             self.sample_proxy_model.setSourceModel(self.sample_model)
-            self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
-        elif table == 'Units':
+        elif table in self.dbtree_list:
             self.switch_to_tree()
-            unit_tree_model = TrC.TreeModel(table, None)
-            self.dbTable_treeView.setModel(unit_tree_model)
+            self.tree_model = TrC.TreeModel(table, None)
+            self.tree_proxy_model.setSourceModel(self.tree_model)
+            self.dbTable_treeView.setModel(self.tree_proxy_model)
+            self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView.setSortingEnabled(True)
-        elif table == 'Ages':
-            self.switch_to_tree()
-            age_tree_model = TrC.TreeModel(table, None)
-            self.dbTable_treeView.setModel(age_tree_model)
-            self.dbTable_treeView.header().sectionResizeMode(0, QtW.QHeaderView.ResizeMode.ResizeToContents)
-            self.dbTable_treeView.hideColumn(1)  # don't show ID column
-            self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
         else:
             self.switch_to_table()
             self.model.setTable(table)
             self.model.select()
-            # self.model.editStrategy.OnManualSubmit
+            for col in range(self.model.columnCount()):
+                header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             self.table_proxy_model.setSourceModel(self.model)
-            self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+            # if self.case_checkBox.isChecked():
+            #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+            # else:
+            #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.add_pushButton.setText(f"Add {table_name}")
+        self.edit_pushButton.setText(f"Edit {table_name}")
 
     def search(self):
+        """
+        Search the current table for the text in the search box
+        Check if the case-sensitive box is checked or not
+        :return:
+        """
+        self.search_lineEdit: QtW.QLineEdit
+        self.dbtable_comboBox: QtW.QComboBox
+        # if self.case_checkBox.isChecked():
+        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
+        # else:
+        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
         table = table_name.replace(" ", "")
         if table == 'Samples':
-            self.sample_proxy_model.setFilterRegularExpression
+            self.sample_proxy_model.setFilterRegularExpression(search_expression)
+        elif table in self.dbtree_list:
+            self.tree_proxy_model.setFilterRegularExpression(search_expression)
         else:
-            self.table_proxy_model.setFilterRegularExpression
+            self.table_proxy_model.setFilterRegularExpression(search_expression)
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)
@@ -176,46 +232,19 @@ class GeoChron(QtW.QMainWindow):
                 print(existing)
                 return existing
 
-    def open_new_source(self):
-        source_list = self.get_existing('"Short Citation"', '"Sources"')
-        new_source = ui.New_source.NewSource(source_list[0])
-        new_source.exec()
-
-    def edit_popup(self, index):
+    def edit_popup(self):
         table_name = self.dbTable_comboBox.currentText()
-        # col = index.column()
-        # id_index = index.siblingAtColumn(0)
+        table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            # sample_id = self.sample_model.data(id_index)
-            # column_name = self.sample_model.record(index.row()).fieldName(col)
-            pass
-        elif table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
-            pass
+            dlg = EditTable(self.db, self.sample_model, table_name, self.dbtree_list, 'table')
+        elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
+            return
+        elif table in self.dbtree_list:
+            dlg = EditTable(self.db, self.tree_model, table_name, self.dbtree_list, 'tree')
         else:
-            source_index = self.table_proxy_model.mapToSource(index)
-            row = source_index.row()
-            dlg = EditTags(self.db, self.model, table_name, row)
-            dlg.exec()
-            self.display_table()
-
-    def add_popup(self):
-        table_name = self.dbTable_comboBox.currentText()
-        if table_name == 'Samples' or table_name == 'Sources' or table_name == 'Aliquots' or table_name == 'UPb Data':
-            pass
-        else:
-            dlg = AddTags(self.db, self.model, table_name)
-            dlg.exec()
-            self.display_table()
-
-    def submit(self):
-        table_name = self.dbTable_comboBox.currentText()
-        # Remove spaces from display names
-        table = table_name.replace(" ", "")
-        if table == 'Samples':
-            # self.sample_model.submitAll()
-            pass
-        else:
-            self.model.submitAll()
+            dlg = EditTable(self.db, self.model, table_name, self.dbtree_list, 'table')
+        dlg.exec()
+        self.display_table()
 
     # End methods here
 

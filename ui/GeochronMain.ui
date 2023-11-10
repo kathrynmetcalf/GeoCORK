@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1440</width>
-    <height>772</height>
+    <height>770</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -50,7 +50,7 @@
         </property>
         <layout class="QVBoxLayout" name="verticalLayout_3">
          <item>
-          <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0,0,0,0">
+          <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0">
            <property name="spacing">
             <number>5</number>
            </property>
@@ -83,7 +83,7 @@
             </widget>
            </item>
            <item>
-            <widget class="QPushButton" name="add_pushButton">
+            <widget class="QPushButton" name="edit_pushButton">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -100,61 +100,7 @@
               <enum>Qt::StrongFocus</enum>
              </property>
              <property name="text">
-              <string>Add item</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="discard_pushButton">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>100</width>
-               <height>32</height>
-              </size>
-             </property>
-             <property name="focusPolicy">
-              <enum>Qt::StrongFocus</enum>
-             </property>
-             <property name="text">
-              <string>Discard all changes</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QPushButton" name="submitall_pushButton">
-             <property name="sizePolicy">
-              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-               <horstretch>0</horstretch>
-               <verstretch>0</verstretch>
-              </sizepolicy>
-             </property>
-             <property name="minimumSize">
-              <size>
-               <width>100</width>
-               <height>32</height>
-              </size>
-             </property>
-             <property name="focusPolicy">
-              <enum>Qt::StrongFocus</enum>
-             </property>
-             <property name="text">
-              <string>Submit all changes</string>
-             </property>
-            </widget>
-           </item>
-           <item>
-            <widget class="QLabel" name="label">
-             <property name="text">
-              <string>Database is up to date!</string>
-             </property>
-             <property name="alignment">
-              <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+              <string>Edit Table</string>
              </property>
             </widget>
            </item>
@@ -201,6 +147,9 @@
          </item>
          <item>
           <widget class="QStackedWidget" name="db_stackedWidget">
+           <property name="currentIndex">
+            <number>1</number>
+           </property>
            <widget class="QWidget" name="db_table">
             <widget class="QTableView" name="dbTable_tableView">
              <property name="geometry">
@@ -463,9 +412,7 @@
  </widget>
  <tabstops>
   <tabstop>dbTable_comboBox</tabstop>
-  <tabstop>add_pushButton</tabstop>
-  <tabstop>discard_pushButton</tabstop>
-  <tabstop>submitall_pushButton</tabstop>
+  <tabstop>edit_pushButton</tabstop>
   <tabstop>search_lineEdit</tabstop>
   <tabstop>listView</tabstop>
   <tabstop>comboBox</tabstop>

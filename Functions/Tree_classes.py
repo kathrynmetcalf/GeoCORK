@@ -3,10 +3,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
-import sys
-
-# Working off of examples from Qt and PyQt:
-# https://doc-snapshots.qt.io/qtforpython-dev/overviews/qtwidgets-itemviews-simpletreemodel-example.html
+import Functions.Text_manipulations as TxM
 
 
 class TreeItem:
@@ -56,6 +53,9 @@ class TreeItem:
         else:
             return self.itemData[column]
 
+    # def setData(self, column: int, value: typing.Any):
+
+
     def parent(self):
         # parent for given item
         if self.itemData is None or type(self.itemData[1]) is not int:
@@ -72,8 +72,9 @@ class TreeModel(QtC.QAbstractItemModel):
         self.table = table
         self.headers = []
         self.column_headers()
-        self.rootItem = TreeItem(self.headers, None)
-        self.parents = {0 : self.rootItem}
+        self.rootItem = TreeItem(tuple(self.headers), None)
+        # self.rootItem = TreeItem(("ID", "Parent ID", "Name", "Description"), None)
+        self.parents = {0: self.rootItem}
         self.parentItem = TreeItem(None, None)
         self.childItem = TreeItem(None, None)
         self.setup_model_data()
@@ -124,6 +125,9 @@ class TreeModel(QtC.QAbstractItemModel):
             new_parent_id = item_id
             new_child_ids = self.find_children(new_parent_id)
             self.add_to_tree(new_child_ids, new_parent)
+
+    def add_top_item(self, data):
+        TreeItem(data, 0)
 
     def column_headers(self):
         query = QtS.QSqlQuery()
@@ -177,18 +181,23 @@ class TreeModel(QtC.QAbstractItemModel):
         item = index.internalPointer()
         if role == QtC.Qt.ItemDataRole.DisplayRole:
             return item.data(index.column())
-
         return None
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
             return QtC.Qt.ItemFlag.NoItemFlags
-        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
+        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
 
-    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...) -> typing.Any:
-        if orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.DisplayRole:
-            return self.rootItem.data(section)
-        return QtC.QVariant
+    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
+        if role != QtC.Qt.ItemDataRole.DisplayRole:
+            return QtC.QVariant()
+        if orientation == QtC.Qt.Orientation.Horizontal:
+            return TxM.add_spaces_camel(self.rootItem.data(section))
+        return QtC.QVariant()
+
+    # def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = ...) -> bool:
+    #     if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
+    #         self._data(index, role) = value
 
 
 
