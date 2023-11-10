@@ -1,0 +1,522 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>geochronProjectSettings</class>
+ <widget class="QDialog" name="geochronProjectSettings">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>790</width>
+    <height>783</height>
+   </rect>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>790</width>
+    <height>0</height>
+   </size>
+  </property>
+  <property name="windowTitle">
+   <string>Project Properties</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout_21">
+   <item row="1" column="0">
+    <widget class="QFrame" name="mButtonBoxFrame">
+     <property name="sizePolicy">
+      <sizepolicy hsizetype="Preferred" vsizetype="Maximum">
+       <horstretch>0</horstretch>
+       <verstretch>0</verstretch>
+      </sizepolicy>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <property name="leftMargin">
+       <number>0</number>
+      </property>
+      <property name="topMargin">
+       <number>0</number>
+      </property>
+      <property name="rightMargin">
+       <number>0</number>
+      </property>
+      <property name="bottomMargin">
+       <number>0</number>
+      </property>
+      <item>
+       <widget class="QDialogButtonBox" name="buttonBox">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="standardButtons">
+         <set>QDialogButtonBox::Apply|QDialogButtonBox::Cancel|QDialogButtonBox::Help|QDialogButtonBox::Ok</set>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QSplitter" name="mOptionsSplitter">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="childrenCollapsible">
+      <bool>false</bool>
+     </property>
+     <widget class="QFrame" name="mOptionsFrame">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+        <horstretch>1</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
+      <property name="frameShape">
+       <enum>QFrame::NoFrame</enum>
+      </property>
+      <property name="frameShadow">
+       <enum>QFrame::Raised</enum>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_3">
+       <property name="leftMargin">
+        <number>0</number>
+       </property>
+       <property name="topMargin">
+        <number>0</number>
+       </property>
+       <property name="rightMargin">
+        <number>0</number>
+       </property>
+       <property name="bottomMargin">
+        <number>0</number>
+       </property>
+       <item>
+        <widget class="QStackedWidget" name="mOptionsStackedWidget">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="currentIndex">
+          <number>0</number>
+         </property>
+         <widget class="QWidget" name="mGeneralOptions">
+          <layout class="QVBoxLayout" name="verticalLayout_6">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QScrollArea" name="scrollArea_1">
+             <property name="frameShape">
+              <enum>QFrame::NoFrame</enum>
+             </property>
+             <property name="widgetResizable">
+              <bool>true</bool>
+             </property>
+             <widget class="QWidget" name="scrollAreaWidgetContents_2">
+              <property name="geometry">
+               <rect>
+                <x>0</x>
+                <y>0</y>
+                <width>772</width>
+                <height>731</height>
+               </rect>
+              </property>
+              <layout class="QVBoxLayout" name="verticalLayout">
+               <property name="leftMargin">
+                <number>0</number>
+               </property>
+               <property name="topMargin">
+                <number>0</number>
+               </property>
+               <property name="bottomMargin">
+                <number>0</number>
+               </property>
+               <item>
+                <widget class="QGroupBox" name="ProjectSettings">
+                 <property name="title">
+                  <string>Database Settings</string>
+                 </property>
+                 <layout class="QGridLayout" name="gridLayout_26">
+                  <item row="0" column="2">
+                   <widget class="QLineEdit" name="le_DatabaseName"/>
+                  </item>
+                  <item row="1" column="2">
+                   <widget class="QLineEdit" name="le_DatabaseAuthors"/>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QLabel" name="static_DatabaseAuthors">
+                    <property name="text">
+                     <string>Database Author(s)</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="static_DatabaseName">
+                    <property name="text">
+                     <string>Database Name</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="2" column="2">
+                   <widget class="QLineEdit" name="le_DatabaseSourceLink"/>
+                  </item>
+                  <item row="2" column="0">
+                   <widget class="QLabel" name="static_DatabaseSourceLink">
+                    <property name="text">
+                     <string>Database Source Link</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="ViewingUnits">
+                 <property name="title">
+                  <string>Viewing Units</string>
+                 </property>
+                 <layout class="QGridLayout" name="gridLayout">
+                  <item row="1" column="1">
+                   <widget class="QGroupBox" name="Length">
+                    <property name="title">
+                     <string>Length</string>
+                    </property>
+                    <layout class="QGridLayout" name="gridLayout_5">
+                     <item row="0" column="1">
+                      <widget class="QRadioButton" name="rb_LengthMeters">
+                       <property name="text">
+                        <string>Meters</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="0">
+                      <widget class="QRadioButton" name="rb_LengthKilometers">
+                       <property name="text">
+                        <string>Kilometers</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="0">
+                      <widget class="QRadioButton" name="rb_LengthMiles">
+                       <property name="text">
+                        <string>Miles</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="2">
+                      <widget class="QRadioButton" name="rb_LengthCentimeters">
+                       <property name="text">
+                        <string>Centimeters</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QRadioButton" name="rb_LengthFeet">
+                       <property name="text">
+                        <string>Feet</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="2">
+                      <widget class="QRadioButton" name="rb_LengthInches">
+                       <property name="text">
+                        <string>Inches</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                  <item row="1" column="0">
+                   <widget class="QGroupBox" name="Elevetion">
+                    <property name="title">
+                     <string>Elevation</string>
+                    </property>
+                    <layout class="QGridLayout" name="gridLayout_4">
+                     <item row="1" column="0">
+                      <widget class="QRadioButton" name="rb_ElevetationMiles">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
+                       </property>
+                       <property name="text">
+                        <string>Miles</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="1" column="1">
+                      <widget class="QRadioButton" name="rb_ElevationFeet">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
+                       </property>
+                       <property name="text">
+                        <string>Feet</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="1">
+                      <widget class="QRadioButton" name="rb_ElevationMeters">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
+                       </property>
+                       <property name="text">
+                        <string>Meters</string>
+                       </property>
+                      </widget>
+                     </item>
+                     <item row="0" column="0">
+                      <widget class="QRadioButton" name="rb_ElevationKilometers">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
+                       </property>
+                       <property name="text">
+                        <string>Kilometers</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="LatLongUnits">
+                 <property name="title">
+                  <string>Latitude / Longitude Viewing Units</string>
+                 </property>
+                 <layout class="QGridLayout" name="gridLayout_3">
+                  <item row="0" column="2">
+                   <widget class="QRadioButton" name="rb_UTM">
+                    <property name="text">
+                     <string>Universal Transversal Mercator</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QRadioButton" name="rb_DMS">
+                    <property name="text">
+                     <string>Degrees Minutes Seconds</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="3">
+                   <widget class="QRadioButton" name="rb_DDM">
+                    <property name="text">
+                     <string>Degrees, Decimal Minutes</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QRadioButton" name="rb_DD">
+                    <property name="text">
+                     <string>Decimal Degrees</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="StyleSettings">
+                 <property name="title">
+                  <string>Style Settings</string>
+                 </property>
+                 <layout class="QGridLayout" name="gridLayout_2">
+                  <item row="0" column="1">
+                   <widget class="QFontComboBox" name="fontComboBox"/>
+                  </item>
+                  <item row="0" column="0">
+                   <widget class="QLabel" name="static_Font">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>Font</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="5">
+                   <widget class="QComboBox" name="cb_TableViewSize">
+                    <item>
+                     <property name="text">
+                      <string>Regular</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Large</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Small</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item row="0" column="3">
+                   <widget class="QComboBox" name="cb_FontSize">
+                    <item>
+                     <property name="text">
+                      <string>Regular</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Larger</string>
+                     </property>
+                    </item>
+                    <item>
+                     <property name="text">
+                      <string>Smaller</string>
+                     </property>
+                    </item>
+                   </widget>
+                  </item>
+                  <item row="0" column="2">
+                   <widget class="QLabel" name="label_5">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>Font Size</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="4">
+                   <widget class="QLabel" name="label_6">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Fixed" vsizetype="Preferred">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="text">
+                     <string>Table Font Size</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <widget class="QGroupBox" name="UtilityFunctions">
+                 <property name="title">
+                  <string>WARNING - Utility Functions - </string>
+                 </property>
+                 <layout class="QGridLayout" name="gridLayout_6">
+                  <item row="0" column="0">
+                   <widget class="QPushButton" name="pb_ResetSettings">
+                    <property name="text">
+                     <string>Reset Settings</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="1">
+                   <widget class="QPushButton" name="pb_ClearImportSignatures">
+                    <property name="text">
+                     <string>Clear Import Signatures</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="0" column="2">
+                   <widget class="QPushButton" name="pb_OpenLogDir">
+                    <property name="text">
+                     <string>Open Log Dir</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
+                <spacer name="verticalSpacer_5">
+                 <property name="orientation">
+                  <enum>Qt::Vertical</enum>
+                 </property>
+                 <property name="sizeHint" stdset="0">
+                  <size>
+                   <width>20</width>
+                   <height>0</height>
+                  </size>
+                 </property>
+                </spacer>
+               </item>
+              </layout>
+             </widget>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>le_DatabaseSourceLink</tabstop>
+  <tabstop>scrollArea_1</tabstop>
+  <tabstop>rb_ElevationKilometers</tabstop>
+  <tabstop>rb_ElevationMeters</tabstop>
+  <tabstop>rb_ElevetationMiles</tabstop>
+  <tabstop>rb_ElevationFeet</tabstop>
+  <tabstop>rb_LengthKilometers</tabstop>
+  <tabstop>rb_LengthMeters</tabstop>
+  <tabstop>rb_LengthCentimeters</tabstop>
+  <tabstop>rb_LengthMiles</tabstop>
+  <tabstop>rb_LengthFeet</tabstop>
+  <tabstop>rb_LengthInches</tabstop>
+  <tabstop>rb_DMS</tabstop>
+  <tabstop>rb_DD</tabstop>
+  <tabstop>rb_UTM</tabstop>
+  <tabstop>rb_DDM</tabstop>
+  <tabstop>fontComboBox</tabstop>
+  <tabstop>cb_FontSize</tabstop>
+  <tabstop>cb_TableViewSize</tabstop>
+  <tabstop>pb_ResetSettings</tabstop>
+  <tabstop>pb_ClearImportSignatures</tabstop>
+  <tabstop>pb_OpenLogDir</tabstop>
+  <tabstop>le_DatabaseName</tabstop>
+  <tabstop>le_DatabaseAuthors</tabstop>
+ </tabstops>
+ <resources>
+  <include location="../../../../images/images.qrc"/>
+ </resources>
+ <connections/>
+</ui>

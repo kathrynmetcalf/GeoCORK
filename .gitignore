@@ -1,0 +1,16 @@
+#jetbrains
+.idea
+.idea/
+/.idea/
+/.idea
+
+#venv
+venv
+venv/
+
+#MacOs
+.DS_Store
+
+#git
+.git
+/testing/.ipynb_checkpoints/JupyterTesting-checkpoint.ipynb
