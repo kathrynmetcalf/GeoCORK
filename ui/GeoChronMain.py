@@ -20,28 +20,29 @@ import ui.New_source
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
 from ui.AddTags import AddTags
-from ui.LandingUI import LandingPage
+# from ui.LandingUI import LandingPage
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
 
 class GeoChron(QtW.QMainWindow):
-    def __init__(self, filename, *arg, **kwargs):
+    def __init__(self, filename ='../TestSchema.db', *arg, **kwargs):
         super().__init__(*arg, **kwargs)
 
-        window = LandingPage()
-        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        window.show()
-        loop = QEventLoop()
-        window.destroyed.connect(loop.quit)
-        loop.exec()
+        # window = LandingPage()
+        # window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        # window.show()
+        # loop = QEventLoop()
+        # window.destroyed.connect(loop.quit)
+        # loop.exec()
 
         # Define any widgets here
 
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-        self.db_file = window.get_filename()
+        # self.db_file = window.get_filename()
+        self.db_file = filename
         # self.db_file = self.open_db()
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
@@ -175,6 +176,10 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView.setSortingEnabled(True)
+            if table == 'Ages':
+                self.dbTable_treeView.hideColumn(5)  # don't show created column
+                self.dbTable_treeView.hideColumn(6)  # don't show modified column
+                self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
         else:
             self.switch_to_table()
             self.model.setTable(table)
@@ -190,6 +195,8 @@ class GeoChron(QtW.QMainWindow):
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
+            self.dbTable_tableView.hideColumn(3)  # don't show created column
+            self.dbTable_tableView.hideColumn(4)  # don't show modified column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -253,5 +260,5 @@ if __name__ == '__main__':
     # only run these commands if this script is run
     # Can't be run when used as a library for another script
     app = QtW.QApplication(sys.argv)  # pass command line arguments
-    w = GeoChron(None)
+    w = GeoChron()
     sys.exit(app.exec())  # runs event loop, pass exit status to the system

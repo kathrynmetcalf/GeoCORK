@@ -40,30 +40,44 @@ class EditTable(QtW.QDialog):
 
             self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
 
+        self.createSavepoint()
+
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.apply_pushButton.clicked.connect(self.apply)
         self.cancel_pushButton.clicked.connect(self.rollback)
-        self.model.dataChanged.connect(self.handleDataChanged)
+        self.filter_proxy_model.dataChanged.connect(self.handleDataChanged)
 
+
+    def createSavepoint(self):
+        query = QtS.QSqlQuery(self.db)
+        if query.exec('SAVEPOINT before_edit') is False:
+            errtxt = Er.savepoint_fail(self.table)
+            self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+
+    def releaseSavepoint(self):
+        query = QtS.QSqlQuery(self.db)
+        if query.exec('RELEASE SAVEPOINT before_edit') is False:
+            errtxt = Er.savepoint_release_fail(self.table)
+            self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def handleDataChanged(self, index):
         row = index.row()
         column = index.column()
-        if index.isValid():
-            source_index = self.filter_proxy_model.mapToSource(index)
-            source_model = self.filter_proxy_model.sourceModel()
-            if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
-                pass
-            elif self.table in self.dbtree_list:
-                pass
-            else:
-                if row == 1 and index.data() is None:
-                    errtxt = Er.blank_entry('Name')
-                    self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok,
-                                         QtW.QMessageBox.StandardButton.Ok)
-                else:
-                    source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
+        print(f'The primary key is {self.filter_proxy_model.sibling(row, column, index)}')  # right now getting QModelIndex object instead of ID#
+        # if index.isValid():
+        #     source_index = self.filter_proxy_model.mapToSource(index)
+        #     source_model = self.filter_proxy_model.sourceModel()
+        #     if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
+        #         pass
+        #     elif self.table in self.dbtree_list:
+        #         pass
+        #     else:
+        #         if row == 1 and index.data() is None:
+        #             errtxt = Er.blank_entry('Name')
+        #             self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+        #         else:
+        #             source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
 
 
 
@@ -125,7 +139,12 @@ class EditTable(QtW.QDialog):
 
 
     def rollback(self):
-        self.reject()
+        query = QtS.QSqlQuery(self.db)
+        if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
+            errtxt = Er.rollback_fail(self.table)
+            self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+        else:
+            self.reject()
 
     def apply(self):
         pass

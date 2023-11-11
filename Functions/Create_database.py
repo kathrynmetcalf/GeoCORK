@@ -521,8 +521,8 @@ def create_tables(db_file):
         sql = '''SELECT * FROM Ages'''
         if c.execute(sql):
             out = c.fetchall()
-            if not out:
-                populate_ages(conn)
+            if not out:  # if there is no output, the table is empty
+                populate_ages(conn)  # populate it
         else:
             print(f'query failed')
 
