@@ -1,6 +1,7 @@
 import sqlite3
 import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
+import Functions.DB_views as DBV # views
 
 '''Commands to create the database
 Foreign keys are set to cascade on update
@@ -516,6 +517,8 @@ def create_tables(db_file):
         c.execute(CREATE_FILTER_GROUPS_TABLE)
 
         CT.create_triggers(c)
+
+        DBV.create_views(c)
 
         # Populate the age table during initiation
         sql = '''SELECT * FROM Ages'''
