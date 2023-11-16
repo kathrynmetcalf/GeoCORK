@@ -53,8 +53,8 @@ class TreeItem:
         else:
             return self.itemData[column]
 
-    # def setData(self, column: int, value: typing.Any):
-
+    def setData(self, column: int, value: typing.Any):
+        self.itemData[column] = value
 
     def parent(self):
         # parent for given item
@@ -73,7 +73,7 @@ class TreeModel(QtC.QAbstractItemModel):
         self.headers = []
         self.column_headers()
         self.rootItem = TreeItem(tuple(self.headers), None)
-        # self.rootItem = TreeItem(("ID", "Parent ID", "Name", "Description"), None)
+        # self.rootItem = TreeItem(("ID", "Parent ID", "Name", "Description", "Created", "Modified"), None)
         self.parents = {0: self.rootItem}
         self.parentItem = TreeItem(None, None)
         self.childItem = TreeItem(None, None)
@@ -195,9 +195,15 @@ class TreeModel(QtC.QAbstractItemModel):
             return TxM.add_spaces_camel(self.rootItem.data(section))
         return QtC.QVariant()
 
-    # def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = ...) -> bool:
-    #     if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
-    #         self._data(index, role) = value
+    def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = ...) -> bool:
+        if not index.isValid():
+            return False
+        if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
+            item = index.internalPointer()
+            column = index.column()
+            if item.setData(column, value):
+                self.dataChanged.emit(index, index)
+                return True
 
 
 

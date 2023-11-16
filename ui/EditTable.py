@@ -62,9 +62,17 @@ class EditTable(QtW.QDialog):
             self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def handleDataChanged(self, index):
-        row = index.row()
-        column = index.column()
-        print(f'The primary key is {self.filter_proxy_model.sibling(row, column, index)}')  # right now getting QModelIndex object instead of ID#
+        proxy_model = index.model()
+        data = proxy_model.data(index)
+        print(f'You updated to: {data}')
+        if hasattr(proxy_model, 'mapToSource'):
+            # The model in the view is a proxy model
+            sourceIndex = proxy_model.mapToSource(index)
+            if self.table in self.dbtree_list: # the source model is a tree model
+                self.model.setData(sourceIndex, data)
+
+            # id_index = self.filter_proxy_model.ind # index of the ID column
+            # print(f'The primary key is {self.filter_proxy_model.sibling(row, column, index)}')  # right now getting QModelIndex object instead of ID#
         # if index.isValid():
         #     source_index = self.filter_proxy_model.mapToSource(index)
         #     source_model = self.filter_proxy_model.sourceModel()
@@ -114,7 +122,7 @@ class EditTable(QtW.QDialog):
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
             pass
         elif self.table in self.dbtree_list:
-            dlg = AddTags(self.db, self.tree_model, self.table)
+            dlg = AddTags(self.db, self.model, self.table)
             dlg.exec()
             self.display_table()
         else:
