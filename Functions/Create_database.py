@@ -518,7 +518,7 @@ def create_tables(db_file):
 
         CT.create_triggers(c)
 
-        DBV.create_views(c)
+        DBV.create_sample_view(c)
 
         # Populate the age table during initiation
         sql = '''SELECT * FROM Ages'''
