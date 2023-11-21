@@ -1,8 +1,8 @@
 import sqlite3
 
 
-def SampleViewQuery(self):
-    # Select lines
+def SampleViewQuery():
+    # Create the complex query for the sample view
     qsample_id = 'S.SampleID'
     qsample_name = 'SampleName AS "Sample Name"'
     qage = 'AverageAge || "±" || COALESCE(AverageAgeError, " ") as "Age (Ma)"'
@@ -117,7 +117,7 @@ def SampleViewQuery(self):
                 ORDER BY SampleName
                 '''
 
-    sample_view = f'CREATE VIEW SampleView AS {sample_query}'
+    sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
     return sample_view
 
 def create_views(c):
