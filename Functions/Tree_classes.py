@@ -65,11 +65,14 @@ class TreeItem:
 
 
 class TreeModel(QtC.QAbstractItemModel):
-    def __init__(self, table, parent):
+    def __init__(self, table, parent=None):
         # database table
         super().__init__(parent)
 
         self.table = table
+        self.sourceModel = QtS.QSqlTableModel()
+        self.sourceModel.setTable(table)
+        self.sourceModel.select()
         self.headers = []
         self.column_headers()
         self.rootItem = TreeItem(tuple(self.headers), None)
@@ -199,11 +202,7 @@ class TreeModel(QtC.QAbstractItemModel):
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
-            item = index.internalPointer()
-            column = index.column()
-            if item.setData(column, value):
-                self.dataChanged.emit(index, index)
-                return True
+            return self.sourceModel.setData(self.sourceModel.index(index.row(), index.column()), value, role)
 
 
 

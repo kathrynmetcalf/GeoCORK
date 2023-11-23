@@ -257,6 +257,20 @@ class GeoChron(QtW.QMainWindow):
         dlg.exec()
         self.display_table()
 
+    def closeEvent(self, event):
+        """
+        When the main window is closing, drop all the views except the SampleView
+        """
+        view_list = QtS.QSqlQuery('''SELECT name FROM sqlite_schema WHERE type = "view"''')
+        while view_list.next():
+            view = view_list.value(0)
+            if view != 'SampleView':
+                # if the view is not SampleView, drop it
+                query = QtS.QSqlQuery()
+                query.prepare(f'''DROP VIEW IF EXISTS {view}''')
+                if query.exec():
+                    print(f'Successfully dropped {view}')
+
     # End methods here
 
 
