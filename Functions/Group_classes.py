@@ -5,13 +5,68 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
+from collections import namedtuple
 import Functions.Text_manipulations as TxM
 
 # Based on code from https://stackoverflow.com/questions/7858653/qt-pyside-qsqlmodel-qabstractitemmodel-and-qtreeview-interaction
 # Originally written for PyQt4
 
-groupItem = namedtuple("groupItem",["name","children","index"])
-rowItem = namedtuple("rowItem",["groupIndex","random"])
+class TreeItem:
+    def __init__(self, itemData, parentItem):
+        self.itemData = itemData
+        self.parentItem = parentItem
+        self.childItems = []
+
+    # def __del__(self):
+    #     del self.childItems
+
+    def appendChild(self, child_item):
+        # add each child item
+        self.childItems.append(child_item)
+
+    def child(self, row: int):
+        # child in given row
+        if row < 0 or row >= len(self.childItems):
+            return None
+        else:
+            return self.childItems[row]
+
+    def childCount(self):
+        # number of children
+        return len(self.childItems)
+
+    def row(self):
+        # row of item in its parent's list of children
+        if self.parentItem:
+            # return self.parentItem.childItems.indexOf(TreeItem(self))
+            return self.parentItem.childItems.index(self)
+        return 0
+
+    def columnCount(self):
+        # number of columns in input data
+        if self.itemData:
+            return len(self.itemData)
+        else:
+            return 0
+
+    def data(self, column: int):
+        # get data at given column
+        if self.itemData is None:
+            return QtC.QVariant()
+        if column < 0 or column >= len(self.itemData):
+            return QtC.QVariant()
+        else:
+            return self.itemData[column]
+
+    def setData(self, column: int, value: typing.Any):
+        self.itemData[column] = value
+
+    def parent(self):
+        # parent for given item
+        if self.itemData is None or type(self.itemData[1]) is not int:
+            return None
+        else:
+            return self.parentItem
 
 
 class GrouperProxyModel(QtC.QAbstractProxyModel):
@@ -117,9 +172,10 @@ class GrouperProxyModel(QtC.QAbstractProxyModel):
         return self.createIndex(itemRow,index.column(),self._groupIndexes[groupRow])
 
     def _clearGroups(self):
-        self._groupMap = {}
-        self._groups = []
-        self._sourceRows = []
+        self._groups = []  # list of groupItems
+        self._groupMap = {}  # map of group names to group indexes
+        self._groupIndexes = []  # list of groupIndexes for locating group row
+        self._sourceRows = []  # map of source rows to group index
 
     def groupBy(self,column=0):
         self.beginResetModel()

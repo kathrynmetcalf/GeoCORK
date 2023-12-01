@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import QFileDialog
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Tree_classes as TrC
+import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
@@ -173,13 +174,19 @@ class GeoChron(QtW.QMainWindow):
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
         elif table in self.dbtree_list:
             self.switch_to_tree()
-            self.tree_model = TrC.TreeModel(table, None)
-            self.tree_proxy_model.setSourceModel(self.tree_model)
-            self.dbTable_treeView.setModel(self.tree_proxy_model)
-            self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            self.dbTable_treeView.hideColumn(1)  # don't show ID column
-            self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
-            self.dbTable_treeView.setSortingEnabled(True)
+            self.model.setTable(table)
+            self.model.select()
+            # self.tree_model = GC.GrouperProxyModel()
+            # self.tree_model.setSourceModel(table)
+
+            self.tree_model = TrC.TreeModel(self.model, None)
+
+            # self.tree_proxy_model.setSourceModel(self.tree_model)
+            self.dbTable_treeView.setModel(self.model)
+            # self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+            # self.dbTable_treeView.hideColumn(1)  # don't show ID column
+            # self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
+            # self.dbTable_treeView.setSortingEnabled(True)
             if table == 'Ages':
                 self.dbTable_treeView.hideColumn(5)  # don't show created column
                 self.dbTable_treeView.hideColumn(6)  # don't show modified column
