@@ -72,12 +72,14 @@ class TreeModel(QtC.QAbstractProxyModel):
         super().__init__(parent)
 
         self.sourceModel = sourceModel
-        self.headers = self.column_headers()
+        self.headers = []
+        self.column_headers()
         self.rootItem = TreeItem(None, None)
-        # self.rootItem = TreeItem(("ID", "Parent ID", "Name", "Description", "Created", "Modified"), None)
         self.parentItem = TreeItem(None, None)
         self.childItem = TreeItem(None, None)
         self.setup_model_data()
+
+        # self.sourceModel.dataChanged().connect
 
 
     # def __del__(self):
@@ -96,10 +98,11 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def find_children(self, parent_id: int):
         # Query the table and find children of given ID
+        parent_id_header = TxM.remove_spaces(self.headers[1])
         if parent_id == 0:
-            self.sourceModel.setFilter(f'{self.headers[1]} IS Null')
+            self.sourceModel.setFilter(f'{parent_id_header} IS Null')
         else:
-            self.sourceModel.setFilter(f'{self.headers[1]} = {parent_id}')
+            self.sourceModel.setFilter(f'{parent_id_header} = {parent_id}')
         child_ids = []
         for row in range(self.sourceModel.rowCount()):
             # store each child ID in a list
@@ -110,7 +113,8 @@ class TreeModel(QtC.QAbstractProxyModel):
     def add_to_tree(self, child_ids: list, parent: TreeItem):
         for item_id in child_ids:
             # find entry with this item ID
-            self.sourceModel.setFilter(f'{self.headers[0]} = {item_id}')
+            item_id_header = TxM.remove_spaces(self.headers[0])
+            self.sourceModel.setFilter(f'{item_id_header} = {item_id}')
             data = self.sourceModel.record(0)
             item = TreeItem(data, parent)
             parent.appendChild(item)
@@ -123,13 +127,9 @@ class TreeModel(QtC.QAbstractProxyModel):
         TreeItem(data, 0)
 
     def column_headers(self):
-        headers = []
-        query = QtS.QSqlQuery()
-        query.prepare(f'PRAGMA table_info({self.table})')
-        if query.exec():
-            while query.next():
-                headers.append(query.value(1))
-        return headers
+        for col in range(self.sourceModel.columnCount()):
+            self.headers.append(TxM.add_spaces_camel(
+                self.sourceModel.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)))
 
     def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
         # parent is QModelIndex

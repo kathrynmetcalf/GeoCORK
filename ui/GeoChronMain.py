@@ -178,7 +178,9 @@ class GeoChron(QtW.QMainWindow):
             self.model.select()
             # self.tree_model = GC.GrouperProxyModel()
             # self.tree_model.setSourceModel(table)
-
+            for col in range(self.model.columnCount()):
+                header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             self.tree_model = TrC.TreeModel(self.model, None)
 
             # self.tree_proxy_model.setSourceModel(self.tree_model)
