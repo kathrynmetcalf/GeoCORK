@@ -261,7 +261,7 @@ class ImportWizardDialog(QDialog):
         self.tab_ages = QWidget(self.tabWidget)
         self.tab_ages.setObjectName(u'tab_ages')
 
-        self.flowlayout_ages = FlowLayout(margin=10)
+        self.flowlayout_ages = FlowLayout(margin=5)
         self.flowlayout_ages.setObjectName(u'flowlayout_ages')
         self.tab_ages.setLayout(self.flowlayout_ages)
         self.flowlayout_ages.heightChanged.connect(self.tab_ages.setMinimumHeight)
@@ -357,7 +357,6 @@ class ImportWizardDialog(QDialog):
         self.findRowsWhereData()
         self.assignTestValues()
 
-
     def assignTestValues(self):
         self.sample_id_lineedit.lineedit.setText(time.time().__str__())
         self.aliqout_id_lineedit.lineedit.setText((time.time() + 1).__str__())
@@ -385,7 +384,6 @@ class ImportWizardDialog(QDialog):
         self.accepted_rejected_combobox.combobox.setCurrentText("N/A")
 
     def resizeEvent(self, a0: QtGui.QResizeEvent) -> None:
-        super().resizeEvent(a0)
         self.flowlayout_main_info.setGeometry(self.rect())
 
     def findRowsWhereData(self):

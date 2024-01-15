@@ -2,6 +2,20 @@ import sqlite3
 import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
 
+#todo add this:
+# **Filter Table**
+# ID, Description
+# 1, 10 Purchases with a total amount over 100 dollars
+#
+# **Predicate Table**
+# ID, Filter ID, Name, Operator, Value
+# 1,1,PurchaseCount,GreaterThanEqual,10
+# 2,1,PurchaseAmount,GreaterThan,100
+#
+# **PredicateCombination Table**
+# ID, Filter ID, LeftPredId, RightPredId, Condition
+# 1, 1, 1, 2, AND
+
 '''Commands to create the database
 Foreign keys are set to cascade on update
 When a foreign key is deleted, most will be set to null

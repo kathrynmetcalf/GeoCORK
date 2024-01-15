@@ -22,8 +22,6 @@ class QPropertiesDialog(QDialog):
         self.buttonBox.helpRequested.connect(self.help)
 
     def saveSettings(self):
-        print(self.pos())
-        print(self.size())
         self.settings.setValue("app/font_size", 12)
         self.settings.setValue("app/theme", "Dark")
 

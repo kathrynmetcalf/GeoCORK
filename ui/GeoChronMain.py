@@ -7,7 +7,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths
+from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize
 from PyQt6.QtWidgets import QFileDialog
 
 from PyQt6.uic import loadUi
@@ -29,22 +29,23 @@ from ui.LandingUI import LandingPage
 class GeoChron(QtW.QMainWindow):
     def __init__(self, filename, *arg, **kwargs):
         super().__init__(*arg, **kwargs)
+        # Define any variables here
+        # #todo fix issue with closing landing page still opens main window
 
-        window = LandingPage()
-        window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        window.show()
-        loop = QEventLoop()
-        window.destroyed.connect(loop.quit)
-        loop.exec()
+        self.db_file = None
+        self.window = None
 
+        self.settings = QSettings("CSUF", "GeoChron")
+        self.loadWindowState()
         # Define any widgets here
 
         sources_ui_file = "GeochronMain.ui"
         loadUi(sources_ui_file, self)
-        self.db_file = window.get_filename()
+
         # self.db_file = self.open_db()
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-        self.db.setDatabaseName(self.db_file)
+        self.run_landingpage_loop()
+        #self.refresh_db()
 
         self.sample_model = QtS.QSqlQueryModel()
         self.aliquot_model = QtS.QSqlQueryModel()
@@ -60,7 +61,7 @@ class GeoChron(QtW.QMainWindow):
 
         self.switch_to_table()
 
-        Create_db.create_tables(self.db_file)
+        #Create_db.create_tables(self.db_file)
         self.dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
                         'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
                         'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
@@ -80,6 +81,24 @@ class GeoChron(QtW.QMainWindow):
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
         # End widgets here
         self.show()  # show the window when done, used for making a top-level window
+
+    def refresh_db(self):
+        self.db_file = self.window.get_filename()
+        print(self.db_file)
+        self.db.setDatabaseName(self.db_file)
+        self.show()
+    def closeEvent(self, a0):
+        self.close()
+        self.run_landingpage_loop()
+
+    def run_landingpage_loop(self):
+        self.window = LandingPage(mainWindow=self)
+        self.window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.window.show()
+        loop = QEventLoop()
+
+        self.window.destroyed.connect(loop.quit)
+        loop.exec()
 
     # Define any methods here
 
@@ -245,6 +264,14 @@ class GeoChron(QtW.QMainWindow):
             dlg = EditTable(self.db, self.model, table_name, self.dbtree_list, 'table')
         dlg.exec()
         self.display_table()
+
+    def saveWindowState(self):
+        self.settings.setValue("ui/GeoChronMain/pos", self.pos())
+        self.settings.setValue("ui/GeoChronMain/size", self.size())
+
+    def loadWindowState(self):
+        self.move(self.settings.value("ui/GeoChronMain/pos", defaultValue=QPoint(410, 241)))
+        self.resize(self.settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
 
     # End methods here
 

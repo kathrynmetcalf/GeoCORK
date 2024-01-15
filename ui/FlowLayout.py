@@ -55,7 +55,6 @@ class FlowLayout(QLayout):
         return height
 
     def setGeometry(self, rect):  # pylint: disable=invalid-name
-        super().setGeometry(rect)
         self._do_layout(rect, False)
 
     def sizeHint(self):  # pylint: disable=invalid-name
