@@ -176,15 +176,13 @@ class GeoChron(QtW.QMainWindow):
             self.switch_to_tree()
             self.model.setTable(table)
             self.model.select()
-            # self.tree_model = GC.GrouperProxyModel()
-            # self.tree_model.setSourceModel(table)
             for col in range(self.model.columnCount()):
                 header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
                 self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             self.tree_model = TrC.TreeModel(self.model, None)
 
             # self.tree_proxy_model.setSourceModel(self.tree_model)
-            self.dbTable_treeView.setModel(self.model)
+            self.dbTable_treeView.setModel(self.tree_model)
             # self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             # self.dbTable_treeView.hideColumn(1)  # don't show ID column
             # self.dbTable_treeView.hideColumn(2)  # don't show parent ID column

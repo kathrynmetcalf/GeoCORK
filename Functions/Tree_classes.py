@@ -128,14 +128,14 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def column_headers(self):
         for col in range(self.sourceModel.columnCount()):
-            self.headers.append(TxM.add_spaces_camel(
-                self.sourceModel.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)))
+            self.headers.append(self.sourceModel.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
     def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
         # parent is QModelIndex
         # index for views and delegates
         if not self.hasIndex(row, column, parent):
-            return QtC.QModelIndex()
+            #return QtC.QModelIndex()
+            print()
         if not parent.isValid():
             self.parentItem = self.rootItem
         else:
