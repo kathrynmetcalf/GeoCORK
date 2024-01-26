@@ -5,6 +5,10 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 
+'''
+Editable tree model example:
+https://doc.qt.io/qt-5/qtwidgets-itemviews-editabletreemodel-example.html
+'''
 
 class TreeItem:
     def __init__(self, itemData: QtS.QSqlRecord, parentItem):
@@ -12,12 +16,20 @@ class TreeItem:
         self.parentItem = parentItem
         self.childItems = []
 
-    # def __del__(self):
-    #     del self.childItems
+    def __del__(self):
+        del self.childItems
         
     def appendChild(self, child_item):
         # add each child item
         self.childItems.append(child_item)
+
+    def removeChild(self, row: int):
+        # remove a child item at a position
+        if row < 0 or row >= len(self.childItems):
+            return False
+        else:
+            self.childItems.remove(row)
+            return True
 
     def child(self, row: int):
         # child in given row
@@ -55,8 +67,12 @@ class TreeItem:
             return field.value()
 
     def setData(self, column: int, value: typing.Any):
-        field = self.itemData.field(column)
-        self.itemData.setValue(field.name(), value)
+        if column < 0 or column >= self.itemData.count():
+            return False
+        else:
+            field = self.itemData.field(column)
+            self.itemData.setValue(field.name(), value)
+            return True
 
     def parent(self):
         # parent for given item
@@ -130,16 +146,20 @@ class TreeModel(QtC.QAbstractProxyModel):
         for col in range(self.sourceModel.columnCount()):
             self.headers.append(self.sourceModel.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
+    def getItem(self, index: QtC.QModelIndex):
+        if index.isValid():
+            item = index.internalPointer()
+            if item:
+                return item
+        return self.rootItem
+
     def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
         # parent is QModelIndex
         # index for views and delegates
-        if not self.hasIndex(row, column, parent):
-            #return QtC.QModelIndex()
-            print()
-        if not parent.isValid():
+        if not parent.isValid() and parent.column() != 0:
             self.parentItem = self.rootItem
         else:
-            self.parentItem = parent.internalPointer()
+            self.parentItem = self.getItem(parent)
         self.childItem = self.parentItem.child(row)
         if self.childItem:
             return self.createIndex(row, column, self.childItem)
@@ -149,21 +169,19 @@ class TreeModel(QtC.QAbstractProxyModel):
     def parent(self, index: QtC.QModelIndex):
         if not index.isValid():
             return QtC.QModelIndex()
-        self.childItem = index.internalPointer()
+        self.childItem = self.getItem(index)
         if not self.childItem:
             return QtC.QModelIndex()
         self.parentItem = self.childItem.parent()
-        if self.parentItem == self.rootItem:
+        if self.parentItem == self.rootItem or not self.parentItem:
             return QtC.QModelIndex()
         return self.createIndex(self.parentItem.row(), 0, self.parentItem)
 
     def rowCount(self, parent: QtC.QModelIndex = ...) -> int:
-        if parent.column() > 0:
-            return 0
         if not parent.isValid():
             self.parentItem = self.rootItem
         else:
-            self.parentItem = parent.internalPointer()
+            self.parentItem = self.getItem(parent)
         return self.parentItem.childCount()
 
     def columnCount(self, parent: QtC.QModelIndex = ...) -> int:
@@ -173,7 +191,7 @@ class TreeModel(QtC.QAbstractProxyModel):
     def data(self, index: QtC.QModelIndex = ..., role: int = ...):
         if not index.isValid():
             return None
-        item = index.internalPointer()
+        item = self.getItem(index)
         if role == QtC.Qt.ItemDataRole.DisplayRole:
             return item.data(index.column())
         return None
