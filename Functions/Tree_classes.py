@@ -7,7 +7,13 @@ import Functions.Text_manipulations as TxM
 
 '''
 Editable tree model example:
-https://doc.qt.io/qt-5/qtwidgets-itemviews-editabletreemodel-example.html
+https://doc.qt.io/qt-6/qtwidgets-itemviews-editabletreemodel-example.html
+
+qsqltablemodel source code:
+https://github.com/openwebos/qt/blob/master/src/sql/models/qsqltablemodel.cpp
+
+qsortfilterproxymodel source code:
+https://github.com/openwebos/qt/blob/92fde5feca3d792dfd775348ca59127204ab4ac0/src/gui/itemviews/qsortfilterproxymodel.cpp#L143
 '''
 
 class TreeItem:
@@ -17,6 +23,8 @@ class TreeItem:
         self.childItems = []
 
     def __del__(self):
+        for child in self.childItems:
+            del child
         del self.childItems
         
     def appendChild(self, child_item):
@@ -98,8 +106,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         # self.sourceModel.dataChanged().connect
 
 
-    # def __del__(self):
-    #     del self.rootItem
+    def __del__(self):
+        del self.rootItem
 
     def setup_model_data(self):
         # Add all nodes to the tree model
@@ -154,12 +162,17 @@ class TreeModel(QtC.QAbstractProxyModel):
         return self.rootItem
 
     def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
-        # parent is QModelIndex
-        # index for views and delegates
-        if not parent.isValid() and parent.column() != 0:
-            self.parentItem = self.rootItem
-        else:
-            self.parentItem = self.getItem(parent)
+    # parent is QModelIndex
+    # index for views and delegates
+        # if not parent.isValid() and parent.column() != 0:
+        #     self.parentItem = self.rootItem
+        # else:
+        #     self.parentItem = self.getItem(parent)
+        if parent.isValid() and parent.column() != 0:
+            return QtC.QModelIndex()
+        self.parentItem = self.getItem(parent)
+        if not self.parentItem:
+            return QtC.QModelIndex()
         self.childItem = self.parentItem.child(row)
         if self.childItem:
             return self.createIndex(row, column, self.childItem)
@@ -188,7 +201,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         # return 1
         return len(self.headers)
 
-    def data(self, index: QtC.QModelIndex = ..., role: int = ...):
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return None
         item = self.getItem(index)
@@ -209,7 +222,7 @@ class TreeModel(QtC.QAbstractProxyModel):
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
             return QtC.Qt.ItemFlag.NoItemFlags
-        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
+        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsEnabled
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
         if role != QtC.Qt.ItemDataRole.DisplayRole:
@@ -222,7 +235,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
-            return self.sourceModel.setData(self.sourceModel.index(index.row(), index.column()), value, role)
+            self.sourceModel.setData(self.sourceModel.index(index.row(), index.column()), value, role)
+            return True
 
 
 
