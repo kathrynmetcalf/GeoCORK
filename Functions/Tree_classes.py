@@ -209,10 +209,18 @@ class TreeModel(QtC.QAbstractProxyModel):
             return item.data(index.column())
         return None
 
-    def mapToSource(self, index: QtC.QModelIndex):
-        if not index.isValid():
+    def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
+        if not proxy_index.isValid() or not self.sourceModel:
             return QtC.QModelIndex()
-        return self.index(index.column(), index.row())
+        if not isinstance(self.sourceModel, QtS.QSqlTableModel):
+            QtC.qWarning("QSortFilterProxyModel: index from wrong model passed to mapToSource")
+            return QtC.QModelIndex()
+        parent = proxy_index.internalPointer()
+        if not parent.isValid():
+            return QtC.QModelIndex()
+        elif parent == self.rootItem:
+            return QtC.QModelIndex()
+        return self.createIndex(proxy_index.row(), proxy_index.column(), proxy_index.internalPointer())
 
     def mapFromSource(self, sourceIndex: QtC.QModelIndex):
         if not sourceIndex.isValid():
