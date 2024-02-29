@@ -166,18 +166,15 @@ class TreeModel(QtC.QAbstractProxyModel):
     # First check if parent is valid and parent item exists
     # Then get the child at the specified row and create an index for it
     # index for views and delegates
-        # if not parent.isValid() and parent.column() != 0:
-        #     self.parentItem = self.rootItem
-        # else:
-        #     self.parentItem = self.getItem(parent)
-        if not parent.isValid():
-            return QtC.QModelIndex()
-        parentItem = self.getItem(parent)
+        if not parent.isValid() and parent.column() != 0:
+            parentItem = self.rootItem
+        else:
+            parentItem = self.getItem(parent)
         if not parentItem:
             return QtC.QModelIndex()
         treeItem = parentItem.child(row)
         if treeItem:
-            return self.createIndex(row, column, parent)
+            return self.createIndex(row, column, treeItem)
         else:
             return QtC.QModelIndex()
 
@@ -185,14 +182,13 @@ class TreeModel(QtC.QAbstractProxyModel):
     # Given index, find parent and create index for parent item
         if not index.isValid():
             return QtC.QModelIndex()
-        self.childItem = self.getItem(index)
-        if not self.childItem:
+        childItem = self.getItem(index)
+        if not childItem:
             return QtC.QModelIndex()
-        self.parentItem = self.childItem.parent()
-        if self.parentItem == self.rootItem or not self.parentItem:
+        parentItem = childItem.parent()
+        if parentItem == self.rootItem or not parentItem:
             return QtC.QModelIndex()
-        # To get parent index from parent item, need its parent index, and so on
-        return self.createIndex(self.parentItem.row(), 0, parentIndex)
+        return self.createIndex(self.parentItem.row(), 0, parentItem)
 
     def rowCount(self, parent: QtC.QModelIndex = ...) -> int:
         if not parent.isValid():
