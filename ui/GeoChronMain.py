@@ -20,32 +20,26 @@ import ui.New_source
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
 from ui.AddTags import AddTags
-from ui.LandingUI import LandingPage
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
 
 class GeoChron(QtW.QMainWindow):
-    def __init__(self, filename, *arg, **kwargs):
-        super().__init__(*arg, **kwargs)
+    def __init__(self, landingpage):
+        super().__init__()
         # Define any variables here
-        # #todo fix issue with closing landing page still opens main window
-
-        self.db_file = None
-        self.window = None
-
+        self.landingpage = landingpage
+        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+        self.db_file = self.landingpage.get_filename()
+        self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
+
         self.loadWindowState()
         # Define any widgets here
 
-        sources_ui_file = "GeochronMain.ui"
+        sources_ui_file = "ui/GeochronMain.ui"
         loadUi(sources_ui_file, self)
-
-        # self.db_file = self.open_db()
-        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-        self.run_landingpage_loop()
-        #self.refresh_db()
 
         self.sample_model = QtS.QSqlQueryModel()
         self.aliquot_model = QtS.QSqlQueryModel()
@@ -79,26 +73,13 @@ class GeoChron(QtW.QMainWindow):
         # Signal for clicked add button in main window
         self.edit_pushButton.clicked.connect(self.edit_popup)
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
-        # End widgets here
-        self.show()  # show the window when done, used for making a top-level window
-
-    def refresh_db(self):
-        self.db_file = self.window.get_filename()
-        print(self.db_file)
-        self.db.setDatabaseName(self.db_file)
+        # End widgets here # show the window when done, used for making a top-level window
         self.show()
+
     def closeEvent(self, a0):
-        self.close()
-        self.run_landingpage_loop()
-
-    def run_landingpage_loop(self):
-        self.window = LandingPage(mainWindow=self)
-        self.window.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.window.show()
-        loop = QEventLoop()
-
-        self.window.destroyed.connect(loop.quit)
-        loop.exec()
+        self.landingpage.show()
+        self.saveWindowState()
+        super().closeEvent(a0)
 
     # Define any methods here
 
@@ -113,14 +94,14 @@ class GeoChron(QtW.QMainWindow):
         self.db_stackedWidget: QtW.QStackedWidget
         self.case_checkBox: QtW.QCheckBox
 
-    def open_db(self):
-        """
-        Opens a file dialog to select an existing database file, must be in the format .db
-        :return: database file name with path
-        """
-        home_dir = str(Path.home())
-        db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
-        return db_file[0]
+    # def open_db(self):
+    #     """
+    #     Opens a file dialog to select an existing database file, must be in the format .db
+    #     :return: database file name with path
+    #     """
+    #     home_dir = str(Path.home())
+    #     db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
+    #     return db_file[0]
 
     def switch_to_table(self):
         """
@@ -146,8 +127,8 @@ class GeoChron(QtW.QMainWindow):
         """
         home_dir = str(Path.home()) + '\Downloads'
         fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
-        print(fname[0])
-        import_wizard = ui.import_wizard.ImportWizardDialog(fname[0])
+        import_wizard = ui.import_wizard.ImportWizardDialog(fname[0], self.db_file)
+        #todo fix crash on cancel file dialog
         import_wizard.exec()
 
     def display_table_list(self):
@@ -248,7 +229,6 @@ class GeoChron(QtW.QMainWindow):
             sql = f'''SELECT {field} FROM {table}'''
             if c.execute(sql):
                 existing = c.fetchall()
-                print(existing)
                 return existing
 
     def edit_popup(self):
@@ -272,13 +252,3 @@ class GeoChron(QtW.QMainWindow):
     def loadWindowState(self):
         self.move(self.settings.value("ui/GeoChronMain/pos", defaultValue=QPoint(410, 241)))
         self.resize(self.settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
-
-    # End methods here
-
-
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    app = QtW.QApplication(sys.argv)  # pass command line arguments
-    w = GeoChron(None)
-    sys.exit(app.exec())  # runs event loop, pass exit status to the system

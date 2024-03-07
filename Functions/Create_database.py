@@ -8,21 +8,153 @@ import Functions.Create_triggers as CT # triggers
 # 1, 10 Purchases with a total amount over 100 dollars
 #
 # **Predicate Table**
-# ID, Filter ID, Name, Operator, Value
-# 1,1,PurchaseCount,GreaterThanEqual,10
+# Filter ID, Condition ID, Table, Column, Operator, Value, LogicalOperator(NULL if last)
+# 1,1,PurchaseCount,GreaterThanEqual,10, AND
 # 2,1,PurchaseAmount,GreaterThan,100
 #
-# **PredicateCombination Table**
-# ID, Filter ID, LeftPredId, RightPredId, Condition
-# 1, 1, 1, 2, AND
-
 '''Commands to create the database
 Foreign keys are set to cascade on update
 When a foreign key is deleted, most will be set to null
 The only exception is the AliquotID in the Spots table, which will cascade on delete
 Names must be unique and are checked for case sensitivity'''
-
+# look under linking aboutmodified to other tables
 '''SQL strings to create each table'''
+CREATE_ABOUT_TABLE = '''CREATE TABLE IF NOT EXISTS About(
+                    AboutID INTEGER PRIMARY KEY,
+                    Name TEXT NOT NULL CHECK (Name <> ''),
+                    Authors TEXT NOT NULL CHECK (Authors <> ''),
+                    Citation TEXT NOT NULL CHECK (Citation <> ''),
+                    SourceLink TEXT NOT NULL CHECK (SourceLink <> ''),
+                    Version TEXT NOT NULL CHECK (Version <> ''),
+                    Description TEXT,
+                    CreatedBy TEXT NOT NULL CHECK (CreatedBy <> ''),
+                    AboutCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AboutModified DATETIME DEFAULT CURRENT_TIMESTAMP)
+                    '''
+
+CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
+                    AgeID INTEGER PRIMARY KEY,
+                    ParentAgeID INTEGER,
+                    AgeName TEXT NOT NULL CHECK (AgeName <> ''),
+                    MaxMa REAL,
+                    MinMa REAL,
+                    AgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AgeModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    UNIQUE (AgeName COLLATE NOCASE)
+                    )'''
+
+CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
+                    AgeSignatureID INTEGER PRIMARY KEY,
+                    ParentAgeSignatureID INTEGER,
+                    AgeSignatureName TEXT NOT NULL CHECK (AgeSignatureName <> ''),
+                    AgeSignatureDescription TEXT,
+                    AgeSignatureCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AgeSignatureModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AgeSignatureName COLLATE NOCASE)
+                    )'''
+
+CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
+                    AliquotID INTEGER PRIMARY KEY,
+                    AliquotName TEXT NOT NULL CHECK (AliquotName <> ''),
+                    SampleID INTEGER,
+                    AliquotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AliquotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AliquotName COLLATE NOCASE),
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContext(
+                    AliquotContextID INTEGER PRIMARY KEY,
+                    ParentAliquotContextID INTEGER,
+                    AliquotContextName TEXT NOT NULL CHECK (AliquotContextName <> ''),
+                    AliquotContextDescription TEXT,
+                    AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AliquotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AliquotContextName COLLATE NOCASE)
+                    )'''
+
+CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_AliquotContext(
+                    AliquotID INTEGER,
+                    AliquotContextID INTEGER,
+                    Aliquots_AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Aliquots_AliquotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(AliquotContextID) REFERENCES AliquotContext(AliquotContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
+                    ColumnID INTEGER PRIMARY KEY,
+                    ColumnName TEXT NOT NULL CHECK (ColumnName <> ''),
+                    ColumnDescription TEXT, 
+                    ColumnCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ColumnModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (ColumnName COLLATE NOCASE)
+                    )'''
+
+CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
+                    GeochemAnalysisID INTEGER PRIMARY KEY,
+                    SpotID INTEGER NOT NULL,
+                    MajorElements TEXT,
+                    TraceElements TEXT,
+                    REEs TEXT,
+                    GeochemAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GeochemAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_INSTRUMENTS_TABLE = '''CREATE TABLE IF NOT EXISTS Instruments(
+                    InstrumentID INTEGER PRIMARY KEY,
+                    InstrumentName TEXT NOT NULL CHECK (InstrumentName <> ''),
+                    InstrumentDescription TEXT, 
+                    InstrumentCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    InstrumentModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (InstrumentName COLLATE NOCASE)
+                    )'''
+
+CREATE_INFO_TABLE = '''CREATE TABLE IF NOT EXISTS Info(
+                    InfoID INTEGER PRIMARY KEY,
+                    InfoName TEXT NOT NULL CHECK (InfoName <> ''),
+                    InfoDescription TEXT,
+                    InfoAuthor TEXT,
+                    UNIQUE (InfoName COLLATE NOCASE)
+                    )'''
+
+CREATE_LAB_FACILITIES_TABLE = '''CREATE TABLE IF NOT EXISTS LabFacilities(
+                    LabFacilityID INTEGER PRIMARY KEY,
+                    LabFacilityName TEXT NOT NULL CHECK (LabFacilityName <> ''),
+                    LabFacilityDescription TEXT,
+                    LabFacilityCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    LabFacilityModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (LabFacilityName COLLATE NOCASE)
+                    )'''
+
+CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
+                    RegionID INTEGER PRIMARY KEY,
+                    ParentRegionID INTEGER,
+                    RegionName TEXT NOT NULL CHECK (RegionName <> ''),
+                    RegionDescription TEXT,
+                    RegionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    RegionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (RegionName COLLATE NOCASE)
+                    )'''
+
+CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
+                    RockTypeID INTEGER PRIMARY KEY,
+                    ParentRockTypeID INTEGER,
+                    RockTypeName TEXT NOT NULL CHECK (RockTypeName <> ''),
+                    RockTypeDescription TEXT,
+                    RockTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    RockTypeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (RockTypeName COLLATE NOCASE)
+                    )'''
 
 CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleID INTEGER PRIMARY KEY,
@@ -61,16 +193,138 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                         ON DELETE SET NULL
                     )'''
 
-CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
-                    AliquotID INTEGER PRIMARY KEY,
-                    AliquotName TEXT NOT NULL CHECK (AliquotName <> ''),
+CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_AgeSignatures(
                     SampleID INTEGER,
-                    AliquotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AliquotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AliquotName COLLATE NOCASE),
+                    AgeSignatureID INTEGER,
+                    Samples_AgeSignaturesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_AgeSignaturesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(AgeSignatureID) REFERENCES AgeSignatures(AgeSignatureID)
+                        ON UPDATE CASCADE
                         ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Columns(
+                    SampleID INTEGER,
+                    ColumnID INTEGER,
+                    Samples_ColumnsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_ColumnsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ColumnID) REFERENCES Columns(ColumnID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Regions(
+                    SampleID INTEGER,
+                    RegionID INTEGER,
+                    Samples_RegionsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_RegionsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(RegionID) REFERENCES Regions(RegionID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_RockTypes(
+                    SampleID INTEGER,
+                    RockTypeID INTEGER,
+                    Samples_RockTypesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_RockTypesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(RockTypeID) REFERENCES RockTypes(RockTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SampleContext(
+                    SampleID INTEGER,
+                    SampleContextID INTEGER,
+                    Samples_SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_SampleContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SampleContextID) REFERENCES SampleContext(SampleContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SamplingMethods(
+                    SampleID INTEGER,
+                    SamplingMethodID INTEGER,
+                    Samples_SamplingMethodsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_SamplingMethodsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SamplingMethodID) REFERENCES SamplingMethods(SamplingMethodID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Settings(
+                    SampleID INTEGER,
+                    SettingID INTEGER,
+                    Samples_SettingsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_SettingsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SettingID) REFERENCES Settings(SettingID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Units(
+                    SampleID INTEGER,
+                    UnitID INTEGER,
+                    Samples_UnitsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_UnitsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(UnitID) REFERENCES Units(UnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContext(
+                    SampleContextID INTEGER PRIMARY KEY,
+                    ParentSampleContextID INTEGER,
+                    SampleContextName TEXT NOT NULL CHECK (SampleContextName <> ''), 
+                    SampleContextDescription TEXT,
+                    SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SampleContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleContextName COLLATE NOCASE)
+                    )'''
+
+CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplingMethods(
+                    SamplingMethodID INTEGER PRIMARY KEY,
+                    ParentSamplingMethodID INTEGER,
+                    SamplingMethodName TEXT NOT NULL CHECK (SamplingMethodName <> ''),
+                    SamplingMethodDescription TEXT, 
+                    SamplingMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SamplingMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SamplingMethodName COLLATE NOCASE)
+                    )'''
+
+CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
+                    SettingID INTEGER PRIMARY KEY,
+                    ParentSettingID INTEGER,
+                    SettingName TEXT NOT NULL CHECK (SettingName <> ''),
+                    SettingDescription TEXT,
+                    SettingCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SettingModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SettingName COLLATE NOCASE)
                     )'''
 
 CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
@@ -89,24 +343,14 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                         ON DELETE SET NULL
                     )'''
 
-CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContext(
-                    SampleContextID INTEGER PRIMARY KEY,
-                    ParentSampleContextID INTEGER,
-                    SampleContextName TEXT NOT NULL CHECK (SampleContextName <> ''), 
-                    SampleContextDescription TEXT,
-                    SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    SampleContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SampleContextName COLLATE NOCASE)
-                    )'''
-
-CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContext(
-                    AliquotContextID INTEGER PRIMARY KEY,
-                    ParentAliquotContextID INTEGER,
-                    AliquotContextName TEXT NOT NULL CHECK (AliquotContextName <> ''),
-                    AliquotContextDescription TEXT,
-                    AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AliquotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AliquotContextName COLLATE NOCASE)
+CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
+                    SpotCompositionID INTEGER PRIMARY KEY,
+                    ParentSpotCompositionID INTEGER,
+                    SpotCompositionName TEXT NOT NULL CHECK (SpotCompositionName <> ''),
+                    SpotCompositionDescription TEXT, 
+                    SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SpotCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SpotCompositionName COLLATE NOCASE)
                     )'''
 
 CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContext(
@@ -119,14 +363,17 @@ CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContext(
                     UNIQUE (SpotContextName COLLATE NOCASE)
                     )'''
 
-CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
-                    SpotCompositionID INTEGER PRIMARY KEY,
-                    ParentSpotCompositionID INTEGER,
-                    SpotCompositionName TEXT NOT NULL CHECK (SpotCompositionName <> ''),
-                    SpotCompositionDescription TEXT, 
-                    SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    SpotCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SpotCompositionName COLLATE NOCASE)
+CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContext(
+                    SpotID INTEGER,
+                    SpotContextID INTEGER,
+                    Spots_SpotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Spots_SpotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SpotContextID) REFERENCES SpotContext(SpotContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
                     )'''
 
 CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
@@ -142,55 +389,6 @@ CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
                     UNIQUE (ShortCitation COLLATE NOCASE)
                     )'''
 
-CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
-                    RegionID INTEGER PRIMARY KEY,
-                    ParentRegionID INTEGER,
-                    RegionName TEXT NOT NULL CHECK (RegionName <> ''),
-                    RegionDescription TEXT,
-                    RegionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    RegionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (RegionName COLLATE NOCASE)
-                    )'''
-
-CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
-                    SettingID INTEGER PRIMARY KEY,
-                    ParentSettingID INTEGER,
-                    SettingName TEXT NOT NULL CHECK (SettingName <> ''),
-                    SettingDescription TEXT,
-                    SettingCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    SettingModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SettingName COLLATE NOCASE)
-                    )'''
-
-CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
-                    ColumnID INTEGER PRIMARY KEY,
-                    ColumnName TEXT NOT NULL CHECK (ColumnName <> ''),
-                    ColumnDescription TEXT, 
-                    ColumnCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ColumnModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (ColumnName COLLATE NOCASE)
-                    )'''
-
-CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplingMethods(
-                    SamplingMethodID INTEGER PRIMARY KEY,
-                    ParentSamplingMethodID INTEGER,
-                    SamplingMethodName TEXT NOT NULL CHECK (SamplingMethodName <> ''),
-                    SamplingMethodDescription TEXT, 
-                    SamplingMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    SamplingMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SamplingMethodName COLLATE NOCASE)
-                    )'''
-
-CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
-                    RockTypeID INTEGER PRIMARY KEY,
-                    ParentRockTypeID INTEGER,
-                    RockTypeName TEXT NOT NULL CHECK (RockTypeName <> ''),
-                    RockTypeDescription TEXT,
-                    RockTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    RockTypeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (RockTypeName COLLATE NOCASE)
-                    )'''
-
 CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UnitID INTEGER PRIMARY KEY,
                     ParentUnitID INTEGER,
@@ -201,25 +399,13 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UNIQUE (UnitName COLLATE NOCASE)
                     )'''
 
-CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
-                    AgeID INTEGER PRIMARY KEY,
-                    ParentAgeID INTEGER,
-                    AgeName TEXT NOT NULL CHECK (AgeName <> ''),
-                    MaxMa REAL,
-                    MinMa REAL,
-                    AgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AgeModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    UNIQUE (AgeName COLLATE NOCASE)
-                    )'''
-
-CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
-                    AgeSignatureID INTEGER PRIMARY KEY,
-                    ParentAgeSignatureID INTEGER,
-                    AgeSignatureName TEXT NOT NULL CHECK (AgeSignatureName <> ''),
-                    AgeSignatureDescription TEXT,
-                    AgeSignatureCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AgeSignatureModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AgeSignatureName COLLATE NOCASE)
+CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
+                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
+                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
+                    UPbAnalysisMethodDescription TEXT,
+                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
                     )'''
 
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
@@ -268,176 +454,6 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
-                    )'''
-
-CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
-                    GeochemAnalysisID INTEGER PRIMARY KEY,
-                    SpotID INTEGER NOT NULL,
-                    MajorElements TEXT,
-                    TraceElements TEXT,
-                    REEs TEXT,
-                    GeochemAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GeochemAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_LAB_FACILITIES_TABLE = '''CREATE TABLE IF NOT EXISTS LabFacilities(
-                    LabFacilityID INTEGER PRIMARY KEY,
-                    LabFacilityName TEXT NOT NULL CHECK (LabFacilityName <> ''),
-                    LabFacilityDescription TEXT,
-                    LabFacilityCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    LabFacilityModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (LabFacilityName COLLATE NOCASE)
-                    )'''
-
-CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
-                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
-                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
-                    UPbAnalysisMethodDescription TEXT,
-                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
-                    )'''
-
-CREATE_INSTRUMENTS_TABLE = '''CREATE TABLE IF NOT EXISTS Instruments(
-                    InstrumentID INTEGER PRIMARY KEY,
-                    InstrumentName TEXT NOT NULL CHECK (InstrumentName <> ''),
-                    InstrumentDescription TEXT, 
-                    InstrumentCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    InstrumentModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (InstrumentName COLLATE NOCASE)
-                    )'''
-
-CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContext(
-                    SpotID INTEGER,
-                    SpotContextID INTEGER,
-                    Spots_SpotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Spots_SpotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(SpotContextID) REFERENCES SpotContext(SpotContextID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_AliquotContext(
-                    AliquotID INTEGER,
-                    AliquotContextID INTEGER,
-                    Aliquots_AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Aliquots_AliquotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(AliquotContextID) REFERENCES AliquotContext(AliquotContextID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SampleContext(
-                    SampleID INTEGER,
-                    SampleContextID INTEGER,
-                    Samples_SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_SampleContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(SampleContextID) REFERENCES SampleContext(SampleContextID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_AgeSignatures(
-                    SampleID INTEGER,
-                    AgeSignatureID INTEGER,
-                    Samples_AgeSignaturesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_AgeSignaturesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(AgeSignatureID) REFERENCES AgeSignatures(AgeSignatureID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Regions(
-                    SampleID INTEGER,
-                    RegionID INTEGER,
-                    Samples_RegionsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_RegionsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(RegionID) REFERENCES Regions(RegionID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Columns(
-                    SampleID INTEGER,
-                    ColumnID INTEGER,
-                    Samples_ColumnsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_ColumnsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(ColumnID) REFERENCES Columns(ColumnID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_RockTypes(
-                    SampleID INTEGER,
-                    RockTypeID INTEGER,
-                    Samples_RockTypesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_RockTypesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(RockTypeID) REFERENCES RockTypes(RockTypeID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SamplingMethods(
-                    SampleID INTEGER,
-                    SamplingMethodID INTEGER,
-                    Samples_SamplingMethodsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_SamplingMethodsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(SamplingMethodID) REFERENCES SamplingMethods(SamplingMethodID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Settings(
-                    SampleID INTEGER,
-                    SettingID INTEGER,
-                    Samples_SettingsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_SettingsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(SettingID) REFERENCES Settings(SettingID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Units(
-                    SampleID INTEGER,
-                    UnitID INTEGER,
-                    Samples_UnitsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_UnitsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(UnitID) REFERENCES Units(UnitID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
                     )'''
 
 CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS FilterGroups(
@@ -554,7 +570,7 @@ def populate_ages(conn):
         # Begin by deleting all rows in the table to allow for a reset if things get changed
         sql = 'DELETE FROM Ages'
         c.execute(sql)
-        xml_file = "../Reference/GeologicTime_Ages.xml"
+        xml_file = "Reference/GeologicTime_Ages.xml"
         tree = ET.parse(xml_file)
         root = tree.getroot()
         for eon in root.findall('Eon'):

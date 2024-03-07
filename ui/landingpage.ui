@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>754</width>
+    <width>750</width>
     <height>701</height>
    </rect>
   </property>
@@ -18,15 +18,18 @@
     <widget class="QListWidget" name="listWidget">
      <property name="minimumSize">
       <size>
-       <width>200</width>
+       <width>150</width>
        <height>200</height>
       </size>
      </property>
      <property name="maximumSize">
       <size>
-       <width>200</width>
+       <width>350</width>
        <height>16777215</height>
       </size>
+     </property>
+     <property name="resizeMode">
+      <enum>QListView::Adjust</enum>
      </property>
     </widget>
    </item>

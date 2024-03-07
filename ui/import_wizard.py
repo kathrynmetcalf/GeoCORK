@@ -21,8 +21,10 @@ from pandas.core.interchange import dataframe
 class ImportWizardDialog(QDialog):
     DEFAULT_LABEL_ALIGNMENT: Qt.AlignmentFlag = Qt.AlignmentFlag.AlignBottom | Qt.AlignmentFlag.AlignCenter
 
-    def __init__(self, filename):
+    def __init__(self, filename, database):
         super().__init__()
+        self.db_file = database
+
         self.df = pandas.DataFrame
         if not self.objectName():
             self.setObjectName(u'ImportWizardDialog')
@@ -416,7 +418,8 @@ class ImportWizardDialog(QDialog):
             if combo_box.currentText() == 'N/A':
                 combo_box.setCurrentText('')
 
-        conn = sqlite3.connect('../TestSchema2.db')
+        conn = sqlite3.connect(self.db_file)
+
         with conn:
             c = conn.cursor()
             print(self.sample_id_lineedit.lineedit.text())
@@ -433,7 +436,7 @@ class ImportWizardDialog(QDialog):
                     VALUES ('{}', {});'''.format(self.aliqout_id_lineedit.lineedit.text(), c.lastrowid).__str__())
                 c.execute(
                     '''Insert into Spots (SpotName, AliquotID) 
-                    VALUES ('{}', {});'''.format("", c.lastrowid).__str__())
+                    VALUES ('{}', {});'''.format("test", c.lastrowid).__str__())
             spot_last_id = c.lastrowid
             count = 1
             for row in self.df.iterrows():
