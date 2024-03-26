@@ -1,8 +1,7 @@
 import typing
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
-from PyQt6.uic import loadUi
+from PyQt6 import QtTest as QtT
 import Functions.Text_manipulations as TxM
 
 '''
@@ -154,12 +153,16 @@ class TreeModel(QtC.QAbstractProxyModel):
         for col in range(self.sourceModel.columnCount()):
             self.headers.append(self.sourceModel.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
-    def getItem(self, index: QtC.QModelIndex):
-        if index.isValid():
-            item = index.internalPointer()
-            if item:
-                return item
-        return self.rootItem
+    def getItem(self, index: QtC.QModelIndex) -> tuple[TreeItem, QtC.QModelIndex]: # returns tree item and parent index
+        if not index.isValid():
+            return self.rootItem, QtC.QModelIndex()
+        else:
+            sourceIndex = self.mapToSource(index)
+            sourceRow = sourceIndex.row()
+            record = self.sourceModel.record(sourceRow)
+            itemID = record.value(0)
+            item, parentIndex = self.findIDinTree(itemID, self.rootItem, QtC.QModelIndex())
+            return item, parentIndex
 
     def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
     # Given row, column, and parent, create an index for a child item at row and column
@@ -169,7 +172,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         if not parent.isValid() and parent.column() != 0:
             parentItem = self.rootItem
         else:
-            parentItem = self.getItem(parent)
+            parentItem, parentsIndex = self.getItem(parent)
         if not parentItem:
             return QtC.QModelIndex()
         treeItem = parentItem.child(row)
@@ -182,20 +185,16 @@ class TreeModel(QtC.QAbstractProxyModel):
     # Given index, find parent and create index for parent item
         if not index.isValid():
             return QtC.QModelIndex()
-        childItem = self.getItem(index)
-        if not childItem:
-            return QtC.QModelIndex()
-        parentItem = childItem.parent()
-        if parentItem == self.rootItem or not parentItem:
-            return QtC.QModelIndex()
-        return self.createIndex(self.parentItem.row(), 0, parentItem)
+        item, parentIndex = self.getItem(index)
+        return parentIndex
+
 
     def rowCount(self, parent: QtC.QModelIndex = ...) -> int:
         if not parent.isValid():
-            self.parentItem = self.rootItem
+            parentItem = self.rootItem
         else:
-            self.parentItem = self.getItem(parent)
-        return self.parentItem.childCount()
+            parentItem, parentsIndex = self.getItem(parent)
+        return parentItem.childCount()
 
     def columnCount(self, parent: QtC.QModelIndex = ...) -> int:
         # return 1
@@ -204,7 +203,7 @@ class TreeModel(QtC.QAbstractProxyModel):
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return None
-        item = self.getItem(index)
+        item, parentIndex = self.getItem(index)
         if role == QtC.Qt.ItemDataRole.DisplayRole:
             return item.data(index.column())
         return None
@@ -221,17 +220,19 @@ class TreeModel(QtC.QAbstractProxyModel):
             return QtC.QModelIndex()
         elif parent == self.rootItem:
             return QtC.QModelIndex()
-        item = self.getItem(proxy_index)
+        item, parentIndex = self.getItem(proxy_index)
         itemID = item.data(0)
         for row in range(self.sourceModel.rowCount()):
             record = self.sourceModel.record(row)
             if record.value(0) == itemID:
                 sourceRow = row
                 break
-        if not sourceRow:
+        try:
+            sourceRow # Check if the variable has been assigned
+        except NameError: # If not
             return QtC.QModelIndex()
         sourceCol = proxyCol
-        return self.createIndex(sourceRow, sourceCol)
+        return self.createIndex(sourceRow, sourceCol, QtC.QModelIndex())
 
     def mapFromSource(self, sourceIndex: QtC.QModelIndex) -> QtC.QModelIndex:
         if not sourceIndex.isValid():
@@ -240,24 +241,25 @@ class TreeModel(QtC.QAbstractProxyModel):
         sourceCol = sourceIndex.column()
         record = self.sourceModel.record(sourceRow)
         itemID = record.value(0)
-        treeItem = self.findIDinTree(itemID, self.rootItem)
-        parentItem = treeItem.parent()
+        output = self.findIDinTree(itemID, self.rootItem, QtC.QModelIndex())
+        treeItem = output[0]
+        parentIndex = output[1]
         proxyRow = treeItem.row() # row number of item in its parent's child list
         proxyCol = sourceCol # same column as table model
-        parentIndex = self.parent()
         if not parentIndex.isValid():
-            return QtC.QModelIndex()
-        elif parentItem == self.rootItem:
             return QtC.QModelIndex()
         return self.index(proxyRow, proxyCol, parentIndex)
 
-    def findIDinTree(self, itemID: int, parent: TreeItem) -> TreeItem:
-        for childItem in parent.childItems:
+    def findIDinTree(self, itemID: int, parentItem: TreeItem, parentIndex: QtC.QModelIndex) -> tuple[TreeItem, QtC.QModelIndex]: # returns item and parent index
+        for childItem in parentItem.childItems:
             if childItem.data(0) == itemID:
-                result = childItem
-                return result
+                item = childItem
+                return item, parentIndex
             else:
-                self.findIDinTree(itemID, childItem)
+                row = childItem.row()
+                childIndex = self.index(row, 0, parentIndex)
+                self.findIDinTree(itemID, childItem, childIndex)
+
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
@@ -278,6 +280,18 @@ class TreeModel(QtC.QAbstractProxyModel):
             self.sourceModel.setData(self.sourceModel.index(index.row(), index.column()), value, role)
             return True
 
+
+if __name__ == '__main__':
+    # only run these commands if this script is run
+    # Can't be run when used as a library for another script
+    db_file = '../TestSchema.db'
+    db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+    db.setDatabaseName(db_file)
+    model = QtS.QSqlTableModel()
+    model.setTable('Units')
+    model.select()
+    tree_model = TreeModel(model, None)
+    tester = QtT.QAbstractItemModelTester(tree_model, QtT.QAbstractItemModelTester.FailureReportingMode.Warning)
 
 
 
