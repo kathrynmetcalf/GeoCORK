@@ -241,6 +241,17 @@ class GeoChron(QtW.QMainWindow):
             self.table_proxy_model.setFilterRegularExpression(search_expression)
 
     def get_existing(self, field, table):
+        """
+        Get all the entries for the selected field in the selected table
+        Parameters
+        ----------
+        field: column name
+        table: database table name
+
+        Returns
+        -------
+        existing: list of the existing entries
+        """
         conn = sqlite3.connect(self.db_file)
         with conn:
             c = conn.cursor()

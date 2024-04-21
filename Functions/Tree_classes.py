@@ -17,20 +17,42 @@ https://github.com/openwebos/qt/blob/92fde5feca3d792dfd775348ca59127204ab4ac0/sr
 
 class TreeItem:
     def __init__(self, itemData: QtS.QSqlRecord, parentItem):
+        """
+        Create a tree item with given data and parent item
+        Parameters
+        ----------
+        itemData: SQL record from QSqlTableModel
+        parentItem: parent tree item
+        """
         self.itemData = itemData
         self.parentItem = parentItem
         self.childItems = []
 
     def __del__(self):
+        """
+        Deletes all children of deleted item
+        """
         for child in self.childItems:
             del child
         del self.childItems
         
     def appendChild(self, child_item):
+        """
+        Add each child item
+        Parameters
+        ----------
+        child_item
+        """
         # add each child item
         self.childItems.append(child_item)
 
     def removeChild(self, row: int):
+        """
+        Remove a child item at a position
+        Parameters
+        ----------
+        row: number of child in list of its parent's children
+        """
         # remove a child item at a position
         if row < 0 or row >= len(self.childItems):
             return False
@@ -39,6 +61,15 @@ class TreeItem:
             return True
 
     def child(self, row: int):
+        """
+        Return the # row child of the item, or none if the row is invalid or there are no children
+        Parameters
+        ----------
+        row
+        Returns
+        -------
+        None or child item
+        """
         # child in given row
         if row < 0 or row >= len(self.childItems):
             return None
@@ -97,9 +128,9 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.sourceModel = sourceModel
         self.headers = []
         self.column_headers()
-        self.rootItem = TreeItem(None, None)
-        self.parentItem = TreeItem(None, None)
-        self.childItem = TreeItem(None, None)
+        self.rootItem = TreeItem(QtS.QSqlRecord(), None)
+        self.parentItem = TreeItem(QtS.QSqlRecord(), None)
+        self.childItem = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
         self.sourceModel.setFilter("")
         # self.testModelIndexing(self.rootItem)
@@ -153,6 +184,7 @@ class TreeModel(QtC.QAbstractProxyModel):
     def column_headers(self):
         for col in range(self.sourceModel.columnCount()):
             self.headers.append(self.sourceModel.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            # print(f'{col} header is {self.headers[col]}')
 
     def getItem(self, index: QtC.QModelIndex) -> TreeItem: # returns tree item
         if not index.isValid():
@@ -160,6 +192,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             return self.rootItem
         else:
             item = index.internalPointer()
+            print(f'Get item {item.data(2)}')
             return item
 
     def index(self, row: int, column: int, parent: QtC.QModelIndex = ...):
@@ -180,8 +213,10 @@ class TreeModel(QtC.QAbstractProxyModel):
             return QtC.QModelIndex()
         item = parentItem.child(row)
         if item:
+            print(f"indexing valid item {item.data(2)}")
             return self.createIndex(row, column, item)
         else:
+            print("no item")
             return QtC.QModelIndex()
 
     def parent(self, index: QtC.QModelIndex):
@@ -193,6 +228,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         parentItem = item.parent()
         if not parentItem:
             return QtC.QModelIndex()
+        print(f'Parent item is {parentItem.data(2)}')
         return self.createIndex(parentItem.row(), 0, parentItem)
 
 
@@ -202,11 +238,20 @@ class TreeModel(QtC.QAbstractProxyModel):
             parentItem = self.rootItem
         else:
             parentItem = self.getItem(parent)
+        print(f'Parent {parentItem.data(2)} has {parentItem.childCount()} children')
         return parentItem.childCount()
 
     def columnCount(self, parent: QtC.QModelIndex = ...) -> int:
-        # return 1
-        return self.sourceModel.columnCount()
+        print(f'Parent index for columns is at {parent.row()},{parent.column()}')
+        if not parent.isValid():
+            parentItem = self.rootItem
+            parentName = 'root'
+        else:
+            parentItem = parent.internalPointer()
+            parentName = parentItem.data(2)
+        ncols = self.sourceModel.columnCount()
+        print(f'{ncols} columns in {parentName}')
+        return ncols
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -219,6 +264,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         return None
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
+        print(f'mapping proxy index {proxy_index.row()},{proxy_index.column()}')
         if not proxy_index.isValid() or not self.sourceModel:
             print("proxy root maps to source root")
             return QtC.QModelIndex()
@@ -227,6 +273,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             return QtC.QModelIndex()
         proxyCol = proxy_index.column()
         item = self.getItem(proxy_index)
+        print(f"Mapping valid item {item.data(2)}")
         itemID = item.data(0)
         for row in range(self.sourceModel.rowCount()):
             record = self.sourceModel.record(row)
@@ -238,7 +285,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         except NameError: # If not
             return QtC.QModelIndex()
         sourceCol = proxyCol
-        return self.createIndex(sourceRow, sourceCol, QtC.QModelIndex())
+        return self.index(sourceRow, sourceCol, QtC.QModelIndex())
 
     def mapFromSource(self, sourceIndex: QtC.QModelIndex) -> QtC.QModelIndex:
         if not sourceIndex.isValid():
@@ -252,7 +299,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         item = self.findIDinTree(itemID, self.rootItem, QtC.QModelIndex())
         proxyRow = item.row()  # row number of item in its parent's child list
         parentItem = item.parent()
-        parentIndex = self.index(parentItem.row(), proxyCol, parentItem)
+        parentIndex = self.createIndex(parentItem.row(), proxyCol, parentItem)
         return self.index(proxyRow, proxyCol, parentIndex)
 
     def findIDinTree(self, itemID: int, parentItem: TreeItem, parentIndex: QtC.QModelIndex) -> TreeItem: # returns tree item with itemID
@@ -284,7 +331,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             return False
         if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
             sourceIndex = self.mapToSource(index)
-            self.sourceModel.setData(self.sourceModel.index(sourceIndex.row(), sourceIndex.column()), value, role)
+            self.sourceModel.setData(self.sourceModel.createIndex(sourceIndex.row(), sourceIndex.column()), value, role)
             return True
 
     def testModelIndexing(self, parentItem: TreeItem):
