@@ -8,7 +8,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize
-from PyQt6.QtWidgets import QFileDialog
+from PyQt6.QtWidgets import QFileDialog, QWidget
 
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
@@ -20,6 +20,7 @@ import ui.New_source
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
 from ui.AddTags import AddTags
+from ui.Filters import QueryBuilder
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -58,7 +59,7 @@ class GeoChron(QtW.QMainWindow):
         #Create_db.create_tables(self.db_file)
         self.dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
                         'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
-                        'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units']
+                        'Spot Compositions', 'Spot Context', 'UPb Data', 'Analysis Methods', 'Units']
         self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Regions', 'RockTypes', 'SampleContext',
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
         self.display_table_list()
@@ -74,6 +75,12 @@ class GeoChron(QtW.QMainWindow):
         self.edit_pushButton.clicked.connect(self.edit_popup)
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
         # End widgets here # show the window when done, used for making a top-level window
+
+        self.querybuilder = QueryBuilder(self)
+        self.querybuilder.setLayout(self.horizontalLayout_2)
+        self.horizontalLayout_2.addWidget(self.querybuilder)
+
+
         self.show()
 
     def closeEvent(self, a0):

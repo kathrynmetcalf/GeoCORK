@@ -74,5 +74,5 @@ def add_data(db_file):
 
 
 if __name__ == '__main__':
-    db_file = '../TestSchema.db'
+    db_file = '../DataTestSchema.db'
     add_data(db_file)

@@ -13,7 +13,7 @@ class AddTags(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "AddTags.ui"
+        tags_ui_file = "ui/AddTags.ui"
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model

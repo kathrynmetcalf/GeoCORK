@@ -14,7 +14,7 @@ class EditTable(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "EditTable.ui"
+        tags_ui_file = "ui/EditTable.ui"
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model

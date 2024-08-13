@@ -11,7 +11,7 @@ from PyQt6 import QtSql as QtS
 class Window(QtW.QWidget):
     def __init__(self):
         super().__init__()
-        self.db_file = '../TestSchema.db'
+        self.db_file = '../DataTestSchema.db'
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
 

@@ -20,5 +20,5 @@ def create_indexes(db_file):
         c.execute(SEARCH_INDEXES)
 
 if __name__ == '__main__':
-    db_file = '../TestSchema.db'
+    db_file = '../DataTestSchema.db'
     create_indexes(db_file)

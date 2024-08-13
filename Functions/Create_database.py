@@ -100,6 +100,10 @@ CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
 CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
                     GeochemAnalysisID INTEGER PRIMARY KEY,
                     SpotID INTEGER NOT NULL,
+                    SourceID INTEGER,
+                    LabFacilityID INTEGER,
+                    InstrumentID INTEGER,
+                    AnalysisMethodID INTEGER,
                     MajorElements TEXT,
                     TraceElements TEXT,
                     REEs TEXT,
@@ -108,6 +112,18 @@ CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
+                    FOREIGN KEY(SourceID) REFERENCES Sources(SourceID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    FOREIGN KEY(AnalysisMethodID) REFERENCES AnalysisMethods(AnalysisMethodID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
                     )'''
 
 CREATE_INSTRUMENTS_TABLE = '''CREATE TABLE IF NOT EXISTS Instruments(
@@ -399,13 +415,13 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UNIQUE (UnitName COLLATE NOCASE)
                     )'''
 
-CREATE_UPB_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
-                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
-                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
-                    UPbAnalysisMethodDescription TEXT,
-                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
+CREATE_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS AnalysisMethods(
+                    AnalysisMethodID INTEGER PRIMARY KEY,
+                    AnalysisMethodName TEXT NOT NULL CHECK (AnalysisMethodName <> ''),
+                    AnalysisMethodDescription TEXT,
+                    AnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AnalysisMethodName COLLATE NOCASE)
                     )'''
 
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
@@ -414,9 +430,9 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     SourceID INTEGER,
                     LabFacilityID INTEGER,
                     InstrumentID INTEGER,
-                    UPbAnalysisMethodID INTEGER,
+                    AnalysisMethodID INTEGER,
                     Uppm REAL,
-                    "206Pb/204Pb" REAL,
+                    "206Pb_204Pb" REAL,
                     "U/Th" REAL,
                     "206Pb/207Pb" REAL,
                     "206Pb/207Pberror" REAL,
@@ -448,7 +464,7 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
-                    FOREIGN KEY(UPbAnalysisMethodID) REFERENCES UPbAnalysisMethods(UPbAnalysisMethodID)
+                    FOREIGN KEY(AnalysisMethodID) REFERENCES AnalysisMethods(AnalysisMethodID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
@@ -489,6 +505,8 @@ def create_tables(db_file):
 
         c.execute(CREATE_SETTINGS_TABLE)
 
+        c.execute(CREATE_ANALYSIS_METHODS_TABLE)
+
         c.execute(CREATE_ROCK_TYPES_TABLE)
 
         c.execute(CREATE_UNITS_TABLE)
@@ -516,8 +534,6 @@ def create_tables(db_file):
         c.execute(CREATE_LAB_FACILITIES_TABLE)
 
         c.execute(CREATE_INSTRUMENTS_TABLE)
-
-        c.execute(CREATE_UPB_ANALYSIS_METHODS_TABLE)
 
         c.execute(CREATE_UPBDATA_TABLE)
 
@@ -570,7 +586,7 @@ def populate_ages(conn):
         # Begin by deleting all rows in the table to allow for a reset if things get changed
         sql = 'DELETE FROM Ages'
         c.execute(sql)
-        xml_file = "Reference/GeologicTime_Ages.xml"
+        xml_file = "../Reference/GeologicTime_Ages.xml"
         tree = ET.parse(xml_file)
         root = tree.getroot()
         for eon in root.findall('Eon'):

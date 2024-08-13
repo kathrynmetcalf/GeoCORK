@@ -152,7 +152,7 @@ def create_triggers(c):
     c.execute(UPDATE_UTM_TRIGGER)
 
 if __name__ == '__main__':
-    db_file = '../TestSchema.db'
+    db_file = '../DataTestSchema.db'
     conn = sqlite3.connect(db_file)
     with conn:
         c = conn.cursor()
