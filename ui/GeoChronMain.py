@@ -183,10 +183,10 @@ class GeoChron(QtW.QMainWindow):
 
             # self.tree_proxy_model.setSourceModel(self.tree_model)
             self.dbTable_treeView.setModel(self.tree_model)
-            # self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            # self.dbTable_treeView.hideColumn(1)  # don't show ID column
-            # self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
-            # self.dbTable_treeView.setSortingEnabled(True)
+            self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+            self.dbTable_treeView.hideColumn(0)  # don't show ID column
+            self.dbTable_treeView.hideColumn(1)  # don't show parent ID column
+            self.dbTable_treeView.setSortingEnabled(True)
             if table == 'Ages':
                 self.dbTable_treeView.hideColumn(5)  # don't show created column
                 self.dbTable_treeView.hideColumn(6)  # don't show modified column
