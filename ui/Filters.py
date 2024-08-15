@@ -6,12 +6,12 @@ import sqlite3
 
 import PyQt6
 from PyQt6 import QtCore
-from PyQt6.QtCore import QRect, Qt, QEvent
+from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication
 from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
-    QListView, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem
+    QListView, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem, QMainWindow
 )
 
 
@@ -161,8 +161,9 @@ def parse_sql_to_structure(sql):
 
 
 class InsertFilterGroupDialog(QDialog):
-    def __init__(self, sql_structure, parent=None):
+    def __init__(self, sql_structure, db_file, parent=None):
         super().__init__(parent)
+        self.db_file = db_file
         self.sql_structure = sql_structure
 
         self.setWindowTitle("Insert New Filter Group")
@@ -218,8 +219,7 @@ class InsertFilterGroupDialog(QDialog):
         color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
         description = self.description_input.toPlainText()
 
-        db_file = 'GSACordDatabase.db'
-        conn = sqlite3.connect(db_file)
+        conn = sqlite3.connect(self.db_file)
 
 
         with conn:
@@ -228,11 +228,9 @@ class InsertFilterGroupDialog(QDialog):
                             VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
                             """
             c = conn.cursor()
-            print(sql_query)
             c.execute(sql_query)
 
-        db_file = 'GSACordDatabase.db'
-        conn = sqlite3.connect(db_file)
+        conn = sqlite3.connect(self.db_file)
         listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
 
         for x in range(len(listWidget.items(None))):
@@ -585,8 +583,11 @@ class QueryBuilder(QWidget):
     #todo swap this whole code to QListWidget
     def __init__(self, parent):
         super().__init__(parent)
-        db_file = 'GSACordDatabase.db'
-        conn = sqlite3.connect(db_file)
+        for widget in QApplication.topLevelWidgets():
+            if widget.inherits("QMainWindow"):
+
+                self.db_file = widget.db_file
+        conn = sqlite3.connect(self.db_file)
         listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
 
         for x in range(len(listWidget.items(None))):
@@ -699,8 +700,7 @@ class QueryBuilder(QWidget):
                                         LEFT JOIN AliquotContext ON AliquotContext.AliquotContextID=Aliquots_AliquotContext.AliquotContextID'''
 
     def populate_filters(self, filter_name):
-        db_file = 'GSACordDatabase.db'
-        conn = sqlite3.connect(db_file)
+        conn = sqlite3.connect(self.db_file)
         with conn:
             sql_query = f"""SELECT SQLQuery, FilterGroupName FROM FilterGroups WHERE FilterGroupName = '{filter_name.text()}';"""
             c = conn.cursor()
@@ -715,9 +715,6 @@ class QueryBuilder(QWidget):
     def get_sql(self):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
-
-        with open("output.json", 'w+') as f:
-            f.write(json.dumps(structure, sort_keys=True, indent=2))
 
         join = ""
 
@@ -823,4 +820,4 @@ class QueryBuilder(QWidget):
         return sql_query
 
     def save_filter(self):
-        InsertFilterGroupDialog(self.main_group_box.get_structure(), self).exec()
+        InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
