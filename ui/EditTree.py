@@ -6,10 +6,12 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
+import Functions.Tree_classes as TrC
 from ui.AddTags import AddTags
 
-class EditTable(QtW.QDialog):
-    def __init__(self, database, model, table_name):
+
+class EditTree(QtW.QDialog):
+    def __init__(self, database, model: QtS.QSqlTableModel, table_name):
         super().__init__()
 
         # Define any widgets here
@@ -17,26 +19,22 @@ class EditTable(QtW.QDialog):
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
+        # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
+        self.tree_proxy_model = TrC.TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)
-        self.filter_proxy_model = QtC.QSortFilterProxyModel()
-        self.filter_proxy_model.setSourceModel(self.model)
-        self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+        # self.filter_proxy_model = QtC.QSortFilterProxyModel()
+        # self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
+        # self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+
         self.errmsg = QtW.QMessageBox(self)
-
-        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
-            pass
-        else:
-            self.model: QtS.QSqlTableModel
-
-            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-
+        self.display_tree()
         self.createSavepoint()
 
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.apply_pushButton.clicked.connect(self.apply)
         self.cancel_pushButton.clicked.connect(self.rollback)
-        self.filter_proxy_model.dataChanged.connect(self.handleDataChanged)
+        self.tree_proxy_model.dataChanged.connect(self.handleDataChanged)
 
 
     def createSavepoint(self):
@@ -52,14 +50,10 @@ class EditTable(QtW.QDialog):
             self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def handleDataChanged(self, index):
-        proxy_model = index.model()
-        data = proxy_model.data(index)
+        data = self.tree_proxy_model.data(index)
         print(f'You updated to: {data}')
-        if hasattr(proxy_model, 'mapToSource'):
-            # The model in the view is a proxy model
-            sourceIndex = proxy_model.mapToSource(index)
-            if self.table in self.dbtree_list: # the source model is a tree model
-                self.model.setData(sourceIndex, data)
+        source_index = self.tree_proxy_model.mapToSource(index)
+        self.model.setData(source_index, data, QtC.Qt.ItemDataRole.EditRole)
 
             # id_index = self.filter_proxy_model.ind # index of the ID column
             # print(f'The primary key is {self.filter_proxy_model.sibling(row, column, index)}')  # right now getting QModelIndex object instead of ID#
@@ -77,18 +71,20 @@ class EditTable(QtW.QDialog):
         #         else:
         #             source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
 
-
-
-    def display_table(self):
-        self.edit_tableView.setModel(self.model)
-        # self.edit_tableView.setModel(self.filter_proxy_model)
-        self.edit_tableView.hideColumn(0)  # don't show ID column
-        self.edit_tableView.resizeColumnsToContents()
-        # self.edit_tableView.setSortingEnabled(True)
+    def display_tree(self):
+        self.edit_treeView.setModel(self.tree_proxy_model)
+        self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        self.edit_treeView.hideColumn(1)  # don't show ID column
+        self.edit_treeView.hideColumn(2)  # don't show parent ID column
+        self.edit_treeView.setSortingEnabled(True)
 
     def add_popup(self):
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
             pass
+        elif self.table in self.dbtree_list:
+            dlg = AddTags(self.db, self.model, self.table)
+            dlg.exec()
+            self.display_table()
         else:
             dlg = AddTags(self.db, self.model, self.table)
             dlg.exec()
@@ -129,5 +125,5 @@ if __name__ == '__main__':
     # only run these commands if this script is run
     # Can't be run when used as a library for another script
     app = QtW.QDialog(sys.argv)  # pass command line arguments
-    w = EditTable()
+    w = EditTree()
     sys.exit(app.exec())  # runs event loop, pass exit status to the system

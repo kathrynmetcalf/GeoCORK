@@ -19,6 +19,7 @@ import ui.import_wizard
 import ui.New_source
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 # from ui.LandingUI import LandingPage
 
@@ -265,13 +266,13 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditTable(self.db, self.sample_model, table_name, self.dbtree_list, 'table')
+            dlg = EditTable(self.db, self.sample_model, table_name)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
-            dlg = EditTable(self.db, self.tree_model, table_name, self.dbtree_list, 'tree')
+            dlg = EditTree(self.db, self.model, table_name)
         else:
-            dlg = EditTable(self.db, self.model, table_name, self.dbtree_list, 'table')
+            dlg = EditTable(self.db, self.model, table_name)
         dlg.exec()
         self.display_table()
 
