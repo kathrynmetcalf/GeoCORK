@@ -304,6 +304,16 @@ class TreeModel(QtC.QAbstractProxyModel):
                 return item.data(index.column())
         return None
 
+    def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = ...) -> bool:
+        if not index.isValid():
+            # print("Root has no data to set")
+            return False
+        if role == QtC.Qt.ItemDataRole.EditRole:
+            sourceIndex = self.mapToSource(index)
+            if sourceIndex.isValid():
+                self.sourceModel.setData(sourceIndex, value, role)
+                return True
+
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
         # print(f'mapping proxy index {proxy_index.row()},{proxy_index.column()}')
         if not proxy_index.isValid() or not self.sourceModel:
@@ -325,14 +335,14 @@ class TreeModel(QtC.QAbstractProxyModel):
             sourceRow # Check if the variable has been assigned
         except NameError: # If not
             return QtC.QModelIndex()
-        # if proxyCol == 0:  # first column is item name which maps to third column in source model
-        #     sourceCol = 2
-        # elif proxyCol == 1:  # second column is item ID which maps to first column in source model
-        #     sourceCol = 0
-        # elif proxyCol == 2:  # third column is parent ID which maps to second column in source model
-        #     sourceCol = 1
-        # else:
-        sourceCol = proxyCol
+        if proxyCol == 0:  # first column is item name which maps to third column in source model
+            sourceCol = 2
+        elif proxyCol == 1:  # second column is item ID which maps to first column in source model
+            sourceCol = 0
+        elif proxyCol == 2:  # third column is parent ID which maps to second column in source model
+            sourceCol = 1
+        else:
+            sourceCol = proxyCol
         return self.sourceModel.index(sourceRow, sourceCol, QtC.QModelIndex())
 
     def mapFromSource(self, sourceIndex: QtC.QModelIndex) -> QtC.QModelIndex:
@@ -341,14 +351,14 @@ class TreeModel(QtC.QAbstractProxyModel):
             return QtC.QModelIndex()
         sourceRow = sourceIndex.row()
         sourceCol = sourceIndex.column()
-        # if sourceCol == 0:  # first column is item ID which maps to second column in proxy model
-        #     proxyCol = 1
-        # elif sourceCol == 1:  # second column is parent ID which maps to third column in proxy model
-        #     proxyCol = 2
-        # elif sourceCol == 2:  # third column is item name which maps to first column in proxy model
-        #     proxyCol = 0
-        # else:
-        proxyCol = sourceCol  # same column as table model
+        if sourceCol == 0:  # first column is item ID which maps to second column in proxy model
+            proxyCol = 1
+        elif sourceCol == 1:  # second column is parent ID which maps to third column in proxy model
+            proxyCol = 2
+        elif sourceCol == 2:  # third column is item name which maps to first column in proxy model
+            proxyCol = 0
+        else:
+            proxyCol = sourceCol  # same column as table model
         record = self.sourceModel.record(sourceRow)
         itemID = record.value(0)
         item = self.findIDinTree(itemID, self.rootItem, QtC.QModelIndex())
@@ -358,6 +368,10 @@ class TreeModel(QtC.QAbstractProxyModel):
         return self.index(proxyRow, proxyCol, parentIndex)
 
     def findIDinTree(self, itemID: int, parentItem: TreeItem, parentIndex: QtC.QModelIndex) -> TreeItem: # returns tree item with itemID
+        if parentItem == self.rootItem:
+            print(f'Finding {itemID} in root with {parentItem.childCount()} children')
+        else:
+            print(f'Finding {itemID} in {parentItem.data(2)} with {parentItem.childCount()} children')
         for childItem in parentItem.childItems:
             if childItem.data(0) == itemID:
                 item = childItem
@@ -365,6 +379,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             else:
                 row = childItem.row()
                 childIndex = self.index(row, 0, parentIndex)
+                print(f'Checking {childItem.data(2)}')
                 self.findIDinTree(itemID, childItem, childIndex)
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
