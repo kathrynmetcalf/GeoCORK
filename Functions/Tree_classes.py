@@ -101,8 +101,8 @@ class TreeItem:
         if column < 0 or column >= self.itemData.count():
             return QtC.QVariant()
         else:
-            field = self.itemData.field(column)
-            return field.value()
+            value = self.itemData.value(column)
+            return value
 
     def setData(self, column: int, value: typing.Any):
         if column < 0 or column >= self.itemData.count():
@@ -134,7 +134,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.childItem = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
         self.sourceModel.setFilter("")
-        # self.testModelIndexing(self.rootItem)
+        self.testModelIndexing(self.rootItem)
         # self.sourceModel.dataChanged().connect
 
     def __del__(self):
@@ -343,6 +343,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             sourceCol = 1
         else:
             sourceCol = proxyCol
+        # print(f'Proxy index {proxy_index.row()},{proxy_index.column()} maps to source index {sourceRow},{sourceCol}')
         return self.sourceModel.index(sourceRow, sourceCol, QtC.QModelIndex())
 
     def mapFromSource(self, sourceIndex: QtC.QModelIndex) -> QtC.QModelIndex:
@@ -361,26 +362,32 @@ class TreeModel(QtC.QAbstractProxyModel):
             proxyCol = sourceCol  # same column as table model
         record = self.sourceModel.record(sourceRow)
         itemID = record.value(0)
-        item = self.findIDinTree(itemID, self.rootItem, QtC.QModelIndex())
+        item = self.findIDinTree(itemID)
         proxyRow = item.row()  # row number of item in its parent's child list
         parentItem = item.parent()
-        parentIndex = self.createIndex(parentItem.row(), proxyCol, parentItem)
+        if parentItem == self.rootItem:
+            parentIndex = QtC.QModelIndex()
+        else:
+            parentIndex = self.createIndex(parentItem.row(), proxyCol, parentItem)
         return self.index(proxyRow, proxyCol, parentIndex)
 
-    def findIDinTree(self, itemID: int, parentItem: TreeItem, parentIndex: QtC.QModelIndex) -> TreeItem: # returns tree item with itemID
-        if parentItem == self.rootItem:
-            print(f'Finding {itemID} in root with {parentItem.childCount()} children')
-        else:
-            print(f'Finding {itemID} in {parentItem.data(2)} with {parentItem.childCount()} children')
-        for childItem in parentItem.childItems:
-            if childItem.data(0) == itemID:
-                item = childItem
+    def findIDinTree(self, itemID: int) -> TreeItem: # returns tree item with itemID
+        def search(itemIndex: QtC.QModelIndex):
+            item = self.getItem(itemIndex)
+            # print(f'Searching {item.data(2)}')
+            if not itemIndex.isValid():
+                if item != self.rootItem:
+                    print(f'Invalid index for {item.data(2)}')
+            if item.data(0) == itemID:
+                # print(f'Found {itemID} in {item.data(2)}')
                 return item
-            else:
-                row = childItem.row()
-                childIndex = self.index(row, 0, parentIndex)
-                print(f'Checking {childItem.data(2)}')
-                self.findIDinTree(itemID, childItem, childIndex)
+            for row in range(item.childCount()):
+                childIndex = self.index(row, 0, itemIndex)
+                result = search(childIndex)
+                if result:
+                    return result
+            return None
+        return search(QtC.QModelIndex())
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
@@ -417,6 +424,13 @@ class TreeModel(QtC.QAbstractProxyModel):
             item = parentItem.child(row)
             itemName = item.data(2)
             for col in range(cols):
+                # index_a = self.index(row, col, parentIndex)
+                # index_b = self.index(row, col, parentIndex)
+                # if index_a.isValid() and index_b.isValid():
+                    # print(f"Item {itemName} index {row},{col} in {parentName} is valid")
+                # else:
+                    # print(f"Error: Item {itemName} index {row},{col} in {parentName} is invalid")
+                    # return
                 itemIndex = self.index(row, col, parentIndex)
                 if itemIndex.isValid():
                     data = self.data(itemIndex, QtC.Qt.ItemDataRole.DisplayRole)
