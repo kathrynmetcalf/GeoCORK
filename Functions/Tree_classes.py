@@ -135,7 +135,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.setup_model_data()
         self.sourceModel.setFilter("")
         self.testModelIndexing(self.rootItem)
-        # self.sourceModel.dataChanged().connect
 
     def __del__(self):
         del self.rootItem
@@ -290,7 +289,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             item = self.rootItem
         else:
             item = self.getItem(index)
-        if role == QtC.Qt.ItemDataRole.DisplayRole:
+        if role == QtC.Qt.ItemDataRole.DisplayRole or role == QtC.Qt.ItemDataRole.EditRole:
             if index.column() == 0:
                 # Show name in first column
                 return item.data(2)
@@ -393,7 +392,11 @@ class TreeModel(QtC.QAbstractProxyModel):
         if not index.isValid():
             # print("root doesn't have flags")
             return QtC.Qt.ItemFlag.NoItemFlags
-        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsEnabled
+        if index.column() == 1 or index.column() == 2 or index.column() == self.sourceModel.columnCount() -1 or index.column() == self.sourceModel.columnCount() -2:
+            # If the column is the ID, parent ID, created timestamp, or modified timestamp, it is not editable
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
+        else:
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
         if role != QtC.Qt.ItemDataRole.DisplayRole:

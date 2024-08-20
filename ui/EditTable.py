@@ -58,24 +58,15 @@ class EditTable(QtW.QDialog):
         if hasattr(proxy_model, 'mapToSource'):
             # The model in the view is a proxy model
             sourceIndex = proxy_model.mapToSource(index)
-            if self.table in self.dbtree_list: # the source model is a tree model
-                self.model.setData(sourceIndex, data)
-
-            # id_index = self.filter_proxy_model.ind # index of the ID column
-            # print(f'The primary key is {self.filter_proxy_model.sibling(row, column, index)}')  # right now getting QModelIndex object instead of ID#
-        # if index.isValid():
-        #     source_index = self.filter_proxy_model.mapToSource(index)
-        #     source_model = self.filter_proxy_model.sourceModel()
-        #     if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
-        #         pass
-        #     elif self.table in self.dbtree_list:
-        #         pass
-        #     else:
-        #         if row == 1 and index.data() is None:
-        #             errtxt = Er.blank_entry('Name')
-        #             self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-        #         else:
-        #             source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
+        if index.isValid():
+            source_index = self.filter_proxy_model.mapToSource(index)
+            source_model = self.filter_proxy_model.sourceModel()
+            row = source_index.row()
+            if row == 1 and index.data() is None:
+                errtxt = Er.blank_entry('Name')
+                self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            else:
+                source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
 
 
 
@@ -93,21 +84,6 @@ class EditTable(QtW.QDialog):
             dlg = AddTags(self.db, self.model, self.table)
             dlg.exec()
             self.display_table()
-
-    # def contextMenuEvent(self, pos):
-    #     self.model: TrC.TreeModel
-    #     if (self.model.
-    #         ().selection().indexes()):
-    #         for i in self.selectionModel().selection().indexes():
-    #             row, column = i.row(), i.column()
-    #         menu = QtGui.QMenu()
-    #         childAction = menu.addAction("Add child")
-    #         parentAction = menu.addAction("Add parent")
-    #         action = menu.exec_(self.mapToGlobal(pos))
-    #         if action == childAction:
-    #             # add child
-    #         if action == parentAction:
-    #             # add parent
 
 
     def rollback(self):
