@@ -47,20 +47,45 @@ def process_group(group):
     condition_strings = []
     for condition in group.get('conditions', []):
         field, operator, value = condition['field'].replace(' ', ''), condition['operator'], condition['value']
-        if operator.lower() == "equal":
+        if operator.lower() == "is" or operator.lower() == "is on":
             operator = "="
-        elif operator.lower() == "not equal":
+        elif operator.lower() == "is not" or operator.lower() == "is not on":
             operator = "!="
-        elif operator.lower() == "greater":
+        elif operator.lower() == "is greater than" or operator.lower() == "is after":
             operator = ">"
-        elif operator.lower() == "less":
+        elif operator.lower() == "is less than" or operator.lower() == "is before":
             operator = "<"
+        elif operator.lower() == "is blank":
+            operator = "IS NULL"
+            condition_string = f"{field} {operator}"
+            condition_strings.append(condition_string)
+            continue
+        elif operator.lower() == "is not blank":
+            operator = "NOT NULL"
+            condition_string = f"{field} {operator}"
+            condition_strings.append(condition_string)
+            continue
         elif operator.lower() == "contains":
             operator = "LIKE"
             condition_string = f"{field} {operator} '%{value}%'"
             condition_strings.append(condition_string)
             continue
-        #todo add other operators like 'greater or equal', 'less or equal', etc.
+        elif operator.lower() == "does not contain":
+            operator = "NOT LIKE"
+            condition_string = f"{field} {operator} '%{value}%'"
+            condition_strings.append(condition_string)
+            continue
+        elif operator.lower() == "starts with":
+            operator = "LIKE"
+            condition_string = f"{field} {operator} '{value}%'"
+            condition_strings.append(condition_string)
+            continue
+        elif operator.lower() == "ends with":
+            operator = "LIKE"
+            condition_string = f"{field} {operator} '%{value}'"
+            condition_strings.append(condition_string)
+            continue
+
         condition_string = f"{field} {operator} '{value}'"
         condition_strings.append(condition_string)
 
@@ -285,10 +310,11 @@ class RuleWidget(QWidget):
         self.table_switcher()
         if field is not None:
             self.attribute_combo.setCurrentText(field.split('.')[1])
+        self.attribute_combo.currentIndexChanged.connect(self.attribute_switcher)
 
         # Conditions
         self.operator_combo = FocusWheelComboBox()
-        self.operator_combo.addItems(['equal', 'not equal', 'less', 'greater', 'contains'])
+        self.attribute_switcher()
         self.layout.addWidget(self.operator_combo)
         if operator is not None:
             self.operator_combo.setCurrentText(operator)
@@ -304,68 +330,125 @@ class RuleWidget(QWidget):
         self.delete_button.clicked.connect(lambda: self.deleteLater())
         self.layout.addWidget(self.delete_button)
 
-    def table_switcher(self):
-        print('switched')
+    def attribute_switcher(self):
+        print ("Modified" in self.attribute_combo.currentText())
+        if "Created" in self.attribute_combo.currentText() or "Mofified" in self.attribute_combo.currentText():
+            print(self.attribute_combo.currentText())
+            operator_items = ["is on",
+                              "is not on",
+                              "is after",
+                              "is before"
+            ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            return
+        elif "Description" in self.attribute_combo.currentText() or "Name" in self.attribute_combo.currentText():
+            operator_items = ["is",
+                              "is not",
+                              "starts with",
+                              "ends with",
+                              "contains",
+                              "does not contain",
+                              "is blank",
+                              "is not blank"
+                              ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            return
+        elif (("Description" in self.attribute_combo.currentText() or
+              "Name" in self.attribute_combo.currentText() or
+              "ErrorSigma" in self.attribute_combo.currentText() or
+              "Unit" in self.attribute_combo.currentText()) or
+              self.table_combo.currentText() is "Sources"):
+            operator_items = ["is",
+                              "is not",
+                              "starts with",
+                              "ends with",
+                              "contains",
+                              "does not contain",
+                              "is blank",
+                              "is not blank"
+                              ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            return
+        else:
+            operator_items = ["is",
+                              "is not",
+                              "is less than",
+                              "is greater than",
+                              "is between",
+                              "is not between",
+                              "is blank",
+                              "is not blank"
+                              ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            return
 
-        items = list()
+
+
+
+    def table_switcher(self):
+        field_items = list()
         match self.table_combo.currentText():
             case 'Age Signature':
-                items = ["SampleContextName",
+                field_items = ["SampleContextName",
                          "SampleContextDescription",
                          "SampleContextCreated",
                          "SampleContextModified"]
             case 'Ages':
-                items = ["AgeName",
+                field_items = ["AgeName",
                          "MaxMa",
                          "MinMa",
                          "AgeCreated",
                          "AgeModified"]
             case 'Aliquot Context':
-                items = ["AliquotContextName",
+                field_items = ["AliquotContextName",
                          "AliquotContextDescription",
                          "AliquotContextCreated",
                          "AliquotContextModified"]
             case 'Aliquots':
-                items = ["AliquotName",
+                field_items = ["AliquotName",
                          "AliquotCreated",
                          "AliquotModified"]
             case 'Analysis Methods':
-                items = ["AnalysisMethodsName",
+                field_items = ["AnalysisMethodsName",
                          "AnalysisMethodsDescription",
                          "AnalysisMethodsCreated",
                          "AnalysisMethodsModified"]
             case 'Columns':
-                items = ["ColumnName",
+                field_items = ["ColumnName",
                          "ColumnDescription",
                          "ColumnCreated",
                          "ColumnModified"]
             case 'Instruments':
-                items = ["InstrumentName",
+                field_items = ["InstrumentName",
                          "InstrumentDescription",
                          "InstrumentCreated",
                          "InstrumentModified"]
             case 'Lab Facilities':
-                items = ["LabFacilityName",
+                field_items = ["LabFacilityName",
                          "LabFacilityDescription",
                          "LabFacilityCreated",
                          "LabFacilityModified"]
             case 'Regions':
-                items = ["RegionName",
+                field_items = ["RegionName",
                          "RegionDescription",
                          "RegionCreated",
                          "RegionModified"]
             case 'RockTypes':
-                items = ["RockTypeName",
+                field_items = ["RockTypeName",
                          "RockTypeDescription",
                          "RockTypeCreated",
                          "RockTypeModified"]
             case 'Sample Context':
-                items = ["SampleContextName",
+                field_items = ["SampleContextName",
                          "SampleContextDescription",
                          "SampleContextCreated",
                          "SampleContextModified"]
             case 'Samples':
-                items = ["SampleName",
+                field_items = ["SampleName",
                          "AverageAge",
                          "AverageAgeError",
                          "ErrorSigma",
@@ -390,17 +473,17 @@ class RuleWidget(QWidget):
                          "ElevUnit",
                          "Description"]
             case 'Sampling Methods':
-                items = ["SamplingMethodName",
+                field_items = ["SamplingMethodName",
                          "SamplingMethodDescription",
                          "SamplingMethodCreated",
                          "SamplingMethodModified"]
             case 'Settings':
-                items = ["SettingName",
+                field_items = ["SettingName",
                          "SettingDescription",
                          "SettingCreated",
                          "SettingModified"]
             case 'Sources':
-                items = ["Authors",
+                field_items = ["Authors",
                          "Year",
                          "Title",
                          "Source",
@@ -409,26 +492,26 @@ class RuleWidget(QWidget):
                          "SourceCreated",
                          "SourceModified"]
             case 'Spot Compositions':
-                items = ["SpotCompositionName",
+                field_items = ["SpotCompositionName",
                          "SpotCompositionDescription",
                          "SpotCompositionCreated",
                          "SpotCompositionModified"]
             case 'Spot Context':
-                items = ["SpotContextName",
+                field_items = ["SpotContextName",
                          "SpotContextDescription",
                          "SpotContextCreated",
                          "SpotContextModified"]
             case 'Spot':
-                items = ["SpotName",
+                field_items = ["SpotName",
                          "SpotCreated",
                          "SpotModified"]
             case 'UPb Analysis Methods':
-                items = ["UPbAnalysisMethodName",
+                field_items = ["UPbAnalysisMethodName",
                          "UPbAnalysisMethodDescription",
                          "UPbAnalysisMethodCreated",
                          "UPbAnalysisMethodModified"]
             case 'UPb Data':
-                items = ["U/Th",
+                field_items = ["U/Th",
                          "206Pb/204Pb",
                          "206Pb/207Pb",
                          "206Pb/207Pberror",
@@ -444,12 +527,12 @@ class RuleWidget(QWidget):
                          "206Pb/238UAge",
                          "206Pb/238UAgeError"]
             case 'Units':
-                items = ["UnitName",
+                field_items = ["UnitName",
                          "UnitDescription",
                          "UnitCreated",
                          "UnitModified"]
         self.attribute_combo.clear()
-        self.attribute_combo.addItems(items)
+        self.attribute_combo.addItems(field_items)
 
 
 class GroupBox(QGroupBox):
@@ -592,8 +675,6 @@ class QueryBuilder(QWidget):
 
         for x in range(len(listWidget.items(None))):
             listWidget.takeItem(x)
-
-        # todo update list widget from sql
 
         with conn:
             sql_query = """SELECT * FROM FilterGroups;"""
@@ -817,6 +898,7 @@ class QueryBuilder(QWidget):
         # Final SQL query
 
         sql_query = f"SELECT DISTINCT SampleID FROM (SELECT Samples.SampleID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause});"
+        print (sql_query)
         return sql_query
 
     def save_filter(self):
