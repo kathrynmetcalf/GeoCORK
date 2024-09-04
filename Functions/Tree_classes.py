@@ -136,6 +136,9 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.sourceModel.setFilter("")
         self.testModelIndexing(self.rootItem)
 
+        # self.sourceModel.modelReset.connect(self.resetTreeModel)
+        # self.sourceModel.dataChanged.connect(self.handleDataChanged)
+
     def __del__(self):
         del self.rootItem
 
@@ -303,15 +306,79 @@ class TreeModel(QtC.QAbstractProxyModel):
                 return item.data(index.column())
         return None
 
-    def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = ...) -> bool:
+    def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
         if not index.isValid():
             # print("Root has no data to set")
             return False
         if role == QtC.Qt.ItemDataRole.EditRole:
             sourceIndex = self.mapToSource(index)
             if sourceIndex.isValid():
-                self.sourceModel.setData(sourceIndex, value, role)
-                return True
+                # update the source model
+                try:
+                    self.sourceModel.setData(sourceIndex, value, role)
+                except:
+                    print(f'Error setting data in source model at {sourceIndex.row()},{sourceIndex.column()}')
+                    return False
+                treeItem = self.getItem(index)
+                if index.column() == 0:
+                    # Show name in first column
+                    dataCol = 2
+                elif index.column() == 1:
+                    # Show item ID in second column
+                    dataCol = 0
+                elif index.column() == 2:
+                    # Show parent ID in third column
+                    dataCol = 1
+                else:
+                    dataCol = index.column()
+                # Get the updated modified timestamp
+                mcol = self.sourceModel.columnCount() - 1
+                sourcemIndex = self.sourceModel.index(sourceIndex.row(), mcol, QtC.QModelIndex())
+                proxymIndex = self.mapFromSource(sourcemIndex)
+                if proxymIndex.isValid() and sourcemIndex.isValid():
+                    # If the changed data index and the modified timestamp index are valid for both models, change the data
+                    modified = self.sourceModel.data(sourcemIndex, QtC.Qt.ItemDataRole.DisplayRole)
+                    treeItem.setData(dataCol, value)
+                    self.dataChanged.emit(index, index)
+                    treeItem.setData(mcol, modified)
+                    self.dataChanged.emit(index, index)
+                    return True
+                else:
+                    print(f'Error setting data in proxy model at {index.row()},{index.column()}')
+                    return False
+
+    # def handleDataChanged(self, sourceTopLeft: QtC.QModelIndex, sourceBottomRight: QtC.QModelIndex, roles):
+    #     print (f'Handling data changed from {sourceTopLeft.row()},{sourceTopLeft.column()} to {sourceBottomRight.row()},{sourceBottomRight.column()}')
+    #     if not sourceTopLeft.isValid() or not sourceBottomRight.isValid():
+    #         print('dataChanged emitted from invalid source indices')
+    #         return
+    #     if sourceTopLeft == sourceBottomRight:
+    #         print('only one index changed')
+    #         proxyIndex = self.mapFromSource(sourceTopLeft)
+    #         value = self.sourceModel.data(sourceTopLeft, QtC.Qt.ItemDataRole.DisplayRole)
+    #         self.setData(proxyIndex, value, QtC.Qt.ItemDataRole.EditRole)
+    #         self.dataChanged.emit(proxyIndex, proxyIndex)
+    #         self.layoutChanged.emit()
+    #     else:
+    #         print('multiple indices changed')
+    #         for row in range(sourceTopLeft.row(), sourceBottomRight.row() + 1):
+    #             for col in range(sourceTopLeft.column(), sourceBottomRight.column() + 1):
+    #                 print (f'Checking {row},{col}')
+    #                 sourceIndex = self.sourceModel.index(row, col, QtC.QModelIndex())
+    #                 value = self.sourceModel.data(sourceIndex, QtC.Qt.ItemDataRole.DisplayRole)
+    #                 proxyIndex = self.mapFromSource(sourceIndex)
+    #                 self.setData(proxyIndex, value, QtC.Qt.ItemDataRole.DisplayRole)
+    #                 self.dataChanged.emit(proxyIndex, proxyIndex)
+    #                 self.layoutChanged.emit()
+
+
+    # def resetTreeModel(self):
+    #     self.beginResetModel()
+    #     self.rootItem = TreeItem(QtS.QSqlRecord(), None)
+    #     self.parentItem = TreeItem(QtS.QSqlRecord(), None)
+    #     self.childItem = TreeItem(QtS.QSqlRecord(), None)
+    #     self.setup_model_data()
+    #     self.endResetModel()
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
         # print(f'mapping proxy index {proxy_index.row()},{proxy_index.column()}')
@@ -392,8 +459,10 @@ class TreeModel(QtC.QAbstractProxyModel):
         if not index.isValid():
             # print("root doesn't have flags")
             return QtC.Qt.ItemFlag.NoItemFlags
-        if index.column() == 1 or index.column() == 2 or index.column() == self.sourceModel.columnCount() -1 or index.column() == self.sourceModel.columnCount() -2:
-            # If the column is the ID, parent ID, created timestamp, or modified timestamp, it is not editable
+        modifiedCol = self.sourceModel.columnCount() - 1
+        createdCol = self.sourceModel.columnCount() - 2
+        if index.column() == modifiedCol or index.column() == createdCol:
+            # If the column is the created timestamp or modified timestamp, it is not editable. IDs should not be visible at all
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
         else:
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
@@ -404,15 +473,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         if orientation == QtC.Qt.Orientation.Horizontal:
             return TxM.add_spaces_camel(self.proxyHeaders[section])
         return QtC.QVariant()
-
-    def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = ...) -> bool:
-        if not index.isValid():
-            # print("root has no data to set")
-            return False
-        if role == QtC.Qt.ItemDataRole.EditRole:  # If item is edited
-            sourceIndex = self.mapToSource(index)
-            self.sourceModel.setData(self.sourceModel.createIndex(sourceIndex.row(), sourceIndex.column()), value, role)
-            return True
 
     def testModelIndexing(self, parentItem: TreeItem):
         if parentItem == self.rootItem:

@@ -19,7 +19,7 @@ class EditTree(QtW.QDialog):
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
-        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
+        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_proxy_model = TrC.TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)
         # self.filter_proxy_model = QtC.QSortFilterProxyModel()
@@ -55,11 +55,8 @@ class EditTree(QtW.QDialog):
     #         source_index = self.tree_proxy_model.mapToSource(index)
     #         print(f'Value in source table is {self.model.data(source_index)}')
 
-    def handleDataChanged(self, index: QtC.QModelIndex):
-        data = self.tree_proxy_model.data(index, QtC.Qt.ItemDataRole.EditRole)
-        print(f'You updated to: {data}')
-        source_index = self.tree_proxy_model.mapToSource(index)
-        self.model.setData(source_index, data, QtC.Qt.ItemDataRole.EditRole)
+    # def handleDataChanged(self, top_left: QtC.QModelIndex, bottom_right: QtC.QModelIndex, roles):
+    #     self.tree_proxy_model.inv
 
             # id_index = self.filter_proxy_model.ind # index of the ID column
             # print(f'The primary key is {self.filter_proxy_model.sibling(row, column, index)}')  # right now getting QModelIndex object instead of ID#

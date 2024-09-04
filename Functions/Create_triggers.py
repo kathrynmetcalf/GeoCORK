@@ -135,6 +135,26 @@ BEGIN
 END;
 '''
 
+# Triggers to update the modified timestamp when a value is updated
+AGESIGNATURES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_agesignatures AFTER UPDATE ON AgeSignatures
+BEGIN
+    UPDATE AgeSignatures SET AgeSignatureModified = CURRENT_TIMESTAMP WHERE AgeSignatureID = NEW.AgeSignatureID OR ParentAgeSignatureID = NEW.ParentAgeSignatureID OR AgeSignatureName = NEW.AgeSignatureName OR AgeSignatureDescription = NEW.AgeSignatureDescription;
+END;
+'''
+AGES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_ages AFTER UPDATE ON Ages
+BEGIN
+    UPDATE Ages SET AgeModified = CURRENT_TIMESTAMP WHERE AgeID = NEW.AgeID OR ParentAgeID = NEW.ParentAgeID OR AgeName = NEW.AgeName OR MaxMa = NEW.MaxMa OR MinMa = NEW.MinMa;
+END;
+'''
+UNITS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_units AFTER UPDATE ON Units
+BEGIN
+    UPDATE Units SET UnitModified = CURRENT_TIMESTAMP WHERE UnitID = NEW.UnitID OR ParentUnitID = NEW.ParentUnitID OR UnitName = NEW.UnitName OR UnitDescription = NEW.UnitDescription;
+END;
+'''
+
 def create_triggers(c):
     """
     Take database cursor and execute the sql strings defined above to create the database triggers
@@ -150,6 +170,7 @@ def create_triggers(c):
     c.execute(UPDATE_SPOT_TRIGGER)
     c.execute(UPDATE_LATLON_TRIGGER)
     c.execute(UPDATE_UTM_TRIGGER)
+    c.execute(UNITS_TRIGGER)
 
 if __name__ == '__main__':
     db_file = '../TestSchema.db'
