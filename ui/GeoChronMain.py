@@ -172,7 +172,7 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
-            # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         elif table in self.dbtree_list:
             self.switch_to_tree()
             self.model.setTable(table)
@@ -192,6 +192,7 @@ class GeoChron(QtW.QMainWindow):
                 self.dbTable_treeView.hideColumn(5)  # don't show created column
                 self.dbTable_treeView.hideColumn(6)  # don't show modified column
                 self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
+            self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         else:
             self.switch_to_table()
             self.model.setTable(table)
