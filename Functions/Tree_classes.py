@@ -254,26 +254,28 @@ class TreeModel(QtC.QAbstractProxyModel):
             return self.sourceModel.rowCount()
         else:
             parentItem = self.getItem(parent)
-        if parent.column() > 0:
-            return 0
-        else:
-            # print(f'Parent {parentItem.data(2)} has {parentItem.childCount()} children')
-            return parentItem.childCount()
+        # if parent.column() > 0:
+        #     return 0
+        # else:
+        #     # print(f'Parent {parentItem.data(2)} has {parentItem.childCount()} children')
+        #     return parentItem.childCount()
+        return parentItem.childCount()
 
     def columnCount(self, parent: QtC.QModelIndex = ...) -> int:
         # print(f'Parent index for columns is at {parent.row()},{parent.column()}')
-        if not parent.isValid():
-            # print(f'Columns in root same as source model: {self.sourceModel.columnCount()}')
-            return self.sourceModel.columnCount()
-        elif parent.column() > 0:
-            # print("Columns >0 have no subcolumns")
-            return 0
-        else:
-            parentItem = self.getItem(parent)
-            parentName = parentItem.data(2)
-            ncols = parentItem.columnCount()
-            # print(f'{ncols} columns in {parentName}')
-            return ncols
+        return self.sourceModel.columnCount()
+        # if not parent.isValid():
+        #     # print(f'Columns in root same as source model: {self.sourceModel.columnCount()}')
+        #     return self.sourceModel.columnCount()
+        # elif parent.column() > 0:
+        #     # print("Columns >0 have no subcolumns")
+        #     return 0
+        # else:
+        #     parentItem = self.getItem(parent)
+        #     parentName = parentItem.data(2)
+        #     ncols = parentItem.columnCount()
+        #     # print(f'{ncols} columns in {parentName}')
+        #     return ncols
 
     def hasChildren(self, parent: QtC.QModelIndex = ...):
         if not parent.isValid():
