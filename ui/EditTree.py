@@ -26,53 +26,26 @@ class EditTree(QtW.QDialog):
         # self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
         # self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
-        # self.errmsg = QtW.QMessageBox(self)
+        self.msg = QtW.QMessageBox(self)
         self.display_tree()
-        # self.createSavepoint()
+        self.createSavepoint()
 
         # self.edit_treeView.clicked.connect(self.whichCell)
         # self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
-        # self.apply_pushButton.clicked.connect(self.apply)
         self.cancel_pushButton.clicked.connect(self.rollback)
-        # self.tree_proxy_model.dataChanged.connect(self.handleDataChanged)
 
-    # def createSavepoint(self):
-    #     query = QtS.QSqlQuery(self.db)
-    #     if query.exec('SAVEPOINT before_edit') is False:
-    #         errtxt = Er.savepoint_fail(self.table)
-    #         self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-    #
-    # def releaseSavepoint(self):
-    #     query = QtS.QSqlQuery(self.db)
-    #     if query.exec('RELEASE SAVEPOINT before_edit') is False:
-    #         errtxt = Er.savepoint_release_fail(self.table)
-    #         self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+    def createSavepoint(self):
+        query = QtS.QSqlQuery(self.db)
+        if query.exec('SAVEPOINT before_edit') is False:
+            errtxt = Er.savepoint_fail(self.table)
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
-    # def whichCell(self, index: QtC.QModelIndex):
-    #     if index.isValid():
-    #         item = self.tree_proxy_model.getItem(index)
-    #         source_index = self.tree_proxy_model.mapToSource(index)
-    #         print(f'Value in source table is {self.model.data(source_index)}')
-
-    # def handleDataChanged(self, top_left: QtC.QModelIndex, bottom_right: QtC.QModelIndex, roles):
-    #     self.tree_proxy_model.inv
-
-            # id_index = self.filter_proxy_model.ind # index of the ID column
-            # print(f'The primary key is {self.filter_proxy_model.sibling(row, column, index)}')  # right now getting QModelIndex object instead of ID#
-        # if index.isValid():
-        #     source_index = self.filter_proxy_model.mapToSource(index)
-        #     source_model = self.filter_proxy_model.sourceModel()
-        #     if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
-        #         pass
-        #     elif self.table in self.dbtree_list:
-        #         pass
-        #     else:
-        #         if row == 1 and index.data() is None:
-        #             errtxt = Er.blank_entry('Name')
-        #             self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-        #         else:
-        #             source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
+    def releaseSavepoint(self):
+        query = QtS.QSqlQuery(self.db)
+        if query.exec('RELEASE SAVEPOINT before_edit') is False:
+            errtxt = Er.savepoint_release_fail(self.table)
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def display_tree(self):
         self.edit_treeView.setModel(self.tree_proxy_model)
@@ -110,20 +83,22 @@ class EditTree(QtW.QDialog):
     #
     #
     def rollback(self):
-        # query = QtS.QSqlQuery(self.db)
-        # if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
-        #     errtxt = Er.rollback_fail(self.table)
-        #     self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-        # else:
-        #     self.reject()
-        self.model.revertAll()
+        query = QtS.QSqlQuery(self.db)
+        if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
+            errtxt = Er.rollback_fail(self.table)
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+        else:
+            self.reject()
+        # self.model.revertAll()
         self.close()
 
     # def apply(self):
     #     pass
     #
     def commit(self):
-        self.model.submitAll()
+        self.releaseSavepoint()
+        self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
+        self.close()
 
 
 if __name__ == '__main__':

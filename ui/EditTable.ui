@@ -19,7 +19,7 @@
   <property name="windowTitle">
    <string>Edit</string>
   </property>
-  <widget class="QWidget" name="">
+  <widget class="QWidget" name="layoutWidget">
    <property name="geometry">
     <rect>
      <x>30</x>
@@ -109,13 +109,6 @@
        <widget class="QPushButton" name="cancel_pushButton">
         <property name="text">
          <string>Cancel</string>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="apply_pushButton">
-        <property name="text">
-         <string>Apply</string>
         </property>
        </widget>
       </item>

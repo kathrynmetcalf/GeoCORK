@@ -316,11 +316,6 @@ class TreeModel(QtC.QAbstractProxyModel):
             sourceIndex = self.mapToSource(index)
             if sourceIndex.isValid():
                 # update the source model
-                try:
-                    self.sourceModel.setData(sourceIndex, value, role)
-                except:
-                    print(f'Error setting data in source model at {sourceIndex.row()},{sourceIndex.column()}')
-                    return False
                 treeItem = self.getItem(index)
                 if index.column() == 0:
                     # Show name in first column
@@ -339,6 +334,11 @@ class TreeModel(QtC.QAbstractProxyModel):
                 proxymIndex = self.mapFromSource(sourcemIndex)
                 if proxymIndex.isValid() and sourcemIndex.isValid():
                     # If the changed data index and the modified timestamp index are valid for both models, change the data
+                    try:
+                        self.sourceModel.setData(sourceIndex, value, role)
+                    except:
+                        print(f'Error setting data in source model at {sourceIndex.row()},{sourceIndex.column()}')
+                        return False
                     modified = self.sourceModel.data(sourcemIndex, QtC.Qt.ItemDataRole.DisplayRole)
                     treeItem.setData(dataCol, value)
                     self.dataChanged.emit(index, index)
