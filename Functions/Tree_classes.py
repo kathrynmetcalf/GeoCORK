@@ -465,9 +465,12 @@ class TreeModel(QtC.QAbstractProxyModel):
         createdCol = self.sourceModel.columnCount() - 2
         if index.column() == modifiedCol or index.column() == createdCol:
             # If the column is the created timestamp or modified timestamp, it is not editable. IDs should not be visible at all
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsDragEnabled
         else:
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsDragEnabled
+
+    def supportedDropActions(self):
+        return QtC.Qt.DropAction.MoveAction
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
         if role != QtC.Qt.ItemDataRole.DisplayRole:

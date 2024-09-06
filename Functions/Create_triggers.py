@@ -136,24 +136,228 @@ END;
 '''
 
 # Triggers to update the modified timestamp when a value is updated
-AGESIGNATURES_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_agesignatures AFTER UPDATE ON AgeSignatures
+SOURCES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_sources AFTER UPDATE ON Sources
 BEGIN
-    UPDATE AgeSignatures SET AgeSignatureModified = CURRENT_TIMESTAMP WHERE AgeSignatureID = NEW.AgeSignatureID OR ParentAgeSignatureID = NEW.ParentAgeSignatureID OR AgeSignatureName = NEW.AgeSignatureName OR AgeSignatureDescription = NEW.AgeSignatureDescription;
-END;
-'''
-AGES_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_ages AFTER UPDATE ON Ages
+    UPDATE Sources SET SourcesModified = CURRENT_TIMESTAMP WHERE SourceID = NEW.SourceID OR Authors = NEW.Authors OR Year = NEW.Year OR Title = NEW.Title OR Source = NEW.Source OR doi = NEW.doi OR ShortCitation = NEW.ShortCitation OR SourceCreated = NEW.SourceCreated OR SourceModified = NEW.SourceModified;
+END;'''
+
+
+SAMPLINGMETHODS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samplingmethods AFTER UPDATE ON SamplingMethods
 BEGIN
-    UPDATE Ages SET AgeModified = CURRENT_TIMESTAMP WHERE AgeID = NEW.AgeID OR ParentAgeID = NEW.ParentAgeID OR AgeName = NEW.AgeName OR MaxMa = NEW.MaxMa OR MinMa = NEW.MinMa;
-END;
-'''
+    UPDATE SamplingMethods SET SamplingMethodsModified = CURRENT_TIMESTAMP WHERE SamplingMethodID = NEW.SamplingMethodID OR ParentSamplingMethodID = NEW.ParentSamplingMethodID OR SamplingMethodName = NEW.SamplingMethodName OR SamplingMethodDescription = NEW.SamplingMethodDescription OR SamplingMethodCreated = NEW.SamplingMethodCreated OR SamplingMethodModified = NEW.SamplingMethodModified;
+END;'''
+
+
+REGIONS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_regions AFTER UPDATE ON Regions
+BEGIN
+    UPDATE Regions SET RegionsModified = CURRENT_TIMESTAMP WHERE RegionID = NEW.RegionID OR ParentRegionID = NEW.ParentRegionID OR RegionName = NEW.RegionName OR RegionDescription = NEW.RegionDescription OR RegionCreated = NEW.RegionCreated OR RegionModified = NEW.RegionModified;
+END;'''
+
+
+SETTINGS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_settings AFTER UPDATE ON Settings
+BEGIN
+    UPDATE Settings SET SettingsModified = CURRENT_TIMESTAMP WHERE SettingID = NEW.SettingID OR ParentSettingID = NEW.ParentSettingID OR SettingName = NEW.SettingName OR SettingDescription = NEW.SettingDescription OR SettingCreated = NEW.SettingCreated OR SettingModified = NEW.SettingModified;
+END;'''
+
+
+ROCKTYPES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_rocktypes AFTER UPDATE ON RockTypes
+BEGIN
+    UPDATE RockTypes SET RockTypesModified = CURRENT_TIMESTAMP WHERE RockTypeID = NEW.RockTypeID OR ParentRockTypeID = NEW.ParentRockTypeID OR RockTypeName = NEW.RockTypeName OR RockTypeDescription = NEW.RockTypeDescription OR RockTypeCreated = NEW.RockTypeCreated OR RockTypeModified = NEW.RockTypeModified;
+END;'''
+
+
 UNITS_TRIGGER = '''
 CREATE TRIGGER IF NOT EXISTS update_modified_units AFTER UPDATE ON Units
 BEGIN
-    UPDATE Units SET UnitModified = CURRENT_TIMESTAMP WHERE UnitID = NEW.UnitID OR ParentUnitID = NEW.ParentUnitID OR UnitName = NEW.UnitName OR UnitDescription = NEW.UnitDescription;
-END;
-'''
+    UPDATE Units SET UnitsModified = CURRENT_TIMESTAMP WHERE UnitID = NEW.UnitID OR ParentUnitID = NEW.ParentUnitID OR UnitName = NEW.UnitName OR UnitDescription = NEW.UnitDescription OR UnitCreated = NEW.UnitCreated OR UnitModified = NEW.UnitModified;
+END;'''
+
+
+COLUMNS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_columns AFTER UPDATE ON Columns
+BEGIN
+    UPDATE Columns SET ColumnsModified = CURRENT_TIMESTAMP WHERE ColumnID = NEW.ColumnID OR ColumnName = NEW.ColumnName OR ColumnDescription = NEW.ColumnDescription OR ColumnCreated = NEW.ColumnCreated OR ColumnModified = NEW.ColumnModified;
+END;'''
+
+
+AGESIGNATURES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_agesignatures AFTER UPDATE ON AgeSignatures
+BEGIN
+    UPDATE AgeSignatures SET AgeSignaturesModified = CURRENT_TIMESTAMP WHERE AgeSignatureID = NEW.AgeSignatureID OR ParentAgeSignatureID = NEW.ParentAgeSignatureID OR AgeSignatureName = NEW.AgeSignatureName OR AgeSignatureDescription = NEW.AgeSignatureDescription OR AgeSignatureCreated = NEW.AgeSignatureCreated OR AgeSignatureModified = NEW.AgeSignatureModified;
+END;'''
+
+
+AGES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_ages AFTER UPDATE ON Ages
+BEGIN
+    UPDATE Ages SET AgesModified = CURRENT_TIMESTAMP WHERE AgeID = NEW.AgeID OR ParentAgeID = NEW.ParentAgeID OR AgeName = NEW.AgeName OR MaxMa = NEW.MaxMa OR MinMa = NEW.MinMa OR AgeCreated = NEW.AgeCreated OR AgeModified = NEW.AgeModified;
+END;'''
+
+
+SAMPLECONTEXT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samplecontext AFTER UPDATE ON SampleContext
+BEGIN
+    UPDATE SampleContext SET SampleContextModified = CURRENT_TIMESTAMP WHERE SampleContextID = NEW.SampleContextID OR ParentSampleContextID = NEW.ParentSampleContextID OR SampleContextName = NEW.SampleContextName OR SampleContextDescription = NEW.SampleContextDescription OR SampleContextCreated = NEW.SampleContextCreated OR SampleContextModified = NEW.SampleContextModified;
+END;'''
+
+
+ALIQUOTCONTEXT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_aliquotcontext AFTER UPDATE ON AliquotContext
+BEGIN
+    UPDATE AliquotContext SET AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotContextID = NEW.AliquotContextID OR ParentAliquotContextID = NEW.ParentAliquotContextID OR AliquotContextName = NEW.AliquotContextName OR AliquotContextDescription = NEW.AliquotContextDescription OR AliquotContextCreated = NEW.AliquotContextCreated OR AliquotContextModified = NEW.AliquotContextModified;
+END;'''
+
+
+SPOTCONTEXT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_spotcontext AFTER UPDATE ON SpotContext
+BEGIN
+    UPDATE SpotContext SET SpotContextModified = CURRENT_TIMESTAMP WHERE SpotContextID = NEW.SpotContextID OR ParentSpotContextID = NEW.ParentSpotContextID OR SpotContextName = NEW.SpotContextName OR SpotContextDescription = NEW.SpotContextDescription OR SpotContextCreated = NEW.SpotContextCreated OR SpotContextModified = NEW.SpotContextModified;
+END;'''
+
+
+SPOTCOMPOSITIONS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_spotcompositions AFTER UPDATE ON SpotCompositions
+BEGIN
+    UPDATE SpotCompositions SET SpotCompositionsModified = CURRENT_TIMESTAMP WHERE SpotCompositionID = NEW.SpotCompositionID OR ParentSpotCompositionID = NEW.ParentSpotCompositionID OR SpotCompositionName = NEW.SpotCompositionName OR SpotCompositionDescription = NEW.SpotCompositionDescription OR SpotCompositionCreated = NEW.SpotCompositionCreated OR SpotCompositionModified = NEW.SpotCompositionModified;
+END;'''
+
+
+SAMPLES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples AFTER UPDATE ON Samples
+BEGIN
+    UPDATE Samples SET SamplesModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SampleName = NEW.SampleName OR AverageAge = NEW.AverageAge OR AverageAgeError = NEW.AverageAgeError OR ErrorSigma = NEW.ErrorSigma OR OldestAge = NEW.OldestAge OR YoungestAge = NEW.YoungestAge OR OldestAgeID = NEW.OldestAgeID OR YoungestAgeID = NEW.YoungestAgeID OR HeightDepth = NEW.HeightDepth OR HeightDepthError = NEW.HeightDepthError OR HeightDepthUnit = NEW.HeightDepthUnit OR LatDeg = NEW.LatDeg OR LatMin = NEW.LatMin OR LatSec = NEW.LatSec OR LonDeg = NEW.LonDeg OR LonMin = NEW.LonMin OR LonSec = NEW.LonSec OR UTMZone = NEW.UTMZone OR UTMN = NEW.UTMN OR UTME = NEW.UTME OR Elev = NEW.Elev OR ElevError = NEW.ElevError OR ElevUnit = NEW.ElevUnit OR Description = NEW.Description OR SampleCreated = NEW.SampleCreated OR SampleModified = NEW.SampleModified;
+END;'''
+
+
+ALIQUOTS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_aliquots AFTER UPDATE ON Aliquots
+BEGIN
+    UPDATE Aliquots SET AliquotsModified = CURRENT_TIMESTAMP WHERE AliquotID = NEW.AliquotID OR AliquotName = NEW.AliquotName OR SampleID = NEW.SampleID OR AliquotCreated = NEW.AliquotCreated OR AliquotModified = NEW.AliquotModified;
+END;'''
+
+
+SPOTS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_spots AFTER UPDATE ON Spots
+BEGIN
+    UPDATE Spots SET SpotsModified = CURRENT_TIMESTAMP WHERE SpotID = NEW.SpotID OR SpotName = NEW.SpotName OR AliquotID = NEW.AliquotID OR SpotCompositionID = NEW.SpotCompositionID OR SpotCreated = NEW.SpotCreated OR SpotModified = NEW.SpotModified;
+END;'''
+
+
+LABFACILITIES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_labfacilities AFTER UPDATE ON LabFacilities
+BEGIN
+    UPDATE LabFacilities SET LabFacilitiesModified = CURRENT_TIMESTAMP WHERE LabFacilityID = NEW.LabFacilityID OR LabFacilityName = NEW.LabFacilityName OR LabFacilityDescription = NEW.LabFacilityDescription OR LabFacilityCreated = NEW.LabFacilityCreated OR LabFacilityModified = NEW.LabFacilityModified;
+END;'''
+
+
+INSTRUMENTS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_instruments AFTER UPDATE ON Instruments
+BEGIN
+    UPDATE Instruments SET InstrumentsModified = CURRENT_TIMESTAMP WHERE InstrumentID = NEW.InstrumentID OR InstrumentName = NEW.InstrumentName OR InstrumentDescription = NEW.InstrumentDescription OR InstrumentCreated = NEW.InstrumentCreated OR InstrumentModified = NEW.InstrumentModified;
+END;'''
+
+
+UPBANALYSISMETHODS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_upbanalysismethods AFTER UPDATE ON UPbAnalysisMethods
+BEGIN
+    UPDATE UPbAnalysisMethods SET UPbAnalysisMethodsModified = CURRENT_TIMESTAMP WHERE UPbAnalysisMethodID = NEW.UPbAnalysisMethodID OR UPbAnalysisMethodName = NEW.UPbAnalysisMethodName OR UPbAnalysisMethodDescription = NEW.UPbAnalysisMethodDescription OR UPbAnalysisMethodCreated = NEW.UPbAnalysisMethodCreated OR UPbAnalysisMethodModified = NEW.UPbAnalysisMethodModified;
+END;'''
+
+
+UPBDATA_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_upbdata AFTER UPDATE ON UPbData
+BEGIN
+    UPDATE UPbData SET UPbDataModified = CURRENT_TIMESTAMP WHERE UPbAnalysisID = NEW.UPbAnalysisID OR SpotID = NEW.SpotID OR SourceID = NEW.SourceID OR LabFacilityID = NEW.LabFacilityID OR InstrumentID = NEW.InstrumentID OR UPbAnalysisMethodID = NEW.UPbAnalysisMethodID OR Uppm = NEW.Uppm OR "206Pb/204Pb" = NEW."206Pb/204Pb" OR U/Th = NEW.U/Th OR 206Pb/207Pb = NEW.206Pb/207Pb OR 206Pb/207Pberror = NEW.206Pb/207Pberror OR 207Pb/235U = NEW.207Pb/235U OR 207Pb/235Uerror = NEW.207Pb/235Uerror OR 206Pb/238U = NEW.206Pb/238U OR 206Pb/238Uerror = NEW.206Pb/238Uerror OR ErrorCorr = NEW.ErrorCorr OR 206Pb/207PbAge = NEW.206Pb/207PbAge OR 206Pb/207PbAgeError = NEW.206Pb/207PbAgeError OR 207Pb/235UAge = NEW.207Pb/235UAge OR 207Pb/235UAgeError = NEW.207Pb/235UAgeError OR 206Pb/238UAge = NEW.206Pb/238UAge OR 206Pb/238UAgeError = NEW.206Pb/238UAgeError OR BestAge = NEW.BestAge OR Error = NEW.Error OR Conc = NEW.Conc OR SpotSize = NEW.SpotSize OR SpotSizeUnit = NEW.SpotSizeUnit OR Accepted = NEW.Accepted OR UPbAnalysisCreated = NEW.UPbAnalysisCreated OR UPbAnalysisModified = NEW.UPbAnalysisModified;
+END;'''
+
+
+GEOCHEMDATA_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_geochemdata AFTER UPDATE ON GeochemData
+BEGIN
+    UPDATE GeochemData SET GeochemDataModified = CURRENT_TIMESTAMP WHERE GeochemAnalysisID = NEW.GeochemAnalysisID OR SpotID = NEW.SpotID OR MajorElements = NEW.MajorElements OR TraceElements = NEW.TraceElements OR REEs = NEW.REEs OR GeochemAnalysisCreated = NEW.GeochemAnalysisCreated OR GeochemAnalysisModified = NEW.GeochemAnalysisModified;
+END;'''
+
+
+SAMPLES_AGESIGNATURES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_agesignatures AFTER UPDATE ON Samples_AgeSignatures
+BEGIN
+    UPDATE Samples_AgeSignatures SET Samples_AgeSignaturesModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR AgeSignatureID = NEW.AgeSignatureID OR Samples_AgeSignaturesCreated = NEW.Samples_AgeSignaturesCreated OR Samples_AgeSignaturesModified = NEW.Samples_AgeSignaturesModified;
+END;'''
+
+
+SAMPLES_COLUMNS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_columns AFTER UPDATE ON Samples_Columns
+BEGIN
+    UPDATE Samples_Columns SET Samples_ColumnsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR ColumnID = NEW.ColumnID OR Samples_ColumnsCreated = NEW.Samples_ColumnsCreated OR Samples_ColumnsModified = NEW.Samples_ColumnsModified;
+END;'''
+
+
+SAMPLES_REGIONS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_regions AFTER UPDATE ON Samples_Regions
+BEGIN
+    UPDATE Samples_Regions SET Samples_RegionsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR RegionID = NEW.RegionID OR Samples_RegionsCreated = NEW.Samples_RegionsCreated OR Samples_RegionsModified = NEW.Samples_RegionsModified;
+END;'''
+
+
+SAMPLES_ROCKTYPES_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_rocktypes AFTER UPDATE ON Samples_RockTypes
+BEGIN
+    UPDATE Samples_RockTypes SET Samples_RockTypesModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR RockTypeID = NEW.RockTypeID OR Samples_RockTypesCreated = NEW.Samples_RockTypesCreated OR Samples_RockTypesModified = NEW.Samples_RockTypesModified;
+END;'''
+
+
+SAMPLES_SAMPLECONTEXT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplecontext AFTER UPDATE ON Samples_SampleContext
+BEGIN
+    UPDATE Samples_SampleContext SET Samples_SampleContextModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SampleContextID = NEW.SampleContextID OR Samples_SampleContextCreated = NEW.Samples_SampleContextCreated OR Samples_SampleContextModified = NEW.Samples_SampleContextModified;
+END;'''
+
+
+SAMPLES_SAMPLINGMETHODS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplingmethods AFTER UPDATE ON Samples_SamplingMethods
+BEGIN
+    UPDATE Samples_SamplingMethods SET Samples_SamplingMethodsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SamplingMethodID = NEW.SamplingMethodID OR Samples_SamplingMethodsCreated = NEW.Samples_SamplingMethodsCreated OR Samples_SamplingMethodsModified = NEW.Samples_SamplingMethodsModified;
+END;'''
+
+
+SAMPLES_SETTINGS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_settings AFTER UPDATE ON Samples_Settings
+BEGIN
+    UPDATE Samples_Settings SET Samples_SettingsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SettingID = NEW.SettingID OR Samples_SettingsCreated = NEW.Samples_SettingsCreated OR Samples_SettingsModified = NEW.Samples_SettingsModified;
+END;'''
+
+
+SAMPLES_UNITS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_units AFTER UPDATE ON Samples_Units
+BEGIN
+    UPDATE Samples_Units SET Samples_UnitsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR UnitID = NEW.UnitID OR Samples_UnitsCreated = NEW.Samples_UnitsCreated OR Samples_UnitsModified = NEW.Samples_UnitsModified;
+END;'''
+
+
+ALIQUOTS_ALIQUOTCONTEXT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_aliquots_aliquotcontext AFTER UPDATE ON Aliquots_AliquotContext
+BEGIN
+    UPDATE Aliquots_AliquotContext SET Aliquots_AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotID = NEW.AliquotID OR AliquotContextID = NEW.AliquotContextID OR Aliquots_AliquotContextCreated = NEW.Aliquots_AliquotContextCreated OR Aliquots_AliquotContextModified = NEW.Aliquots_AliquotContextModified;
+END;'''
+
+
+SPOTS_SPOTCONTEXT_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcontext AFTER UPDATE ON Spots_SpotContext
+BEGIN
+    UPDATE Spots_SpotContext SET Spots_SpotContextModified = CURRENT_TIMESTAMP WHERE SpotID = NEW.SpotID OR SpotContextID = NEW.SpotContextID OR Spots_SpotContextCreated = NEW.Spots_SpotContextCreated OR Spots_SpotContextModified = NEW.Spots_SpotContextModified OR ;
+END;'''
+
+
+FILTERGROUPS_TRIGGER = '''
+CREATE TRIGGER IF NOT EXISTS update_modified_filtergroups AFTER UPDATE ON FilterGroups
+BEGIN
+    UPDATE FilterGroups SET FilterGroupsModified = CURRENT_TIMESTAMP WHERE FilterGroupID = NEW.FilterGroupID OR FilterGroupName = NEW.FilterGroupName OR SQLQuery = NEW.SQLQuery OR DefaultColor = NEW.DefaultColor OR FilterGroupDescription = NEW.FilterGroupDescription OR FilterGroupCreated = NEW.FilterGroupCreated OR FilterGroupModified = NEW.FilterGroupModified;
+END;'''
 
 def create_triggers(c):
     """
@@ -170,7 +374,39 @@ def create_triggers(c):
     c.execute(UPDATE_SPOT_TRIGGER)
     c.execute(UPDATE_LATLON_TRIGGER)
     c.execute(UPDATE_UTM_TRIGGER)
+    c.execute(SOURCES_TRIGGER)
+    c.execute(SAMPLINGMETHODS_TRIGGER)
+    c.execute(REGIONS_TRIGGER)
+    c.execute(SETTINGS_TRIGGER)
+    c.execute(ROCKTYPES_TRIGGER)
     c.execute(UNITS_TRIGGER)
+    c.execute(COLUMNS_TRIGGER)
+    c.execute(AGESIGNATURES_TRIGGER)
+    c.execute(AGES_TRIGGER)
+    c.execute(SAMPLECONTEXT_TRIGGER)
+    c.execute(ALIQUOTCONTEXT_TRIGGER)
+    c.execute(SPOTCONTEXT_TRIGGER)
+    c.execute(SPOTCOMPOSITIONS_TRIGGER)
+    c.execute(SAMPLES_TRIGGER)
+    c.execute(ALIQUOTS_TRIGGER)
+    c.execute(SPOTS_TRIGGER)
+    c.execute(LABFACILITIES_TRIGGER)
+    c.execute(INSTRUMENTS_TRIGGER)
+    c.execute(UPBANALYSISMETHODS_TRIGGER)
+    c.execute(UPBDATA_TRIGGER)
+    c.execute(GEOCHEMDATA_TRIGGER)
+    c.execute(SAMPLES_AGESIGNATURES_TRIGGER)
+    c.execute(SAMPLES_COLUMNS_TRIGGER)
+    c.execute(SAMPLES_REGIONS_TRIGGER)
+    c.execute(SAMPLES_ROCKTYPES_TRIGGER)
+    c.execute(SAMPLES_SAMPLECONTEXT_TRIGGER)
+    c.execute(SAMPLES_SAMPLINGMETHODS_TRIGGER)
+    c.execute(SAMPLES_SETTINGS_TRIGGER)
+    c.execute(SAMPLES_UNITS_TRIGGER)
+    c.execute(ALIQUOTS_ALIQUOTCONTEXT_TRIGGER)
+    c.execute(SPOTS_SPOTCONTEXT_TRIGGER)
+    c.execute(FILTERGROUPS_TRIGGER)
+
 
 if __name__ == '__main__':
     db_file = '../TestSchema.db'

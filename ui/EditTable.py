@@ -15,60 +15,36 @@ class EditTable(QtW.QDialog):
         # Define any widgets here
         tags_ui_file = "EditTable.ui"
         loadUi(tags_ui_file, self)
-        self.db = database
-        self.model = model
         self.table = TxM.remove_spaces(table_name)
-        self.filter_proxy_model = QtC.QSortFilterProxyModel()
-        self.filter_proxy_model.setSourceModel(self.model)
-        self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
-        self.errmsg = QtW.QMessageBox(self)
-
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
             pass
         else:
-            self.model: QtS.QSqlTableModel
+            self.db = database
+            self.model = model
+            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
+            self.filter_proxy_model = QtC.QSortFilterProxyModel()
+            self.filter_proxy_model.setSourceModel(self.model)
+            self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.msg = QtW.QMessageBox(self)
+            self.display_table()
+            self.createSavepoint()
 
-            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-
-        self.createSavepoint()
-
-        self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit)
-        self.apply_pushButton.clicked.connect(self.apply)
-        self.cancel_pushButton.clicked.connect(self.rollback)
-        self.filter_proxy_model.dataChanged.connect(self.handleDataChanged)
+            self.add_pushButton.clicked.connect(self.add_popup)
+            self.commit_pushButton.clicked.connect(self.commit)
+            self.cancel_pushButton.clicked.connect(self.rollback)
 
 
     def createSavepoint(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('SAVEPOINT before_edit') is False:
             errtxt = Er.savepoint_fail(self.table)
-            self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def releaseSavepoint(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('RELEASE SAVEPOINT before_edit') is False:
             errtxt = Er.savepoint_release_fail(self.table)
-            self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-
-    def handleDataChanged(self, index):
-        proxy_model = index.model()
-        data = proxy_model.data(index)
-        print(f'You updated to: {data}')
-        if hasattr(proxy_model, 'mapToSource'):
-            # The model in the view is a proxy model
-            sourceIndex = proxy_model.mapToSource(index)
-        if index.isValid():
-            source_index = self.filter_proxy_model.mapToSource(index)
-            source_model = self.filter_proxy_model.sourceModel()
-            row = source_index.row()
-            if row == 1 and index.data() is None:
-                errtxt = Er.blank_entry('Name')
-                self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-            else:
-                source_model.setData(source_index, index.data(), QtC.Qt.ItemDataRole.EditRole)
-
-
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def display_table(self):
         self.edit_tableView.setModel(self.model)
@@ -90,15 +66,14 @@ class EditTable(QtW.QDialog):
         query = QtS.QSqlQuery(self.db)
         if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
             errtxt = Er.rollback_fail(self.table)
-            self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
             self.reject()
 
-    def apply(self):
-        pass
-
     def commit(self):
-        self.accept()
+        self.releaseSavepoint()
+        self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
+        self.close()
 
 
 if __name__ == '__main__':

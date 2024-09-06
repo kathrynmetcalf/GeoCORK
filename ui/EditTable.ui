@@ -60,35 +60,7 @@
      </layout>
     </item>
     <item>
-     <widget class="QStackedWidget" name="edit_stackedWidget">
-      <property name="currentIndex">
-       <number>1</number>
-      </property>
-      <widget class="QWidget" name="edit_table">
-       <widget class="QTableView" name="edit_tableView">
-        <property name="geometry">
-         <rect>
-          <x>-5</x>
-          <y>1</y>
-          <width>651</width>
-          <height>791</height>
-         </rect>
-        </property>
-       </widget>
-      </widget>
-      <widget class="QWidget" name="edit_tree">
-       <widget class="QTreeView" name="edit_treeView">
-        <property name="geometry">
-         <rect>
-          <x>0</x>
-          <y>0</y>
-          <width>651</width>
-          <height>811</height>
-         </rect>
-        </property>
-       </widget>
-      </widget>
-     </widget>
+     <widget class="QTableView" name="edit_tableView"/>
     </item>
     <item>
      <layout class="QHBoxLayout" name="horizontalLayout">

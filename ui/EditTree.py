@@ -15,7 +15,7 @@ class EditTree(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "EditTable.ui"
+        tags_ui_file = "EditTree.ui"
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
@@ -30,7 +30,6 @@ class EditTree(QtW.QDialog):
         self.display_tree()
         self.createSavepoint()
 
-        # self.edit_treeView.clicked.connect(self.whichCell)
         # self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
@@ -53,6 +52,12 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.hideColumn(1)  # don't show ID column
         self.edit_treeView.hideColumn(2)  # don't show parent ID column
         self.edit_treeView.setSortingEnabled(True)
+        self.edit_treeView.setDragEnabled(True)
+        self.edit_treeView.setAcceptDrops(True)
+        self.edit_treeView.setDropIndicatorShown(True)
+        self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
+        # QtW.QTreeView.
+        self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
 
     def add_popup(self):
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
@@ -66,22 +71,7 @@ class EditTree(QtW.QDialog):
             dlg.exec()
             self.display_table()
 
-    # def contextMenuEvent(self, pos):
-    #     self.model: TrC.TreeModel
-    #     if (self.model.
-    #         ().selection().indexes()):
-    #         for i in self.selectionModel().selection().indexes():
-    #             row, column = i.row(), i.column()
-    #         menu = QtGui.QMenu()
-    #         childAction = menu.addAction("Add child")
-    #         parentAction = menu.addAction("Add parent")
-    #         action = menu.exec_(self.mapToGlobal(pos))
-    #         if action == childAction:
-    #             # add child
-    #         if action == parentAction:
-    #             # add parent
-    #
-    #
+
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
@@ -90,6 +80,7 @@ class EditTree(QtW.QDialog):
         else:
             self.reject()
         # self.model.revertAll()
+        self.msg.information(self, 'Cancelled', 'No changes saved', QtW.QMessageBox.StandardButton.Ok)
         self.close()
 
     # def apply(self):
