@@ -208,8 +208,8 @@ class GeoChron(QtW.QMainWindow):
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            self.dbTable_tableView.hideColumn(3)  # don't show created column
-            self.dbTable_tableView.hideColumn(4)  # don't show modified column
+            # self.dbTable_tableView.hideColumn(3)  # don't show created column
+            # self.dbTable_tableView.hideColumn(4)  # don't show modified column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)

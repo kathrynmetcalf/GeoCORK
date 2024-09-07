@@ -29,10 +29,16 @@ class EditTable(QtW.QDialog):
             self.display_table()
             self.createSavepoint()
 
+            self.filter_proxy_model.dataChanged.connect(self.update_model)
             self.add_pushButton.clicked.connect(self.add_popup)
             self.commit_pushButton.clicked.connect(self.commit)
             self.cancel_pushButton.clicked.connect(self.rollback)
 
+
+    def update_model(self):
+        if not self.model.submitAll():
+            errtxt = self.model.lastError().text()
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def createSavepoint(self):
         query = QtS.QSqlQuery(self.db)
