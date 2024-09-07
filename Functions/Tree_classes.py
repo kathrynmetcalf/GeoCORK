@@ -112,6 +112,9 @@ class TreeItem:
             self.itemData.setValue(field.name(), value)
             return True
 
+    def setRecord(self, record: QtS.QSqlRecord):
+        self.itemData = record
+
     def parent(self):
         # parent for given item
         if self.itemData is None:
@@ -348,39 +351,52 @@ class TreeModel(QtC.QAbstractProxyModel):
                 else:
                     print(f'Error setting data in proxy model at {index.row()},{index.column()}')
                     return False
+        return False
 
-    # def handleDataChanged(self, sourceTopLeft: QtC.QModelIndex, sourceBottomRight: QtC.QModelIndex, roles):
-    #     print (f'Handling data changed from {sourceTopLeft.row()},{sourceTopLeft.column()} to {sourceBottomRight.row()},{sourceBottomRight.column()}')
-    #     if not sourceTopLeft.isValid() or not sourceBottomRight.isValid():
-    #         print('dataChanged emitted from invalid source indices')
-    #         return
-    #     if sourceTopLeft == sourceBottomRight:
-    #         print('only one index changed')
-    #         proxyIndex = self.mapFromSource(sourceTopLeft)
-    #         value = self.sourceModel.data(sourceTopLeft, QtC.Qt.ItemDataRole.DisplayRole)
-    #         self.setData(proxyIndex, value, QtC.Qt.ItemDataRole.EditRole)
-    #         self.dataChanged.emit(proxyIndex, proxyIndex)
-    #         self.layoutChanged.emit()
-    #     else:
-    #         print('multiple indices changed')
-    #         for row in range(sourceTopLeft.row(), sourceBottomRight.row() + 1):
-    #             for col in range(sourceTopLeft.column(), sourceBottomRight.column() + 1):
-    #                 print (f'Checking {row},{col}')
-    #                 sourceIndex = self.sourceModel.index(row, col, QtC.QModelIndex())
-    #                 value = self.sourceModel.data(sourceIndex, QtC.Qt.ItemDataRole.DisplayRole)
-    #                 proxyIndex = self.mapFromSource(sourceIndex)
-    #                 self.setData(proxyIndex, value, QtC.Qt.ItemDataRole.DisplayRole)
-    #                 self.dataChanged.emit(proxyIndex, proxyIndex)
-    #                 self.layoutChanged.emit()
+    def moveItem(self, item: TreeItem, row: int, parent: QtC.QModelIndex):
+        # Try making change to database, then address the tree model
+        parentItem = self.getItem(parent)
+        if parentItem == self.rootItem:
+            parentID = None
+        else:
+            parentID = parentItem.data(0)
+        itemID = item.data(0)
+        for row in range(self.sourceModel.rowCount()):
+            record = self.sourceModel.record(row)
+            if record.value(0) == itemID:
+                sourceRow = row
+                break
+        try:
+            sourceRow # Check if the variable has been assigned
+        except NameError: # If not
+            return None
+        if not self.sourceModel.setData(self.sourceModel.index(sourceRow, 1, QtC.QModelIndex()), parentID, QtC.Qt.ItemDataRole.EditRole):
+            print(f'Error setting parent ID for {item.data(2)}')
+            return
+        self.resetTreeModel()
 
+        # # Move tree item from old parent to new parent
+        # parentOld = item.parent()
+        # # print(f'Removing {item.data(2)} from old parent {parentOld.data(2)}')
+        # rowOld = item.row()
+        # if not parentOld.removeChild(rowOld):
+        #     print(f'Error removing {item.data(2)} from old parent {parentOld.data(2)}')
+        #     return
+        # # print(f'Moving {item.data(2)} to row {row} in parent {self.getItem(parent).data(2)}')
+        # itemID = item.data(0)
+        # item_id_header = TxM.remove_spaces(self.sourceHeaders[0])
+        # self.sourceModel.setFilter(f'{item_id_header} = {itemID}')
+        # data = self.sourceModel.record(0)
+        # item.setRecord(data)
+        # parentItem.appendChild(item)
 
-    # def resetTreeModel(self):
-    #     self.beginResetModel()
-    #     self.rootItem = TreeItem(QtS.QSqlRecord(), None)
-    #     self.parentItem = TreeItem(QtS.QSqlRecord(), None)
-    #     self.childItem = TreeItem(QtS.QSqlRecord(), None)
-    #     self.setup_model_data()
-    #     self.endResetModel()
+    def resetTreeModel(self):
+        self.beginResetModel()
+        self.rootItem = TreeItem(QtS.QSqlRecord(), None)
+        self.parentItem = TreeItem(QtS.QSqlRecord(), None)
+        self.childItem = TreeItem(QtS.QSqlRecord(), None)
+        self.setup_model_data()
+        self.endResetModel()
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
         # print(f'mapping proxy index {proxy_index.row()},{proxy_index.column()}')
@@ -459,15 +475,50 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
-            # print("root doesn't have flags")
-            return QtC.Qt.ItemFlag.NoItemFlags
+            # the root can be a drop destination
+            return QtC.Qt.ItemFlag.ItemIsDropEnabled
         modifiedCol = self.sourceModel.columnCount() - 1
         createdCol = self.sourceModel.columnCount() - 2
         if index.column() == modifiedCol or index.column() == createdCol:
             # If the column is the created timestamp or modified timestamp, it is not editable. IDs should not be visible at all
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsDragEnabled
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
         else:
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsDragEnabled
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
+
+    def mimeTypes(self):
+        return ['application/x-qabstractitemmodeldatalist']
+
+    def mimeData(self, indexes):
+        mimeData = QtC.QMimeData()
+        encodedData = QtC.QByteArray()
+        stream = QtC.QDataStream(encodedData, QtC.QIODevice.OpenModeFlag.WriteOnly)
+        for index in indexes:
+            if index.isValid() and index.column() == 0:
+                item = self.getItem(index)
+                print(f'Dragging {item.data(2)}')
+                stream.writeInt32(item.data(0))  # item ID
+        mimeData.setData('application/x-qabstractitemmodeldatalist', encodedData)
+        return mimeData
+
+    def dropMimeData(self, data: QtC.QMimeData, action: QtC.Qt.DropAction, row: int, column: int, parent: QtC.QModelIndex):
+        if action == QtC.Qt.DropAction.IgnoreAction:
+            return False
+        if not data.hasFormat('application/x-qabstractitemmodeldatalist'):
+            return False
+        if column > 0:
+            return False
+        if row == -1:
+            row = self.rowCount(parent)
+        encodedData = data.data('application/x-qabstractitemmodeldatalist')
+        stream = QtC.QDataStream(encodedData, QtC.QIODevice.OpenModeFlag.ReadOnly)
+        while not stream.atEnd():
+            itemID = stream.readInt32()
+            item = self.findIDinTree(itemID)
+            if item:
+                print(f'Dropping {item.data(2)}')
+                self.moveItem(item, row, parent)
+                row += 1
+        return True
 
     def supportedDropActions(self):
         return QtC.Qt.DropAction.MoveAction

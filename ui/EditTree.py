@@ -56,7 +56,6 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setAcceptDrops(True)
         self.edit_treeView.setDropIndicatorShown(True)
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
-        # QtW.QTreeView.
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
 
     def add_popup(self):
