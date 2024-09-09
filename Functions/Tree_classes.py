@@ -353,27 +353,31 @@ class TreeModel(QtC.QAbstractProxyModel):
                     return False
         return False
 
-    def moveItem(self, item: TreeItem, row: int, parent: QtC.QModelIndex):
+    def moveItem(self, itemID: int, row: int, parent: QtC.QModelIndex):
         # Try making change to database, then address the tree model
         parentItem = self.getItem(parent)
         if parentItem == self.rootItem:
             parentID = None
         else:
             parentID = parentItem.data(0)
-        itemID = item.data(0)
-        for row in range(self.sourceModel.rowCount()):
-            record = self.sourceModel.record(row)
+        for srow in range(self.sourceModel.rowCount()):
+            record = self.sourceModel.record(srow)
             if record.value(0) == itemID:
-                sourceRow = row
+                sourceRow = srow
                 break
         try:
             sourceRow # Check if the variable has been assigned
         except NameError: # If not
             return None
-        if not self.sourceModel.setData(self.sourceModel.index(sourceRow, 1, QtC.QModelIndex()), parentID, QtC.Qt.ItemDataRole.EditRole):
+        item = self.findIDinTree(itemID)
+        sourceIndex = self.sourceModel.index(sourceRow, 1, QtC.QModelIndex())
+        if not self.sourceModel.setData(sourceIndex, parentID, QtC.Qt.ItemDataRole.EditRole):
             print(f'Error setting parent ID for {item.data(2)}')
+        else:
+            print(f'Successfully moved {item.data(2)} to row {row} in parent {parentItem.data(2)}')
+            self.resetTreeModel()
             return
-        self.resetTreeModel()
+
 
         # # Move tree item from old parent to new parent
         # parentOld = item.parent()
@@ -389,6 +393,12 @@ class TreeModel(QtC.QAbstractProxyModel):
         # data = self.sourceModel.record(0)
         # item.setRecord(data)
         # parentItem.appendChild(item)
+
+    # def insertRows(self, row, count, parent = ...):
+    #     print(f"Trying to insert at row {row} in parent {self.getItem(parent).data(2)}")
+    #
+    # def removeRows(self, row, count, parent = ...):
+    #     print(f"Trying to remove row {row} in parent {self.getItem(parent).data(2)}")
 
     def resetTreeModel(self):
         self.beginResetModel()
@@ -500,28 +510,37 @@ class TreeModel(QtC.QAbstractProxyModel):
         mimeData.setData('application/x-qabstractitemmodeldatalist', encodedData)
         return mimeData
 
-    def dropMimeData(self, data: QtC.QMimeData, action: QtC.Qt.DropAction, row: int, column: int, parent: QtC.QModelIndex):
+    def canDropMimeData(self, data, action, row, column, parent):
         if action == QtC.Qt.DropAction.IgnoreAction:
+            print("Ignoring drop action")
             return False
         if not data.hasFormat('application/x-qabstractitemmodeldatalist'):
+            print("Data format not recognized")
             return False
-        if column > 0:
+        # if column > 0:
+        #     return False
+        # print(f'Can drop data at row {row} in parent {self.getItem(parent).data(2)}')
+        return True
+
+    def dropMimeData(self, data: QtC.QMimeData, action: QtC.Qt.DropAction, row: int, column: int, parent: QtC.QModelIndex):
+        if not self.canDropMimeData(data, action, row, column, parent):
             return False
-        if row == -1:
-            row = self.rowCount(parent)
         encodedData = data.data('application/x-qabstractitemmodeldatalist')
         stream = QtC.QDataStream(encodedData, QtC.QIODevice.OpenModeFlag.ReadOnly)
         while not stream.atEnd():
             itemID = stream.readInt32()
             item = self.findIDinTree(itemID)
             if item:
-                print(f'Dropping {item.data(2)}')
-                self.moveItem(item, row, parent)
+                print(f'Dropping {item.data(2)} at row {row} in parent {self.getItem(parent).data(2)}')
+                self.moveItem(itemID, row, parent)
                 row += 1
         return True
 
     def supportedDropActions(self):
-        return QtC.Qt.DropAction.MoveAction
+        return QtC.Qt.DropAction.CopyAction | QtC.Qt.DropAction.MoveAction
+
+    def supportedDragActions(self):
+        return QtC.Qt.DropAction.CopyAction | QtC.Qt.DropAction.MoveAction
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
         if role != QtC.Qt.ItemDataRole.DisplayRole:
