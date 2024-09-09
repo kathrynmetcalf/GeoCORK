@@ -30,6 +30,7 @@ class EditTree(QtW.QDialog):
         self.display_tree()
         self.createSavepoint()
 
+        self.tree_proxy_model.dataMoved.connect(self.update_proxy)
         # self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
@@ -58,6 +59,13 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
+
+    def update_proxy(self):
+        if hasattr(self.edit_treeView, 'proxy_model') and self.tree_proxy_model:
+            self.tree_proxy_model.deleteLater()
+        self.tree_proxy_model = TrC.TreeModel(self.model)
+        self.tree_proxy_model.dataMoved.connect(self.update_proxy)
+        self.display_tree()
 
     def add_popup(self):
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':

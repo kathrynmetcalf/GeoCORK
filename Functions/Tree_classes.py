@@ -124,6 +124,7 @@ class TreeItem:
 
 
 class TreeModel(QtC.QAbstractProxyModel):
+    dataMoved = QtC.pyqtSignal()
     def __init__(self, sourceModel: QtS.QSqlTableModel, parent=None):
         # database table
         super().__init__(parent)
@@ -375,7 +376,8 @@ class TreeModel(QtC.QAbstractProxyModel):
             print(f'Error setting parent ID for {item.data(2)}')
         else:
             print(f'Successfully moved {item.data(2)} to row {row} in parent {parentItem.data(2)}')
-            self.resetTreeModel()
+            # Emit signal so that the view can rebuild the tree model
+            self.dataMoved.emit()
             return
 
 
@@ -399,14 +401,6 @@ class TreeModel(QtC.QAbstractProxyModel):
     #
     # def removeRows(self, row, count, parent = ...):
     #     print(f"Trying to remove row {row} in parent {self.getItem(parent).data(2)}")
-
-    def resetTreeModel(self):
-        self.beginResetModel()
-        self.rootItem = TreeItem(QtS.QSqlRecord(), None)
-        self.parentItem = TreeItem(QtS.QSqlRecord(), None)
-        self.childItem = TreeItem(QtS.QSqlRecord(), None)
-        self.setup_model_data()
-        self.endResetModel()
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
         # print(f'mapping proxy index {proxy_index.row()},{proxy_index.column()}')
