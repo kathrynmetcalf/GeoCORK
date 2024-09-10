@@ -42,7 +42,7 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     UNIQUE (SampleName COLLATE NOCASE),
                     FOREIGN KEY(OldestAgeID) REFERENCES Ages(AgeID)
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL
+                        ON DELETE SET NULL,
                     FOREIGN KEY(YoungestAgeID) REFERENCES Ages(AgeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
@@ -79,41 +79,49 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
 CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContext(
                     SampleContextID INTEGER PRIMARY KEY,
                     ParentSampleContextID INTEGER,
+                    SampleContextParentRow INTEGER NOT NULL,
                     SampleContextName TEXT NOT NULL CHECK (SampleContextName <> ''), 
                     SampleContextDescription TEXT,
                     SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SampleContextName COLLATE NOCASE)
+                    UNIQUE (SampleContextName COLLATE NOCASE),
+                    UNIQUE (ParentSampleContextID, SampleContextParentRow)
                     )'''
 
 CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContext(
                     AliquotContextID INTEGER PRIMARY KEY,
                     ParentAliquotContextID INTEGER,
+                    AliquotContextParentRow INTEGER,
                     AliquotContextName TEXT NOT NULL CHECK (AliquotContextName <> ''),
                     AliquotContextDescription TEXT,
                     AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AliquotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AliquotContextName COLLATE NOCASE)
+                    UNIQUE (AliquotContextName COLLATE NOCASE),
+                    UNIQUE (ParentAliquotContextID, AliquotContextParentRow)
                     )'''
 
 CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContext(
                     SpotContextID INTEGER PRIMARY KEY,
                     ParentSpotContextID INTEGER,
+                    SpotContextParentRow INTEGER,
                     SpotContextName TEXT NOT NULL CHECK (SpotContextName <> ''),
                     SpotContextDescription TEXT, 
                     SpotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SpotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SpotContextName COLLATE NOCASE)
+                    UNIQUE (SpotContextName COLLATE NOCASE),
+                    UNIQUE (ParentSpotContextID, SpotContextParentRow)
                     )'''
 
 CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
                     SpotCompositionID INTEGER PRIMARY KEY,
                     ParentSpotCompositionID INTEGER,
+                    SpotCompositionParentRow INTEGER,
                     SpotCompositionName TEXT NOT NULL CHECK (SpotCompositionName <> ''),
                     SpotCompositionDescription TEXT, 
                     SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SpotCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SpotCompositionName COLLATE NOCASE)
+                    UNIQUE (SpotCompositionName COLLATE NOCASE),
+                    UNIQUE (ParentSpotCompositionID, SpotCompositionParentRow)
                     )'''
 
 CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
@@ -132,21 +140,25 @@ CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
 CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     RegionID INTEGER PRIMARY KEY,
                     ParentRegionID INTEGER,
+                    RegionParentRow INTEGER,
                     RegionName TEXT NOT NULL CHECK (RegionName <> ''),
                     RegionDescription TEXT,
                     RegionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     RegionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (RegionName COLLATE NOCASE)
+                    UNIQUE (RegionName COLLATE NOCASE),
+                    UNIQUE (ParentRegionID, RegionParentRow)
                     )'''
 
 CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
                     SettingID INTEGER PRIMARY KEY,
                     ParentSettingID INTEGER,
+                    SettingParentRow INTEGER,
                     SettingName TEXT NOT NULL CHECK (SettingName <> ''),
                     SettingDescription TEXT,
                     SettingCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SettingModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SettingName COLLATE NOCASE)
+                    UNIQUE (SettingName COLLATE NOCASE),
+                    UNIQUE (ParentSettingID, SettingParentRow)
                     )'''
 
 CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
@@ -161,52 +173,62 @@ CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
 CREATE_SAMPLING_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplingMethods(
                     SamplingMethodID INTEGER PRIMARY KEY,
                     ParentSamplingMethodID INTEGER,
+                    SamplingMethodParentRow INTEGER,
                     SamplingMethodName TEXT NOT NULL CHECK (SamplingMethodName <> ''),
                     SamplingMethodDescription TEXT, 
                     SamplingMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SamplingMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SamplingMethodName COLLATE NOCASE)
+                    UNIQUE (SamplingMethodName COLLATE NOCASE),
+                    UNIQUE (ParentSamplingMethodID, SamplingMethodParentRow)
                     )'''
 
 CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     RockTypeID INTEGER PRIMARY KEY,
                     ParentRockTypeID INTEGER,
+                    RockTypeParentRow INTEGER,
                     RockTypeName TEXT NOT NULL CHECK (RockTypeName <> ''),
                     RockTypeDescription TEXT,
                     RockTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     RockTypeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (RockTypeName COLLATE NOCASE)
+                    UNIQUE (RockTypeName COLLATE NOCASE),
+                    UNIQUE (ParentRockTypeID, RockTypeParentRow)
                     )'''
 
 CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UnitID INTEGER PRIMARY KEY,
                     ParentUnitID INTEGER,
+                    UnitParentRow INTEGER,
                     UnitName TEXT NOT NULL CHECK (UnitName <> ''),
                     UnitDescription TEXT, 
                     UnitCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UnitModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UnitName COLLATE NOCASE)
+                    UNIQUE (UnitName COLLATE NOCASE),
+                    UNIQUE (ParentUnitID, UnitParentRow)
                     )'''
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
                     AgeID INTEGER PRIMARY KEY,
                     ParentAgeID INTEGER,
+                    AgeParentRow INTEGER,
                     AgeName TEXT NOT NULL CHECK (AgeName <> ''),
                     MaxMa REAL,
                     MinMa REAL,
                     AgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AgeModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    UNIQUE (AgeName COLLATE NOCASE)
+                    UNIQUE (AgeName COLLATE NOCASE),
+                    UNIQUE (ParentAgeID, AgeParentRow)
                     )'''
 
 CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
                     AgeSignatureID INTEGER PRIMARY KEY,
                     ParentAgeSignatureID INTEGER,
+                    AgeSignatureParentRow INTEGER,
                     AgeSignatureName TEXT NOT NULL CHECK (AgeSignatureName <> ''),
                     AgeSignatureDescription TEXT,
                     AgeSignatureCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AgeSignatureModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AgeSignatureName COLLATE NOCASE)
+                    UNIQUE (AgeSignatureName COLLATE NOCASE),
+                    UNIQUE (ParentAgeSignatureID, AgeSignatureParentRow)
                     )'''
 
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
@@ -242,16 +264,16 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
-                        ON DELETE CASCADE
+                        ON DELETE CASCADE,
                     FOREIGN KEY(SourceID) REFERENCES Sources(SourceID)
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL
+                        ON DELETE SET NULL,
                     FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL
+                        ON DELETE SET NULL,
                     FOREIGN KEY(UPbAnalysisMethodID) REFERENCES UPbAnalysisMethods(UPbAnalysisMethodID)
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL
+                        ON DELETE SET NULL,
                     FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
@@ -546,15 +568,20 @@ def populate_ages(conn):
         xml_file = "../Reference/GeologicTime_Ages.xml"
         tree = ET.parse(xml_file)
         root = tree.getroot()
+        eon_row = 0
+        era_row = 0
+        period_row = 0
+        epoch_row = 0
+        age_row = 0
         for eon in root.findall('Eon'):
-            age_item = ('', f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
+            age_item = ('', eon_row, f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
             add_age(c, age_item)
             for era in eon.findall('Era'):
                 eon_name = eon.get("name")
                 if c.execute(f'SELECT AgeID FROM AGES WHERE AgeName = "{eon_name}"'):
                     out = c.fetchall()
                     eon_id = out[0][0]
-                    age_item = (eon_id, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
+                    age_item = (eon_id, era_row, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
                     add_age(c, age_item)
                     for period in era.findall('Period'):
                         era_name = era.get("name")
@@ -562,14 +589,14 @@ def populate_ages(conn):
                             out = c.fetchall()
                             era_id = out[0][0]
                             age_item = (
-                                era_id, f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
+                                era_id, period_row, f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
                             add_age(c, age_item)
                             for epoch in period.findall('Epoch'):
                                 period_name = period.get("name")
                                 if c.execute(f'SELECT AgeID FROM AGES WHERE AgeName = "{period_name}"'):
                                     out = c.fetchall()
                                     period_id = out[0][0]
-                                    age_item = (period_id, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
+                                    age_item = (period_id, epoch_row, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
                                                 f'{epoch.get("youngest")}')
                                     add_age(c, age_item)
                                     for age in epoch.findall('Age'):
@@ -580,9 +607,18 @@ def populate_ages(conn):
                                                 f'ORDER BY AgeID DESC'):
                                             out = c.fetchall()
                                             epoch_id = out[0][0]
-                                            age_item = (epoch_id, f'{age.get("name")}', f'{age.get("oldest")}',
+                                            age_item = (epoch_id, age_row, f'{age.get("name")}', f'{age.get("oldest")}',
                                                         f'{age.get("youngest")}')
                                             add_age(c, age_item)
+                                        age_row += 1
+                                    epoch_row += 1
+                                    age_row = 0
+                            period_row += 1
+                            epoch_row = 0
+                    era_row += 1
+                    period_row = 0
+            eon_row += 1
+            era_row = 0
 
 
 def add_age(c, age):
@@ -594,15 +630,17 @@ def add_age(c, age):
     """
     if age[0]:
         # if there is a parent
-        sql = '''INSERT INTO Ages(ParentAgeID, AgeName, MaxMa, MinMa)
-                        VALUES(?,?,?,?)'''
-        values = (age[0], age[1], age[2], age[3])
-        c.execute(sql, values)
+        sql = '''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, MaxMa, MinMa)
+                        VALUES(?,?,?,?,?)'''
+        values = (age[0], age[1], age[2], age[3], age[4])
+        if not c.execute(sql, values):
+            print(f'failed to add {age[2]}')
     else:
-        sql = '''INSERT INTO Ages(AgeName, MaxMa, MinMa)
-                        VALUES(?,?,?)'''
-        values = (age[1], age[2], age[3])
-        c.execute(sql, values)
+        sql = '''INSERT INTO Ages(AgeParentRow, AgeName, MaxMa, MinMa)
+                        VALUES(?,?,?,?)'''
+        values = (age[1], age[2], age[3], age[4])
+        if not c.execute(sql, values):
+            print(f'failed to add {age[2]}')
 
 
 if __name__ == '__main__':
