@@ -52,6 +52,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.edit_treeView.hideColumn(1)  # don't show ID column
         self.edit_treeView.hideColumn(2)  # don't show parent ID column
+        self.edit_treeView.hideColumn(3)  # don't show parent row column
         self.edit_treeView.setSortingEnabled(True)
         self.edit_treeView.setDragEnabled(True)
         self.edit_treeView.setAcceptDrops(True)

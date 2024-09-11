@@ -187,6 +187,7 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
+            self.dbTable_treeView.hideColumn(3)  # don't show parent row column
             self.dbTable_treeView.setSortingEnabled(True)
             if table == 'Ages':
                 self.dbTable_treeView.hideColumn(5)  # don't show created column
