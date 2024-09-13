@@ -1,4 +1,6 @@
 import typing
+from formatter import NullWriter
+
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtTest as QtT
@@ -160,7 +162,7 @@ class TreeModel(QtC.QAbstractProxyModel):
     def find_children(self, parent_id: int):
         # Query the table and find children of given ID
         parent_id_header = TxM.remove_spaces(self.sourceHeaders[1])
-        if parent_id == 0:
+        if parent_id == 0 or parent_id is None:
             self.sourceModel.setFilter(f'{parent_id_header} IS Null')
         else:
             self.sourceModel.setFilter(f'{parent_id_header} = {parent_id}')
@@ -362,30 +364,82 @@ class TreeModel(QtC.QAbstractProxyModel):
         return False
 
     def moveItem(self, itemID: int, row: int, parent: QtC.QModelIndex):
-        # Try making change to database, then address the tree model
+        # Try making change to database, then reset the tree model
         parentItem = self.getItem(parent)
         if parentItem == self.rootItem:
             parentID = None
         else:
             parentID = parentItem.data(0)
-        for srow in range(self.sourceModel.rowCount()):
-            record = self.sourceModel.record(srow)
-            if record.value(0) == itemID:
-                sourceRow = srow
-                break
-        try:
-            sourceRow # Check if the variable has been assigned
-        except NameError: # If not
+        self.sourceModel.setFilter("")  # Reset the filter
+        sourceRow = self.findIDSourceRow(itemID)  # Row in the source table with this item ID
+        if sourceRow is None:
+            print(f'Error finding source row for {itemID}')
             return None
         item = self.findIDinTree(itemID)
-        sourceIndex = self.sourceModel.index(sourceRow, 1, QtC.QModelIndex())
-        if not self.sourceModel.setData(sourceIndex, parentID, QtC.Qt.ItemDataRole.EditRole):
-            print(f'Error setting parent ID for {item.data(3)}')
+        oldParentItem = item.parent()
+        oldParentID = item.data(1)
+        oldParentRow = item.data(2)
+        if parentItem == oldParentItem and row == oldParentRow:
+            print(f'No change in parent or row for {item.data(3)}')
+            return None
+        childIDs = self.find_children(parentID)
+        if len(childIDs) > 0 and len(childIDs) > row:
+        # If the parent already has children and the new one is replacing an existing row, update their parent rows
+            for parentRow in reversed(range(len(childIDs))):  # Starting with the last child
+                # increase the parent row by 1 for each child after the target row
+                if parentRow >= row:
+                    childID = childIDs[parentRow]
+                    self.sourceModel.setFilter("")  # Reset the filter
+                    sourceRow = self.findIDSourceRow(childID)
+                    if sourceRow is None:
+                        print(f'Error finding source row for {childID}')
+                        return None
+                    newParentRow = parentRow + 1
+                    if not self.updateParent(childID, parentID, newParentRow):
+                        return None
+                    if parentRow == row:
+                        # Now update the moved item into the new space
+                        self.sourceModel.setFilter("")  # Reset the filter
+                        if not self.updateParent(itemID, parentID, row):
+                            return None
+        else: # no children to update
+            self.sourceModel.setFilter("")  # Reset the filter
+            if not self.updateParent(itemID, parentID, row):
+                return None
+        self.sourceModel.setFilter("")  # Reset the filter
+        childIDs = self.find_children(oldParentID)
+        if len(childIDs) > 0:
+            # If the old parent has children left, update their parent rows
+            for parentRow in reversed(range(len(childIDs))):  # Starting with the last child
+                # decrease the parent row by 1 for each child after the old parent row
+                child = self.findIDinTree(childIDs[parentRow])
+                currentRow = child.data(2)
+                if currentRow >= oldParentRow:
+                    childID = childIDs[parentRow]
+                    newParentRow = parentRow - 1
+                    if not self.updateParent(childID, oldParentID, newParentRow):
+                        return None
+        self.sourceModel.setFilter("")  # Reset the filter
+        # Emit signal so that the view can rebuild the tree model
+        self.dataMoved.emit()
+        return
+
+    def updateParent(self, itemID: int, parentID: int, parentRow: int):
+        # Update the parent ID and parent row for a given item ID
+        db = QtS.QSqlDatabase.database()
+        query = QtS.QSqlQuery(db)
+        table = self.sourceModel.tableName()
+
+        query.prepare(f'UPDATE {table} SET {self.sourceHeaders[1]} = :parentID, {self.sourceHeaders[2]} = :parentRow WHERE {self.sourceHeaders[0]} = :itemID')
+        query.bindValue(':parentID', parentID)
+        query.bindValue(':parentRow', parentRow)
+        query.bindValue(':itemID', itemID)
+        if not query.exec():
+            print(f'Error updating parent for {itemID}')
+            return None
         else:
-            print(f'Successfully moved {item.data(3)} to row {row} in parent {parentItem.data(3)}')
-            # Emit signal so that the view can rebuild the tree model
-            self.dataMoved.emit()
-            return
+            print(f'Successfully updated parent for {itemID}')
+            return True
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
         # print(f'mapping proxy index {proxy_index.row()},{proxy_index.column()}')
@@ -455,6 +509,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             if not itemIndex.isValid():
                 if item != self.rootItem:
                     print(f'Invalid index for {item.data(3)}')
+                    return None
             if item.data(0) == itemID:
                 # print(f'Found {itemID} in {item.data(3)}')
                 return item
@@ -465,6 +520,13 @@ class TreeModel(QtC.QAbstractProxyModel):
                     return result
             return None
         return search(QtC.QModelIndex())
+
+    def findIDSourceRow(self, itemID: int):
+        for row in range(self.sourceModel.rowCount()):
+            record = self.sourceModel.record(row)
+            if record.value(0) == itemID:
+                return row
+        return
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if not index.isValid():
@@ -488,7 +550,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         for index in indexes:
             if index.isValid() and index.column() == 0:
                 item = self.getItem(index)
-                print(f'Dragging {item.data(3)}')
                 stream.writeInt32(item.data(0))  # item ID
         mimeData.setData('application/x-qabstractitemmodeldatalist', encodedData)
         return mimeData
