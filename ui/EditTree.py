@@ -62,7 +62,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
 
     def update_proxy(self):
-        if hasattr(self.edit_treeView, 'proxy_model') and self.tree_proxy_model:
+        if self.edit_treeView.model() == self.tree_proxy_model:
             self.tree_proxy_model.deleteLater()
         self.tree_proxy_model = TrC.TreeModel(self.model)
         self.tree_proxy_model.dataMoved.connect(self.update_proxy)

@@ -4,6 +4,8 @@ from formatter import NullWriter
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtTest as QtT
+from numpy.f2py.auxfuncs import istrue
+
 import Functions.Errors as Er
 import Functions.Text_manipulations as TxM
 
@@ -367,24 +369,40 @@ class TreeModel(QtC.QAbstractProxyModel):
                     return False
         return False
 
-    def moveItem(self, itemID: int, row: int, parentID: int):
+    def moveItem(self, itemID: int, row: int, pID: str):
+        """
+        Move an item to a new parent and parent row
+        @param itemID: unique ID of the item to move
+        @param row: new parent row number for the item
+        @param pID: new parent ID for the item, represented by a string to use in the setFilter method, either 'IS NULL' or '= parentID'
+        @return: True if the item was successfully moved, None if there was an error
+        """
         # Try making change to database, then reset the tree model
-        self.sourceModel.setFilter(f"{self.sourceHeaders[0]} = {itemID} AND {self.sourceHeaders[1]} = {parentID} AND {self.sourceHeaders[2]} = {row}")
+        if pID == 'IS NULL':
+            parentID = ''
+        else:
+            parentID = int(pID[2:])
+        self.sourceModel.setFilter(f"{self.sourceHeaders[0]} = {itemID} AND {self.sourceHeaders[1]} {pID} AND {self.sourceHeaders[2]} = {row}")
         if self.sourceModel.rowCount() > 0:
             # If the item is already in the correct place, do nothing
             print(f'No change in parent or row for item {itemID}')
             return None
         self.sourceModel.setFilter(f"{self.sourceHeaders[0]} = {itemID}")  # Only one record for each item ID
         oldParentID = self.sourceModel.record(0).value(1)  # Get the current parent ID
+        if isinstance(oldParentID, int):
+            opID = f'= {oldParentID}'
+        else:
+            opID = 'IS NULL'
+            oldParentID = ''
         oldParentRow = self.sourceModel.record(0).value(2)  # Get the current parent row
-        self.sourceModel.setFilter(f"{self.sourceHeaders[1]} = {parentID}")  # Look for all children of the new parent
+        self.sourceModel.setFilter(f"{self.sourceHeaders[1]} {pID}")  # Look for all children of the new parent
         childCount = self.sourceModel.rowCount()
         if childCount > 0 and childCount > row:
         # If the parent already has children and the new one is replacing an existing row, update their parent rows
             for parentRow in reversed(range(childCount)):  # Starting with the last child
                 # increase the parent row by 1 for each child after the target row
                 if parentRow >= row:
-                    self.sourceModel.setFilter(f"{self.sourceHeaders[1]} = {parentID} AND {self.sourceHeaders[2]} = {parentRow}")
+                    self.sourceModel.setFilter(f"{self.sourceHeaders[1]} {pID} AND {self.sourceHeaders[2]} = {parentRow}")
                     childID = self.sourceModel.record(0).value(0)
                     newParentRow = parentRow + 1
                     self.sourceModel.setFilter("")  # Reset the filter
@@ -397,14 +415,11 @@ class TreeModel(QtC.QAbstractProxyModel):
                             return None
         else: # no children to update
             self.sourceModel.setFilter("")  # Reset the filter
-            if row == -1:
-                # If the row is -1, the item is being moved to the end of the list
-                row = childCount
             if not self.updateParent(itemID, parentID, row):
                 return None
         # Look for remaining children of the old parent whose parent rows need to be updated, order them by parent row from smallest to largest
         self.sourceModel.setFilter(
-            f"{self.sourceHeaders[1]} = {oldParentID} AND {self.sourceHeaders[2]} > {oldParentRow} ORDER BY {self.sourceHeaders[2]} ASC")
+            f"{self.sourceHeaders[1]} {opID} AND {self.sourceHeaders[2]} > {oldParentRow} ORDER BY {self.sourceHeaders[2]} ASC")
         childCount = self.sourceModel.rowCount()
         if childCount > 0:
             currentRows = []
@@ -421,7 +436,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.sourceModel.setFilter("")  # Reset the filter
         return True
 
-    def updateParent(self, itemID: int, parentID: int, parentRow: int):
+    def updateParent(self, itemID: int, parentID, parentRow: int):
         # Update the parent ID and parent row for a given item ID
         query = QtS.QSqlQuery(self.db)
         query.prepare(f'UPDATE {self.table} SET {self.sourceHeaders[1]} = :parentID, {self.sourceHeaders[2]} = :parentRow WHERE {self.sourceHeaders[0]} = :itemID')
@@ -433,6 +448,38 @@ class TreeModel(QtC.QAbstractProxyModel):
             return None
         else:
             print(f'Successfully updated parent for {itemID}')
+            return True
+
+    def insertItem(self, itemName: str, itemDescription: str, parentID = None, parentRow = None):
+        # Add a new item to the database, first as a top-level item, then move it to the correct parent and row
+        query = QtS.QSqlQuery(self.db)
+        pID = 'IS NULL'
+        self.sourceModel.setFilter(f"{self.sourceHeaders[1]} {pID}")
+        childCount = self.sourceModel.rowCount()
+        query.prepare(f'INSERT INTO {self.table}({self.sourceHeaders[2]}, {self.sourceHeaders[3]}, {self.sourceHeaders[4]}) VALUES(:parentRow, :itemName, :itemDescription)')
+        query.bindValue(':parentRow', childCount)
+        query.bindValue(':itemName', itemName)
+        query.bindValue(':itemDescription', itemDescription)
+        self.createSavepoint()
+        if not query.exec():
+            print(f'Error inserting new item {itemName}')
+            self.rollback()
+            return None
+        else:
+            print(f'Successfully inserted new item {itemName}')
+            if parentID:
+                pID = f'= {parentID}'
+            if not parentRow:
+                # If no parent row is given, the item is added to the end of the list
+                self.sourceModel.setFilter(f"{self.sourceHeaders[1]} {pID}")
+                childCount = self.sourceModel.rowCount()
+                parentRow = childCount
+            self.sourceModel.setFilter(f"{self.sourceHeaders[3]} = '{itemName}'")
+            itemID = self.sourceModel.record(0).value(0)
+            if not self.moveItem(itemID, parentRow, pID):
+                self.rollback()
+                return None
+            self.releaseSavepoint()
             return True
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
@@ -565,17 +612,27 @@ class TreeModel(QtC.QAbstractProxyModel):
         itemIDs = []
         rows = []
         parentID = self.getItem(parent).data(0)
+        if isinstance(parentID, int):
+            pID = f'= {parentID}'
+        else:   # If the parent ID is not an integer
+            pID = 'IS NULL'
         self.createSavepoint()
         while not stream.atEnd():
             itemIDs.append(stream.readInt32())
+            if row == -1:
+                # If the row is -1, the item is being moved to the end of the list
+                self.sourceModel.setFilter(f"{self.sourceHeaders[1]} {pID}")
+                childCount = self.sourceModel.rowCount()
+                row = childCount
             rows.append(row)
             row += 1
         for move in range(len(itemIDs)):
-            if not self.moveItem(itemIDs[move], rows[move], parentID):
+            if not self.moveItem(itemIDs[move], rows[move], pID):
                 # Move was unsuccessful
                 self.rollback()
                 return False
         # All moves were successful
+        self.sourceModel.setFilter("")  # Reset the filter
         self.releaseSavepoint()
         # Emit signal so that the view can rebuild the tree model
         self.dataMoved.emit()

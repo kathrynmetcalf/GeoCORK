@@ -41,6 +41,7 @@ class AddTreeTags(QtW.QDialog):
         self.tags_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tags_treeView.hideColumn(1)  # Don't show ID column
         self.tags_treeView.hideColumn(2)  # Don't show parent ID column
+        self.tags_treeView.hideColumn(3)  # Don't show parent row column
         self.tags_treeView.resizeColumnsToContents()
         self.tags_treeView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
         # query = QtS.QSqlQuery()
