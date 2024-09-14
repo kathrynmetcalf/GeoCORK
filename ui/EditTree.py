@@ -22,9 +22,9 @@ class EditTree(QtW.QDialog):
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_proxy_model = TrC.TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)
-        # self.filter_proxy_model = QtC.QSortFilterProxyModel()
-        # self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
-        # self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+        self.filter_proxy_model = QtC.QSortFilterProxyModel()
+        self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
+        self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
         self.msg = QtW.QMessageBox(self)
         self.display_tree()
@@ -48,12 +48,12 @@ class EditTree(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def display_tree(self):
-        self.edit_treeView.setModel(self.tree_proxy_model)
+        self.edit_treeView.setModel(self.filter_proxy_model)
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.edit_treeView.hideColumn(1)  # don't show ID column
         self.edit_treeView.hideColumn(2)  # don't show parent ID column
         self.edit_treeView.hideColumn(3)  # don't show parent row column
-        self.edit_treeView.setSortingEnabled(True)
+        self.edit_treeView.setSortingEnabled(False)
         self.edit_treeView.setDragEnabled(True)
         self.edit_treeView.setAcceptDrops(True)
         self.edit_treeView.setDropIndicatorShown(True)
@@ -62,10 +62,11 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
 
     def update_proxy(self):
-        if self.edit_treeView.model() == self.tree_proxy_model:
+        if self.filter_proxy_model.sourceModel() == self.tree_proxy_model:
             self.tree_proxy_model.deleteLater()
         self.tree_proxy_model = TrC.TreeModel(self.model)
         self.tree_proxy_model.dataMoved.connect(self.update_proxy)
+        self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
         self.display_tree()
 
     def add_popup(self):

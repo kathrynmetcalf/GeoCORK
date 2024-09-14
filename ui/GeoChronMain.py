@@ -182,17 +182,18 @@ class GeoChron(QtW.QMainWindow):
             #     self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             self.tree_model = TrC.TreeModel(self.model, None)
 
-            # self.tree_proxy_model.setSourceModel(self.tree_model)
-            self.dbTable_treeView.setModel(self.tree_model)
+            self.tree_proxy_model.setSourceModel(self.tree_model)
+            self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_treeView.setModel(self.tree_proxy_model)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView.hideColumn(3)  # don't show parent row column
-            self.dbTable_treeView.setSortingEnabled(True)
+            self.dbTable_treeView.setSortingEnabled(False)
             if table == 'Ages':
                 self.dbTable_treeView.hideColumn(5)  # don't show created column
                 self.dbTable_treeView.hideColumn(6)  # don't show modified column
-                self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
+                # self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         else:
             self.switch_to_table()
@@ -229,9 +230,10 @@ class GeoChron(QtW.QMainWindow):
         #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
         #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
         # else:
-        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.tree_proxy_model.setRecursiveFilteringEnabled(True)
+        self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names

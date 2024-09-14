@@ -283,14 +283,13 @@ class TreeModel(QtC.QAbstractProxyModel):
     def rowCount(self, parent: QtC.QModelIndex = ...) -> int:
         if not parent.isValid():
             # print("Root rows are the same as source model")
-            self.sourceModel.setFilter("") # Reset the filter
-            return self.sourceModel.rowCount()
+            parentItem = self.rootItem
         else:
             parentItem = self.getItem(parent)
         # if parent.column() > 0:
         #     return 0
         # else:
-        #     # print(f'Parent {parentItem.data(2)} has {parentItem.childCount()} children')
+        #     # print(f'Parent {parentItem.data(3)} has {parentItem.childCount()} children')
         #     return parentItem.childCount()
         return parentItem.childCount()
 
