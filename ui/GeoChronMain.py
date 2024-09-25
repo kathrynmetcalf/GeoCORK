@@ -17,6 +17,7 @@ import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
+from Functions.Tree_classes import TreeModel
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -60,6 +61,7 @@ class GeoChron(QtW.QMainWindow):
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
 
+        self.settings = QtC.QSettings('User', 'Geochron')
         self.switch_to_table()
 
         Create_db.create_tables(self.db_file)
@@ -141,6 +143,7 @@ class GeoChron(QtW.QMainWindow):
         """
         self.dbTable_comboBox: QtW.QComboBox
         self.dbTable_comboBox.addItems(self.dbtable_list)
+        self.previous_table = ''
         self.dbTable_comboBox.setCurrentText('Samples')
         self.display_table()
 
@@ -149,6 +152,8 @@ class GeoChron(QtW.QMainWindow):
         Displays the selected table
         :return:
         """
+        if self.previous_table in self.dbtree_list:
+            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
         self.dbTable_tableView: QtW.QTableView
         self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
@@ -157,6 +162,7 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
+        self.previous_table = table
         if table == 'Samples':
             self.switch_to_table()
             view = "SampleView"
@@ -185,6 +191,7 @@ class GeoChron(QtW.QMainWindow):
             self.tree_proxy_model.setSourceModel(self.tree_model)
             self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_treeView.setModel(self.tree_proxy_model)
+            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column

@@ -7,7 +7,7 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Tree_classes as TrC
-from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
 
 
 class EditTree(QtW.QDialog):
@@ -26,12 +26,14 @@ class EditTree(QtW.QDialog):
         self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
         self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
+        self.settings = QtC.QSettings('User', 'Geochron')
+
         self.msg = QtW.QMessageBox(self)
         self.display_tree()
         self.createSavepoint()
 
         self.tree_proxy_model.dataMoved.connect(self.update_proxy)
-        # self.add_pushButton.clicked.connect(self.add_popup)
+        self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
 
@@ -60,6 +62,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
+        TrC.restore_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
 
     def update_proxy(self):
         if self.filter_proxy_model.sourceModel() == self.tree_proxy_model:
@@ -70,17 +73,17 @@ class EditTree(QtW.QDialog):
         self.display_tree()
 
     def add_popup(self):
+        self.expanded_ids = self.save_expanded_state()
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
             pass
         elif self.table in self.dbtree_list:
-            dlg = AddTags(self.db, self.model, self.table)
+            dlg = AddTreeTags(self.db, self.model, self.table)
             dlg.exec()
             self.display_table()
         else:
-            dlg = AddTags(self.db, self.model, self.table)
+            dlg = AddTreeTags(self.db, self.model, self.table)
             dlg.exec()
             self.display_table()
-
 
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
@@ -88,6 +91,7 @@ class EditTree(QtW.QDialog):
             errtxt = Er.rollback_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
+            TrC.save_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
             self.reject()
         # self.model.revertAll()
         self.msg.information(self, 'Cancelled', 'No changes saved', QtW.QMessageBox.StandardButton.Ok)
@@ -98,6 +102,7 @@ class EditTree(QtW.QDialog):
     #
     def commit(self):
         self.releaseSavepoint()
+        TrC.save_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
         self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
         self.close()
 

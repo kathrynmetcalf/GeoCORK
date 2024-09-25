@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>381</width>
+    <width>392</width>
     <height>576</height>
    </rect>
   </property>
@@ -79,9 +79,6 @@
        </item>
        <item>
         <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Orientation::Horizontal</enum>
-         </property>
          <property name="sizeHint" stdset="0">
           <size>
            <width>40</width>
@@ -99,7 +96,7 @@
           </sizepolicy>
          </property>
          <property name="focusPolicy">
-          <enum>Qt::FocusPolicy::StrongFocus</enum>
+          <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
           <string>Cancel</string>
@@ -115,7 +112,7 @@
           </sizepolicy>
          </property>
          <property name="focusPolicy">
-          <enum>Qt::FocusPolicy::StrongFocus</enum>
+          <enum>Qt::NoFocus</enum>
          </property>
          <property name="text">
           <string>Ok</string>
