@@ -130,6 +130,7 @@ class TreeItem:
 
 class TreeModel(QtC.QAbstractProxyModel):
     dataMoved = QtC.pyqtSignal()
+    dataAdded = QtC.pyqtSignal()
     def __init__(self, source_model: QtS.QSqlTableModel, parent=None):
         # database table
         super().__init__(parent)
@@ -494,6 +495,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.rollback()
                 return None
             self.releaseSavepoint()
+            self.dataAdded.emit()
             return True
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:

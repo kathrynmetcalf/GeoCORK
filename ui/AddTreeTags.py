@@ -40,6 +40,7 @@ class AddTreeTags(QtW.QDialog):
         self.clear_warning()
         self.display_tags()
         self.createSavepoint()
+        self.tree_proxy_model.dataAdded.connect(self.update_proxy)
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.finish_pushButton.clicked.connect(self.commit)
@@ -57,6 +58,7 @@ class AddTreeTags(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def display_tags(self):
+        # todo: add fields to show that the user is adding x to y
         self.tags_treeView.setModel(self.filter_proxy_model)
         self.tags_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.tags_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -86,6 +88,8 @@ class AddTreeTags(QtW.QDialog):
         description = self.newDescription_lineEdit.text()
         if self.tree_proxy_model.insertItem(name, description, self.parentID, self.parentRow):
             self.update_proxy()
+            self.newName_lineEdit.clear()
+            self.newDescription_lineEdit.clear()
 
     def update_proxy(self):
         if self.filter_proxy_model.sourceModel() == self.tree_proxy_model:

@@ -35,6 +35,7 @@ class EditTree(QtW.QDialog):
         self.createSavepoint()
 
         self.tree_proxy_model.dataMoved.connect(self.update_proxy)
+        self.tree_proxy_model.dataAdded.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
@@ -88,7 +89,7 @@ class EditTree(QtW.QDialog):
             add_child_action = menu.addAction('Add child')
         add_parent_action = menu.addAction('Add parent')
         delete_action = menu.addAction('Delete')
-
+# todo: troubleshoot adding actions
         action = menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if insert_above_action and action == insert_above_action:
             row = parent_rows[0]-1
@@ -103,6 +104,7 @@ class EditTree(QtW.QDialog):
             self.add_popup(None, parent_id)
         elif action == add_parent_action:
             pass
+        # todo: create warning pop-up, "Are you sure you want to delete this item and # children tied to # samples?"
         elif action == delete_action:
             pass
 
@@ -119,7 +121,7 @@ class EditTree(QtW.QDialog):
         TrC.save_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
         dlg = AddTreeTags(self.db, self.table, item_ID, parent_id, parent_row)
         dlg.exec()
-        self.display_tree()
+        self.update_proxy()
 
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
