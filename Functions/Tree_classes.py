@@ -482,7 +482,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             if parentID:
                 pID = f'= {parentID}'
             else:
-                pID = 'NULL'
+                pID = 'IS NULL'
             if not parentRow:
                 # If no parent row is given, the item is added to the end of the list
                 self.source_model.setFilter(f"{self.parent_id_header} {pID}")
@@ -719,7 +719,6 @@ def save_expanded_state(table: str, filter_model: QtC.QSortFilterProxyModel, tre
     expanded_ids = []
 
     def save_state(index):
-        print(f'Is {filter_model.data(index)} expanded? {treeView.isExpanded(index)}')
         if index.isValid() and treeView.isExpanded(index):
             item_id = filter_model.data(index.siblingAtColumn(1))
             expanded_ids.append(item_id)

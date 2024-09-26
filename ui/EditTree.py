@@ -11,7 +11,7 @@ from ui.AddTreeTags import AddTreeTags
 
 
 class EditTree(QtW.QDialog):
-    def __init__(self, database, model: QtS.QSqlTableModel, table_name):
+    def __init__(self, database: QtS.QSqlDatabase, model: QtS.QSqlTableModel, table_name):
         super().__init__()
 
         # Define any widgets here
@@ -27,6 +27,8 @@ class EditTree(QtW.QDialog):
         self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
         self.settings = QtC.QSettings('User', 'Geochron')
+        self.edit_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
         self.msg = QtW.QMessageBox(self)
         self.display_tree()
@@ -64,6 +66,47 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         TrC.restore_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
 
+    def show_context_menu(self, pos):
+        indexes = self.edit_treeView.selectedIndexes()
+        if not indexes:
+            return
+        item_ids = []
+        parent_ids = []
+        parent_rows = []
+        for index in indexes:
+            if index.column() == 0:
+                item_id = self.filter_proxy_model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
+                parent_id = self.filter_proxy_model.data(index.siblingAtColumn(2), QtC.Qt.ItemDataRole.DisplayRole)
+                parent_row = self.filter_proxy_model.data(index.siblingAtColumn(3), QtC.Qt.ItemDataRole.DisplayRole)
+                item_ids.append(item_id)
+                parent_ids.append(parent_id)
+                parent_rows.append(parent_row)
+        menu = QtW.QMenu()
+        if len(item_ids) == 1:  # only one item selected
+            insert_above_action = menu.addAction('Insert above')
+            insert_below_action = menu.addAction('Insert below')
+            add_child_action = menu.addAction('Add child')
+        add_parent_action = menu.addAction('Add parent')
+        delete_action = menu.addAction('Delete')
+
+        action = menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
+        if insert_above_action and action == insert_above_action:
+            row = parent_rows[0]-1
+            parent_id = parent_ids[0]
+            self.add_popup(None, parent_id, row)
+        elif insert_below_action and action == insert_below_action:
+            row = parent_rows[0]+1
+            parent_id = parent_ids[0]
+            self.add_popup(None, parent_id, row)
+        elif add_child_action and action == add_child_action:
+            parent_id = item_ids[0]
+            self.add_popup(None, parent_id)
+        elif action == add_parent_action:
+            pass
+        elif action == delete_action:
+            pass
+
+
     def update_proxy(self):
         if self.filter_proxy_model.sourceModel() == self.tree_proxy_model:
             self.tree_proxy_model.deleteLater()
@@ -72,18 +115,11 @@ class EditTree(QtW.QDialog):
         self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
         self.display_tree()
 
-    def add_popup(self):
-        self.expanded_ids = self.save_expanded_state()
-        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
-            pass
-        elif self.table in self.dbtree_list:
-            dlg = AddTreeTags(self.db, self.model, self.table)
-            dlg.exec()
-            self.display_table()
-        else:
-            dlg = AddTreeTags(self.db, self.model, self.table)
-            dlg.exec()
-            self.display_table()
+    def add_popup(self, item_ID = None, parent_id = None, parent_row = None):
+        TrC.save_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
+        dlg = AddTreeTags(self.db, self.table, item_ID, parent_id, parent_row)
+        dlg.exec()
+        self.display_tree()
 
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
