@@ -20,11 +20,11 @@ class EditTree(QtW.QDialog):
         self.db = database
         self.model = model
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
-        self.tree_proxy_model = TrC.TreeModel(self.model)
+        self.tree_model = TrC.TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)
-        self.filter_proxy_model = QtC.QSortFilterProxyModel()
-        self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
-        self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+        self.tree_proxy_model = QtC.QSortFilterProxyModel()
+        self.tree_proxy_model.setSourceModel(self.tree_model)
+        self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
         self.settings = QtC.QSettings('User', 'Geochron')
         self.edit_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -34,8 +34,9 @@ class EditTree(QtW.QDialog):
         self.display_tree()
         self.createSavepoint()
 
-        self.tree_proxy_model.dataMoved.connect(self.update_proxy)
-        self.tree_proxy_model.dataAdded.connect(self.update_proxy)
+        self.search_lineEdit.textChanged.connect(self.search)
+        self.tree_model.dataMoved.connect(self.update_proxy)
+        self.tree_model.dataAdded.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
@@ -53,7 +54,7 @@ class EditTree(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def display_tree(self):
-        self.edit_treeView.setModel(self.filter_proxy_model)
+        self.edit_treeView.setModel(self.tree_proxy_model)
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.edit_treeView.hideColumn(1)  # don't show ID column
         self.edit_treeView.hideColumn(2)  # don't show parent ID column
@@ -65,7 +66,14 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
-        TrC.restore_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
+        TrC.restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+
+    def search(self):
+        self.search_lineEdit: QtW.QLineEdit
+        self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.tree_proxy_model.setRecursiveFilteringEnabled(True)
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
+        self.tree_proxy_model.setFilterRegularExpression(search_expression)
 
     def show_context_menu(self, pos):
         indexes = self.edit_treeView.selectedIndexes()
@@ -76,9 +84,9 @@ class EditTree(QtW.QDialog):
         parent_rows = []
         for index in indexes:
             if index.column() == 0:
-                item_id = self.filter_proxy_model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
-                parent_id = self.filter_proxy_model.data(index.siblingAtColumn(2), QtC.Qt.ItemDataRole.DisplayRole)
-                parent_row = self.filter_proxy_model.data(index.siblingAtColumn(3), QtC.Qt.ItemDataRole.DisplayRole)
+                item_id = self.tree_proxy_model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
+                parent_id = self.tree_proxy_model.data(index.siblingAtColumn(2), QtC.Qt.ItemDataRole.DisplayRole)
+                parent_row = self.tree_proxy_model.data(index.siblingAtColumn(3), QtC.Qt.ItemDataRole.DisplayRole)
                 item_ids.append(item_id)
                 parent_ids.append(parent_id)
                 parent_rows.append(parent_row)
@@ -110,15 +118,15 @@ class EditTree(QtW.QDialog):
 
 
     def update_proxy(self):
-        if self.filter_proxy_model.sourceModel() == self.tree_proxy_model:
-            self.tree_proxy_model.deleteLater()
-        self.tree_proxy_model = TrC.TreeModel(self.model)
-        self.tree_proxy_model.dataMoved.connect(self.update_proxy)
-        self.filter_proxy_model.setSourceModel(self.tree_proxy_model)
+        if self.tree_proxy_model.sourceModel() == self.tree_model:
+            self.tree_model.deleteLater()
+        self.tree_model = TrC.TreeModel(self.model)
+        self.tree_model.dataMoved.connect(self.update_proxy)
+        self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tree()
 
     def add_popup(self, item_ID = None, parent_id = None, parent_row = None):
-        TrC.save_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         dlg = AddTreeTags(self.db, self.table, item_ID, parent_id, parent_row)
         dlg.exec()
         self.update_proxy()
@@ -129,7 +137,7 @@ class EditTree(QtW.QDialog):
             errtxt = Er.rollback_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
-            TrC.save_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
+            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
             self.reject()
         # self.model.revertAll()
         self.msg.information(self, 'Cancelled', 'No changes saved', QtW.QMessageBox.StandardButton.Ok)
@@ -140,7 +148,7 @@ class EditTree(QtW.QDialog):
     #
     def commit(self):
         self.releaseSavepoint()
-        TrC.save_expanded_state(self.table, self.filter_proxy_model, self.edit_treeView, self.settings)
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
         self.close()
 
