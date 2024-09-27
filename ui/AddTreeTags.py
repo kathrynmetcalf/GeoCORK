@@ -43,7 +43,7 @@ class AddTreeTags(QtW.QDialog):
         self.clear_warning()
         self.display_tags()
         self.createSavepoint()
-        self.tree_model.dataAdded.connect(self.update_proxy)
+        self.tree_model.dataEdited.connect(self.update_proxy)
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.finish_pushButton.clicked.connect(self.commit)
@@ -129,7 +129,7 @@ class AddTreeTags(QtW.QDialog):
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TrC.TreeModel(self.source_model)
-        self.tree_model.dataMoved.connect(self.update_proxy)
+        self.tree_model.dataEdited.connect(self.update_proxy)
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tags()
 

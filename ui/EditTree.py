@@ -35,8 +35,7 @@ class EditTree(QtW.QDialog):
         self.createSavepoint()
 
         self.search_lineEdit.textChanged.connect(self.search)
-        self.tree_model.dataMoved.connect(self.update_proxy)
-        self.tree_model.dataAdded.connect(self.update_proxy)
+        self.tree_model.dataEdited.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
@@ -114,6 +113,12 @@ class EditTree(QtW.QDialog):
             pass
         # todo: create warning pop-up, "Are you sure you want to delete this item and # children tied to # samples?"
         elif action == delete_action:
+            n_item = 0
+            for item_id in item_ids:
+                parent_id = parent_ids[n_item]
+                parent_row = parent_rows[n_item]
+                self.tree_model.removeItem(item_id, parent_id, parent_row)
+                n_item += 1
             pass
 
 
@@ -121,7 +126,7 @@ class EditTree(QtW.QDialog):
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TrC.TreeModel(self.model)
-        self.tree_model.dataMoved.connect(self.update_proxy)
+        self.tree_model.dataEdited.connect(self.update_proxy)
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tree()
 
@@ -130,6 +135,18 @@ class EditTree(QtW.QDialog):
         dlg = AddTreeTags(self.db, self.table, item_ID, parent_id, parent_row)
         dlg.exec()
         self.update_proxy()
+
+    def delete_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to delete these items and all children?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.delete_item()
+        else:
+            pass
 
     def rollback(self):
         query = QtS.QSqlQuery(self.db)

@@ -129,8 +129,7 @@ class TreeItem:
 
 
 class TreeModel(QtC.QAbstractProxyModel):
-    dataMoved = QtC.pyqtSignal()
-    dataAdded = QtC.pyqtSignal()
+    dataEdited = QtC.pyqtSignal()
     def __init__(self, source_model: QtS.QSqlTableModel, parent=None):
         # database table
         super().__init__(parent)
@@ -195,15 +194,14 @@ class TreeModel(QtC.QAbstractProxyModel):
             else:
                 parent_ID = f'= {parent.data(0)}'
             query.exec(f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
+            data = None
             while query.next():
                 data = query.record()
-            item = TreeItem(data, parent)
-            parent.appendChild(item)
-            new_parent = item
-            item_id = item.data(0)
-            new_parent_id = item_id
-            new_child_ids = self.find_children(new_parent_id)
-            self.add_to_tree(new_child_ids, new_parent)
+            if data:
+                item = TreeItem(data, parent)
+                parent.appendChild(item)
+                new_child_ids = self.find_children(item.data(0))
+                self.add_to_tree(new_child_ids, item)
             nchild += 1
 
     def add_top_item(self, data):
@@ -284,7 +282,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         # print(f'Parent item is {parentItem.data(2)}')
         return self.createIndex(parentItem.row(), 0, parentItem)
 
-    def rowCount(self, parent: QtC.QModelIndex = ...) -> int:
+    def rowCount(self, parent: QtC.QModelIndex = QtC.QModelIndex) -> int:
         if not parent.isValid():
             # print("Root rows are the same as source model")
             parentItem = self.rootItem
@@ -495,7 +493,51 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.rollback()
                 return None
             self.releaseSavepoint()
-            self.dataAdded.emit()
+            self.dataEdited.emit()
+            return True
+
+    def removeItem(self, itemID: int, parentID = None, parentRow = None):
+        # Remove an item and all children from the database
+        # todo: figure out how to move remaining children of parent to fill the gaps, maybe delete all children of each item, then delete each item one by one
+        del_ids = [itemID]
+        def find_child_ids(parentID: int, del_ids: list):
+            # Find all children of a given parent ID
+            self.source_model.setFilter(f"{self.parent_id_header} = {parentID}")
+            for row in range(self.source_model.rowCount()):
+                record = self.source_model.record(row)
+                del_ids.append(record.value(0))
+                find_child_ids(record.value(0), del_ids)
+            return del_ids
+
+        del_ids = find_child_ids(itemID, del_ids)
+        del_join = ', '.join([str(i) for i in del_ids])
+        del_string = f'({del_join})'
+        self.source_model.setFilter("")  # Reset the filter
+        query = QtS.QSqlQuery(self.db)
+        query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} IN {del_string}')
+        self.createSavepoint()
+        if not query.exec():
+            print(f'Error deleting item {itemID}')
+            self.rollback()
+            return None
+        else:
+            print(f'Successfully deleted item {itemID}')
+            if parentID:
+                pID = f'= {parentID}'
+            else:
+                pID = 'IS NULL'
+            if not parentRow:
+                # If no parent row is given, the item is added to the end of the list
+                self.source_model.setFilter(f"{self.parent_id_header} {pID}")
+                childCount = self.source_model.rowCount()
+                parentRow = childCount
+            self.source_model.setFilter(f"{self.item_name_header} = '{itemName}'")
+            itemID = self.source_model.record(0).value(0)
+            if not self.moveItem(itemID, parentRow, pID):
+                self.rollback()
+                return None
+            self.releaseSavepoint()
+            self.dataEdited.emit()
             return True
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
@@ -651,7 +693,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.source_model.setFilter("")  # Reset the filter
         self.releaseSavepoint()
         # Emit signal so that the view can rebuild the tree model
-        self.dataMoved.emit()
+        self.dataEdited.emit()
         return True
 
     def supportedDropActions(self):
