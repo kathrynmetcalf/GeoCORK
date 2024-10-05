@@ -117,7 +117,7 @@ class EditTree(QtW.QDialog):
             for item_id in item_ids:
                 parent_id = parent_ids[n_item]
                 parent_row = parent_rows[n_item]
-                self.tree_model.removeItem(item_id, parent_id, parent_row)
+                self.tree_model.removeItem(item_id, parent_row, parent_id)
                 n_item += 1
             pass
 

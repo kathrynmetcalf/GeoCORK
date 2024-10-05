@@ -496,7 +496,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             self.dataEdited.emit()
             return True
 
-    def removeItem(self, itemID: int, parentID = None, parentRow = None):
+    def removeItem(self, itemID: int, parentRow: int, parentID = None):
         # Remove an item and all children from the database
         # todo: figure out how to move remaining children of parent to fill the gaps, maybe delete all children of each item, then delete each item one by one
         del_ids = [itemID]
@@ -516,29 +516,35 @@ class TreeModel(QtC.QAbstractProxyModel):
         query = QtS.QSqlQuery(self.db)
         query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} IN {del_string}')
         self.createSavepoint()
-        if not query.exec():
-            print(f'Error deleting item {itemID}')
+        if not query.exec(): # if item and children not deleted, rollback
+            print(f'Error deleting {del_ids}')
             self.rollback()
             return None
         else:
-            print(f'Successfully deleted item {itemID}')
-            if parentID:
-                pID = f'= {parentID}'
-            else:
-                pID = 'IS NULL'
-            if not parentRow:
-                # If no parent row is given, the item is added to the end of the list
-                self.source_model.setFilter(f"{self.parent_id_header} {pID}")
-                childCount = self.source_model.rowCount()
-                parentRow = childCount
-            self.source_model.setFilter(f"{self.item_name_header} = '{itemName}'")
-            itemID = self.source_model.record(0).value(0)
-            if not self.moveItem(itemID, parentRow, pID):
-                self.rollback()
-                return None
-            self.releaseSavepoint()
-            self.dataEdited.emit()
-            return True
+            print(f'Successfully deleted {del_ids}')
+        if parentID:
+            pID = f'= {parentID}'
+        else:
+            pID = 'IS NULL'
+            parentID = 'NULL'
+        self.source_model.setFilter(
+            f"{self.parent_id_header} {pID} AND {self.parent_row_header} >= {parentRow} ORDER BY {self.parent_row_header} ASC")
+        childCount = self.source_model.rowCount()
+        if childCount > 0:
+            # If the parent already has children at rows beyond the deleted one, update their parent rows to close the gap
+            for child in range(childCount):  # Starting with the next child after the deleted one
+                # decrease the parent row by 1 for each child after the deleted one
+                childID = self.source_model.record(child).value(0)
+                currentParentRow = self.source_model.record(child).value(2)
+                newParentRow = currentParentRow - 1
+                self.source_model.setFilter("")  # Reset the filter
+                if not self.updateParent(childID, parentID, newParentRow):
+                    print(f'Error updating parent row for child {childID}')
+                    self.rollback()
+                    return None
+        self.releaseSavepoint()
+        self.dataEdited.emit()
+        return True
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
         # print(f'mapping proxy index {proxy_index.row()},{proxy_index.column()}')
