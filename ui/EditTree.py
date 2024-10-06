@@ -103,7 +103,7 @@ class EditTree(QtW.QDialog):
         delete_action = menu.addAction('Delete')
         action = menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if action == insert_above_action:
-            row = parent_rows[0]-1
+            row = parent_rows[0]
             parent_id = parent_ids[0]
             self.add_popup(None, parent_id, row)
         elif action == insert_below_action:

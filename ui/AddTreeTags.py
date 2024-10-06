@@ -68,28 +68,31 @@ class AddTreeTags(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def add_label(self):
-        query = QtS.QSqlQuery(self.db)
-        if self.parentID:
-            query.prepare(
-            f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parentID}')
-            query.exec()
-            query.next()
-            parent_name = query.value(3)
+        if self.add_item == 'child':
+            query = QtS.QSqlQuery(self.db)
+            if self.parentID:
+                query.prepare(
+                f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parentID}')
+                query.exec()
+                query.next()
+                parent_name = query.value(3)
+            else:
+                parent_name = 'top level'
+            if self.itemID:
+                query.prepare(
+                f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.itemID}')
+                query.exec()
+                query.next()
+                item_name = query.value(3)
+            else:
+                item_name = 'new item'
+            if self.parentRow:
+                row_name = f'row {self.parentRow + 1}'
+            else:
+                row_name = 'new row'
+            self.adding_label.setText(f'Adding {item_name} to {parent_name} at {row_name}')
         else:
-            parent_name = 'top level'
-        if self.itemID:
-            query.prepare(
-            f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.itemID}')
-            query.exec()
-            query.next()
-            item_name = query.value(3)
-        else:
-            item_name = 'new item'
-        if self.parentRow:
-            row_name = f'row {self.parentRow + 1}'
-        else:
-            row_name = 'new row'
-        self.adding_label.setText(f'Adding {item_name} to {parent_name} at {row_name}')
+            self.adding_laebl.setText('Adding new parent item')
 
     def display_tags(self):
         self.tags_treeView.setModel(self.tree_proxy_model)
