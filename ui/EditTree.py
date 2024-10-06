@@ -34,11 +34,12 @@ class EditTree(QtW.QDialog):
         self.display_tree()
         self.createSavepoint()
 
+        self.close_by_dialog = False
         self.search_lineEdit.textChanged.connect(self.search)
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit)
-        self.cancel_pushButton.clicked.connect(self.rollback)
+        self.commit_pushButton.clicked.connect(self.commit_question)
+        self.cancel_pushButton.clicked.connect(self.discard_question)
 
     def createSavepoint(self):
         query = QtS.QSqlQuery(self.db)
@@ -94,33 +95,34 @@ class EditTree(QtW.QDialog):
             insert_above_action = menu.addAction('Insert above')
             insert_below_action = menu.addAction('Insert below')
             add_child_action = menu.addAction('Add child')
+        else:
+            insert_above_action = None
+            insert_below_action = None
+            add_child_action = None
         add_parent_action = menu.addAction('Add parent')
         delete_action = menu.addAction('Delete')
-# todo: troubleshoot adding actions
         action = menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
-        if insert_above_action and action == insert_above_action:
+        if action == insert_above_action:
             row = parent_rows[0]-1
             parent_id = parent_ids[0]
             self.add_popup(None, parent_id, row)
-        elif insert_below_action and action == insert_below_action:
+        elif action == insert_below_action:
             row = parent_rows[0]+1
             parent_id = parent_ids[0]
             self.add_popup(None, parent_id, row)
-        elif add_child_action and action == add_child_action:
+        elif action == add_child_action:
             parent_id = item_ids[0]
             self.add_popup(None, parent_id)
         elif action == add_parent_action:
-            pass
-        # todo: create warning pop-up, "Are you sure you want to delete this item and # children tied to # samples?"
+            self.add_parent(item_ids, parent_ids, parent_rows)
         elif action == delete_action:
-            n_item = 0
-            for item_id in item_ids:
-                parent_id = parent_ids[n_item]
-                parent_row = parent_rows[n_item]
-                self.tree_model.removeItem(item_id, parent_row, parent_id)
-                n_item += 1
-            pass
-
+            if self.delete_question() is True:
+                n_item = 0
+                for item_id in item_ids:
+                    parent_id = parent_ids[n_item]
+                    parent_row = parent_rows[n_item]
+                    self.tree_model.removeItem(item_id, parent_row, parent_id)
+                    n_item += 1
 
     def update_proxy(self):
         if self.tree_proxy_model.sourceModel() == self.tree_model:
@@ -130,11 +132,34 @@ class EditTree(QtW.QDialog):
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tree()
 
-    def add_popup(self, item_ID = None, parent_id = None, parent_row = None):
+    def add_popup(self, item_ID = None, parent_id = None, parent_row = None, add_item: str = 'child', *argv):
         TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
-        dlg = AddTreeTags(self.db, self.table, item_ID, parent_id, parent_row)
+        if add_item == 'parent':
+            new_child_ids = argv[0]
+            new_parent_rows = argv[1]
+            dlg = AddTreeTags(self.db, self.table, add_item, item_ID, parent_id, parent_row, new_child_ids, new_parent_rows)
+        else:
+            dlg = AddTreeTags(self.db, self.table, add_item, item_ID, parent_id, parent_row)
         dlg.exec()
         self.update_proxy()
+
+    def add_parent(self, item_ids: list, parent_ids: list, parent_rows: list):
+        n_item = 0
+        new_child_ids = []
+        new_parent_rows = []
+        for item in range(len(item_ids)):
+            item_id = item_ids[item]
+            parent_id = parent_ids[item]
+            if not parent_id in item_ids:
+                # This is a child of the new parent, not a grandchild or lower
+                new_child_ids.append(item_id)
+                new_parent_rows.append(n_item)
+                n_item += 1
+        # Find the top child and get its parent and parent row, that will become the position of the new parent
+        output = self.tree_model.top_node(new_child_ids)
+        parent_id = output[0]
+        row = output[1]
+        self.add_popup(None, parent_id, row, 'parent', new_child_ids, new_parent_rows)
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()
@@ -144,7 +169,31 @@ class EditTree(QtW.QDialog):
         msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
         response = msg_box.exec()
         if response == QtW.QMessageBox.StandardButton.Yes:
-            self.delete_item()
+            return True
+        else:
+            return False
+
+    def discard_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to discard all changes?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.rollback()
+        else:
+            pass
+
+    def commit_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to commit all changes to the database?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.commit()
         else:
             pass
 
@@ -154,21 +203,25 @@ class EditTree(QtW.QDialog):
             errtxt = Er.rollback_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
-            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
             self.reject()
-        # self.model.revertAll()
-        self.msg.information(self, 'Cancelled', 'No changes saved', QtW.QMessageBox.StandardButton.Ok)
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        self.close_by_dialog = True
         self.close()
+        self.close_by_dialog = False
 
-    # def apply(self):
-    #     pass
-    #
     def commit(self):
         self.releaseSavepoint()
         TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
-        self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
+        self.close_by_dialog = True
         self.close()
+        self.close_by_dialog = False
 
+    def closeEvent(self, event: QtG.QCloseEvent):
+        if not self.close_by_dialog:
+            self.discard_question()
+            event.ignore()
+        else:
+            event.accept()
 
 if __name__ == '__main__':
     # only run these commands if this script is run

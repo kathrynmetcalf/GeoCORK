@@ -4,6 +4,7 @@ import sqlite3
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 from Functions.Tree_classes import TreeModel
 import Functions.Text_manipulations as TxM
@@ -11,7 +12,7 @@ import Functions.Errors as Er
 import Functions.Tree_classes as TrC
 
 class AddTreeTags(QtW.QDialog):
-    def __init__(self, database: QtS.QSqlDatabase, table: str, item_id=None, parent_id=None, parent_row=None):
+    def __init__(self, database: QtS.QSqlDatabase, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
         super().__init__()
 
         # Define any widgets here
@@ -25,6 +26,7 @@ class AddTreeTags(QtW.QDialog):
         self.id_header = self.source_model.record().fieldName(0)
         self.parent_id_header = self.source_model.record().fieldName(1)
         self.parent_row_header = self.source_model.record().fieldName(2)
+        self.item_name_header = self.source_model.record().fieldName(3)
         self.tree_model = TreeModel(self.source_model)
         self.tree_proxy_model = QtC.QSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -32,21 +34,26 @@ class AddTreeTags(QtW.QDialog):
         self.selectTags_label.setText(self.table_name)
 
         self.msg = QtW.QMessageBox(self)
+        self.add_item = add_item
         self.itemID = item_id
         self.parentID = parent_id
         self.parentRow = parent_row
+        if self.add_item == 'parent':
+            self.new_child_ids = argv[0]
+            self.new_parent_rows = argv[1]
 
         self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.tree_proxy_model.setFilterKeyColumn(0)   # search first column only, look for distinct names
         self.newName_lineEdit.textChanged.connect(self.search)
 
+        self.close_by_dialog = False
         self.clear_warning()
         self.display_tags()
         self.createSavepoint()
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
-        self.cancel_pushButton.clicked.connect(self.rollback)
-        self.finish_pushButton.clicked.connect(self.commit)
+        self.cancel_pushButton.clicked.connect(self.discard_question)
+        self.finish_pushButton.clicked.connect(self.commit_question)
 
     def createSavepoint(self):
         query = QtS.QSqlQuery(self.db)
@@ -92,19 +99,6 @@ class AddTreeTags(QtW.QDialog):
         self.tags_treeView.hideColumn(2)  # Don't show parent ID column
         self.tags_treeView.hideColumn(3)  # Don't show parent row column
         self.add_label()
-        # self.tags_treeView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
-        # query = QtS.QSqlQuery()
-
-        # Get a list of column names for the selected tree
-        # self.columns = self.tree_proxy_model.proxyHeaders()
-
-        # Get a list of the existing tag names
-        # query.prepare(f'SELECT {self.columns[0]} FROM {self.table}')
-        # query.exec()
-        # while query.next():
-        #     self.existing_names.append(query.value(0))
-        # completer = QtW.QCompleter(self.existing_names)
-        # self.newName_lineEdit.setCompleter(completer)
 
     def clear_warning(self):
         self.warning_label.hide()
@@ -120,10 +114,30 @@ class AddTreeTags(QtW.QDialog):
         print('ok clicked')
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
-        if self.tree_model.insertItem(name, description, self.parentID, self.parentRow):
-            self.update_proxy()
-            self.newName_lineEdit.clear()
-            self.newDescription_lineEdit.clear()
+        if self.parentID == 'Null':
+            if not self.tree_model.insertItem(name, description, None, self.parentRow):
+                return False
+        else:
+            if not self.tree_model.insertItem(name, description, self.parentID, self.parentRow):
+                return False
+        if self.add_item == 'parent': # Need to update the parent of all new child ids to the newly-added item
+            query = QtS.QSqlQuery(self.db)
+            query.prepare(
+                f'SELECT * FROM {self.table} WHERE {self.item_name_header} = "{name}"')
+            query.exec()
+            query.next()
+            new_parent_id = query.value(0)
+            if isinstance(new_parent_id, int):
+                pID = f'= {new_parent_id}'
+            else:  # If the parent ID is not an integer
+                pID = 'IS NULL'
+            for child in range(len(self.new_child_ids)):
+                if not self.tree_model.moveItem(self.new_child_ids[child], self.new_parent_rows[child], pID):
+                    return False
+        self.update_proxy()
+        self.newName_lineEdit.clear()
+        self.newDescription_lineEdit.clear()
+        return True
 
     def update_proxy(self):
         if self.tree_proxy_model.sourceModel() == self.tree_model:
@@ -133,6 +147,30 @@ class AddTreeTags(QtW.QDialog):
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tags()
 
+    def discard_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to discard all changes?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.rollback()
+        else:
+            pass
+
+    def commit_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to commit all changes to the database?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.commit()
+        else:
+            pass
+
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('ROLLBACK TO SAVEPOINT before_add') is False:
@@ -141,13 +179,22 @@ class AddTreeTags(QtW.QDialog):
         else:
             self.reject()
         # self.model.revertAll()
-        self.msg.information(self, 'Cancelled', 'No items added', QtW.QMessageBox.StandardButton.Ok)
+        self.close_by_dialog = True
         self.close()
+        self.close_by_dialog = False
 
     def commit(self):
         self.releaseSavepoint()
-        self.msg.information(self, 'Success', 'Items added', QtW.QMessageBox.StandardButton.Ok)
+        self.close_by_dialog = True
         self.close()
+        self.close_by_dialog = False
+
+    def closeEvent(self, event: QtG.QCloseEvent):
+        if not self.close_by_dialog:
+            self.discard_question()
+            event.ignore()
+        else:
+            event.accept()
 
 if __name__ == '__main__':
     # only run these commands if this script is run
