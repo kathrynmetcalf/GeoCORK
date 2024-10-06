@@ -12,13 +12,15 @@ from PyQt6.QtWidgets import QFileDialog, QWidget
 
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
-import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
+import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
+from Functions.Tree_classes import TreeModel
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.Filters import QueryBuilder
 
@@ -54,9 +56,10 @@ class GeoChron(QtW.QMainWindow):
         self.status_bar = QtW.QStatusBar()
         # self.status_bar.show()
 
+        self.settings = QtC.QSettings('User', 'Geochron')
         self.switch_to_table()
 
-        #Create_db.create_tables(self.db_file)
+        Create_db.create_tables(self.db_file)
         self.dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
                         'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
                         'Spot Compositions', 'Spot Context', 'UPb Data', 'Analysis Methods', 'Units']
@@ -86,6 +89,16 @@ class GeoChron(QtW.QMainWindow):
     def closeEvent(self, a0):
         self.landingpage.show()
         self.saveWindowState()
+        """When the main window is closing, drop all the views except the SampleView"""
+        view_list = QtS.QSqlQuery('''SELECT name FROM sqlite_schema WHERE type = "view"''')
+        while view_list.next():
+            view = view_list.value(0)
+            if view != 'SampleView':
+                # if the view is not SampleView, drop it
+                query = QtS.QSqlQuery()
+                query.prepare(f'''DROP VIEW IF EXISTS {view}''')
+                if query.exec():
+                    print(f'Successfully dropped {view}')
         super().closeEvent(a0)
 
     # Define any methods here
@@ -101,14 +114,14 @@ class GeoChron(QtW.QMainWindow):
         self.db_stackedWidget: QtW.QStackedWidget
         self.case_checkBox: QtW.QCheckBox
 
-    # def open_db(self):
-    #     """
-    #     Opens a file dialog to select an existing database file, must be in the format .db
-    #     :return: database file name with path
-    #     """
-    #     home_dir = str(Path.home())
-    #     db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
-    #     return db_file[0]
+    def open_db(self):
+        """
+        Opens a file dialog to select an existing database file, must be in the format .db
+        :return: database file name with path
+        """
+        home_dir = str(Path.home())
+        db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
+        return db_file[0]
 
     def switch_to_table(self):
         """
@@ -146,6 +159,7 @@ class GeoChron(QtW.QMainWindow):
         """
         self.dbTable_comboBox: QtW.QComboBox
         self.dbTable_comboBox.addItems(self.dbtable_list)
+        self.previous_table = ''
         self.dbTable_comboBox.setCurrentText('Samples')
         self.display_table()
 
@@ -154,6 +168,8 @@ class GeoChron(QtW.QMainWindow):
         Displays the selected table
         :return:
         """
+        if self.previous_table in self.dbtree_list:
+            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
         self.dbTable_tableView: QtW.QTableView
         self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
@@ -162,26 +178,46 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
+        self.previous_table = table
         if table == 'Samples':
             self.switch_to_table()
-            query = TbC.SampleTableModel.setupQuery(self)
-            self.sample_model.setQuery(QtS.QSqlQuery(query))
-            self.sample_proxy_model.setSourceModel(self.sample_model)
+            view = "SampleView"
+            self.model.setTable(view)
+            self.model.select()
+            for col in range(self.model.columnCount()):
+                header = TxM.add_spaces_camel(
+                    self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+            self.sample_proxy_model.setSourceModel(self.model)
             self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
-            # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         elif table in self.dbtree_list:
             self.switch_to_tree()
-            self.tree_model = TrC.TreeModel(table, None)
+            self.model.setTable(table)
+            self.model.select()
+            # for col in range(self.model.columnCount()):
+            #     header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            #     self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+            self.tree_model = TrC.TreeModel(self.model, None)
+
             self.tree_proxy_model.setSourceModel(self.tree_model)
+            self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_treeView.setModel(self.tree_proxy_model)
+            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
-            self.dbTable_treeView.setSortingEnabled(True)
+            self.dbTable_treeView.hideColumn(3)  # don't show parent row column
+            self.dbTable_treeView.setSortingEnabled(False)
+            if table == 'Ages':
+                self.dbTable_treeView.hideColumn(5)  # don't show created column
+                self.dbTable_treeView.hideColumn(6)  # don't show modified column
+                # self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
+            self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         else:
             self.switch_to_table()
             self.model.setTable(table)
@@ -197,6 +233,8 @@ class GeoChron(QtW.QMainWindow):
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
+            # self.dbTable_tableView.hideColumn(3)  # don't show created column
+            # self.dbTable_tableView.hideColumn(4)  # don't show modified column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -215,9 +253,10 @@ class GeoChron(QtW.QMainWindow):
         #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
         #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
         # else:
-        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.tree_proxy_model.setRecursiveFilteringEnabled(True)
+        self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
@@ -230,6 +269,17 @@ class GeoChron(QtW.QMainWindow):
             self.table_proxy_model.setFilterRegularExpression(search_expression)
 
     def get_existing(self, field, table):
+        """
+        Get all the entries for the selected field in the selected table
+        Parameters
+        ----------
+        field: column name
+        table: database table name
+
+        Returns
+        -------
+        existing: list of the existing entries
+        """
         conn = sqlite3.connect(self.db_file)
         with conn:
             c = conn.cursor()
@@ -242,13 +292,13 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditTable(self.db, self.sample_model, table_name, self.dbtree_list, 'table')
+            dlg = EditTable(self.db, self.sample_model, table_name)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
-            dlg = EditTable(self.db, self.tree_model, table_name, self.dbtree_list, 'tree')
+            dlg = EditTree(self.db, self.model, table_name)
         else:
-            dlg = EditTable(self.db, self.model, table_name, self.dbtree_list, 'table')
+            dlg = EditTable(self.db, self.model, table_name)
         dlg.exec()
         self.display_table()
 

@@ -234,3 +234,10 @@ class SpotTableModel(QtS.QSqlQueryModel):
         return spot_query
 
 
+# class table_proxy_model(QtC.QSortFilterProxyModel):
+#     def __int__(self):
+#         super().__init__()
+#
+#         sourceModel.dataChanged.connect(self.sourceDataChanged)
+#
+#     def sourceDataChanged(self, ):
