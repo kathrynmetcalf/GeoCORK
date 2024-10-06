@@ -17,7 +17,6 @@ import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
-from Functions.Tree_classes import TreeModel
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -63,7 +62,7 @@ class GeoChron(QtW.QMainWindow):
         self.dbtable_list = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
                         'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
                         'Spot Compositions', 'Spot Context', 'UPb Data', 'Analysis Methods', 'Units']
-        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Regions', 'RockTypes', 'SampleContext',
+        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Analysis Methods', 'Regions', 'RockTypes', 'SampleContext',
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
         self.display_table_list()
 
@@ -145,7 +144,7 @@ class GeoChron(QtW.QMainWindow):
         Executes the import wizard with that file
         :return:
         """
-        home_dir = str(Path.home()) + '\Downloads'
+        home_dir = str(Path.home()) + r'\Downloads'
         fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
         import_wizard = ui.import_wizard.ImportWizardDialog(fname[0], self.db_file)
         #todo fix crash on cancel file dialog

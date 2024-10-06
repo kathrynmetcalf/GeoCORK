@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QLayout, QSpacerItem, QSizePolicy
 
 
 class FlowLayout(QLayout):
-    """A ``QLayout`` that aranges its child widgets horizontally and
+    """A ``QLayout`` that arranges its child widgets horizontally and
     vertically.
 
     If enough horizontal space is available, it looks like an ``HBoxLayout``,

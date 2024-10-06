@@ -96,7 +96,7 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_Al
                         ON DELETE CASCADE
                     )'''
 
-CREATE_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
+CREATE_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS AnalysisMethods(
                     AnalysisMethodID INTEGER PRIMARY KEY,
                     ParentAnalysisMethodID INTEGER,
                     AnalysisMethodParentRow INTEGER,

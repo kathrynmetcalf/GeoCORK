@@ -1,5 +1,5 @@
 import typing
-from formatter import NullWriter
+# from formatter import NullWriter
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS

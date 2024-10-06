@@ -15,7 +15,7 @@ class EditTree(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "EditTree.ui"
+        tags_ui_file = "ui/EditTree.ui"
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model

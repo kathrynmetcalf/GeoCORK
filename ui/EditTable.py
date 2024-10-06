@@ -80,11 +80,3 @@ class EditTable(QtW.QDialog):
         self.releaseSavepoint()
         self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
         self.close()
-
-
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    app = QtW.QDialog(sys.argv)  # pass command line arguments
-    w = EditTable()
-    sys.exit(app.exec())  # runs event loop, pass exit status to the system

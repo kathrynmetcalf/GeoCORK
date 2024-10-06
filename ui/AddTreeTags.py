@@ -16,7 +16,7 @@ class AddTreeTags(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "AddTreeTags.ui"
+        tags_ui_file = "ui/AddTreeTags.ui"
         loadUi(tags_ui_file, self)
         self.db = database
         self.table = table
@@ -114,7 +114,6 @@ class AddTreeTags(QtW.QDialog):
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
 
     def add_tree_tag(self):
-        print('ok clicked')
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         if self.parentID == 'Null':
