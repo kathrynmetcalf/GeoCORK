@@ -129,7 +129,7 @@ class SampleTableModel(QtS.QSqlQueryModel):
                     {spot_composition_join}
                     {aliquot_context_join}
                     GROUP BY SampleName
-                    ORDER BY SampleName
+					ORDER BY S.SampleID
                     '''
 
         return sample_query

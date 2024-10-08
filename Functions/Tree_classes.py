@@ -129,7 +129,7 @@ class TreeItem:
 
 class TreeModel(QtC.QAbstractProxyModel):
     dataEdited = QtC.pyqtSignal()
-    def __init__(self, source_model: QtS.QSqlTableModel, parent=None):
+    def __init__(self, source_model: QtS.QSqlTableModel, parent=None, db=None):
         # database table
         super().__init__(parent)
 
@@ -169,39 +169,46 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def find_children(self, parent_id: int):
         # Query the table and find children of given ID
-        if parent_id == 0 or parent_id is None:
-            self.source_model.setFilter(f'{self.parent_id_header} IS Null')
+        query = QtS.QSqlQuery()
+
+        if parent_id == 0:
+            query.prepare(f'SELECT * FROM {self.table} WHERE {self.parent_id_header} IS NULL')
         else:
-            self.source_model.setFilter(f'{self.parent_id_header} = {parent_id}')
-        child_ids = []
-        for row in range(self.source_model.rowCount()):
-            # store each child ID in a list
-            record = self.source_model.record(row)
-            child_ids.append(record.value(0))
+            query.prepare(f'SELECT * FROM {self.table} WHERE {self.parent_id_header} = {parent_id}')
+        if query.exec():
+            child_ids = []
+            while query.next():
+                # store each child ID in a list
+                child_ids.append(query.record().value(0))
         return child_ids
 
     def add_to_tree(self, child_ids: list, parent: TreeItem):
         query = QtS.QSqlQuery()
         table = self.source_model.tableName()
         nchild = 0
-        for child in range(len(child_ids)):
-            # find next child
-            parent_ID_header = self.sourceHeaders[1]
-            parent_row_header = self.sourceHeaders[2]
-            if parent is self.rootItem:
-                parent_ID = 'IS NULL'
-            else:
-                parent_ID = f'= {parent.data(0)}'
-            query.exec(f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
-            data = None
-            while query.next():
-                data = query.record()
-            if data:
-                item = TreeItem(data, parent)
-                parent.appendChild(item)
-                new_child_ids = self.find_children(item.data(0))
-                self.add_to_tree(new_child_ids, item)
-            nchild += 1
+        for item_id in child_ids:
+            query = QtS.QSqlQuery()
+            table = self.source_model.tableName()
+            nchild = 0
+            for child in range(len(child_ids)):
+                # find next child
+                parent_ID_header = self.sourceHeaders[1]
+                parent_row_header = self.sourceHeaders[2]
+                if parent is self.rootItem:
+                    parent_ID = 'IS NULL'
+                else:
+                    parent_ID = f'= {parent.data(0)}'
+                query.exec(
+                    f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
+                data = None
+                while query.next():
+                    data = query.record()
+                if data:
+                    item = TreeItem(data, parent)
+                    parent.appendChild(item)
+                    new_child_ids = self.find_children(item.data(0))
+                    self.add_to_tree(new_child_ids, item)
+                nchild += 1
 
     def add_top_item(self, data):
         TreeItem(data, 0)
@@ -226,6 +233,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             # print(f'{col} header is {self.headers[col]}')
 
     def header_variables(self):
+        print()
         self.id_header = self.sourceHeaders[0]
         self.parent_id_header = self.sourceHeaders[1]
         self.parent_row_header = self.sourceHeaders[2]

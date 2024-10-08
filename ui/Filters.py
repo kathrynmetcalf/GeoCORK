@@ -6,13 +6,15 @@ import sqlite3
 
 import PyQt6
 from PyQt6 import QtCore
-from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication
+from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop
 from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
     QListView, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem, QMainWindow
 )
+
+from ui.DataViewerWidget import DataViewerWidget
 
 
 def get_widget(w, d, depth=0, doPrint=False):
@@ -309,7 +311,7 @@ class RuleWidget(QWidget):
         self.layout.addWidget(self.attribute_combo)
         self.table_switcher()
         if field is not None:
-            self.attribute_combo.setCurrentText(field.split('.')[1])
+            self.attribute_combo.setCurrentText(field.split('.')[1][1:-1])
         self.attribute_combo.currentIndexChanged.connect(self.attribute_switcher)
 
         # Conditions
@@ -359,7 +361,7 @@ class RuleWidget(QWidget):
               "Name" in self.attribute_combo.currentText() or
               "ErrorSigma" in self.attribute_combo.currentText() or
               "Unit" in self.attribute_combo.currentText()) or
-              self.table_combo.currentText() is "Sources"):
+              self.table_combo.currentText() == "Sources"):
             operator_items = ["is",
                               "is not",
                               "starts with",
@@ -668,12 +670,12 @@ class QueryBuilder(QWidget):
         super().__init__(parent)
         for widget in QApplication.topLevelWidgets():
             if widget.inherits("QMainWindow"):
-
                 self.db_file = widget.db_file
+
         conn = sqlite3.connect(self.db_file)
         listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
 
-        for x in range(len(listWidget.items(None))):
+        for x in listWidget.items(None):
             listWidget.takeItem(x)
 
         with conn:
@@ -709,7 +711,7 @@ class QueryBuilder(QWidget):
         # Apply button
         self.apply_button = QPushButton('Apply')
         buttons_layout.addWidget(self.apply_button)
-        self.apply_button.clicked.connect(self.get_sql)
+        self.apply_button.clicked.connect(self.view_samples)
 
         # Save filter button
         self.save_filter_button = QPushButton('Save Filter')
@@ -792,6 +794,22 @@ class QueryBuilder(QWidget):
             self.layout1.insertWidget(0, self.scrollarea)
             self.scrollarea.setWidget(self.main_group_box)
             self.show()
+
+    def view_samples(self):
+        dataviewer = DataViewerWidget(self.db_file, self.get_sample_ids())
+
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def get_sample_ids(self):
+        conn = sqlite3.connect(self.db_file)
+        with conn:
+            sql_query = self.get_sql()
+            c = conn.cursor()
+            return c.execute(sql_query).fetchall()
 
     def get_sql(self):
         structure = self.main_group_box.get_structure()
@@ -903,3 +921,4 @@ class QueryBuilder(QWidget):
 
     def save_filter(self):
         InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
+

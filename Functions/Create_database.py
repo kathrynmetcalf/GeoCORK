@@ -454,6 +454,15 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UNIQUE (ParentUnitID, UnitParentRow)
                     )'''
 
+CREATE_UPBANALYSIS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
+                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
+                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
+                    UPbAnalysisMethodDescription TEXT, 
+                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
+                    )'''
+
 CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     UPbAnalysisID INTEGER PRIMARY KEY,
                     SpotID INTEGER NOT NULL,
@@ -494,7 +503,7 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                     FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
-                    FOREIGN KEY(AnalysisMethodID) REFERENCES AnalysisMethods(AnalysisMethodID)
+                    FOREIGN KEY(UPbAnalysisMethodID) REFERENCES UPbAnalysisMethods(UPbAnalysisMethodID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
@@ -556,6 +565,8 @@ def create_tables(db_file):
 
         c.execute(CREATE_UPBDATA_TABLE)
 
+        c.execute(CREATE_UPBANALYSIS_TABLE)
+
         c.execute(CREATE_GEOCHEMDATA_TABLE)
 
         c.execute(CREATE_SAMPLES_AGESIGNATURES_TABLE)
@@ -607,7 +618,7 @@ def populate_ages(conn):
         # Begin by deleting all rows in the table to allow for a reset if things get changed
         sql = 'DELETE FROM Ages'
         c.execute(sql)
-        xml_file = "../Reference/GeologicTime_Ages.xml"
+        xml_file = "./Reference/GeologicTime_Ages.xml"
         tree = ET.parse(xml_file)
         root = tree.getroot()
         eon_row = 0
