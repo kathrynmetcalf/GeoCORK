@@ -186,10 +186,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         query = QtS.QSqlQuery()
         table = self.source_model.tableName()
         nchild = 0
-
-        query = QtS.QSqlQuery()
-        table = self.source_model.tableName()
-        nchild = 0
         for child in range(len(child_ids)):
             # find next child
             parent_ID_header = self.sourceHeaders[1]
@@ -200,6 +196,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 parent_ID = f'= {parent.data(0)}'
             query.exec(
                 f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
+            print(f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
             data = None
             while query.next():
                 data = query.record()
@@ -233,7 +230,6 @@ class TreeModel(QtC.QAbstractProxyModel):
             # print(f'{col} header is {self.headers[col]}')
 
     def header_variables(self):
-        print()
         self.id_header = self.sourceHeaders[0]
         self.parent_id_header = self.sourceHeaders[1]
         self.parent_row_header = self.sourceHeaders[2]

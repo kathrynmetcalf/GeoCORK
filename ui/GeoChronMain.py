@@ -2,13 +2,15 @@ import sys
 from pathlib import Path
 import sqlite3
 import re
+from random import sample
+
 # import pandas as pd
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize
-from PyQt6.QtWidgets import QFileDialog, QWidget
+from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton
 
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
@@ -66,7 +68,6 @@ class GeoChron(QtW.QMainWindow):
         # Signal for search bar
         self.search_lineEdit.textChanged.connect(self.search)
         # Signal for clicked add button in main window
-        self.edit_pushButton.clicked.connect(self.edit_popup)
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
         # End widgets here # show the window when done, used for making a top-level window
 
@@ -159,7 +160,7 @@ class GeoChron(QtW.QMainWindow):
         Displays the selected table
         :return:
         """
-
+        self.edit_pushButton: QPushButton
         self.dbTable_tableView: QtW.QTableView
         self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
@@ -169,13 +170,16 @@ class GeoChron(QtW.QMainWindow):
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
         self.previous_table = table
+
+        self.edit_pushButton.clicked.connect(lambda: self.edit_popup(sample_model))
+        self.edit_pushButton.clicked.disconnect()
         if table == 'Samples':
             self.switch_to_table()
             query = TbC.SampleTableModel().setupQuery()
             sample_model = QtS.QSqlQueryModel()
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_model.setQuery(QtS.QSqlQuery(query, self.db))
-
+            self.edit_pushButton.clicked.connect(lambda: self.edit_popup(sample_model))
             view = "SampleView"
             # sample_proxy_model.setTable(view)
             # sample_proxy_model.select()
@@ -200,10 +204,10 @@ class GeoChron(QtW.QMainWindow):
             tree_model = TrC.TreeModel(model, None, self.db)
             tree_proxy_model = QtC.QSortFilterProxyModel()
             tree_proxy_model.setSourceModel(tree_model)
-
-            if self.previous_table in self.dbtree_list:
-                TrC.save_expanded_state(self.previous_table, tree_proxy_model, self.dbTable_treeView,
-                                        self.settings)
+            self.edit_pushButton.clicked.connect(lambda: self.edit_popup(model))
+            # if self.previous_table in self.dbtree_list:
+            #     TrC.save_expanded_state(self.previous_table, tree_proxy_model, self.dbTable_treeView,
+            #                             self.settings)
 
             self.dbTable_treeView.setModel(tree_proxy_model)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
@@ -222,6 +226,7 @@ class GeoChron(QtW.QMainWindow):
             model.setTable(table)
             model.select()
             table_proxy_model = QtC.QSortFilterProxyModel()
+            self.edit_pushButton.clicked.connect(lambda: self.edit_popup(model))
             for col in range(model.columnCount()):
                 header = TxM.add_spaces_camel(model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
                 model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
@@ -293,17 +298,17 @@ class GeoChron(QtW.QMainWindow):
                 existing = c.fetchall()
                 return existing
 
-    def edit_popup(self):
+    def edit_popup(self, model):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditTable(self.db, self.sample_model, table_name)
+            dlg = EditTable(self.db, model, table_name)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
-            dlg = EditTree(self.db, self.model, table_name)
+            dlg = EditTree(self.db, model, table_name)
         else:
-            dlg = EditTable(self.db, self.model, table_name)
+            dlg = EditTable(self.db, model, table_name)
         dlg.exec()
         self.display_table()
 

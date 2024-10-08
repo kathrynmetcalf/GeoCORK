@@ -19,6 +19,7 @@ class EditTree(QtW.QDialog):
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
+        print(model)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TrC.TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)

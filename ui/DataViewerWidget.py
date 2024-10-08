@@ -120,7 +120,6 @@ class DataViewerWidget(QWidget):
 
     def closeEvent(self, a0):
         self.saveWindowState()
-        print("closed")
         super().closeEvent(a0)
 
     # def open_db(self):
