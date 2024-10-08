@@ -145,7 +145,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.childItem = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
         self.source_model.setFilter("")
-        self.testModelIndexing(self.rootItem)
+        #self.testModelIndexing(self.rootItem)
 
         # self.source_model.modelReset.connect(self.resetTreeModel)
         # self.source_model.dataChanged.connect(self.handleDataChanged)
@@ -186,29 +186,29 @@ class TreeModel(QtC.QAbstractProxyModel):
         query = QtS.QSqlQuery()
         table = self.source_model.tableName()
         nchild = 0
-        for item_id in child_ids:
-            query = QtS.QSqlQuery()
-            table = self.source_model.tableName()
-            nchild = 0
-            for child in range(len(child_ids)):
-                # find next child
-                parent_ID_header = self.sourceHeaders[1]
-                parent_row_header = self.sourceHeaders[2]
-                if parent is self.rootItem:
-                    parent_ID = 'IS NULL'
-                else:
-                    parent_ID = f'= {parent.data(0)}'
-                query.exec(
-                    f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
-                data = None
-                while query.next():
-                    data = query.record()
-                if data:
-                    item = TreeItem(data, parent)
-                    parent.appendChild(item)
-                    new_child_ids = self.find_children(item.data(0))
-                    self.add_to_tree(new_child_ids, item)
-                nchild += 1
+
+        query = QtS.QSqlQuery()
+        table = self.source_model.tableName()
+        nchild = 0
+        for child in range(len(child_ids)):
+            # find next child
+            parent_ID_header = self.sourceHeaders[1]
+            parent_row_header = self.sourceHeaders[2]
+            if parent is self.rootItem:
+                parent_ID = 'IS NULL'
+            else:
+                parent_ID = f'= {parent.data(0)}'
+            query.exec(
+                f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
+            data = None
+            while query.next():
+                data = query.record()
+            if data:
+                item = TreeItem(data, parent)
+                parent.appendChild(item)
+                new_child_ids = self.find_children(item.data(0))
+                self.add_to_tree(new_child_ids, item)
+            nchild += 1
 
     def add_top_item(self, data):
         TreeItem(data, 0)
