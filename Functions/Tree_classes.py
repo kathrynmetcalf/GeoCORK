@@ -196,7 +196,6 @@ class TreeModel(QtC.QAbstractProxyModel):
                 parent_ID = f'= {parent.data(0)}'
             query.exec(
                 f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
-            print(f'SELECT * FROM {table} WHERE {parent_ID_header} {parent_ID} AND {parent_row_header} = {nchild}')
             data = None
             while query.next():
                 data = query.record()

@@ -40,14 +40,13 @@ class DataViewerWidget(QWidget):
         super().__init__()
         self.db_file = db_file
 
-        self.sample_ids = ''
+        self.sample_ids = '('
 
         if len(sample_ids) > 0:
-            for sample in sample_ids[0]:
-                self.sample_ids += str(sample) + ", "
+            for sample in sample_ids:
+                self.sample_ids += str(sample[0]) + ", "
             self.sample_ids = self.sample_ids[0:-2]
-            print("sampleids:")
-            print(self.sample_ids)
+            self.sample_ids += ")"
 
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
@@ -77,18 +76,17 @@ class DataViewerWidget(QWidget):
                             'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
         self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData', 'Spots', 'UPbAnalysisMethods']
 
-        self.display_table_list(self.dbTable_comboBox)
+        self.dbTable_comboBox.addItem('Samples')
         self.display_table_list(self.dbTable_comboBox_2)
         self.dbTable_comboBox_2.removeItem(10) # remove sample table index
 
-        self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
+        self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
                                 self.dbTable_comboBox, self.edit_pushButton)
 
-        self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                                self.dbTable_comboBox_2, self.edit_pushButton_2)
+        # self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
+        #                         self.dbTable_comboBox_2, self.edit_pushButton_2)
 
         # Display the selected table
-        self.dbTable_comboBox.currentTextChanged.connect(lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView, self.dbTable_comboBox, self.edit_pushButton))
         self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_sample_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
             self.edit_pushButton_2, self.dbTable_tableView))
@@ -98,23 +96,18 @@ class DataViewerWidget(QWidget):
         #     self.edit_pushButton_2, self.dbTable_tableView))
 
         self.dbTable_tableView: QTableView
-        self.dbTable_tableView.selectionModel().selectionChanged.connect(lambda x: print(x.selected, x.deselected))
-
-        self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
-                           self.dbTable_comboBox, self.edit_pushButton)
-        # self.display_table_with_sample_filter(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-        #                    self.dbTable_comboBox_2, self.edit_pushButton_2, self.dbTable_tableView)
+        # self.dbTable_tableView.selectionModel().selectionChanged.connect(lambda x: print(x.selected, x.deselected))
 
         # Signal for search bar
         self.search_lineEdit.textChanged.connect(self.search)
         self.search_lineEdit_2.textChanged.connect(self.search)
         # Signal for clicked add button in main window
-        self.edit_pushButton.clicked.connect(
-            lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
-                               self.dbTable_comboBox, self.edit_pushButton))
-        self.edit_pushButton_2.clicked.connect(
-             lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                               self.dbTable_comboBox_2, self.edit_pushButton_2))
+        # self.edit_pushButton.clicked.connect(
+        #     lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
+        #                        self.dbTable_comboBox, self.edit_pushButton))
+        # self.edit_pushButton_2.clicked.connect(
+        #      lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
+        #                        self.dbTable_comboBox_2, self.edit_pushButton_2))
 
         self.show()
 
@@ -158,9 +151,9 @@ class DataViewerWidget(QWidget):
         dbTable_comboBox.setCurrentText('Samples')
 
 
-    def display_table(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton):
+    def display_sample_table(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
         """
-        Displays the selected table
+        Displays the sample table
         :return:
         """
         table_name = dbTable_comboBox.currentText()
@@ -174,6 +167,7 @@ class DataViewerWidget(QWidget):
             sample_model = QtS.QSqlQueryModel()
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_model.setQuery(QtS.QSqlQuery(query, self.db))
+            sample_model.setQuery(f"Select Samples.* FROM Samples WHERE Samples.SampleID IN {self.sample_ids}")
             sample_proxy_model.setSourceModel(sample_model)
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
@@ -181,42 +175,6 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
-        elif table in self.dbtree_list:
-            self.switch_to_tree(db_stackedWidget)
-            model = QtS.QSqlTableModel(db=self.db)
-            model.setTable(table)
-            model.select()
-            tree_model = TrC.TreeModel(model, None, self.db)
-            tree_proxy_model = QtC.QSortFilterProxyModel()
-            tree_proxy_model.setSourceModel(tree_model)
-
-            dbTable_treeView.setModel(tree_proxy_model)
-            dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            dbTable_treeView.hideColumn(1)  # don't show ID column
-            dbTable_treeView.hideColumn(2)  # don't show parent ID column
-            dbTable_treeView.setSortingEnabled(True)
-        elif table in self.dbtable_list:
-            self.switch_to_table(db_stackedWidget)
-            model = QtS.QSqlTableModel(db=self.db)
-            model.setTable(table)
-
-            model.select()
-            table_proxy_model = QtC.QSortFilterProxyModel()
-            for col in range(model.columnCount()):
-                header = TxM.add_spaces_camel(
-                    model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-                model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
-            table_proxy_model.setSourceModel(model)
-            # if self.case_checkBox.isChecked():
-            #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-            # else:
-            #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-            table_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            dbTable_tableView.setModel(table_proxy_model)
-            dbTable_tableView.hideColumn(0)  # don't show ID column
-            dbTable_tableView.resizeColumnsToContents()
-            dbTable_tableView.setSortingEnabled(True)
-            dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
@@ -224,8 +182,6 @@ class DataViewerWidget(QWidget):
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
             self.edit_pushButton_2, self.dbTable_tableView, selected, deselected))
 
-        # dbTable_tableView.reset()
-        # dbTable_treeView.reset()
         edit_pushButton.setText(f"Edit {table_name}")
 
     def display_table_with_sample_filter(self, db_stackedWidget, dbTable_tableView, dbTable_treeView,
@@ -280,7 +236,6 @@ class DataViewerWidget(QWidget):
             for row in rows_to_show:
                 tree_proxy_model.show_row(row)
                 # todo fix child items not being seen due to parent not showing
-
 
         elif table in self.dbtable_list:
             self.switch_to_table(db_stackedWidget)
