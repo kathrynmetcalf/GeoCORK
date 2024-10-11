@@ -58,9 +58,17 @@ class GeoChron(QtW.QMainWindow):
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
         self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData',
                             'AnalysisMethods']
-        self.display_table_list()
 
         self.ui_widgets()
+
+        # Set up models
+        self.sample_model = QtS.QSqlQueryModel()
+        self.sample_proxy_model = QtC.QSortFilterProxyModel()
+        self.model = QtS.QSqlTableModel()
+        self.tree_model = TrC.TreeModel()
+        self.tree_proxy_model = QtC.QSortFilterProxyModel()
+        self.table_proxy_model = QtC.QSortFilterProxyModel()
+        self.display_table_list()
 
         # Display the selected table
         self.dbTable_comboBox.currentIndexChanged.connect(self.display_table)
@@ -69,6 +77,8 @@ class GeoChron(QtW.QMainWindow):
         self.search_lineEdit.textChanged.connect(self.search)
         # Signal for clicked add button in main window
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
+        # Signal for clicked edit button
+        self.edit_pushButton.clicked.connect(self.edit_popup)
         # End widgets here # show the window when done, used for making a top-level window
 
         self.querybuilder = QueryBuilder(self)
@@ -105,15 +115,6 @@ class GeoChron(QtW.QMainWindow):
         self.status_label: QtW.QLabel
         self.db_stackedWidget: QtW.QStackedWidget
         self.case_checkBox: QtW.QCheckBox
-
-    # def open_db(self):
-    #     """
-    #     Opens a file dialog to select an existing database file, must be in the format .db
-    #     :return: database file name with path
-    #     """
-    #     home_dir = str(Path.home())
-    #     db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
-    #     return db_file[0]
 
     def switch_to_table(self):
         """
@@ -169,80 +170,76 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
+        # If moving from a tree table, save the expanded state first
+        if self.previous_table in self.dbtree_list and self.previous_table != table:
+            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
         self.previous_table = table
 
-        self.edit_pushButton.clicked.connect(lambda: self.edit_popup(sample_model))
-        self.edit_pushButton.clicked.disconnect()
+        # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
+        # self.edit_pushButton.clicked.disconnect()
         if table == 'Samples':
             self.switch_to_table()
             query = TbC.SampleTableModel().setupQuery()
-            sample_model = QtS.QSqlQueryModel()
-            sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_model.setQuery(QtS.QSqlQuery(query, self.db))
-            self.edit_pushButton.clicked.connect(lambda: self.edit_popup(sample_model))
-            view = "SampleView"
-            # sample_proxy_model.setTable(view)
-            # sample_proxy_model.select()
-            for col in range(sample_model.columnCount()):
+            self.sample_model.setQuery(QtS.QSqlQuery(query, self.db))
+            # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
+            # view = "SampleView"
+            # self.sample_proxy_model.setTable(view)
+            # self.sample_proxy_model.select()
+            for col in range(self.sample_model.columnCount()):
                 header = TxM.add_spaces_camel(
-                    sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-                sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+                    self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
 
-            sample_proxy_model.setSourceModel(sample_model)
-            sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            self.dbTable_tableView.setModel(sample_proxy_model)
+            self.sample_proxy_model.setSourceModel(self.sample_model)
+            self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         elif table in self.dbtree_list:
-
             self.switch_to_tree()
-            model = QtS.QSqlTableModel(db=self.db)
-            model.setTable(table)
-            model.select()
-            tree_model = TrC.TreeModel(model, None, self.db)
-            tree_proxy_model = QtC.QSortFilterProxyModel()
-            tree_proxy_model.setSourceModel(tree_model)
-            self.edit_pushButton.clicked.connect(lambda: self.edit_popup(model))
-            # if self.previous_table in self.dbtree_list:
-            #     TrC.save_expanded_state(self.previous_table, tree_proxy_model, self.dbTable_treeView,
-            #                             self.settings)
+            self.model.setTable(table)
+            self.model.select()
+            self.tree_model = TrC.TreeModel(self.model, None)
+            self.tree_proxy_model.setSourceModel(self.tree_model)
+            # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
 
-            self.dbTable_treeView.setModel(tree_proxy_model)
+            self.dbTable_treeView.setModel(self.tree_proxy_model)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
             self.dbTable_treeView.hideColumn(3)  # don't show parent row column
-            self.dbTable_treeView.setSortingEnabled(True)
+            # Keep the tree sorted as dictated by the database
+            self.dbTable_treeView.setSortingEnabled(False)
             if table == 'Ages':
                 self.dbTable_treeView.hideColumn(6)  # don't show created column
                 self.dbTable_treeView.hideColumn(7)  # don't show modified column
                 # self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
         elif table in self.dbtable_list:
             self.switch_to_table()
-            model = QtS.QSqlTableModel(db=self.db)
-            model.setTable(table)
-            model.select()
-            table_proxy_model = QtC.QSortFilterProxyModel()
-            self.edit_pushButton.clicked.connect(lambda: self.edit_popup(model))
-            for col in range(model.columnCount()):
-                header = TxM.add_spaces_camel(model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-                model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
-            table_proxy_model.setSourceModel(model)
+            self.model.setTable(table)
+            self.model.select()
+            # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
+            for col in range(self.model.columnCount()):
+                header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+            self.table_proxy_model.setSourceModel(self.model)
             # if self.case_checkBox.isChecked():
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
             # else:
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-            table_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            self.dbTable_tableView.setModel(table_proxy_model)
+            self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             # self.dbTable_tableView.hideColumn(3)  # don't show created column
             # self.dbTable_tableView.hideColumn(4)  # don't show modified column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
@@ -298,17 +295,17 @@ class GeoChron(QtW.QMainWindow):
                 existing = c.fetchall()
                 return existing
 
-    def edit_popup(self, model):
+    def edit_popup(self):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditTable(self.db, model, table_name)
+            dlg = EditTable(self.db, self.sample_model, table_name)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
-            dlg = EditTree(self.db, model, table_name)
+            dlg = EditTree(self.db, self.model, table_name)
         else:
-            dlg = EditTable(self.db, model, table_name)
+            dlg = EditTable(self.db, self.model, table_name)
         dlg.exec()
         self.display_table()
 

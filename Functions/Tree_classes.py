@@ -3,6 +3,7 @@ import typing
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
+from PyQt6.QtSql import QSqlTableModel, QSqlDatabase
 from PyQt6 import QtTest as QtT
 
 import Functions.Errors as Er
@@ -129,11 +130,27 @@ class TreeItem:
 
 class TreeModel(QtC.QAbstractProxyModel):
     dataEdited = QtC.pyqtSignal()
-    def __init__(self, source_model: QtS.QSqlTableModel, parent=None, db=None):
+    def __init__(self, source_model=QSqlTableModel(), parent=None):
         # database table
         super().__init__(parent)
-
         self.source_model = source_model
+        self.db = QSqlDatabase
+        self.table = ''
+        self.sourceHeaders = []
+        self.proxyHeaders = []
+
+        if self.source_model.tableName():
+            # If a table model with a valid table was passed, set the source model and create the tree
+            self.setSourceModel(self.source_model)
+
+    def __del__(self):
+        del self.rootItem
+
+    def sourceModel(self):
+        return self.source_model
+
+    def setSourceModel(self, sourceModel: QSqlTableModel):
+        self.source_model = sourceModel
         self.db = self.source_model.database()
         self.table = self.source_model.tableName()
         self.sourceHeaders = []
@@ -145,16 +162,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.childItem = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
         self.source_model.setFilter("")
-        #self.testModelIndexing(self.rootItem)
-
-        # self.source_model.modelReset.connect(self.resetTreeModel)
-        # self.source_model.dataChanged.connect(self.handleDataChanged)
-
-    def __del__(self):
-        del self.rootItem
-
-    def sourceModel(self):
-        return self.source_model
 
     def setup_model_data(self):
         # Add all nodes to the tree model
@@ -417,16 +424,16 @@ class TreeModel(QtC.QAbstractProxyModel):
                 currentParentRow = filtered_model.record(child).value(2)
                 newParentRow = currentParentRow + 1
                 self.source_model.setFilter("")  # Reset the filter
-                if not self.updateParent(childID, parentID, newParentRow):
+                if not self.update_parent_info(childID, parentID, newParentRow):
                     return None
                 if currentParentRow == row:
                     # Now update the moved item into the new space
                     self.source_model.setFilter("")  # Reset the filter
-                    if not self.updateParent(itemID, parentID, row):
+                    if not self.update_parent_info(itemID, parentID, row):
                         return None
         else: # no children to update
             self.source_model.setFilter("")  # Reset the filter
-            if not self.updateParent(itemID, parentID, row):
+            if not self.update_parent_info(itemID, parentID, row):
                 return None
         # Look for remaining children of the old parent whose parent rows need to be updated, order them by parent row from smallest to largest
         self.source_model.setFilter(
@@ -442,12 +449,12 @@ class TreeModel(QtC.QAbstractProxyModel):
             for child in range(childCount):
                 newParentRow = currentRows[child] - 1
                 self.source_model.setFilter("")  # Reset the filter
-                if not self.updateParent(childIDs[child], oldParentID, newParentRow):
+                if not self.update_parent_info(childIDs[child], oldParentID, newParentRow):
                     return None
         self.source_model.setFilter("")  # Reset the filter
         return True
 
-    def updateParent(self, itemID: int, parentID, parentRow: int):
+    def update_parent_info(self, itemID: int, parentID, parentRow: int):
         # Update the parent ID and parent row for a given item ID
         query = QtS.QSqlQuery(self.db)
         query.prepare(f'UPDATE {self.table} SET {self.parent_id_header} = :parentID, {self.parent_row_header} = :parentRow WHERE {self.id_header} = :itemID')
@@ -542,7 +549,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 currentParentRow = filtered_model.record(child).value(2)
                 newParentRow = currentParentRow - 1
                 self.source_model.setFilter("")  # Reset the filter
-                if not self.updateParent(childID, parentID, newParentRow):
+                if not self.update_parent_info(childID, parentID, newParentRow):
                     # print(f'Error updating parent row for child {childID}')
                     self.rollback()
                     return None

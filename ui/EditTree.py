@@ -19,7 +19,7 @@ class EditTree(QtW.QDialog):
         loadUi(tags_ui_file, self)
         self.db = database
         self.model = model
-        print(model)
+        # print(model)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TrC.TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)
@@ -27,7 +27,7 @@ class EditTree(QtW.QDialog):
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
-        self.settings = QtC.QSettings('User', 'Geochron')
+        self.settings = QtC.QSettings('CSUF', 'Geochron')
         self.edit_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
