@@ -250,7 +250,7 @@ class DataViewerWidget(QWidget):
             model.setTable(table)
             model.select()
 
-            model.setFilter(f'WHERE {table[0:-1]}ID IN {ids_to_show} ')
+            model.setFilter(f'{table[0:-1]}ID IN {ids_to_show} ')
             print(model.filter())
 
             table_proxy_model = QSortFilterProxyModel()
@@ -271,9 +271,6 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.setSortingEnabled(True)
             dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
-            # for row in rows_to_show:
-            #     table_proxy_model.show_row(row)
-            dbTable_tableView.reset()
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
         # todo change to only add rows to table that are needed, not add all and only show some, performance is tanking
@@ -315,7 +312,7 @@ class DataViewerWidget(QWidget):
         aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext ON Aliquots.AliquotID=Aliquots_AliquotContext.AliquotID
                                                 LEFT JOIN AliquotContext ON AliquotContext.AliquotContextID=Aliquots_AliquotContext.AliquotContextID'''
 
-        join = f'SELECT {table}.* FROM Samples '
+        join = f'SELECT DISTINCT {table}.* FROM Samples '
         match (table):
             case 'Ages':
                 if old_age_join not in join:
