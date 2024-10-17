@@ -6,6 +6,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QSortFilterProxyModel
+from PyQt6.QtSql import QSqlQueryModel, QSqlTableModel
 from PyQt6.QtWidgets import QFileDialog, QWidget, QComboBox, QTableView, QTreeView
 from PyQt6.sip import array
 from PyQt6.uic import loadUi
@@ -36,17 +37,17 @@ class CustomFilterProxyModel(QSortFilterProxyModel):
         self.invalidateFilter()
 
 class DataViewerWidget(QWidget):
-    def __init__(self, db_file, sample_ids):
+    def __init__(self, db_file, left_table,  ids_to_show):
         super().__init__()
         self.db_file = db_file
 
-        self.sample_ids = '('
+        self.ids_to_show = '('
 
-        if len(sample_ids) > 0:
-            for sample in sample_ids:
-                self.sample_ids += str(sample[0]) + ", "
-            self.sample_ids = self.sample_ids[0:-2]
-            self.sample_ids += ")"
+        if len(ids_to_show) > 0:
+            for sample in ids_to_show:
+                self.ids_to_show += str(sample[0]) + ", "
+            self.ids_to_show = self.ids_to_show[0:-2]
+            self.ids_to_show += ")"
 
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db.setDatabaseName(self.db_file)
@@ -167,7 +168,7 @@ class DataViewerWidget(QWidget):
             sample_model = QtS.QSqlQueryModel()
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_model.setQuery(QtS.QSqlQuery(query, self.db))
-            sample_model.setQuery(f"Select Samples.* FROM Samples WHERE Samples.SampleID IN {self.sample_ids}")
+            sample_model.setQuery(f"Select Samples.* FROM Samples WHERE Samples.SampleID IN {self.ids_to_show}")
             sample_proxy_model.setSourceModel(sample_model)
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
@@ -190,7 +191,6 @@ class DataViewerWidget(QWidget):
         Displays the selected table
         :return:
         """
-        print("DB TABLE 2 CHANGED")
         self.dbTable_tableView: QTableView
         dbTable_treeView: QTreeView
         table_name = dbTable_comboBox.currentText()
@@ -199,14 +199,14 @@ class DataViewerWidget(QWidget):
         print("current table: " + table_name)
         sample_filter: QTableView
         sample_id = '('
-        rows_to_show = []
+        ids_to_show = ''
         if sample_filter.selectionModel().hasSelection():
             for row in self.dbTable_tableView.selectionModel().selectedIndexes():
                 sample_id += str(self.dbTable_tableView.model().index(row.row(), 0).data()) + ','
             # "(19,39,58)"
             sample_id = sample_id[0:-1] + ')'
+            print("Sample IDs showing: " + str(sample_id))
             conn = sqlite3.connect(self.db_file)
-
             with conn:
                 c = conn.cursor()
                 sql = self.get_query_from_table(table) + f'WHERE Samples.SampleID IN {sample_id}'
@@ -215,35 +215,45 @@ class DataViewerWidget(QWidget):
                     existing = c.fetchall()
                     for row in existing:
                         if row[0] is not None:
-                            print(row)
-                            rows_to_show.append(row[0]-1)
+                            ids_to_show += str(row[0]) + ","
+
+                    ids_to_show = ids_to_show[0:-1]
+
+            ids_to_show = '(' + ids_to_show + ')'
 
         if table in self.dbtree_list:
             self.switch_to_tree(db_stackedWidget)
             model = QtS.QSqlTableModel(db=self.db)
             model.setTable(table)
             model.select()
-            tree_model = TrC.TreeModel(model, None, self.db)
-            tree_proxy_model = CustomFilterProxyModel()
-            tree_proxy_model.setSourceModel(tree_model)
-            dbTable_treeView.setModel(tree_proxy_model)
-            dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            dbTable_treeView.hideColumn(1)  # don't show ID column
-            dbTable_treeView.hideColumn(2)  # don't show parent ID column
-            dbTable_treeView.setSortingEnabled(True)
 
-            tree_proxy_model.reset_visible_rows()
-            for row in rows_to_show:
-                tree_proxy_model.show_row(row)
-                # todo fix child items not being seen due to parent not showing
+            model.setFilter(f'{table[0:-1]}ID  IN ( '
+                            f'WITH RECURSIVE ParentTree AS '
+                            f'(SELECT * FROM {table} '
+                            f'WHERE {table[0:-1]}ID IN {ids_to_show} '
+                            f'UNION ALL '
+                            f'SELECT {table}.* FROM {table} '
+                            f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
+                            f'SELECT {table[0:-1]}ID FROM ParentTree) ')
+
+            tree_model = TrC.TreeModel(model, None)
+
+            dbTable_treeView.setModel(tree_model)
+            dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+            # dbTable_treeView.hideColumn(1)  # don't show ID column
+            # dbTable_treeView.hideColumn(2)  # don't show parent ID column
+            dbTable_treeView.setSortingEnabled(True)
 
         elif table in self.dbtable_list:
             self.switch_to_table(db_stackedWidget)
             model = QtS.QSqlTableModel(db=self.db)
             model.setTable(table)
-
             model.select()
-            table_proxy_model = CustomFilterProxyModel()
+
+            model.setFilter(f'WHERE {table[0:-1]}ID IN {ids_to_show} ')
+            print(model.filter())
+
+            table_proxy_model = QSortFilterProxyModel()
             for col in range(model.columnCount()):
                 header = TxM.add_spaces_camel(
                     model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
@@ -261,8 +271,8 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.setSortingEnabled(True)
             dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
-            for row in rows_to_show:
-                table_proxy_model.show_row(row)
+            # for row in rows_to_show:
+            #     table_proxy_model.show_row(row)
             dbTable_tableView.reset()
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
@@ -401,7 +411,7 @@ class DataViewerWidget(QWidget):
             case 'Units':
                 if unit_join not in join:
                     join += unit_join + '\n'
-
+        print(join)
         return join
 
     def search(self, search_lineEdit, dbTable_comboBox):

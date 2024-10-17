@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
 )
 
 from ui.DataViewerWidget import DataViewerWidget
+from ui.QComboBoxLabel import QComboBoxLabel
 
 
 def get_widget(w, d, depth=0, doPrint=False):
@@ -255,6 +256,7 @@ class InsertFilterGroupDialog(QDialog):
                             VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
                             """
             c = conn.cursor()
+            # todo error database is locked
             c.execute(sql_query)
 
         conn = sqlite3.connect(self.db_file)
@@ -302,7 +304,6 @@ class RuleWidget(QWidget):
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
         if field is not None:
-            print(field)
             self.table_combo.setCurrentText(field.split('.')[0])
         self.table_combo.currentIndexChanged.connect(self.table_switcher)
 
@@ -701,6 +702,9 @@ class QueryBuilder(QWidget):
         self.scrollarea.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
 
+
+
+
         self.main_group_box = GroupBox()
         self.main_group_box.setParent(self)
         self.layout1.addWidget(self.scrollarea)
@@ -708,10 +712,33 @@ class QueryBuilder(QWidget):
 
         buttons_layout = QHBoxLayout(self)
 
-        # Apply button
-        self.apply_button = QPushButton('Apply')
-        buttons_layout.addWidget(self.apply_button)
-        self.apply_button.clicked.connect(self.view_samples)
+        # View Samples button
+        self.view_samples_button = QPushButton('View Samples')
+        buttons_layout.addWidget(self.view_samples_button)
+        self.view_samples_button.clicked.connect(self.view_samples)
+
+        # self.table_select_combobox = QComboBoxLabel('Select Table:', objectName='QrytableSelectComboBox')
+        # self.table_select_combobox.addItems(
+        #     ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
+        #      'Regions', 'RockTypes', 'Sample Context', 'Sampling Methods', 'Settings', 'Sources',
+        #      'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units'])
+        #
+        # buttons_layout.addWidget(self.table_select_combobox)
+
+        # View Aliquots button
+        self.view_aliquots_button = QPushButton('View Aliquots')
+        buttons_layout.addWidget(self.view_aliquots_button)
+        # self.view_aliquots_button.clicked.connect()
+
+        # View Spots button
+        self.view_spots_button = QPushButton('View Spots')
+        buttons_layout.addWidget(self.view_spots_button)
+        # self.view_spots_button.clicked.connect()
+
+        # View U/Pb Analysis button
+        self.view_analysis_button = QPushButton('View Analysis')
+        buttons_layout.addWidget(self.view_analysis_button)
+        # self.view_analysis_button.clicked.connect()
 
         # Save filter button
         self.save_filter_button = QPushButton('Save Filter')
@@ -795,8 +822,12 @@ class QueryBuilder(QWidget):
             self.scrollarea.setWidget(self.main_group_box)
             self.show()
 
+    def view_table(self):
+        print()
+
     def view_samples(self):
-        dataviewer = DataViewerWidget(self.db_file, self.get_sample_ids())
+        dataviewer = DataViewerWidget(self.db_file, 't', self.get_sample_ids())
+        dataviewer.setWindowTitle("Filtered Sample View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()

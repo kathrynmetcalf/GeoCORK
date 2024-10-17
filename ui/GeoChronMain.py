@@ -201,20 +201,34 @@ class GeoChron(QtW.QMainWindow):
             self.switch_to_tree()
             self.model.setTable(table)
             self.model.select()
+            print(self.model.filter())
+
+            row_count = self.model.rowCount()
+
+            for row in range(row_count):
+                record = self.model.record(row)
+
+                # Access the data from the record as needed
+                for col in range(record.count()):
+                    value = record.value(col)
+                    # Do something with value, for example:
+                    print(f"Row {row}, Column {col}: {value}")
+
             self.tree_model = TrC.TreeModel(self.model, None)
+            self.model.setFilter("")
             self.tree_proxy_model.setSourceModel(self.tree_model)
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
 
             self.dbTable_treeView.setModel(self.tree_proxy_model)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            self.dbTable_treeView.hideColumn(1)  # don't show ID column
-            self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
-            self.dbTable_treeView.hideColumn(3)  # don't show parent row column
+            # self.dbTable_treeView.hideColumn(1)  # don't show ID column
+            # self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
+            # self.dbTable_treeView.hideColumn(3)  # don't show parent row column
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
-            if table == 'Ages':
-                self.dbTable_treeView.hideColumn(6)  # don't show created column
-                self.dbTable_treeView.hideColumn(7)  # don't show modified column
+            # if table == 'Ages':
+                # self.dbTable_treeView.hideColumn(6)  # don't show created column
+                # self.dbTable_treeView.hideColumn(7)  # don't show modified column
                 # self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
