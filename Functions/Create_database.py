@@ -59,7 +59,7 @@ CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
                     UNIQUE (ParentAgeID, AgeParentRow)
                     )'''
 
-CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContext(
+CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContexts(
                     AliquotContextID INTEGER PRIMARY KEY,
                     ParentAliquotContextID INTEGER,
                     AliquotContextParentRow INTEGER,
@@ -83,7 +83,7 @@ CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
                         ON DELETE CASCADE
                     )'''
 
-CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_AliquotContext(
+CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_AliquotContexts(
                     AliquotID INTEGER,
                     AliquotContextID INTEGER,
                     Aliquots_AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -199,7 +199,7 @@ CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     UNIQUE (ParentRockTypeID, RockTypeParentRow)
                     )'''
 
-CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContext(
+CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContexts(
                     SampleContextID INTEGER PRIMARY KEY,
                     ParentSampleContextID INTEGER,
                     SampleContextParentRow INTEGER NOT NULL,
@@ -300,7 +300,7 @@ CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_RockTypes
                         ON DELETE CASCADE
                     )'''
 
-CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SampleContext(
+CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SampleContexts(
                     SampleID INTEGER,
                     SampleContextID INTEGER,
                     Samples_SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -401,7 +401,7 @@ CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
                     UNIQUE (ParentSpotCompositionID, SpotCompositionParentRow)
                     )'''
 
-CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContext(
+CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContexts(
                     SpotContextID INTEGER PRIMARY KEY,
                     ParentSpotContextID INTEGER,
                     SpotContextParentRow INTEGER,
@@ -429,7 +429,7 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                         ON DELETE SET NULL
                     )'''
 
-CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContext(
+CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContexts(
                     SpotID INTEGER,
                     SpotContextID INTEGER,
                     Spots_SpotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
