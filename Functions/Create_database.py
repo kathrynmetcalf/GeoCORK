@@ -3,16 +3,6 @@ import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
 import Functions.DB_views as DBV # views
 
-#todo add this:
-# **Filter Table**
-# ID, Description
-# 1, 10 Purchases with a total amount over 100 dollars
-#
-# **Predicate Table**
-# Filter ID, Condition ID, Table, Column, Operator, Value, LogicalOperator(NULL if last)
-# 1,1,PurchaseCount,GreaterThanEqual,10, AND
-# 2,1,PurchaseAmount,GreaterThan,100
-#
 '''Commands to create the database
 Foreign keys are set to cascade on update
 When a foreign key is deleted, most will be set to null

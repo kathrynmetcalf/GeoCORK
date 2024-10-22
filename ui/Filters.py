@@ -258,7 +258,6 @@ class InsertFilterGroupDialog(QDialog):
                             """
             c = conn.cursor()
             #todo change to bind value to prevent sql injection
-            # todo error database is locked
             c.execute(sql_query)
 
         conn = sqlite3.connect(self.db_file)
@@ -677,6 +676,7 @@ class QueryBuilder(QWidget):
 
         conn = sqlite3.connect(self.db_file)
         listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
+
 
         for x in listWidget.items(None):
             listWidget.takeItem(x)

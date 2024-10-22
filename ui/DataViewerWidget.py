@@ -253,7 +253,6 @@ class DataViewerWidget(QWidget):
                                 f'SELECT {table}.* FROM {table} '
                                 f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
                                 f'SELECT {table[0:-1]}ID FROM ParentTree) ')
-            #todo UPbData, LabFacilities, not working
             tree_model = TrC.TreeModel(model, None)
 
             dbTable_treeView.setModel(tree_model)
