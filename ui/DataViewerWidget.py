@@ -5,7 +5,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QSortFilterProxyModel
+from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
 from PyQt6.QtSql import QSqlQueryModel, QSqlTableModel
 from PyQt6.QtWidgets import QFileDialog, QWidget, QComboBox, QTableView, QTreeView
 from PyQt6.sip import array
@@ -13,28 +13,29 @@ from PyQt6.uic import loadUi
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
+from Functions import SQLUtils
 from ui.EditTable import EditTable
-class CustomFilterProxyModel(QSortFilterProxyModel):
-    def __init__(self):
-        super().__init__()
-        self.visible_rows = set()  # Track visible rows instead of hidden rows
-
-    def show_row(self, row):
-        self.visible_rows.add(row)
-        self.invalidateFilter()  # Re-apply filter
-
-    def hide_row(self, row):
-        if row in self.visible_rows:
-            self.visible_rows.remove(row)
-        self.invalidateFilter()  # Re-apply filter
-
-    def filterAcceptsRow(self, source_row, source_parent):
-        # By default, hide all rows unless they are in the visible_rows set
-        return source_row in self.visible_rows
-
-    def reset_visible_rows(self):
-        self.visible_rows = set()
-        self.invalidateFilter()
+# class CustomFilterProxyModel(QSortFilterProxyModel):
+#     def __init__(self):
+#         super().__init__()
+#         self.visible_rows = set()  # Track visible rows instead of hidden rows
+#
+#     def show_row(self, row):
+#         self.visible_rows.add(row)
+#         self.invalidateFilter()  # Re-apply filter
+#
+#     def hide_row(self, row):
+#         if row in self.visible_rows:
+#             self.visible_rows.remove(row)
+#         self.invalidateFilter()  # Re-apply filter
+#
+#     def filterAcceptsRow(self, source_row, source_parent):
+#         # By default, hide all rows unless they are in the visible_rows set
+#         return source_row in self.visible_rows
+#
+#     def reset_visible_rows(self):
+#         self.visible_rows = set()
+#         self.invalidateFilter()
 
 class DataViewerWidget(QWidget):
     def __init__(self, db_file, left_table,  ids_to_show):
@@ -179,11 +180,26 @@ class DataViewerWidget(QWidget):
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
-        self.dbTable_tableView.selectionModel().selectionChanged.connect(lambda selected, deselected: self.display_table_with_sample_filter(
+
+        self.selectionTimer = QTimer()
+        self.selectionTimer.setSingleShot(True)
+        self.selectionTimer.timeout.connect(lambda: self.display_table_with_sample_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
-            self.edit_pushButton_2, self.dbTable_tableView, selected, deselected))
+            self.edit_pushButton_2, self.dbTable_tableView))
+
+        # Connect the selectionChanged signal to the onSelectionChanged method
+        self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
 
         edit_pushButton.setText(f"Edit {table_name}")
+
+    def on_select_changed(self):
+        """
+        This method is called whenever the selection changes.
+        It restarts the timer to batch rapid selection changes.
+        """
+        # Restart the timer every time the selection changes
+        print('restarted timer')
+        self.selectionTimer.start(250)  # Delay in milliseconds
 
     def display_table_with_sample_filter(self, db_stackedWidget, dbTable_tableView, dbTable_treeView,
                                          dbTable_comboBox, edit_pushButton, sample_filter, selected=None, deselected=None):
@@ -193,49 +209,51 @@ class DataViewerWidget(QWidget):
         """
         self.dbTable_tableView: QTableView
         dbTable_treeView: QTreeView
-        table_name = dbTable_comboBox.currentText()
-        # Remove spaces from display names
-        table = TxM.remove_spaces(table_name)
-        print("current table: " + table_name)
         sample_filter: QTableView
-        sample_id = '('
-        ids_to_show = ''
+
+        table_name = dbTable_comboBox.currentText()
+        table = TxM.remove_spaces(table_name)
+
+        sample_ids = []
+        ids_to_show = []
         if sample_filter.selectionModel().hasSelection():
-            for row in self.dbTable_tableView.selectionModel().selectedIndexes():
-                sample_id += str(self.dbTable_tableView.model().index(row.row(), 0).data()) + ','
-            # "(19,39,58)"
-            sample_id = sample_id[0:-1] + ')'
-            print("Sample IDs showing: " + str(sample_id))
+            for index in self.dbTable_tableView.selectionModel().selectedIndexes():
+                sample_id = sample_filter.model().index(index.row(), 0).data()
+                sample_ids.append(str(sample_id))
+
+            sample_condition = ''
+            if sample_ids:
+                sample_condition = f" WHERE Samples.SampleID IN ({', '.join(sample_ids)})"
+                # "(19,39,58)"
             conn = sqlite3.connect(self.db_file)
             with conn:
                 c = conn.cursor()
-                sql = self.get_query_from_table(table) + f'WHERE Samples.SampleID IN {sample_id}'
-                print(sql)
+                sql = self.get_query_from_table(table) + sample_condition
+
                 if c.execute(sql):
                     existing = c.fetchall()
                     for row in existing:
                         if row[0] is not None:
-                            ids_to_show += str(row[0]) + ","
+                            ids_to_show.append(str(row[0]))
 
-                    ids_to_show = ids_to_show[0:-1]
-
-            ids_to_show = '(' + ids_to_show + ')'
+        id_condition = f'({", ".join(ids_to_show)})'
+        print(id_condition)
 
         if table in self.dbtree_list:
             self.switch_to_tree(db_stackedWidget)
             model = QtS.QSqlTableModel(db=self.db)
             model.setTable(table)
             model.select()
-
-            model.setFilter(f'{table[0:-1]}ID  IN ( '
-                            f'WITH RECURSIVE ParentTree AS '
-                            f'(SELECT * FROM {table} '
-                            f'WHERE {table[0:-1]}ID IN {ids_to_show} '
-                            f'UNION ALL '
-                            f'SELECT {table}.* FROM {table} '
-                            f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
-                            f'SELECT {table[0:-1]}ID FROM ParentTree) ')
-
+            if table not in ["UPbData", "LabFacilities"]:
+                model.setFilter(f'{table[0:-1]}ID  IN ( '
+                                f'WITH RECURSIVE ParentTree AS '
+                                f'(SELECT * FROM {table} '
+                                f'WHERE {table[0:-1]}ID IN {id_condition} '
+                                f'UNION ALL '
+                                f'SELECT {table}.* FROM {table} '
+                                f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
+                                f'SELECT {table[0:-1]}ID FROM ParentTree) ')
+            #todo UPbData, LabFacilities, not working
             tree_model = TrC.TreeModel(model, None)
 
             dbTable_treeView.setModel(tree_model)
@@ -249,9 +267,10 @@ class DataViewerWidget(QWidget):
             model = QtS.QSqlTableModel(db=self.db)
             model.setTable(table)
             model.select()
-
-            model.setFilter(f'{table[0:-1]}ID IN {ids_to_show} ')
-            print(model.filter())
+            if table == "LabFacilities":
+                model.setFilter(f'{table}ID IN {id_condition}')
+            elif table == "UPbData":
+                model.setFilter(f'UPbAnalysisID in {id_condition}')
 
             table_proxy_model = QSortFilterProxyModel()
             for col in range(model.columnCount()):
@@ -265,7 +284,7 @@ class DataViewerWidget(QWidget):
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(table_proxy_model)
-            dbTable_tableView.hideColumn(0)  # don't show ID column
+            # dbTable_tableView.hideColumn(0)  # don't show ID column
             dbTable_tableView.verticalHeader().setVisible(False)
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
@@ -279,135 +298,103 @@ class DataViewerWidget(QWidget):
         edit_pushButton.setText(f"Edit {table_name}")
 
     def get_query_from_table(self, table):
-        # Join lines
-        old_age_join = 'LEFT JOIN Ages ON Samples.OldestAgeID=Ages.AgeID'
-        young_age_join = 'LEFT JOIN Ages ON Samples.YoungestAgeID=Ages.AgeID'
-        age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
-                                                    LEFT JOIN AgeSignatures ON AgeSignatures.AgeSignatureID=Samples_AgeSignatures.AgeSignatureID'''
-        column_join = '''LEFT JOIN Samples_Columns ON Samples.SampleID=Samples_Columns.SampleID
-                                                    LEFT JOIN Columns ON Columns.ColumnID=Samples_Columns.ColumnID'''
-        rock_type_join = '''LEFT JOIN Samples_RockTypes ON Samples.SampleID=Samples_RockTypes.SampleID
-                                                LEFT JOIN RockTypes ON RockTypes.RockTypeID=Samples_RockTypes.RockTypeID'''
-        region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID=Samples_Regions.SampleID
-                                                LEFT JOIN Regions ON Regions.RegionID=Samples_Regions.RegionID'''
-        setting_join = '''LEFT JOIN Samples_Settings ON Samples.SampleID=Samples_Settings.SampleID
-                                                LEFT JOIN Settings ON Settings.SettingID=Samples_Settings.SettingID'''
-        unit_join = '''LEFT JOIN Samples_Units ON Samples.SampleID=Samples_Units.SampleID
-                                                LEFT JOIN Units ON Units.UnitID=Samples_Units.UnitID'''
-        sample_context_join = '''LEFT JOIN Samples_SampleContext ON Samples.SampleID=Samples_SampleContext.SampleID
-                                                LEFT JOIN SampleContext ON SampleContext.SampleContextID=Samples_SampleContext.SampleContextID'''
-        sampling_method_join = '''LEFT JOIN Samples_SamplingMethods ON Samples.SampleID=Samples_SamplingMethods.SampleID
-                                                LEFT JOIN SamplingMethods ON SamplingMethods.SamplingMethodID=Samples_SamplingMethods.SamplingMethodID'''
-
-        aliquot_join = 'LEFT JOIN Aliquots ON Aliquots.SampleID=Samples.SampleID'
-        spot_join = 'LEFT JOIN Spots ON Spots.AliquotID=Aliquots.AliquotID'
-        upb_data_join = 'LEFT JOIN UPbData ON UPbData.SpotID=Spots.SpotID'
-        source_join = 'LEFT JOIN Sources ON Sources.SourceID=UPbData.SourceID'
-        upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalysisMethods.UPbAnalysisMethodID=UPbData.UPbAnalysisMethodID'
-        instruments_join = 'LEFT JOIN Instruments ON Instruments.InstrumentID=UPbData.InstrumentID'
-        labs_join = 'LEFT JOIN LabFacilities ON LabFacilities.LabFacilityID=UPbData.LabFacilityID'
-        spot_context_join = '''LEFT JOIN Spots_SpotContext ON Spots.SpotID=Spots_SpotContext.SpotID
-                                                LEFT JOIN SpotContext ON SpotContext.SpotContextID=Spots_SpotContext.SpotContextID'''
-        spot_composition_join = '''LEFT JOIN SpotCompositions ON SpotCompositions.SpotCompositionID=Spots.SpotCompositionID'''
-        aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext ON Aliquots.AliquotID=Aliquots_AliquotContext.AliquotID
-                                                LEFT JOIN AliquotContext ON AliquotContext.AliquotContextID=Aliquots_AliquotContext.AliquotContextID'''
 
         join = f'SELECT DISTINCT {table}.* FROM Samples '
         match (table):
             case 'Ages':
-                if old_age_join not in join:
-                    join += old_age_join + '\n'
+                if SQLUtils.old_age_join not in join:
+                    join += SQLUtils.old_age_join + '\n'
             case 'AgeSignatures':
-                if age_signature_join not in join:
-                    join += age_signature_join + '\n'
+                if SQLUtils.age_signature_join not in join:
+                    join += SQLUtils.age_signature_join + '\n'
             case 'Aliquots':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
             case 'AliquotContext':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if aliquot_context_join not in join:
-                    join += aliquot_context_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.aliquot_context_join not in join:
+                    join += SQLUtils.aliquot_context_join + '\n'
             case 'Columns':
-                if column_join not in join:
-                    join += column_join + '\n'
+                if SQLUtils.column_join not in join:
+                    join += SQLUtils.column_join + '\n'
             case 'LabFacilities':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if spot_join not in join:
-                    join += spot_join + '\n'
-                if upb_data_join not in join:
-                    join += upb_data_join + '\n'
-                if labs_join not in join:
-                    join += labs_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.upb_data_join not in join:
+                    join += SQLUtils.upb_data_join + '\n'
+                if SQLUtils.labs_join not in join:
+                    join += SQLUtils.labs_join + '\n'
             case 'Instruments':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if spot_join not in join:
-                    join += spot_join + '\n'
-                if upb_data_join not in join:
-                    join += upb_data_join + '\n'
-                if instruments_join not in join:
-                    join += instruments_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.upb_data_join not in join:
+                    join += SQLUtils.upb_data_join + '\n'
+                if SQLUtils.instruments_join not in join:
+                    join += SQLUtils.instruments_join + '\n'
             case 'Regions':
-                if region_join not in join:
-                    join += region_join + '\n'
+                if SQLUtils.region_join not in join:
+                    join += SQLUtils.region_join + '\n'
             case 'RockTypes':
-                if rock_type_join not in join:
-                    join += rock_type_join + '\n'
+                if SQLUtils.rock_type_join not in join:
+                    join += SQLUtils.rock_type_join + '\n'
             case 'Sample Context':
-                if sample_context_join not in join:
-                    join += sample_context_join + '\n'
+                if SQLUtils.sample_context_join not in join:
+                    join += SQLUtils.sample_context_join + '\n'
             case 'Samples':
                 pass
             case 'SamplingMethods':
-                if sampling_method_join not in join:
-                    join += sampling_method_join + '\n'
+                if SQLUtils.sampling_method_join not in join:
+                    join += SQLUtils.sampling_method_join + '\n'
             case 'Settings':
-                if setting_join not in join:
-                    join += setting_join + '\n'
+                if SQLUtils.setting_join not in join:
+                    join += SQLUtils.setting_join + '\n'
             case 'Sources':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if spot_join not in join:
-                    join += spot_join + '\n'
-                if upb_data_join not in join:
-                    join += upb_data_join + '\n'
-                if source_join not in join:
-                    join += source_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.upb_data_join not in join:
+                    join += SQLUtils.upb_data_join + '\n'
+                if SQLUtils.source_join not in join:
+                    join += SQLUtils.source_join + '\n'
             case 'SpotCompositions':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if spot_join not in join:
-                    join += spot_join + '\n'
-                if spot_composition_join not in join:
-                    join += spot_composition_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.spot_composition_join not in join:
+                    join += SQLUtils.spot_composition_join + '\n'
             case 'SpotContext':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if spot_join not in join:
-                    join += spot_join + '\n'
-                if spot_context_join not in join:
-                    join += spot_context_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.spot_context_join not in join:
+                    join += SQLUtils.spot_context_join + '\n'
             case 'UPbData':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if spot_join not in join:
-                    join += spot_join + '\n'
-                if upb_data_join not in join:
-                    join += upb_data_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.upb_data_join not in join:
+                    join += SQLUtils.upb_data_join + '\n'
             case 'UPbAnalysisMethods':
-                if aliquot_join not in join:
-                    join += aliquot_join + '\n'
-                if spot_join not in join:
-                    join += spot_join + '\n'
-                if upb_data_join not in join:
-                    join += upb_data_join + '\n'
-                if upb_method_join not in join:
-                    join += upb_method_join + '\n'
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.upb_data_join not in join:
+                    join += SQLUtils.upb_data_join + '\n'
+                if SQLUtils.upb_method_join not in join:
+                    join += SQLUtils.upb_method_join + '\n'
             case 'Units':
-                if unit_join not in join:
-                    join += unit_join + '\n'
+                if SQLUtils.unit_join not in join:
+                    join += SQLUtils.unit_join + '\n'
         print(join)
         return join
 

@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QListView, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem, QMainWindow
 )
 
+from Functions import SQLUtils
 from ui.DataViewerWidget import DataViewerWidget
 from ui.QComboBoxLabel import QComboBoxLabel
 
@@ -256,6 +257,7 @@ class InsertFilterGroupDialog(QDialog):
                             VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
                             """
             c = conn.cursor()
+            #todo change to bind value to prevent sql injection
             # todo error database is locked
             c.execute(sql_query)
 
@@ -702,9 +704,6 @@ class QueryBuilder(QWidget):
         self.scrollarea.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
 
-
-
-
         self.main_group_box = GroupBox()
         self.main_group_box.setParent(self)
         self.layout1.addWidget(self.scrollarea)
@@ -747,67 +746,6 @@ class QueryBuilder(QWidget):
 
         self.layout1.addLayout(buttons_layout)
 
-        self.qsample_id = 'S.SampleID'
-        self.qsample_name = 'SampleName AS "Sample Name"'
-        self.qage = 'AverageAge || "±" || COALESCE(AverageAgeError, " ") as "Age (Ma)"'
-        self.qage_range = 'COALESCE(OldestAge, " ") || "-" || COALESCE(YoungestAge, " ") as "Age Range (Ma)"'
-        self.qgeo_age = 'COALESCE(OldA.AgeName, " ") || "-" || COALESCE(YoungA.AgeName, " ") as "Geologic Age"'
-        self.qage_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) as "Age Signatures"'
-        self.qcolumn_name = 'GROUP_CONCAT(DISTINCT ColumnName) as "Measured Column Name"'
-        self.qcolumn_data = 'HeightDepth || "±" || COALESCE(HeightDepthError, " " || HeightDepthUnit) as "Column Data"'
-        self.qlat = f'''LatDeg || "°" || LatMin || "'" || LatSec || '"' as "Latitude"'''
-        self.qlon = f'''LonDeg || "°" || LonMin || "'" || LonSec || '"' as "Longitude"'''
-        self.qutm_zone = 'UTMZone As "UTM Zone"'
-        self.qutm_n = 'UTMN As "UTM Northing"'
-        self.qutm_e = 'UTME As "UTM Easting"'
-        self.qelev = 'Elev || "±" || COALESCE(ElevError, " " || ElevUnit) as "Elevation"'
-        self.qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
-        self.qspots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
-        self.qreferences = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-        self.qcontext = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Context"'
-        self.qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) as "Sampling Method"'
-        self.qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"'
-        self.qregions = 'GROUP_CONCAT(DISTINCT RegionName) as "Regions"'
-        self.qsettings = 'GROUP_CONCAT(DISTINCT SettingName) as "Settings"'
-        self.qunits = 'GROUP_CONCAT(DISTINCT UnitName) as "Units"'
-        self.qupb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
-        self.qlabs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-        self.qspot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
-        self.qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        self.qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
-
-        # Join lines
-        self.old_age_join = 'LEFT JOIN Ages ON Samples.OldestAgeID=Ages.AgeID'
-        self.young_age_join = 'LEFT JOIN Ages ON Samples.YoungestAgeID=Ages.AgeID'
-        self.age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
-                                            LEFT JOIN AgeSignatures ON AgeSignatures.AgeSignatureID=Samples_AgeSignatures.AgeSignatureID'''
-        self.column_join = '''LEFT JOIN Samples_Columns ON Samples.SampleID=Samples_Columns.SampleID
-                                            LEFT JOIN Columns ON Columns.ColumnID=Samples_Columns.ColumnID'''
-        self.rock_type_join = '''LEFT JOIN Samples_RockTypes ON Samples.SampleID=Samples_RockTypes.SampleID
-                                        LEFT JOIN RockTypes ON RockTypes.RockTypeID=Samples_RockTypes.RockTypeID'''
-        self.region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID=Samples_Regions.SampleID
-                                        LEFT JOIN Regions ON Regions.RegionID=Samples_Regions.RegionID'''
-        self.setting_join = '''LEFT JOIN Samples_Settings ON Samples.SampleID=Samples_Settings.SampleID
-                                        LEFT JOIN Settings ON Settings.SettingID=Samples_Settings.SettingID'''
-        self.unit_join = '''LEFT JOIN Samples_Units ON Samples.SampleID=Samples_Units.SampleID
-                                        LEFT JOIN Units ON Units.UnitID=Samples_Units.UnitID'''
-        self.sample_context_join = '''LEFT JOIN Samples_SampleContext ON Samples.SampleID=Samples_SampleContext.SampleID
-                                        LEFT JOIN SampleContext ON SampleContext.SampleContextID=Samples_SampleContext.SampleContextID'''
-        self.sampling_method_join = '''LEFT JOIN Samples_SamplingMethods ON Samples.SampleID=Samples_SamplingMethods.SampleID
-                                        LEFT JOIN SamplingMethods ON SamplingMethods.SamplingMethodID=Samples_SamplingMethods.SamplingMethodID'''
-
-        self.aliquot_join = 'LEFT JOIN Aliquots ON Aliquots.SampleID=Samples.SampleID'
-        self.spot_join = 'LEFT JOIN Spots ON Spots.AliquotID=Aliquots.AliquotID'
-        self.upb_data_join = 'LEFT JOIN UPbData ON UPbData.SpotID=Spots.SpotID'
-        self.source_join = 'LEFT JOIN Sources ON Sources.SourceID=UPbData.SourceID'
-        self.upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalysisMethods.UPbAnalysisMethodID=UPbData.UPbAnalysisMethodID'
-        self.instruments_join = 'LEFT JOIN Instruments ON Instruments.InstrumentID=UPbData.InstrumentID'
-        self.labs_join = 'LEFT JOIN LabFacilities ON LabFacilities.LabFacilityID=UPbData.LabFacilityID'
-        self.spot_context_join = '''LEFT JOIN Spots_SpotContext ON Spots.SpotID=Spots_SpotContext.SpotID
-                                        LEFT JOIN SpotContext ON SpotContext.SpotContextID=Spots_SpotContext.SpotContextID'''
-        self.spot_composition_join = '''LEFT JOIN SpotCompositions ON SpotCompositions.SpotCompositionID=Spots.SpotCompositionID'''
-        self.aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext ON Aliquots.AliquotID=Aliquots_AliquotContext.AliquotID
-                                        LEFT JOIN AliquotContext ON AliquotContext.AliquotContextID=Aliquots_AliquotContext.AliquotContextID'''
 
     def populate_filters(self, filter_name):
         conn = sqlite3.connect(self.db_file)
@@ -851,99 +789,99 @@ class QueryBuilder(QWidget):
         for table in self.main_group_box.get_tables():
             match (table):
                 case 'Ages':
-                    if self.old_age_join not in join:
-                        join += self.old_age_join + '\n'
+                    if SQLUtils.old_age_join not in join:
+                        join += SQLUtils.old_age_join + '\n'
                 case 'Age Signatures':
-                    if self.age_signature_join not in join:
-                        join += self.age_signature_join + '\n'
+                    if SQLUtils.age_signature_join not in join:
+                        join += SQLUtils.age_signature_join + '\n'
                 case 'Aliquots':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
                 case 'Aliquot Context':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.aliquot_context_join not in join:
-                        join += self.aliquot_context_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.aliquot_context_join not in join:
+                        join += SQLUtils.aliquot_context_join + '\n'
                 case 'Columns':
-                    if self.column_join not in join:
-                        join += self.column_join + '\n'
+                    if SQLUtils.column_join not in join:
+                        join += SQLUtils.column_join + '\n'
                 case 'Lab Facilities':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.spot_join not in join:
-                        join += self.spot_join + '\n'
-                    if self.upb_data_join not in join:
-                        join += self.upb_data_join + '\n'
-                    if self.labs_join not in join:
-                        join += self.labs_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.labs_join not in join:
+                        join += SQLUtils.labs_join + '\n'
                 case 'Instruments':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.spot_join not in join:
-                        join += self.spot_join + '\n'
-                    if self.upb_data_join not in join:
-                        join += self.upb_data_join + '\n'
-                    if self.instruments_join not in join:
-                        join += self.instruments_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.instruments_join not in join:
+                        join += SQLUtils.instruments_join + '\n'
                 case 'Regions':
-                    if self.region_join not in join:
-                        join += self.region_join + '\n'
+                    if SQLUtils.region_join not in join:
+                        join += SQLUtils.region_join + '\n'
                 case 'RockTypes':
-                    if self.rock_type_join not in join:
-                        join += self.rock_type_join + '\n'
+                    if SQLUtils.rock_type_join not in join:
+                        join += SQLUtils.rock_type_join + '\n'
                 case 'Sample Context':
-                    if self.sample_context_join not in join:
-                        join += self.sample_context_join + '\n'
+                    if SQLUtils.sample_context_join not in join:
+                        join += SQLUtils.sample_context_join + '\n'
                 case 'Samples':
                     pass
                 case 'Sampling Methods':
-                    if self.sampling_method_join not in join:
-                        join += self.sampling_method_join + '\n'
+                    if SQLUtils.sampling_method_join not in join:
+                        join += SQLUtils.sampling_method_join + '\n'
                 case 'Settings':
-                    if self.setting_join not in join:
-                        join += self.setting_join + '\n'
+                    if SQLUtils.setting_join not in join:
+                        join += SQLUtils.setting_join + '\n'
                 case 'Sources':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.spot_join not in join:
-                        join += self.spot_join + '\n'
-                    if self.upb_data_join not in join:
-                        join += self.upb_data_join + '\n'
-                    if self.source_join not in join:
-                        join += self.source_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.source_join not in join:
+                        join += SQLUtils.source_join + '\n'
                 case 'Spot Compositions':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.spot_join not in join:
-                        join += self.spot_join + '\n'
-                    if self.spot_composition_join not in join:
-                        join += self.spot_composition_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
+                    if SQLUtils.spot_composition_join not in join:
+                        join += SQLUtils.spot_composition_join + '\n'
                 case 'Spot Context':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.spot_join not in join:
-                        join += self.spot_join + '\n'
-                    if self.spot_context_join not in join:
-                        join += self.spot_context_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
+                    if SQLUtils.spot_context_join not in join:
+                        join += SQLUtils.spot_context_join + '\n'
                 case 'UPb Data':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.spot_join not in join:
-                        join += self.spot_join + '\n'
-                    if self.upb_data_join not in join:
-                        join += self.upb_data_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
                 case 'UPb Analysis Methods':
-                    if self.aliquot_join not in join:
-                        join += self.aliquot_join + '\n'
-                    if self.spot_join not in join:
-                        join += self.spot_join + '\n'
-                    if self.upb_data_join not in join:
-                        join += self.upb_data_join + '\n'
-                    if self.upb_method_join not in join:
-                        join += self.upb_method_join + '\n'
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.upb_method_join not in join:
+                        join += SQLUtils.upb_method_join + '\n'
                 case 'Units':
-                    if self.unit_join not in join:
-                        join += self.unit_join + '\n'
+                    if SQLUtils.unit_join not in join:
+                        join += SQLUtils.unit_join + '\n'
         # Final SQL query
 
         sql_query = f"SELECT DISTINCT SampleID FROM (SELECT Samples.SampleID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause});"
