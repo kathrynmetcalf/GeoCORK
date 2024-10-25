@@ -234,10 +234,9 @@ class SpotTableModel(QtS.QSqlQueryModel):
         return spot_query
 
 class ComboList(QtW.QComboBox):
-    def __init__(self, parent, items: list):
+    def __init__(self, parent, model):
         super().__init__(parent)
-        self.items = items
-        self.addItems(self.items)
+        self.setModel(model)
         self.currentTextChanged.connect(self.combo_value)
 
     def combo_value(self):

@@ -194,12 +194,12 @@ class TreeModel(QtC.QAbstractProxyModel):
         # Find children of a given ID using the source_model's filtered data
         self.source_model.setFilter(f"{self.base_filter_sql}  "
                                     f"{self.parent_id_header} is {parent_id if parent_id != 0 else 'NULL'}")
-        print(self.source_model.filter())
+        # print(self.source_model.filter())
         child_ids = []
         for row in range(self.source_model.rowCount()):
             child_ids.append(self.source_model.record(row).value(0))
 
-        print("childIds:" + str(child_ids))
+        # print("childIds:" + str(child_ids))
 
         return child_ids
 
@@ -226,7 +226,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         #         new_child_ids = self.find_children(item.data(0))
         #         self.add_to_tree(new_child_ids, item)
         #     nchild += 1
-        print(child_ids)
+        # print(child_ids)
         for child_id in child_ids:
             self.source_model.setFilter(f"{self.base_filter_sql} {self.id_header} is {child_id}")
             if self.source_model.rowCount() > 0:
@@ -848,18 +848,30 @@ def restore_expanded_state(table: str, filter_model: QtC.QSortFilterProxyModel, 
 
     restore_state(QtC.QModelIndex())
 
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    db_file = '../TestSchema.db'
-    db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-    db.setDatabaseName(db_file)
-    model = QtS.QSqlTableModel()
-    model.setTable('Units')
-    model.select()
-    tree_model = TreeModel(model, None)
+class TreeCombobox(QtW.QComboBox):
+    closed = QtC.pyqtSignal()
+    def __init__(self):
+        super().__init__()
+        self.treeView = QtW.QTreeView()
+        self.treeView.expandAll()
+        self.setView(self.treeView)
 
-    tester = QtT.QAbstractItemModelTester(tree_model, QtT.QAbstractItemModelTester.FailureReportingMode.Warning)
+    # def setModel(self, model):
+    #     self.treeView.setModel(model)
+    #     self.treeView.expandAll()
 
+    def showPopup(self):
+        self.treeView.expandAll()
+        super().showPopup()
 
+    def hidePopup(self):
+        super().hidePopup()
+        self.treeView.collapseAll()
+        super().hide()
 
+    def eventFilter(self, obj, event):
+        if event.type() == QtC.QEvent.Type.MouseButtonPress:
+            if not self.view().geometry().contains(event.globalPos()):
+                self.hidePopup()
+        self.closed.emit()
+        return super().eventFilter(obj, event)
