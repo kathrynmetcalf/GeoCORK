@@ -20,7 +20,7 @@ class EditSampleTable(QtW.QDialog):
         # self.create_comboboxes()
         self.db = database
         self.model = model
-        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
+        # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
         self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
@@ -29,7 +29,7 @@ class EditSampleTable(QtW.QDialog):
         self.createSavepoint()
 
         self.filter_proxy_model.dataChanged.connect(self.update_model)
-        self.add_pushButton.clicked.connect(self.add_popup)
+        # self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
 
@@ -55,23 +55,28 @@ class EditSampleTable(QtW.QDialog):
     #     comboColumns = SC.comboList(self, columns)
 
     def get_items(self, table):
+        headers = []
         items = []
         query = QtS.QSqlQuery(self.db)
-        if query.exec(f"SELECT name from pragma_table_info({table})"):
-            name_header = query.value(1)
+        if query.exec(f"SELECT name from pragma_table_info('{table}')"):
+            while query.next():
+                headers.append(query.value(0))
+            name_header = headers[1]
             if query.exec(f"SELECT {name_header} FROM {table}"):
                 while query.next():
                     items.append(query.value(0))
                 return items
 
     def display_table(self):
+        self.edit_tableView: QtW.QTableView
         self.edit_tableView.setModel(self.model)
         # self.edit_tableView.setModel(self.filter_proxy_model)
         self.edit_tableView.hideColumn(0)  # don't show ID column
         self.edit_tableView.resizeColumnsToContents()
         columns = self.get_items('Columns')
-        combo_columns = TbC.comboList(self, columns)
-        self.edit_tableView.setIndexWidget(0,11,combo_columns)
+        combo_columns = TbC.ComboList(self, columns)
+        index = self.edit_tableView.model().index(0,11)
+        self.edit_tableView.setIndexWidget(index,combo_columns)
         # self.edit_tableView.setSortingEnabled(True)
 
     def rollback(self):

@@ -233,8 +233,7 @@ class SpotTableModel(QtS.QSqlQueryModel):
 
         return spot_query
 
-
-class comboList(QtW.QComboBox()):
+class ComboList(QtW.QComboBox):
     def __init__(self, parent, items: list):
         super().__init__(parent)
         self.items = items
