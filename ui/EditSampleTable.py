@@ -8,7 +8,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
-from Functions.Tree_classes import TreeModel, TreeCombobox
+from Functions.Tree_classes import TreeModel, TreeCombobox, CheckableTreeModel
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
@@ -91,11 +91,14 @@ class EditSampleTable(QtW.QDialog):
         if len(selected_index) == 1:
             if selected_index[0].column() == 22:
                 table = "Units"
-                tree_model = TreeModel()
+                tree_model = CheckableTreeModel()
                 self.table_model.setTable(table)
                 self.table_model.select()
                 tree_model.setSourceModel(self.table_model)
                 self.combo.setModel(tree_model)
+                row = selected_index[0].row()
+                sample_ID = self.model.index(row, 0).data()
+                self.combo.set_sample(sample_ID)
                 self.edit_tableView.setIndexWidget(selected_index[0], self.combo)
                 self.combo.showPopup()
 
