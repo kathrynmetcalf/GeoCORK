@@ -234,6 +234,16 @@ class SpotTableModel(QtS.QSqlQueryModel):
         return spot_query
 
 
+class comboList(QtW.QComboBox()):
+    def __init__(self, parent, items: list):
+        super().__init__(parent)
+        self.items = items
+        self.addItems(self.items)
+        self.currentTextChanged.connect(self.combo_value)
+
+    def combo_value(self):
+        print(self.currentText())
+
 # class table_proxy_model(QtC.QSortFilterProxyModel):
 #     def __int__(self):
 #         super().__init__()

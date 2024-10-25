@@ -16,14 +16,12 @@ from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
-import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
-from ui.EditTags import EditTags
+from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
-from ui.AddTags import AddTags
 from ui.Filters import QueryBuilder
 
 
@@ -300,7 +298,7 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditTable(self.db, self.sample_model, table_name)
+            dlg = EditSampleTable(self.db, self.sample_model)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
