@@ -198,7 +198,6 @@ class DataViewerWidget(QWidget):
         It restarts the timer to batch rapid selection changes.
         """
         # Restart the timer every time the selection changes
-        print('restarted timer')
         self.selectionTimer.start(250)  # Delay in milliseconds
 
     def display_table_with_sample_filter(self, db_stackedWidget, dbTable_tableView, dbTable_treeView,

@@ -201,21 +201,8 @@ class GeoChron(QtW.QMainWindow):
             self.switch_to_tree()
             self.model.setTable(table)
             self.model.select()
-            print(self.model.filter())
-
-            row_count = self.model.rowCount()
-
-            for row in range(row_count):
-                record = self.model.record(row)
-
-                # Access the data from the record as needed
-                for col in range(record.count()):
-                    value = record.value(col)
-                    # Do something with value, for example:
-                    print(f"Row {row}, Column {col}: {value}")
 
             self.tree_model = TrC.TreeModel(self.model, None)
-            self.model.setFilter("")
             self.tree_proxy_model.setSourceModel(self.tree_model)
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
 
