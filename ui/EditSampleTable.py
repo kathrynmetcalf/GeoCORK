@@ -10,11 +10,12 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 from Functions.Tree_classes import TreeModel, TreeCombobox, CheckableTreeModel, CheckableTreeView
+from Functions.Table_classes import SampleTableModel
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
 class EditSampleTable(QtW.QDialog):
-    def __init__(self, database, sample_model: QtS.QSqlTableModel):
+    def __init__(self, database, sample_model: QtS.QSqlQueryModel):
         super().__init__()
 
         tags_ui_file = "ui/EditSampleTable.ui"
@@ -32,7 +33,7 @@ class EditSampleTable(QtW.QDialog):
         self.createSavepoint()
 
         self.filter_proxy_model.dataChanged.connect(self.update_model)
-        self.combo.closing.connect(self.destroy_dropdown)
+        # self.combo.closing.connect(self.destroy_dropdown)
         # self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
@@ -98,17 +99,17 @@ class EditSampleTable(QtW.QDialog):
                 sample_ID = self.sample_model.index(row, 0).data()
                 tree_model.set_sample(sample_ID)
                 selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
-                print(f"Selected text: {selected_text}")
+                # print(f"Selected text: {selected_text}")
                 self.combo.setModel(tree_model)
                 self.combo.set_line_edit_text(selected_text)
                 self.edit_tableView.setIndexWidget(self.combo_index, self.combo)
-                print("showing popup")
+                # print("showing popup")
                 self.combo.showPopup()
 
     def destroy_dropdown(self):
-        start_time = time.time()
+        self.edit_tableView: QtW.QTableView
         if self.combo is not None:
-            print("Start destroying dropdown")
+            # print("Start destroying dropdown")
             self.combo.closing.disconnect(self.destroy_dropdown)
             checked_text = self.combo.lineEdit().text()
             checked_list = checked_text.split(',')
@@ -116,25 +117,20 @@ class EditSampleTable(QtW.QDialog):
             print(f"Checked list: {checked_list}")
             # self.combo.model().update_db(checked_list)
 
+            self.verticalLayout.removeWidget(self.combo)
             self.combo.deleteLater()
             self.combo = None
 
-            '''Takes too much time to remake the SampleTableModel with all the joins'''
-            # self.recreate_sample_model()
-
-            '''Since the database is updated based on the list, just update the text in the selected cell'''
+            # Only update the model if the text has changed
             previous_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
             if checked_text != previous_text:
-                # The text has changed, update the database
-                self.sample_model.setData(self.combo_index, checked_text, QtC.Qt.ItemDataRole.DisplayRole)
-
+                self.recreate_sample_model()
             self.combo_index = QtC.QModelIndex()
-
 
     def recreate_sample_model(self):
         query_start_time = time.time()
-        self.sample_model.setTable('SampleView')
-        self.sample_model.select()
+        query = SampleTableModel().setupQuery()
+        self.sample_model.setQuery(QtS.QSqlQuery(query, self.db))
         query_end_time = time.time()
         print(f"Query time: {query_end_time - query_start_time}")
         for col in range(self.sample_model.columnCount()):

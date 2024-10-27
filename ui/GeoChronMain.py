@@ -60,8 +60,8 @@ class GeoChron(QtW.QMainWindow):
         self.ui_widgets()
 
         # Set up models
-        # self.sample_model = QtS.QSqlQueryModel()
-        self.sample_model = QtS.QSqlTableModel()
+        self.sample_model = QtS.QSqlQueryModel()
+        # self.sample_model = QtS.QSqlTableModel()
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = QtS.QSqlTableModel()
         self.tree_model = TrC.TreeModel()
@@ -178,10 +178,10 @@ class GeoChron(QtW.QMainWindow):
         # self.edit_pushButton.clicked.disconnect()
         if table == 'Samples':
             self.switch_to_table()
-            self.sample_model.setTable('SampleView')
-            self.sample_model.select()
-            # query = TbC.SampleTableModel().setupQuery()
-            # self.sample_model.setQuery(QtS.QSqlQuery(query, self.db))
+            # self.sample_model.setTable('SampleView')
+            # self.sample_model.select()
+            query = TbC.SampleTableModel().setupQuery()
+            self.sample_model.setQuery(QtS.QSqlQuery(query, self.db))
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
             # view = "SampleView"
             # self.sample_proxy_model.setTable(view)

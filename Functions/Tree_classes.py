@@ -832,87 +832,12 @@ class CheckableTreeView(QtW.QTreeView):
         self.clicked.connect(self.toggle_check_state)
 
     def toggle_check_state(self, index: QtC.QModelIndex):
-        if index.isValid():
-            current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
-            new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
-            self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
-
-class TreeCombobox(QtW.QComboBox):
-    closing = QtC.pyqtSignal()
-    def __init__(self):
-        super().__init__()
-        self.setEditable(True)
-        self.lineEdit().setReadOnly(True)
-        self.closedOnLineEditClick = False
-        self.treeView = CheckableTreeView()
-        self.setView(self.treeView)
-
-        self.checkable_tree_model = CheckableTreeModel()
-        self.setModel(self.checkable_tree_model)
-
-        self.lineEdit().installEventFilter(self)
-        self.treeView.viewport().installEventFilter(self)
-        self.checkable_tree_model.dataChanged.connect(self.update_line_edit)
-
-    def set_line_edit_text(self, text):
-        self.lineEdit().setText(text)
-
-    def update_line_edit(self):
-        current_line_edit_text = self.lineEdit().text()
-        text_items = current_line_edit_text.split(',')
-        index = self.treeView.currentIndex()
-        if index.isValid():
-            item_text = self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
-            current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
-            if current_state == QtC.Qt.CheckState.Checked:
-                if item_text not in text_items:
-                    text_items.append(item_text)
-            else:
-                if item_text in text_items:
-                    text_items.remove(item_text)
-            new_line_edit_text = ','.join(text_items)
-            self.lineEdit().setText(new_line_edit_text)
-
-    def showPopup(self):
-        self.treeView.expandAll()
-        self.treeView.hideColumn(1)  # don't show ID column
-        self.treeView.hideColumn(2)  # don't show parent ID column
-        self.treeView.hideColumn(3)  # don't show parent row column
-        self.treeView.setSortingEnabled(False)
-        self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-        super().showPopup()
-
-    def hidePopup(self):
-        super().hidePopup()
-        self.closing.emit()
-        # self.startTimer(100)
-
-    def eventFilter(self, obj, event):
-        print(f'Event type: {event.type()}')
-        if obj == self.lineEdit():
-            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
-                if self.closedOnLineEditClick:
-                    self.hidePopup()
-                else:
-                    self.showPopup()
-                return True
-            return super().eventFilter(obj, event)
-
-        if obj == self.treeView.viewport():
-            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
-                self.treeView.toggle_check_state(self.treeView.currentIndex())
-                self.showPopup()
-                # self._prevent_hide = True
-                return True
-            return super().eventFilter(obj, event)
-
-        if event.type() == QtC.QEvent.Type.WindowDeactivate:
-            print(f'Window deactivated for object: {obj}')
-            return super().eventFilter(obj, event)
-
-    # def focusOutEvent(self, event):
-    #     self.hidePopup()
-    #     super().focusOutEvent(event)
+        if self.model():
+            # print(f"About to call flags for index {index.row()},{index.column()}, item name {self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)}")
+            if index.isValid() and QtC.Qt.ItemFlag.ItemIsUserCheckable in self.model().flags(index):
+                current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
+                new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
+                self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
 
 class CheckableTreeItem(TreeItem):
     def __init__(self, record: QtS.QSqlRecord, parent: TreeItem = None):
@@ -1004,6 +929,7 @@ class CheckableTreeModel(TreeModel):
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         if index.column() == 0:
             # If the column is the name item, it is checkable
+            # print(f"Checkable flag for ({index.row()},{index.column()})")
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
         return super().flags(index)
 
@@ -1041,3 +967,81 @@ class CheckableTreeModel(TreeModel):
                     self.rollback()
                     return
             self.releaseSavepoint()
+
+class TreeCombobox(QtW.QComboBox):
+    closing = QtC.pyqtSignal()
+    def __init__(self):
+        super().__init__()
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
+        self.closedOnLineEditClick = False
+        self.treeView = CheckableTreeView()
+        self.setView(self.treeView)
+
+        # self.model = CheckableTreeModel()
+        # self.setModel(self.model)
+
+        self.lineEdit().installEventFilter(self)
+        self.treeView.viewport().installEventFilter(self)
+        # self.model.dataChanged.connect(self.update_line_edit)
+
+    def setModel(self, model: CheckableTreeModel):
+        super().setModel(model)
+        if self.model():
+            # print(f"Connecting signal")
+            self.model().dataChanged.connect(self.update_line_edit)
+
+    def set_line_edit_text(self, text):
+        self.lineEdit().setText(text)
+
+    def update_line_edit(self):
+        # print('Updating line edit')
+        current_line_edit_text = self.lineEdit().text()
+        text_items = current_line_edit_text.split(',')
+        if '' in text_items:
+            text_items.remove('')
+        index = self.treeView.currentIndex()
+        if index.isValid():
+            item_text = self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
+            current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
+            if current_state == QtC.Qt.CheckState.Checked:
+                if item_text not in text_items:
+                    text_items.append(item_text)
+            else:
+                if item_text in text_items:
+                    text_items.remove(item_text)
+            new_line_edit_text = ','.join(text_items)
+            self.lineEdit().setText(new_line_edit_text)
+
+    def showPopup(self):
+        self.treeView.expandAll()
+        self.treeView.hideColumn(1)  # don't show ID column
+        self.treeView.hideColumn(2)  # don't show parent ID column
+        self.treeView.hideColumn(3)  # don't show parent row column
+        self.treeView.setSortingEnabled(False)
+        self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        super().showPopup()
+
+    def hidePopup(self):
+        super().hidePopup()
+        self.closing.emit()
+        # self.startTimer(100)
+
+    def eventFilter(self, obj, event):
+        # print(f'Event type: {event.type()}')
+        if obj == self.lineEdit():
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                if self.closedOnLineEditClick:
+                    self.hidePopup()
+                else:
+                    self.showPopup()
+                return True
+            return super().eventFilter(obj, event)
+
+        if obj == self.treeView.viewport():
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                self.treeView.toggle_check_state(self.treeView.currentIndex())
+                self.showPopup()
+                # self._prevent_hide = True
+                return True
+            return super().eventFilter(obj, event)
