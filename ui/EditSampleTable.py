@@ -1,4 +1,5 @@
 import sys
+import time
 from operator import index
 
 from PyQt6 import QtWidgets as QtW
@@ -8,41 +9,38 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
-from Functions.Tree_classes import TreeModel, TreeCombobox, CheckableTreeModel
+from Functions.Tree_classes import TreeModel, TreeCombobox, CheckableTreeModel, CheckableTreeView
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
 class EditSampleTable(QtW.QDialog):
-    def __init__(self, database, model):
+    def __init__(self, database, sample_model: QtS.QSqlTableModel):
         super().__init__()
 
-        # Define any widgets here
         tags_ui_file = "ui/EditSampleTable.ui"
         loadUi(tags_ui_file, self)
         self.table = 'Samples'
-        # self.create_comboboxes()
         self.db = database
-        self.model = model
+        self.sample_model = sample_model
         self.table_model = QtS.QSqlTableModel()
         self.combo = TreeCombobox()
+        self.combo_index = QtC.QModelIndex()
         # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
-        self.filter_proxy_model.setSourceModel(self.model)
-        self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
         self.msg = QtW.QMessageBox(self)
         self.display_table()
         self.createSavepoint()
 
         self.filter_proxy_model.dataChanged.connect(self.update_model)
-        self.combo.closed.connect(self.destroy_combobox)
+        self.combo.closing.connect(self.destroy_dropdown)
         # self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
-        self.edit_tableView.clicked.connect(self.display_combobox)
+        self.edit_tableView.clicked.connect(self.display_dropdown)
 
     def update_model(self):
-        if not self.model.submitAll():
-            errtxt = self.model.lastError().text()
+        if not self.sample_model.submitAll():
+            errtxt = self.sample_model.lastError().text()
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def createSavepoint(self):
@@ -56,10 +54,6 @@ class EditSampleTable(QtW.QDialog):
         if query.exec('RELEASE SAVEPOINT before_edit') is False:
             errtxt = Er.savepoint_release_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-
-    # def create_comboboxes(self):
-    #     columns = self.get_items('Columns')
-    #     comboColumns = SC.comboList(self, columns)
 
     def get_items(self, table):
         headers = []
@@ -75,8 +69,10 @@ class EditSampleTable(QtW.QDialog):
                 return items
 
     def display_table(self):
+        self.filter_proxy_model.setSourceModel(self.sample_model)
+        self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
         self.edit_tableView: QtW.QTableView
-        self.edit_tableView.setModel(self.model)
+        self.edit_tableView.setModel(self.sample_model)
         # self.edit_tableView.setModel(self.filter_proxy_model)
         self.edit_tableView.hideColumn(0)  # don't show ID column
         self.edit_tableView.resizeColumnsToContents()
@@ -84,28 +80,68 @@ class EditSampleTable(QtW.QDialog):
         # combo_columns = TbC.ComboList(self, columns)
         # index = self.edit_tableView.model().index(0,11)
         # self.edit_tableView.setIndexWidget(index,combo_columns)
-        # self.edit_tableView.setSortingEnabled(True)
+        self.edit_tableView.setSortingEnabled(True)
 
-    def display_combobox(self):
+    def display_dropdown(self):
         selected_index = self.edit_tableView.selectedIndexes()
         if len(selected_index) == 1:
-            if selected_index[0].column() == 22:
+            self.combo_index = selected_index[0]
+            self.combo = TreeCombobox()
+            self.combo.closing.connect(self.destroy_dropdown)
+            if self.combo_index.column() == 22:
                 table = "Units"
-                tree_model = CheckableTreeModel()
                 self.table_model.setTable(table)
                 self.table_model.select()
+                tree_model = CheckableTreeModel()
                 tree_model.setSourceModel(self.table_model)
+                row = self.combo_index.row()
+                sample_ID = self.sample_model.index(row, 0).data()
+                tree_model.set_sample(sample_ID)
+                selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+                print(f"Selected text: {selected_text}")
                 self.combo.setModel(tree_model)
-                row = selected_index[0].row()
-                sample_ID = self.model.index(row, 0).data()
-                self.combo.set_sample(sample_ID)
-                self.edit_tableView.setIndexWidget(selected_index[0], self.combo)
+                self.combo.set_line_edit_text(selected_text)
+                self.edit_tableView.setIndexWidget(self.combo_index, self.combo)
+                print("showing popup")
                 self.combo.showPopup()
 
-    def destroy_combobox(self):
-        self.layout().removeWidget(self.combo)
-        self.combo.deleteLater()
-        self.combo = None
+    def destroy_dropdown(self):
+        start_time = time.time()
+        if self.combo is not None:
+            print("Start destroying dropdown")
+            self.combo.closing.disconnect(self.destroy_dropdown)
+            checked_text = self.combo.lineEdit().text()
+            checked_list = checked_text.split(',')
+            print(f"Checked text: {checked_text}")
+            print(f"Checked list: {checked_list}")
+            # self.combo.model().update_db(checked_list)
+
+            self.combo.deleteLater()
+            self.combo = None
+
+            '''Takes too much time to remake the SampleTableModel with all the joins'''
+            # self.recreate_sample_model()
+
+            '''Since the database is updated based on the list, just update the text in the selected cell'''
+            previous_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+            if checked_text != previous_text:
+                # The text has changed, update the database
+                self.sample_model.setData(self.combo_index, checked_text, QtC.Qt.ItemDataRole.DisplayRole)
+
+            self.combo_index = QtC.QModelIndex()
+
+
+    def recreate_sample_model(self):
+        query_start_time = time.time()
+        self.sample_model.setTable('SampleView')
+        self.sample_model.select()
+        query_end_time = time.time()
+        print(f"Query time: {query_end_time - query_start_time}")
+        for col in range(self.sample_model.columnCount()):
+            header = TxM.add_spaces_camel(
+                self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+        self.display_table()
 
     def rollback(self):
         query = QtS.QSqlQuery(self.db)

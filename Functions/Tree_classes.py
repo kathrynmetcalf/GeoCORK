@@ -2,6 +2,7 @@ import typing
 # from formatter import NullWriter
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtSql import QSqlTableModel, QSqlDatabase
 from PyQt6 import QtTest as QtT
@@ -818,15 +819,59 @@ def restore_expanded_state(table: str, filter_model: QtC.QSortFilterProxyModel, 
 
     restore_state(QtC.QModelIndex())
 
-class TreeCombobox(QtW.QComboBox):
-    closed = QtC.pyqtSignal()
+class CheckableTreeView(QtW.QTreeView):
+    close = QtC.pyqtSignal()
     def __init__(self):
         super().__init__()
-        self.treeView = QtW.QTreeView()
+        self.expandAll()
+        self.hideColumn(1)  # don't show ID column
+        self.hideColumn(2)  # don't show parent ID column
+        self.hideColumn(3)  # don't show parent row column
+        self.setSortingEnabled(False)
+        self.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        self.clicked.connect(self.toggle_check_state)
+
+    def toggle_check_state(self, index: QtC.QModelIndex):
+        if index.isValid():
+            current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
+            new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
+            self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
+
+class TreeCombobox(QtW.QComboBox):
+    closing = QtC.pyqtSignal()
+    def __init__(self):
+        super().__init__()
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
+        self.closedOnLineEditClick = False
+        self.treeView = CheckableTreeView()
         self.setView(self.treeView)
 
-    def set_sample(self, sample_ID: int):
-        self.treeView.model().set_sample(sample_ID)
+        self.checkable_tree_model = CheckableTreeModel()
+        self.setModel(self.checkable_tree_model)
+
+        self.lineEdit().installEventFilter(self)
+        self.treeView.viewport().installEventFilter(self)
+        self.checkable_tree_model.dataChanged.connect(self.update_line_edit)
+
+    def set_line_edit_text(self, text):
+        self.lineEdit().setText(text)
+
+    def update_line_edit(self):
+        current_line_edit_text = self.lineEdit().text()
+        text_items = current_line_edit_text.split(',')
+        index = self.treeView.currentIndex()
+        if index.isValid():
+            item_text = self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
+            current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
+            if current_state == QtC.Qt.CheckState.Checked:
+                if item_text not in text_items:
+                    text_items.append(item_text)
+            else:
+                if item_text in text_items:
+                    text_items.remove(item_text)
+            new_line_edit_text = ','.join(text_items)
+            self.lineEdit().setText(new_line_edit_text)
 
     def showPopup(self):
         self.treeView.expandAll()
@@ -839,15 +884,35 @@ class TreeCombobox(QtW.QComboBox):
 
     def hidePopup(self):
         super().hidePopup()
-        self.treeView.collapseAll()
-        super().hide()
+        self.closing.emit()
+        # self.startTimer(100)
 
     def eventFilter(self, obj, event):
-        if event.type() == QtC.QEvent.Type.MouseButtonPress:
-            if not self.view().geometry().contains(event.globalPos()):
-                self.hidePopup()
-        self.closed.emit()
-        return super().eventFilter(obj, event)
+        print(f'Event type: {event.type()}')
+        if obj == self.lineEdit():
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                if self.closedOnLineEditClick:
+                    self.hidePopup()
+                else:
+                    self.showPopup()
+                return True
+            return super().eventFilter(obj, event)
+
+        if obj == self.treeView.viewport():
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                self.treeView.toggle_check_state(self.treeView.currentIndex())
+                self.showPopup()
+                # self._prevent_hide = True
+                return True
+            return super().eventFilter(obj, event)
+
+        if event.type() == QtC.QEvent.Type.WindowDeactivate:
+            print(f'Window deactivated for object: {obj}')
+            return super().eventFilter(obj, event)
+
+    # def focusOutEvent(self, event):
+    #     self.hidePopup()
+    #     super().focusOutEvent(event)
 
 class CheckableTreeItem(TreeItem):
     def __init__(self, record: QtS.QSqlRecord, parent: TreeItem = None):
@@ -921,88 +986,58 @@ class CheckableTreeModel(TreeModel):
             item = self.rootItem
         else:
             item = self.getItem(index)
-        if role == QtC.Qt.ItemDataRole.DisplayRole or role == QtC.Qt.ItemDataRole.EditRole:
-            if index.column() == 0:
-                # Show name in first column
-                return item.data(3)
-            elif index.column() == 1:
-                # Show item ID in second column
-                return item.data(0)
-            elif index.column() == 2:
-                # Show parent ID in third column
-                return item.data(1)
-            elif index.column() == 3:
-                # Show parent ID in third column
-                return item.data(2)
-            else:
-                return item.data(index.column())
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
-            if index.column() == 0:
-                return item.getCheckState()
-        return None
+            return item.getCheckState()
+        return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
         if not index.isValid():
             # print("Root has no data to set")
             return False
-        if role == QtC.Qt.ItemDataRole.EditRole:
-            sourceIndex = self.mapToSource(index)
-            if sourceIndex.isValid():
-                # update the source model
-                treeItem = self.getItem(index)
-                if index.column() == 0:
-                    # Show name in first column
-                    dataCol = 3
-                elif index.column() == 1:
-                    # Show item ID in second column
-                    dataCol = 0
-                elif index.column() == 2:
-                    # Show parent ID in third column
-                    dataCol = 1
-                elif index.column() == 3:
-                    # Show parent row in third column
-                    dataCol = 2
-                else:
-                    dataCol = index.column()
-                # Get the updated modified timestamp
-                mcol = self.source_model.columnCount() - 1
-                sourcemIndex = self.source_model.index(sourceIndex.row(), mcol, QtC.QModelIndex())
-                proxymIndex = self.mapFromSource(sourcemIndex)
-                if proxymIndex.isValid() and sourcemIndex.isValid():
-                    # If the changed data index and the modified timestamp index are valid for both models, change the data
-                    try:
-                        self.source_model.setData(sourceIndex, value, role)
-                    except:
-                        # print(f'Error setting data in source model at {sourceIndex.row()},{sourceIndex.column()}')
-                        return False
-                    modified = self.source_model.data(sourcemIndex, QtC.Qt.ItemDataRole.DisplayRole)
-                    treeItem.setData(dataCol, value)
-                    self.dataChanged.emit(index, index)
-                    treeItem.setData(mcol, modified)
-                    self.dataChanged.emit(index, index)
-                    return True
-                else:
-                    # print(f'Error setting data in proxy model at {index.row()},{index.column()}')
-                    return False
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
-            if index.column() == 0:
-                tree_item = self.getItem(index)
-                tree_item.setCheckState(value)
-                self.dataChanged.emit(index, index, [role])
-                return True
-        return False
+            tree_item = self.getItem(index)
+            tree_item.setCheckState(value)
+            self.dataChanged.emit(index, index, [role])
+            return True
+        return super().setData(index, value, role)
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
-        if not index.isValid():
-            # the root can be a drop destination
-            return QtC.Qt.ItemFlag.ItemIsDropEnabled
-        modifiedCol = self.source_model.columnCount() - 1
-        createdCol = self.source_model.columnCount() - 2
         if index.column() == 0:
             # If the column is the name item, it is checkable
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
-        if index.column() == modifiedCol or index.column() == createdCol:
-            # If the column is the created timestamp or modified timestamp, it is not editable. IDs should not be visible at all
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
-        else:
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
+        return super().flags(index)
+
+    def update_db(self, checked_list: list):
+        current_IDs = []
+        query = QtS.QSqlQuery(self.db)
+        query.prepare(f"SELECT * FROM SAMPLES_{self.table} WHERE SampleID = {self.sample_ID}")
+        if query.exec():
+            while query.next():
+                current_IDs.append(query.value(1))
+            checked_IDs = []
+            query.prepare(f"SELECT * FROM {self.table} WHERE {self.item_name_header} in {checked_list}")
+            if query.exec():
+                while query.next():
+                    checked_IDs.append(query.value(0))
+            self.createSavepoint()
+            to_remove = []
+            to_add = []
+            for ID in current_IDs:
+                if ID not in checked_IDs:
+                    to_remove.append(ID)
+            for ID in checked_IDs:
+                if ID not in current_IDs:
+                    to_add.append(ID)
+            for ID in to_remove:
+                query.prepare(f"DELETE FROM SAMPLES_{self.table} WHERE SampleID = {self.sample_ID} AND {self.id_header} = {ID}")
+                if not query.exec():
+                    print(f"Error removing {ID} from SAMPLES_{self.table}")
+                    self.rollback()
+                    return
+            for ID in to_add:
+                query.prepare(f"INSERT INTO SAMPLES_{self.table}(SampleID, {self.id_header}) VALUES({self.sample_ID}, {ID})")
+                if not query.exec():
+                    print(f"Error adding {ID} to SAMPLES_{self.table}")
+                    self.rollback()
+                    return
+            self.releaseSavepoint()
