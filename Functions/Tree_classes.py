@@ -941,7 +941,11 @@ class CheckableTreeModel(TreeModel):
             while query.next():
                 current_IDs.append(query.value(1))
             checked_IDs = []
-            query.prepare(f"SELECT * FROM {self.table} WHERE {self.item_name_header} in {checked_list}")
+            if len(checked_list) >1:
+                checked = tuple(checked_list)
+            else:
+                checked = f"('{checked_list[0]}')"
+            query.prepare(f"SELECT * FROM {self.table} WHERE {self.item_name_header} in {checked}")
             if query.exec():
                 while query.next():
                     checked_IDs.append(query.value(0))
@@ -960,12 +964,16 @@ class CheckableTreeModel(TreeModel):
                     print(f"Error removing {ID} from SAMPLES_{self.table}")
                     self.rollback()
                     return
+                else:
+                    print(f"Removed {self.sample_ID, ID} from SAMPLES_{self.table}")
             for ID in to_add:
                 query.prepare(f"INSERT INTO SAMPLES_{self.table}(SampleID, {self.id_header}) VALUES({self.sample_ID}, {ID})")
                 if not query.exec():
                     print(f"Error adding {ID} to SAMPLES_{self.table}")
                     self.rollback()
                     return
+                else:
+                    print(f"Added {self.sample_ID, ID} to SAMPLES_{self.table}")
             self.releaseSavepoint()
 
 class TreeCombobox(QtW.QComboBox):

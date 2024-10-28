@@ -11,6 +11,7 @@ import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 from Functions.Tree_classes import TreeModel, TreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Table_classes import SampleTableModel
+import Functions.Text_manipulations as TxM
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
@@ -73,38 +74,43 @@ class EditSampleTable(QtW.QDialog):
         self.filter_proxy_model.setSourceModel(self.sample_model)
         self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
         self.edit_tableView: QtW.QTableView
-        self.edit_tableView.setModel(self.sample_model)
-        # self.edit_tableView.setModel(self.filter_proxy_model)
+        # self.edit_tableView.setModel(self.sample_model)
+        self.edit_tableView.setModel(self.filter_proxy_model)
         self.edit_tableView.hideColumn(0)  # don't show ID column
         self.edit_tableView.resizeColumnsToContents()
-        # columns = self.get_items('Columns')
-        # combo_columns = TbC.ComboList(self, columns)
-        # index = self.edit_tableView.model().index(0,11)
-        # self.edit_tableView.setIndexWidget(index,combo_columns)
         self.edit_tableView.setSortingEnabled(True)
 
     def display_dropdown(self):
         selected_index = self.edit_tableView.selectedIndexes()
+        print(f"Clicked column: {selected_index[0].column()}")
         if len(selected_index) == 1:
+            if 23 > selected_index[0].column() > 15:
+                # Column header is Age Signatures, Sample Context, Rock Types, Regions, Sampling Methods, Settings, or Units
+                header = self.filter_proxy_model.headerData(selected_index[0].column(), QtC.Qt.Orientation.Horizontal,
+                                                       QtC.Qt.ItemDataRole.DisplayRole)
+                if ' ' in header:
+                    table = TxM.remove_spaces(header)
+                else:
+                    table = header
+            else:
+                return
             self.combo_index = selected_index[0]
             self.combo = TreeCombobox()
             self.combo.closing.connect(self.destroy_dropdown)
-            if self.combo_index.column() == 22:
-                table = "Units"
-                self.table_model.setTable(table)
-                self.table_model.select()
-                tree_model = CheckableTreeModel()
-                tree_model.setSourceModel(self.table_model)
-                row = self.combo_index.row()
-                sample_ID = self.sample_model.index(row, 0).data()
-                tree_model.set_sample(sample_ID)
-                selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
-                # print(f"Selected text: {selected_text}")
-                self.combo.setModel(tree_model)
-                self.combo.set_line_edit_text(selected_text)
-                self.edit_tableView.setIndexWidget(self.combo_index, self.combo)
-                # print("showing popup")
-                self.combo.showPopup()
+            self.table_model.setTable(table)
+            self.table_model.select()
+            tree_model = CheckableTreeModel()
+            tree_model.setSourceModel(self.table_model)
+            row = self.combo_index.row()
+            sample_ID = self.filter_proxy_model.index(row, 0).data()
+            tree_model.set_sample(sample_ID)
+            selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+            # print(f"Selected text: {selected_text}")
+            self.combo.setModel(tree_model)
+            self.combo.set_line_edit_text(selected_text)
+            self.edit_tableView.setIndexWidget(self.combo_index, self.combo)
+            # print("showing popup")
+            self.combo.showPopup()
 
     def destroy_dropdown(self):
         self.edit_tableView: QtW.QTableView
@@ -115,17 +121,18 @@ class EditSampleTable(QtW.QDialog):
             checked_list = checked_text.split(',')
             print(f"Checked text: {checked_text}")
             print(f"Checked list: {checked_list}")
-            # self.combo.model().update_db(checked_list)
+            self.combo.model().update_db(checked_list)
 
             self.verticalLayout.removeWidget(self.combo)
             self.combo.deleteLater()
             self.combo = None
 
+            self.recreate_sample_model()
             # Only update the model if the text has changed
-            previous_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
-            if checked_text != previous_text:
-                self.recreate_sample_model()
-            self.combo_index = QtC.QModelIndex()
+            # previous_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+            # if checked_text != previous_text:
+            #     self.recreate_sample_model()
+            # self.combo_index = QtC.QModelIndex()
 
     def recreate_sample_model(self):
         query_start_time = time.time()
