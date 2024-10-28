@@ -35,17 +35,17 @@ class SampleTableModel(QtS.QSqlQueryModel):
         qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
         qspots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
         qreferences = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-        qcontext = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Context"'
-        qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) as "Sampling Method"'
+        qcontext = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Contexts"'
+        qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) as "Sampling Methods"'
         qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"'
         qregions = 'GROUP_CONCAT(DISTINCT RegionName) as "Regions"'
         qsettings = 'GROUP_CONCAT(DISTINCT SettingName) as "Settings"'
         qunits = 'GROUP_CONCAT(DISTINCT UnitName) as "Units"'
         qupb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         qlabs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-        qspot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+        qspot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
         qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
+        qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Contexts"'
 
         # Join lines
         old_age_join = 'LEFT JOIN Ages as OldA ON S.OldestAgeID=OldA.AgeID'
@@ -62,8 +62,8 @@ class SampleTableModel(QtS.QSqlQueryModel):
                             LEFT JOIN Settings as ST ON ST.SettingID=S_ST.SettingID'''
         unit_join = '''LEFT JOIN Samples_Units as S_U ON S.SampleID=S_U.SampleID
                             LEFT JOIN Units as U ON U.UnitID=S_U.UnitID'''
-        sample_context_join = '''LEFT JOIN Samples_SampleContext as S_SC ON S.SampleID=S_SC.SampleID
-                            LEFT JOIN SampleContext as SC ON SC.SampleContextID=S_SC.SampleContextID'''
+        sample_context_join = '''LEFT JOIN Samples_SampleContexts as S_SC ON S.SampleID=S_SC.SampleID
+                            LEFT JOIN SampleContexts as SC ON SC.SampleContextID=S_SC.SampleContextID'''
         sampling_method_join = '''LEFT JOIN Samples_SamplingMethods as S_SM ON S.SampleID=S_SM.SampleID
                             LEFT JOIN SamplingMethods as SM ON SM.SamplingMethodID=S_SM.SamplingMethodID'''
         aliquot_join = 'LEFT JOIN Aliquots as AQ ON AQ.SampleID=S.SampleID'
@@ -72,11 +72,11 @@ class SampleTableModel(QtS.QSqlQueryModel):
         source_join = 'LEFT JOIN Sources as SO ON SO.SourceID=UPB.SourceID'
         upb_method_join = 'LEFT JOIN UPbAnalysisMethods as UAM ON UAM.UPbAnalysisMethodID=UPB.UPbAnalysisMethodID'
         labs_join = 'LEFT JOIN LabFacilities as LF ON LF.LabFacilityID=UPB.LabFacilityID'
-        spot_context_join = '''LEFT JOIN Spots_SpotContext as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
-                            LEFT JOIN SpotContext as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
+        spot_context_join = '''LEFT JOIN Spots_SpotContexts as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
+                            LEFT JOIN SpotContexts as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
         spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
-        aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext as AQ_AQCX ON AQ.AliquotID=AQ_AQCX.AliquotID
-                            LEFT JOIN AliquotContext as AQCX ON AQCX.AliquotContextID=AQ_AQCX.AliquotContextID'''
+        aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts as AQ_AQCX ON AQ.AliquotID=AQ_AQCX.AliquotID
+                            LEFT JOIN AliquotContexts as AQCX ON AQCX.AliquotContextID=AQ_AQCX.AliquotContextID'''
 
         sample_query = f'''
                     SELECT
@@ -139,20 +139,20 @@ class AliquotTableModel(QtS.QSqlQueryModel):
     def setupQuery(self, sample_ID):
         # Select lines
         aliquots = 'AliquotName as "Aliquots"'
-        aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
+        aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Contexts"'
         spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
-        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
         spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
         references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
         upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
 
         # Join lines
-        aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext as AQ_AQCX ON AQ.AliquotID=AQ_AQCX.AliquotID
-                            LEFT JOIN AliquotContext as AQCX ON AQCX.AliquotContextID=AQ_AQCX.AliquotContextID'''
+        aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts as AQ_AQCX ON AQ.AliquotID=AQ_AQCX.AliquotID
+                            LEFT JOIN AliquotContexts as AQCX ON AQCX.AliquotContextID=AQ_AQCX.AliquotContextID'''
         spot_join = 'LEFT JOIN Spots as SP ON SP.AliquotID=AQ.AliquotID'
-        spot_context_join = '''LEFT JOIN Spots_SpotContext as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
-                            LEFT JOIN SpotContext as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
+        spot_context_join = '''LEFT JOIN Spots_SpotContexts as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
+                            LEFT JOIN SpotContexts as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
         spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
         upb_data_join = 'LEFT JOIN UPbData as UPB ON UPB.SpotID=SP.SpotID'
         source_join = 'LEFT JOIN Sources as SO ON SO.SourceID=UPB.SourceID'
@@ -189,15 +189,15 @@ class SpotTableModel(QtS.QSqlQueryModel):
     def setupQuery(self, parent_id, id_type='sample'):
         # Select lines
         spots = 'SpotName as "Spots"'
-        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
         spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
         references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
         upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
 
         # Join lines'
-        spot_context_join = '''LEFT JOIN Spots_SpotContext as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
-                            LEFT JOIN SpotContext as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
+        spot_context_join = '''LEFT JOIN Spots_SpotContexts as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
+                            LEFT JOIN SpotContexts as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
         spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
         upb_data_join = 'LEFT JOIN UPbData as UPB ON UPB.SpotID=SP.SpotID'
         source_join = 'LEFT JOIN Sources as SO ON SO.SourceID=UPB.SourceID'
