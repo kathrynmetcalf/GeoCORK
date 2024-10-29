@@ -187,23 +187,23 @@ END;'''
 
 
 SAMPLECONTEXT_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samplecontext AFTER UPDATE ON SampleContext
+CREATE TRIGGER IF NOT EXISTS update_modified_samplecontext AFTER UPDATE ON SampleContexts
 BEGIN
-    UPDATE SampleContext SET SampleContextModified = CURRENT_TIMESTAMP WHERE SampleContextID = NEW.SampleContextID OR ParentSampleContextID = NEW.ParentSampleContextID OR SampleContextName = NEW.SampleContextName OR SampleContextDescription = NEW.SampleContextDescription;
+    UPDATE SampleContexts SET SampleContextModified = CURRENT_TIMESTAMP WHERE SampleContextID = NEW.SampleContextID OR ParentSampleContextID = NEW.ParentSampleContextID OR SampleContextName = NEW.SampleContextName OR SampleContextDescription = NEW.SampleContextDescription;
 END;'''
 
 
 ALIQUOTCONTEXT_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_aliquotcontext AFTER UPDATE ON AliquotContext
+CREATE TRIGGER IF NOT EXISTS update_modified_aliquotcontext AFTER UPDATE ON AliquotContexts
 BEGIN
-    UPDATE AliquotContext SET AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotContextID = NEW.AliquotContextID OR ParentAliquotContextID = NEW.ParentAliquotContextID OR AliquotContextName = NEW.AliquotContextName OR AliquotContextDescription = NEW.AliquotContextDescription;
+    UPDATE AliquotContexts SET AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotContextID = NEW.AliquotContextID OR ParentAliquotContextID = NEW.ParentAliquotContextID OR AliquotContextName = NEW.AliquotContextName OR AliquotContextDescription = NEW.AliquotContextDescription;
 END;'''
 
 
 SPOTCONTEXT_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_spotcontext AFTER UPDATE ON SpotContext
+CREATE TRIGGER IF NOT EXISTS update_modified_spotcontext AFTER UPDATE ON SpotContexts
 BEGIN
-    UPDATE SpotContext SET SpotContextModified = CURRENT_TIMESTAMP WHERE SpotContextID = NEW.SpotContextID OR ParentSpotContextID = NEW.ParentSpotContextID OR SpotContextName = NEW.SpotContextName OR SpotContextDescription = NEW.SpotContextDescription;
+    UPDATE SpotContexts SET SpotContextModified = CURRENT_TIMESTAMP WHERE SpotContextID = NEW.SpotContextID OR ParentSpotContextID = NEW.ParentSpotContextID OR SpotContextName = NEW.SpotContextName OR SpotContextDescription = NEW.SpotContextDescription;
 END;'''
 
 
@@ -299,9 +299,9 @@ END;'''
 
 
 SAMPLES_SAMPLECONTEXT_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplecontext AFTER UPDATE ON Samples_SampleContext
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplecontext AFTER UPDATE ON Samples_SampleContexts
 BEGIN
-    UPDATE Samples_SampleContext SET Samples_SampleContextModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SampleContextID = NEW.SampleContextID;
+    UPDATE Samples_SampleContexts SET Samples_SampleContextModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SampleContextID = NEW.SampleContextID;
 END;'''
 
 
@@ -327,16 +327,16 @@ END;'''
 
 
 ALIQUOTS_ALIQUOTCONTEXT_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_aliquots_aliquotcontext AFTER UPDATE ON Aliquots_AliquotContext
+CREATE TRIGGER IF NOT EXISTS update_modified_aliquots_aliquotcontext AFTER UPDATE ON Aliquots_AliquotContexts
 BEGIN
-    UPDATE Aliquots_AliquotContext SET Aliquots_AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotID = NEW.AliquotID OR AliquotContextID = NEW.AliquotContextID;
+    UPDATE Aliquots_AliquotContexts SET Aliquots_AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotID = NEW.AliquotID OR AliquotContextID = NEW.AliquotContextID;
 END;'''
 
 
 SPOTS_SPOTCONTEXT_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcontext AFTER UPDATE ON Spots_SpotContext
+CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcontext AFTER UPDATE ON Spots_SpotContexts
 BEGIN
-    UPDATE Spots_SpotContext SET Spots_SpotContextModified = CURRENT_TIMESTAMP WHERE SpotID = NEW.SpotID OR SpotContextID = NEW.SpotContextID;
+    UPDATE Spots_SpotContexts SET Spots_SpotContextModified = CURRENT_TIMESTAMP WHERE SpotID = NEW.SpotID OR SpotContextID = NEW.SpotContextID;
 END;'''
 
 
