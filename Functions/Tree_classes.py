@@ -911,7 +911,7 @@ class CheckableTreeModel(TreeModel):
             item = self.rootItem
         else:
             item = self.getItem(index)
-        if role == QtC.Qt.ItemDataRole.CheckStateRole:
+        if index.column() == 0 and role == QtC.Qt.ItemDataRole.CheckStateRole:
             return item.getCheckState()
         return super().data(index, role)
 
@@ -919,7 +919,7 @@ class CheckableTreeModel(TreeModel):
         if not index.isValid():
             # print("Root has no data to set")
             return False
-        if role == QtC.Qt.ItemDataRole.CheckStateRole:
+        if index.column() == 0 and role == QtC.Qt.ItemDataRole.CheckStateRole:
             tree_item = self.getItem(index)
             tree_item.setCheckState(value)
             self.dataChanged.emit(index, index, [role])
