@@ -9,7 +9,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
-from Functions.Tree_classes import TreeModel, TreeCombobox, CheckableTreeModel, CheckableTreeView
+from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Table_classes import SampleTableModel
 import Functions.Text_manipulations as TxM
 from ui.AddTags import AddTags
@@ -25,7 +25,7 @@ class EditSampleTable(QtW.QDialog):
         self.db = database
         self.sample_model = sample_model
         self.table_model = QtS.QSqlTableModel()
-        self.combo = TreeCombobox()
+        self.combo = CheckableTreeCombobox()
         self.combo_index = QtC.QModelIndex()
         # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.filter_proxy_model = QtC.QSortFilterProxyModel()
@@ -95,7 +95,7 @@ class EditSampleTable(QtW.QDialog):
             else:
                 return
             self.combo_index = selected_index[0]
-            self.combo = TreeCombobox()
+            self.combo = CheckableTreeCombobox()
             self.combo.closing.connect(self.destroy_dropdown)
             self.table_model.setTable(table)
             self.table_model.select()

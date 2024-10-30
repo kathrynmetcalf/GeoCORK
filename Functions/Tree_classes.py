@@ -977,33 +977,59 @@ class CheckableTreeModel(TreeModel):
             self.releaseSavepoint()
 
 class TreeCombobox(QtW.QComboBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.treeView = QtW.QTreeView()
+        self.treeView.setRootIsDecorated(True)
+        self.setView(self.treeView)
+
+    def showPopup(self):
+        self.treeView.expandAll()
+        self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        columns = self.model().columnCount()
+        width_hint = 0
+        for col in range(columns):
+            if 0 < col < 4 or col >= columns-2:
+                # Don't show ID, parent ID, parent row, created timestamp, or modified timestamp
+                self.treeView.hideColumn(col)
+            else:
+                # Add up the size hints for all the visible columns
+                width_hint += self.treeView.columnWidth(col)
+        self.treeView.setSortingEnabled(False)
+        width_c1 = self.treeView.sizeHintForColumn(0)
+        width_tree = self.treeView.sizeHint().width()
+        if width_hint < 2*width_c1:
+            size_hint = width_hint
+        else:
+            size_hint = 2*width_c1
+        self.treeView.setMinimumWidth(size_hint)
+        # self.treeView.horizontalScrollBar()
+        super().showPopup()
+
+class CheckableTreeCombobox(TreeCombobox):
     closing = QtC.pyqtSignal()
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self.setEditable(True)
         self.lineEdit().setReadOnly(True)
         self.closedOnLineEditClick = False
         self.treeView = CheckableTreeView()
+        # show the empty root item in the combo box
+        self.treeView.setRootIsDecorated(True)
         self.setView(self.treeView)
-
-        # self.model = CheckableTreeModel()
-        # self.setModel(self.model)
 
         self.lineEdit().installEventFilter(self)
         self.treeView.viewport().installEventFilter(self)
-        # self.model.dataChanged.connect(self.update_line_edit)
 
     def setModel(self, model: CheckableTreeModel):
         super().setModel(model)
         if self.model():
-            # print(f"Connecting signal")
             self.model().dataChanged.connect(self.update_line_edit)
 
     def set_line_edit_text(self, text):
         self.lineEdit().setText(text)
 
     def update_line_edit(self):
-        # print('Updating line edit')
         current_line_edit_text = self.lineEdit().text()
         text_items = current_line_edit_text.split(',')
         if '' in text_items:
@@ -1021,22 +1047,21 @@ class TreeCombobox(QtW.QComboBox):
             new_line_edit_text = ','.join(text_items)
             self.lineEdit().setText(new_line_edit_text)
 
-    def showPopup(self):
-        self.treeView.expandAll()
-        self.treeView.hideColumn(1)  # don't show ID column
-        self.treeView.hideColumn(2)  # don't show parent ID column
-        self.treeView.hideColumn(3)  # don't show parent row column
-        self.treeView.setSortingEnabled(False)
-        self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-        super().showPopup()
+    # def showPopup(self):
+    #     self.treeView.expandAll()
+    #     self.treeView.hideColumn(1)  # don't show ID column
+    #     self.treeView.hideColumn(2)  # don't show parent ID column
+    #     self.treeView.hideColumn(3)  # don't show parent row column
+    #     self.treeView.setSortingEnabled(False)
+    #     self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+    #     self.treeView.setMinimumWidth(self.treeView.sizeHintForColumn(0))
+    #     super().showPopup()
 
     def hidePopup(self):
         super().hidePopup()
         self.closing.emit()
-        # self.startTimer(100)
 
     def eventFilter(self, obj, event):
-        # print(f'Event type: {event.type()}')
         if obj == self.lineEdit():
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 if self.closedOnLineEditClick:
@@ -1050,6 +1075,5 @@ class TreeCombobox(QtW.QComboBox):
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 self.treeView.toggle_check_state(self.treeView.currentIndex())
                 self.showPopup()
-                # self._prevent_hide = True
                 return True
             return super().eventFilter(obj, event)

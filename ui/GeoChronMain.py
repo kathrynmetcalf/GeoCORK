@@ -23,6 +23,7 @@ from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.Filters import QueryBuilder
+from ui.SampleInformation import  SampleInformation
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -301,7 +302,8 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditSampleTable(self.db, self.sample_model)
+            # dlg = EditSampleTable(self.db, self.sample_model)
+            dlg = SampleInformation(self, None, None)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:

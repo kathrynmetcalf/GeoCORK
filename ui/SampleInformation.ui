@@ -437,7 +437,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="oldest_rel_comboBox"/>
+       <widget class="TreeCombobox" name="oldest_rel_comboBox"/>
       </item>
       <item>
        <spacer name="horizontalSpacer">
@@ -469,7 +469,7 @@
        </widget>
       </item>
       <item>
-       <widget class="QComboBox" name="oldest_rel_comboBox_2"/>
+       <widget class="TreeCombobox" name="youngest_rel_comboBox"/>
       </item>
      </layout>
     </widget>
@@ -491,7 +491,7 @@
       <rect>
        <x>10</x>
        <y>20</y>
-       <width>464</width>
+       <width>471</width>
        <height>24</height>
       </rect>
      </property>
@@ -545,7 +545,7 @@
       <rect>
        <x>9</x>
        <y>50</y>
-       <width>427</width>
+       <width>471</width>
        <height>24</height>
       </rect>
      </property>
@@ -588,6 +588,25 @@
          </size>
         </property>
        </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer_4">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeType">
+         <enum>QSizePolicy::Fixed</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+      <item>
+       <widget class="QComboBox" name="best_age_error_type_comboBox"/>
       </item>
      </layout>
     </widget>
@@ -819,7 +838,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="sample_context_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="sample_context_comboBox"/>
        </item>
       </layout>
      </item>
@@ -836,7 +855,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="sampling_method_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="sampling_method_comboBox"/>
        </item>
       </layout>
      </item>
@@ -853,7 +872,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="unit_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="unit_comboBox"/>
        </item>
       </layout>
      </item>
@@ -870,7 +889,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="rock_type_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="rock_type_comboBox"/>
        </item>
       </layout>
      </item>
@@ -887,7 +906,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="region_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="region_comboBox"/>
        </item>
       </layout>
      </item>
@@ -904,7 +923,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="setting_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="setting_comboBox"/>
        </item>
       </layout>
      </item>
@@ -921,7 +940,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="age_signature_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="age_signature_comboBox"/>
        </item>
       </layout>
      </item>
@@ -978,6 +997,18 @@
    </property>
   </widget>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>TreeCombobox</class>
+   <extends>QComboBox</extends>
+   <header location="global">Functions/Tree_classes.h</header>
+  </customwidget>
+  <customwidget>
+   <class>CheckableTreeCombobox</class>
+   <extends>QComboBox</extends>
+   <header>Functions/Tree_classes.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>
