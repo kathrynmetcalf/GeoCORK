@@ -206,6 +206,9 @@ class InsertFilterGroupDialog(QDialog):
         layout.addWidget(self.name_label)
         layout.addWidget(self.name_input)
 
+        self.warning_label = QLabel()
+        layout.addWidget(self.warning_label)
+
         # Default Color
         self.color_label = QLabel("Default Color:")
         self.color_display = QLabel(" ")
@@ -245,40 +248,51 @@ class InsertFilterGroupDialog(QDialog):
     def insert_data(self):
         # Collect data from inputs
         name = self.name_input.text()
-        color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
-        description = self.description_input.toPlainText()
-
         conn = sqlite3.connect(self.db_file)
-
-
-        with conn:
-            sql_query = f"""
-                            INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
-                            VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
-                            """
+        with (conn):
+            sql_query = f"""SELECT FilterGroupName FROM FilterGroups;
+                                    """
             c = conn.cursor()
-            #todo change to bind value to prevent sql injection
-            #error on insert non-unique filter, add message box not allowed
             c.execute(sql_query)
+            existing_filters = []
+            for row in c.fetchall():
+                existing_filters.append(row[0])
 
-        conn = sqlite3.connect(self.db_file)
-        listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
+            if name in existing_filters:
+                self.warning_label.show()
+                self.warning_label.setText('<font color="red">Name must be unique</font>')
+                self.warning_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+            else:
+                color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
+                description = self.description_input.toPlainText()
 
-        for x in range(len(listWidget.items(None))):
-            listWidget.takeItem(x)
+                conn = sqlite3.connect(self.db_file)
 
-        with conn:
-            sql_query = """SELECT * FROM FilterGroups;"""
-            c = conn.cursor()
-            for row in c.execute(sql_query):
-                item = QListWidgetItem()
-                item.setForeground(QColor(row[3]))
-                item.setStatusTip(row[4])
-                item.setText(row[1])
-                listWidget.addItem(item)
+                sql_query = f"""
+                                INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
+                                VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
+                                """
+                c = conn.cursor()
+                #todo change to bind value to prevent sql injection
+                #error on insert non-unique filter, add message box not allowed
+                c.execute(sql_query)
 
-        # Close the dialog
-        self.accept()
+                listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
+
+                for x in range(len(listWidget.items(None))):
+                    listWidget.takeItem(x)
+
+                sql_query = """SELECT * FROM FilterGroups;"""
+                c = conn.cursor()
+                for row in c.execute(sql_query):
+                    item = QListWidgetItem()
+                    item.setForeground(QColor(row[3]))
+                    item.setStatusTip(row[4])
+                    item.setText(row[1])
+                    listWidget.addItem(item)
+
+                # Close the dialog
+                self.accept()
 
 
 class FocusWheelComboBox(QComboBox):
@@ -797,9 +811,6 @@ class QueryBuilder(QWidget):
             self.layout1.insertWidget(0, self.scrollarea)
             self.scrollarea.setWidget(self.main_group_box)
             self.show()
-
-    def view_table(self):
-        print()
 
     def view_spots(self):
         dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('spot'), 'spot')

@@ -1,20 +1,16 @@
 import sqlite3
-from random import sample
 
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
-from PyQt6.QtSql import QSqlQueryModel, QSqlTableModel
-from PyQt6.QtWidgets import QFileDialog, QWidget, QComboBox, QTableView, QTreeView
-from PyQt6.sip import array
+from PyQt6 import QtWidgets as QtW
+from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
+from PyQt6.QtWidgets import QWidget, QTableView, QTreeView
 from PyQt6.uic import loadUi
+
 import Functions.Table_classes as TbC
-import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
+import Functions.Tree_classes as TrC
 from Functions import SQLUtils
-from ui.EditTable import EditTable
 
 
 class DataViewerWidget(QWidget):
@@ -38,7 +34,6 @@ class DataViewerWidget(QWidget):
         print("Database is open: " + str(ok))
 
         self.loadWindowState()
-        # Define any widgets here
 
         sources_ui_file = "ui/DataViewerWidget.ui"
         loadUi(sources_ui_file, self)
@@ -266,8 +261,8 @@ class DataViewerWidget(QWidget):
 
             dbTable_treeView.setModel(tree_model)
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            # dbTable_treeView.hideColumn(1)  # don't show ID column
-            # dbTable_treeView.hideColumn(2)  # don't show parent ID column
+            dbTable_treeView.hideColumn(1)  # don't show ID column
+            dbTable_treeView.hideColumn(2)  # don't show parent ID column
             dbTable_treeView.setSortingEnabled(True)
 
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_model))
@@ -418,16 +413,9 @@ class DataViewerWidget(QWidget):
         :return:
         """
         search_lineEdit: QtW.QLineEdit
-        # if self.case_checkBox.isChecked():
-        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-        # else:
-        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         search_expression = QtC.QRegularExpression(search_lineEdit.text())
         proxy_model.setFilterRegularExpression(search_expression)
+        #todo currently not working for tree view
 
 
     def get_existing(self, field, table):
