@@ -15,33 +15,13 @@ import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from ui.EditTable import EditTable
-# class CustomFilterProxyModel(QSortFilterProxyModel):
-#     def __init__(self):
-#         super().__init__()
-#         self.visible_rows = set()  # Track visible rows instead of hidden rows
-#
-#     def show_row(self, row):
-#         self.visible_rows.add(row)
-#         self.invalidateFilter()  # Re-apply filter
-#
-#     def hide_row(self, row):
-#         if row in self.visible_rows:
-#             self.visible_rows.remove(row)
-#         self.invalidateFilter()  # Re-apply filter
-#
-#     def filterAcceptsRow(self, source_row, source_parent):
-#         # By default, hide all rows unless they are in the visible_rows set
-#         return source_row in self.visible_rows
-#
-#     def reset_visible_rows(self):
-#         self.visible_rows = set()
-#         self.invalidateFilter()
+
 
 class DataViewerWidget(QWidget):
-    def __init__(self, db_file, left_table,  ids_to_show):
+    def __init__(self, db_file,  ids_to_show, table_type):
         super().__init__()
         self.db_file = db_file
-
+        self.table_type = table_type
         self.ids_to_show = '('
 
         if len(ids_to_show) > 0:
@@ -78,27 +58,25 @@ class DataViewerWidget(QWidget):
                             'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
         self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData', 'Spots', 'UPbAnalysisMethods']
 
-        self.dbTable_comboBox.addItem('Samples')
-        self.display_table_list(self.dbTable_comboBox_2)
+        self.dbTable_comboBox_2.addItems(self.user_view_tables)
         self.dbTable_comboBox_2.removeItem(10) # remove sample table index
 
-        self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
-                                self.dbTable_comboBox, self.edit_pushButton)
+        if self.table_type == 'sample':
+            self.dbTable_comboBox.addItem('Samples')
+        elif self.table_type == 'aliquot':
+            self.dbTable_comboBox.addItem('Aliquots')
+        elif self.table_type == 'spot':
+            self.dbTable_comboBox.addItem('Spots')
 
-        # self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-        #                         self.dbTable_comboBox_2, self.edit_pushButton_2)
+        self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
+                                  self.dbTable_comboBox, self.edit_pushButton)
 
         # Display the selected table
         self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_sample_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
-            self.edit_pushButton_2, self.dbTable_tableView))
-
-        # self.dbTable_tableView.selectionModel().selectionChanged.connect(lambda: self.display_table_with_sample_filter(
-        #     self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
-        #     self.edit_pushButton_2, self.dbTable_tableView))
+            self.edit_pushButton_2, self.dbTable_tableView, table_type))
 
         self.dbTable_tableView: QTableView
-        # self.dbTable_tableView.selectionModel().selectionChanged.connect(lambda x: print(x.selected, x.deselected))
 
         # Signal for search bar
         self.search_lineEdit.textChanged.connect(self.search)
@@ -117,15 +95,6 @@ class DataViewerWidget(QWidget):
         self.saveWindowState()
         super().closeEvent(a0)
 
-    # def open_db(self):
-    #     """
-    #     Opens a file dialog to select an existing database file, must be in the format .db
-    #     :return: database file name with path
-    #     """
-    #     home_dir = str(Path.home())
-    #     db_file = QFileDialog.getOpenFileName(self, 'Open file', home_dir, 'db(*.db)')
-    #     return db_file[0]
-
     def switch_to_table(self, db_stackedWidget):
         """
         Sets the current widget to a table view
@@ -142,17 +111,6 @@ class DataViewerWidget(QWidget):
         db_stackedWidget: QtW.QStackedWidget
         db_stackedWidget.setCurrentIndex(1)
 
-    def display_table_list(self, dbTable_comboBox):
-        """
-        Populates the tables combo box with the editable tables
-        Displays the default table
-        :return:
-        """
-        dbTable_comboBox: QtW.QComboBox
-        dbTable_comboBox.addItems(self.user_view_tables)
-        dbTable_comboBox.setCurrentText('Samples')
-
-
     def display_sample_table(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
         """
         Displays the sample table
@@ -165,11 +123,47 @@ class DataViewerWidget(QWidget):
         table = TxM.remove_spaces(table_name)
         if table == 'Samples':
             self.switch_to_table(db_stackedWidget)
-            query = TbC.SampleTableModel().setupQuery()
             sample_model = QtS.QSqlQueryModel()
             sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_model.setQuery(QtS.QSqlQuery(query, self.db))
             sample_model.setQuery(f"Select Samples.* FROM Samples WHERE Samples.SampleID IN {self.ids_to_show}")
+            sample_proxy_model.setSourceModel(sample_model)
+            sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            dbTable_tableView.setModel(sample_proxy_model)
+            dbTable_tableView.hideColumn(0)  # don't show ID column
+            dbTable_tableView.resizeColumnsToContents()
+            dbTable_tableView.setSortingEnabled(True)
+            # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+        elif table == 'Aliquots':
+            self.switch_to_table(db_stackedWidget)
+            sample_model = QtS.QSqlQueryModel()
+            sample_proxy_model = QtC.QSortFilterProxyModel()
+            sample_model.setQuery(f"Select Aliquots.* FROM Aliquots WHERE Aliquots.AliquotID IN {self.ids_to_show}")
+            sample_proxy_model.setSourceModel(sample_model)
+            sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            dbTable_tableView.setModel(sample_proxy_model)
+            dbTable_tableView.hideColumn(0)  # don't show ID column
+            dbTable_tableView.resizeColumnsToContents()
+            dbTable_tableView.setSortingEnabled(True)
+            # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+        elif table == 'Spots':
+            self.switch_to_table(db_stackedWidget)
+            query = TbC.SpotTableModel().setupQuery(self.ids_to_show)
+            print(query)
+            sample_model = QtS.QSqlQueryModel()
+            sample_proxy_model = QtC.QSortFilterProxyModel()
+            sample_model.setQuery(f"Select Spots.* FROM Spots WHERE Spots.SpotID IN {self.ids_to_show}")
+            sample_proxy_model.setSourceModel(sample_model)
+            sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            dbTable_tableView.setModel(sample_proxy_model)
+            dbTable_tableView.hideColumn(0)  # don't show ID column
+            dbTable_tableView.resizeColumnsToContents()
+            dbTable_tableView.setSortingEnabled(True)
+            # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+        elif table == 'UPbData':
+            self.switch_to_table(db_stackedWidget)
+            sample_model = QtS.QSqlQueryModel()
+            sample_proxy_model = QtC.QSortFilterProxyModel()
+            sample_model.setQuery(f"Select UPbData.* FROM UPbData WHERE UPbData.UPbDataID IN {self.ids_to_show}")
             sample_proxy_model.setSourceModel(sample_model)
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
@@ -185,7 +179,7 @@ class DataViewerWidget(QWidget):
         self.selectionTimer.setSingleShot(True)
         self.selectionTimer.timeout.connect(lambda: self.display_table_with_sample_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
-            self.edit_pushButton_2, self.dbTable_tableView))
+            self.edit_pushButton_2, self.dbTable_tableView, self.table_type))
 
         # Connect the selectionChanged signal to the onSelectionChanged method
         self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
@@ -201,7 +195,7 @@ class DataViewerWidget(QWidget):
         self.selectionTimer.start(250)  # Delay in milliseconds
 
     def display_table_with_sample_filter(self, db_stackedWidget, dbTable_tableView, dbTable_treeView,
-                                         dbTable_comboBox, edit_pushButton, sample_filter, selected=None, deselected=None):
+                                         dbTable_comboBox, edit_pushButton, sample_filter, table_type, selected=None, deselected=None):
         """
         Displays the selected table
         :return:
@@ -213,22 +207,35 @@ class DataViewerWidget(QWidget):
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
 
-        sample_ids = []
+        condition_ids = []
         ids_to_show = []
         if sample_filter.selectionModel().hasSelection():
             for index in self.dbTable_tableView.selectionModel().selectedIndexes():
-                sample_id = sample_filter.model().index(index.row(), 0).data()
-                sample_ids.append(str(sample_id))
+                condition_id = sample_filter.model().index(index.row(), 0).data()
+                condition_ids.append(str(condition_id))
 
-            sample_condition = ''
-            if sample_ids:
-                sample_condition = f" WHERE Samples.SampleID IN ({', '.join(sample_ids)})"
+            table_condition = ''
+            sql = self.get_query_from_table(table)
+            if condition_ids:
+                if table_type == 'sample':
+                    table_condition = f" WHERE Samples.SampleID IN ({', '.join(condition_ids)})"
+                elif table_type == 'aliquot':
+                    table_condition = f" WHERE Aliquots.AliquotID IN ({', '.join(condition_ids)})"
+                    if SQLUtils.aliquot_join not in sql:
+                        sql += SQLUtils.aliquot_join + '\n'
+                elif table_type == 'spot':
+                    table_condition = f" WHERE Spots.SpotID IN ({', '.join(condition_ids)})"
+                    if SQLUtils.aliquot_join not in sql:
+                        sql += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in sql:
+                        sql += SQLUtils.spot_join + '\n'
                 # "(19,39,58)"
+
+            sql += table_condition
             conn = sqlite3.connect(self.db_file)
             with conn:
                 c = conn.cursor()
-                sql = self.get_query_from_table(table) + sample_condition
-
+                print (sql)
                 if c.execute(sql):
                     existing = c.fetchall()
                     for row in existing:

@@ -727,12 +727,12 @@ class QueryBuilder(QWidget):
         # View Aliquots button
         self.view_aliquots_button = QPushButton('View Aliquots')
         buttons_layout.addWidget(self.view_aliquots_button)
-        # self.view_aliquots_button.clicked.connect()
+        self.view_aliquots_button.clicked.connect(self.view_aliquots)
 
         # View Spots button
         self.view_spots_button = QPushButton('View Spots')
         buttons_layout.addWidget(self.view_spots_button)
-        # self.view_spots_button.clicked.connect()
+        self.view_spots_button.clicked.connect(self.view_spots)
 
         # View U/Pb Analysis button
         self.view_analysis_button = QPushButton('View Analysis')
@@ -763,8 +763,28 @@ class QueryBuilder(QWidget):
     def view_table(self):
         print()
 
+    def view_spots(self):
+        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('spot'), 'spot')
+        dataviewer.setWindowTitle("Filtered Spot View")
+
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def view_aliquots(self):
+        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('aliquot'), 'aliquot')
+        dataviewer.setWindowTitle("Filtered Aliquot View")
+
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
     def view_samples(self):
-        dataviewer = DataViewerWidget(self.db_file, 't', self.get_sample_ids())
+        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('sample'), 'sample')
         dataviewer.setWindowTitle("Filtered Sample View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -773,14 +793,14 @@ class QueryBuilder(QWidget):
         dataviewer.destroyed.connect(loop.quit)
         loop.exec()
 
-    def get_sample_ids(self):
+    def get_filtered_ids(self, type):
         conn = sqlite3.connect(self.db_file)
         with conn:
-            sql_query = self.get_sql()
+            sql_query = self.get_sql(type)
             c = conn.cursor()
             return c.execute(sql_query).fetchall()
 
-    def get_sql(self):
+    def get_sql(self, type):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
 
@@ -883,8 +903,26 @@ class QueryBuilder(QWidget):
                     if SQLUtils.unit_join not in join:
                         join += SQLUtils.unit_join + '\n'
         # Final SQL query
-
-        sql_query = f"SELECT DISTINCT SampleID FROM (SELECT Samples.SampleID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause});"
+        if type == 'sample':
+            sql_query = f"SELECT DISTINCT SampleID FROM (SELECT Samples.SampleID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause});"
+        elif type == 'aliquot':
+            if SQLUtils.aliquot_join not in join:
+                join += SQLUtils.aliquot_join + '\n'
+            sql_query = f"SELECT DISTINCT AliquotID FROM (SELECT Aliquots.AliquotID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE AliquotID IS NOT NULL;"
+        elif type == 'spot':
+            if SQLUtils.aliquot_join not in join:
+                join += SQLUtils.aliquot_join + '\n'
+            if SQLUtils.spot_join not in join:
+                join += SQLUtils.spot_join + '\n'
+            sql_query = f"SELECT DISTINCT SpotID FROM (SELECT Spots.SpotID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE SpotID IS NOT NULL;"
+        elif type == 'upbdata':
+            if SQLUtils.aliquot_join not in join:
+                join += SQLUtils.aliquot_join + '\n'
+            if SQLUtils.spot_join not in join:
+                join += SQLUtils.spot_join + '\n'
+            if SQLUtils.upb_data_join not in join:
+                join += SQLUtils.upb_data_join + '\n'
+            sql_query = f"SELECT DISTINCT UPbDataID FROM (SELECT UPbData.UPbDataID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbData IS NOT NULL;"
         print (sql_query)
         return sql_query
 
