@@ -78,9 +78,7 @@ class DataViewerWidget(QWidget):
 
         self.dbTable_tableView: QTableView
 
-        # Signal for search bar
-        self.search_lineEdit.textChanged.connect(self.search)
-        self.search_lineEdit_2.textChanged.connect(self.search)
+
         # Signal for clicked add button in main window
         # self.edit_pushButton.clicked.connect(
         #     lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
@@ -133,6 +131,8 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+            # Signal for search bar
+            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Aliquots':
             self.switch_to_table(db_stackedWidget)
             sample_model = QtS.QSqlQueryModel()
@@ -145,6 +145,7 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Spots':
             self.switch_to_table(db_stackedWidget)
             query = TbC.SpotTableModel().setupQuery(self.ids_to_show)
@@ -159,6 +160,7 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'UPbData':
             self.switch_to_table(db_stackedWidget)
             sample_model = QtS.QSqlQueryModel()
@@ -171,6 +173,7 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
+            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
@@ -267,6 +270,8 @@ class DataViewerWidget(QWidget):
             # dbTable_treeView.hideColumn(2)  # don't show parent ID column
             dbTable_treeView.setSortingEnabled(True)
 
+            self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_model))
+
         elif table in self.dbtable_list:
             self.switch_to_table(db_stackedWidget)
             model = QtS.QSqlTableModel(db=self.db)
@@ -295,10 +300,13 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.setSortingEnabled(True)
             dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
+            self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, table_proxy_model))
+
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
         # todo change to only add rows to table that are needed, not add all and only show some, performance is tanking
         # todo fix QTableView only showing about first 250 rows only, canFetchMore and pagenation
+
 
         edit_pushButton.setText(f"Edit {table_name}")
 
@@ -403,14 +411,13 @@ class DataViewerWidget(QWidget):
         print(join)
         return join
 
-    def search(self, search_lineEdit, dbTable_comboBox):
+    def search(self, search_lineEdit, proxy_model):
         """
         Search the current table for the text in the search box
         Check if the case-sensitive box is checked or not
         :return:
         """
         search_lineEdit: QtW.QLineEdit
-        dbtable_comboBox: QtW.QComboBox
         # if self.case_checkBox.isChecked():
         #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
         #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
@@ -420,15 +427,8 @@ class DataViewerWidget(QWidget):
         #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         search_expression = QtC.QRegularExpression(search_lineEdit.text())
-        table_name = dbTable_comboBox.currentText()
-        # Remove spaces from display names
-        table = table_name.replace(" ", "")
-        # if table == 'Samples':
-        #     self.sample_proxy_model.setFilterRegularExpression(search_expression)
-        # elif table in self.dbtree_list:
-        #     self.tree_proxy_model.setFilterRegularExpression(search_expression)
-        # else:
-        #     self.table_proxy_model.setFilterRegularExpression(search_expression)
+        proxy_model.setFilterRegularExpression(search_expression)
+
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)
