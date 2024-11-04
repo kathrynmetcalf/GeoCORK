@@ -5,9 +5,9 @@ import re
 import sqlite3
 
 import PyQt6
-from PyQt6 import QtCore
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop
-from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon
+from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
@@ -258,6 +258,7 @@ class InsertFilterGroupDialog(QDialog):
                             """
             c = conn.cursor()
             #todo change to bind value to prevent sql injection
+            #error on insert non-unique filter, add message box not allowed
             c.execute(sql_query)
 
         conn = sqlite3.connect(self.db_file)
@@ -675,11 +676,11 @@ class QueryBuilder(QWidget):
                 self.db_file = widget.db_file
 
         conn = sqlite3.connect(self.db_file)
-        listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
+        self.listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
 
 
-        for x in listWidget.items(None):
-            listWidget.takeItem(x)
+        for x in self.listWidget.items(None):
+            self.listWidget.takeItem(x)
 
         with conn:
             sql_query = """SELECT * FROM FilterGroups;"""
@@ -689,9 +690,11 @@ class QueryBuilder(QWidget):
                 item.setForeground(QColor(row[3]))
                 item.setToolTip(row[4])
                 item.setText(row[1])
-                listWidget.addItem(item)
+                self.listWidget.addItem(item)
 
-        listWidget.itemDoubleClicked.connect(lambda state: self.populate_filters(state))
+        self.listWidget.itemDoubleClicked.connect(lambda state: self.populate_filters(state))
+        self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.listWidget.customContextMenuRequested.connect(self.filter_context_menu)
 
         self.layout1 = QVBoxLayout(self)
 
@@ -745,6 +748,41 @@ class QueryBuilder(QWidget):
         self.save_filter_button.clicked.connect(self.save_filter)
 
         self.layout1.addLayout(buttons_layout)
+
+    def filter_context_menu(self, pos):
+        print('right clicked')
+        # Get the item at the clicked position
+        item = self.listWidget.itemAt(pos)
+
+        # Only show menu if an item is clicked
+        if item:
+            # Create a context menu
+            context_menu = QtWidgets.QMenu()
+
+            # Add delete action
+            delete_action = QAction("Delete", self.listWidget)
+            delete_action.triggered.connect(lambda: self.delete_filter(item))
+            context_menu.addAction(delete_action)
+
+            # Show the context menu at the cursor position
+            context_menu.exec(self.listWidget.mapToGlobal(pos))
+
+    def delete_filter(self, item):
+
+        # Confirm deletion
+        reply = QMessageBox.question(self.listWidget, "Confirm Deletion", f"Are you sure you want to delete '{item.text()}'?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            # Delete the item
+            row = self.listWidget.row(item)
+            self.listWidget.takeItem(row)
+
+            conn = sqlite3.connect(self.db_file)
+            with conn:
+                sql_query = f"""DELETE FROM FilterGroups WHERE FilterGroupName="{item.text()}";"""
+                c = conn.cursor()
+                c.execute(sql_query)
 
 
     def populate_filters(self, filter_name):
