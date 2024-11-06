@@ -4,13 +4,15 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
-from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QHBoxLayout, QPushButton, QVBoxLayout
+from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QHBoxLayout, QPushButton, QVBoxLayout, QComboBox
 from PyQt6.uic import loadUi
 
 import Functions.Table_classes as TbC
 import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
+from EditTable import EditTable
 from Functions import SQLUtils
+from Tree_classes import TreeSortFilterProxyModel
 
 
 class DataViewerWidget(QWidget):
@@ -38,7 +40,7 @@ class DataViewerWidget(QWidget):
         sources_ui_file = "ui/DataViewerWidget.ui"
         loadUi(sources_ui_file, self)
 
-        self.id_condition = ""
+        self.id_condition = "()"
 
         self.current_selection = []
         self.current_table = ""
@@ -70,12 +72,13 @@ class DataViewerWidget(QWidget):
 
         # Pagination variables
         self.current_page_1 = 0
-        self.rows_per_page_1 = 5
-        self.total_records_1 = self.get_total_records(self.dbTable_comboBox)
+        self.rows_per_page_1 = 250
+        self.total_records_1 = self.get_total_records_1()
 
         self.current_page_2 = 0
-        self.rows_per_page_2 = 5
-        self.total_records_2 = self.get_total_records(self.dbTable_comboBox_2)
+        self.rows_per_page_2 = 250
+        self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+
 
         self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
                                   self.dbTable_comboBox, self.edit_pushButton)
@@ -102,12 +105,12 @@ class DataViewerWidget(QWidget):
                              self.dbTable_comboBox_2,
                              self.edit_pushButton_2, self.dbTable_tableView, table_type)))
         # Signal for clicked add button in main window
-        # self.edit_pushButton.clicked.connect(
-        #     lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
-        #                        self.dbTable_comboBox, self.edit_pushButton))
-        # self.edit_pushButton_2.clicked.connect(
-        #      lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-        #                        self.dbTable_comboBox_2, self.edit_pushButton_2))
+        self.edit_pushButton.clicked.connect(
+            lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
+                               self.dbTable_comboBox, self.edit_pushButton))
+        self.edit_pushButton_2.clicked.connect(
+             lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
+                               self.dbTable_comboBox_2, self.edit_pushButton_2))
 
         self.show()
 
@@ -188,11 +191,11 @@ class DataViewerWidget(QWidget):
         except ValueError:
             print("Invalid record ID.")
 
-    def get_total_records(self, dbTable_comboBox):
+    def get_total_records_1(self):
         """
         Get the total number of records in the Samples table
         """
-        table_name = dbTable_comboBox.currentText()
+        table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         conn = sqlite3.connect(self.db_file)
         with conn:
@@ -200,12 +203,32 @@ class DataViewerWidget(QWidget):
             if table == "LabFacilities":
                 c.execute(f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.ids_to_show}")
             elif table == "UPbData":
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE UPbAnalysisID IN {self.ids_to_show}")
+                c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.ids_to_show}")
             else:
                 c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.ids_to_show}")
-                #todo failing on SpotContext?
-
             return c.fetchone()[0]
+
+    def get_total_records_2(self, dbTable_comboBox):
+        """
+        Get the total number of records in the Samples table
+        """
+        table_name = dbTable_comboBox.currentText()
+        table = TxM.remove_spaces(table_name)
+        print('current table: ' + table)
+        conn = sqlite3.connect(self.db_file)
+        with conn:
+            c = conn.cursor()
+            if table == "LabFacilities":
+                c.execute(f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.id_condition}")
+            elif table == "UPbData":
+                c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.id_condition}")
+            else:
+                c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition}")
+                #todo failing on SpotContext? issue with [0:-1]
+                #this self.ids_to_show is returning sampleIDs not target table IDs
+            test = c.fetchone()[0]
+            print(f"{table} : {test}")
+            return test
 
     def get_record_index(self, record_id, dbTable_comboBox):
         """
@@ -307,6 +330,10 @@ class DataViewerWidget(QWidget):
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
+        # Update page info label
+        start_record = offset + 1
+        end_record = min(offset + self.rows_per_page_1, self.total_records_1)
+        self.page_info_label.setText(f"Showing records {start_record} - {end_record} of {self.total_records_1}")
 
         self.selectionTimer = QTimer()
         self.selectionTimer.setSingleShot(True)
@@ -316,7 +343,10 @@ class DataViewerWidget(QWidget):
 
         # Connect the selectionChanged signal to the onSelectionChanged method
         self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
-
+        # Update page info label
+        start_record = offset + 1
+        end_record = min(offset + self.rows_per_page_2, self.total_records_2)
+        self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
         edit_pushButton.setText(f"Edit {table_name}")
 
     def on_select_changed(self):
@@ -336,8 +366,8 @@ class DataViewerWidget(QWidget):
         self.dbTable_tableView: QTableView
         dbTable_treeView: QTreeView
         sample_filter: QTableView
+        offset = self.current_page_2 * self.rows_per_page_2
 
-        self.total_records_2 = self.get_total_records(dbTable_comboBox)
 
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
@@ -346,7 +376,8 @@ class DataViewerWidget(QWidget):
         ids_to_show = []
 
         if sample_filter.selectionModel().hasSelection():
-            if self.current_selection != self.dbTable_tableView.selectionModel().selectedIndexes() or self.current_table != dbTable_comboBox.currentText():
+            if (self.current_selection != self.dbTable_tableView.selectionModel().selectedIndexes()
+                    or self.current_table != dbTable_comboBox.currentText()):
                 self.current_selection = self.dbTable_tableView.selectionModel().selectedIndexes()
                 self.current_table = dbTable_comboBox.currentText()
                 for index in self.dbTable_tableView.selectionModel().selectedIndexes():
@@ -374,7 +405,6 @@ class DataViewerWidget(QWidget):
                 conn = sqlite3.connect(self.db_file)
                 with conn:
                     c = conn.cursor()
-                    print (sql)
                     if c.execute(sql):
                         existing = c.fetchall()
                         for row in existing:
@@ -397,18 +427,19 @@ class DataViewerWidget(QWidget):
                                 f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
                                 f'SELECT {table[0:-1]}ID FROM ParentTree) ')
             tree_model = TrC.TreeModel(model, None)
-
-            dbTable_treeView.setModel(tree_model)
+            tree_proxy_model = TreeSortFilterProxyModel()
+            tree_proxy_model.setSourceModel(tree_model)
+            dbTable_treeView.setModel(tree_proxy_model)
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             dbTable_treeView.hideColumn(1)  # don't show ID column
             dbTable_treeView.hideColumn(2)  # don't show parent ID column
             dbTable_treeView.setSortingEnabled(True)
 
-            self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_model))
+            self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_proxy_model))
 
         elif table in self.dbtable_list:
             self.switch_to_table(db_stackedWidget)
-            offset = self.current_page_2 * self.rows_per_page_2
+
             model = QtS.QSqlQueryModel()
             table_proxy_model = QSortFilterProxyModel()
 
@@ -444,7 +475,11 @@ class DataViewerWidget(QWidget):
         # todo change to only add rows to table that are needed, not add all and only show some, performance is tanking
         # todo fix QTableView only showing about first 250 rows only, canFetchMore and pagenation
 
-
+        self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+        # Update page info label
+        start_record = offset + 1
+        end_record = min(offset + self.rows_per_page_2, self.total_records_2)
+        self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
         edit_pushButton.setText(f"Edit {table_name}")
 
     def get_query_from_table(self, table):
@@ -569,20 +604,20 @@ class DataViewerWidget(QWidget):
                 existing = c.fetchall()
                 return existing
 
-    # def edit_popup(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton):
-    #     dbTable_comboBox: QComboBox
-    #     table_name = dbTable_comboBox.currentText()
-    #     table = TxM.remove_spaces(table_name)
-    #     if table_name == 'Samples':
-    #         dlg = EditTable(self.db, self.sample_model, table_name, self.dbtree_list, 'table')
-    #     elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
-    #         return
-    #     elif table in self.dbtree_list:
-    #         dlg = EditTable(self.db, self.tree_model, table_name, self.dbtree_list, 'tree')
-    #     else:
-    #         dlg = EditTable(self.db, self.model, table_name, self.dbtree_list, 'table')
-    #     dlg.exec()
-    #     self.display_table(db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton)
+    def edit_popup(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton):
+        dbTable_comboBox: QComboBox
+        table_name = dbTable_comboBox.currentText()
+        table = TxM.remove_spaces(table_name)
+        if table_name == 'Samples':
+            dlg = EditTable(self.db, self.sample_model, table_name)
+        elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
+            return
+        elif table in self.dbtree_list:
+            dlg = EditTable(self.db, self.tree_model, table_name)
+        else:
+            dlg = EditTable(self.db, self.model, table_name)
+        dlg.exec()
+        self.display_table(db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton)
 
     def saveWindowState(self):
         self.settings.setValue("ui/GeoChronMain/pos", self.pos())

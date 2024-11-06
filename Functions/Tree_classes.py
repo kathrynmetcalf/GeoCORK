@@ -848,6 +848,33 @@ def restore_expanded_state(table: str, filter_model: QtC.QSortFilterProxyModel, 
 
     restore_state(QtC.QModelIndex())
 
+
+class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setRecursiveFilteringEnabled(True)  # Enables recursive filtering for tree structures
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        # Override this method to implement custom filtering logic
+        model = self.sourceModel()
+
+        # Iterate through all columns of the given row to check for a match
+        column_count = model.columnCount(source_parent)
+        for column in range(column_count):
+            index = model.index(source_row, column, source_parent)
+
+            # If the filter pattern is empty, accept all rows
+            if self.filterRegularExpression().pattern() == '':
+                return True
+
+            # If the current column's data matches the filter, accept this row
+            if index.data() is not None and self.filterRegularExpression().match(str(index.data())).hasMatch():
+                return True
+
+        # If no column matches, reject this row
+        return False
+
+
 if __name__ == '__main__':
     # only run these commands if this script is run
     # Can't be run when used as a library for another script
