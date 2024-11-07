@@ -53,7 +53,7 @@ class DataViewerWidget(QWidget):
         self.user_view_tables = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities',
                                  'Instruments',
                                  'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings',
-                                 'Sources',
+                                 'Sources', 'Spots',
                                  'Spot Compositions', 'Spot Context', 'UPb Data', 'Analysis Methods', 'Units', 'UPb Analysis Methods']
         # list of tables to display as a tree structure
         self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Regions', 'RockTypes', 'SampleContext',
@@ -69,6 +69,8 @@ class DataViewerWidget(QWidget):
             self.dbTable_comboBox.addItem('Aliquots')
         elif self.table_type == 'spot':
             self.dbTable_comboBox.addItem('Spots')
+        elif self.table_type == 'upbdata':
+            self.dbTable_comboBox.addItem('UPbData')
 
         # Pagination variables
         self.current_page_1 = 0

@@ -139,11 +139,14 @@ class GeoChron(QtW.QMainWindow):
         Executes the import wizard with that file
         :return:
         """
-        home_dir = str(Path.home()) + r'\Downloads'
-        fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
-        import_wizard = ui.import_wizard.ImportWizardDialog(fname[0], self.db_file)
-        #todo fix crash on cancel file dialog
-        import_wizard.exec()
+        try:
+            home_dir = str(Path.home()) + r'\Downloads'
+            fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
+            import_wizard = ui.import_wizard.ImportWizardDialog(fname[0], self.db_file)
+            #todo fix crash on cancel file dialog
+            import_wizard.exec()
+        except FileNotFoundError:
+            print("No file selected")
 
     def display_table_list(self):
         """

@@ -274,7 +274,6 @@ class InsertFilterGroupDialog(QDialog):
                                 """
                 c = conn.cursor()
                 #todo change to bind value to prevent sql injection
-                #error on insert non-unique filter, add message box not allowed
                 c.execute(sql_query)
 
                 listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
@@ -733,14 +732,6 @@ class QueryBuilder(QWidget):
         buttons_layout.addWidget(self.view_samples_button)
         self.view_samples_button.clicked.connect(self.view_samples)
 
-        # self.table_select_combobox = QComboBoxLabel('Select Table:', objectName='QrytableSelectComboBox')
-        # self.table_select_combobox.addItems(
-        #     ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
-        #      'Regions', 'RockTypes', 'Sample Context', 'Sampling Methods', 'Settings', 'Sources',
-        #      'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units'])
-        #
-        # buttons_layout.addWidget(self.table_select_combobox)
-
         # View Aliquots button
         self.view_aliquots_button = QPushButton('View Aliquots')
         buttons_layout.addWidget(self.view_aliquots_button)
@@ -752,9 +743,10 @@ class QueryBuilder(QWidget):
         self.view_spots_button.clicked.connect(self.view_spots)
 
         # View U/Pb Analysis button
+        #todo add combobox to select which analysis table to view, when other tables are added
         self.view_analysis_button = QPushButton('View Analysis')
         buttons_layout.addWidget(self.view_analysis_button)
-        # self.view_analysis_button.clicked.connect()
+        self.view_analysis_button.clicked.connect(self.view_analysis)
 
         # Save filter button
         self.save_filter_button = QPushButton('Save Filter')
@@ -812,6 +804,16 @@ class QueryBuilder(QWidget):
             self.scrollarea.setWidget(self.main_group_box)
             self.show()
 
+    def view_analysis(self):
+        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('upbdata'), 'upbdata')
+        dataviewer.setWindowTitle("Filtered Analysis View")
+
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
     def view_spots(self):
         dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('spot'), 'spot')
         dataviewer.setWindowTitle("Filtered Spot View")
@@ -852,6 +854,7 @@ class QueryBuilder(QWidget):
     def get_sql(self, type):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
+        #todo where clause breaks when entering 5 vs 5.0
 
         join = ""
 
@@ -971,7 +974,7 @@ class QueryBuilder(QWidget):
                 join += SQLUtils.spot_join + '\n'
             if SQLUtils.upb_data_join not in join:
                 join += SQLUtils.upb_data_join + '\n'
-            sql_query = f"SELECT DISTINCT UPbDataID FROM (SELECT UPbData.UPbDataID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbData IS NOT NULL;"
+            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbData.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
         print (sql_query)
         return sql_query
 
