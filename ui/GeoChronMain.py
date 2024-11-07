@@ -20,6 +20,7 @@ import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
+from Tree_classes import TreeSortFilterProxyModel
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -66,7 +67,7 @@ class GeoChron(QtW.QMainWindow):
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = QtS.QSqlTableModel()
         self.tree_model = TrC.TreeModel()
-        self.tree_proxy_model = QtC.QSortFilterProxyModel()
+        self.tree_proxy_model = TreeSortFilterProxyModel()
         self.table_proxy_model = QtC.QSortFilterProxyModel()
         self.display_table_list()
 
@@ -259,7 +260,6 @@ class GeoChron(QtW.QMainWindow):
         #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
         #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
         # else:
-        #todo fix searching to use dyanmic proxy models
 
         # self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         # self.treWe_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
