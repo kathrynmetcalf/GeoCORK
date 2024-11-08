@@ -212,9 +212,9 @@ class GeoChron(QtW.QMainWindow):
 
             self.dbTable_treeView.setModel(self.tree_proxy_model)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            # self.dbTable_treeView.hideColumn(1)  # don't show ID column
-            # self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
-            # self.dbTable_treeView.hideColumn(3)  # don't show parent row column
+            self.dbTable_treeView.hideColumn(1)  # don't show ID column
+            self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
+            self.dbTable_treeView.hideColumn(3)  # don't show parent row column
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
             # if table == 'Ages':
@@ -276,6 +276,8 @@ class GeoChron(QtW.QMainWindow):
             self.sample_proxy_model.setFilterRegularExpression(search_expression)
         elif table in self.dbtree_list:
             self.tree_proxy_model.setFilterRegularExpression(search_expression)
+            if search_expression is not "":
+                self.dbTable_treeView.expandAll()
         else:
             self.table_proxy_model.setFilterRegularExpression(search_expression)
 

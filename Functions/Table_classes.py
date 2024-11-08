@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import sqlite3
+from random import sample
 
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -18,7 +19,7 @@ age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatu
 
 
 class SampleTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self):
+    def setupQuery(self, ids_to_show=None, rows_per_page=None, offset=None):
         sample_query = f'''
                     SELECT
                         {SQLUtils.qsample_id},
@@ -49,7 +50,7 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         {SQLUtils.qspot_context},
                         {SQLUtils.qspot_compositions},
                         {SQLUtils.qaliquot_context}
-                    FROM Samples as S
+                    FROM Samples
                     {SQLUtils.column_join}
                     {SQLUtils.old_age_join}
                     {SQLUtils.young_age_join}
@@ -69,15 +70,19 @@ class SampleTableModel(QtS.QSqlQueryModel):
                     {SQLUtils.spot_context_join}
                     {SQLUtils.spot_composition_join}
                     {SQLUtils.aliquot_context_join}
-                    GROUP BY SampleName
-					ORDER BY S.SampleID
+                    {f"WHERE Samples.SampleID IN {ids_to_show}" if ids_to_show is not None else ""}
+                    GROUP BY Samples.SampleName
+					ORDER BY Samples.SampleID
+					{f"LIMIT {rows_per_page}" if rows_per_page is not None else ""}
+					{f"OFFSET {offset}" if offset is not None else ""}
                     '''
 
+        print(sample_query)
         return sample_query
 
 
 class AliquotTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self, sample_IDs):
+    def setupQuery(self):
         # Select lines
         aliquots = 'AliquotName as "Aliquots"'
         aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
@@ -90,6 +95,7 @@ class AliquotTableModel(QtS.QSqlQueryModel):
 
         aliquot_query = f'''
                     SELECT
+                        Aliquots.AliquotID,
                         {aliquots},
                         {aliquot_context},
                         {spots},
@@ -107,10 +113,9 @@ class AliquotTableModel(QtS.QSqlQueryModel):
                     {SQLUtils.source_join}
                     {SQLUtils.upb_method_join}
                     {SQLUtils.labs_join}
-                    WHERE SampleID IN {sample_IDs}
                     GROUP BY AliquotName
+                    ORDER BY Aliquots.AliquotID
                     '''
-
         return aliquot_query
 
 
@@ -126,6 +131,7 @@ class SpotTableModel(QtS.QSqlQueryModel):
 
         spot_query = f'''
                     SELECT
+                        Spots.SpotID,
                         {spots},
                         {spot_context},
                         {spot_compositions},
@@ -139,8 +145,8 @@ class SpotTableModel(QtS.QSqlQueryModel):
                     {SQLUtils.source_join}
                     {SQLUtils.upb_method_join}
                     {SQLUtils.labs_join}
-                    WHERE Spots.SpotID IN {ids_to_show}
                     GROUP BY SpotName
+                    ORDER BY Spots.SpotID
                     '''
 
         return spot_query

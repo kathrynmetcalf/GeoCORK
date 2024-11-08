@@ -727,6 +727,7 @@ class QueryBuilder(QWidget):
 
         buttons_layout = QHBoxLayout(self)
 
+        # todo add error when no ids are returned for samples, aliquots, spots, and upb data
         # View Samples button
         self.view_samples_button = QPushButton('View Samples')
         buttons_layout.addWidget(self.view_samples_button)

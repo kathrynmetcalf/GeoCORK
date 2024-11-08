@@ -1,4 +1,4 @@
-qsample_id = 'S.SampleID'
+qsample_id = 'Samples.SampleID'
 qsample_name = 'SampleName AS "Sample Name"'
 qage = 'AverageAge || "±" || COALESCE(AverageAgeError, " ") as "Age (Ma)"'
 qage_range = 'COALESCE(OldestAge, " ") || "-" || COALESCE(YoungestAge, " ") as "Age Range (Ma)"'
@@ -28,8 +28,8 @@ qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compos
 qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
 
 # Join lines
-old_age_join = 'LEFT JOIN Ages ON Samples.OldestAgeID=Ages.AgeID'
-young_age_join = 'LEFT JOIN Ages ON Samples.YoungestAgeID=Ages.AgeID'
+old_age_join = 'LEFT JOIN Ages as OldA ON Samples.OldestAgeID=OldA.AgeID'
+young_age_join = 'LEFT JOIN Ages as YoungA ON Samples.YoungestAgeID=YoungA.AgeID'
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
                                     LEFT JOIN AgeSignatures ON AgeSignatures.AgeSignatureID=Samples_AgeSignatures.AgeSignatureID'''
 column_join = '''LEFT JOIN Samples_Columns ON Samples.SampleID=Samples_Columns.SampleID

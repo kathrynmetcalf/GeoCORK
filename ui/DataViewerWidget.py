@@ -12,6 +12,7 @@ import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
 from EditTable import EditTable
 from Functions import SQLUtils
+from Table_classes import AliquotTableModel
 from Tree_classes import TreeSortFilterProxyModel
 
 
@@ -50,7 +51,8 @@ class DataViewerWidget(QWidget):
         self.switch_to_table(self.db_stackedWidget_2)
 
         # list of all user-viewable tables in the database
-        self.user_view_tables = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities',
+        self.user_view_tables = [#'Ages',
+            'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities',
                                  'Instruments',
                                  'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings',
                                  'Sources', 'Spots',
@@ -74,7 +76,7 @@ class DataViewerWidget(QWidget):
 
         # Pagination variables
         self.current_page_1 = 0
-        self.rows_per_page_1 = 250
+        self.rows_per_page_1 = 5
         self.total_records_1 = self.get_total_records_1()
 
         self.current_page_2 = 0
@@ -276,9 +278,13 @@ class DataViewerWidget(QWidget):
         offset = self.current_page_1 * self.rows_per_page_1
         if table == 'Samples':
             self.switch_to_table(db_stackedWidget)
-            sample_model = QtS.QSqlQueryModel()
+
+            # todo very slow because of the sample view
+            sample_model = TbC.SampleTableModel()
+            query = TbC.SampleTableModel().setupQuery(self.ids_to_show, self.rows_per_page_1, offset)
+            sample_model.setQuery(QtS.QSqlQuery(query, self.db))
+
             sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_model.setQuery(f"SELECT * FROM Samples WHERE SampleID IN {self.ids_to_show} ORDER BY SampleID LIMIT {self.rows_per_page_1} OFFSET {offset}")
             sample_proxy_model.setSourceModel(sample_model)
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
@@ -289,13 +295,19 @@ class DataViewerWidget(QWidget):
             # Signal for search bar
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Aliquots':
+            #todo change to aliquot table model, same for spots, and UPB
             self.switch_to_table(db_stackedWidget)
-            sample_model = QtS.QSqlQueryModel()
-            sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_model.setQuery(f"SELECT * FROM Aliquots WHERE AliquotID IN {self.ids_to_show} ORDER BY AliquotID LIMIT {self.rows_per_page_1} OFFSET {offset}")
-            sample_proxy_model.setSourceModel(sample_model)
-            sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            dbTable_tableView.setModel(sample_proxy_model)
+
+            aliquot_model = TbC.AliquotTableModel()
+            query = TbC.AliquotTableModel().setupQuery()
+            aliquot_model.setQuery(QtS.QSqlQuery(query, self.db))
+
+            aliquot_proxy_model = QtC.QSortFilterProxyModel()
+            # aliquot_model.setQuery(f"SELECT * FROM Aliquots WHERE AliquotID IN {self.ids_to_show} ORDER BY AliquotID LIMIT {self.rows_per_page_1} OFFSET {offset}")
+            aliquot_proxy_model.setSourceModel(aliquot_model)
+
+            aliquot_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            dbTable_tableView.setModel(aliquot_proxy_model)
             dbTable_tableView.hideColumn(0)  # don't show ID column
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
@@ -303,14 +315,15 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Spots':
             self.switch_to_table(db_stackedWidget)
-            query = TbC.SpotTableModel().setupQuery(self.ids_to_show)
-            print(query)
-            sample_model = QtS.QSqlQueryModel()
-            sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_model.setQuery(f"SELECT * FROM Spots WHERE SpotID IN {self.ids_to_show} ORDER BY SpotID LIMIT {self.rows_per_page_1} OFFSET {offset}")
-            sample_proxy_model.setSourceModel(sample_model)
-            sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            dbTable_tableView.setModel(sample_proxy_model)
+            spot_model = TbC.SpotTableModel()
+            query = TbC.AliquotTableModel().setupQuery()
+            spot_model.setQuery(QtS.QSqlQuery(query, self.db))
+
+            spot_proxy_model = QtC.QSortFilterProxyModel()
+            # spot_model.setQuery(f"SELECT * FROM Spots WHERE SpotID IN {self.ids_to_show} ORDER BY SpotID LIMIT {self.rows_per_page_1} OFFSET {offset}")
+            spot_proxy_model.setSourceModel(spot_model)
+            spot_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            dbTable_tableView.setModel(spot_proxy_model)
             dbTable_tableView.hideColumn(0)  # don't show ID column
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
@@ -408,6 +421,7 @@ class DataViewerWidget(QWidget):
                 with conn:
                     c = conn.cursor()
                     if c.execute(sql):
+                        #todo error on spots table
                         existing = c.fetchall()
                         for row in existing:
                             if row[0] is not None:
@@ -432,12 +446,13 @@ class DataViewerWidget(QWidget):
             tree_proxy_model = TreeSortFilterProxyModel()
             tree_proxy_model.setSourceModel(tree_model)
             dbTable_treeView.setModel(tree_proxy_model)
+
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             dbTable_treeView.hideColumn(1)  # don't show ID column
             dbTable_treeView.hideColumn(2)  # don't show parent ID column
             dbTable_treeView.setSortingEnabled(True)
 
-            self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_proxy_model))
+            self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
 
         elif table in self.dbtable_list:
             self.switch_to_table(db_stackedWidget)
@@ -491,6 +506,7 @@ class DataViewerWidget(QWidget):
             case 'Ages':
                 if SQLUtils.old_age_join not in join:
                     join += SQLUtils.old_age_join + '\n'
+                    # todo currently not working, would only pull oldest age not young or all ages
             case 'AgeSignatures':
                 if SQLUtils.age_signature_join not in join:
                     join += SQLUtils.age_signature_join + '\n'
@@ -585,7 +601,7 @@ class DataViewerWidget(QWidget):
         print(join)
         return join
 
-    def search(self, search_lineEdit, proxy_model):
+    def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):
         """
         Search the current table for the text in the search box
         Check if the case-sensitive box is checked or not
@@ -594,7 +610,8 @@ class DataViewerWidget(QWidget):
         search_lineEdit: QtW.QLineEdit
         search_expression = QtC.QRegularExpression(search_lineEdit.text())
         proxy_model.setFilterRegularExpression(search_expression)
-        #todo currently not working for tree view
+        if dbTable_treeView is not None:
+            dbTable_treeView.expandAll()
 
 
     def get_existing(self, field, table):

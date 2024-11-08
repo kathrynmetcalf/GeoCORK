@@ -851,6 +851,8 @@ def restore_expanded_state(table: str, filter_model: QtC.QSortFilterProxyModel, 
 
 class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self, parent=None):
+        #todo auto expand after search
+        #todo fix being able to search in ID Columns
         super().__init__(parent)
         self.setRecursiveFilteringEnabled(True)  # Enables recursive filtering for tree structures
 
