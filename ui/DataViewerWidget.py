@@ -228,7 +228,6 @@ class DataViewerWidget(QWidget):
                 c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.id_condition}")
             else:
                 c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition}")
-                #todo self.ids_to_show is returning sampleIDs not target table IDs
             test = c.fetchone()[0]
             print(f"{table} : {test}")
             return test
@@ -294,7 +293,6 @@ class DataViewerWidget(QWidget):
             # Signal for search bar
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Aliquots':
-            #todo change to aliquot table model, same for spots, and UPB
             self.switch_to_table(db_stackedWidget)
 
             aliquot_model = TbC.AliquotTableModel()
@@ -420,7 +418,6 @@ class DataViewerWidget(QWidget):
                 with conn:
                     c = conn.cursor()
                     if c.execute(sql):
-                        #todo error on spots table
                         existing = c.fetchall()
                         for row in existing:
                             if row[0] is not None:
@@ -488,8 +485,6 @@ class DataViewerWidget(QWidget):
 
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
-        # todo change to only add rows to table that are needed, not add all and only show some, performance is tanking
-        # todo fix QTableView only showing about first 250 rows only, canFetchMore and pagenation
 
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
         # Update page info label
@@ -564,6 +559,11 @@ class DataViewerWidget(QWidget):
                     join += SQLUtils.upb_data_join + '\n'
                 if SQLUtils.source_join not in join:
                     join += SQLUtils.source_join + '\n'
+            case 'Spots':
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
             case 'SpotCompositions':
                 if SQLUtils.aliquot_join not in join:
                     join += SQLUtils.aliquot_join + '\n'
@@ -597,7 +597,6 @@ class DataViewerWidget(QWidget):
             case 'Units':
                 if SQLUtils.unit_join not in join:
                     join += SQLUtils.unit_join + '\n'
-        print(join)
         return join
 
     def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):

@@ -421,7 +421,7 @@ class RuleWidget(QWidget):
                          "MinMa",
                          "AgeCreated",
                          "AgeModified"]
-            case 'Aliquot Context':
+            case 'Aliquot Contexts':
                 field_items = ["AliquotContextName",
                          "AliquotContextDescription",
                          "AliquotContextCreated",
@@ -460,7 +460,7 @@ class RuleWidget(QWidget):
                          "RockTypeDescription",
                          "RockTypeCreated",
                          "RockTypeModified"]
-            case 'Sample Context':
+            case 'Sample Contexts':
                 field_items = ["SampleContextName",
                          "SampleContextDescription",
                          "SampleContextCreated",
@@ -514,12 +514,12 @@ class RuleWidget(QWidget):
                          "SpotCompositionDescription",
                          "SpotCompositionCreated",
                          "SpotCompositionModified"]
-            case 'Spot Context':
+            case 'Spot Contexts':
                 field_items = ["SpotContextName",
                          "SpotContextDescription",
                          "SpotContextCreated",
                          "SpotContextModified"]
-            case 'Spot':
+            case 'Spots':
                 field_items = ["SpotName",
                          "SpotCreated",
                          "SpotModified"]
@@ -806,7 +806,11 @@ class QueryBuilder(QWidget):
             self.show()
 
     def view_analysis(self):
-        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('upbdata'), 'upbdata')
+        filtered_ids = self.get_filtered_ids('upbdata')
+        if filtered_ids is None:
+            self.display_no_ids_error('upb data')
+            return
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'upbdata')
         dataviewer.setWindowTitle("Filtered Analysis View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -816,7 +820,11 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def view_spots(self):
-        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('spot'), 'spot')
+        filtered_ids = self.get_filtered_ids('spot')
+        if filtered_ids is None:
+            self.display_no_ids_error('spot')
+            return
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'spot')
         dataviewer.setWindowTitle("Filtered Spot View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -826,7 +834,11 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def view_aliquots(self):
-        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('aliquot'), 'aliquot')
+        filtered_ids = self.get_filtered_ids('aliquot')
+        if filtered_ids is None:
+            self.display_no_ids_error('aliquot')
+            return
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'aliquot')
         dataviewer.setWindowTitle("Filtered Aliquot View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -836,7 +848,11 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def view_samples(self):
-        dataviewer = DataViewerWidget(self.db_file, self.get_filtered_ids('sample'), 'sample')
+        filtered_ids = self.get_filtered_ids('sample')
+        if filtered_ids is None:
+            self.display_no_ids_error('sample')
+            return
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'sample')
         dataviewer.setWindowTitle("Filtered Sample View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -850,6 +866,9 @@ class QueryBuilder(QWidget):
         with conn:
             sql_query = self.get_sql(type)
             c = conn.cursor()
+
+            if c.execute(sql_query).fetchall() == []:
+                return None
             return c.execute(sql_query).fetchall()
 
     def get_sql(self, type):
@@ -862,15 +881,15 @@ class QueryBuilder(QWidget):
         for table in self.main_group_box.get_tables():
             match (table):
                 case 'Ages':
-                    if SQLUtils.old_age_join not in join:
-                        join += SQLUtils.old_age_join + '\n'
+                    if SQLUtils.age_join not in join:
+                        join += SQLUtils.age_join + '\n'
                 case 'Age Signatures':
                     if SQLUtils.age_signature_join not in join:
                         join += SQLUtils.age_signature_join + '\n'
                 case 'Aliquots':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
-                case 'Aliquot Context':
+                case 'Aliquot Contexts':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.aliquot_context_join not in join:
@@ -902,7 +921,7 @@ class QueryBuilder(QWidget):
                 case 'RockTypes':
                     if SQLUtils.rock_type_join not in join:
                         join += SQLUtils.rock_type_join + '\n'
-                case 'Sample Context':
+                case 'Sample Contexts':
                     if SQLUtils.sample_context_join not in join:
                         join += SQLUtils.sample_context_join + '\n'
                 case 'Samples':
@@ -929,13 +948,16 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.spot_join + '\n'
                     if SQLUtils.spot_composition_join not in join:
                         join += SQLUtils.spot_composition_join + '\n'
-                case 'Spot Context':
+                case 'Spots':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.spot_context_join not in join:
-                        join += SQLUtils.spot_context_join + '\n'
+                case 'Spot Contexts':
+                    if SQLUtils.aliquot_join not in join:
+                        join += SQLUtils.aliquot_join + '\n'
+                    if SQLUtils.spot_join not in join:
+                        join += SQLUtils.spot_join + '\n'
                 case 'UPb Data':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
@@ -978,6 +1000,9 @@ class QueryBuilder(QWidget):
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbData.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
         print (sql_query)
         return sql_query
+
+    def display_no_ids_error(self, type):
+        error_dialog = QMessageBox.critical(self, "No IDs Found", f"No {type} IDs were found matching the criteria.")
 
     def save_filter(self):
         InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()

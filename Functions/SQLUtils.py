@@ -28,6 +28,7 @@ qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compos
 qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Contexts"'
 
 # Join lines
+age_join = 'LEFT JOIN Ages ON Samples.OldestAgeID=Ages.AgeID'
 old_age_join = 'LEFT JOIN Ages as OldA ON Samples.OldestAgeID=OldA.AgeID'
 young_age_join = 'LEFT JOIN Ages as YoungA ON Samples.YoungestAgeID=YoungA.AgeID'
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
