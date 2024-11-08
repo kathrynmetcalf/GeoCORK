@@ -146,6 +146,9 @@ class EditSampleTable(QtW.QDialog):
             self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
         self.display_table()
 
+    # def update_edited_row(self):
+    # todo: update the row in the sample table with the new values
+
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:

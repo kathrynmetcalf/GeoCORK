@@ -8,6 +8,8 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from collections import namedtuple
 
+from openpyxl.styles.builtins import total
+
 # Map model column names back to database items
 table_model_cols = namedtuple('table_model_cols', ['model_col_name', 'source_table', 'table_cols', 'tag_table'])
 sample_name = table_model_cols("Sample Name", "Samples", ["SampleName"], '')
@@ -241,6 +243,123 @@ class ComboList(QtW.QComboBox):
 
     def combo_value(self):
         print(self.currentText())
+
+class CheckableSampleTableView(QtW.QTableView):
+    def __init__(self):
+        super().__init__()
+        for col in range(0, 26):
+            # hide all but name and description
+            if col != 1 and col != 23:
+                self.hideColumn(col)
+        self.resizeColumnsToContents()
+        self.clicked.connect(self.toggle_check_state)
+
+
+    def toggle_check_state(self, index: QtC.QModelIndex):
+        # todo - figure out why the checkstate is changing in the code but not in the gui
+        if self.model():
+            self.model().dataChanged.connect(self.update)
+            if index.isValid() and QtC.Qt.ItemFlag.ItemIsUserCheckable in self.model().flags(index):
+                current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
+                new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
+                self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
+                print(f"Sample {self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)} is now {new_state}")
+
+class CheckableSQLTableModel(QtS.QSqlTableModel):
+    def __init__(self):
+        super().__init__()
+        self.checked_data = {}
+
+    def flags(self, index):
+        flags = super().flags(index)
+        if index.column() == 1:
+            flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
+        return flags
+
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        if index.column() == 1 and role == QtC.Qt.ItemDataRole.CheckStateRole:
+            if index.row() not in self.checked_data.keys():
+                return QtC.Qt.CheckState.Unchecked
+            else:
+                return QtC.Qt.CheckState.Checked
+        return super().data(index, role)
+
+    def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
+        if index.column() == 1 and role == QtC.Qt.ItemDataRole.CheckStateRole:
+            self.checked_data[index.row()] = value
+            self.dataChanged.emit(index, index, [role])
+            print(f"Sample {self.data(index, QtC.Qt.ItemDataRole.DisplayRole)} is set to {value}")
+            return True
+        return super().setData(index, value, role)
+
+class CheckableSampleComboBox(QtW.QComboBox):
+    closing = QtC.pyqtSignal()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
+        self.closedOnLineEditClick = False
+        self.tableView = CheckableSampleTableView()
+        self.setView(self.tableView)
+        self.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContentsOnFirstShow)
+
+        self.tableView.viewport().installEventFilter(self)
+
+    def set_line_edit_text(self, text):
+        self.lineEdit().setText(text)
+
+    def showPopup(self):
+        self.tableView.resizeColumnsToContents()
+        columns = self.model().columnCount()
+        width_hint = 0
+        for col in range(0, columns):
+            # hide all but name and description
+            col_name = self.model().headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            if "Name" in col_name or "Description" in col_name:
+                self.tableView.showColumn(col)
+                # Add up the size hints for all the visible columns
+                width_hint += self.tableView.columnWidth(col)
+            else:
+                self.tableView.hideColumn(col)
+        self.tableView.setSortingEnabled(False)
+        width_c1 = self.tableView.sizeHintForColumn(1)
+        width_tree = self.tableView.sizeHint().width()
+        if width_hint < 2 * width_c1:
+            size_hint = width_hint
+        else:
+            size_hint = 2 * width_c1
+        self.tableView.setMinimumWidth(size_hint)
+        # row height * number of rows plus header height
+        total_height = self.tableView.rowHeight(0)*self.tableView.model().rowCount() + self.tableView.horizontalHeader().height()
+        if total_height > self.tableView.sizeHint().height():
+            self.tableView.setFixedHeight(self.tableView.sizeHint().height())
+        else:
+            self.tableView.setFixedHeight(total_height)
+        super().showPopup()
+        # print(f"Height of dropdown: {self.tableView.height()}")
+
+    def hidePopup(self):
+        super().hidePopup()
+        self.closing.emit()
+
+    def eventFilter(self, obj, event):
+        if obj == self.lineEdit():
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                if self.closedOnLineEditClick:
+                    self.hidePopup()
+                else:
+                    self.showPopup()
+                return True
+            return super().eventFilter(obj, event)
+
+        if obj == self.tableView.viewport():
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                self.tableView.toggle_check_state(self.tableView.currentIndex())
+                self.showPopup()
+                return True
+            return super().eventFilter(obj, event)
 
 # class table_proxy_model(QtC.QSortFilterProxyModel):
 #     def __int__(self):

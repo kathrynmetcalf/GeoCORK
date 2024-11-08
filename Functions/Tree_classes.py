@@ -1075,5 +1075,6 @@ class CheckableTreeCombobox(TreeCombobox):
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 self.treeView.toggle_check_state(self.treeView.currentIndex())
                 self.showPopup()
+                # print(f"Clicked {self.treeView.currentIndex()} linked with tree item {self.model().getItem(self.treeView.currentIndex())}")
                 return True
             return super().eventFilter(obj, event)

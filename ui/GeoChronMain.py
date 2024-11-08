@@ -303,7 +303,7 @@ class GeoChron(QtW.QMainWindow):
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
             # dlg = EditSampleTable(self.db, self.sample_model)
-            dlg = SampleInformation(self, None, None)
+            dlg = SampleInformation(self, [1,2])
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
