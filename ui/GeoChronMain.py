@@ -52,11 +52,11 @@ class GeoChron(QtW.QMainWindow):
         Create_db.create_tables(self.db_file)
         #list of all user-viewable tables in the database
         self.user_view_tables = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
-                        'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
-                        'Spot Compositions', 'Spot Context', 'UPb Data', 'Analysis Methods', 'Units']
+                        'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
+                        'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units']
         #list of tables to display as a tree structure
-        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Regions', 'RockTypes', 'SampleContext',
-                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
+        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',
+                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'Units']
         self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData',
                             'AnalysisMethods']
 

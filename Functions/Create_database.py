@@ -81,7 +81,7 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_Al
                     FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(AliquotContextID) REFERENCES AliquotContext(AliquotContextID)
+                    FOREIGN KEY(AliquotContextID) REFERENCES AliquotContexts(AliquotContextID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -298,7 +298,7 @@ CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Sampl
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(SampleContextID) REFERENCES SampleContext(SampleContextID)
+                    FOREIGN KEY(SampleContextID) REFERENCES SampleContexts(SampleContextID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -427,7 +427,7 @@ CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContext
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(SpotContextID) REFERENCES SpotContext(SpotContextID)
+                    FOREIGN KEY(SpotContextID) REFERENCES SpotContexts(SpotContextID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''

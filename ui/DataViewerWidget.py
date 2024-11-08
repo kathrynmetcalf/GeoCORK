@@ -52,14 +52,14 @@ class DataViewerWidget(QWidget):
 
         # list of all user-viewable tables in the database
         self.user_view_tables = [#'Ages',
-            'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities',
+            'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Columns', 'Lab Facilities',
                                  'Instruments',
-                                 'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings',
+                                 'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings',
                                  'Sources', 'Spots',
-                                 'Spot Compositions', 'Spot Context', 'UPb Data', 'Analysis Methods', 'Units', 'UPb Analysis Methods']
+                                 'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units', 'UPb Analysis Methods']
         # list of tables to display as a tree structure
-        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContext', 'Regions', 'RockTypes', 'SampleContext',
-                            'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContext', 'Units']
+        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',
+                            'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'Units']
         self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData', 'Spots', 'UPbAnalysisMethods']
 
         self.dbTable_comboBox_2.addItems(self.user_view_tables)
@@ -228,8 +228,7 @@ class DataViewerWidget(QWidget):
                 c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.id_condition}")
             else:
                 c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition}")
-                #todo failing on SpotContext? issue with [0:-1]
-                #this self.ids_to_show is returning sampleIDs not target table IDs
+                #todo self.ids_to_show is returning sampleIDs not target table IDs
             test = c.fetchone()[0]
             print(f"{table} : {test}")
             return test
@@ -513,7 +512,7 @@ class DataViewerWidget(QWidget):
             case 'Aliquots':
                 if SQLUtils.aliquot_join not in join:
                     join += SQLUtils.aliquot_join + '\n'
-            case 'AliquotContext':
+            case 'AliquotContexts':
                 if SQLUtils.aliquot_join not in join:
                     join += SQLUtils.aliquot_join + '\n'
                 if SQLUtils.aliquot_context_join not in join:
@@ -545,7 +544,7 @@ class DataViewerWidget(QWidget):
             case 'RockTypes':
                 if SQLUtils.rock_type_join not in join:
                     join += SQLUtils.rock_type_join + '\n'
-            case 'Sample Context':
+            case 'Sample Contexts':
                 if SQLUtils.sample_context_join not in join:
                     join += SQLUtils.sample_context_join + '\n'
             case 'Samples':
@@ -572,7 +571,7 @@ class DataViewerWidget(QWidget):
                     join += SQLUtils.spot_join + '\n'
                 if SQLUtils.spot_composition_join not in join:
                     join += SQLUtils.spot_composition_join + '\n'
-            case 'SpotContext':
+            case 'SpotContexts':
                 if SQLUtils.aliquot_join not in join:
                     join += SQLUtils.aliquot_join + '\n'
                 if SQLUtils.spot_join not in join:

@@ -15,7 +15,7 @@ qelev = 'Elev || "±" || COALESCE(ElevError, " " || ElevUnit) as "Elevation"'
 qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName) as "Aliquots"'
 qspots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
 qreferences = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-qcontext = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Context"'
+qcontext = 'GROUP_CONCAT(DISTINCT SampleContextName) as "Sample Contexts"'
 qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) as "Sampling Method"'
 qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) as "Rock Types"'
 qregions = 'GROUP_CONCAT(DISTINCT RegionName) as "Regions"'
@@ -23,9 +23,9 @@ qsettings = 'GROUP_CONCAT(DISTINCT SettingName) as "Settings"'
 qunits = 'GROUP_CONCAT(DISTINCT UnitName) as "Units"'
 qupb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
 qlabs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-qspot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
+qspot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
 qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
+qaliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Contexts"'
 
 # Join lines
 old_age_join = 'LEFT JOIN Ages as OldA ON Samples.OldestAgeID=OldA.AgeID'
@@ -42,8 +42,8 @@ setting_join = '''LEFT JOIN Samples_Settings ON Samples.SampleID=Samples_Setting
                                 LEFT JOIN Settings ON Settings.SettingID=Samples_Settings.SettingID'''
 unit_join = '''LEFT JOIN Samples_Units ON Samples.SampleID=Samples_Units.SampleID
                                 LEFT JOIN Units ON Units.UnitID=Samples_Units.UnitID'''
-sample_context_join = '''LEFT JOIN Samples_SampleContext ON Samples.SampleID=Samples_SampleContext.SampleID
-                                LEFT JOIN SampleContext ON SampleContext.SampleContextID=Samples_SampleContext.SampleContextID'''
+sample_context_join = '''LEFT JOIN Samples_SampleContexts ON Samples.SampleID=Samples_SampleContexts.SampleID
+                                LEFT JOIN SampleContexts ON SampleContexts.SampleContextID=Samples_SampleContexts.SampleContextID'''
 sampling_method_join = '''LEFT JOIN Samples_SamplingMethods ON Samples.SampleID=Samples_SamplingMethods.SampleID
                                 LEFT JOIN SamplingMethods ON SamplingMethods.SamplingMethodID=Samples_SamplingMethods.SamplingMethodID'''
 
@@ -54,8 +54,8 @@ source_join = 'LEFT JOIN Sources ON Sources.SourceID=UPbData.SourceID'
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalysisMethods.UPbAnalysisMethodID=UPbData.UPbAnalysisMethodID'
 instruments_join = 'LEFT JOIN Instruments ON Instruments.InstrumentID=UPbData.InstrumentID'
 labs_join = 'LEFT JOIN LabFacilities ON LabFacilities.LabFacilityID=UPbData.LabFacilityID'
-spot_context_join = '''LEFT JOIN Spots_SpotContext ON Spots.SpotID=Spots_SpotContext.SpotID
-                                LEFT JOIN SpotContext ON SpotContext.SpotContextID=Spots_SpotContext.SpotContextID'''
+spot_context_join = '''LEFT JOIN Spots_SpotContexts ON Spots.SpotID=Spots_SpotContexts.SpotID
+                                LEFT JOIN SpotContexts ON SpotContexts.SpotContextID=Spots_SpotContexts.SpotContextID'''
 spot_composition_join = '''LEFT JOIN SpotCompositions ON SpotCompositions.SpotCompositionID=Spots.SpotCompositionID'''
-aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContext ON Aliquots.AliquotID=Aliquots_AliquotContext.AliquotID
-                                LEFT JOIN AliquotContext ON AliquotContext.AliquotContextID=Aliquots_AliquotContext.AliquotContextID'''
+aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts ON Aliquots.AliquotID=Aliquots_AliquotContexts.AliquotID
+                                LEFT JOIN AliquotContexts ON AliquotContexts.AliquotContextID=Aliquots_AliquotContexts.AliquotContextID'''
