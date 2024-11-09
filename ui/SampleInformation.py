@@ -47,8 +47,6 @@ class SampleInformation(QtW.QDialog):
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
 
-
-
         self.sample_names_model = TbC.CheckableSQLTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
         self.sample_names_model = self.set_table(self.sample_names_model, 'Samples')
         if sample_id_list is None:
@@ -62,6 +60,7 @@ class SampleInformation(QtW.QDialog):
         self.checked_sample_list = []
         self.checked_sample_names = ""
 
+        self.samples_table = QtS.QSqlQueryModel()
         self.age_tree_view = QtW.QTreeView()
         self.age_model = QtS.QSqlTableModel()
         self.oldest_age_tree = TreeModel()
@@ -160,58 +159,72 @@ class SampleInformation(QtW.QDialog):
         return model
 
     def populate_fields(self):
+        sample_distinct_query = TbC.SampleDistinctQuery()
         if len(self.selected_sample_list) > 1:
-            for sample_id in self.selected_sample_list:
-                pass
-            # todo use distinct instead in sql query
+            self.samples_table.setQuery(f'{sample_distinct_query} WHERE SampleID in {tuple(self.selected_sample_list)}')
+        elif len(self.selected_sample_list) == 1:
+            self.samples_table.setQuery(f'{sample_distinct_query} WHERE SampleID = {self.selected_sample_list[0]}')
         else:
-            selected_sample_id = self.selected_sample_list[0]
+            return
+        text_values = []
+        for col in range(self.samples_table.columnCount()):
+            # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
+            text = self.samples_table.index(0, col).data()
+            if ',' in text:
+                text_values.append('-')
+            elif text == 'Null':
+                text_values.append('')
+            else:
+                text_values.append(text)
+        self.best_age_lineEdit.setText(f"{text_values[0]}")
+        self.best_age_error_lineEdit.setText(f"{text_values[1]}")
+        self.best_age_error_type_comboBox.setCurrentText(text_values[2])
+        self.oldest_dir_lineEdit.setText(f"{text_values[3]}")
+        self.youngest_dir_lineEdit.setText(f"{text_values[4]}")
+        oldest_age_id = text_values[5]
+        youngest_age_id = text_values[6]
+        self.height_depth_lineEdit.setText(f"{text_values[7]}")
+        self.height_depth_error_lineEdit.setText(f"{text_values[8]}")
+        self.height_depth_unit_comboBox.setCurrentText(text_values[9])
+        self.lat_deg_lineEdit.setText(f"{text_values[10]}")
+        self.lat_min_lineEdit.setText(f"{text_values[11]}")
+        self.lat_sec_lineEdit.setText(f"{text_values[12]}")
+        # self.lat_comboBox.setCurrentText()
+        self.lon_deg_lineEdit.setText(f"{text_values[13]}")
+        self.lon_min_lineEdit.setText(f"{text_values[14]}")
+        self.lon_sec_lineEdit.setText(f"{text_values[15]}")
+        # self.lon_comboBox.setCurrentText()
+        self.utm_zone_lineEdit.setText(text_values[16])
+        self.utm_n_lineEdit.setText(f"{text_values[17]}")
+        self.utm_e_lineEdit.setText(f"{text_values[18]}")
+        self.elevation_lineEdit.setText(f"{text_values[19]}")
+        self.elevation_error_lineEdit.setText(f"{text_values[20]}")
+        self.elevation_unit_comboBox.setCurrentText(text_values[21])
+        self.sample_description_lineEdit.setText(text_values[22])
 
-            query = QtS.QSqlQuery()
-            query.prepare(f"SELECT * FROM SAMPLES WHERE SampleID = {selected_sample_id}")
-            query.exec()
-            while query.next():
-                self.best_age_lineEdit.setText(f"{query.value(2)}")
-                self.best_age_error_lineEdit.setText(f"{query.value(3)}")
-                self.best_age_error_type_comboBox.setCurrentText(query.value(4))
-                self.oldest_dir_lineEdit.setText(f"{query.value(5)}")
-                self.youngest_dir_lineEdit.setText(f"{query.value(6)}")
-                oldest_age_id = query.value(7)
-                youngest_age_id = query.value(8)
-                self.height_depth_lineEdit.setText(f"{query.value(9)}")
-                self.height_depth_error_lineEdit.setText(f"{query.value(10)}")
-                self.height_depth_unit_comboBox.setCurrentText(query.value(11))
-                self.lat_deg_lineEdit.setText(f"{query.value(12)}")
-                self.lat_min_lineEdit.setText(f"{query.value(13)}")
-                self.lat_sec_lineEdit.setText(f"{query.value(14)}")
-                # self.lat_comboBox.setCurrentText()
-                self.lon_deg_lineEdit.setText(f"{query.value(15)}")
-                self.lon_min_lineEdit.setText(f"{query.value(16)}")
-                self.lon_sec_lineEdit.setText(f"{query.value(17)}")
-                # self.lon_comboBox.setCurrentText()
-                self.utm_zone_lineEdit.setText(query.value(18))
-                self.utm_n_lineEdit.setText(f"{query.value(19)}")
-                self.utm_e_lineEdit.setText(f"{query.value(20)}")
-                self.elevation_lineEdit.setText(f"{query.value(21)}")
-                self.elevation_error_lineEdit.setText(f"{query.value(22)}")
-                self.elevation_unit_comboBox.setCurrentText(query.value(23))
-                table_model = QtS.QSqlTableModel()
-                table_model.setTable('Ages')
-                table_model.select()
-                index = table_model.index(0, 0, QtC.QModelIndex())
-                table_model.setFilter(f"SELECT AgeName FROM Ages WHERE AgeID = {oldest_age_id}")
-                self.oldest_rel_comboBox.setCurrentText(table_model.data(index))
-                table_model.setFilter(f"SELECT AgeName FROM Ages WHERE AgeID = {youngest_age_id}")
-                self.youngest_rel_comboBox.setCurrentText(table_model.data(index))
+        table_model = QtS.QSqlTableModel()
+        table_model.setTable('Ages')
+        table_model.select()
+        index = table_model.index(0, 0, QtC.QModelIndex())
+        if oldest_age_id == '-':
+            self.oldest_rel_comboBox.setCurrentText(f'{oldest_age_id}')
+        else:
+            table_model.setFilter(f"SELECT AgeName FROM Ages WHERE AgeID = {oldest_age_id}")
+            self.oldest_rel_comboBox.setCurrentText(table_model.data(index))
+        if youngest_age_id == '-':
+            self.youngest_rel_comboBox.setCurrentText(f'{youngest_age_id}')
+        else:
+            table_model.setFilter(f"SELECT AgeName FROM Ages WHERE AgeID = {youngest_age_id}")
+            self.youngest_rel_comboBox.setCurrentText(table_model.data(index))
 
-                # Sample tags
-                self.populate_checks(self.sample_context_model, self.sample_context_tree, 'Samples_SampleContexts')
-                self.populate_checks(self.sampling_method_model, self.sampling_method_tree, 'Samples_SamplingMethods')
-                # self.populate_checks(self.unit_model, self.unit_tree, 'Samples_Units')
-                # self.populate_checks(self.rock_type_model, self.rock_type_tree, 'Samples_RockTypes')
-                # self.populate_checks(self.region_model, self.region_tree, 'Samples_Regions')
-                # self.populate_checks(self.setting_model, self.setting_tree, 'Samples_Settings')
-                # self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
+        # Sample tags
+        self.populate_checks(self.sample_context_model, self.sample_context_tree, 'Samples_SampleContexts')
+        self.populate_checks(self.sampling_method_model, self.sampling_method_tree, 'Samples_SamplingMethods')
+        # self.populate_checks(self.unit_model, self.unit_tree, 'Samples_Units')
+        # self.populate_checks(self.rock_type_model, self.rock_type_tree, 'Samples_RockTypes')
+        # self.populate_checks(self.region_model, self.region_tree, 'Samples_Regions')
+        # self.populate_checks(self.setting_model, self.setting_tree, 'Samples_Settings')
+        # self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
 
     def populate_checks(self, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel, many_to_many_table: str):
         many_to_many_model = QtS.QSqlTableModel()

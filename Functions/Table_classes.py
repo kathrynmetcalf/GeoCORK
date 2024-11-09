@@ -136,6 +136,35 @@ class SampleTableModel(QtS.QSqlQueryModel):
 
         return sample_query
 
+def SampleDistinctQuery():
+    sample_distinct_query = f'''
+    SELECT 
+    GROUP_CONCAT(DISTINCT ifnull(AverageAge,"Null")) as "Average Ages",
+    GROUP_CONCAT(DISTINCT ifnull(AverageAgeError,"Null")) as "Average Age Errors",
+    GROUP_CONCAT(DISTINCT ifnull(ErrorSigma,"Null")) as "Error Sigmas",
+    GROUP_CONCAT(DISTINCT ifnull(OldestAge,"Null")) as "Oldest Ages",
+    GROUP_CONCAT(DISTINCT ifnull(YoungestAge,"Null")) as "Youngest Ages",
+    GROUP_CONCAT(DISTINCT ifnull(OldestAgeID,"Null")) as "Oldest Age IDs",
+    GROUP_CONCAT(DISTINCT ifnull(YoungestAgeID,"Null")) as "Youngest Age IDs",
+    GROUP_CONCAT(DISTINCT ifnull(HeightDepth,"Null")) as "HeightDepths",
+    GROUP_CONCAT(DISTINCT ifnull(HeightDepthError,"Null")) as "HeightDepth Errors",
+    GROUP_CONCAT(DISTINCT ifnull(HeightDepthUnit,"Null")) as "HeightDepth Units",
+    GROUP_CONCAT(DISTINCT ifnull(LatDeg,"Null")) as "Latitude Degrees",
+    GROUP_CONCAT(DISTINCT ifnull(LatMin,"Null")) as "Latitude Minutes",
+    GROUP_CONCAT(DISTINCT ifnull(LatSec,"Null")) as "Latitude Seconds",
+    GROUP_CONCAT(DISTINCT ifnull(LonDeg,"Null")) as "Longitude Degrees",
+    GROUP_CONCAT(DISTINCT ifnull(LonMin,"Null")) as "Longitude Minutes",
+    GROUP_CONCAT(DISTINCT ifnull(LonSec,"Null")) as "Longitude Seconds",
+    GROUP_CONCAT(DISTINCT ifnull(UTMZone,"Null")) as "UTM Zones",
+    GROUP_CONCAT(DISTINCT ifnull(UTMN,"Null")) as "UTM Northings",
+    GROUP_CONCAT(DISTINCT ifnull(UTME,"Null")) as "UTM Eastings",
+    GROUP_CONCAT(DISTINCT ifnull(Elev,"Null")) as "Elevations",
+    GROUP_CONCAT(DISTINCT ifnull(ElevError,"Null")) as "Elevation Errors",
+    GROUP_CONCAT(DISTINCT ifnull(ElevUnit,"Null")) as "Elevation Units",
+    GROUP_CONCAT(DISTINCT ifnull(Description,"Null")) as "Descriptions"
+    FROM Samples
+    '''
+    return sample_distinct_query
 
 class AliquotTableModel(QtS.QSqlQueryModel):
     def setupQuery(self, sample_ID):
