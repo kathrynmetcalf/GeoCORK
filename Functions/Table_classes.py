@@ -256,14 +256,12 @@ class CheckableSampleTableView(QtW.QTableView):
 
 
     def toggle_check_state(self, index: QtC.QModelIndex):
-        # todo - figure out why the checkstate is changing in the code but not in the gui
         if self.model():
             self.model().dataChanged.connect(self.update)
             if index.isValid() and QtC.Qt.ItemFlag.ItemIsUserCheckable in self.model().flags(index):
                 current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
                 new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
                 self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
-                print(f"Sample {self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)} is now {new_state}")
 
 class CheckableSQLTableModel(QtS.QSqlTableModel):
     def __init__(self):
@@ -288,9 +286,11 @@ class CheckableSQLTableModel(QtS.QSqlTableModel):
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
         if index.column() == 1 and role == QtC.Qt.ItemDataRole.CheckStateRole:
-            self.checked_data[index.row()] = value
+            if value == QtC.Qt.CheckState.Checked:
+                self.checked_data[index.row()] = value
+            else:
+                self.checked_data.pop(index.row())
             self.dataChanged.emit(index, index, [role])
-            print(f"Sample {self.data(index, QtC.Qt.ItemDataRole.DisplayRole)} is set to {value}")
             return True
         return super().setData(index, value, role)
 
