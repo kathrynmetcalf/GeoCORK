@@ -49,7 +49,7 @@ class SampleInformation(QtW.QDialog):
 
         self.sample_names_model = TbC.CheckableSQLTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
         self.sample_names_model = self.set_table(self.sample_names_model, 'Samples')
-        if sample_id_list is None:
+        if sample_id_list is None or len(sample_id_list) == 0:
             self.selected_sample_list = []
         else:
             self.selected_sample_list = sample_id_list
@@ -92,13 +92,21 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.setModel(self.sample_names_model)
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
 
-        # todo: Add functionality to populate fields and update the displayed list based on selected samples
         self.sample_names_model.dataChanged.connect(self.update_sample_list)
 
     def check_all_samples(self):
+        if len(self.selected_sample_list) > 0:
+            for row in range(self.sample_names_model.rowCount()):
+                index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
+                self.sample_names_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+            self.update_sample_list()
+        else:
+            self.uncheck_all_samples()
+
+    def uncheck_all_samples(self):
         for row in range(self.sample_names_model.rowCount()):
             index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
-            self.sample_names_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+            self.sample_names_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
         self.update_sample_list()
 
     def update_sample_list(self):
@@ -153,6 +161,10 @@ class SampleInformation(QtW.QDialog):
         self.region_comboBox.setModel(self.region_tree)
         self.setting_comboBox.setModel(self.setting_tree)
         self.age_signature_comboBox.setModel(self.age_signature_tree)
+
+        self.sample_name_comboBox: CheckableTreeCombobox
+        self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
 
 
     def set_table(self, model: QtS.QSqlTableModel, table: str):
@@ -220,25 +232,34 @@ class SampleInformation(QtW.QDialog):
             self.youngest_rel_comboBox.setCurrentText(table_model.data(index))
 
         # Sample tags
-        self.populate_checks(self.sample_context_model, self.sample_context_tree, 'Samples_SampleContexts')
-        self.populate_checks(self.sampling_method_model, self.sampling_method_tree, 'Samples_SamplingMethods')
-        self.populate_checks(self.unit_model, self.unit_tree, 'Samples_Units')
-        self.populate_checks(self.rock_type_model, self.rock_type_tree, 'Samples_RockTypes')
-        self.populate_checks(self.region_model, self.region_tree, 'Samples_Regions')
-        self.populate_checks(self.setting_model, self.setting_tree, 'Samples_Settings')
-        self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
+        text = self.populate_checks(self.sample_context_model, self.sample_context_tree, 'Samples_SampleContexts')
+        self.sample_context_comboBox.setCurrentText(text)
+        text = self.populate_checks(self.sampling_method_model, self.sampling_method_tree, 'Samples_SamplingMethods')
+        self.sampling_method_comboBox.setCurrentText(text)
+        text = self.populate_checks(self.unit_model, self.unit_tree, 'Samples_Units')
+        self.unit_comboBox.setCurrentText(text)
+        text = self.populate_checks(self.rock_type_model, self.rock_type_tree, 'Samples_RockTypes')
+        self.rock_type_comboBox.setCurrentText(text)
+        text = self.populate_checks(self.region_model, self.region_tree, 'Samples_Regions')
+        self.region_comboBox.setCurrentText(text)
+        text = self.populate_checks(self.setting_model, self.setting_tree, 'Samples_Settings')
+        self.setting_comboBox.setCurrentText(text)
+        text = self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
+        self.age_signature_comboBox.setCurrentText(text)
 
     def populate_checks(self, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel, many_to_many_table: str):
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(many_to_many_table)
         many_to_many_model.select()
         tag_id_header = table_model.record().fieldName(0)
+        items = []
+        text = ""
         if len(self.checked_sample_list) == 0:
             # No samples selected, so uncheck everything
             for row in range(table_model.rowCount()):
                 tree_index = tree.mapFromSource(table_model.index(row, 3))
                 tree.setData(tree_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-            return
+            return text
         for row in range(table_model.rowCount()):
             tag_id = table_model.index(row, 0).data()
             many_to_many_model.setFilter(f"SampleID in {tuple(self.selected_sample_list)} AND {tag_id_header} = {tag_id}")
@@ -246,35 +267,23 @@ class SampleInformation(QtW.QDialog):
             if many_to_many_model.rowCount() == len(self.selected_sample_list):
                 # All samples have this tag
                 tree.setData(tree_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                items.append(tree.data(tree_index, QtC.Qt.ItemDataRole.DisplayRole))
             elif many_to_many_model.rowCount() > 0:
                 # Some samples have this tag
                 tree.setData(tree_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                items.append(tree.data(tree_index, QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 # No samples have this tag
                 tree.setData(tree_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+        text = ", ".join(items)
+        return text
 
-widgets = [
-{'widget_name': '', 'widget_type': '', 'current_text': '', 'data_col': 0, 'data_type': 'ID, value'},
-{'widget_name': 'best_age_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 2, 'data_type': 'value'},
-{'widget_name': 'best_age_error_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 3, 'data_type': 'value'},
-{'widget_name': 'best_age_error_type_comboBox', 'widget_type': 'comboBox', 'current_text': '', 'data_col': 4, 'data_type': 'ID'},
-{'widget_name': 'oldest_dir_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 5, 'data_type': 'value'},
-{'widget_name': 'youngest_dir_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 6, 'data_type': 'value'},
-{'widget_name': 'oldest_rel_comboBox', 'widget_type': 'comboBox', 'current_text': '', 'data_col': 7, 'data_type': 'ID'},
-{'widget_name': 'youngest_rel_comboBox', 'widget_type': 'comboBox', 'current_text': '', 'data_col': 8, 'data_type': 'ID'},
-{'widget_name': 'height_depth_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 9, 'data_type': 'value'},
-{'widget_name': 'height_depth_error_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 10, 'data_type': 'value'},
-{'widget_name': 'height_depth_unit_comboBox', 'widget_type': 'comboBox', 'current_text': '', 'data_col': 11, 'data_type': 'ID'},
-{'widget_name': 'lat_deg_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 12, 'data_type': 'value'},
-{'widget_name': 'lat_min_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 13, 'data_type': 'value'},
-{'widget_name': 'lat_sec_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 14, 'data_type': 'value'},
-{'widget_name': 'lon_deg_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 15, 'data_type': 'value'},
-{'widget_name': 'lon_min_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 16, 'data_type': 'value'},
-{'widget_name': 'lon_sec_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 17, 'data_type': 'value'},
-{'widget_name': 'utm_zone_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 18, 'data_type': 'value'},
-{'widget_name': 'utm_n_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 19, 'data_type': 'value'},
-{'widget_name': 'utm_e_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 20, 'data_type': 'value'},
-{'widget_name': 'elevation_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 21, 'data_type': 'value'},
-{'widget_name': 'elevation_error_lineEdit', 'widget_type': 'lineEdit', 'current_text': '', 'data_col': 22, 'data_type': 'value'},
-{'widget_name': 'elevation_unit_comboBox', 'widget_type': 'comboBox', 'current_text': '', 'data_col': 23, 'data_type': 'ID'},
-    ]
+    def show_context_menu(self, pos: QPoint):
+        menu = QtW.QMenu()
+        select_action = menu.addAction("Select all")
+        unselect_action = menu.addAction("Unselect all")
+        action = menu.exec(self.sample_name_comboBox.view().mapToGlobal(pos))
+        if action == select_action:
+            self.check_all_samples()
+        elif action == unselect_action:
+            self.uncheck_all_samples()

@@ -318,7 +318,8 @@ class CheckableSQLTableModel(QtS.QSqlTableModel):
             if value == QtC.Qt.CheckState.Checked:
                 self.checked_data[index.row()] = value
             else:
-                self.checked_data.pop(index.row())
+                if index.row() in self.checked_data.keys():
+                    self.checked_data.pop(index.row())
             self.dataChanged.emit(index, index, [role])
             return True
         return super().setData(index, value, role)
