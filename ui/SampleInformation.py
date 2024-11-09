@@ -99,7 +99,6 @@ class SampleInformation(QtW.QDialog):
         for row in range(self.sample_names_model.rowCount()):
             index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
             self.sample_names_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-            print(f"Check state is {self.sample_names_model.data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
         self.update_sample_list()
 
     def update_sample_list(self):
@@ -107,10 +106,13 @@ class SampleInformation(QtW.QDialog):
         checked_sample_names = []
         self.checked_sample_names = ""
         for row in range(self.sample_names_model.rowCount()):
-            index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
-            if self.sample_names_model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                name = self.sample_names_model.data(index, QtC.Qt.ItemDataRole.DisplayRole)
+            name_index = self.sample_names_model.index(row, 1, QtC.QModelIndex())
+            if self.sample_names_model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                name = self.sample_names_model.data(name_index, QtC.Qt.ItemDataRole.DisplayRole)
                 checked_sample_names.append(name)
+                # add the sample id to the list
+                id_index = self.sample_names_model.index(row, 0, QtC.QModelIndex())
+                self.checked_sample_list.append(self.sample_names_model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
         self.checked_sample_names = ", ".join(checked_sample_names)
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
@@ -160,9 +162,9 @@ class SampleInformation(QtW.QDialog):
 
     def populate_fields(self):
         sample_distinct_query = TbC.SampleDistinctQuery()
-        if len(self.selected_sample_list) > 1:
+        if len(self.checked_sample_list) > 1:
             self.samples_table.setQuery(f'{sample_distinct_query} WHERE SampleID in {tuple(self.selected_sample_list)}')
-        elif len(self.selected_sample_list) == 1:
+        elif len(self.checked_sample_list) == 1:
             self.samples_table.setQuery(f'{sample_distinct_query} WHERE SampleID = {self.selected_sample_list[0]}')
         else:
             return
@@ -220,11 +222,11 @@ class SampleInformation(QtW.QDialog):
         # Sample tags
         self.populate_checks(self.sample_context_model, self.sample_context_tree, 'Samples_SampleContexts')
         self.populate_checks(self.sampling_method_model, self.sampling_method_tree, 'Samples_SamplingMethods')
-        # self.populate_checks(self.unit_model, self.unit_tree, 'Samples_Units')
-        # self.populate_checks(self.rock_type_model, self.rock_type_tree, 'Samples_RockTypes')
-        # self.populate_checks(self.region_model, self.region_tree, 'Samples_Regions')
-        # self.populate_checks(self.setting_model, self.setting_tree, 'Samples_Settings')
-        # self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
+        self.populate_checks(self.unit_model, self.unit_tree, 'Samples_Units')
+        self.populate_checks(self.rock_type_model, self.rock_type_tree, 'Samples_RockTypes')
+        self.populate_checks(self.region_model, self.region_tree, 'Samples_Regions')
+        self.populate_checks(self.setting_model, self.setting_tree, 'Samples_Settings')
+        self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
 
     def populate_checks(self, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel, many_to_many_table: str):
         many_to_many_model = QtS.QSqlTableModel()
@@ -234,20 +236,22 @@ class SampleInformation(QtW.QDialog):
         if len(self.checked_sample_list) == 0:
             # No samples selected, so uncheck everything
             for row in range(table_model.rowCount()):
-                tree.setData(table_model.index(row, 0), QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                tree_index = tree.mapFromSource(table_model.index(row, 3))
+                tree.setData(tree_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
             return
         for row in range(table_model.rowCount()):
             tag_id = table_model.index(row, 0).data()
             many_to_many_model.setFilter(f"SampleID in {tuple(self.selected_sample_list)} AND {tag_id_header} = {tag_id}")
+            tree_index = tree.mapFromSource(table_model.index(row, 3))
             if many_to_many_model.rowCount() == len(self.selected_sample_list):
                 # All samples have this tag
-                tree.setData(table_model.index(row, 0), QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                tree.setData(tree_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
             elif many_to_many_model.rowCount() > 0:
                 # Some samples have this tag
-                tree.setData(table_model.index(row, 0), QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                tree.setData(tree_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
             else:
                 # No samples have this tag
-                tree.setData(table_model.index(row, 0), QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                tree.setData(tree_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
 
 widgets = [
 {'widget_name': '', 'widget_type': '', 'current_text': '', 'data_col': 0, 'data_type': 'ID, value'},

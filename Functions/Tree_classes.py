@@ -243,6 +243,8 @@ class TreeModel(QtC.QAbstractProxyModel):
             return self.rootItem
         else:
             item = index.internalPointer()
+            if not item:
+                print(f"No item for index {index.row()},{index.column()},{index.parent()}")
             # print(f'Get item {item.data(2)}')
             return item
 
@@ -268,7 +270,6 @@ class TreeModel(QtC.QAbstractProxyModel):
             return QtC.QModelIndex()
         item = parentItem.child(row)
         if item:
-            # print(f"indexing valid item {item.data(2)}")
             return self.createIndex(row, column, item)
         else:
             # print("no item")
