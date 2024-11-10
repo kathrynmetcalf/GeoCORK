@@ -6,8 +6,9 @@ import sqlite3
 
 import PyQt6
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop
-from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction
+from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop, QRegularExpression
+from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction, QRegularExpressionValidator, \
+    QDoubleValidator
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
@@ -87,6 +88,18 @@ def process_group(group):
         elif operator.lower() == "ends with":
             operator = "LIKE"
             condition_string = f"{field} {operator} '%{value}'"
+            condition_strings.append(condition_string)
+            continue
+        elif operator.lower() == "is between":
+            operator = "BETWEEN"
+            value1, value2 = value.split(',')
+            condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
+            condition_strings.append(condition_string)
+            continue
+        elif operator.lower() == "is not between":
+            operator = "NOT BETWEEN"
+            value1, value2 = value.split(',')
+            condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
             condition_strings.append(condition_string)
             continue
 
@@ -336,6 +349,7 @@ class RuleWidget(QWidget):
         self.layout.addWidget(self.operator_combo)
         if operator is not None:
             self.operator_combo.setCurrentText(operator)
+        self.operator_combo.currentIndexChanged.connect(self.lineedit_switcher)
 
         # Value input
         self.value_input = QLineEdit()
@@ -348,30 +362,53 @@ class RuleWidget(QWidget):
         self.delete_button.clicked.connect(lambda: self.deleteLater())
         self.layout.addWidget(self.delete_button)
 
+    def lineedit_switcher(self):
+        if 'between' in self.operator_combo.currentText():
+            if "Created" in self.attribute_combo.currentText() or "Mofified" in self.attribute_combo.currentText():
+                date_range_regex = QRegularExpression(
+                    r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01]),(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
+                )
+                date_range_validator = QRegularExpressionValidator(date_range_regex)
+                self.value_input.setValidator(date_range_validator)
+                self.value_input.setPlaceholderText("e.g. YYYY-MM-DD,YYYY-MM-DD")
+            else:
+                double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
+                double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
+                self.value_input.setValidator(double_comma_double_validator)
+                self.value_input.setPlaceholderText("e.g. 0.0,0.0")
+        else:
+            if "Created" in self.attribute_combo.currentText() or "Mofified" in self.attribute_combo.currentText():
+                date_range_regex = QRegularExpression(
+                    r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
+                )
+                date_range_validator = QRegularExpressionValidator(date_range_regex)
+                self.value_input.setPlaceholderText("e.g. YYYY-MM-DD")
+                self.value_input.setValidator(date_range_validator)
+            elif (("Description" in self.attribute_combo.currentText() or
+                   "Name" in self.attribute_combo.currentText() or
+                   "ErrorSigma" in self.attribute_combo.currentText() or
+                   "Unit" in self.attribute_combo.currentText()) or
+                  self.table_combo.currentText() == "Sources"):
+                return
+            else:
+                float_validator = QDoubleValidator(bottom=-9999999.0, top=9999999.0,
+                                                   decimals=2)  # Set the range and decimal precision
+                float_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+                self.value_input.setPlaceholderText("e.g. 0.0")
+                self.value_input.setValidator(float_validator)
+
     def attribute_switcher(self):
-        print ("Modified" in self.attribute_combo.currentText())
         if "Created" in self.attribute_combo.currentText() or "Mofified" in self.attribute_combo.currentText():
-            print(self.attribute_combo.currentText())
             operator_items = ["is on",
                               "is not on",
                               "is after",
-                              "is before"
+                              "is before",
+                              'is between',
+                              'is not between'
             ]
             self.operator_combo.clear()
             self.operator_combo.addItems(operator_items)
-            return
-        elif "Description" in self.attribute_combo.currentText() or "Name" in self.attribute_combo.currentText():
-            operator_items = ["is",
-                              "is not",
-                              "starts with",
-                              "ends with",
-                              "contains",
-                              "does not contain",
-                              "is blank",
-                              "is not blank"
-                              ]
-            self.operator_combo.clear()
-            self.operator_combo.addItems(operator_items)
+
             return
         elif (("Description" in self.attribute_combo.currentText() or
               "Name" in self.attribute_combo.currentText() or
@@ -389,6 +426,7 @@ class RuleWidget(QWidget):
                               ]
             self.operator_combo.clear()
             self.operator_combo.addItems(operator_items)
+
             return
         else:
             operator_items = ["is",
@@ -402,9 +440,8 @@ class RuleWidget(QWidget):
                               ]
             self.operator_combo.clear()
             self.operator_combo.addItems(operator_items)
+
             return
-
-
 
 
     def table_switcher(self):
@@ -489,7 +526,10 @@ class RuleWidget(QWidget):
                          "Elev",
                          "ElevError",
                          "ElevUnit",
-                         "Description"]
+                         "Description",
+                               "SampleCreated",
+                               "SampleModified"]
+
             case 'Sampling Methods':
                 field_items = ["SamplingMethodName",
                          "SamplingMethodDescription",
@@ -543,7 +583,9 @@ class RuleWidget(QWidget):
                          "207Pb/235UAge",
                          "207Pb/235UAgeError",
                          "206Pb/238UAge",
-                         "206Pb/238UAgeError"]
+                         "206Pb/238UAgeError",
+                               'UPbAnalysisCreated',
+                               'UPbAnalysisModified']
             case 'Units':
                 field_items = ["UnitName",
                          "UnitDescription",
@@ -727,7 +769,6 @@ class QueryBuilder(QWidget):
 
         buttons_layout = QHBoxLayout(self)
 
-        # todo add error when no ids are returned for samples, aliquots, spots, and upb data
         # View Samples button
         self.view_samples_button = QPushButton('View Samples')
         buttons_layout.addWidget(self.view_samples_button)
@@ -757,7 +798,6 @@ class QueryBuilder(QWidget):
         self.layout1.addLayout(buttons_layout)
 
     def filter_context_menu(self, pos):
-        print('right clicked')
         # Get the item at the clicked position
         item = self.listWidget.itemAt(pos)
 
