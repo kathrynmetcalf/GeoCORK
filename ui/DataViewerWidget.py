@@ -51,7 +51,7 @@ class DataViewerWidget(QWidget):
         self.switch_to_table(self.db_stackedWidget_2)
 
         # list of all user-viewable tables in the database
-        self.user_view_tables = [#'Ages',
+        self.user_view_tables = ['Ages',
             'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Columns', 'Lab Facilities',
                                  'Instruments',
                                  'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings',
@@ -414,6 +414,7 @@ class DataViewerWidget(QWidget):
                     # "(19,39,58)"
 
                 sql += table_condition
+                print(sql)
                 conn = sqlite3.connect(self.db_file)
                 with conn:
                     c = conn.cursor()
@@ -498,9 +499,11 @@ class DataViewerWidget(QWidget):
         join = f'SELECT DISTINCT {table}.* FROM Samples '
         match (table):
             case 'Ages':
-                if SQLUtils.old_age_join not in join:
-                    join += SQLUtils.old_age_join + '\n'
+                if SQLUtils.age_join not in join:
+                    join += SQLUtils.age_join + '\n'
+
                     # todo currently not working, would only pull oldest age not young or all ages
+                    # todo CHANGE TO PULLING ALL AGES
             case 'AgeSignatures':
                 if SQLUtils.age_signature_join not in join:
                     join += SQLUtils.age_signature_join + '\n'

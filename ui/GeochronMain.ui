@@ -39,7 +39,7 @@
        <enum>QTabWidget::North</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>2</number>
       </property>
       <property name="elideMode">
        <enum>Qt::ElideRight</enum>
@@ -278,7 +278,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="tab">
+      <widget class="QWidget" name="filter_tab">
        <attribute name="title">
         <string>Filter</string>
        </attribute>
@@ -367,6 +367,11 @@
          </layout>
         </item>
        </layout>
+      </widget>
+      <widget class="QWidget" name="export_tab">
+       <attribute name="title">
+        <string>Export</string>
+       </attribute>
       </widget>
      </widget>
     </item>

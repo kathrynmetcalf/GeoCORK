@@ -1002,7 +1002,7 @@ class QueryBuilder(QWidget):
         return sql_query
 
     def display_no_ids_error(self, type):
-        error_dialog = QMessageBox.critical(self, "No IDs Found", f"No {type} IDs were found matching the criteria.")
+        QMessageBox.critical(self, "No IDs Found", f"No {type} IDs were found matching the criteria.")
 
     def save_filter(self):
         InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
