@@ -440,14 +440,17 @@ class DataViewerWidget(QWidget):
                                 f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
                                 f'SELECT {table[0:-1]}ID FROM ParentTree) ')
             tree_model = TrC.TreeModel(model, None)
-            tree_proxy_model = TreeSortFilterProxyModel()
-            tree_proxy_model.setSourceModel(tree_model)
-            dbTable_treeView.setModel(tree_proxy_model)
 
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             dbTable_treeView.hideColumn(1)  # don't show ID column
             dbTable_treeView.hideColumn(2)  # don't show parent ID column
             dbTable_treeView.setSortingEnabled(True)
+
+            tree_proxy_model = TreeSortFilterProxyModel(view=dbTable_treeView)
+            tree_proxy_model.setSourceModel(tree_model)
+            dbTable_treeView.setModel(tree_proxy_model)
+
+
 
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
 
@@ -501,9 +504,6 @@ class DataViewerWidget(QWidget):
             case 'Ages':
                 if SQLUtils.age_join not in join:
                     join += SQLUtils.age_join + '\n'
-
-                    # todo currently not working, would only pull oldest age not young or all ages
-                    # todo CHANGE TO PULLING ALL AGES
             case 'AgeSignatures':
                 if SQLUtils.age_signature_join not in join:
                     join += SQLUtils.age_signature_join + '\n'

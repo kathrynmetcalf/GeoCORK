@@ -67,7 +67,7 @@ class GeoChron(QtW.QMainWindow):
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = QtS.QSqlTableModel()
         self.tree_model = TrC.TreeModel()
-        self.tree_proxy_model = TreeSortFilterProxyModel()
+        self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
         self.table_proxy_model = QtC.QSortFilterProxyModel()
         self.display_table_list()
 
