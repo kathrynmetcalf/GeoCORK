@@ -274,7 +274,8 @@ class InsertFilterGroupDialog(QDialog):
             if name in existing_filters:
                 self.warning_label.show()
                 self.warning_label.setText('<font color="red">Name must be unique</font>')
-                self.warning_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+                self.warning_label.setAlignment(
+                    QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
             else:
                 color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
                 description = self.description_input.toPlainText()
@@ -286,7 +287,7 @@ class InsertFilterGroupDialog(QDialog):
                                 VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
                                 """
                 c = conn.cursor()
-                #todo change to bind value to prevent sql injection
+                # todo change to bind value to prevent sql injection
                 c.execute(sql_query)
 
                 listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
@@ -405,15 +406,15 @@ class RuleWidget(QWidget):
                               "is before",
                               'is between',
                               'is not between'
-            ]
+                              ]
             self.operator_combo.clear()
             self.operator_combo.addItems(operator_items)
 
             return
-        elif (("Description" in self.attribute_combo.currentText() or
-              "Name" in self.attribute_combo.currentText() or
-              "ErrorSigma" in self.attribute_combo.currentText() or
-              "Unit" in self.attribute_combo.currentText()) or
+        elif ("Description" in self.attribute_combo.currentText() or
+               "Name" in self.attribute_combo.currentText() or
+               "ErrorSigma" in self.attribute_combo.currentText() or
+               "Unit" in self.attribute_combo.currentText() or
               self.table_combo.currentText() == "Sources"):
             operator_items = ["is",
                               "is not",
@@ -443,154 +444,153 @@ class RuleWidget(QWidget):
 
             return
 
-
     def table_switcher(self):
         field_items = list()
         match self.table_combo.currentText():
             case 'Age Signature':
                 field_items = ["SampleContextName",
-                         "SampleContextDescription",
-                         "SampleContextCreated",
-                         "SampleContextModified"]
+                               "SampleContextDescription",
+                               "SampleContextCreated",
+                               "SampleContextModified"]
             case 'Ages':
                 field_items = ["AgeName",
-                         "MaxMa",
-                         "MinMa",
-                         "AgeCreated",
-                         "AgeModified"]
+                               "MaxMa",
+                               "MinMa",
+                               "AgeCreated",
+                               "AgeModified"]
             case 'Aliquot Contexts':
                 field_items = ["AliquotContextName",
-                         "AliquotContextDescription",
-                         "AliquotContextCreated",
-                         "AliquotContextModified"]
+                               "AliquotContextDescription",
+                               "AliquotContextCreated",
+                               "AliquotContextModified"]
             case 'Aliquots':
                 field_items = ["AliquotName",
-                         "AliquotCreated",
-                         "AliquotModified"]
+                               "AliquotCreated",
+                               "AliquotModified"]
             case 'Analysis Methods':
                 field_items = ["AnalysisMethodsName",
-                         "AnalysisMethodsDescription",
-                         "AnalysisMethodsCreated",
-                         "AnalysisMethodsModified"]
+                               "AnalysisMethodsDescription",
+                               "AnalysisMethodsCreated",
+                               "AnalysisMethodsModified"]
             case 'Columns':
                 field_items = ["ColumnName",
-                         "ColumnDescription",
-                         "ColumnCreated",
-                         "ColumnModified"]
+                               "ColumnDescription",
+                               "ColumnCreated",
+                               "ColumnModified"]
             case 'Instruments':
                 field_items = ["InstrumentName",
-                         "InstrumentDescription",
-                         "InstrumentCreated",
-                         "InstrumentModified"]
+                               "InstrumentDescription",
+                               "InstrumentCreated",
+                               "InstrumentModified"]
             case 'Lab Facilities':
                 field_items = ["LabFacilityName",
-                         "LabFacilityDescription",
-                         "LabFacilityCreated",
-                         "LabFacilityModified"]
+                               "LabFacilityDescription",
+                               "LabFacilityCreated",
+                               "LabFacilityModified"]
             case 'Regions':
                 field_items = ["RegionName",
-                         "RegionDescription",
-                         "RegionCreated",
-                         "RegionModified"]
+                               "RegionDescription",
+                               "RegionCreated",
+                               "RegionModified"]
             case 'RockTypes':
                 field_items = ["RockTypeName",
-                         "RockTypeDescription",
-                         "RockTypeCreated",
-                         "RockTypeModified"]
+                               "RockTypeDescription",
+                               "RockTypeCreated",
+                               "RockTypeModified"]
             case 'Sample Contexts':
                 field_items = ["SampleContextName",
-                         "SampleContextDescription",
-                         "SampleContextCreated",
-                         "SampleContextModified"]
+                               "SampleContextDescription",
+                               "SampleContextCreated",
+                               "SampleContextModified"]
             case 'Samples':
                 field_items = ["SampleName",
-                         "AverageAge",
-                         "AverageAgeError",
-                         "ErrorSigma",
-                         "OldestAge",
-                         "YoungestAge",
-                         "OldestAgeID",
-                         "YoungestAgeID",
-                         "HeightDepth",
-                         "HeightDepthError",
-                         "HeightDepthUnit",
-                         "LatDeg",
-                         "LatMin",
-                         "LatSec",
-                         "LonDeg",
-                         "LonMin",
-                         "LonSec",
-                         "UTMZone",
-                         "UTMN",
-                         "UTME",
-                         "Elev",
-                         "ElevError",
-                         "ElevUnit",
-                         "Description",
+                               "AverageAge",
+                               "AverageAgeError",
+                               "ErrorSigma",
+                               "OldestAge",
+                               "YoungestAge",
+                               "OldestAgeID",
+                               "YoungestAgeID",
+                               "HeightDepth",
+                               "HeightDepthError",
+                               "HeightDepthUnit",
+                               "LatDeg",
+                               "LatMin",
+                               "LatSec",
+                               "LonDeg",
+                               "LonMin",
+                               "LonSec",
+                               "UTMZone",
+                               "UTMN",
+                               "UTME",
+                               "Elev",
+                               "ElevError",
+                               "ElevUnit",
+                               "Description",
                                "SampleCreated",
                                "SampleModified"]
 
             case 'Sampling Methods':
                 field_items = ["SamplingMethodName",
-                         "SamplingMethodDescription",
-                         "SamplingMethodCreated",
-                         "SamplingMethodModified"]
+                               "SamplingMethodDescription",
+                               "SamplingMethodCreated",
+                               "SamplingMethodModified"]
             case 'Settings':
                 field_items = ["SettingName",
-                         "SettingDescription",
-                         "SettingCreated",
-                         "SettingModified"]
+                               "SettingDescription",
+                               "SettingCreated",
+                               "SettingModified"]
             case 'Sources':
                 field_items = ["Authors",
-                         "Year",
-                         "Title",
-                         "Source",
-                         "doi",
-                         "ShortCitation",
-                         "SourceCreated",
-                         "SourceModified"]
+                               "Year",
+                               "Title",
+                               "Source",
+                               "doi",
+                               "ShortCitation",
+                               "SourceCreated",
+                               "SourceModified"]
             case 'Spot Compositions':
                 field_items = ["SpotCompositionName",
-                         "SpotCompositionDescription",
-                         "SpotCompositionCreated",
-                         "SpotCompositionModified"]
+                               "SpotCompositionDescription",
+                               "SpotCompositionCreated",
+                               "SpotCompositionModified"]
             case 'Spot Contexts':
                 field_items = ["SpotContextName",
-                         "SpotContextDescription",
-                         "SpotContextCreated",
-                         "SpotContextModified"]
+                               "SpotContextDescription",
+                               "SpotContextCreated",
+                               "SpotContextModified"]
             case 'Spots':
                 field_items = ["SpotName",
-                         "SpotCreated",
-                         "SpotModified"]
+                               "SpotCreated",
+                               "SpotModified"]
             case 'UPb Analysis Methods':
                 field_items = ["UPbAnalysisMethodName",
-                         "UPbAnalysisMethodDescription",
-                         "UPbAnalysisMethodCreated",
-                         "UPbAnalysisMethodModified"]
+                               "UPbAnalysisMethodDescription",
+                               "UPbAnalysisMethodCreated",
+                               "UPbAnalysisMethodModified"]
             case 'UPb Data':
                 field_items = ["U/Th",
-                         "206Pb/204Pb",
-                         "206Pb/207Pb",
-                         "206Pb/207Pberror",
-                         "207Pb/235U",
-                         "207Pb/235Uerror",
-                         "206Pb/238U",
-                         "206Pb/238Uerror",
-                         "ErrorCorr",
-                         "206Pb/207PbAge",
-                         "206Pb/207PbAgeError",
-                         "207Pb/235UAge",
-                         "207Pb/235UAgeError",
-                         "206Pb/238UAge",
-                         "206Pb/238UAgeError",
+                               "206Pb/204Pb",
+                               "206Pb/207Pb",
+                               "206Pb/207Pberror",
+                               "207Pb/235U",
+                               "207Pb/235Uerror",
+                               "206Pb/238U",
+                               "206Pb/238Uerror",
+                               "ErrorCorr",
+                               "206Pb/207PbAge",
+                               "206Pb/207PbAgeError",
+                               "207Pb/235UAge",
+                               "207Pb/235UAgeError",
+                               "206Pb/238UAge",
+                               "206Pb/238UAgeError",
                                'UPbAnalysisCreated',
                                'UPbAnalysisModified']
             case 'Units':
                 field_items = ["UnitName",
-                         "UnitDescription",
-                         "UnitCreated",
-                         "UnitModified"]
+                               "UnitDescription",
+                               "UnitCreated",
+                               "UnitModified"]
         self.attribute_combo.clear()
         self.attribute_combo.addItems(field_items)
 
@@ -632,8 +632,6 @@ class GroupBox(QGroupBox):
         self.layout.addLayout(buttons_layout)
         self.layout.addStretch(1)
         self.populate_from_group(group)
-
-
 
     def populate_from_group(self, group):
         # Add first rule by default
@@ -723,7 +721,7 @@ class GroupBox(QGroupBox):
 
 
 class QueryBuilder(QWidget):
-    #todo swap this whole code to QListWidget
+    # todo swap this whole code to QListWidget
     def __init__(self, parent):
         super().__init__(parent)
         for widget in QApplication.topLevelWidgets():
@@ -732,7 +730,6 @@ class QueryBuilder(QWidget):
 
         conn = sqlite3.connect(self.db_file)
         self.listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
-
 
         for x in self.listWidget.items(None):
             self.listWidget.takeItem(x)
@@ -767,6 +764,8 @@ class QueryBuilder(QWidget):
         self.layout1.addWidget(self.scrollarea)
         self.scrollarea.setWidget(self.main_group_box)
 
+        self.layout1.addWidget(QLabel('Note: Select which view based on desired filtered subset'))
+
         buttons_layout = QHBoxLayout(self)
 
         # View Samples button
@@ -785,7 +784,7 @@ class QueryBuilder(QWidget):
         self.view_spots_button.clicked.connect(self.view_spots)
 
         # View U/Pb Analysis button
-        #todo add combobox to select which analysis table to view, when other tables are added
+        # todo add combobox to select which analysis table to view, when other tables are added
         self.view_analysis_button = QPushButton('View Analysis')
         buttons_layout.addWidget(self.view_analysis_button)
         self.view_analysis_button.clicked.connect(self.view_analysis)
@@ -817,8 +816,10 @@ class QueryBuilder(QWidget):
     def delete_filter(self, item):
 
         # Confirm deletion
-        reply = QMessageBox.question(self.listWidget, "Confirm Deletion", f"Are you sure you want to delete '{item.text()}'?",
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        reply = QMessageBox.question(self.listWidget, "Confirm Deletion",
+                                     f"Are you sure you want to delete '{item.text()}'?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                     QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
             # Delete the item
@@ -830,7 +831,6 @@ class QueryBuilder(QWidget):
                 sql_query = f"""DELETE FROM FilterGroups WHERE FilterGroupName="{item.text()}";"""
                 c = conn.cursor()
                 c.execute(sql_query)
-
 
     def populate_filters(self, filter_name):
         conn = sqlite3.connect(self.db_file)
@@ -914,7 +914,7 @@ class QueryBuilder(QWidget):
     def get_sql(self, type):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
-        #todo where clause breaks when entering 5 vs 5.0
+        # todo where clause breaks when entering 5 vs 5.0
 
         join = ""
 
@@ -1038,7 +1038,6 @@ class QueryBuilder(QWidget):
             if SQLUtils.upb_data_join not in join:
                 join += SQLUtils.upb_data_join + '\n'
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbData.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
-        print (sql_query)
         return sql_query
 
     def display_no_ids_error(self, type):
@@ -1046,4 +1045,3 @@ class QueryBuilder(QWidget):
 
     def save_filter(self):
         InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
-

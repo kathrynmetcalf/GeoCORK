@@ -17,7 +17,7 @@ from Tree_classes import TreeSortFilterProxyModel
 
 
 class DataViewerWidget(QWidget):
-    def __init__(self, db_file,  ids_to_show, table_type):
+    def __init__(self, db_file, ids_to_show, table_type):
         super().__init__()
         self.db_file = db_file
         self.table_type = table_type
@@ -33,8 +33,7 @@ class DataViewerWidget(QWidget):
         self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
 
-        ok = self.db.open()
-        print("Database is open: " + str(ok))
+        self.db.open()
 
         self.loadWindowState()
 
@@ -46,24 +45,25 @@ class DataViewerWidget(QWidget):
         self.current_selection = []
         self.current_table = ""
 
-
         self.switch_to_table(self.db_stackedWidget)
         self.switch_to_table(self.db_stackedWidget_2)
 
         # list of all user-viewable tables in the database
         self.user_view_tables = ['Ages',
-            'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Columns', 'Lab Facilities',
+                                 'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Columns', 'Lab Facilities',
                                  'Instruments',
                                  'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings',
                                  'Sources', 'Spots',
-                                 'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units', 'UPb Analysis Methods']
+                                 'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units',
+                                 'UPb Analysis Methods']
         # list of tables to display as a tree structure
         self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',
                             'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'Units']
-        self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData', 'Spots', 'UPbAnalysisMethods']
+        self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData', 'Spots',
+                             'UPbAnalysisMethods']
 
         self.dbTable_comboBox_2.addItems(self.user_view_tables)
-        self.dbTable_comboBox_2.removeItem(10) # remove sample table index
+        self.dbTable_comboBox_2.removeItem(10)  # remove sample table index
 
         if self.table_type == 'sample':
             self.dbTable_comboBox.addItem('Samples')
@@ -83,7 +83,6 @@ class DataViewerWidget(QWidget):
         self.rows_per_page_2 = 250
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
 
-
         self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
                                   self.dbTable_comboBox, self.edit_pushButton)
 
@@ -102,19 +101,19 @@ class DataViewerWidget(QWidget):
 
         self.prev_button_2.clicked.connect(
             (lambda: self.previous_page_2(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                                 self.dbTable_comboBox_2,
-                                 self.edit_pushButton_2, self.dbTable_tableView, table_type)))
+                                          self.dbTable_comboBox_2,
+                                          self.edit_pushButton_2, self.dbTable_tableView, table_type)))
         self.next_button_2.clicked.connect(
             (lambda: self.next_page_2(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                             self.dbTable_comboBox_2,
-                             self.edit_pushButton_2, self.dbTable_tableView, table_type)))
+                                      self.dbTable_comboBox_2,
+                                      self.edit_pushButton_2, self.dbTable_tableView, table_type)))
         # Signal for clicked add button in main window
         self.edit_pushButton.clicked.connect(
             lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
-                               self.dbTable_comboBox, self.edit_pushButton))
+                                       self.dbTable_comboBox, self.edit_pushButton))
         self.edit_pushButton_2.clicked.connect(
-             lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                               self.dbTable_comboBox_2, self.edit_pushButton_2))
+            lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
+                                       self.dbTable_comboBox_2, self.edit_pushButton_2))
 
         self.show()
 
@@ -129,7 +128,7 @@ class DataViewerWidget(QWidget):
         if (self.current_page_1 + 1) * self.rows_per_page_1 < self.total_records_1:
             self.current_page_1 += 1
             self.display_sample_table(
-            db_stackedWidget, dbTable_tableView , dbTable_comboBox, edit_pushButton)
+                db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton)
 
     def previous_page_1(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
         """
@@ -137,7 +136,7 @@ class DataViewerWidget(QWidget):
         """
         if self.current_page_1 > 0:
             self.current_page_1 -= 1
-        self.display_sample_table(db_stackedWidget, dbTable_tableView , dbTable_comboBox, edit_pushButton)
+        self.display_sample_table(db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton)
 
     def next_page_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
                     sample_filter, table_type):
@@ -147,7 +146,8 @@ class DataViewerWidget(QWidget):
         if (self.current_page_2 + 1) * self.rows_per_page_2 < self.total_records_2:
             self.current_page_2 += 1
             self.display_table_with_sample_filter(
-            db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton, sample_filter, table_type)
+                db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton, sample_filter,
+                table_type)
 
     def previous_page_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
                         sample_filter, table_type):
@@ -177,7 +177,7 @@ class DataViewerWidget(QWidget):
             print("Invalid record ID.")
 
     def go_to_record_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
-                        sample_filter, table_type):
+                       sample_filter, table_type):
         """
         Slot to go to a specific record ID
         """
@@ -218,7 +218,6 @@ class DataViewerWidget(QWidget):
         """
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        print('current table: ' + table)
         conn = sqlite3.connect(self.db_file)
         with conn:
             c = conn.cursor()
@@ -269,7 +268,6 @@ class DataViewerWidget(QWidget):
         :return:
         """
         table_name = dbTable_comboBox.currentText()
-        print("current table: " + table_name)
 
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
@@ -284,6 +282,7 @@ class DataViewerWidget(QWidget):
 
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_proxy_model.setSourceModel(sample_model)
+
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
             dbTable_tableView.hideColumn(0)  # don't show ID column
@@ -300,7 +299,6 @@ class DataViewerWidget(QWidget):
             aliquot_model.setQuery(QtS.QSqlQuery(query, self.db))
 
             aliquot_proxy_model = QtC.QSortFilterProxyModel()
-            # aliquot_model.setQuery(f"SELECT * FROM Aliquots WHERE AliquotID IN {self.ids_to_show} ORDER BY AliquotID LIMIT {self.rows_per_page_1} OFFSET {offset}")
             aliquot_proxy_model.setSourceModel(aliquot_model)
 
             aliquot_proxy_model.setFilterKeyColumn(-1)  # search all columns
@@ -317,8 +315,8 @@ class DataViewerWidget(QWidget):
             spot_model.setQuery(QtS.QSqlQuery(query, self.db))
 
             spot_proxy_model = QtC.QSortFilterProxyModel()
-            # spot_model.setQuery(f"SELECT * FROM Spots WHERE SpotID IN {self.ids_to_show} ORDER BY SpotID LIMIT {self.rows_per_page_1} OFFSET {offset}")
             spot_proxy_model.setSourceModel(spot_model)
+
             spot_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(spot_proxy_model)
             dbTable_tableView.hideColumn(0)  # don't show ID column
@@ -330,7 +328,8 @@ class DataViewerWidget(QWidget):
             self.switch_to_table(db_stackedWidget)
             sample_model = QtS.QSqlQueryModel()
             sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_model.setQuery(f"SELECT * FROM UPbData WHERE UPbAnalysisID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}")
+            sample_model.setQuery(
+                f"SELECT * FROM UPbData WHERE UPbAnalysisID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}")
             sample_proxy_model.setSourceModel(sample_model)
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
@@ -370,7 +369,8 @@ class DataViewerWidget(QWidget):
         self.selectionTimer.start(250)  # Delay in milliseconds
 
     def display_table_with_sample_filter(self, db_stackedWidget, dbTable_tableView, dbTable_treeView,
-                                         dbTable_comboBox, edit_pushButton, sample_filter, table_type, selected=None, deselected=None):
+                                         dbTable_comboBox, edit_pushButton, sample_filter, table_type, selected=None,
+                                         deselected=None):
         """
         Displays the selected table
         :return:
@@ -379,7 +379,6 @@ class DataViewerWidget(QWidget):
         dbTable_treeView: QTreeView
         sample_filter: QTableView
         offset = self.current_page_2 * self.rows_per_page_2
-
 
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
@@ -444,22 +443,21 @@ class DataViewerWidget(QWidget):
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             dbTable_treeView.hideColumn(1)  # don't show ID column
             dbTable_treeView.hideColumn(2)  # don't show parent ID column
+            dbTable_treeView.hideColumn(3)  # don't show parent row column
             dbTable_treeView.setSortingEnabled(True)
 
             tree_proxy_model = TreeSortFilterProxyModel(view=dbTable_treeView)
             tree_proxy_model.setSourceModel(tree_model)
             dbTable_treeView.setModel(tree_proxy_model)
 
-
-
-            self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
+            self.search_lineEdit_2.textChanged.connect(
+                lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
 
         elif table in self.dbtable_list:
             self.switch_to_table(db_stackedWidget)
 
             model = QtS.QSqlQueryModel()
             table_proxy_model = QSortFilterProxyModel()
-
 
             if table == "LabFacilities":
                 model.setQuery(
@@ -479,7 +477,7 @@ class DataViewerWidget(QWidget):
 
             table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(table_proxy_model)
-            # dbTable_tableView.hideColumn(0)  # don't show ID column
+            dbTable_tableView.hideColumn(0)  # don't show ID column
             dbTable_tableView.verticalHeader().setVisible(False)
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
@@ -613,7 +611,6 @@ class DataViewerWidget(QWidget):
         proxy_model.setFilterRegularExpression(search_expression)
         if dbTable_treeView is not None:
             dbTable_treeView.expandAll()
-
 
     def get_existing(self, field, table):
         conn = sqlite3.connect(self.db_file)
