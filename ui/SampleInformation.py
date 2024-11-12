@@ -17,8 +17,10 @@ import Functions.Create_database as Create_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
+import Functions.Errors as Er
 import ui.import_wizard
 import ui.New_source
+from Functions.Table_classes import CheckableSQLTableModel
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -47,6 +49,7 @@ class SampleInformation(QtW.QDialog):
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
 
+        # Sample names table
         self.sample_names_model = TbC.CheckableSQLTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
         self.sample_names_model = self.set_table(self.sample_names_model, 'Samples')
         if sample_id_list is None or len(sample_id_list) == 0:
@@ -60,6 +63,7 @@ class SampleInformation(QtW.QDialog):
         self.checked_sample_list = []
         self.checked_sample_names = ""
 
+        # Sample information models
         self.samples_table = QtS.QSqlQueryModel()
         self.age_tree_view = QtW.QTreeView()
         self.age_model = QtS.QSqlTableModel()
@@ -80,19 +84,38 @@ class SampleInformation(QtW.QDialog):
         self.setting_tree = CheckableTreeModel()
         self.age_signature_model = QtS.QSqlTableModel()
         self.age_signature_tree = CheckableTreeModel()
-        self.reference_model = QtS.QSqlTableModel()
+        self.source_model = QtS.QSqlTableModel()
         self.analysis_method_model = QtS.QSqlTableModel()
         self.analysis_method_tree = CheckableTreeModel()
         self.lab_facility_model = QtS.QSqlTableModel()
         self.instrument_model = QtS.QSqlTableModel()
 
+        self.msg = QtW.QMessageBox(self)
+        self.createSavepoint('before_edit')
+        self.close_by_dialog = False
+
+        # Fill in information based on selected samples
         self.populate_dropdowns()
         self.populate_fields()
         self.check_all_samples()
         self.sample_name_comboBox.setModel(self.sample_names_model)
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
 
-        self.sample_names_model.dataChanged.connect(self.update_sample_list)
+        # Connect signals and slots
+        self.commit_pushButton.clicked.connect(self.commit_question)
+        self.cancel_pushButton.clicked.connect(self.discard_question)
+
+    def createSavepoint(self, savepoint_name: str):
+        query = QtS.QSqlQuery(self.db)
+        if query.exec(f'SAVEPOINT {savepoint_name}') is False:
+            errtxt = Er.savepoint_fail("Samples")
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+
+    def releaseSavepoint(self, savepoint_name: str):
+        query = QtS.QSqlQuery(self.db)
+        if query.exec(f'RELEASE SAVEPOINT {savepoint_name}') is False:
+            errtxt = Er.savepoint_release_fail("Samples")
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def check_all_samples(self):
         if len(self.selected_sample_list) > 0:
@@ -145,7 +168,7 @@ class SampleInformation(QtW.QDialog):
         self.setting_tree.setSourceModel(self.setting_model)
         self.age_signature_model = self.set_table(self.age_signature_model, 'AgeSignatures')
         self.age_signature_tree.setSourceModel(self.age_signature_model)
-        self.reference_model = self.set_table(self.reference_model, 'References')
+        self.source_model = self.set_table(self.source_model, 'Sources')
         self.analysis_method_model = self.set_table(self.analysis_method_model, 'AnalysisMethods')
         self.analysis_method_tree.setSourceModel(self.analysis_method_model)
         self.lab_facility_model = self.set_table(self.lab_facility_model, 'LabFacilities')
@@ -219,17 +242,20 @@ class SampleInformation(QtW.QDialog):
         table_model = QtS.QSqlTableModel()
         table_model.setTable('Ages')
         table_model.select()
-        index = table_model.index(0, 0, QtC.QModelIndex())
+        index = table_model.index(0, 3, QtC.QModelIndex())
         if oldest_age_id == '-':
             self.oldest_rel_comboBox.setCurrentText(f'{oldest_age_id}')
         else:
-            table_model.setFilter(f"SELECT AgeName FROM Ages WHERE AgeID = {oldest_age_id}")
-            self.oldest_rel_comboBox.setCurrentText(table_model.data(index))
+            # todo: set the oldest and youngest age comboboxes to the correct values, need to figure out the index in the combobox
+            table_model.setFilter(f"AgeID = {oldest_age_id}")
+            text = table_model.data(index)
+            self.oldest_rel_comboBox.set_text(text)
         if youngest_age_id == '-':
             self.youngest_rel_comboBox.setCurrentText(f'{youngest_age_id}')
         else:
-            table_model.setFilter(f"SELECT AgeName FROM Ages WHERE AgeID = {youngest_age_id}")
-            self.youngest_rel_comboBox.setCurrentText(table_model.data(index))
+            table_model.setFilter(f"AgeID = {youngest_age_id}")
+            text = table_model.data(index)
+            self.youngest_rel_comboBox.set_text(text)
 
         # Sample tags
         text = self.populate_checks(self.sample_context_model, self.sample_context_tree, 'Samples_SampleContexts')
@@ -246,6 +272,53 @@ class SampleInformation(QtW.QDialog):
         self.setting_comboBox.setCurrentText(text)
         text = self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
         self.age_signature_comboBox.setCurrentText(text)
+        text = self.populate_sub_checks(self.source_model)
+        self.source_comboBox.setCurrentText(text)
+
+        # Connect signals and slots
+        # self.sample_names_model.dataChanged.connect(self.update_sample_list)
+        # self.lat_deg_lineEdit.textChanged.connect(self.update_field('LatDeg', self.lat_deg_lineEdit.text()))
+        # self.lat_min_lineEdit.textChanged.connect(self.update_field('LatMin', self.lat_min_lineEdit.text()))
+        # self.lat_sec_lineEdit.textChanged.connect(self.update_field('LatSec', self.lat_sec_lineEdit.text()))
+        # # self.lat_combobox.currentTextChanged.connect(self.update_id('LatDirID', self.lat_combobox.currentText(), 'LocationUnits'))
+        # self.lon_deg_lineEdit.textChanged.connect(self.update_field('LonDeg', self.lon_deg_lineEdit.text()))
+        # self.lon_min_lineEdit.textChanged.connect(self.update_field('LonMin', self.lon_min_lineEdit.text()))
+        # self.lon_sec_lineEdit.textChanged.connect(self.update_field('LonSec', self.lon_sec_lineEdit.text()))
+        # # self.lon_combobox.currentTextChanged.connect(self.update_id('LonDirID', self.lon_combobox.currentText(), 'LocationUnits'))
+        # self.utm_zone_lineEdit.textChanged.connect(self.update_field('UTMZone', self.utm_zone_lineEdit.text()))
+        # self.utm_n_lineEdit.textChanged.connect(self.update_field('UTMN', self.utm_n_lineEdit.text()))
+        # self.utm_e_lineEdit.textChanged.connect(self.update_field('UTME', self.utm_e_lineEdit.text()))
+        # self.elevation_lineEdit.textChanged.connect(self.update_field('Elevation', self.elevation_lineEdit.text()))
+        # self.elevation_error_lineEdit.textChanged.connect(
+        #     self.update_field('ElevationError', self.elevation_error_lineEdit.text()))
+        # # self.elevation_unit_comboBox.currentTextChanged.connect(self.update_id('ElevationUnitID', self.elevation_unit_comboBox.currentText(), 'DistanceUnits'))
+        # self.oldest_rel_comboBox.currentTextChanged.connect(
+        #     self.update_id('OldestAgeID', self.oldest_rel_comboBox.currentText(), 'Ages'))
+        # self.youngest_rel_comboBox.currentTextChanged.connect(
+        #     self.update_id('YoungestAgeID', self.youngest_rel_comboBox.currentText(), 'Ages'))
+        # self.oldest_dir_lineEdit.textChanged.connect(self.update_field('OldestAge', self.oldest_dir_lineEdit.text()))
+        # self.youngest_dir_lineEdit.textChanged.connect(
+        #     self.update_field('YoungestAge', self.youngest_dir_lineEdit.text()))
+        # self.best_age_lineEdit.textChanged.connect(self.update_field('AverageAge', self.best_age_lineEdit.text()))
+        # self.best_age_error_lineEdit.textChanged.connect(
+        #     self.update_field('AverageAgeError', self.best_age_error_lineEdit.text()))
+        # # self.best_age_error_type_comboBox.currentTextChanged.connect(self.update_id('ErrorSigma', self.best_age_error_type_comboBox.currentText(), 'ErrorTypes'))
+        # # self.column_name_comboBox.currentTextChanged.connect(self.update_id('ColumnID', self.column_name_comboBox.currentText(), 'Columns'))
+        # self.height_depth_lineEdit.textChanged.connect(
+        #     self.update_field('HeightDepth', self.height_depth_lineEdit.text()))
+        # self.height_depth_error_lineEdit.textChanged.connect(
+        #     self.update_field('HeightDepthError', self.height_depth_error_lineEdit.text()))
+        # # self.height_depth_unit_comboBox.currentTextChanged.connect(self.update_id('HeightDepthUnitID', self.height_depth_unit_comboBox.currentText(), 'DistanceUnits'))
+        # self.sample_description_lineEdit.textChanged.connect(
+        #     self.update_field('SampleDescription', self.sample_description_lineEdit.text()))
+        # self.sample_context_comboBox.closing.connect(self.update_tags(self.sample_context_tree, 'SampleContexts'))
+        # self.sampling_method_comboBox.closing.connect(self.update_tags(self.sampling_method_tree, 'SamplingMethods'))
+        # self.unit_comboBox.closing.connect(self.update_tags(self.unit_tree, 'Units'))
+        # self.rock_type_comboBox.closing.connect(self.update_tags(self.rock_type_tree, 'RockTypes'))
+        # self.region_comboBox.closing.connect(self.update_tags(self.region_tree, 'Regions'))
+        # self.setting_comboBox.closing.connect(self.update_tags(self.setting_tree, 'Settings'))
+        # self.age_signature_comboBox.closing.connect(self.update_tags(self.age_signature_tree, 'AgeSignatures'))
+        # self.source_comboBox.closing.connect(self.update_id('SourceID', self.source_comboBox.currentText(), 'Sources'))
 
     def populate_checks(self, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel, many_to_many_table: str):
         many_to_many_model = QtS.QSqlTableModel()
@@ -262,7 +335,10 @@ class SampleInformation(QtW.QDialog):
             return text
         for row in range(table_model.rowCount()):
             tag_id = table_model.index(row, 0).data()
-            many_to_many_model.setFilter(f"SampleID in {tuple(self.selected_sample_list)} AND {tag_id_header} = {tag_id}")
+            if len(self.checked_sample_list) > 1:
+                many_to_many_model.setFilter(f"SampleID in {tuple(self.selected_sample_list)} AND {tag_id_header} = {tag_id}")
+            else:
+                many_to_many_model.setFilter(f"SampleID = {self.selected_sample_list[0]} AND {tag_id_header} = {tag_id}")
             tree_index = tree.mapFromSource(table_model.index(row, 3))
             if many_to_many_model.rowCount() == len(self.selected_sample_list):
                 # All samples have this tag
@@ -278,12 +354,184 @@ class SampleInformation(QtW.QDialog):
         text = ", ".join(items)
         return text
 
+    def populate_sub_checks(self, table_model):
+        upb_data_table = QtS.QSqlTableModel()
+        upb_data_table.setTable('UPbData')
+        upb_data_table.select()
+        tag_id_header = table_model.record().fieldName(0)
+        items = []
+        text = ""
+        if len(self.checked_sample_list) == 0:
+            # No samples selected, so uncheck everything
+            for row in range(table_model.rowCount()):
+                index = table_model.index(row, 0)
+                table_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            return text
+        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
+        if len(upb_data_ids) > 0:
+            for row in range(table_model.rowCount()):
+                tag_id = table_model.index(row, 0).data()
+                upb_data_table.setFilter(f"UPbAnalysisID in {tuple(upb_data_ids)} AND {tag_id_header} = {tag_id}")
+                index = upb_data_table.index(row, 0)
+                if upb_data_table.rowCount() == len(upb_data_ids):
+                    # All analyses have this tag
+                    upb_data_table.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    items.append(upb_data_table.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+                elif upb_data_table.rowCount() > 0:
+                    # Some samples have this tag
+                    upb_data_table.setData(index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    items.append(upb_data_table.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+                else:
+                    # No samples have this tag
+                    upb_data_table.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            text = ", ".join(map(str, items))
+            return text
+        return text
+
     def show_context_menu(self, pos: QPoint):
         menu = QtW.QMenu()
+        selected_indexes = self.sample_name_comboBox.view().selectedIndexes()
         select_action = menu.addAction("Select all")
         unselect_action = menu.addAction("Unselect all")
+        delete_action = menu.addAction("Delete selected")
         action = menu.exec(self.sample_name_comboBox.view().mapToGlobal(pos))
         if action == select_action:
             self.check_all_samples()
         elif action == unselect_action:
             self.uncheck_all_samples()
+        elif action == delete_action:
+            if self.delete_question():
+                TbC.delete_samples(selected_indexes, self.db)
+
+    def update_field(self, field: str, text: str):
+        self.createSavepoint('before_update')
+        if len(self.checked_sample_list) > 0:
+            for sample_id in self.checked_sample_list:
+                query = QtS.QSqlQuery()
+                query.prepare(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}")
+                if query.exec():
+                    self.releaseSavepoint('before_update')
+                    print(f"Updated {field} to {text} for SampleID {sample_id}")
+                else:
+                    errtxt = query.lastError().text()
+                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+
+    def update_id(self, field: str, text: str, table: str):
+        table_model = QtS.QSqlTableModel()
+        table_model.setTable(table)
+        table_model.select()
+        table_model.setFilter(f"{table_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)} = {text}")
+        item_id = table_model.data(table_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if len(self.checked_sample_list) > 0:
+            self.createSavepoint('before_update')
+            for sample_id in self.checked_sample_list:
+                query = QtS.QSqlQuery()
+                query.prepare(f"UPDATE Samples SET {field} = {item_id} WHERE SampleID = {sample_id}")
+                if query.exec():
+                    self.releaseSavepoint('before_update')
+                else:
+                    errtxt = query.lastError().text()
+                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+
+    def update_subfield_id(self, model: CheckableSQLTableModel, field: str, text: str, table: str):
+        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
+        # UPbAnalayses have only one value for each field, so only one value should be checked
+        # If nothing is fully checked, then nothing should be updated
+        checked_item_id = None  # Should only be one
+        if len(upb_data_ids) > 0:
+            for row in range(model.rowCount()):
+                index = model.index(row, 0)
+                if model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                    checked_item_id = model.data(index, QtC.Qt.ItemDataRole.DisplayRole)
+            # todo: update the database for the UPbData table
+            # todo: analysis tags can be populated with partial checks, but any click clears those and places a single check
+            self.createSavepoint('before_update')
+            query = QtS.QSqlQuery()
+            if len(upb_data_ids) > 1:
+                query.prepare(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)}")
+            else:
+                query.prepare(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}")
+            if query.exec():
+                self.releaseSavepoint('before_update')
+            else:
+                errtxt = query.lastError().text()
+                self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+
+
+    def update_tags(self, model: TrC.CheckableTreeModel, table: str):
+        many_to_many_model = QtS.QSqlTableModel()
+        many_to_many_model.setTable(f"Samples_{table}")
+        many_to_many_model.select()
+        checked_items = []
+        partially_checked_items = []
+        if len(self.checked_sample_list) > 0:
+            for row in range(model.rowCount()):
+                index = model.index(row, 0)
+                if model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                    checked_items.append(model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+                elif model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.PartiallyChecked:
+                    partially_checked_items.append(model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+            for sample_id in self.checked_sample_list:
+                model.update_db(checked_items, partially_checked_items, sample_id)
+
+    def delete_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to delete these items and all associated data?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            return True
+        else:
+            return False
+
+    def discard_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to discard all changes?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.rollback('before_edit')
+        else:
+            pass
+
+    def commit_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to commit all changes to the database?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.commit()
+        else:
+            pass
+
+    def rollback(self, savepoint_name: str):
+        query = QtS.QSqlQuery(self.db)
+        if query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}') is False:
+            errtxt = Er.rollback_fail("Samples")
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+        else:
+            self.reject()
+        # TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
+
+    def commit(self):
+        self.releaseSavepoint('before_edit')
+        # TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
+
+    def closeEvent(self, event: QtG.QCloseEvent):
+        if not self.close_by_dialog:
+            self.discard_question()
+            event.ignore()
+        else:
+            event.accept()

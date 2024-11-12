@@ -934,10 +934,14 @@ class CheckableTreeModel(TreeModel):
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
         return super().flags(index)
 
-    def update_db(self, checked_list: list):
+    def update_db(self, checked_list: list, partially_checked_list = None, sample_ID = None):
+        if not sample_ID:
+            sample_ID = self.sample_ID
+        if not partially_checked_list:
+            partially_checked_list = []
         current_IDs = []
         query = QtS.QSqlQuery(self.db)
-        query.prepare(f"SELECT * FROM SAMPLES_{self.table} WHERE SampleID = {self.sample_ID}")
+        query.prepare(f"SELECT * FROM SAMPLES_{self.table} WHERE SampleID = {sample_ID}")
         if query.exec():
             while query.next():
                 current_IDs.append(query.value(1))
@@ -954,35 +958,38 @@ class CheckableTreeModel(TreeModel):
             to_remove = []
             to_add = []
             for ID in current_IDs:
-                if ID not in checked_IDs:
+                if ID not in checked_IDs and ID not in partially_checked_list:
                     to_remove.append(ID)
             for ID in checked_IDs:
-                if ID not in current_IDs:
+                if ID not in current_IDs and ID not in partially_checked_list:
                     to_add.append(ID)
             for ID in to_remove:
-                query.prepare(f"DELETE FROM SAMPLES_{self.table} WHERE SampleID = {self.sample_ID} AND {self.id_header} = {ID}")
+                query.prepare(f"DELETE FROM SAMPLES_{self.table} WHERE SampleID = {sample_ID} AND {self.id_header} = {ID}")
                 if not query.exec():
                     print(f"Error removing {ID} from SAMPLES_{self.table}")
                     self.rollback()
                     return
                 else:
-                    print(f"Removed {self.sample_ID, ID} from SAMPLES_{self.table}")
+                    print(f"Removed {sample_ID, ID} from SAMPLES_{self.table}")
             for ID in to_add:
-                query.prepare(f"INSERT INTO SAMPLES_{self.table}(SampleID, {self.id_header}) VALUES({self.sample_ID}, {ID})")
+                query.prepare(f"INSERT INTO SAMPLES_{self.table}(SampleID, {self.id_header}) VALUES({sample_ID}, {ID})")
                 if not query.exec():
                     print(f"Error adding {ID} to SAMPLES_{self.table}")
                     self.rollback()
                     return
                 else:
-                    print(f"Added {self.sample_ID, ID} to SAMPLES_{self.table}")
+                    print(f"Added {sample_ID, ID} to SAMPLES_{self.table}")
             self.releaseSavepoint()
 
 class TreeCombobox(QtW.QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setEditable(True)
+        self.lineEdit().setReadOnly(True)
         self.treeView = QtW.QTreeView()
         self.treeView.setRootIsDecorated(True)
         self.setView(self.treeView)
+        self.treeView.viewport().installEventFilter(self)
 
     def showPopup(self):
         self.treeView.expandAll()
@@ -1006,6 +1013,18 @@ class TreeCombobox(QtW.QComboBox):
         self.treeView.setMinimumWidth(size_hint)
         # self.treeView.horizontalScrollBar()
         super().showPopup()
+
+    def set_text(self, text):
+        self.lineEdit().setText(text)
+
+    def eventFilter(self, obj, event):
+        if obj == self.treeView.viewport():
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                self.treeView.setCurrentIndex(self.treeView.selectedIndexes()[0])
+                self.lineEdit().setText(self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole))
+                return True
+            return super().eventFilter(obj, event)
+        return super().eventFilter(obj, event)
 
 class CheckableTreeCombobox(TreeCombobox):
     closing = QtC.pyqtSignal()
@@ -1079,3 +1098,5 @@ class CheckableTreeCombobox(TreeCombobox):
                 # print(f"Clicked {self.treeView.currentIndex()} linked with tree item {self.model().getItem(self.treeView.currentIndex())}")
                 return True
             return super().eventFilter(obj, event)
+
+        return super().eventFilter(obj, event)

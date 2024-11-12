@@ -8,6 +8,8 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from collections import namedtuple
 
+# from PyQt6.QtSql import rollback
+from PyQt6.sip import delete
 from openpyxl.styles.builtins import total
 
 # Map model column names back to database items
@@ -390,6 +392,88 @@ class CheckableSampleComboBox(QtW.QComboBox):
                 self.showPopup()
                 return True
             return super().eventFilter(obj, event)
+
+def delete_samples(sample_ids: list, db: QtS.QSqlDatabase):
+    # Delete the selected samples and all aliquots, spots, and UPb data associated with them
+    aliquot_ids, spot_ids, upb_data_ids = find_sub_items(sample_ids, 'UPbData', db)
+
+    # Get a list of tables in the database
+    tables = db.tables()
+    query = QtS.QSqlQuery(db)
+
+    save_query = QtS.QSqlQuery(db)
+    if save_query.exec('SAVEPOINT before_delete') is False:
+        errtxt = save_query.lastError().text()
+        return errtxt
+
+    def release_savepoint():
+        save_query = QtS.QSqlQuery(db)
+        if save_query.exec('RELEASE SAVEPOINT before_delete') is False:
+            errtxt = query.lastError().text()
+            return errtxt
+
+    def rollback_savepoint():
+        save_query = QtS.QSqlQuery(db)
+        if save_query.exec('ROLLBACK TO before_delete') is False:
+            errtxt = query.lastError().text()
+            return errtxt
+
+    def delete_query(table, ids, id_name):
+        if len(ids) > 0:
+            query.prepare(f'DELETE FROM {table} WHERE {id_name} in {tuple(ids)}')
+        if len(ids) == 1:
+            query.prepare(f'DELETE FROM {table} WHERE {id_name}={ids[0]}')
+        if not query.exec():
+            rollback_savepoint()
+            return query.lastError().text()
+
+    delete_query('UPbData', upb_data_ids, 'UPbDataID')
+    for table in tables:
+        if 'Spots_' in table:
+            delete_query(f'Spots_{table}', spot_ids, 'SpotID')
+        elif 'Aliquots_' in table:
+            delete_query(f'Aliquots_{table}', aliquot_ids, 'AliquotID')
+        elif 'Samples_' in table:
+            delete_query(f'Samples_{table}', sample_ids, 'SampleID')
+    delete_query('Spots', spot_ids, 'SpotID')
+    delete_query('Aliquots', aliquot_ids, 'AliquotID')
+    delete_query('Samples', sample_ids, 'SampleID')
+
+    release_savepoint()
+
+def find_sub_items(sample_ids, db):
+    # Find all the sub items of a list of samples
+    query = QtS.QSqlQuery(db)
+    aliquot_ids = []
+    spot_ids = []
+    upb_data_ids = []
+    sample_table = QtS.QSqlTableModel()
+    sample_table.setTable('Samples')
+    sample_table.select()
+    aliquot_table = QtS.QSqlTableModel()
+    aliquot_table.setTable('Aliquots')
+    aliquot_table.select()
+    spot_table = QtS.QSqlTableModel()
+    spot_table.setTable('Spots')
+    spot_table.select()
+    UPb_data_table = QtS.QSqlTableModel()
+    UPb_data_table.setTable('UPbData')
+    UPb_data_table.select()
+
+    for sample_id in sample_ids:
+        aliquot_table.setFilter(f'SampleID={sample_id}')
+        for row in range(aliquot_table.rowCount()):
+            aliquot_id = aliquot_table.record(row).value('AliquotID')
+            aliquot_ids.append(aliquot_id)
+            spot_table.setFilter(f'AliquotID={aliquot_id}')
+            for row in range(spot_table.rowCount()):
+                spot_id = spot_table.record(row).value('SpotID')
+                spot_ids.append(spot_id)
+                UPb_data_table.setFilter(f'SpotID={spot_id}')
+                for row in range(UPb_data_table.rowCount()):
+                    upb_data_id = UPb_data_table.record(row).value('UPbAnalysisID')
+                    upb_data_ids.append(upb_data_id)
+    return aliquot_ids, spot_ids, upb_data_ids
 
 # class table_proxy_model(QtC.QSortFilterProxyModel):
 #     def __int__(self):

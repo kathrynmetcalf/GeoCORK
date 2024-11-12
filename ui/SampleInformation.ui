@@ -13,22 +13,6 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="QDialogButtonBox" name="buttonBox">
-   <property name="geometry">
-    <rect>
-     <x>900</x>
-     <y>610</y>
-     <width>341</width>
-     <height>32</height>
-    </rect>
-   </property>
-   <property name="orientation">
-    <enum>Qt::Horizontal</enum>
-   </property>
-   <property name="standardButtons">
-    <set>QDialogButtonBox::Cancel|QDialogButtonBox::Ok</set>
-   </property>
-  </widget>
   <widget class="QLabel" name="sample_name_label">
    <property name="geometry">
     <rect>
@@ -52,10 +36,13 @@
     </rect>
    </property>
    <property name="sizePolicy">
-    <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+    <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
      <horstretch>0</horstretch>
      <verstretch>0</verstretch>
     </sizepolicy>
+   </property>
+   <property name="placeholderText">
+    <string>Select samples to edit</string>
    </property>
   </widget>
   <widget class="QGroupBox" name="groupBox">
@@ -738,7 +725,7 @@
      </rect>
     </property>
     <property name="text">
-     <string>Edits to the tags below will apply to all aliquots, spots, and analyses in the selected samples</string>
+     <string>Edits to the tags below will apply to all analyses in the selected samples</string>
     </property>
    </widget>
    <widget class="QWidget" name="layoutWidget_7">
@@ -754,9 +741,9 @@
      <item>
       <layout class="QVBoxLayout" name="verticalLayout_9">
        <item>
-        <widget class="QLabel" name="reference_label">
+        <widget class="QLabel" name="source_label">
          <property name="text">
-          <string>Reference</string>
+          <string>Source</string>
          </property>
          <property name="alignment">
           <set>Qt::AlignCenter</set>
@@ -764,7 +751,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="reference_comboBox"/>
+        <widget class="QComboBox" name="source_comboBox"/>
        </item>
       </layout>
      </item>
@@ -1002,6 +989,45 @@
     <string>Edits to the fields below will apply to all selected samples</string>
    </property>
   </widget>
+  <widget class="QWidget" name="">
+   <property name="geometry">
+    <rect>
+     <x>42</x>
+     <y>620</y>
+     <width>1201</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <layout class="QHBoxLayout" name="horizontalLayout_12">
+    <item>
+     <spacer name="horizontalSpacer_5">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>998</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
+    <item>
+     <widget class="QPushButton" name="cancel_pushButton">
+      <property name="text">
+       <string>Cancel</string>
+      </property>
+     </widget>
+    </item>
+    <item>
+     <widget class="QPushButton" name="commit_pushButton">
+      <property name="text">
+       <string>Commit</string>
+      </property>
+     </widget>
+    </item>
+   </layout>
+  </widget>
  </widget>
  <customwidgets>
   <customwidget>
@@ -1021,38 +1047,5 @@
   </customwidget>
  </customwidgets>
  <resources/>
- <connections>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>accepted()</signal>
-   <receiver>Dialog</receiver>
-   <slot>accept()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>248</x>
-     <y>254</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>157</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>buttonBox</sender>
-   <signal>rejected()</signal>
-   <receiver>Dialog</receiver>
-   <slot>reject()</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>316</x>
-     <y>260</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>286</x>
-     <y>274</y>
-    </hint>
-   </hints>
-  </connection>
- </connections>
+ <connections/>
 </ui>
