@@ -10,7 +10,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize
-from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton
+from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget
 
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
@@ -20,6 +20,7 @@ import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
+from ExportWidget import ExportWidget
 from Tree_classes import TreeSortFilterProxyModel
 from ui.EditTags import EditTags
 from ui.EditTable import EditTable
@@ -82,7 +83,9 @@ class GeoChron(QtW.QMainWindow):
         self.edit_pushButton.clicked.connect(self.edit_popup)
         # End widgets here # show the window when done, used for making a top-level window
 
+        self.tabWidget: QTabWidget
         self.querybuilder = QueryBuilder(self)
+        self.tabWidget.addTab(ExportWidget(self), 'Export')
         self.querybuilder.setLayout(self.horizontalLayout_2)
         self.horizontalLayout_2.addWidget(self.querybuilder)
 
