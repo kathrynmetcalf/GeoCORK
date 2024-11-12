@@ -26,7 +26,7 @@
     <string>Sample Name</string>
    </property>
   </widget>
-  <widget class="CheckableSampleComboBox" name="sample_name_comboBox">
+  <widget class="CheckableComboBox" name="sample_name_comboBox">
    <property name="geometry">
     <rect>
      <x>40</x>
@@ -751,7 +751,7 @@
         </widget>
        </item>
        <item>
-        <widget class="CheckableSampleComboBox" name="source_comboBox"/>
+        <widget class="CheckableComboBox" name="source_comboBox"/>
        </item>
       </layout>
      </item>
@@ -768,7 +768,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="analysis_method_comboBox"/>
+        <widget class="CheckableTreeCombobox" name="analysis_method_comboBox"/>
        </item>
       </layout>
      </item>
@@ -785,7 +785,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="lab_facility_comboBox"/>
+        <widget class="CheckableComboBox" name="lab_facility_comboBox"/>
        </item>
       </layout>
      </item>
@@ -802,7 +802,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="intrument_comboBox"/>
+        <widget class="CheckableComboBox" name="instrument_comboBox"/>
        </item>
       </layout>
      </item>
@@ -1041,7 +1041,7 @@
    <header>Functions/Tree_classes.h</header>
   </customwidget>
   <customwidget>
-   <class>CheckableSampleComboBox</class>
+   <class>CheckableComboBox</class>
    <extends>QComboBox</extends>
    <header location="global">Functions/Table_classes.h</header>
   </customwidget>

@@ -278,10 +278,10 @@ class ComboList(QtW.QComboBox):
 class CheckableSampleTableView(QtW.QTableView):
     def __init__(self):
         super().__init__()
-        for col in range(0, 26):
-            # hide all but name and description
-            if col != 1 and col != 23:
-                self.hideColumn(col)
+        # for col in range(0, 26):
+        #     # hide all but name and description
+        #     if col != 1 and col != 23:
+        #         self.hideColumn(col)
         self.resizeColumnsToContents()
         self.clicked.connect(self.toggle_check_state)
 
@@ -294,53 +294,90 @@ class CheckableSampleTableView(QtW.QTableView):
                 new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
                 self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
 
-class CheckableSQLTableModel(QtS.QSqlTableModel):
+class CheckableSqlTableModel(QtS.QSqlTableModel):
     def __init__(self):
         super().__init__()
         self.checked_data = {}
+        self.partially_checked_data = {}
 
     def flags(self, index):
         flags = super().flags(index)
-        if index.column() == 1:
+        if self.tableName() == 'Sources':
+            col = 6
+        else:
+            col = 1
+        if index.column() == col:
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
         return flags
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return False
-        if index.column() == 1 and role == QtC.Qt.ItemDataRole.CheckStateRole:
-            if index.row() not in self.checked_data.keys():
-                return QtC.Qt.CheckState.Unchecked
-            else:
+        if self.tableName() == 'Sources':
+            col = 6
+        else:
+            col = 1
+        if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
+            if index.row() in self.checked_data.keys():
                 return QtC.Qt.CheckState.Checked
+            elif index.row() in self.partially_checked_data.keys():
+                return QtC.Qt.CheckState.PartiallyChecked
+            else:
+                return QtC.Qt.CheckState.Unchecked
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
-        if index.column() == 1 and role == QtC.Qt.ItemDataRole.CheckStateRole:
+        if self.tableName() == 'Sources':
+            col = 6
+        else:
+            col = 1
+        if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
                 self.checked_data[index.row()] = value
+            elif value == QtC.Qt.CheckState.PartiallyChecked:
+                self.partially_checked_data[index.row()] = value
             else:
                 if index.row() in self.checked_data.keys():
                     self.checked_data.pop(index.row())
+                if index.row() in self.partially_checked_data.keys():
+                    self.partially_checked_data.pop(index.row())
             self.dataChanged.emit(index, index, [role])
             return True
         return super().setData(index, value, role)
 
-class CheckableSampleComboBox(QtW.QComboBox):
+class CheckableComboBox(QtW.QComboBox):
     closing = QtC.pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
         self.lineEdit().setReadOnly(True)
-        self.closedOnLineEditClick = False
+        self.closedOnLineEditClick = True
+        self.single_click = False
         self.tableView = CheckableSampleTableView()
         self.setView(self.tableView)
         self.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContentsOnFirstShow)
 
         self.tableView.viewport().installEventFilter(self)
 
+    def set_single_click(self, single_click):
+        self.single_click = single_click
+
     def set_line_edit_text(self, text):
         self.lineEdit().setText(text)
+
+    def clear_all_checks(self):
+        if self.model().tableName() == 'Sources':
+            col = 6
+        else:
+            col = 1
+        for row in range(self.model().rowCount()):
+            index = self.model().index(row, col)
+            if row == self.tableView.currentIndex().row():
+                self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+            else:
+                self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            print(f"Changed state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
+
 
     def showPopup(self):
         self.tableView.resizeColumnsToContents()
@@ -357,7 +394,6 @@ class CheckableSampleComboBox(QtW.QComboBox):
                 self.tableView.hideColumn(col)
         self.tableView.setSortingEnabled(False)
         width_c1 = self.tableView.sizeHintForColumn(1)
-        width_tree = self.tableView.sizeHint().width()
         if width_hint < 2 * width_c1:
             size_hint = width_hint
         else:
@@ -388,6 +424,11 @@ class CheckableSampleComboBox(QtW.QComboBox):
 
         if obj == self.tableView.viewport():
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+                if self.single_click:
+                    print(f"Clicked text: {self.tableView.currentIndex().data()}")
+                    print("Single click mode enabled")
+                    self.clear_all_checks()
+                    self.set_line_edit_text(self.tableView.currentIndex().data())
                 self.tableView.toggle_check_state(self.tableView.currentIndex())
                 self.showPopup()
                 return True

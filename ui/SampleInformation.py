@@ -3,6 +3,7 @@ from pathlib import Path
 import sqlite3
 import re
 from random import sample
+import time
 
 # import pandas as pd
 from PyQt6 import QtWidgets as QtW
@@ -20,7 +21,7 @@ import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import ui.import_wizard
 import ui.New_source
-from Functions.Table_classes import CheckableSQLTableModel
+from Functions.Table_classes import CheckableSqlTableModel
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -50,7 +51,7 @@ class SampleInformation(QtW.QDialog):
         loadUi(sources_ui_file, self)
 
         # Sample names table
-        self.sample_names_model = TbC.CheckableSQLTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
+        self.sample_names_model = TbC.CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
         self.sample_names_model = self.set_table(self.sample_names_model, 'Samples')
         if sample_id_list is None or len(sample_id_list) == 0:
             self.selected_sample_list = []
@@ -84,11 +85,11 @@ class SampleInformation(QtW.QDialog):
         self.setting_tree = CheckableTreeModel()
         self.age_signature_model = QtS.QSqlTableModel()
         self.age_signature_tree = CheckableTreeModel()
-        self.source_model = QtS.QSqlTableModel()
+        self.source_model = CheckableSqlTableModel()
         self.analysis_method_model = QtS.QSqlTableModel()
         self.analysis_method_tree = CheckableTreeModel()
-        self.lab_facility_model = QtS.QSqlTableModel()
-        self.instrument_model = QtS.QSqlTableModel()
+        self.lab_facility_model = CheckableSqlTableModel()
+        self.instrument_model = CheckableSqlTableModel()
 
         self.msg = QtW.QMessageBox(self)
         self.createSavepoint('before_edit')
@@ -186,7 +187,9 @@ class SampleInformation(QtW.QDialog):
         self.setting_comboBox.setModel(self.setting_tree)
         self.age_signature_comboBox.setModel(self.age_signature_tree)
         self.source_comboBox.setModel(self.source_model)
-        # TbC.comboBox_display_table(self.source_comboBox)
+        self.analysis_method_comboBox.setModel(self.analysis_method_tree)
+        self.lab_facility_comboBox.setModel(self.lab_facility_model)
+        self.instrument_comboBox.setModel(self.instrument_model)
 
         self.sample_name_comboBox: CheckableTreeCombobox
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -235,7 +238,10 @@ class SampleInformation(QtW.QDialog):
         self.region_comboBox.closing.connect(lambda: self.update_tags(self.region_tree, 'Regions'))
         self.setting_comboBox.closing.connect(lambda: self.update_tags(self.setting_tree, 'Settings'))
         self.age_signature_comboBox.closing.connect(lambda: self.update_tags(self.age_signature_tree, 'AgeSignatures'))
-        self.source_comboBox.currentTextChanged.connect(lambda: self.update_subfield_id(self.source_model, 'SourceID'))
+        # self.source_comboBox.closing.connect(lambda: self.update_subfield_id(self.source_model, 'SourceID'))
+        # self.analysis_method_comboBox.closing.connect(lambda: self.update_subfield_id(self.analysis_method_model, 'UPbAnalysisMethodID'))
+        # self.lab_facility_comboBox.closing.connect(lambda: self.update_subfield_id(self.lab_facility_model, 'LabFacilityID'))
+        # self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id(self.instrument_model, 'InstrumentID'))
 
     def populate_fields(self):
         sample_distinct_query = TbC.SampleDistinctQuery()
@@ -313,9 +319,18 @@ class SampleInformation(QtW.QDialog):
         self.setting_comboBox.setCurrentText(text)
         text = self.populate_checks(self.age_signature_model, self.age_signature_tree, 'Samples_AgeSignatures')
         self.age_signature_comboBox.setCurrentText(text)
-        # todo: checkboxes are not appearing in the source combobox
         text = self.populate_sub_checks(self.source_model)
+        self.source_comboBox.set_single_click(True)
         self.source_comboBox.setCurrentText(text)
+        text = self.populate_sub_checks(self.analysis_method_model)
+        self.analysis_method_comboBox.set_single_click(True)
+        self.analysis_method_comboBox.setCurrentText(text)
+        text = self.populate_sub_checks(self.lab_facility_model)
+        self.lab_facility_comboBox.set_single_click(True)
+        self.lab_facility_comboBox.setCurrentText(text)
+        text = self.populate_sub_checks(self.instrument_model)
+        self.instrument_comboBox.set_single_click(True)
+        self.instrument_comboBox.setCurrentText(text)
 
     def populate_checks(self, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel, many_to_many_table: str):
         many_to_many_model = QtS.QSqlTableModel()
@@ -353,9 +368,9 @@ class SampleInformation(QtW.QDialog):
 
     def populate_sub_checks(self, table_model):
         if table_model.tableName() == "Sources":
-            column = 6
+            col = 6
         else:
-            column = 0
+            col = 1
         upb_data_table = QtS.QSqlTableModel()
         upb_data_table.setTable('UPbData')
         upb_data_table.select()
@@ -365,7 +380,7 @@ class SampleInformation(QtW.QDialog):
         if len(self.checked_sample_list) == 0:
             # No samples selected, so uncheck everything
             for row in range(table_model.rowCount()):
-                index = table_model.index(row, 0)
+                index = table_model.index(row, col)
                 table_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
             return text
         aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
@@ -373,7 +388,7 @@ class SampleInformation(QtW.QDialog):
             for row in range(table_model.rowCount()):
                 tag_id = table_model.index(row, 0).data()
                 upb_data_table.setFilter(f"UPbAnalysisID in {tuple(upb_data_ids)} AND {tag_id_header} = {tag_id}")
-                index = table_model.index(row, column)
+                index = table_model.index(row, col)
                 if upb_data_table.rowCount() == len(upb_data_ids):
                     # All analyses have this tag
                     table_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
@@ -435,51 +450,77 @@ class SampleInformation(QtW.QDialog):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
-    def update_subfield_id(self, model: CheckableSQLTableModel, field: str):
+    def update_subfield_id(self, model: CheckableSqlTableModel, field: str):
         aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If nothing is fully checked, then nothing should be updated
         checked_item_id = None  # Should only be one
         if len(upb_data_ids) > 0:
+            if model.tableName() == "Sources":
+                column = 6
+            else:
+                column = 1
             for row in range(model.rowCount()):
-                index = model.index(row, 0)
-                if model.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                    checked_item_id = model.data(index, QtC.Qt.ItemDataRole.DisplayRole)
-            # todo: update the database for the UPbData table
-            # todo: analysis tags can be populated with partial checks, but any click clears those and places a single check
+                name_index = model.index(row, column)
+                id_index = model.index(row, 0)
+                if model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                    checked_item_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
+            # todo: optimize update for thousands of analysis IDs
+            # todo: figure out what other transaction is going on before beginning one for the updates
             self.createSavepoint('before_update')
-            query = QtS.QSqlQuery()
-            if len(upb_data_ids) > 1:
-                query.prepare(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)}")
-            else:
-                query.prepare(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}")
-            if query.exec():
-                self.releaseSavepoint('before_update')
-            else:
-                errtxt = query.lastError().text()
-                self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-
+            query_start_time = time.time()
+            if model.database().transaction():
+                query = QtS.QSqlQuery()
+                query.setForwardOnly(True)
+                if len(upb_data_ids) > 1:
+                    print(len(upb_data_ids))
+                    upb_data_ids.sort()
+                    query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)[0:10]}")
+                else:
+                    query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}")
+                if model.database().commit():
+                    print(f"Updated {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}")
+                    self.releaseSavepoint('before_update')
+                else:
+                    print(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}")
+                    errtxt = query.lastError().text()
+                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            query_end_time = time.time()
+            print(f"Query time: {query_end_time - query_start_time}")
 
     def update_tags(self, model: TrC.CheckableTreeModel, table: str):
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(f"Samples_{table}")
         many_to_many_model.select()
-        checked_items = []
-        partially_checked_items = []
-
-        def traverse_tree(tree: TrC.CheckableTreeModel, parent: QtC.QModelIndex):
-            for row in range(tree.rowCount(parent)):
-                index = tree.index(row, 0, parent)
-                if tree.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                    checked_items.append(tree.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                elif tree.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.PartiallyChecked:
-                    partially_checked_items.append(tree.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                traverse_tree(tree, index)
 
         if len(self.checked_sample_list) > 0:
-            traverse_tree(model, QtC.QModelIndex())
+            checked_items , partially_checked_items = model.traverse_checkable_tree(QtC.QModelIndex())
             for sample_id in self.checked_sample_list:
                 model.update_db(checked_items, partially_checked_items, sample_id)
+
+    def update_sub_tags(self, model: TrC.CheckableTreeModel, table: str):
+        field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
+        # UPbAnalayses have only one value for each field, so only one value should be checked
+        # If nothing is fully checked, then nothing should be updated
+        checked_items, partially_checked_items = model.traverse_checkable_tree(QtC.QModelIndex())
+        checked_item_id = None  # Should only be one
+        if len(checked_items) > 0:
+            self.createSavepoint('before_update')
+            query = QtS.QSqlQuery()
+            if len(upb_data_ids) > 1:
+                query.prepare(
+                    f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)}")
+            if len(upb_data_ids) == 1:
+                query.prepare(
+                    f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}")
+            if query.exec():
+                print(f"Updated {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids}")
+                self.releaseSavepoint('before_update')
+            else:
+                self.rollback('before_update')
+                errtxt = query.lastError().text()
+                self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()
@@ -524,7 +565,6 @@ class SampleInformation(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
             self.reject()
-        # TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
