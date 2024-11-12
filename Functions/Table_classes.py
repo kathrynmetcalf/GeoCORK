@@ -349,7 +349,7 @@ class CheckableSampleComboBox(QtW.QComboBox):
         for col in range(0, columns):
             # hide all but name and description
             col_name = self.model().headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if "Name" in col_name or "Description" in col_name:
+            if "Name" in col_name or "Description" in col_name or "ShortCitation" in col_name:
                 self.tableView.showColumn(col)
                 # Add up the size hints for all the visible columns
                 width_hint += self.tableView.columnWidth(col)
@@ -392,6 +392,35 @@ class CheckableSampleComboBox(QtW.QComboBox):
                 self.showPopup()
                 return True
             return super().eventFilter(obj, event)
+
+def comboBox_display_table(comboBox):
+    comboBox.tableView.resizeColumnsToContents()
+    columns = comboBox.model().columnCount()
+    width_hint = 0
+    for col in range(0, columns):
+        # hide all but name and description
+        col_name = comboBox.model().headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        if "Name" in col_name or "Description" in col_name:
+            comboBox.tableView.showColumn(col)
+            # Add up the size hints for all the visible columns
+            width_hint += comboBox.tableView.columnWidth(col)
+        else:
+            comboBox.tableView.hideColumn(col)
+    comboBox.tableView.setSortingEnabled(False)
+    width_c1 = comboBox.tableView.sizeHintForColumn(1)
+    width_tree = comboBox.tableView.sizeHint().width()
+    if width_hint < 2 * width_c1:
+        size_hint = width_hint
+    else:
+        size_hint = 2 * width_c1
+    comboBox.tableView.setMinimumWidth(size_hint)
+    # row height * number of rows plus header height
+    total_height = comboBox.tableView.rowHeight(
+        0) * comboBox.tableView.model().rowCount() + comboBox.tableView.horizontalHeader().height()
+    if total_height > comboBox.tableView.sizeHint().height():
+        comboBox.tableView.setFixedHeight(comboBox.tableView.sizeHint().height())
+    else:
+        comboBox.tableView.setFixedHeight(total_height)
 
 def delete_samples(sample_ids: list, db: QtS.QSqlDatabase):
     # Delete the selected samples and all aliquots, spots, and UPb data associated with them

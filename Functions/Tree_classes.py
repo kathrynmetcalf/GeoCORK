@@ -948,6 +948,8 @@ class CheckableTreeModel(TreeModel):
             checked_IDs = []
             if len(checked_list) >1:
                 checked = tuple(checked_list)
+            elif len(checked_list) == 0:
+                checked = "()"
             else:
                 checked = f"('{checked_list[0]}')"
             query.prepare(f"SELECT * FROM {self.table} WHERE {self.item_name_header} in {checked}")
@@ -1011,7 +1013,6 @@ class TreeCombobox(QtW.QComboBox):
         else:
             size_hint = 2*width_c1
         self.treeView.setMinimumWidth(size_hint)
-        # self.treeView.horizontalScrollBar()
         super().showPopup()
 
     def set_text(self, text):

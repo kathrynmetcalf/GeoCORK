@@ -751,7 +751,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QComboBox" name="source_comboBox"/>
+        <widget class="CheckableSampleComboBox" name="source_comboBox"/>
        </item>
       </layout>
      </item>
