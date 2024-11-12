@@ -23,6 +23,9 @@ class DataViewerWidget(QWidget):
         self.table_type = table_type
         self.ids_to_show = '('
 
+        # creates ids_to_show string in format (id1, id2, id3, ...)
+        # ids_to_show is a filtered list of ids to show in the table
+        # can be either from Samples, Aliquots, Spots, or UPbData
         if len(ids_to_show) > 0:
             for sample in ids_to_show:
                 self.ids_to_show += str(sample[0]) + ", "
@@ -56,9 +59,11 @@ class DataViewerWidget(QWidget):
                                  'Sources', 'Spots',
                                  'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units',
                                  'UPb Analysis Methods']
+
         # list of tables to display as a tree structure
         self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',
                             'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'Units']
+       # list of tables to display as a table structure
         self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData', 'Spots',
                              'UPbAnalysisMethods']
 
@@ -73,6 +78,7 @@ class DataViewerWidget(QWidget):
             self.dbTable_comboBox.addItem('Spots')
         elif self.table_type == 'upbdata':
             self.dbTable_comboBox.addItem('UPbData')
+        # todo future implementation for dynamically switching between these tables
 
         # Pagination variables
         self.current_page_1 = 0
@@ -83,10 +89,11 @@ class DataViewerWidget(QWidget):
         self.rows_per_page_2 = 250
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
 
+        # display sample table information first time
         self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
                                   self.dbTable_comboBox, self.edit_pushButton)
 
-        # Display the selected table
+        # Display filtered table for the first time
         self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_sample_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
             self.edit_pushButton_2, self.dbTable_tableView, table_type))
@@ -123,7 +130,7 @@ class DataViewerWidget(QWidget):
 
     def next_page_1(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
         """
-        Slot to move to the next page
+        Slot to move to the next page for the sample table
         """
         if (self.current_page_1 + 1) * self.rows_per_page_1 < self.total_records_1:
             self.current_page_1 += 1
@@ -132,7 +139,7 @@ class DataViewerWidget(QWidget):
 
     def previous_page_1(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
         """
-        Slot to move to the previous page
+        Slot to move to the previous page for the sample table
         """
         if self.current_page_1 > 0:
             self.current_page_1 -= 1
@@ -141,7 +148,7 @@ class DataViewerWidget(QWidget):
     def next_page_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
                     sample_filter, table_type):
         """
-        Slot to move to the next page
+        Slot to move to the next page for the filtered table
         """
         if (self.current_page_2 + 1) * self.rows_per_page_2 < self.total_records_2:
             self.current_page_2 += 1
@@ -152,7 +159,7 @@ class DataViewerWidget(QWidget):
     def previous_page_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
                         sample_filter, table_type):
         """
-        Slot to move to the previous page
+        Slot to move to the previous page for the filtered table
         """
         if self.current_page_2 > 0:
             self.current_page_2 -= 1
@@ -160,10 +167,11 @@ class DataViewerWidget(QWidget):
             db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton, sample_filter,
             table_type)
 
-    def go_to_record_1(self, goto_line_edit):
+    def go_to_record_1(self):
         """
-        Slot to go to a specific record ID
+        Slot to go to a specific record ID for the sample table
         """
+        # todo fix, this slot is not connected to a signal
         try:
             record_id = int(self.goto_line_edit_1.text())
             index = self.get_record_index(record_id, self.dbTable_comboBox)
@@ -179,8 +187,9 @@ class DataViewerWidget(QWidget):
     def go_to_record_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
                        sample_filter, table_type):
         """
-        Slot to go to a specific record ID
+        Slot to go to a specific record ID for the filter table
         """
+        # todo fix, this slot is not connected to a signal
         try:
             record_id = int(self.goto_line_edit_2.text())
             index = self.get_record_index(record_id, dbTable_comboBox)
@@ -497,6 +506,7 @@ class DataViewerWidget(QWidget):
 
     def get_query_from_table(self, table):
 
+        # gets the joins for the SQL query for the filtered table
         join = f'SELECT DISTINCT {table}.* FROM Samples '
         match (table):
             case 'Ages':
@@ -625,6 +635,7 @@ class DataViewerWidget(QWidget):
         dbTable_comboBox: QComboBox
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
+        # todo fix this for working with new sample edit view
         if table_name == 'Samples':
             dlg = EditTable(self.db, self.sample_model, table_name)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':

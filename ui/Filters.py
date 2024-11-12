@@ -914,7 +914,6 @@ class QueryBuilder(QWidget):
     def get_sql(self, type):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
-        # todo where clause breaks when entering 5 vs 5.0
 
         join = ""
 

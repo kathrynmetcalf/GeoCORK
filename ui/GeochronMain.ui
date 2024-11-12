@@ -465,28 +465,7 @@
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="QComboBox" name="comboBox_3">
-              <item>
-               <property name="text">
-                <string>Samples</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>Aliquots</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>Spots</string>
-               </property>
-              </item>
-              <item>
-               <property name="text">
-                <string>Units</string>
-               </property>
-              </item>
-             </widget>
+             <widget class="QComboBox" name="comboBox_3"/>
             </item>
             <item row="3" column="0">
              <widget class="QLabel" name="label_5">
@@ -508,7 +487,7 @@
             <property name="maximumSize">
              <size>
               <width>16777215</width>
-              <height>25</height>
+              <height>30</height>
              </size>
             </property>
             <property name="text">
