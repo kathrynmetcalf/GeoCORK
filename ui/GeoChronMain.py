@@ -16,17 +16,18 @@ from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
-import Functions.Group_classes as GC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
 from ExportWidget import ExportWidget
-from Tree_classes import TreeSortFilterProxyModel
+from Functions.Tree_classes import TreeSortFilterProxyModel
 from ui.EditTags import EditTags
+from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.Filters import QueryBuilder
+from ui.SampleInformation import  SampleInformation
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -81,6 +82,8 @@ class GeoChron(QtW.QMainWindow):
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
         # Signal for clicked edit button
         self.edit_pushButton.clicked.connect(self.edit_popup)
+        # Signal for clicked edit samples button
+        self.edit_samples_pushButton.clicked.connect(self.edit_samples_popup)
         # End widgets here # show the window when done, used for making a top-level window
 
         self.tabWidget: QTabWidget
@@ -185,6 +188,7 @@ class GeoChron(QtW.QMainWindow):
         # self.edit_pushButton.clicked.disconnect()
         if table == 'Samples':
             self.switch_to_table()
+            self.edit_samples_pushButton.show()
             query = TbC.SampleTableModel().setupQuery()
             self.sample_model.setQuery(QtS.QSqlQuery(query, self.db))
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
@@ -205,6 +209,7 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         elif table in self.dbtree_list:
             self.switch_to_tree()
+            self.edit_samples_pushButton.hide()
             self.model.setTable(table)
             self.model.select()
 
@@ -227,6 +232,7 @@ class GeoChron(QtW.QMainWindow):
             TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
         elif table in self.dbtable_list:
             self.switch_to_table()
+            self.edit_samples_pushButton.hide()
             self.model.setTable(table)
             self.model.select()
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
@@ -307,13 +313,25 @@ class GeoChron(QtW.QMainWindow):
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         if table_name == 'Samples':
-            dlg = EditTable(self.db, self.sample_model, table_name)
+            dlg = EditSampleTable(self.db, self.sample_model)
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
             return
         elif table in self.dbtree_list:
             dlg = EditTree(self.db, self.model, table_name)
         else:
             dlg = EditTable(self.db, self.model, table_name)
+        dlg.exec()
+        self.display_table()
+
+    def edit_samples_popup(self):
+        selected_samples = []
+        self.dbTable_tableView: QtW.QTableView
+        # Add the sample ID for any rows that are selected
+        selected_indexes = self.dbTable_tableView.selectedIndexes()
+        for index in selected_indexes:
+            id_index = index.siblingAtColumn(0)
+            selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
+        dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         self.display_table()
 

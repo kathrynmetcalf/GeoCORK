@@ -39,7 +39,7 @@
        <enum>QTabWidget::North</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>0</number>
       </property>
       <property name="elideMode">
        <enum>Qt::ElideRight</enum>
@@ -124,7 +124,7 @@
              <item>
               <widget class="QPushButton" name="edit_pushButton">
                <property name="sizePolicy">
-                <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+                <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
                  <horstretch>0</horstretch>
                  <verstretch>0</verstretch>
                 </sizepolicy>
@@ -146,6 +146,13 @@
                </property>
                <property name="text">
                 <string>Edit Table</string>
+               </property>
+              </widget>
+             </item>
+             <item>
+              <widget class="QPushButton" name="edit_samples_pushButton">
+               <property name="text">
+                <string>Edit Selected</string>
                </property>
               </widget>
              </item>
