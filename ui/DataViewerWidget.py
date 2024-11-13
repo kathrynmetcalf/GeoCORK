@@ -10,10 +10,10 @@ from PyQt6.uic import loadUi
 import Functions.Table_classes as TbC
 import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
-from EditTable import EditTable
+from ui.EditTable import EditTable
 from Functions import SQLUtils
-from Table_classes import AliquotTableModel
-from Tree_classes import TreeSortFilterProxyModel
+from Functions.Table_classes import AliquotTableModel
+from Functions.Tree_classes import TreeSortFilterProxyModel
 
 
 class DataViewerWidget(QWidget):

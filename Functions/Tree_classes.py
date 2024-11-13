@@ -1066,36 +1066,6 @@ class CheckableTreeCombobox(TreeCombobox):
     def set_line_edit_text(self, text):
         self.lineEdit().setText(text)
 
-class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
-    def __init__(self, parent=None, view=None):
-        super().__init__(parent)
-        self.setRecursiveFilteringEnabled(True)  # Enables recursive filtering for tree structures
-        self.view = view  # The view containing the model (e.g., QTreeView)
-
-    def filterAcceptsRow(self, source_row, source_parent):
-        # Override this method to implement custom filtering logic
-        model = self.sourceModel()
-
-        # Iterate through visible columns of the given row to check for a match
-        column_count = model.columnCount(source_parent)
-        for column in range(column_count):
-            # Check if the column is visible
-            if self.view is not None and self.view.isColumnHidden(column):
-                continue  # Skip hidden columns
-
-            index = model.index(source_row, column, source_parent)
-
-            # If the filter pattern is empty, accept all rows
-            if self.filterRegularExpression().pattern() == '':
-                return True
-
-            # If the current column's data matches the filter, accept this row
-            if index.data() is not None and self.filterRegularExpression().match(str(index.data())).hasMatch():
-                return True
-
-        # If no column matches, reject this row
-        return False
-
     def update_line_edit(self):
         current_line_edit_text = self.lineEdit().text()
         text_items = current_line_edit_text.split(',')
@@ -1150,6 +1120,36 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
             return super().eventFilter(obj, event)
 
         return super().eventFilter(obj, event)
+
+class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
+    def __init__(self, parent=None, view=None):
+        super().__init__(parent)
+        self.setRecursiveFilteringEnabled(True)  # Enables recursive filtering for tree structures
+        self.view = view  # The view containing the model (e.g., QTreeView)
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        # Override this method to implement custom filtering logic
+        model = self.sourceModel()
+
+        # Iterate through visible columns of the given row to check for a match
+        column_count = model.columnCount(source_parent)
+        for column in range(column_count):
+            # Check if the column is visible
+            if self.view is not None and self.view.isColumnHidden(column):
+                continue  # Skip hidden columns
+
+            index = model.index(source_row, column, source_parent)
+
+            # If the filter pattern is empty, accept all rows
+            if self.filterRegularExpression().pattern() == '':
+                return True
+
+            # If the current column's data matches the filter, accept this row
+            if index.data() is not None and self.filterRegularExpression().match(str(index.data())).hasMatch():
+                return True
+
+        # If no column matches, reject this row
+        return False
 
 if __name__ == '__main__':
     # only run these commands if this script is run

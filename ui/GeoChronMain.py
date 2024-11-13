@@ -19,7 +19,7 @@ import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 import ui.import_wizard
 import ui.New_source
-from ExportWidget import ExportWidget
+from ui.ExportWidget import ExportWidget
 from Functions.Tree_classes import TreeSortFilterProxyModel
 from ui.EditTags import EditTags
 from ui.EditSampleTable import EditSampleTable
