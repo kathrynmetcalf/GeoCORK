@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1183</width>
-    <height>936</height>
+    <height>854</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -47,17 +47,22 @@
          </property>
          <item>
           <property name="text">
-           <string>Custom</string>
+           <string>CSV</string>
           </property>
          </item>
          <item>
           <property name="text">
-           <string>detritalPy</string>
+           <string>Excel</string>
           </property>
          </item>
          <item>
           <property name="text">
-           <string>IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06</string>
+           <string>DetritalPy</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>IsoplotR</string>
           </property>
          </item>
          <item>
@@ -68,6 +73,11 @@
          <item>
           <property name="text">
            <string>Database</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Custom</string>
           </property>
          </item>
         </widget>
@@ -112,6 +122,11 @@
          <item>
           <property name="text">
            <string>Spots</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Units</string>
           </property>
          </item>
         </widget>
@@ -253,9 +268,15 @@
       </spacer>
      </item>
      <item>
-      <widget class="QPushButton" name="editorder_pushbutton">
+      <widget class="QPushButton" name="viewpreview_pushbutton">
+       <property name="focusPolicy">
+        <enum>Qt::ClickFocus</enum>
+       </property>
        <property name="text">
-        <string>Edit Column Order</string>
+        <string>View Preview</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
        </property>
       </widget>
      </item>
@@ -278,25 +299,7 @@
       </widget>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_4">
-       <item>
-        <widget class="QPushButton" name="add_workbook_button">
-         <property name="text">
-          <string>Add Workbook</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="remove_workbook_button">
-         <property name="text">
-          <string>Delete Workbook</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
-     </item>
-     <item>
-      <widget class="QTabWidget" name="workbooktabs"/>
+      <widget class="QTableView" name="tableView"/>
      </item>
     </layout>
    </item>

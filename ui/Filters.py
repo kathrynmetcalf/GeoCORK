@@ -9,9 +9,6 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop, QRegularExpression
 from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction, QRegularExpressionValidator, \
     QDoubleValidator
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from PyQt6.QtSql import QSqlDatabase
-from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
@@ -22,61 +19,23 @@ from Functions import SQLUtils
 from ui.DataViewerWidget import DataViewerWidget
 from ui.QComboBoxLabel import QComboBoxLabel
 
-def process_json_to_sql(json_string, scope):
-    """
-    Converts a structured JSON string representing a filter group to a SQL WHERE clause.
 
-    :param json_string: A structured JSON string representing a filter group
-    :return: A SQL WHERE clause string
-    """
-    json_string = json_string.replace("'", "\"")
-    group = json.loads(json_string)
-    where = process_group(group)
-
-    table_names = process_table_names(group)
-    join = SQLUtils.get_join_from_table(table_names)
-    if scope == 'Samples':
-        return f"SELECT * FROM Samples {join} WHERE {where};"
-    elif scope == 'Aliquots':
-        if SQLUtils.aliquot_join not in join:
-            join += SQLUtils.aliquot_join + '\n'
-        return f"SELECT * FROM Samples {join} WHERE {where};"
-    elif scope == 'Spots':
-        if SQLUtils.aliquot_join not in join:
-            join += SQLUtils.aliquot_join + '\n'
-        if SQLUtils.spot_join not in join:
-            join += SQLUtils.spot_join + '\n'
-        return f"SELECT * FROM Samples {join} WHERE {where};"
-    elif scope == 'UPbData':
-        if SQLUtils.aliquot_join not in join:
-            join += SQLUtils.aliquot_join + '\n'
-        if SQLUtils.spot_join not in join:
-            join += SQLUtils.spot_join + '\n'
-        if SQLUtils.upb_data_join not in join:
-            join += SQLUtils.upb_data_join + '\n'
-        return f"SELECT * FROM Samples {join} WHERE {where};"
-
-def process_table_names(data):
-    table_names = set()
-    def collect_table_names(group):
-        conditions = group.get('conditions', [])
-        subgroups = group.get('subgroups', [])
-        for condition in conditions:
-            field = condition['field']
-            table_name = extract_table_name(field)
-            if table_name:
-                table_names.add(table_name)
-        for subgroup in subgroups:
-            collect_table_names(subgroup)
-    collect_table_names(data)
-    return table_names
-
-def extract_table_name(field):
-    if '.' in field:
-        parts = field.split('.')
-        return parts[0]
-    else:
-        return None
+def get_widget(w, d, depth=0, doPrint=False):
+    '''
+        Recursively searches through all widgets down the tree and prints if desired.
+    :param w: the widget to search from
+    :param d: the dictionary to add it to
+    :param depth: current depth we are at
+    :param doPrint: if we need to print
+    :return:
+    '''
+    n = w.objectName()
+    n = n if n else str(w)
+    if doPrint: print("\t" * depth, n)
+    newD = {}
+    for widget in w.children():
+        get_widget(widget, newD, depth + 1)
+    d[n] = newD
 
 
 def process_group(group):
@@ -166,7 +125,7 @@ def process_group(group):
 
 def process_selects(group):
     """
-    Recursively process a group of conditions and subgroups to create a SQL SELECT clause.
+    Recursively process a group of conditions and subgroups to create a SQL WHERE clause.
 
     :param group: A dictionary representing the group with keys 'type' and 'conditions'
     :return: A SQL WHERE clause string
@@ -302,50 +261,49 @@ class InsertFilterGroupDialog(QDialog):
     def insert_data(self):
         # Collect data from inputs
         name = self.name_input.text()
-        color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
-        description = self.description_input.toPlainText()
+        conn = sqlite3.connect(self.db_file)
+        with (conn):
+            sql_query = f"""SELECT FilterGroupName FROM FilterGroups;
+                                    """
+            c = conn.cursor()
+            c.execute(sql_query)
+            existing_filters = []
+            for row in c.fetchall():
+                existing_filters.append(row[0])
 
-        # Open a connection to the default database
-        db = QSqlDatabase.database()
-        if not db.isOpen():
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Database is not open</font>')
-            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            return
-
-        query = QSqlQuery(db)
-
-        # Check if the name already exists in the table
-        check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name"
-        query.prepare(check_query)
-        query.bindValue(":name", name)
-        if not query.exec():
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Failed to execute query</font>')
-            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            return
-
-        if query.next():  # If a result is found
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Name must be unique</font>')
-            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        else:
-            # Insert the new record into the table
-            insert_query = """
-                INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
-                VALUES (:name, :sql_query, :color, :description)
-            """
-            query.prepare(insert_query)
-            query.bindValue(":name", name)
-            query.bindValue(":sql_query", self.sql_structure)
-            query.bindValue(":color", color)
-            query.bindValue(":description", description)
-
-            if not query.exec():
+            if name in existing_filters:
                 self.warning_label.show()
-                self.warning_label.setText('<font color="red">Failed to insert data</font>')
-                self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                self.warning_label.setText('<font color="red">Name must be unique</font>')
+                self.warning_label.setAlignment(
+                    QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
             else:
+                color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
+                description = self.description_input.toPlainText()
+
+                conn = sqlite3.connect(self.db_file)
+
+                sql_query = f"""
+                                INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
+                                VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
+                                """
+                c = conn.cursor()
+                # todo change to bind value to prevent sql injection
+                c.execute(sql_query)
+
+                listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
+
+                for x in range(len(listWidget.items(None))):
+                    listWidget.takeItem(x)
+
+                sql_query = """SELECT * FROM FilterGroups;"""
+                c = conn.cursor()
+                for row in c.execute(sql_query):
+                    item = QListWidgetItem()
+                    item.setForeground(QColor(row[3]))
+                    item.setStatusTip(row[4])
+                    item.setText(row[1])
+                    listWidget.addItem(item)
+
                 # Close the dialog
                 self.accept()
 
@@ -368,7 +326,10 @@ class RuleWidget(QWidget):
 
         # table
         self.table_combo = FocusWheelComboBox()
-        self.table_combo.addItems(SQLUtils.user_viewable_tables)
+        self.table_combo.addItems(
+            ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
+             'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
+             'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units'])
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
         if field is not None:
@@ -484,8 +445,154 @@ class RuleWidget(QWidget):
             return
 
     def table_switcher(self):
+        field_items = list()
+        match self.table_combo.currentText():
+            case 'Age Signature':
+                field_items = ["SampleContextName",
+                               "SampleContextDescription",
+                               "SampleContextCreated",
+                               "SampleContextModified"]
+            case 'Ages':
+                field_items = ["AgeName",
+                               "MaxMa",
+                               "MinMa",
+                               "AgeCreated",
+                               "AgeModified"]
+            case 'Aliquot Contexts':
+                field_items = ["AliquotContextName",
+                               "AliquotContextDescription",
+                               "AliquotContextCreated",
+                               "AliquotContextModified"]
+            case 'Aliquots':
+                field_items = ["AliquotName",
+                               "AliquotCreated",
+                               "AliquotModified"]
+            case 'Analysis Methods':
+                field_items = ["AnalysisMethodsName",
+                               "AnalysisMethodsDescription",
+                               "AnalysisMethodsCreated",
+                               "AnalysisMethodsModified"]
+            case 'Columns':
+                field_items = ["ColumnName",
+                               "ColumnDescription",
+                               "ColumnCreated",
+                               "ColumnModified"]
+            case 'Instruments':
+                field_items = ["InstrumentName",
+                               "InstrumentDescription",
+                               "InstrumentCreated",
+                               "InstrumentModified"]
+            case 'Lab Facilities':
+                field_items = ["LabFacilityName",
+                               "LabFacilityDescription",
+                               "LabFacilityCreated",
+                               "LabFacilityModified"]
+            case 'Regions':
+                field_items = ["RegionName",
+                               "RegionDescription",
+                               "RegionCreated",
+                               "RegionModified"]
+            case 'Rock Types':
+                field_items = ["RockTypeName",
+                               "RockTypeDescription",
+                               "RockTypeCreated",
+                               "RockTypeModified"]
+            case 'Sample Contexts':
+                field_items = ["SampleContextName",
+                               "SampleContextDescription",
+                               "SampleContextCreated",
+                               "SampleContextModified"]
+            case 'Samples':
+                field_items = ["SampleName",
+                               "AverageAge",
+                               "AverageAgeError",
+                               "ErrorSigma",
+                               "OldestAge",
+                               "YoungestAge",
+                               "OldestAgeID",
+                               "YoungestAgeID",
+                               "HeightDepth",
+                               "HeightDepthError",
+                               "HeightDepthUnit",
+                               "LatDeg",
+                               "LatMin",
+                               "LatSec",
+                               "LonDeg",
+                               "LonMin",
+                               "LonSec",
+                               "UTMZone",
+                               "UTMN",
+                               "UTME",
+                               "Elev",
+                               "ElevError",
+                               "ElevUnit",
+                               "Description",
+                               "SampleCreated",
+                               "SampleModified"]
+
+            case 'Sampling Methods':
+                field_items = ["SamplingMethodName",
+                               "SamplingMethodDescription",
+                               "SamplingMethodCreated",
+                               "SamplingMethodModified"]
+            case 'Settings':
+                field_items = ["SettingName",
+                               "SettingDescription",
+                               "SettingCreated",
+                               "SettingModified"]
+            case 'Sources':
+                field_items = ["Authors",
+                               "Year",
+                               "Title",
+                               "Source",
+                               "doi",
+                               "ShortCitation",
+                               "SourceCreated",
+                               "SourceModified"]
+            case 'Spot Compositions':
+                field_items = ["SpotCompositionName",
+                               "SpotCompositionDescription",
+                               "SpotCompositionCreated",
+                               "SpotCompositionModified"]
+            case 'Spot Contexts':
+                field_items = ["SpotContextName",
+                               "SpotContextDescription",
+                               "SpotContextCreated",
+                               "SpotContextModified"]
+            case 'Spots':
+                field_items = ["SpotName",
+                               "SpotCreated",
+                               "SpotModified"]
+            case 'UPb Analysis Methods':
+                field_items = ["UPbAnalysisMethodName",
+                               "UPbAnalysisMethodDescription",
+                               "UPbAnalysisMethodCreated",
+                               "UPbAnalysisMethodModified"]
+            case 'UPb Data':
+                field_items = ["U/Th",
+                               "206Pb/204Pb",
+                               "206Pb/207Pb",
+                               "206Pb/207Pberror",
+                               "207Pb/235U",
+                               "207Pb/235Uerror",
+                               "206Pb/238U",
+                               "206Pb/238Uerror",
+                               "ErrorCorr",
+                               "206Pb/207PbAge",
+                               "206Pb/207PbAgeError",
+                               "207Pb/235UAge",
+                               "207Pb/235UAgeError",
+                               "206Pb/238UAge",
+                               "206Pb/238UAgeError",
+                               'UPbAnalysisCreated',
+                               'UPbAnalysisModified']
+            case 'Units':
+                field_items = ["UnitName",
+                               "UnitDescription",
+                               "UnitCreated",
+                               "UnitModified"]
         self.attribute_combo.clear()
-        self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
+        self.attribute_combo.addItems(field_items)
 
 
 class GroupBox(QGroupBox):
@@ -617,13 +724,25 @@ class QueryBuilder(QWidget):
     # todo swap this whole code to QListWidget
     def __init__(self, parent):
         super().__init__(parent)
-        # for widget in QApplication.topLevelWidgets():
-        #     if widget.inherits("QMainWindow"):
-        #         self.db_file = widget.db_file
+        for widget in QApplication.topLevelWidgets():
+            if widget.inherits("QMainWindow"):
+                self.db_file = widget.db_file
 
+        conn = sqlite3.connect(self.db_file)
         self.listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
 
-        self.update_filter_list()
+        for x in self.listWidget.items(None):
+            self.listWidget.takeItem(x)
+
+        with conn:
+            sql_query = """SELECT * FROM FilterGroups;"""
+            c = conn.cursor()
+            for row in c.execute(sql_query):
+                item = QListWidgetItem()
+                item.setForeground(QColor(row[3]))
+                item.setToolTip(row[4])
+                item.setText(row[1])
+                self.listWidget.addItem(item)
 
         self.listWidget.itemDoubleClicked.connect(lambda state: self.populate_filters(state))
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -707,56 +826,31 @@ class QueryBuilder(QWidget):
             row = self.listWidget.row(item)
             self.listWidget.takeItem(row)
 
-            query = QSqlQuery()
-            sql_query = """
-                    DELETE FROM FilterGroups 
-                    WHERE FilterGroupName = :filter_name;
-                """
-            query.prepare(sql_query)
-            query.bindValue(":filter_name", item.text())  # Bind the value to prevent SQL injection
-
-            # Execute the query
-            if not query.exec():
-                # Handle query execution error
-                print("Failed to execute query:", query.lastError().text())
-            else:
-                print(f"Filter group '{item.text()}' successfully deleted.")
+            conn = sqlite3.connect(self.db_file)
+            with conn:
+                sql_query = f"""DELETE FROM FilterGroups WHERE FilterGroupName="{item.text()}";"""
+                c = conn.cursor()
+                c.execute(sql_query)
 
     def populate_filters(self, filter_name):
-        query = QSqlQuery()
-        sql_query = """
-                SELECT SQLQuery, FilterGroupName 
-                FROM FilterGroups 
-                WHERE FilterGroupName = :filter_name;
-            """
-        query.prepare(sql_query)
-        query.bindValue(":filter_name", filter_name.text())  # Use bindValue to prevent SQL injection
-
-        # Execute the query
-        if query.exec():
-            if query.next():  # Retrieve the first (and expected only) row
-                sql_query_result = query.value(0)  # SQLQuery column
-                filter_group_name = query.value(1)  # FilterGroupName column
-
-                # Update the UI with the retrieved data
-                self.main_group_box.deleteLater()
-                self.main_group_box = GroupBox(ast.literal_eval(sql_query_result[1:-1]))
-                self.main_group_box.setParent(self)
-                self.layout1.insertWidget(0, self.scrollarea)
-                self.scrollarea.setWidget(self.main_group_box)
-                self.show()
-            else:
-                print("No matching filter group found.")
-        else:
-            # Handle query execution error
-            print("Failed to execute query:", query.lastError().text())
+        conn = sqlite3.connect(self.db_file)
+        with conn:
+            sql_query = f"""SELECT SQLQuery, FilterGroupName FROM FilterGroups WHERE FilterGroupName = '{filter_name.text()}';"""
+            c = conn.cursor()
+            row = c.execute(sql_query).fetchall()
+            self.main_group_box.deleteLater()
+            self.main_group_box = GroupBox(ast.literal_eval(row[0][0][1:-1]))
+            self.main_group_box.setParent(self)
+            self.layout1.insertWidget(0, self.scrollarea)
+            self.scrollarea.setWidget(self.main_group_box)
+            self.show()
 
     def view_analysis(self):
         filtered_ids = self.get_filtered_ids('upbdata')
         if filtered_ids is None:
             self.display_no_ids_error('upb data')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'upbdata')
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'upbdata')
         dataviewer.setWindowTitle("Filtered Analysis View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -770,7 +864,7 @@ class QueryBuilder(QWidget):
         if filtered_ids is None:
             self.display_no_ids_error('spot')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'spot')
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'spot')
         dataviewer.setWindowTitle("Filtered Spot View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -784,7 +878,7 @@ class QueryBuilder(QWidget):
         if filtered_ids is None:
             self.display_no_ids_error('aliquot')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'aliquot')
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'aliquot')
         dataviewer.setWindowTitle("Filtered Aliquot View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -798,7 +892,7 @@ class QueryBuilder(QWidget):
         if filtered_ids is None:
             self.display_no_ids_error('sample')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'sample')
+        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'sample')
         dataviewer.setWindowTitle("Filtered Sample View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -808,22 +902,14 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def get_filtered_ids(self, type):
-        # Get the SQL query for the given type
-        sql_query = self.get_sql(type)
+        conn = sqlite3.connect(self.db_file)
+        with conn:
+            sql_query = self.get_sql(type)
+            c = conn.cursor()
 
-        # Prepare and execute the query
-        query = QSqlQuery()
-        if not query.exec(sql_query):
-            # Handle query execution error
-            print("Failed to execute query:", query.lastError().text())
-            return None
-
-        # Fetch all results
-        results = []
-        while query.next():
-            results.append(tuple(query.value(i) for i in range(query.record().count())))
-
-        return results if results else None
+            if c.execute(sql_query).fetchall() == []:
+                return None
+            return c.execute(sql_query).fetchall()
 
     def get_sql(self, type=None):
         structure = self.main_group_box.get_structure()
@@ -834,8 +920,8 @@ class QueryBuilder(QWidget):
         for table in self.main_group_box.get_tables():
             match (table):
                 case 'Ages':
-                    if SQLUtils.sample_age_join not in join:
-                        join += SQLUtils.sample_age_join + '\n'
+                    if SQLUtils.age_join not in join:
+                        join += SQLUtils.age_join + '\n'
                 case 'Age Signatures':
                     if SQLUtils.age_signature_join not in join:
                         join += SQLUtils.age_signature_join + '\n'
@@ -855,19 +941,19 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                    if SQLUtils.upb_labs_join not in join:
-                        join += SQLUtils.upb_labs_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.labs_join not in join:
+                        join += SQLUtils.labs_join + '\n'
                 case 'Instruments':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                    if SQLUtils.upb_instruments_join not in join:
-                        join += SQLUtils.upb_instruments_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.instruments_join not in join:
+                        join += SQLUtils.instruments_join + '\n'
                 case 'Regions':
                     if SQLUtils.region_join not in join:
                         join += SQLUtils.region_join + '\n'
@@ -890,10 +976,10 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                    if SQLUtils.upb_reference_join not in join:
-                        join += SQLUtils.upb_reference_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.source_join not in join:
+                        join += SQLUtils.source_join + '\n'
                 case 'Spot Compositions':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
@@ -916,15 +1002,15 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
                 case 'UPb Analysis Methods':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_data_join not in join:
+                        join += SQLUtils.upb_data_join + '\n'
                     if SQLUtils.upb_method_join not in join:
                         join += SQLUtils.upb_method_join + '\n'
                 case 'Units':
@@ -948,8 +1034,8 @@ class QueryBuilder(QWidget):
                 join += SQLUtils.aliquot_join + '\n'
             if SQLUtils.spot_join not in join:
                 join += SQLUtils.spot_join + '\n'
-            if SQLUtils.upb_analysis_join not in join:
-                join += SQLUtils.upb_analysis_join + '\n'
+            if SQLUtils.upb_data_join not in join:
+                join += SQLUtils.upb_data_join + '\n'
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbData.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
         elif type is None:
             pass
@@ -960,25 +1046,5 @@ class QueryBuilder(QWidget):
     def display_no_ids_error(self, type):
         QMessageBox.critical(self, "No IDs Found", f"No {type} IDs were found matching the criteria.")
 
-    def update_filter_list(self):
-        query = QSqlQuery()
-        sql_query = "SELECT * FROM FilterGroups;"
-        if query.exec(sql_query):  # Execute the query
-            while query.next():  # Iterate over each row in the result set
-                item = QListWidgetItem()
-
-                # Assuming column indices: row[3] -> DefaultColor, row[4] -> FilterGroupDescription, row[1] -> FilterGroupName
-                item.setForeground(QColor(query.value(3)))  # Set the color from column 3
-                item.setToolTip(query.value(4))  # Set the tooltip from column 4
-                item.setText(query.value(1))  # Set the text from column 1
-
-                self.listWidget.addItem(item)
-        else:
-            # Handle query execution error
-            print("Failed to execute query:", query.lastError().text())
-
     def save_filter(self):
-        InsertFilterGroupDialog(self.main_group_box.get_structure(), self).exec()
-
-        self.listWidget.clear()
-        self.update_filter_list()
+        InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
