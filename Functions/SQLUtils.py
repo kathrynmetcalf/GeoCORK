@@ -317,3 +317,56 @@ gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees 
                    ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
                    ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
                    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+
+
+def get_join_from_table(tables):
+    join = ""
+
+    for table in tables:
+        match table:
+            case 'Ages':
+                if age_join not in join:
+                    join += age_join + '\n'
+            case 'Age Signatures':
+                if age_signature_join not in join:
+                    join += age_signature_join + '\n'
+            case 'Aliquots':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+            case 'Aliquot Contexts':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if aliquot_context_join not in join:
+                    join += aliquot_context_join + '\n'
+            case 'Columns':
+                if column_join not in join:
+                    join += column_join + '\n'
+            case 'Lab Facilities':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_analysis_join not in join:
+                    join += upb_analysis_join + '\n'
+                if upb_labs_join not in join:
+                    join += upb_labs_join + '\n'
+            case 'Instruments':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_analysis_join not in join:
+                    join += upb_analysis_join + '\n'
+                if upb_instruments_join not in join:
+                    join += upb_instruments_join + '\n'
+            case 'Regions':
+                if region_join not in join:
+                    join += region_join + '\n'
+            case 'RockTypes':
+                if rock_type_join not in join:
+                    join += rock_type_join + '\n'
+            case 'Sample Contexts':
+                if sample_context_join not in join:
+                    join += sample_context_join + '\n'
+            case 'Samples':
+                pass
