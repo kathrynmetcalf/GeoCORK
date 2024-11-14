@@ -60,3 +60,108 @@ spot_context_join = '''LEFT JOIN Spots_SpotContexts ON Spots.SpotID=Spots_SpotCo
 spot_composition_join = '''LEFT JOIN SpotCompositions ON SpotCompositions.SpotCompositionID=Spots.SpotCompositionID'''
 aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts ON Aliquots.AliquotID=Aliquots_AliquotContexts.AliquotID
                                 LEFT JOIN AliquotContexts ON AliquotContexts.AliquotContextID=Aliquots_AliquotContexts.AliquotContextID'''
+
+
+def get_join_from_table(tables):
+    join = ""
+
+    for table in tables:
+        match table:
+            case 'Ages':
+                if age_join not in join:
+                    join += age_join + '\n'
+            case 'Age Signatures':
+                if age_signature_join not in join:
+                    join += age_signature_join + '\n'
+            case 'Aliquots':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+            case 'Aliquot Contexts':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if aliquot_context_join not in join:
+                    join += aliquot_context_join + '\n'
+            case 'Columns':
+                if column_join not in join:
+                    join += column_join + '\n'
+            case 'Lab Facilities':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_data_join not in join:
+                    join += upb_data_join + '\n'
+                if labs_join not in join:
+                    join += labs_join + '\n'
+            case 'Instruments':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_data_join not in join:
+                    join += upb_data_join + '\n'
+                if instruments_join not in join:
+                    join += instruments_join + '\n'
+            case 'Regions':
+                if region_join not in join:
+                    join += region_join + '\n'
+            case 'RockTypes':
+                if rock_type_join not in join:
+                    join += rock_type_join + '\n'
+            case 'Sample Contexts':
+                if sample_context_join not in join:
+                    join += sample_context_join + '\n'
+            case 'Samples':
+                pass
+            case 'Sampling Methods':
+                if sampling_method_join not in join:
+                    join += sampling_method_join + '\n'
+            case 'Settings':
+                if setting_join not in join:
+                    join += setting_join + '\n'
+            case 'Sources':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_data_join not in join:
+                    join += upb_data_join + '\n'
+                if source_join not in join:
+                    join += source_join + '\n'
+            case 'Spot Compositions':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if spot_composition_join not in join:
+                    join += spot_composition_join + '\n'
+            case 'Spots':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+            case 'Spot Contexts':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+            case 'UPb Data':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_data_join not in join:
+                    join += upb_data_join + '\n'
+            case 'UPb Analysis Methods':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_data_join not in join:
+                    join += upb_data_join + '\n'
+                if upb_method_join not in join:
+                    join += upb_method_join + '\n'
+            case 'Units':
+                if unit_join not in join:
+                    join += unit_join + '\n'
+    return join

@@ -328,7 +328,7 @@ class RuleWidget(QWidget):
         self.table_combo = FocusWheelComboBox()
         self.table_combo.addItems(
             ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
-             'Regions', 'RockTypes', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
+             'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
              'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units'])
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
@@ -492,7 +492,7 @@ class RuleWidget(QWidget):
                                "RegionDescription",
                                "RegionCreated",
                                "RegionModified"]
-            case 'RockTypes':
+            case 'Rock Types':
                 field_items = ["RockTypeName",
                                "RockTypeDescription",
                                "RockTypeCreated",
@@ -911,7 +911,7 @@ class QueryBuilder(QWidget):
                 return None
             return c.execute(sql_query).fetchall()
 
-    def get_sql(self, type):
+    def get_sql(self, type=None):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
 
@@ -1037,6 +1037,10 @@ class QueryBuilder(QWidget):
             if SQLUtils.upb_data_join not in join:
                 join += SQLUtils.upb_data_join + '\n'
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbData.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
+        elif type is None:
+            pass
+        else:
+            print("Unknown Type Given")
         return sql_query
 
     def display_no_ids_error(self, type):
