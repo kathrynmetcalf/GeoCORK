@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1183</width>
-    <height>854</height>
+    <height>886</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -266,6 +266,13 @@
         </size>
        </property>
       </spacer>
+     </item>
+     <item>
+      <widget class="QPushButton" name="editorder_pushbutton">
+       <property name="text">
+        <string>Edit Column Order</string>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QPushButton" name="viewpreview_pushbutton">

@@ -53,12 +53,11 @@ class DataViewerWidget(QWidget):
 
         # list of all user-viewable tables in the database
         self.user_view_tables = ['Ages',
-                                 'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Columns', 'Lab Facilities',
-                                 'Instruments',
+                                 'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Analysis Methods', 'Columns',
+                                 'Instruments', 'Lab Facilities',
                                  'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings',
                                  'Sources', 'Spots',
-                                 'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units',
-                                 'UPb Analysis Methods']
+                                 'Spot Compositions', 'Spot Contexts', 'Units', 'UPb Data', 'UPb Analysis Methods']
 
         # list of tables to display as a tree structure
         self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',

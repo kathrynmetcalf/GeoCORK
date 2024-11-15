@@ -1,6 +1,6 @@
 from PyQt6 import uic, QtSql, QtCore
 from PyQt6.QtCore import QSettings, QSize
-from PyQt6.QtSql import QSqlDatabase, QSqlTableModel
+from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQueryModel
 from PyQt6.QtWidgets import QWidget, QApplication, QGridLayout, QLabel, QCheckBox, QStackedWidget, QSpacerItem, \
     QSizePolicy, QTableView
 
@@ -8,13 +8,14 @@ import SQLUtils
 from Table_classes import CheckableSqlTableModel, CheckableComboBox
 from QComboBoxLabel import QComboBoxLabel
 from Tree_classes import CheckableTreeCombobox
-
+from collections import Counter
 
 class ExportWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.selected_tables = []
         self.selected_columns = []
+        self.ordered_columns = []
+
         for widget in QApplication.topLevelWidgets():
             if widget.inherits("QMainWindow"):
                 self.db_file = widget.db_file
@@ -26,7 +27,6 @@ class ExportWidget(QWidget):
         ok = self.db.open()
         self.checked_sample_list = []
         # self.loadWindowState()
-        self.model = QtSql.QSqlQueryModel()
 
         self.samplesincluded_comboBox: CheckableComboBox()
 
@@ -35,25 +35,24 @@ class ExportWidget(QWidget):
         # list of all user-viewable tables in the database
         self.user_view_tables = ['Ages',
                                  'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Analysis Methods', 'Columns',
-                                 'Lab Facilities',
-                                 'Instruments',
+                                 'Instruments', 'Lab Facilities',
                                  'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings',
                                  'Sources', 'Spots',
-                                 'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Units',
-                                 'UPb Analysis Methods']
+                                 'Spot Compositions', 'Spot Contexts', 'Units', 'UPb Data', 'UPb Analysis Methods'
+                                 ]
 
         self.table_fields = {
-            'Age Signatures': [
-                "AgeSignatureName", "AgeSignatureDescription", "AgeSignatureCreated", "AgeSignatureModified"
-            ],
             'Ages': [
                 "AgeName", "MaxMa", "MinMa", "AgeCreated", "AgeModified"
             ],
-            'Aliquot Contexts': [
-                "AliquotContextName", "AliquotContextDescription", "AliquotContextCreated", "AliquotContextModified"
+            'Age Signatures': [
+                "AgeSignatureName", "AgeSignatureDescription", "AgeSignatureCreated", "AgeSignatureModified"
             ],
             'Aliquots': [
                 "AliquotName", "AliquotCreated", "AliquotModified"
+            ],
+            'Aliquot Contexts': [
+                "AliquotContextName", "AliquotContextDescription", "AliquotContextCreated", "AliquotContextModified"
             ],
             'Analysis Methods': [
                 "AnalysisMethodsName", "AnalysisMethodsDescription", "AnalysisMethodsCreated", "AnalysisMethodsModified"
@@ -91,18 +90,17 @@ class ExportWidget(QWidget):
             'Sources': [
                 "Authors", "Year", "Title", "Source", "doi", "ShortCitation", "SourceCreated", "SourceModified"
             ],
+            'Spots': [
+                "SpotName", "SpotCreated", "SpotModified"
+            ],
             'Spot Compositions': [
                 "SpotCompositionName", "SpotCompositionDescription", "SpotCompositionCreated", "SpotCompositionModified"
             ],
             'Spot Contexts': [
                 "SpotContextName", "SpotContextDescription", "SpotContextCreated", "SpotContextModified"
             ],
-            'Spots': [
-                "SpotName", "SpotCreated", "SpotModified"
-            ],
-            'UPb Analysis Methods': [
-                "UPbAnalysisMethodName", "UPbAnalysisMethodDescription", "UPbAnalysisMethodCreated",
-                "UPbAnalysisMethodModified"
+            'Units': [
+                "UnitName", "UnitDescription", "UnitCreated", "UnitModified"
             ],
             'UPb Data': [
                 "U/Th", "206Pb/204Pb", "206Pb/207Pb", "206Pb/207Pberror", "207Pb/235U", "207Pb/235Uerror",
@@ -110,8 +108,9 @@ class ExportWidget(QWidget):
                 "207Pb/235UAge", "207Pb/235UAgeError", "206Pb/238UAge", "206Pb/238UAgeError",
                 "UPbAnalysisCreated", "UPbAnalysisModified"
             ],
-            'Units': [
-                "UnitName", "UnitDescription", "UnitCreated", "UnitModified"
+            'UPb Analysis Methods': [
+                "UPbAnalysisMethodName", "UPbAnalysisMethodDescription", "UPbAnalysisMethodCreated",
+                "UPbAnalysisMethodModified"
             ]
         }
 
@@ -135,6 +134,7 @@ class ExportWidget(QWidget):
         # self.update_column_attributes()
         self.populate_stack()
 
+        self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
         self.viewpreview_pushbutton.clicked.connect(self.update_table_view)
         self.export_pushbutton.clicked.connect(self.export_data)
 
@@ -185,8 +185,7 @@ class ExportWidget(QWidget):
     def switch_table_layout(self):
         # Switch the stack widget to show the layout corresponding to the selected table
         selected_table_index = self.columnselection_comboBox.currentIndex()
-        self.columnattributes_stack.setCurrentIndex(selected_table_index+1)
-        print(str(selected_table_index) + ": " + self.columnselection_comboBox.currentText())
+        self.columnattributes_stack.setCurrentIndex(selected_table_index)
         # Save and load checkbox states for each table
         self.save_checkbox_states()
         self.load_checkbox_states()
@@ -245,12 +244,9 @@ class ExportWidget(QWidget):
             if checked_fields:
                 checked_attributes[table_name] = checked_fields
 
-        # Output the dictionary for preview (print here, replace with desired output in UI)
-        print(checked_attributes)
-        # Alternatively, you can set up a signal or display this dictionary in a UI component as needed
+            print(checked_attributes)
 
     def get_selected_values(self):
-        selected_tables = []
         selected_columns = []
         for index in range(self.columnattributes_stack.count()):
             table_widget = self.columnattributes_stack.widget(index)
@@ -269,66 +265,55 @@ class ExportWidget(QWidget):
                         if widget_table_name is None:
                             widget.setProperty('table_name', table_name)
                             widget_table_name = table_name
-                        selected_columns.append(field_name)
-                        if widget_table_name not in selected_tables:
-                            selected_tables.append(widget_table_name)
-        return selected_tables, selected_columns
+                        selected_columns.append((widget_table_name, field_name))
+        self.selected_columns = tuple(selected_columns)
+        return tuple(selected_columns)
+
 
     def update_table_view(self):
         # Get the selected columns
-        self.selected_tables, self.selected_columns = self.get_selected_values()
-        print(self.selected_tables)
+        model = QSqlQueryModel()
+        self.get_selected_values()
+        print('selected columns')
         print(self.selected_columns)
-        if not self.selected_columns:
+        print('ordered columns')
+        print(self.ordered_columns)
+        if Counter(self.selected_columns) != Counter(self.ordered_columns):
+            print('true')
+            self.ordered_columns = self.get_selected_values()
+        else:
+            print('false')
+
+        if not self.ordered_columns:
             # No columns selected, clear the table view
             self.tableView.setModel(None)
             return
 
-        # # Get the selected items (IDs)
-        # selected_items = self.checked_sample_list
-        # if not selected_items:
-        #     # No items selected, clear the table view
-        #     self.tableView.setModel(None)
-        #     return
+        tables = []
+        columns_str = ''
+        for table, field in self.ordered_columns:
+            tables.append(table)
+            # Build the SQL query
+            columns_str += f'[{field}], '
 
-        join = SQLUtils.get_join_from_table(self.selected_tables)
-
-        # Get the selection scope
-        # selection_scope = self.selectionscope_comboBox.currentText()
-
-        # # Determine the filter field
-        # filter_field = self.get_filter_field(table_name, selection_scope)
-        # if not filter_field:
-        #     # Cannot filter this table based on the selection scope
-        #     self.tableView.setModel(None)
-        #     return
-
-        # Build the SQL query
-        columns_str = ', '.join(self.selected_columns)
-        # placeholders = ', '.join(['?'] * len(selected_items))
+        columns_str = columns_str[0:-2]
+        join = SQLUtils.get_join_from_table(tables)
         query_str = f"SELECT {columns_str} FROM Samples {join} WHERE FALSE"
-        print(query_str)
+        model.setQuery(query_str)
+        # self.model.query().exec()
 
-        # for item in selected_items:
-        #     query.addBindValue(item)
 
-        # Set the model
+        for col in range(model.columnCount()):
+            header = model.headerData(col, QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)
+            model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
-        self.model.setQuery(query_str)
 
-        for col in range(self.model.columnCount()):
-            header = self.model.headerData(col, QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)
-            self.model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
-        row_count = self.model.rowCount()
-        column_count = self.model.columnCount()
-        print(f"Model row count: {row_count}, column count: {column_count}")
-        self.tableView.setModel(self.model)
+        self.tableView.setModel(model)
 
 
     def export_data(self):
         pass
-
 
 
     def update_step_2_list(self):
@@ -365,3 +350,79 @@ class ExportWidget(QWidget):
         print(self.checked_sample_list)
         # self.checked_sample_names = ", ".join(checked_sample_names)
         # self.populate_fields()
+
+    def open_column_order_dialog(self):
+        # Get current selected columns
+
+        if not self.ordered_columns:
+            QMessageBox.warning(self, "No Columns Selected", "Please select columns before editing their order.")
+            return
+
+        # Open the dialog
+        dialog = ColumnOrderDialog(self.ordered_columns, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Get adjusted columns
+            ordered_columns = dialog.get_adjusted_columns()
+            # Update the selected columns
+            self.ordered_columns = ordered_columns
+            print(ordered_columns)
+            # Update the table view with the new column order
+            self.update_table_view()
+
+
+
+
+from PyQt6.QtWidgets import QDialog, QListWidget, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
+
+
+class ColumnOrderDialog(QDialog):
+    def __init__(self, ordered_columns, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Column Order")
+        self.resize(300, 400)
+        self.ordered_columns = ordered_columns
+
+        # Create widgets
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QListWidget.SelectionMode.SingleSelection)
+        self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+
+        for table_name, field_name in self.ordered_columns:
+            self.list_widget.addItem(f"{table_name}.{field_name}")
+
+        self.delete_button = QPushButton("Delete Selected")
+        self.ok_button = QPushButton("OK")
+        self.cancel_button = QPushButton("Cancel")
+
+        # Connect signals
+        self.delete_button.clicked.connect(self.delete_selected_item)
+        self.ok_button.clicked.connect(self.accept)
+        self.cancel_button.clicked.connect(self.reject)
+
+        # Layouts
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.delete_button)
+        button_layout.addStretch()
+        button_layout.addWidget(self.cancel_button)
+        button_layout.addWidget(self.ok_button)
+
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.list_widget)
+        main_layout.addLayout(button_layout)
+
+        self.setLayout(main_layout)
+
+    def delete_selected_item(self):
+        current_row = self.list_widget.currentRow()
+        if current_row >= 0:
+            self.list_widget.takeItem(current_row)
+        else:
+            QMessageBox.warning(self, "No Selection", "Please select an item to delete.")
+
+    def get_adjusted_columns(self):
+        adjusted_columns = []
+        for index in range(self.list_widget.count()):
+            item_text = self.list_widget.item(index).text()
+            table_name, field_name = item_text.split('.', 1)
+            adjusted_columns.append((table_name, field_name))
+        return tuple(adjusted_columns)
