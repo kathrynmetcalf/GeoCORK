@@ -1,3 +1,4 @@
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -52,17 +53,44 @@ class LandingPage(QWidget):
         super().closeEvent(a0)
 
     def open_geo_chron(self):
-        geo_chron = GeoChron(self)
-        geo_chron.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        loop = QEventLoop()
+        if not self.test_database_lock():
+            self.hide()
+            geo_chron = GeoChron(self)
+            geo_chron.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            loop = QEventLoop()
 
-        geo_chron.destroyed.connect(loop.quit)
-        loop.exec()
-        self.show()
+            geo_chron.destroyed.connect(loop.quit)
+            loop.exec()
+            self.show()
+        else:
+            self.show()
+
+    def test_database_lock(self):
+        database_path = self.get_filename()
+        try:
+            # Attempt to connect and perform a simple query
+            connection = sqlite3.connect(database_path, timeout=2)  # Set timeout to 1 second
+            cursor = connection.cursor()
+            cursor.execute("PRAGMA schema_version")  # Simple query to test access
+            connection.close()
+        except sqlite3.OperationalError as e:
+            # Handle the specific database lock error
+            if "database is locked" in str(e):
+                self.show_message("Database Locked", "The database is currently locked. Please try again later.")
+                return True
+            else:
+                self.show_message("Error", f"An error occurred: {e}")
+        return False
+
+
+    def show_message(self, title, message):
+        msg_box = QMessageBox(self)
+        msg_box.setWindowTitle(title)
+        msg_box.setText(message)
+        msg_box.exec()
 
     def clicked_file(self):
         self.selected_files = self.listWidget.currentItem().text()
-        self.hide()
         self.open_geo_chron()
 
 
@@ -83,6 +111,8 @@ class LandingPage(QWidget):
 
     def open_github(self):
         webbrowser.open('http://github.com')
+
+
     def showFileDialog(self):
         file_dialog = QFileDialog(self, 'Open Database File', str(Path.home()), 'Database Files(*.db)')
         file_dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
