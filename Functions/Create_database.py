@@ -85,8 +85,8 @@ CREATE_AGE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeUnits(
                     )'''
 
 CREATE_AGE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeConversions(
-                    FromAgeUnitID INTEGER,
-                    ToAgeUnitID INTEGER,
+                    FromAgeUnitID INTEGER NOT NULL CHECK(FromAgeUnitID <> ''),
+                    ToAgeUnitID INTEGER NOT NULL CHECK(ToAgeUnitID <> ''),
                     AgeConversionCalculation TEXT NOT NULL CHECK(AgeConversionCalculation <> ''), 
                     AgeConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AgeConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
@@ -189,8 +189,8 @@ CREATE_CONCORDANCE_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceTypes(
 )'''
 
 CREATE_CONCORDANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceConversions(
-                    FromConcordanceTypeID INTEGER,
-                    ToConcordanceTypeID INTEGER,
+                    FromConcordanceTypeID INTEGER NOT NULL CHECK(FromConcordanceTypeID <> ''),
+                    ToConcordanceTypeID INTEGER NOT NULL CHECK(ToConcordanceTypeID <> ''),
                     ConcordanceConversionCalculation TEXT NOT NULL CHECK(ConcordanceConversionCalculation <> ''), 
                     ConcordanceConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     ConcordanceConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
@@ -207,15 +207,16 @@ CREATE_DIRECTION_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionUnits(
                     DirectionUnitID INTEGER PRIMARY KEY,
                     DirectionUnitName TEXT NOT NULL CHECK(DirectionUnitName <> ''),
                     DirectionUnitAbbreviation TEXT NOT NULL CHECK(DirectionUnitAbbreviation <> ''),
+                    DirectionUnitDescription TEXT,
                     DirectionUnitCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     DirectionUnitModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(DirectionUnitName COLLATE NOCASE)
 )'''
 
 CREATE_DIRECTION_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionConversions(
-                    FromDirectionUnitID INTEGER,
-                    ToDirectionUnitID INTEGER,
-                    DirectionConversionCalculation TEXT, 
+                    FromDirectionUnitID INTEGER NOT NULL CHECK(FromDirectionUnitID <> ''),
+                    ToDirectionUnitID INTEGER NOT NULL CHECK(ToDirectionUnitID <> ''),
+                    DirectionConversionCalculation TEXT NOT NULL CHECK(DirectionConversionCalculation <> ''), 
                     DirectionConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     DirectionConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     FOREIGN KEY(FromDirectionUnitID) REFERENCES DirectionUnits(DirectionUnitID)
@@ -238,9 +239,9 @@ CREATE_DISTANCE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceUnits(
 )'''
 
 CREATE_DISTANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceConversions(
-                    FromDistanceUnitID INTEGER,
-                    ToDistanceUnitID INTEGER,
-                    DistanceConversionCalculation TEXT, 
+                    FromDistanceUnitID INTEGER NOT NULL CHECK(FromDistanceUnitID <> ''),
+                    ToDistanceUnitID INTEGER NOT NULL CHECK(ToDistanceUnitID <> ''),
+                    DistanceConversionCalculation TEXT NOT NULL CHECK(DistanceConversionCalculation <> ''), 
                     DistanceConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     DistanceConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     FOREIGN KEY(FromDistanceUnitID) REFERENCES DistanceUnits(DistanceUnitID)
@@ -263,9 +264,9 @@ CREATE_ERROR_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorTypes(
 )'''
 
 CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorConversions(
-                    FromErrorTypeID INTEGER,
-                    ToErrorTypeID INTEGER,
-                    ErrorConversionCalculation TEXT, 
+                    FromErrorTypeID INTEGER NOT NULL CHECK(FromErrorTypeID <> ''),
+                    ToErrorTypeID INTEGER NOT NULL CHECK(ToErrorTypeID <> ''),
+                    ErrorConversionCalculation TEXT NOT NULL CHECK(ErrorConversionCalculation <> ''), 
                     ErrorConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     ErrorConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     FOREIGN KEY(FromErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
@@ -289,12 +290,12 @@ CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                     GPSUTMZone TEXT,
                     GPSUTMN REAL,
                     GPSUTME REAL,
-                    Elev REAL,
-                    ElevError REAL,
-                    ElevUnitID INTEGER,
+                    GPSElev REAL,
+                    GPSElevError REAL,
+                    GPSElevUnitID INTEGER,
                     GPSLocationCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     GPSLocationModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, Elev, ElevError, ElevUnitID)
+                    UNIQUE (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID)
 )'''
 
 CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS FilterGroups(
@@ -352,22 +353,22 @@ CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
 
 CREATE_SAMPLE_AGE_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges(
                     SampleAgeID INTEGER PRIMARY KEY, 
-                    AverageAge REAL,
-                    AverageAgeError REAL,
-                    AverageAgeErrorTypeID INTEGER,
-                    OldestAge REAL,
-                    YoungestAge REAL, 
-                    SampleAgeUnitID INTEGER,
+                    DirectAge REAL,
+                    DirectAgeError REAL,
+                    DirectAgeErrorTypeID INTEGER,
+                    OldestDirectAge REAL,
+                    YoungestDirectAge REAL, 
+                    DirectAgeUnitID INTEGER,
                     OldestAgeID INTEGER,
                     YoungestAgeID INTEGER,
                     SampleAgeDescription TEXT, 
                     SampleAgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleAgeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AverageAge, AverageAgeError, AverageAgeErrorTypeID, OldestAge, YoungestAge, SampleAgeUnitID, OldestAgeID, YoungestAgeID),
-                    FOREIGN KEY(AverageAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                    UNIQUE (DirectAge, DirectAgeError, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, OldestAgeID, YoungestAgeID),
+                    FOREIGN KEY(DirectAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
-                    FOREIGN KEY(SampleAgeUnitID) REFERENCES AgeUnits(AgeUnitID)
+                    FOREIGN KEY(DirectAgeUnitID) REFERENCES AgeUnits(AgeUnitID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(OldestAgeID) REFERENCES Ages(AgeID)
@@ -391,8 +392,8 @@ CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContexts(
                     )'''
 
 CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAges_AgeConstraints(
-                    SampleAgeID INTEGER,
-                    AgeConstraintID INTEGER,
+                    SampleAgeID INTEGER NOT NULL,
+                    AgeConstraintID INTEGER NOT NULL,
                     SamplesAges_AgeConstraintsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SamplesAges_AgeConstraintsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
@@ -404,8 +405,8 @@ CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAg
                     )'''
 
 CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAges_AgeInterpretations(
-                    SampleAgeID INTEGER,
-                    AgeInterpretationID INTEGER,
+                    SampleAgeID INTEGER NOT NULL,
+                    AgeInterpretationID INTEGER NOT NULL,
                     SamplesAges_AgeInterpretationsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SamplesAges_AgeInterpretationsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
@@ -426,7 +427,7 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     HeightDepth REAL,
                     HeightDepthError REAL,
                     HeightDepthUnitID INTEGER,
-                    Description TEXT,
+                    SampleDescription TEXT,
                     SampleCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (SampleName COLLATE NOCASE), 
@@ -445,8 +446,8 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     )'''
 
 CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_AgeSignatures(
-                    SampleID INTEGER,
-                    AgeSignatureID INTEGER,
+                    SampleID INTEGER NOT NULL,
+                    AgeSignatureID INTEGER NOT NULL,
                     Samples_AgeSignaturesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_AgeSignaturesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
@@ -458,8 +459,8 @@ CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_AgeSi
                     )'''
 
 CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Regions(
-                    SampleID INTEGER,
-                    RegionID INTEGER,
+                    SampleID INTEGER NOT NULL,
+                    RegionID INTEGER NOT NULL,
                     Samples_RegionsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_RegionsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
@@ -484,8 +485,8 @@ CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_RockTypes
                     )'''
 
 CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SampleContexts(
-                    SampleID INTEGER,
-                    SampleContextID INTEGER,
+                    SampleID INTEGER NOT NULL,
+                    SampleContextID INTEGER NOT NULL,
                     Samples_SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_SampleContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
@@ -497,8 +498,8 @@ CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Sampl
                     )'''
 
 CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SamplingMethods(
-                    SampleID INTEGER,
-                    SamplingMethodID INTEGER,
+                    SampleID INTEGER NOT NULL,
+                    SamplingMethodID INTEGER NOT NULL,
                     Samples_SamplingMethodsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_SamplingMethodsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
@@ -510,8 +511,8 @@ CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Sam
                     )'''
 
 CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Settings(
-                    SampleID INTEGER,
-                    SettingID INTEGER,
+                    SampleID INTEGER NOT NULL,
+                    SettingID INTEGER NOT NULL,
                     Samples_SettingsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_SettingsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
@@ -523,8 +524,8 @@ CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Settings(
                     )'''
 
 CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Units(
-                    SampleID INTEGER,
-                    UnitID INTEGER,
+                    SampleID INTEGER NOT NULL,
+                    UnitID INTEGER NOT NULL,
                     Samples_UnitsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_UnitsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
@@ -613,8 +614,8 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     )'''
 
 CREATE_SPOTS_SPOTCOMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotCompositions(
-                    SpotID INTEGER,
-                    SpotCompositionID INTEGER,
+                    SpotID INTEGER NOT NULL,
+                    SpotCompositionID INTEGER NOT NULL,
                     Spots_SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Spots_SpotCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
@@ -626,8 +627,8 @@ CREATE_SPOTS_SPOTCOMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotCom
                     )'''
 
 CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContexts(
-                    SpotID INTEGER,
-                    SpotContextID INTEGER,
+                    SpotID INTEGER NOT NULL,
+                    SpotContextID INTEGER NOT NULL,
                     Spots_SpotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Spots_SpotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
@@ -738,7 +739,7 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     “Concordance206Pb/238U-208Pb/232ThTypeID” INTEGER,
                     SpotSize REAL,
                     SpotSizeUnitID INTEGER,
-                    Accepted BOOL,
+                    Accepted INTEGER,
                     RejectionReasonID INTEGER,
                     UPbAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -872,6 +873,51 @@ def create_tables(db_file):
 
         DBV.create_sample_view(c)
 
+        # Populate the age units table during initiation
+        sql = '''SELECT * FROM AgeUnits'''
+        if c.execute(sql):
+            out = c.fetchall()
+            if not out: # if there is no output, the table is empty
+                populate_age_units(conn) # populate it
+        else:
+            print(f'AgeUnits query failed')
+
+        # Populate the concordance type table during initiation
+        sql = '''SELECT * FROM ConcordanceTypes'''
+        if c.execute(sql):
+            out = c.fetchall()
+            if not out: # if there is no output, the table is empty
+                populate_concordance_types(conn) # populate it
+        else:
+            print(f'ConcordanceTypes query failed')
+
+        # Populate the direction unit table during initiation
+        sql = '''SELECT * FROM DirectionUnits'''
+        if c.execute(sql):
+            out = c.fetchall()
+            if not out: # if there is no output, the table is empty
+                populate_direction_units(conn) # populate it
+        else:
+            print(f'DirectionUnits query failed')
+
+        # Populate the distance unit table during initiation
+        sql = '''SELECT * FROM DistanceUnits'''
+        if c.execute(sql):
+            out = c.fetchall()
+            if not out: # if there is no output, the table is empty
+                populate_distance_units(conn) # populate it
+        else:
+            print(f'DistanceUnits query failed')
+
+        # Populate the error type table during initiation
+        sql = '''SELECT * FROM ErrorTypes'''
+        if c.execute(sql):
+            out = c.fetchall()
+            if not out: # if there is no output, the table is empty
+                populate_error_types(conn) # populate it
+        else:
+            print(f'ErrorTypes query failed')
+
         # Populate the age table during initiation
         sql = '''SELECT * FROM Ages'''
         if c.execute(sql):
@@ -879,7 +925,9 @@ def create_tables(db_file):
             if not out:  # if there is no output, the table is empty
                 populate_ages(conn)  # populate it
         else:
-            print(f'query failed')
+            print(f'Ages query failed')
+
+
 
 
 def populate_ages(conn):

@@ -1,271 +1,42 @@
 import sqlite3
 
-from Functions.Create_database import CREATE_SAMPLE_AGE_TABLE
-
-'''Commands to create the database triggers'''
+'''Methods for creating the database triggers'''
 '''SQL strings to create each trigger'''
+def modified_list_statement(c: sqlite3.Cursor, table: str):
+    c.execute(f'PRAGMA table_info({table})')
+    columns = c.fetchall()
+    modified_list = []
+    for column in columns:
+        if 'Created' or 'Modified' not in column[1]:
+            modified_list.append({column[1]})
+    modified_statement = ' OR '.join([f'{column} = NEW.{column}' for column in modified_list])
+    return modified_statement
+def check_error_columns(c: sqlite3.Cursor):
+    c.execute('PRAGMA table_info(UPbAnalyses)')
+    columns = c.fetchall()
+    ratio_error_list = []
+    age_error_list = []
+    for column in columns:
+        if 'Error' in column[1]:
+            if 'AgeError' in column[1]:
+                age_error_list.append(f'{column[1]}')
+            else:
+                ratio_error_list.append(f'{column[1]}')
+    ratio_list = [column.replace('Error', '') for column in ratio_error_list]
+    age_list = [column.replace('Error', '') for column in age_error_list]
+    ratio_error_statement = ' OR '.join(ratio_error_list)
+    new_ratio_error_statement = ' OR '.join([f'NEW.{column}' for column in ratio_error_list])
+    missing_ratio_list = [f'({column_error} IS NOT NULL AND {column} IS NULL)' for column_error, column in zip(ratio_error_list, ratio_list)]
+    missing_ratio_statement = ' OR '.join(missing_ratio_list)
+    age_error_statement = ' OR '.join(age_error_list)
+    new_age_error_statement = ' OR '.join([f'NEW.{column}' for column in age_error_list])
+    missing_age_list = [f'({column_error} IS NOT NULL AND {column} IS NULL)' for column_error, column in zip(age_error_list, age_list)]
+    missing_age_statement = ' OR '.join(missing_age_list)
+    return ratio_error_statement, new_ratio_error_statement, age_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement
+
 
 '''Triggers for missing pairs and units, only triggers if there is corresponding data'''
 '''e.g. there is latitude but not longitude or an elevation value but no unit'''
-CREATE_SAMPLEAGES_TRIGGERS = '''
-CREATE TRIGGER IF NOT EXISTS validate_age_units_before_insert BEFORE INSERT ON SampleAges
-BEGIN
-    SELECT CASE
-        WHEN NEW.MaxMa IS NOT NULL AND NEW.MaxMaUnitID IS NULL THEN
-            RAISE (ABORT,'Maximum age value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.MinMa IS NOT NULL AND NEW.MinMaUnitID IS NULL THEN
-            RAISE (ABORT,'Minimum age value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_age_units_before_update BEFORE UPDATE ON SampleAges
-BEGIN
-    SELECT CASE
-        WHEN NEW.MaxMa IS NOT NULL AND NEW.MaxMaUnit IS NULL THEN
-            RAISE (ABORT,'Maximum age value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.MinMa IS NOT NULL AND NEW.MinMaUnit IS NULL THEN
-            RAISE (ABORT,'Minimum age value with missing units')
-        END;
-    SELECT CASE
-        WHEN MaxMa IS NOT NULL AND NEW.MaxMaUnit IS NULL THEN
-            RAISE (ABORT,'Maximum age value with missing units')
-        END;
-    SELECT CASE
-        WHEN MinMa IS NOT NULL AND NEW.MinMaUnit IS NULL THEN
-            RAISE (ABORT,'Minimum age value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.MaxMa IS NOT NULL AND MaxMaUnit IS NULL THEN
-            RAISE (ABORT,'Maximum age value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.MinMa IS NOT NULL AND MinMaUnit IS NULL THEN
-            RAISE (ABORT,'Minimum age value with missing units')
-        END;
-END;    
-CREATE TRIGGER IF NOT EXISTS validate_age_error_before_insert BEFORE INSERT ON SampleAges
-BEGIN
-    SELECT CASE
-        WHEN NEW.AverageAgeError IS NOT NULL AND NEW.AverageAgeErrorUnitID IS NULL THEN
-            RAISE (ABORT,'Average age error value with missing units')
-        END;
-    SELECT CASE
-END;
-CREATE TRIGGER IF NOT EXISTS validate_age_error_before_update BEFORE UPDATE ON SampleAges
-BEGIN
-    SELECT CASE
-        WHEN NEW.AverageAgeError IS NOT NULL AND NEW.AverageAgeErrorUnit IS NULL THEN
-            RAISE (ABORT,'Average age error value with missing units')
-        END;
-    SELECT CASE
-        WHEN AverageAgeError IS NOT NULL AND NEW.AverageAgeErrorUnit IS NULL THEN
-            RAISE (ABORT,'Average age error value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.AverageAgeError IS NOT NULL AND AverageAgeErrorUnit IS NULL THEN
-            RAISE (ABORT,'Average age error value with missing units')
-        END;
-END;
-'''
-CREATE_UPBANALYSES_TRIGGERS = '''
-CREATE TRIGGER IF NOT EXISTS validate_ratio_error_units_before_insert BEFORE INSERT ON UPbAnalyses
-BEGIN
-    SELECT CASE
-        WHEN ANY(NEW."206Pb/207PbError", NEW."207Pb/206PbError", 
-        NEW."207Pb/235UError", NEW."235U/207PbError", 
-        NEW."206Pb/238UError", NEW."238U/206PbError", 
-        NEW."208Pb/232ThError", NEW."232Th/208PbError", 
-        NEW."238U/232ThError", NEW."232Th/238UError", 
-        NEW."204Pb/238UError", NEW."238U/204PbError", 
-        NEW."206Pb/204PbError", NEW."204Pb/206PbError",
-        NEW."207Pb/204PbError", NEW."204Pb/207PbError",
-        NEW."208Pb/204PbError", NEW."204Pb/208PbError") IS NOT NULL AND NEW.RatioErrorUnitID IS NULL THEN
-            RAISE (ABORT,'Ratio error value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_ratio_error_units_before_update BEFORE UPDATE ON UPbAnalyses
-BEGIN
-    SELECT CASE
-        WHEN ANY(NEW."206Pb/207PbError", NEW."207Pb/206PbError",
-        NEW."207Pb/235UError", NEW."235U/207PbError",
-        NEW."206Pb/238UError", NEW."238U/206PbError",
-        NEW."208Pb/232ThError", NEW."232Th/208PbError",
-        NEW."238U/232ThError", NEW."232Th/238UError",
-        NEW."204Pb/238UError", NEW."238U/204PbError",
-        NEW."206Pb/204PbError", NEW."204Pb/206PbError",
-        NEW."207Pb/204PbError", NEW."204Pb/207PbError",
-        NEW."208Pb/204PbError", NEW."204Pb/208PbError") IS NOT NULL AND NEW.RatioErrorUnit IS NULL THEN
-            RAISE (ABORT,'Ratio error value with missing units')
-        END;
-    SELECT CASE
-        WHEN ANY("206Pb/207PbError", "207Pb/206PbError",
-        "207Pb/235UError", "235U/207PbError",
-        "206Pb/238UError", "238U/206PbError",
-        "208Pb/232ThError", "232Th/208PbError",
-        "238U/232ThError", "232Th/238UError",
-        "204Pb/238UError", "238U/204PbError",
-        "206Pb/204PbError", "204Pb/206PbError",
-        "207Pb/204PbError", "204Pb/207PbError",
-        "208Pb/204PbError", "204Pb/208PbError") IS NOT NULL AND NEW.RatioErrorUnit IS NULL THEN
-            RAISE (ABORT,'Ratio error value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_age_error_units_before_insert BEFORE INSERT ON UPbAnalyses
-BEGIN
-    SELECT CASE
-        WHEN ANY() IS NOT NULL AND NEW.AgeErrorUnitID IS NULL THEN
-            RAISE (ABORT,'Age error value with missing units')
-        END;
-END;
-
-CREATE TRIGGER IF NOT EXISTS validate_concordance_units_before_insert BEFORE INSERT ON UPbAnalyses
-BEGIN
-    SELECT CASE
-        WHEN NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnitID” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW. “Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnitID” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_concordance_units_before_update BEFORE UPDATE ON UPbAnalyses
-BEGIN
-    SELECT CASE
-        WHEN NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnit” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnit” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-    SELECT CASE
-        WHEN “Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnit” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-    SELECT CASE
-        WHEN “Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnit” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND “Concordance206Pb/238U-206Pb/207PbUnit” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND “Concordance206Pb/238U-208Pb/232ThUnit” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing units')
-        END;
-END;
-'''
-CREATE_GPS_TRIGGERS = '''
-CREATE TRIGGER IF NOT EXISTS validate_latlon_deg_before_update BEFORE UPDATE ON GPSLocations
-BEGIN
-    SELECT CASE
-        WHEN NEW.LatDeg IS NOT NULL AND NEW.LonDeg IS NULL THEN
-            RAISE (ABORT,'Latitude degrees is missing corresponding longitude degrees')
-        END;
-    SELECT CASE
-        WHEN NEW.LonDeg IS NOT NULL AND NEW.LatDeg IS NULL THEN
-            RAISE (ABORT,'Longitude degrees is missing corresponding latitude degrees')
-        END;
-    SELECT CASE
-        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
-            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_utm_before_insert BEFORE INSERT ON GPSLocations
-BEGIN
-    SELECT CASE
-        WHEN NEW.UTMN IS NOT NULL AND NEW.UTMZone IS NULL THEN
-            RAISE (ABORT,'UTM coordinates with missing zone')
-        END;
-    SELECT CASE
-        WHEN NEW.UTMN IS NOT NULL AND NEW.UTME IS NULL THEN
-            RAISE (ABORT,'UTM northing missing corresponding easting')
-        END;
-    SELECT CASE
-        WHEN NEW.UTME IS NOT NULL AND NEW.UTMN IS NULL THEN
-            RAISE (ABORT,'UTM easting missing corresponding northing')
-        END;
-    SELECT CASE
-        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
-            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format originally provided.')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_utm_before_update BEFORE UPDATE ON GPSLocations
-BEGIN
-    SELECT CASE
-        WHEN NEW.UTMN IS NOT NULL AND NEW.UTMZone IS NULL THEN
-            RAISE (ABORT,'UTM coordinates with missing zone')
-        END;
-    SELECT CASE
-        WHEN NEW.UTMN IS NOT NULL AND NEW.UTME IS NULL THEN
-            RAISE (ABORT,'UTM northing missing corresponding easting')
-        END;
-    SELECT CASE
-        WHEN NEW.UTME IS NOT NULL AND NEW.UTMN IS NULL THEN
-            RAISE (ABORT,'UTM easting missing corresponding northing')
-        END;
-    SELECT CASE
-        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
-            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_hd_units_before_insert BEFORE INSERT ON GPSLocations
-BEGIN
-    SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnitID IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_hd_units_before_update BEFORE UPDATE ON Samples
-BEGIN
-    SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing units')
-        END;
-    SELECT CASE
-        WHEN HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND HeightDepthUnit IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_elev_units_before_insert BEFORE INSERT ON GPSLocations
-BEGIN
-    SELECT CASE
-        WHEN NEW.Elev IS NOT NULL AND NEW.ElevUnitID IS NULL THEN
-            RAISE (ABORT,'Elevation value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_elev_units_before_update BEFORE UPDATE ON GPSLocations
-BEGIN
-    SELECT CASE
-        WHEN NEW.Elev IS NOT NULL AND NEW.ElevUnit IS NULL THEN
-            RAISE (ABORT,'Elevation value with missing units')
-        END;
-END;
-CREATE TRIGGER IF NOT EXISTS validate_latlon_deg_before_insert BEFORE INSERT ON GPSLocations
-BEGIN
-    SELECT CASE
-        WHEN NEW.LatDeg IS NOT NULL AND NEW.LonDeg IS NULL THEN
-            RAISE (ABORT,'Latitude degrees is missing corresponding longitude degrees')
-        END;
-    SELECT CASE
-        WHEN NEW.LonDeg IS NOT NULL AND NEW.LatDeg IS NULL THEN
-            RAISE (ABORT,'Longitude degrees is missing corresponding latitude degrees')
-        END;
-    SELECT CASE
-        WHEN NEW.LatDeg IS NOT NULL AND NEW.UTMN IS NOT NULL THEN
-            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
-        END;
-END;
-'''
 CREATE_COLUMN_TRIGGERS = '''
 CREATE TRIGGER IF NOT EXISTS validate_column_units_before_insert BEFORE INSERT ON Columns
 BEGIN
@@ -290,217 +61,491 @@ BEGIN
         END;
 END;
 '''
+CREATE_GPS_TRIGGERS = '''
+CREATE TRIGGER IF NOT EXISTS validate_gps_before_update BEFORE UPDATE ON GPSLocations
+BEGIN
+    SELECT CASE
+        WHEN (NEW.GPSLatDeg IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR 
+        (NEW.GPSLonDeg IS NOT NULL AND NEW.GPSLatDeg IS NULL) THEN
+            RAISE (ABORT, 'Missing corresponding degrees latitude or longitude')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSLatMin IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
+        (NEW.GPSLonMin IS NOT NULL AND NEW.GPSLonDeg IS NULL) THEN
+            RAISE(ABORT, 'No degrees given for minutes')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSLatSec IS NOT NULL AND NEW.GPSLatMin IS NULL) OR
+        (NEW.GPSLonSec IS NOT NULL AND NEW.GPSLonMin IS NULL) THEN
+            RAISE(ABORT, 'No minutes given for seconds')
+        END;
+    SELECT CASE
+        WHEN NEW.GPSLatDeg IS NOT NULL AND NEW.GPSUTMN IS NOT NULL THEN
+            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
+        END;
+    SELECT CASE
+        WHEN NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL THEN
+            RAISE (ABORT,'UTM coordinates with missing zone')
+        END;
+    SELECT CASE
+        WHEN NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTME IS NULL THEN
+            RAISE (ABORT,'UTM northing missing corresponding easting')
+        END;
+    SELECT CASE
+        WHEN NEW.GPSUTME IS NOT NULL AND NEW.GPSUTMN IS NULL THEN
+            RAISE (ABORT,'UTM easting missing corresponding northing')
+        END;
+    SELECT CASE
+        WHEN NEW.GPSElev IS NOT NULL AND NEW.GPSElevUnitID IS NULL THEN
+            RAISE (ABORT,'Elevation value with missing units')
+        END;
+    SELECT CASE
+        WHEN NEW.GPSElevError IS NOT NULL AND NEW.GPSEelev IS NULL THEN
+            RAISE (ABORT,'Elevation error value with missing elevation')
+        END;
+END;
+CREATE TRIGGER IF NOT EXISTS validate_gps_before_update BEFORE UPDATE ON GPSLocations
+BEGIN
+    SELECT CASE
+        WHEN (NEW.GPSLatDeg IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR (NEW.GPSLonDeg IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR 
+        (GPSLatDeg IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR (NEW.GPSLonDeg IS NOT NULL AND GPSLatDeg IS NULL) OR 
+        (NEW.GPSLatDeg IS NOT NULL AND GPSLonDeg IS NULL) OR (GPSLonDeg IS NOT NULL AND NEW.GPSLatDeg IS NULL) THEN
+            RAISE (ABORT,'Missing corresponding degrees latitude or longitude')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSLatMin IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR (NEW.GPSLonMin IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
+        (GPSLatMin IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR (GPSLonMin IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
+        (NEW.GPSLatMin IS NOT NULL AND GPSLatDeg IS NULL) OR (NEW.GPSLonMin IS NOT NULL AND GPSLonDeg IS NULL) THEN
+            RAISE(ABORT, 'No degrees given for minutes')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSLatSec IS NOT NULL AND NEW.GPSLatMin IS NULL) OR (NEW.GPSLonSec IS NOT NULL AND NEW.GPSLonMin IS NULL) OR
+        (GPSLatSec IS NOT NULL AND NEW.GPSLatMin IS NULL) OR (GPSLonSec IS NOT NULL AND NEW.GPSLonMin IS NULL) OR
+        (NEW.GPSLatSec IS NOT NULL AND GPSLatMin IS NULL) OR (NEW.GPSLonSec IS NOT NULL AND GPSLonMin IS NULL) THEN
+            RAISE(ABORT, 'No minutes given for seconds')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL) OR 
+        (NEW.GPSUTMN IS NOT NULL AND GPSUTMZone IS NULL) OR 
+        (GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL) THEN
+            RAISE (ABORT,'UTM coordinates with missing zone')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTME IS NULL) OR 
+        (NEW.GPSUTMN IS NOT NULL AND GPSUTME IS NULL) OR
+        (GPSUTMN IS NOT NULL AND NEW.GPSUTME IS NULL) THEN
+            RAISE (ABORT,'UTM northing missing corresponding easting')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSUTME IS NOT NULL AND NEW.GPSUTMN IS NULL) OR
+        (NEW.GPSUTME IS NOT NULL AND GPSUTMN IS NULL) OR
+        (GPSUTME IS NOT NULL AND NEW.GPSUTMN IS NULL) THEN
+            RAISE (ABORT,'UTM easting missing corresponding northing')
+        END;
+    SELECT CASE
+        WHEN (NEW.GPSLatDeg IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR 
+        (NEW.GPSLatDeg IS NOT NULL AND GPSUTMN IS NOT NULL) OR
+        (GPSLatDeg IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) THEN
+            RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
+        END;
+END;
+'''
+CREATE_SAMPLEAGES_TRIGGERS = '''
+CREATE TRIGGER IF NOT EXISTS validate_age_units_before_insert BEFORE INSERT ON SampleAges
+BEGIN
+    SELECT CASE
+        WHEN NEW.DirectAgeError IS NOT NULL AND NEW.DirectAgeErrorTypeID IS NULL THEN
+            RAISE (ABORT,'Direct age error value with missing units')
+        END;
+    SELECT CASE
+        WHEN NEW.DirectAgeError IS NOT NULL AND NEW.DirectAge IS NULL THEN
+            RAISE (ABORT,'Direct age error value with missing age')
+        END;
+    SELECT CASE
+        WHEN (NEW.DirectAge IS NOT NULL OR NEW.OldestDirectAge IS NOT NULL OR NEW.YoungestDirectAge IS NOT NULL) AND NEW.DirectAgeUnitID IS NULL THEN
+            RAISE (ABORT,'Direct age value with missing units')
+        END;
+END;
+CREATE TRIGGER IF NOT EXISTS validate_age_units_before_update BEFORE UPDATE ON SampleAges
+BEGIN
+    SELECT CASE
+        WHEN (NEW.DirectAgeError IS NOT NULL AND NEW.DirectAgeErrorTypeID IS NULL) OR (DirectAgeError IS NOT NULL AND NEW.DirectAgeErrorTypeID IS NULL) THEN
+            RAISE (ABORT,'Direct age error value with missing units')
+        END;
+    SELECT CASE
+        WHEN (NEW.DirectAgeError IS NOT NULL AND NEW.DirectAge IS NULL) OR (DirectAgeError IS NOT NULL AND NEW.DirectAge IS NULL) THEN
+            RAISE (ABORT,'Direct age error value with missing age')
+        END;
+    SELECT CASE
+        WHEN ((NEW.DirectAge IS NOT NULL OR NEW.OldestDirectAge IS NOT NULL OR NEW.YoungestDirectAge IS NOT NULL) AND NEW.DirectAgeUnitID IS NULL) OR 
+        ((DirectAge IS NOT NULL OR OldestDirectAge IS NOT NULL OR YoungestDirectAge IS NOT NULL) AND NEW.DirectAgeUnitID IS NULL) OR 
+        ((NEW.DirectAge IS NOT NULL OR NEW.OldestDirectAge IS NOT NULL OR NEW.YoungestDirectAge IS NOT NULL) AND DirectAgeUnitID IS NULL) THEN
+            RAISE (ABORT,'Direct age value with missing units')
+        END;
+END;
+'''
 CREATE_SAMPLES_TRIGGERS = '''
-CREATE TRIGGER IF NOT EXISTS validate_sample_heightdepth_before_insert BEFORE INSERT ON Samples
+CREATE TRIGGER IF NOT EXISTS validate_sample_info_before_insert BEFORE INSERT ON Samples
 BEGIN
     SELECT CASE
         WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnitID IS NULL THEN
             RAISE (ABORT,'Height/depth value with missing units')
         END;
     SELECT CASE
+        WHEN NEW.HeightDepthError IS NOT NULL AND NEW.HeigthDepth IS NULL THEN
+            RAISE (ABORT,'Height/depth error value with missing height/depth value')
+        END;
+    SELECT CASE
         WHEN NEW.HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL THEN
             RAISE (ABORT,'Height/depth value with missing column')
-        END 
+        END;
 END;
-CREATE TRIGGER IF NOT EXISTS validate_sample_heightdepth_before_update BEFORE UPDATE ON Samples
+CREATE TRIGGER IF NOT EXISTS validate_sample_info_before_update BEFORE UPDATE ON Samples
 BEGIN
     SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL THEN
+        WHEN (NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL) OR 
+        (HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL) OR 
+        (NEW.HeightDepth IS NOT NULL AND HeightDepthUnit IS NULL) THEN
             RAISE (ABORT,'Height/depth value with missing units')
         END;
     SELECT CASE
-        WHEN HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing units')
+        WHEN (NEW.HeightDepthError IS NOT NULL AND NEW.HeightDepth IS NULL) OR
+        (HeightDepthError IS NOT NULL AND NEW.HeightDepth IS NULL) OR
+        (NEW.HeightDepthError IS NOT NULL AND HeightDepth IS NULL) THEN
+            RAISE (ABORT,'Height/depth error value with missing height/depth value')
         END;
     SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND HeightDepthUnit IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing units')
-        END;
-    SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing column')
-        END;
-    SELECT CASE
-        WHEN HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL THEN
-            RAISE (ABORT,'Height/depth value with missing column')
-        END;
-    SELECT CASE
-        WHEN NEW.HeightDepth IS NOT NULL AND ColumnID IS NULL THEN
+        WHEN (NEW.HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL) OR 
+        (HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL) OR 
+        (NEW.HeightDepth IS NOT NULL AND ColumnID IS NULL) THEN
             RAISE (ABORT,'Height/depth value with missing column')
         END;
 END;
 '''
-CREATE_SPOTSIZE_TRIGGERS = '''
-CREATE TRIGGER IF NOT EXISTS validate_spot_units_before_insert BEFORE INSERT ON UPbAnalyses
+CREATE_UPBANALYSES_TRIGGERS = f'''
+CREATE TRIGGER IF NOT EXISTS validate_upbanalyses_before_insert BEFORE INSERT ON UPbAnalyses
 BEGIN
+    SELECT CASE
+        WHEN ({new_ratio_error_statement}) IS NOT NULL AND NEW.RatioErrorTypeID IS NULL THEN
+            RAISE (ABORT,'Ratio error values with missing type')
+        END;
+    SELECT CASE
+        WHEN ({missing_ratio_statement}) THEN
+            RAISE (ABORT,'Ratio error values with missing corresponding ratio')
+    SELECT CASE
+        WHEN ({new_age_error_statement}) IS NOT NULL AND NEW.AgeErrorTypeID IS NULL THEN
+            RAISE (ABORT,'Age error values with missing type')
+        END;
+    SELECT CASE
+        WHEN ({missing_age_statement}) THEN
+            RAISE (ABORT,'Age error values with missing corresponding age')
+        END;
+    SELECT CASE
+        WHEN NEW.BestAgeError IS NOT NULL AND NEW.BestAgeErrorTypeID IS NULL THEN
+            RAISE (ABORT,'Best age error value with missing type')
+        END;
+    SELECT CASE
+        WHEN NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnitID” IS NULL THEN
+            RAISE (ABORT,'Concordance value with missing type')
+        END;
+    SELECT CASE
+        WHEN NEW. “Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnitID” IS NULL THEN
+            RAISE (ABORT,'Concordance value with missing type')
+        END;
     SELECT CASE
         WHEN NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnitID IS NULL THEN
             RAISE (ABORT,'Spot size value with missing units')
         END;
 END;
-CREATE TRIGGER IF NOT EXISTS validate_spot_units_before_update BEFORE UPDATE ON UPbAnalyses
+CREATE TRIGGER IF NOT EXISTS validate_upbanalyses_before_update BEFORE UPDATE ON UPbAnalyses
 BEGIN
     SELECT CASE
-        WHEN NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnit IS NULL THEN
+        WHEN (({new_ratio_error_statement}) IS NOT NULL AND NEW.RatioErrorTypeID IS NULL) OR 
+        (({ratio_error_statement}) IS NOT NULL AND NEW.RatioErrorTypeID IS NULL) OR 
+        (({new_ratio_error_statement}) IS NOT NULL AND RatioErrorTypeID IS NULL) THEN
+            RAISE (ABORT,'Ratio error values with missing type')
+        END;
+    SELECT CASE
+        WHEN {missing_ratio_statement} THEN
+            RAISE (ABORT,'Ratio error values with missing corresponding ratio')
+        END;
+    SELECT CASE
+        WHEN (({new_age_error_statement}) IS NOT NULL AND NEW.AgeErrorTypeID IS NULL) OR 
+        (({age_error_statement}) IS NOT NULL AND NEW.AgeErrorTypeID IS NULL) OR
+        (({new_age_error_statement}) IS NOT NULL AND AgeErrorTypeID IS NULL) THEN
+            RAISE (ABORT,'Age error values with missing type')
+        END;
+    SELECT CASE
+        WHEN {missing_age_statement} THEN
+            RAISE (ABORT,'Age error values with missing corresponding age')
+        END;
+    SELECT CASE
+        WHEN (NEW.BestAgeError IS NOT NULL AND NEW.BestAgeErrorType IS NULL) OR (BestAgeError IS NOT NULL AND NEW.BestAgeErrorType IS NULL) OR (NEW.BestAgeError IS NOT NULL AND BestAgeErrorType IS NULL) THEN
+            RAISE (ABORT,'Best age error value with missing type')
+        END;
+    SELECT CASE
+        WHEN (NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnit” IS NULL) OR 
+        (NEW.“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnit” IS NULL) OR 
+        (“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnit” IS NULL) OR
+        (“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnit” IS NULL) OR
+        (NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND “Concordance206Pb/238U-206Pb/207PbUnit” IS NULL) OR
+        (NEW.“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND “Concordance206Pb/238U-208Pb/232ThUnit” IS NULL) THEN
+            RAISE (ABORT,'Concordance value with missing units')
+        END;
+    SELECT CASE
+        WHEN (NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnitID IS NULL) OR 
+        (SpotSize IS NOT NULL AND NEW.SpotSizeUnitID IS NULL) OR
+        (NEW.SpotSize IS NOT NULL AND SpotSizeUnitID IS NULL) THEN
             RAISE (ABORT,'Spot size value with missing units')
         END;
 END;
 '''
+
 # Triggers to update the modified timestamp when a value is updated
-SOURCES_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_sources AFTER UPDATE ON Sources
+ABOUT_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_about AFTER UPDATE ON About
 BEGIN
-    UPDATE Sources SET SourceModified = CURRENT_TIMESTAMP WHERE SourceID = NEW.SourceID OR Authors = NEW.Authors OR Year = NEW.Year OR Title = NEW.Title OR Source = NEW.Source OR doi = NEW.doi OR ShortCitation = NEW.ShortCitation;
+    UPDATE About SET AboutModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'About')};
 END;'''
-SAMPLINGMETHODS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samplingmethods AFTER UPDATE ON SamplingMethods
+AGECONSTRAINTS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_ageconstraints AFTER UPDATE ON AgeConstraints
 BEGIN
-    UPDATE SamplingMethods SET SamplingMethodModified = CURRENT_TIMESTAMP WHERE SamplingMethodID = NEW.SamplingMethodID OR ParentSamplingMethodID = NEW.ParentSamplingMethodID OR SamplingMethodName = NEW.SamplingMethodName OR SamplingMethodDescription = NEW.SamplingMethodDescription;
+    UPDATE AgeConstraints SET AgeConstraintModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeConstraints')};
 END;'''
-REGIONS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_regions AFTER UPDATE ON Regions
+AGEINTERPRETATIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_ageinterpretations AFTER UPDATE ON AgeInterpretations
 BEGIN
-    UPDATE Regions SET RegionModified = CURRENT_TIMESTAMP WHERE RegionID = NEW.RegionID OR ParentRegionID = NEW.ParentRegionID OR RegionName = NEW.RegionName OR RegionDescription = NEW.RegionDescription;
+    UPDATE AgeInterpretations SET AgeInterpretationModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeInterpretations')};
 END;'''
-SETTINGS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_settings AFTER UPDATE ON Settings
-BEGIN
-    UPDATE Settings SET SettingModified = CURRENT_TIMESTAMP WHERE SettingID = NEW.SettingID OR ParentSettingID = NEW.ParentSettingID OR SettingName = NEW.SettingName OR SettingDescription = NEW.SettingDescription;
-END;'''
-ROCKTYPES_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_rocktypes AFTER UPDATE ON RockTypes
-BEGIN
-    UPDATE RockTypes SET RockTypeModified = CURRENT_TIMESTAMP WHERE RockTypeID = NEW.RockTypeID OR ParentRockTypeID = NEW.ParentRockTypeID OR RockTypeName = NEW.RockTypeName OR RockTypeDescription = NEW.RockTypeDescription;
-END;'''
-UNITS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_units AFTER UPDATE ON Units
-BEGIN
-    UPDATE Units SET UnitModified = CURRENT_TIMESTAMP WHERE UnitID = NEW.UnitID OR ParentUnitID = NEW.ParentUnitID OR UnitName = NEW.UnitName OR UnitDescription = NEW.UnitDescription;
-END;'''
-COLUMNS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_columns AFTER UPDATE ON Columns
-BEGIN
-    UPDATE Columns SET ColumnModified = CURRENT_TIMESTAMP WHERE ColumnID = NEW.ColumnID OR ColumnName = NEW.ColumnName OR ColumnDescription = NEW.ColumnDescription;
-END;'''
-AGESIGNATURES_MODIFIED_TRIGGER = '''
+AGESIGNATURES_MODIFIED_TRIGGER = f'''
 CREATE TRIGGER IF NOT EXISTS update_modified_agesignatures AFTER UPDATE ON AgeSignatures
 BEGIN
-    UPDATE AgeSignatures SET AgeSignatureModified = CURRENT_TIMESTAMP WHERE AgeSignatureID = NEW.AgeSignatureID OR ParentAgeSignatureID = NEW.ParentAgeSignatureID OR AgeSignatureName = NEW.AgeSignatureName OR AgeSignatureDescription = NEW.AgeSignatureDescription;
+    UPDATE AgeSignatures SET AgeSignatureModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeSignatures')};
 END;'''
-AGES_MODIFIED_TRIGGER = '''
+AGEUNITS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_ageunits AFTER UPDATE ON AgeUnits
+BEGIN
+    UPDATE AgeUnits SET AgeUnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeUnits')};
+END;'''
+AGEUNIT_CONVERSIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_ageunit_conversions AFTER UPDATE ON AgeUnitConversions
+BEGIN
+    UPDATE AgeUnitConversions SET AgeUnitConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeUnitConversions')};
+END;'''
+AGES_MODIFIED_TRIGGER = f'''
 CREATE TRIGGER IF NOT EXISTS update_modified_ages AFTER UPDATE ON Ages
 BEGIN
-    UPDATE Ages SET AgeModified = CURRENT_TIMESTAMP WHERE AgeID = NEW.AgeID OR ParentAgeID = NEW.ParentAgeID OR AgeName = NEW.AgeName OR MaxMa = NEW.MaxMa OR MinMa = NEW.MinMa;
+    UPDATE Ages SET AgeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Ages')};
 END;'''
-SAMPLECONTEXT_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samplecontexts AFTER UPDATE ON SampleContexts
-BEGIN
-    UPDATE SampleContexts SET SampleContextModified = CURRENT_TIMESTAMP WHERE SampleContextID = NEW.SampleContextID OR ParentSampleContextID = NEW.ParentSampleContextID OR SampleContextName = NEW.SampleContextName OR SampleContextDescription = NEW.SampleContextDescription;
-END;'''
-ALIQUOTCONTEXT_MODIFIED_TRIGGER = '''
+ALIQUOTCONTEXT_MODIFIED_TRIGGER = f'''
 CREATE TRIGGER IF NOT EXISTS update_modified_aliquotcontexts AFTER UPDATE ON AliquotContexts
 BEGIN
-    UPDATE AliquotContexts SET AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotContextID = NEW.AliquotContextID OR ParentAliquotContextID = NEW.ParentAliquotContextID OR AliquotContextName = NEW.AliquotContextName OR AliquotContextDescription = NEW.AliquotContextDescription;
+    UPDATE AliquotContexts SET AliquotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AliquotContexts')};
 END;'''
-SPOTCONTEXT_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_spotcontexts AFTER UPDATE ON SpotContexts
-BEGIN
-    UPDATE SpotContexts SET SpotContextModified = CURRENT_TIMESTAMP WHERE SpotContextID = NEW.SpotContextID OR ParentSpotContextID = NEW.ParentSpotContextID OR SpotContextName = NEW.SpotContextName OR SpotContextDescription = NEW.SpotContextDescription;
-END;'''
-SPOTCOMPOSITIONS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_spotcompositions AFTER UPDATE ON SpotCompositions
-BEGIN
-    UPDATE SpotCompositions SET SpotCompositionModified = CURRENT_TIMESTAMP WHERE SpotCompositionID = NEW.SpotCompositionID OR ParentSpotCompositionID = NEW.ParentSpotCompositionID OR SpotCompositionName = NEW.SpotCompositionName OR SpotCompositionDescription = NEW.SpotCompositionDescription;
-END;'''
-SAMPLES_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples AFTER UPDATE ON Samples
-BEGIN
-    UPDATE Samples SET SampleModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SampleName = NEW.SampleName OR AverageAge = NEW.AverageAge OR AverageAgeError = NEW.AverageAgeError OR ErrorSigma = NEW.ErrorSigma OR OldestAge = NEW.OldestAge OR YoungestAge = NEW.YoungestAge OR OldestAgeID = NEW.OldestAgeID OR YoungestAgeID = NEW.YoungestAgeID OR HeightDepth = NEW.HeightDepth OR HeightDepthError = NEW.HeightDepthError OR HeightDepthUnit = NEW.HeightDepthUnit OR LatDeg = NEW.LatDeg OR LatMin = NEW.LatMin OR LatSec = NEW.LatSec OR LonDeg = NEW.LonDeg OR LonMin = NEW.LonMin OR LonSec = NEW.LonSec OR UTMZone = NEW.UTMZone OR UTMN = NEW.UTMN OR UTME = NEW.UTME OR Elev = NEW.Elev OR ElevError = NEW.ElevError OR ElevUnit = NEW.ElevUnit OR Description = NEW.Description;
-END;'''
-ALIQUOTS_MODIFIED_TRIGGER = '''
+ALIQUOTS_MODIFIED_TRIGGER = f'''
 CREATE TRIGGER IF NOT EXISTS update_modified_aliquots AFTER UPDATE ON Aliquots
 BEGIN
-    UPDATE Aliquots SET AliquotModified = CURRENT_TIMESTAMP WHERE AliquotID = NEW.AliquotID OR AliquotName = NEW.AliquotName OR SampleID = NEW.SampleID;
+    UPDATE Aliquots SET AliquotModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots')};
 END;'''
-SPOTS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_spots AFTER UPDATE ON Spots
-BEGIN
-    UPDATE Spots SET SpotModified = CURRENT_TIMESTAMP WHERE SpotID = NEW.SpotID OR SpotName = NEW.SpotName OR AliquotID = NEW.AliquotID OR SpotCompositionID = NEW.SpotCompositionID;
-END;'''
-LABFACILITIES_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_labfacilities AFTER UPDATE ON LabFacilities
-BEGIN
-    UPDATE LabFacilities SET LabFacilityModified = CURRENT_TIMESTAMP WHERE LabFacilityID = NEW.LabFacilityID OR LabFacilityName = NEW.LabFacilityName OR LabFacilityDescription = NEW.LabFacilityDescription;
-END;'''
-INSTRUMENTS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_instruments AFTER UPDATE ON Instruments
-BEGIN
-    UPDATE Instruments SET InstrumentModified = CURRENT_TIMESTAMP WHERE InstrumentID = NEW.InstrumentID OR InstrumentName = NEW.InstrumentName OR InstrumentDescription = NEW.InstrumentDescription;
-END;'''
-UPBANALYSISMETHODS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_upbanalysismethods AFTER UPDATE ON UPbAnalysisMethods
-BEGIN
-    UPDATE UPbAnalysisMethods SET UPbAnalysisMethodModified = CURRENT_TIMESTAMP WHERE UPbAnalysisMethodID = NEW.UPbAnalysisMethodID OR UPbAnalysisMethodName = NEW.UPbAnalysisMethodName OR UPbAnalysisMethodDescription = NEW.UPbAnalysisMethodDescription;
-END;'''
-UPBANALYSES_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_upbdata AFTER UPDATE ON UPbData
-BEGIN
-    UPDATE UPbData SET UPbAnalysisModified = CURRENT_TIMESTAMP WHERE UPbAnalysisID = NEW.UPbAnalysisID OR SpotID = NEW.SpotID OR SourceID = NEW.SourceID OR LabFacilityID = NEW.LabFacilityID OR InstrumentID = NEW.InstrumentID OR UPbAnalysisMethodID = NEW.UPbAnalysisMethodID OR Uppm = NEW.Uppm OR "206Pb/204Pb" = NEW."206Pb/204Pb" OR "U/Th" = NEW."U/Th" OR "206Pb/207Pb" = NEW."206Pb/207Pb" OR "206Pb/207Pberror" = NEW."206Pb/207Pberror" OR "207Pb/235U" = NEW."207Pb/235U" OR "207Pb/235Uerror" = NEW."207Pb/235Uerror" OR "206Pb/238U" = NEW."206Pb/238U" OR "206Pb/238Uerror" = NEW."206Pb/238Uerror" OR ErrorCorr = NEW.ErrorCorr OR "206Pb/207PbAge" = NEW."206Pb/207PbAge" OR "206Pb/207PbAgeError" = NEW."206Pb/207PbAgeError" OR "207Pb/235UAge" = NEW."207Pb/235UAge" OR "207Pb/235UAgeError" = NEW."207Pb/235UAgeError" OR "206Pb/238UAge" = NEW."206Pb/238UAge" OR "206Pb/238UAgeError" = NEW."206Pb/238UAgeError" OR BestAge = NEW.BestAge OR Error = NEW.Error OR Conc = NEW.Conc OR SpotSize = NEW.SpotSize OR SpotSizeUnit = NEW.SpotSizeUnit OR Accepted = NEW.Accepted;
-END;'''
-SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_agesignatures AFTER UPDATE ON Samples_AgeSignatures
-BEGIN
-    UPDATE Samples_AgeSignatures SET Samples_AgeSignaturesModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR AgeSignatureID = NEW.AgeSignatureID;
-END;'''
-SAMPLES_COLUMNS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_columns AFTER UPDATE ON Samples_Columns
-BEGIN
-    UPDATE Samples_Columns SET Samples_ColumnsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR ColumnID = NEW.ColumnID;
-END;'''
-SAMPLES_REGIONS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_regions AFTER UPDATE ON Samples_Regions
-BEGIN
-    UPDATE Samples_Regions SET Samples_RegionsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR RegionID = NEW.RegionID;
-END;'''
-SAMPLES_ROCKTYPES_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_rocktypes AFTER UPDATE ON Samples_RockTypes
-BEGIN
-    UPDATE Samples_RockTypes SET Samples_RockTypesModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR RockTypeID = NEW.RockTypeID;
-END;'''
-SAMPLES_SAMPLECONTEXT_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplecontexts AFTER UPDATE ON Samples_SampleContexts
-BEGIN
-    UPDATE Samples_SampleContext SET Samples_SampleContextModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SampleContextID = NEW.SampleContextID;
-END;'''
-SAMPLES_SAMPLINGMETHODS_MODIFIED_RIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplingmethods AFTER UPDATE ON Samples_SamplingMethods
-BEGIN
-    UPDATE Samples_SamplingMethods SET Samples_SamplingMethodsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SamplingMethodID = NEW.SamplingMethodID;
-END;'''
-SAMPLES_SETTINGS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_settings AFTER UPDATE ON Samples_Settings
-BEGIN
-    UPDATE Samples_Settings SET Samples_SettingsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR SettingID = NEW.SettingID;
-END;'''
-SAMPLES_UNITS_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_samples_units AFTER UPDATE ON Samples_Units
-BEGIN
-    UPDATE Samples_Units SET Samples_UnitsModified = CURRENT_TIMESTAMP WHERE SampleID = NEW.SampleID OR UnitID = NEW.UnitID;
-END;'''
-ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER = '''
+ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER = f'''
 CREATE TRIGGER IF NOT EXISTS update_modified_aliquots_aliquotcontexts AFTER UPDATE ON Aliquots_AliquotContexts
 BEGIN
-    UPDATE Aliquots_AliquotContexts SET Aliquots_AliquotContextModified = CURRENT_TIMESTAMP WHERE AliquotID = NEW.AliquotID OR AliquotContextID = NEW.AliquotContextID;
+    UPDATE Aliquots_AliquotContexts SET Aliquots_AliquotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots_AliquotContexts')};
 END;'''
-SPOTS_SPOTCONTEXT_MODIFIED_TRIGGER = '''
-CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcontexts AFTER UPDATE ON Spots_SpotContexts
+ANALYSIS_INTERPRETATIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_analysis_interpretations AFTER UPDATE ON AnalysisInterpretations
 BEGIN
-    UPDATE Spots_SpotContexts SET Spots_SpotContextModified = CURRENT_TIMESTAMP WHERE SpotID = NEW.SpotID OR SpotContextID = NEW.SpotContextID;
+    UPDATE AnalysisInterpretations SET AnalysisInterpretationModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AnalysisInterpretations')};
 END;'''
-FILTERGROUPS_MODIFIED_TRIGGER = '''
+COLUMNS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_columns AFTER UPDATE ON Columns
+BEGIN
+    UPDATE Columns SET ColumnModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Columns')};
+END;'''
+CONCORDANCETYPES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_concordancetypes AFTER UPDATE ON ConcordanceTypes
+BEGIN
+    UPDATE ConcordanceTypes SET ConcordanceTypeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceTypes')};
+END;'''
+CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_concordance_conversions AFTER UPDATE ON ConcordanceConversions
+BEGIN 
+    UPDATE ConcordanceConversions SET ConcordanceConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceConversions')};
+END;'''
+DIRECTIONUNITS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_directionunits AFTER UPDATE ON DirectionUnits
+BEGIN
+    UPDATE DirectionUnits SET DirectionUnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DirectionUnits')};
+END;'''
+DIRECTION_CONVERSIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_direction_conversions AFTER UPDATE ON DirectionConversions
+BEGIN
+    UPDATE DirectionConversions SET DirectionConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DirectionConversions')};
+END;'''
+DISTANCEUNITS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_distanceunits AFTER UPDATE ON DistanceUnits
+BEGIN
+    UPDATE DistanceUnits SET DistanceUnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceUnits')};
+END;'''
+DISTANCE_CONVERSIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_distance_conversions AFTER UPDATE ON DistanceConversions
+BEGIN
+    UPDATE DistanceConversions SET DistanceConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceConversions')};
+END;'''
+ERRORTYPES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_errortypes AFTER UPDATE ON ErrorTypes
+BEGIN
+    UPDATE ErrorTypes SET ErrorTypeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorTypes')};
+END;'''
+ERROR_CONVERSIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_error_conversions AFTER UPDATE ON ErrorConversions
+BEGIN
+    UPDATE ErrorConversions SET ErrorConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorConversions')};
+END;'''
+GPS_LOCATIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_gpslocations AFTER UPDATE ON GPSLocations
+BEGIN
+    UPDATE GPSLocations SET GPSLocationModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSLocations')};
+END;'''
+FILTERGROUPS_MODIFIED_TRIGGER = f'''
 CREATE TRIGGER IF NOT EXISTS update_modified_filtergroups AFTER UPDATE ON FilterGroups
 BEGIN
-    UPDATE FilterGroups SET FilterGroupModified = CURRENT_TIMESTAMP WHERE FilterGroupID = NEW.FilterGroupID OR FilterGroupName = NEW.FilterGroupName OR SQLQuery = NEW.SQLQuery OR DefaultColor = NEW.DefaultColor OR FilterGroupDescription = NEW.FilterGroupDescription;
+    UPDATE FilterGroups SET FilterGroupModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'FilterGroups')};
+END;'''
+INSTRUMENTS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_instruments AFTER UPDATE ON Instruments
+BEGIN
+    UPDATE Instruments SET InstrumentModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Instruments')};
+END;'''
+LABFACILITIES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_labfacilities AFTER UPDATE ON LabFacilities
+BEGIN
+    UPDATE LabFacilities SET LabFacilityModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'LabFacilities')};
+END;'''
+REGIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_regions AFTER UPDATE ON Regions
+BEGIN
+    UPDATE Regions SET RegionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Regions')};
+END;'''
+ROCKTYPES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_rocktypes AFTER UPDATE ON RockTypes
+BEGIN
+    UPDATE RockTypes SET RockTypeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RockTypes')};
+END;'''
+SAMPLEAGES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_sampleages AFTER UPDATE ON SampleAges
+BEGIN
+    UPDATE SampleAges SET SampleAgeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges')};
+END;'''
+SAMPLECONTEXT_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samplecontexts AFTER UPDATE ON SampleContexts
+BEGIN
+    UPDATE SampleContexts SET SampleContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleContexts')};
+END;'''
+SAMPLEAGES_AGECONSTRAINTS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_ageconstraints AFTER UPDATE ON SampleAges_AgeConstraints
+BEGIN
+    UPDATE SampleAges_AgeConstraints SET SampleAges_AgeConstraintsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges_AgeConstraints')};
+END;'''
+SAMPLEAGES_AGEINTERPRETATIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_ageinterpretations AFTER UPDATE ON SampleAges_AgeInterpretations
+BEGIN
+    UPDATE SampleAges_AgeInterpretations SET {modified_list_statement(c, 'SampleAges_AgeInterpretations')};
+END;'''
+SAMPLES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples AFTER UPDATE ON Samples
+BEGIN
+    UPDATE Samples SET SampleModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples')};
+END;'''
+SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_agesignatures AFTER UPDATE ON Samples_AgeSignatures
+BEGIN
+    UPDATE Samples_AgeSignatures SET Samples_AgeSignaturesModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_AgeSignatures')};
+END;'''
+SAMPLES_REGIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_regions AFTER UPDATE ON Samples_Regions
+BEGIN
+    UPDATE Samples_Regions SET Samples_RegionsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Regions')};
+END;'''
+SAMPLES_ROCKTYPES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_rocktypes AFTER UPDATE ON Samples_RockTypes
+BEGIN
+    UPDATE Samples_RockTypes SET Samples_RockTypesModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_RockTypes')};
+END;'''
+SAMPLES_SAMPLECONTEXT_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplecontexts AFTER UPDATE ON Samples_SampleContexts
+BEGIN
+    UPDATE Samples_SampleContext SET Samples_SampleContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SampleContexts')};
+END;'''
+SAMPLES_SAMPLINGMETHODS_MODIFIED_RIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplingmethods AFTER UPDATE ON Samples_SamplingMethods
+BEGIN
+    UPDATE Samples_SamplingMethods SET Samples_SamplingMethodsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SamplingMethods')};
+END;'''
+SAMPLES_SETTINGS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_settings AFTER UPDATE ON Samples_Settings
+BEGIN
+    UPDATE Samples_Settings SET Samples_SettingsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Settings')};
+END;'''
+SAMPLES_UNITS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samples_units AFTER UPDATE ON Samples_Units
+BEGIN
+    UPDATE Samples_Units SET Samples_UnitsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Units')};
+END;'''
+SAMPLINGMETHODS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_samplingmethods AFTER UPDATE ON SamplingMethods
+BEGIN
+    UPDATE SamplingMethods SET SamplingMethodModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SamplingMethods')};
+END;'''
+SETTINGS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_settings AFTER UPDATE ON Settings
+BEGIN
+    UPDATE Settings SET SettingModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Settings')};
+END;'''
+SOURCES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_sources AFTER UPDATE ON Sources
+BEGIN
+    UPDATE Sources SET SourceModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Sources')};
+END;'''
+SPOTCOMPOSITIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_spotcompositions AFTER UPDATE ON SpotCompositions
+BEGIN
+    UPDATE SpotCompositions SET SpotCompositionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotCompositions')};
+END;'''
+SPOTCONTEXT_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_spotcontexts AFTER UPDATE ON SpotContexts
+BEGIN
+    UPDATE SpotContexts SET SpotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotContexts')};
+END;'''
+SPOTS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_spots AFTER UPDATE ON Spots
+BEGIN
+    UPDATE Spots SET SpotModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots')};
+END;'''
+SPOTS_SPOTCOMPOSITIONS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcompositions AFTER UPDATE ON Spots_SpotCompositions
+BEGIN
+    UPDATE Spots_SpotCompositions SET Spots_SpotCompositionsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotCompositions')};
+END;'''
+SPOTS_SPOTCONTEXTS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcontexts AFTER UPDATE ON Spots_SpotContexts
+BEGIN
+    UPDATE Spots_SpotContexts SET Spots_SpotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotContexts')};
+END;'''
+UNITS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_units AFTER UPDATE ON Units
+BEGIN
+    UPDATE Units SET UnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Units')};
+END;'''
+UPBANALYSISMETHODS_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_upbanalysismethods AFTER UPDATE ON UPbAnalysisMethods
+BEGIN
+    UPDATE UPbAnalysisMethods SET UPbAnalysisMethodModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalysisMethods')};
+END;'''
+UPBANALYSES_MODIFIED_TRIGGER = f'''
+CREATE TRIGGER IF NOT EXISTS update_modified_upbdata AFTER UPDATE ON UPbAnalyses
+BEGIN
+    UPDATE UPbAnalyses SET UPbAnalysisModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses')};
 END;'''
 
 def create_triggers(c):
@@ -508,49 +553,63 @@ def create_triggers(c):
     Take database cursor and execute the sql strings defined above to create the database triggers
     :param c: Cursor of database connection
     """
-    c.execute(INSERT_HD_TRIGGER)
-    c.execute(INSERT_ELEV_TRIGGER)
-    c.execute(INSERT_SPOT_TRIGGER)
-    c.execute(INSERT_LATLON_TRIGGER)
-    c.execute(INSERT_UTM_TRIGGER)
-    c.execute(UPDATE_HD_TRIGGER)
-    c.execute(UPDATE_ELEV_TRIGGER)
-    c.execute(UPDATE_SPOT_TRIGGER)
-    c.execute(UPDATE_LATLON_TRIGGER)
-    c.execute(UPDATE_UTM_TRIGGER)
-    c.execute(SOURCES_TRIGGER)
-    c.execute(SAMPLINGMETHODS_TRIGGER)
-    c.execute(REGIONS_TRIGGER)
-    c.execute(SETTINGS_TRIGGER)
-    c.execute(ROCKTYPES_TRIGGER)
-    c.execute(UNITS_TRIGGER)
-    c.execute(COLUMNS_TRIGGER)
-    c.execute(AGESIGNATURES_TRIGGER)
-    c.execute(AGES_TRIGGER)
-    c.execute(SAMPLECONTEXT_TRIGGER)
-    c.execute(ALIQUOTCONTEXT_TRIGGER)
-    c.execute(SPOTCONTEXT_TRIGGER)
-    c.execute(SPOTCOMPOSITIONS_TRIGGER)
-    c.execute(SAMPLES_TRIGGER)
-    c.execute(ALIQUOTS_TRIGGER)
-    c.execute(SPOTS_TRIGGER)
-    c.execute(LABFACILITIES_TRIGGER)
-    c.execute(INSTRUMENTS_TRIGGER)
-    c.execute(UPBANALYSISMETHODS_TRIGGER)
-    c.execute(UPBDATA_TRIGGER)
-    c.execute(GEOCHEMDATA_TRIGGER)
-    c.execute(SAMPLES_AGESIGNATURES_TRIGGER)
-    c.execute(SAMPLES_COLUMNS_TRIGGER)
-    c.execute(SAMPLES_REGIONS_TRIGGER)
-    c.execute(SAMPLES_ROCKTYPES_TRIGGER)
-    c.execute(SAMPLES_SAMPLECONTEXT_TRIGGER)
-    c.execute(SAMPLES_SAMPLINGMETHODS_TRIGGER)
-    c.execute(SAMPLES_SETTINGS_TRIGGER)
-    c.execute(SAMPLES_UNITS_TRIGGER)
-    c.execute(ALIQUOTS_ALIQUOTCONTEXT_TRIGGER)
-    c.execute(SPOTS_SPOTCONTEXT_TRIGGER)
-    c.execute(FILTERGROUPS_TRIGGER)
 
+    c.execute(CREATE_COLUMN_TRIGGERS)
+    c.execute(CREATE_GPS_TRIGGERS)
+    c.execute(CREATE_SAMPLEAGES_TRIGGERS)
+    c.execute(CREATE_SAMPLES_TRIGGERS)
+    ratio_error_statement, new_ratio_error_statement, age_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement = check_error_columns(c)
+    c.execute(CREATE_UPBANALYSES_TRIGGERS)
+
+    c.execute(ABOUT_MODIFIED_TRIGGER)
+    c.execute(AGECONSTRAINTS_MODIFIED_TRIGGER)
+    c.execute(AGEINTERPRETATIONS_MODIFIED_TRIGGER)
+    c.execute(AGESIGNATURES_MODIFIED_TRIGGER)
+    c.execute(AGEUNITS_MODIFIED_TRIGGER)
+    c.execute(AGEUNIT_CONVERSIONS_MODIFIED_TRIGGER)
+    c.execute(AGES_MODIFIED_TRIGGER)
+    c.execute(ALIQUOTCONTEXT_MODIFIED_TRIGGER)
+    c.execute(ALIQUOTS_MODIFIED_TRIGGER)
+    c.execute(ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER)
+    c.execute(ANALYSIS_INTERPRETATIONS_MODIFIED_TRIGGER)
+    c.execute(COLUMNS_MODIFIED_TRIGGER)
+    c.execute(CONCORDANCETYPES_MODIFIED_TRIGGER)
+    c.execute(CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER)
+    c.execute(DIRECTIONUNITS_MODIFIED_TRIGGER)
+    c.execute(DIRECTION_CONVERSIONS_MODIFIED_TRIGGER)
+    c.execute(DISTANCEUNITS_MODIFIED_TRIGGER)
+    c.execute(DISTANCE_CONVERSIONS_MODIFIED_TRIGGER)
+    c.execute(ERRORTYPES_MODIFIED_TRIGGER)
+    c.execute(ERROR_CONVERSIONS_MODIFIED_TRIGGER)
+    c.execute(GPS_LOCATIONS_MODIFIED_TRIGGER)
+    c.execute(FILTERGROUPS_MODIFIED_TRIGGER)
+    c.execute(INSTRUMENTS_MODIFIED_TRIGGER)
+    c.execute(LABFACILITIES_MODIFIED_TRIGGER)
+    c.execute(REGIONS_MODIFIED_TRIGGER)
+    c.execute(ROCKTYPES_MODIFIED_TRIGGER)
+    c.execute(SAMPLEAGES_MODIFIED_TRIGGER)
+    c.execute(SAMPLECONTEXT_MODIFIED_TRIGGER)
+    c.execute(SAMPLEAGES_AGECONSTRAINTS_MODIFIED_TRIGGER)
+    c.execute(SAMPLEAGES_AGEINTERPRETATIONS_MODIFIED_TRIGGER)
+    c.execute(SAMPLES_MODIFIED_TRIGGER)
+    c.execute(SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER)
+    c.execute(SAMPLES_REGIONS_MODIFIED_TRIGGER)
+    c.execute(SAMPLES_ROCKTYPES_MODIFIED_TRIGGER)
+    c.execute(SAMPLES_SAMPLECONTEXT_MODIFIED_TRIGGER)
+    c.execute(SAMPLES_SAMPLINGMETHODS_MODIFIED_RIGGER)
+    c.execute(SAMPLES_SETTINGS_MODIFIED_TRIGGER)
+    c.execute(SAMPLES_UNITS_MODIFIED_TRIGGER)
+    c.execute(SAMPLINGMETHODS_MODIFIED_TRIGGER)
+    c.execute(SETTINGS_MODIFIED_TRIGGER)
+    c.execute(SOURCES_MODIFIED_TRIGGER)
+    c.execute(SPOTCOMPOSITIONS_MODIFIED_TRIGGER)
+    c.execute(SPOTCONTEXT_MODIFIED_TRIGGER)
+    c.execute(SPOTS_MODIFIED_TRIGGER)
+    c.execute(SPOTS_SPOTCOMPOSITIONS_MODIFIED_TRIGGER)
+    c.execute(SPOTS_SPOTCONTEXTS_MODIFIED_TRIGGER)
+    c.execute(UNITS_MODIFIED_TRIGGER)
+    c.execute(UPBANALYSISMETHODS_MODIFIED_TRIGGER)
+    c.execute(UPBANALYSES_MODIFIED_TRIGGER)
 
 if __name__ == '__main__':
     db_file = '../DataTestSchema.db'
