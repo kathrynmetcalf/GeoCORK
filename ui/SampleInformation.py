@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 import sqlite3
 import re
+import decimal
 from random import sample
 import time
 
@@ -39,6 +40,7 @@ class SampleInformation(QtW.QDialog):
         # self.loadWindowState()
 
         self.lat_deg_lineEdit: QtW.QLineEdit
+        # widget.setProperty
         self.lat_min_lineEdit: QtW.QLineEdit
         self.lat_sec_lineEdit: QtW.QLineEdit
         self.lat_combobox: QtW.QComboBox
@@ -104,8 +106,8 @@ class SampleInformation(QtW.QDialog):
 
         # Connect signals and slots
         self.connect_signals()
-        self.commit_pushButton.clicked.connect(self.commit_question)
-        self.cancel_pushButton.clicked.connect(self.discard_question)
+
+        self.installEventFilter(self)
 
     def createSavepoint(self, savepoint_name: str):
         query = QtS.QSqlQuery(self.db)
@@ -203,33 +205,35 @@ class SampleInformation(QtW.QDialog):
 
     def connect_signals(self):
         # Connect signals and slots
+        self.commit_pushButton.clicked.connect(self.commit_question)
+        self.cancel_pushButton.clicked.connect(self.discard_question)
         self.sample_names_model.dataChanged.connect(self.update_sample_list)
-        self.lat_deg_lineEdit.textChanged.connect(lambda text: self.update_field('LatDeg', text))
-        self.lat_min_lineEdit.textChanged.connect(lambda text: self.update_field('LatMin', text))
-        self.lat_sec_lineEdit.textChanged.connect(lambda text: self.update_field('LatSec', text))
-        # self.lat_combobox.currentTextChanged.connect(lambda text: self.update_id('LatDirID', text, 'LocationUnits'))
-        self.lon_deg_lineEdit.textChanged.connect(lambda text: self.update_field('LonDeg', text))
-        self.lon_min_lineEdit.textChanged.connect(lambda text: self.update_field('LonMin', text))
-        self.lon_sec_lineEdit.textChanged.connect(lambda text: self.update_field('LonSec', text))
-        # self.lon_combobox.currentTextChanged.connect(lambda text: self.update_id('LonDirID', text, 'LocationUnits'))
-        self.utm_zone_lineEdit.textChanged.connect(lambda text: self.update_field('UTMZone', text))
-        self.utm_n_lineEdit.textChanged.connect(lambda text: self.update_field('UTMN', text))
-        self.utm_e_lineEdit.textChanged.connect(lambda text: self.update_field('UTME', text))
-        self.elevation_lineEdit.textChanged.connect(lambda text: self.update_field('Elevation', text))
-        self.elevation_error_lineEdit.textChanged.connect(lambda text: self.update_field('ElevationError', text))
-        # self.elevation_unit_comboBox.currentTextChanged.connect(lambda text: self.update_id('ElevationUnitID', text, 'DistanceUnits'))
-        self.oldest_rel_comboBox.currentTextChanged.connect(lambda text: self.update_id('OldestAgeID', text, 'Ages'))
-        self.youngest_rel_comboBox.currentTextChanged.connect(lambda text: self.update_id('YoungestAgeID', text, 'Ages'))
-        self.oldest_dir_lineEdit.textChanged.connect(lambda text: self.update_field('OldestAge', text))
-        self.youngest_dir_lineEdit.textChanged.connect(lambda text: self.update_field('YoungestAge', text))
-        self.best_age_lineEdit.textChanged.connect(lambda text: self.update_field('AverageAge', text))
-        self.best_age_error_lineEdit.textChanged.connect(lambda text: self.update_field('AverageAgeError', text))
-        # self.best_age_error_type_comboBox.currentTextChanged.connect(lambda text: self.update_id('ErrorSigma', text, 'ErrorTypes'))
-        # self.column_name_comboBox.currentTextChanged.connect(lambda text: self.update_id('ColumnID', text, 'Columns'))
-        self.height_depth_lineEdit.textChanged.connect(lambda text: self.update_field('HeightDepth', text))
-        self.height_depth_error_lineEdit.textChanged.connect(lambda text: self.update_field('HeightDepthError', text))
-        # self.height_depth_unit_comboBox.currentTextChanged.connect(lambda text: self.update_id('HeightDepthUnitID', text, 'DistanceUnits'))
-        self.sample_description_lineEdit.textChanged.connect(lambda text: self.update_field('SampleDescription', text))
+        self.lat_deg_lineEdit.editingFinished.connect(lambda: self.update_field('LatDeg', self.lat_deg_lineEdit.text()))
+        self.lat_min_lineEdit.editingFinished.connect(lambda: self.update_field('LatMin', self.lat_min_lineEdit.text()))
+        self.lat_sec_lineEdit.editingFinished.connect(lambda: self.update_field('LatSec', self.lat_sec_lineEdit.text()))
+        # self.lat_combobox.currentTextChanged.connect(lambda: self.update_id('LatDirID', 'LocationUnitName', self.lat_combobox.currentText(), 'LocationUnits'))
+        self.lon_deg_lineEdit.editingFinished.connect(lambda: self.update_field('LonDeg', self.lon_deg_lineEdit.text()))
+        self.lon_min_lineEdit.editingFinished.connect(lambda: self.update_field('LonMin', self.lon_min_lineEdit.text()))
+        self.lon_sec_lineEdit.editingFinished.connect(lambda: self.update_field('LonSec', self.lon_sec_lineEdit.text()))
+        # self.lon_combobox.currentTextChanged.connect(lambda: self.update_id('LonDirID', 'LocationUnitName', self.lon_combobox.currentText(), 'LocationUnits'))
+        self.utm_zone_lineEdit.editingFinished.connect(lambda: self.update_field('UTMZone', self.utm_zone_lineEdit.text()))
+        self.utm_n_lineEdit.editingFinished.connect(lambda: self.update_field('UTMN', self.utm_n_lineEdit.text()))
+        self.utm_e_lineEdit.editingFinished.connect(lambda: self.update_field('UTME', self.utm_e_lineEdit.text()))
+        self.elevation_lineEdit.editingFinished.connect(lambda: self.update_field('Elevation', self.elevation_lineEdit.text()))
+        self.elevation_error_lineEdit.editingFinished.connect(lambda: self.update_field('ElevationError', self.elevation_error_lineEdit.text()))
+        # self.elevation_unit_comboBox.currentTextChanged.connect(lambda text: self.update_id('ElevationUnitID', 'DistanceUnitName', self.elevation_unit_comboBox.currentText(), 'DistanceUnits'))
+        self.oldest_rel_comboBox.currentTextChanged.connect(lambda: self.update_id('OldestAgeID', 'AgeName', self.oldest_rel_comboBox.currentText(), 'Ages'))
+        self.youngest_rel_comboBox.currentTextChanged.connect(lambda: self.update_id('YoungestAgeID', 'AgeName', self.youngest_rel_comboBox.currentText(), 'Ages'))
+        self.oldest_dir_lineEdit.editingFinished.connect(lambda: self.update_field('OldestAge', self.oldest_dir_lineEdit.text()))
+        self.youngest_dir_lineEdit.editingFinished.connect(lambda: self.update_field('YoungestAge', self.youngest_dir_lineEdit.text()))
+        self.best_age_lineEdit.editingFinished.connect(lambda: self.update_field('AverageAge', self.best_age_lineEdit.text()))
+        self.best_age_error_lineEdit.editingFinished.connect(lambda: self.update_field('AverageAgeError', self.best_age_error_lineEdit.text()))
+        # self.best_age_error_type_comboBox.currentTextChanged.connect(lambda: self.update_id('ErrorSigma', 'ErrorTypeName', self.best_age_error_type_comboBox.currentText(), 'ErrorTypes'))
+        # self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('ColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
+        self.height_depth_lineEdit.editingFinished.connect(lambda: self.update_field('HeightDepth', self.height_depth_lineEdit.text()))
+        self.height_depth_error_lineEdit.editingFinished.connect(lambda: self.update_field('HeightDepthError', self.height_depth_error_lineEdit.text()))
+        # self.height_depth_unit_comboBox.currentTextChanged.connect(lambda: self.update_id('HeightDepthUnitID', 'DistanceUnitName', self.height_depth_unit_comboBox.currentText(), 'DistanceUnits'))
+        self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', self.sample_description_lineEdit.text()))
 
         self.sample_context_comboBox.closing.connect(lambda: self.update_tags(self.sample_context_tree, 'SampleContexts'))
         self.sampling_method_comboBox.closing.connect(lambda: self.update_tags(self.sampling_method_tree, 'SamplingMethods'))
@@ -428,22 +432,22 @@ class SampleInformation(QtW.QDialog):
                     query.prepare(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}")
                     if query.exec():
                         self.releaseSavepoint('before_update')
-                        print(f"Updated {field} to {text} for SampleID {sample_id}")
                     else:
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
-    def update_id(self, field: str, text: str, table: str):
+    def update_id(self, id_field: str, name_field:str, text: str, table: str):
         table_model = QtS.QSqlTableModel()
         table_model.setTable(table)
         table_model.select()
-        table_model.setFilter(f"{table_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)} = {text}")
+        # table_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        table_model.setFilter(f"{name_field} is '{text}'")
         item_id = table_model.data(table_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
         if len(self.checked_sample_list) > 0:
             self.createSavepoint('before_update')
             for sample_id in self.checked_sample_list:
                 query = QtS.QSqlQuery()
-                query.prepare(f"UPDATE Samples SET {field} = {item_id} WHERE SampleID = {sample_id}")
+                query.prepare(f"UPDATE Samples SET {id_field} = {item_id} WHERE SampleID = {sample_id}")
                 if query.exec():
                     self.releaseSavepoint('before_update')
                 else:
@@ -489,38 +493,56 @@ class SampleInformation(QtW.QDialog):
             print(f"Query time: {query_end_time - query_start_time}")
 
     def update_tags(self, model: TrC.CheckableTreeModel, table: str):
+        print(f"update_tags called with {model} and {table}")
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(f"Samples_{table}")
         many_to_many_model.select()
 
         if len(self.checked_sample_list) > 0:
-            checked_items , partially_checked_items = model.traverse_checkable_tree(QtC.QModelIndex())
+            checked_ids , partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
+            self.createSavepoint('before_update')
             for sample_id in self.checked_sample_list:
-                model.update_db(checked_items, partially_checked_items, sample_id)
+                update = model.update_db(checked_ids, partially_checked_ids, sample_id)
+                if update is False:
+                    self.rollback('before_update')
+                    errtxt = update
+                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                    return
+            self.releaseSavepoint('before_update')
 
     def update_sub_tags(self, model: TrC.CheckableTreeModel, table: str):
         field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If nothing is fully checked, then nothing should be updated
-        checked_items, partially_checked_items = model.traverse_checkable_tree(QtC.QModelIndex())
-        checked_item_id = None  # Should only be one
-        if len(checked_items) > 0:
+        checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
+        if len(checked_ids) == 1:
+            # Should only be one checked value
             self.createSavepoint('before_update')
             query = QtS.QSqlQuery()
             if len(upb_data_ids) > 1:
                 query.prepare(
-                    f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)}")
+                    f"UPDATE UPbData SET {field} = {checked_ids[0]} WHERE UPbAnalysisID in {tuple(upb_data_ids)}")
             if len(upb_data_ids) == 1:
                 query.prepare(
-                    f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}")
+                    f"UPDATE UPbData SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {upb_data_ids[0]}")
             if query.exec():
-                print(f"Updated {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids}")
+                print(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
                 self.releaseSavepoint('before_update')
             else:
                 self.rollback('before_update')
                 errtxt = query.lastError().text()
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+
+    def eventFilter(self, object, event):
+        if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+            focus_widget = self.focusWidget()
+            if focus_widget is not None:
+                if object != focus_widget:
+                    focus_widget.clearFocus()
+                    return True
+        return super().eventFilter(object, event)
+
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()

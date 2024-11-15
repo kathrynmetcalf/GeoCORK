@@ -11,6 +11,19 @@ Names must be unique and are checked for case sensitivity'''
 # look under linking aboutmodified to other tables
 '''SQL strings to create each table'''
 
+# todo: implement changes for database schema
+# create table for DistanceUnits and conversions
+# create table for DirectionUnits and conversions
+# create table for AgeUnits and conversions
+# create table for ErrorTypes and conversions
+# create table for ConcordanceTypes and conversions
+# create table for AgeInterpretations
+# create table for RejectionRegion
+# make aliquots table a tree
+# expand columns in UPbData table and rename to UPbAnalyses
+# add IGSN to samples table
+
+
 CREATE_ABOUT_TABLE = '''CREATE TABLE IF NOT EXISTS About(
                     AboutID INTEGER PRIMARY KEY,
                     Name TEXT NOT NULL CHECK (Name <> ''),
@@ -21,8 +34,32 @@ CREATE_ABOUT_TABLE = '''CREATE TABLE IF NOT EXISTS About(
                     Description TEXT,
                     CreatedBy TEXT NOT NULL CHECK (CreatedBy <> ''),
                     AboutCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AboutModified DATETIME DEFAULT CURRENT_TIMESTAMP)
-                    '''
+                    AboutModified DATETIME DEFAULT CURRENT_TIMESTAMP
+                    )'''
+
+CREATE_AGE_CONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeConstraints(
+                    AgeConstraintID INTEGER PRIMARY KEY,
+                    ParentAgeConstraintID INTEGER,
+                    AgeConstraintParentRow INTEGER,
+                    AgeConstraintName TEXT NOT NULL CHECK (AgeConstraintName <> ''),
+                    AgeConstraintDescription TEXT,
+                    AgeConstraintCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AgeConstraintModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AgeConstraintName COLLATE NOCASE),
+                    UNIQUE (ParentAgeConstraintID, AgeConstraintParentRow)
+                    )'''
+
+CREATE_AGE_INTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeInterpretations(
+                    AgeInterpretationID INTEGER PRIMARY KEY,
+                    ParentAgeInterpretationID INTEGER,
+                    AgeInterpretationParentRow INTEGER,
+                    AgeInterpretationName TEXT NOT NULL CHECK (AgeInterpretationName <> ''),
+                    AgeInterpretationDescription TEXT,
+                    AgeInterpretationCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AgeInterpretationModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AgeInterpretationName COLLATE NOCASE),
+                    UNIQUE (ParentAgeInterpretationID, AgeInterpretationParentRow)
+                    )'''
 
 CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
                     AgeSignatureID INTEGER PRIMARY KEY,
@@ -34,6 +71,32 @@ CREATE_AGE_SIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS AgeSignatures(
                     AgeSignatureModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (AgeSignatureName COLLATE NOCASE),
                     UNIQUE (ParentAgeSignatureID, AgeSignatureParentRow)
+                    )'''
+
+CREATE_AGE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeUnits(
+                    AgeUnitID INTEGER PRIMARY KEY,
+                    AgeUnitName TEXT NOT NULL CHECK(AgeUnitName <> ''),
+                    AgeUnitAbbreviation TEXT NOT NULL CHECK(AgeUnitAbbreviation <> ''),
+                    AgeUnitDescription TEXT, 
+                    AgeUnitCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AgeUnitModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(AgeUnitName COLLATE NOCASE),
+                    UNIQUE(AgeUnitAbbreviation COLLATE NOCASE)
+                    )'''
+
+CREATE_AGE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeConversions(
+                    FromAgeUnitID INTEGER,
+                    ToAgeUnitID INTEGER,
+                    AgeConversionCalculation TEXT NOT NULL CHECK(AgeConversionCalculation <> ''), 
+                    AgeConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AgeConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    UNIQUE (FromAgeUnitID, ToAgeUnitID),
+                    FOREIGN KEY(FromAgeUnitID) REFERENCES AgeUnits(AgeUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ToAgeUnitID) REFERENCES AgeUnits(AgeUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
                     )'''
 
 CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
@@ -62,12 +125,15 @@ CREATE_ALIQUOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS AliquotContexts(
                     )'''
 
 CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
-                    AliquotID INTEGER PRIMARY KEY,
+                    AliquotID INTEGER PRIMARY KEY, 
+                    ParentAliquotID INTEGER,
+                    AliquotParentRow INTEGER,
                     AliquotName TEXT NOT NULL CHECK (AliquotName <> ''),
                     SampleID INTEGER,
                     AliquotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AliquotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AliquotName COLLATE NOCASE),
+                    UNIQUE (AliquotName COLLATE NOCASE), 
+                    UNIQUE (ParentAliquotID, AliquotParentRow),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
@@ -78,6 +144,7 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_Al
                     AliquotContextID INTEGER,
                     Aliquots_AliquotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Aliquots_AliquotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AliquotID, AliquotContextID),
                     FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -86,55 +153,149 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_Al
                         ON DELETE CASCADE
                     )'''
 
-CREATE_ANALYSIS_METHODS_TABLE = '''CREATE TABLE IF NOT EXISTS AnalysisMethods(
-                    AnalysisMethodID INTEGER PRIMARY KEY,
-                    ParentAnalysisMethodID INTEGER,
-                    AnalysisMethodParentRow INTEGER,
-                    AnalysisMethodName TEXT NOT NULL CHECK (AnalysisMethodName <> ''),
-                    AnalysisMethodDescription TEXT,
-                    AnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AnalysisMethodName COLLATE NOCASE),
-                    UNIQUE (ParentAnalysisMethodID, AnalysisMethodParentRow)
+CREATE_ANALYSIS_INTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AnalysisInterpretations(
+                    AnalysisInterpretationID INTEGER PRIMARY KEY,
+                    ParentAnalysisInterpretationID INTEGER,
+                    AnalysisInterpretationParentRow INTEGER,
+                    AnalysisInterpretationName TEXT NOT NULL CHECK (AnalysisInterpretationName <> ''),
+                    AnalysisInterpretationDescription TEXT,
+                    AnalysisInterpretationCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AnalysisInterpretationModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AnalysisInterpretationName COLLATE NOCASE),
+                    UNIQUE (ParentAnalysisInterpretationID, AnalysisInterpretationParentRow)
                     )'''
 
 CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                     ColumnID INTEGER PRIMARY KEY,
-                    ColumnName TEXT NOT NULL CHECK (ColumnName <> ''),
+                    ColumnName TEXT NOT NULL CHECK (ColumnName <> ''), 
+                    ColumnTotalHeightDepth REAL, 
+                    ColumnTotalHeightDepthUnitID INTEGER, 
+                    ColumnBaseGPSID INTEGER,
                     ColumnDescription TEXT, 
                     ColumnCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     ColumnModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (ColumnName COLLATE NOCASE)
                     )'''
 
-CREATE_GEOCHEMDATA_TABLE = '''CREATE TABLE IF NOT EXISTS GeochemData(
-                    GeochemAnalysisID INTEGER PRIMARY KEY,
-                    SpotID INTEGER NOT NULL,
-                    SourceID INTEGER,
-                    LabFacilityID INTEGER,
-                    InstrumentID INTEGER,
-                    AnalysisMethodID INTEGER,
-                    MajorElements TEXT,
-                    TraceElements TEXT,
-                    REEs TEXT,
-                    GeochemAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GeochemAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
+CREATE_CONCORDANCE_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceTypes(
+                    ConcordanceTypeID INTEGER PRIMARY KEY,
+                    ConcordanceTypeName TEXT NOT NULL CHECK(ConcordanceTypeName <> ''),
+                    ConcordanceTypeAbbreviation TEXT NOT NULL CHECK(ConcordanceTypeAbbreviation <> ''),
+                    ConcordanceTypeDescription TEXT,
+                    ConcordanceTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ConcordanceTypeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(ConcordanceTypeName COLLATE NOCASE),
+                    UNIQUE(ConcordanceTypeAbbreviation COLLATE NOCASE)
+)'''
+
+CREATE_CONCORDANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceConversions(
+                    FromConcordanceTypeID INTEGER,
+                    ToConcordanceTypeID INTEGER,
+                    ConcordanceConversionCalculation TEXT NOT NULL CHECK(ConcordanceConversionCalculation <> ''), 
+                    ConcordanceConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ConcordanceConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    UNIQUE (FromConcordanceTypeID, ToConcordanceTypeID),
+                    FOREIGN KEY(FromConcordanceTypeID) REFERENCES ConcordanceTypes(ConcordanceTypeID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(SourceID) REFERENCES Sources(SourceID)
+                    FOREIGN KEY(ToConcordanceTypeID) REFERENCES ConcordanceTypes(ConcordanceTypeID)
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(AnalysisMethodID) REFERENCES AnalysisMethods(AnalysisMethodID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL
+                        ON DELETE CASCADE
                     )'''
+
+CREATE_DIRECTION_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionUnits(
+                    DirectionUnitID INTEGER PRIMARY KEY,
+                    DirectionUnitName TEXT NOT NULL CHECK(DirectionUnitName <> ''),
+                    DirectionUnitAbbreviation TEXT NOT NULL CHECK(DirectionUnitAbbreviation <> ''),
+                    DirectionUnitCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    DirectionUnitModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(DirectionUnitName COLLATE NOCASE)
+)'''
+
+CREATE_DIRECTION_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionConversions(
+                    FromDirectionUnitID INTEGER,
+                    ToDirectionUnitID INTEGER,
+                    DirectionConversionCalculation TEXT, 
+                    DirectionConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    DirectionConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    FOREIGN KEY(FromDirectionUnitID) REFERENCES DirectionUnits(DirectionUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ToDirectionUnitID) REFERENCES DirectionUnits(DirectionUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_DISTANCE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceUnits(
+                    DistanceUnitID INTEGER PRIMARY KEY,
+                    DistanceUnitName TEXT NOT NULL CHECK(DistanceUnitName <> ''),
+                    DistanceUnitAbbreviation TEXT NOT NULL CHECK(DistanceUnitAbbreviation <> ''),
+                    DistanceUnitDescription TEXT,
+                    DistanceUnitCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    DistanceUnitModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(DistanceUnitName COLLATE NOCASE),
+                    UNIQUE(DistanceUnitAbbreviation COLLATE NOCASE)
+)'''
+
+CREATE_DISTANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceConversions(
+                    FromDistanceUnitID INTEGER,
+                    ToDistanceUnitID INTEGER,
+                    DistanceConversionCalculation TEXT, 
+                    DistanceConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    DistanceConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    FOREIGN KEY(FromDistanceUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ToDistanceUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_ERROR_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorTypes(
+                    ErrorTypeID INTEGER PRIMARY KEY,
+                    ErrorTypeName TEXT NOT NULL CHECK(ErrorTypeName <> ''),
+                    ErrorTypeAbbreviation TEXT NOT NULL CHECK(ErrorTypeAbbreviation <> ''),
+                    ErrorTypeDescription TEXT,
+                    ErrorTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ErrorTypeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(ErrorTypeName COLLATE NOCASE),
+                    UNIQUE(ErrorTypeAbbreviation COLLATE NOCASE)
+)'''
+
+CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorConversions(
+                    FromErrorTypeID INTEGER,
+                    ToErrorTypeID INTEGER,
+                    ErrorConversionCalculation TEXT, 
+                    ErrorConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ErrorConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    FOREIGN KEY(FromErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ToErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
+                    GPSLocationID INTEGER PRIMARY KEY,
+                    GPSLatDeg REAL,
+                    GPSLatMin REAL,
+                    GPSLatSec REAL,
+                    GPSLatDirectionID INTEGER,
+                    GPSLonDeg REAL,
+                    GPSLonMin REAL,
+                    GPSLonSec REAL,
+                    GPSLonDirectionID INTEGER,
+                    GPSUTMZone TEXT,
+                    GPSUTMN REAL,
+                    GPSUTME REAL,
+                    Elev REAL,
+                    ElevError REAL,
+                    ElevUnitID INTEGER,
+                    GPSLocationCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GPSLocationModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, Elev, ElevError, ElevUnitID)
+)'''
 
 CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS FilterGroups(
                     FilterGroupID INTEGER PRIMARY KEY,
@@ -189,6 +350,34 @@ CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     UNIQUE (ParentRockTypeID, RockTypeParentRow)
                     )'''
 
+CREATE_SAMPLE_AGE_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges(
+                    SampleAgeID INTEGER PRIMARY KEY, 
+                    AverageAge REAL,
+                    AverageAgeError REAL,
+                    AverageAgeErrorTypeID INTEGER,
+                    OldestAge REAL,
+                    YoungestAge REAL, 
+                    SampleAgeUnitID INTEGER,
+                    OldestAgeID INTEGER,
+                    YoungestAgeID INTEGER,
+                    SampleAgeDescription TEXT, 
+                    SampleAgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SampleAgeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (AverageAge, AverageAgeError, AverageAgeErrorTypeID, OldestAge, YoungestAge, SampleAgeUnitID, OldestAgeID, YoungestAgeID),
+                    FOREIGN KEY(AverageAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(SampleAgeUnitID) REFERENCES AgeUnits(AgeUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(OldestAgeID) REFERENCES Ages(AgeID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(YoungestAgeID) REFERENCES Ages(AgeID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    )'''
+
 CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContexts(
                     SampleContextID INTEGER PRIMARY KEY,
                     ParentSampleContextID INTEGER,
@@ -201,39 +390,56 @@ CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContexts(
                     UNIQUE (ParentSampleContextID, SampleContextParentRow)
                     )'''
 
+CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAges_AgeConstraints(
+                    SampleAgeID INTEGER,
+                    AgeConstraintID INTEGER,
+                    SamplesAges_AgeConstraintsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SamplesAges_AgeConstraintsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(AgeConstraintID) REFERENCES AgeConstraints(AgeConstraintsID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAges_AgeInterpretations(
+                    SampleAgeID INTEGER,
+                    AgeInterpretationID INTEGER,
+                    SamplesAges_AgeInterpretationsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SamplesAges_AgeInterpretationsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(AgeInterpretationID) REFERENCES AgeInterpretations(AgeInterpretationID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
 CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleID INTEGER PRIMARY KEY,
                     SampleName TEXT NOT NULL CHECK (SampleName <> ''), 
-                    AverageAge REAL,
-                    AverageAgeError REAL,
-                    ErrorSigma TEXT,
-                    OldestAge REAL,
-                    YoungestAge REAL,
-                    OldestAgeID INTEGER,
-                    YoungestAgeID INTEGER,
+                    SampleIGSN TEXT, 
+                    SampleAgeID INTEGER,
+                    SampleGPSLocationID INTEGER,
+                    SampleColumnID INTEGER,
                     HeightDepth REAL,
                     HeightDepthError REAL,
-                    HeightDepthUnit TEXT,
-                    LatDeg REAL,
-                    LatMin REAL,
-                    LatSec REAL,
-                    LonDeg REAL,
-                    LonMin REAL,
-                    LonSec REAL,
-                    UTMZone TEXT,
-                    UTMN REAL,
-                    UTME REAL,
-                    Elev REAL,
-                    ElevError REAL,
-                    ElevUnit TEXT,
+                    HeightDepthUnitID INTEGER,
                     Description TEXT,
                     SampleCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SampleName COLLATE NOCASE),
-                    FOREIGN KEY(OldestAgeID) REFERENCES Ages(AgeID)
+                    UNIQUE (SampleName COLLATE NOCASE), 
+                    FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
-                    FOREIGN KEY(YoungestAgeID) REFERENCES Ages(AgeID)
+                    FOREIGN KEY(SampleGPSLocationID) REFERENCES GPLocations(GPSLocationID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(SampleColumnID) REFERENCES Columns(ColumnID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(HeightDepthUnitID) REFERENCES DistanceUnits(DistanceUnitID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
@@ -247,19 +453,6 @@ CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_AgeSi
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
                     FOREIGN KEY(AgeSignatureID) REFERENCES AgeSignatures(AgeSignatureID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
-CREATE_SAMPLES_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Columns(
-                    SampleID INTEGER,
-                    ColumnID INTEGER,
-                    Samples_ColumnsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Samples_ColumnsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(ColumnID) REFERENCES Columns(ColumnID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -419,6 +612,19 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                         ON DELETE SET NULL
                     )'''
 
+CREATE_SPOTS_SPOTCOMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotCompositions(
+                    SpotID INTEGER,
+                    SpotCompositionID INTEGER,
+                    Spots_SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Spots_SpotCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SpotCompositionID) REFERENCES SpotCompositions(SpotCompositionID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
 CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContexts(
                     SpotID INTEGER,
                     SpotContextID INTEGER,
@@ -444,7 +650,7 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UNIQUE (ParentUnitID, UnitParentRow)
                     )'''
 
-CREATE_UPBANALYSIS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
+CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
                     UPbAnalysisMethodID INTEGER PRIMARY KEY,
                     UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
                     UPbAnalysisMethodDescription TEXT, 
@@ -453,35 +659,87 @@ CREATE_UPBANALYSIS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
                     UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
                     )'''
 
-CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
+CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     UPbAnalysisID INTEGER PRIMARY KEY,
                     SpotID INTEGER NOT NULL,
                     SourceID INTEGER,
                     LabFacilityID INTEGER,
                     InstrumentID INTEGER,
-                    UPbAnalysisMethodID INTEGER,
+                    UPbAnalysisMethodID INTEGER, 
+                    Pb204cps REAL, 
+                    Pb206cps REAL, 
+                    Pb207cps REAL, 
+                    Pb208cps REAL, 
+                    “Pb*cps” REAL,
+                    Th232cps REAL, 
+                    U235cps REAL, 
+                    U238cps REAL,
                     Uppm REAL,
-                    "206Pb/204Pb" REAL,
+                    Thppm REAL,
                     "U/Th" REAL,
+                    “Th/U” REAL,
                     "206Pb/207Pb" REAL,
-                    "206Pb/207Pberror" REAL,
+                    "206Pb/207PbError" REAL, 
+                    "207Pb/206Pb" REAL,
+                    "207Pb/206PbError" REAL, 
                     "207Pb/235U" REAL,
-                    "207Pb/235Uerror" REAL,
+                    "207Pb/235UError" REAL, 
+                    "235U/207Pb" REAL,
+                    "235U/207PbError" REAL, 
                     "206Pb/238U" REAL,
-                    "206Pb/238Uerror" REAL,
-                    ErrorCorr REAL,
+                    "206Pb/238UError" REAL, 
+                    "238U/206Pb" REAL,
+                    "238U/206PbError" REAL, 
+                    "208Pb/232Th" REAL,
+                    "208Pb/232ThError" REAL, 
+                    "232Th/208Pb" REAL,
+                    "232Th/208PbError" REAL, 
+                    "238U/232Th" REAL,
+                    "238U/232ThError" REAL, 
+                    "232Th/238U" REAL,
+                    "232Th/238UError" REAL, 
+                    "204Pb/238U" REAL,
+                    "204Pb/238UError" REAL, 
+                    "238U/204Pb" REAL,
+                    "238U/204PbError" REAL, 
+                    "206Pb/204Pb" REAL,
+                    "206Pb/204PbError" REAL, 
+                    "204Pb/206Pb" REAL,
+                    "204Pb/206PbError" REAL, 
+                    "207Pb/204Pb" REAL,
+                    "207Pb/204PbError" REAL, 
+                    "204Pb/207Pb" REAL,
+                    "204Pb/207PbError" REAL, 
+                    "208Pb/204Pb" REAL,
+                    "208Pb/204PbError" REAL, 
+                    "204Pb/208Pb" REAL,
+                    "204Pb/208PbError" REAL, 
+                    RatioErrorTypeID INTEGER,
+                    “ErrorCorr/Rho” REAL,
                     "206Pb/207PbAge" REAL,
-                    "206Pb/207PbAgeError" REAL,
+                    "206Pb/207PbAgeError" REAL, 
+                    "207Pb/206PbAge" REAL,
+                    "207Pb/206PbAgeError" REAL, 
                     "207Pb/235UAge" REAL,
-                    "207Pb/235UAgeError" REAL,
+                    "207Pb/235UAgeError" REAL, 
+                    "235U/207PbAge" REAL,
+                    "235U/207PbAgeError" REAL, 
                     "206Pb/238UAge" REAL,
-                    "206Pb/238UAgeError" REAL,
+                    "206Pb/238UAgeError" REAL, 
+                    "238U/206PbAge" REAL,
+                    "238U/206PbAgeError" REAL, 
+                    AgeErrorTypeID INTEGER,
                     BestAge REAL,
-                    Error REAL,
-                    Conc REAL,
-                    SpotSize Real,
-                    SpotSizeUnit TEXT,
-                    Accepted INTEGER,
+                    BestAgeError REAL, 
+                    BestAgeErrorTypeID INTEGER,
+                    “Concordance206Pb/238U-206Pb/207Pb” REAL,
+                    “Concordance206Pb/238U-206Pb/207PbTypeID” INTEGER, 
+                    “Concordance206Pb/238U-208Pb/232Th” REAL,
+                    “Concordance206Pb/238U-208Pb/232ThTypeID” INTEGER,
+                    SpotSize REAL,
+                    SpotSizeUnitID INTEGER,
+                    Accepted BOOL,
+                    RejectionReasonID INTEGER,
                     UPbAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
@@ -498,8 +756,31 @@ CREATE_UPBDATA_TABLE = '''CREATE TABLE IF NOT EXISTS UPbData(
                         ON DELETE SET NULL,
                     FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
                         ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(RatioErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(AgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(BestAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                        ON UPDATE CASCADE
                         ON DELETE SET NULL
+                    )''' \
+
+CREATE_UPBANALYSES_ANALYSISINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_AnalysisInterpretations(
+                    UPbAnalysisID INTEGER,
+                    AnalysisInterpretationID INTEGER,
+                    UPbAnalyses_AnalysisInterpretationsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalyses_AnalysisInterpretationsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(AnalysisInterpretationID) REFERENCES AnalysisInterpretations(AnalysisInterpretationID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
                     )'''
+
 
 '''Commands to create tables and populate default tables'''
 
@@ -515,68 +796,74 @@ def create_tables(db_file):
     with conn:
         c = conn.cursor()
 
+        # Create the tables
+        c.execute(CREATE_ABOUT_TABLE)
+
+        # Create unit and type tables
+        c.execute(CREATE_AGE_UNITS_TABLE)
+        c.execute(CREATE_CONCORDANCE_TYPES_TABLE)
+        c.execute(CREATE_DIRECTION_UNITS_TABLE)
+        c.execute(CREATE_DISTANCE_UNITS_TABLE)
+        c.execute(CREATE_ERROR_TYPES_TABLE)
+
+        # Create conversion tables
+        c.execute(CREATE_AGE_CONVERSIONS_TABLE)
+        c.execute(CREATE_CONCORDANCE_CONVERSIONS_TABLE)
+        c.execute(CREATE_DIRECTION_CONVERSIONS_TABLE)
+        c.execute(CREATE_DISTANCE_CONVERSIONS_TABLE)
+        c.execute(CREATE_ERROR_CONVERSIONS_TABLE)
+
+        # Create analysis tag tables
+        c.execute(CREATE_ANALYSIS_INTERPRETATIONS_TABLE)
+        c.execute(CREATE_INSTRUMENTS_TABLE)
+        c.execute(CREATE_LAB_FACILITIES_TABLE)
         c.execute(CREATE_SOURCES_TABLE)
+        c.execute(CREATE_UPBANALYSIS_METHOD_TABLE)
 
-        c.execute(CREATE_SAMPLING_METHODS_TABLE)
-
-        c.execute(CREATE_REGIONS_TABLE)
-
-        c.execute(CREATE_SETTINGS_TABLE)
-
-        c.execute(CREATE_ANALYSIS_METHODS_TABLE)
-
-        c.execute(CREATE_ROCK_TYPES_TABLE)
-
-        c.execute(CREATE_UNITS_TABLE)
-
-        c.execute(CREATE_COLUMNS_TABLE)
-
-        c.execute(CREATE_AGE_SIGNATURES_TABLE)
-
-        c.execute(CREATE_AGES_TABLE)
-
-        c.execute(CREATE_SAMPLE_CONTEXT_TABLE)
-
-        c.execute(CREATE_ALIQUOT_CONTEXT_TABLE)
-
+        # Create spot tag tables
+        c.execute(CREATE_SPOT_COMPOSITION_TABLE)
         c.execute(CREATE_SPOT_CONTEXT_TABLE)
 
-        c.execute(CREATE_SPOT_COMPOSITION_TABLE)
+        # Create aliquot tag tables
+        c.execute(CREATE_ALIQUOT_CONTEXT_TABLE)
 
+        # Create sample tag tables
+        c.execute(CREATE_AGE_CONSTRAINTS_TABLE)
+        c.execute(CREATE_AGE_INTERPRETATIONS_TABLE)
+        c.execute(CREATE_AGE_SIGNATURES_TABLE)
+        c.execute(CREATE_AGES_TABLE)
+        c.execute(CREATE_COLUMNS_TABLE)
+        c.execute(CREATE_GPS_LOCATIONS_TABLE)
+        c.execute(CREATE_REGIONS_TABLE)
+        c.execute(CREATE_ROCK_TYPES_TABLE)
+        c.execute(CREATE_SAMPLE_AGE_TABLE)
+        c.execute(CREATE_SAMPLE_CONTEXT_TABLE)
+        c.execute(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE)
+        c.execute(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE)
+        c.execute(CREATE_SAMPLING_METHODS_TABLE)
+        c.execute(CREATE_SETTINGS_TABLE)
+        c.execute(CREATE_UNITS_TABLE)
+
+        # Create sample item and analysis tables
         c.execute(CREATE_SAMPLES_TABLE)
-
         c.execute(CREATE_ALIQUOTS_TABLE)
-
         c.execute(CREATE_SPOTS_TABLE)
+        c.execute(CREATE_UPBANALYSES_TABLE)
 
-        c.execute(CREATE_LAB_FACILITIES_TABLE)
-
-        c.execute(CREATE_INSTRUMENTS_TABLE)
-
-        c.execute(CREATE_UPBDATA_TABLE)
-
-        c.execute(CREATE_UPBANALYSIS_TABLE)
-
-        c.execute(CREATE_GEOCHEMDATA_TABLE)
-
+        # Create many-to-many sample tables
         c.execute(CREATE_SAMPLES_AGESIGNATURES_TABLE)
-
-        c.execute(CREATE_SAMPLES_COLUMNS_TABLE)
-
         c.execute(CREATE_SAMPLES_REGIONS_TABLE)
-
         c.execute(CREATE_SAMPLES_ROCKTYPES_TABLE)
-
         c.execute(CREATE_SAMPLES_SAMPLECONTEXT_TABLE)
-
         c.execute(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE)
-
         c.execute(CREATE_SAMPLES_SETTINGS_TABLE)
-
         c.execute(CREATE_SAMPLES_UNITS_TABLE)
 
+        # Create many-to-many anliquot tables
         c.execute(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE)
 
+        # Create many-to-many spot tables
+        c.execute(CREATE_SPOTS_SPOTCOMPOSITION_TABLE)
         c.execute(CREATE_SPOTS_SPOTCONTEXT_TABLE)
 
         c.execute(CREATE_FILTER_GROUPS_TABLE)
