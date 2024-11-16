@@ -1,9 +1,13 @@
+import sqlite3
+from dataclasses import field
+
 from PyQt6 import uic, QtSql, QtCore
 from PyQt6.QtCore import QSettings, QSize
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQueryModel
 from PyQt6.QtWidgets import QWidget, QApplication, QGridLayout, QLabel, QCheckBox, QStackedWidget, QSpacerItem, \
     QSizePolicy, QTableView
 
+import Filters
 import SQLUtils
 from Table_classes import CheckableSqlTableModel, CheckableComboBox
 from QComboBoxLabel import QComboBoxLabel
@@ -13,6 +17,8 @@ from collections import Counter
 class ExportWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.checked_filter_list = []
+        self.checked_sample_names = "()"
         self.selected_columns = []
         self.ordered_columns = []
 
@@ -105,7 +111,8 @@ class ExportWidget(QWidget):
             'UPb Data': [
                 "U/Th", "206Pb/204Pb", "206Pb/207Pb", "206Pb/207Pberror", "207Pb/235U", "207Pb/235Uerror",
                 "206Pb/238U", "206Pb/238Uerror", "ErrorCorr", "206Pb/207PbAge", "206Pb/207PbAgeError",
-                "207Pb/235UAge", "207Pb/235UAgeError", "206Pb/238UAge", "206Pb/238UAgeError",
+                "207Pb/235UAge", "207Pb/235UAgeError", "206Pb/238UAge", "206Pb/238UAgeError", "BestAge", "Error",
+                "Conc",
                 "UPbAnalysisCreated", "UPbAnalysisModified"
             ],
             'UPb Analysis Methods': [
@@ -130,17 +137,22 @@ class ExportWidget(QWidget):
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filterselection_comboBox.setModel(self.filter_model)
 
+        #todo fix for updating the filter list when the filter model is updated
+        self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
+
         self.update_step_2_list()
         # self.update_column_attributes()
         self.populate_stack()
+        self.export_format()
 
         self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
         self.viewpreview_pushbutton.clicked.connect(self.update_table_view)
-        self.export_pushbutton.clicked.connect(self.export_data)
+        # self.export_pushbutton.clicked.connect(self.export_format())
 
+        self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
-        # self.samples_model.dataChanged.connect(self.update_sample_list)
+
         self.show()
 
     def populate_stack(self):
@@ -244,8 +256,6 @@ class ExportWidget(QWidget):
             if checked_fields:
                 checked_attributes[table_name] = checked_fields
 
-            print(checked_attributes)
-
     def get_selected_values(self):
         selected_columns = []
         for index in range(self.columnattributes_stack.count()):
@@ -269,20 +279,33 @@ class ExportWidget(QWidget):
         self.selected_columns = tuple(selected_columns)
         return tuple(selected_columns)
 
+    def select_checkboxes(self, values):
+        #values should be tuple format ('table_name', 'field_name')
+        for index in range(self.columnattributes_stack.count()):
+            table_widget = self.columnattributes_stack.widget(index)
+            if table_widget:
+                layout = table_widget.layout()
+                for i in range(layout.count()):
+                    item = layout.itemAt(i)
+                    if item is None:
+                        continue
+                    widget = item.widget()
+                    if isinstance(widget, QCheckBox):
+                        table_name = widget.property('table_name')
+                        field_name = widget.property('field_name')
+
+                        if (table_name, field_name) in values:
+                            print(field_name)
+                            widget.setChecked(True)
+        self.update_table_view()
 
     def update_table_view(self):
         # Get the selected columns
         model = QSqlQueryModel()
         self.get_selected_values()
-        print('selected columns')
-        print(self.selected_columns)
-        print('ordered columns')
-        print(self.ordered_columns)
+
         if Counter(self.selected_columns) != Counter(self.ordered_columns):
-            print('true')
             self.ordered_columns = self.get_selected_values()
-        else:
-            print('false')
 
         if not self.ordered_columns:
             # No columns selected, clear the table view
@@ -298,22 +321,100 @@ class ExportWidget(QWidget):
 
         columns_str = columns_str[0:-2]
         join = SQLUtils.get_join_from_table(tables)
-        query_str = f"SELECT {columns_str} FROM Samples {join} WHERE FALSE"
-        model.setQuery(query_str)
-        # self.model.query().exec()
 
+
+        filtered_where_clause = ''
+
+        for filter_id, filter_json in self.checked_filter_list:
+            # print(filter_id, filter_json)
+            if len(self.checked_filter_list) > 0:
+                filtered_where_clause=Filters.process_json_to_sql(filter_json[1:-1])
+                filtered_where_clause= filtered_where_clause[0:-1]
+        # print('filtered where clause')
+        # print(filtered_where_clause)
+
+        # Final SQL query
+        sql_query = ''
+        type = self.filterscope_comboBox.currentText()
+        if len(self.checked_filter_list) > 0:
+            if type == 'Samples':
+                sql_query = f"SELECT DISTINCT SampleID FROM ({filtered_where_clause});"
+            elif type == 'Aliquots':
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                sql_query = f"SELECT DISTINCT AliquotID FROM ({filtered_where_clause});"
+            elif type == 'Spots':
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                sql_query = f"SELECT DISTINCT SpotID FROM ({filtered_where_clause});"
+            elif type == 'UPbData':
+                if SQLUtils.aliquot_join not in join:
+                    join += SQLUtils.aliquot_join + '\n'
+                if SQLUtils.spot_join not in join:
+                    join += SQLUtils.spot_join + '\n'
+                if SQLUtils.upb_data_join not in join:
+                    join += SQLUtils.upb_data_join + '\n'
+                sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
+            elif type is None:
+                pass
+            else:
+                print("Unknown Type Given")
+
+            conn = sqlite3.connect(self.db_file)
+            ids=[]
+            # print(sql_query)
+            with conn:
+                for id in conn.execute(sql_query).fetchall():
+                    ids.append(id[0])
+
+            ids = f"({', '.join(map(str, ids))})"
+
+        #todo maybe change to pagination
+        #todo fix for working with aliquots and spots
+        if len(self.checked_sample_names) > 2:
+            query_str = f"SELECT {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
+            if len(filtered_where_clause) > 0:
+                query_str = f"SELECT {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
+        else:
+            query_str = f"SELECT {columns_str} FROM Samples {join} WHERE FALSE"
+        print('final table query string')
+        print(query_str)
+        model.setQuery(query_str)
 
         for col in range(model.columnCount()):
             header = model.headerData(col, QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)
             model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
-
-
         self.tableView.setModel(model)
 
-
     def export_data(self):
-        pass
+        query = self.tableView.model().query()
+
+
+    def export_format(self):
+        match(self.exportformat_comboBox.currentText()):
+            case 'detritalPy':
+                values = [('Samples', 'SampleName'),
+                          ('Spots', 'SpotName'),
+                          ('UPb Data', 'Uppm'),
+                          ('UPb Data', 'U/Th'),
+                          ('UPb Data', 'BestAge'),
+                          ('UPb Data', 'Error'),
+                          ('UPb Data', 'Conc')
+                          ]
+                self.select_checkboxes(values)
+                return
+            case 'IsoplotR':
+                pass
+            case 'DZStats':
+                pass
+            case 'Database':
+                pass
+            case 'Custom':
+                pass
+        self.tableView.setModel(None)
 
 
     def update_step_2_list(self):
@@ -342,14 +443,37 @@ class ExportWidget(QWidget):
         for row in range(model.rowCount()):
             name_index = model.index(row, 1, QtCore.QModelIndex())
             if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
-                name = model.data(name_index, QtCore.Qt.ItemDataRole.DisplayRole)
-                self.checked_sample_list.append(name)
+                #todo update placeholder text to include samplename instead of "1" for now
+
+                # name = model.data(name_index, QtCore.Qt.ItemDataRole.DisplayRole)
+                # self.checked_sample_list.append(name)
                 # add the sample id to the list
                 id_index = model.index(row, 0, QtCore.QModelIndex())
                 self.checked_sample_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
-        print(self.checked_sample_list)
-        # self.checked_sample_names = ", ".join(checked_sample_names)
-        # self.populate_fields()
+
+        self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
+        self.update_table_view()
+
+    def update_filter_list(self, model):
+        self.checked_filter_list = []
+        for row in range(model.rowCount()):
+            name_index = model.index(row, 1, QtCore.QModelIndex())
+            if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                #todo update placeholder text to include filtername instead of "1" for now
+
+                # name = model.data(name_index, QtCore.Qt.ItemDataRole.DisplayRole)
+                # self.checked_sample_list.append(name)
+                # add the sample id to the list
+                id_index = model.index(row, 0, QtCore.QModelIndex())
+                filter_json = model.index(row, 2, QtCore.QModelIndex())
+                self.checked_filter_list.append((model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole),
+                                                 model.data(filter_json, QtCore.Qt.ItemDataRole.DisplayRole)))
+
+        self.update_table_view()
+        for filter_id, filter_json in self.checked_filter_list:
+            print(filter_id, filter_json)
+            print(Filters.process_json_to_sql(filter_json[1:-1]))
+
 
     def open_column_order_dialog(self):
         # Get current selected columns
@@ -365,7 +489,7 @@ class ExportWidget(QWidget):
             ordered_columns = dialog.get_adjusted_columns()
             # Update the selected columns
             self.ordered_columns = ordered_columns
-            print(ordered_columns)
+            # print(ordered_columns)
             # Update the table view with the new column order
             self.update_table_view()
 
