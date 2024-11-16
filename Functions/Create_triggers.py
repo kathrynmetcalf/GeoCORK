@@ -245,11 +245,7 @@ BEGIN
             RAISE (ABORT,'Best age error value with missing type')
         END;
     SELECT CASE
-        WHEN NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnitID” IS NULL THEN
-            RAISE (ABORT,'Concordance value with missing type')
-        END;
-    SELECT CASE
-        WHEN NEW. “Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnitID” IS NULL THEN
+        WHEN NEW.“Concordance” IS NOT NULL AND NEW.“ConcordanceTypeID” IS NULL THEN
             RAISE (ABORT,'Concordance value with missing type')
         END;
     SELECT CASE
@@ -284,13 +280,10 @@ BEGIN
             RAISE (ABORT,'Best age error value with missing type')
         END;
     SELECT CASE
-        WHEN (NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnit” IS NULL) OR 
-        (NEW.“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnit” IS NULL) OR 
-        (“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND NEW.“Concordance206Pb/238U-206Pb/207PbUnit” IS NULL) OR
-        (“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND NEW.“Concordance206Pb/238U-208Pb/232ThUnit” IS NULL) OR
-        (NEW.“Concordance206Pb/238U-206Pb/207Pb” IS NOT NULL AND “Concordance206Pb/238U-206Pb/207PbUnit” IS NULL) OR
-        (NEW.“Concordance206Pb/238U-208Pb/232Th” IS NOT NULL AND “Concordance206Pb/238U-208Pb/232ThUnit” IS NULL) THEN
-            RAISE (ABORT,'Concordance value with missing units')
+        WHEN (NEW.“Concordance” IS NOT NULL AND NEW.“ConcordanceTypeID” IS NULL) OR 
+        (“Concordance” IS NOT NULL AND NEW.“ConcordanceTypeID” IS NULL) OR
+        (NEW.“Concordance” IS NOT NULL AND “ConcordanceTypeID” IS NULL) THEN
+            RAISE (ABORT,'Concordance value with missing type')
         END;
     SELECT CASE
         WHEN (NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnitID IS NULL) OR 

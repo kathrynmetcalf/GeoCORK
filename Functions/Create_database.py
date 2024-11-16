@@ -3,25 +3,16 @@ import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
 import Functions.DB_views as DBV # views
 
-'''Commands to create the database
+'''
+Commands to create the database
 Foreign keys are set to cascade on update
 When a foreign key is deleted, most will be set to null
 The only exception is the AliquotID in the Spots table, which will cascade on delete
-Names must be unique and are checked for case sensitivity'''
+Names must be unique and are checked for case sensitivity
+Analyses where Accepted is 1 are considered accepted, 0 are considered rejected
+'''
 # look under linking aboutmodified to other tables
 '''SQL strings to create each table'''
-
-# todo: implement changes for database schema
-# create table for DistanceUnits and conversions
-# create table for DirectionUnits and conversions
-# create table for AgeUnits and conversions
-# create table for ErrorTypes and conversions
-# create table for ConcordanceTypes and conversions
-# create table for AgeInterpretations
-# create table for RejectionRegion
-# make aliquots table a tree
-# expand columns in UPbData table and rename to UPbAnalyses
-# add IGSN to samples table
 
 
 CREATE_ABOUT_TABLE = '''CREATE TABLE IF NOT EXISTS About(
@@ -671,72 +662,164 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     Pb206cps REAL, 
                     Pb207cps REAL, 
                     Pb208cps REAL, 
-                    “Pb*cps” REAL,
+                    "Pb*cps" REAL,
                     Th232cps REAL, 
                     U235cps REAL, 
                     U238cps REAL,
                     Uppm REAL,
                     Thppm REAL,
                     "U/Th" REAL,
-                    “Th/U” REAL,
+                    "Th/U" REAL,
+                    "CalculatedU/Th" AS (CASE
+                        WHEN "U/Th" IS NOT NULL THEN "U/Th"
+                        WHEN "Th/U" IS NOT NULL THEN 1/"Th/U"
+                        ELSE NULL
+                        END) STORED,
+                    "CalculatedTh/U" AS (CASE
+                        WHEN "Th/U" IS NOT NULL THEN "Th/U"
+                        WHEN "U/Th" IS NOT NULL THEN 1/"U/Th"
+                        ELSE NULL
+                        END) STORED,
                     "206Pb/207Pb" REAL,
                     "206Pb/207PbError" REAL, 
                     "207Pb/206Pb" REAL,
                     "207Pb/206PbError" REAL, 
+                    "Calculated206Pb/207Pb" AS (CASE
+                        WHEN "206Pb/207Pb" IS NOT NULL THEN "206Pb/207Pb"
+                        WHEN "207Pb/206Pb" IS NOT NULL THEN 1/"207Pb/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated207Pb/206Pb" AS (CASE
+                        WHEN "207Pb/206Pb" IS NOT NULL THEN "207Pb/206Pb"
+                        WHEN "206Pb/207Pb" IS NOT NULL THEN 1/"206Pb/207Pb"
+                        ELSE NULL
+                        END) STORED,
                     "207Pb/235U" REAL,
                     "207Pb/235UError" REAL, 
                     "235U/207Pb" REAL,
                     "235U/207PbError" REAL, 
+                    "Calculated207Pb/235U" AS (CASE
+                        WHEN "207Pb/235U" IS NOT NULL THEN "207Pb/235U"
+                        WHEN "235U/207Pb" IS NOT NULL THEN 1/"235U/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated235U/207Pb" AS (CASE
+                        WHEN "235U/207Pb" IS NOT NULL THEN "235U/207Pb"
+                        WHEN "207Pb/235U" IS NOT NULL THEN 1/"207Pb/235U"
+                        ELSE NULL
+                        END) STORED,
                     "206Pb/238U" REAL,
                     "206Pb/238UError" REAL, 
                     "238U/206Pb" REAL,
-                    "238U/206PbError" REAL, 
+                    "238U/206PbError" REAL,
+                    "Calculated206Pb/238U" AS (CASE
+                        WHEN "206Pb/238U" IS NOT NULL THEN "206Pb/238U"
+                        WHEN "238U/206Pb" IS NOT NULL THEN 1/"238U/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated238U/206Pb" AS (CASE
+                        WHEN "238U/206Pb" IS NOT NULL THEN "238U/206Pb"
+                        WHEN "206Pb/238U" IS NOT NULL THEN 1/"206Pb/238U"
+                        ELSE NULL
+                        END) STORED, 
                     "208Pb/232Th" REAL,
                     "208Pb/232ThError" REAL, 
                     "232Th/208Pb" REAL,
                     "232Th/208PbError" REAL, 
+                    "Calculated208Pb/232Th" AS (CASE
+                        WHEN "208Pb/232Th" IS NOT NULL THEN "208Pb/232Th"
+                        WHEN "232Th/208Pb" IS NOT NULL THEN 1/"232Th/208Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated232Th/208Pb" AS (CASE
+                        WHEN "232Th/208Pb" IS NOT NULL THEN "232Th/208Pb"
+                        WHEN "208Pb/232Th" IS NOT NULL THEN 1/"208Pb/232Th"
+                        ELSE NULL
+                        END) STORED,
                     "238U/232Th" REAL,
                     "238U/232ThError" REAL, 
                     "232Th/238U" REAL,
                     "232Th/238UError" REAL, 
+                    "Calculated238U/232Th" AS (CASE
+                        WHEN "238U/232Th" IS NOT NULL THEN "238U/232Th"
+                        WHEN "232Th/238U" IS NOT NULL THEN 1/"232Th/238U"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated232Th/238U" AS (CASE
+                        WHEN "232Th/238U" IS NOT NULL THEN "232Th/238U"
+                        WHEN "238U/232Th" IS NOT NULL THEN 1/"238U/232Th"
+                        ELSE NULL
+                        END) STORED,
                     "204Pb/238U" REAL,
                     "204Pb/238UError" REAL, 
                     "238U/204Pb" REAL,
                     "238U/204PbError" REAL, 
+                    "Calculated204Pb/238U" AS (CASE
+                        WHEN "204Pb/238U" IS NOT NULL THEN "204Pb/238U"
+                        WHEN "238U/204Pb" IS NOT NULL THEN 1/"238U/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated238U/204Pb" AS (CASE
+                        WHEN "238U/204Pb" IS NOT NULL THEN "238U/204Pb"
+                        WHEN "204Pb/238U" IS NOT NULL THEN 1/"204Pb/238U"
+                        ELSE NULL
+                        END) STORED,
                     "206Pb/204Pb" REAL,
                     "206Pb/204PbError" REAL, 
                     "204Pb/206Pb" REAL,
                     "204Pb/206PbError" REAL, 
+                    "Calculated206Pb/204Pb" AS (CASE
+                        WHEN "206Pb/204Pb" IS NOT NULL THEN "206Pb/204Pb"
+                        WHEN "204Pb/206Pb" IS NOT NULL THEN 1/"204Pb/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/206Pb" AS (CASE
+                        WHEN "204Pb/206Pb" IS NOT NULL THEN "204Pb/206Pb"
+                        WHEN "206Pb/204Pb" IS NOT NULL THEN 1/"206Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
                     "207Pb/204Pb" REAL,
                     "207Pb/204PbError" REAL, 
                     "204Pb/207Pb" REAL,
                     "204Pb/207PbError" REAL, 
+                    "Calculated207Pb/204Pb" AS (CASE
+                        WHEN "207Pb/204Pb" IS NOT NULL THEN "207Pb/204Pb"
+                        WHEN "204Pb/207Pb" IS NOT NULL THEN 1/"204Pb/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/207Pb" AS (CASE
+                        WHEN "204Pb/207Pb" IS NOT NULL THEN "204Pb/207Pb"
+                        WHEN "207Pb/204Pb" IS NOT NULL THEN 1/"207Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
                     "208Pb/204Pb" REAL,
                     "208Pb/204PbError" REAL, 
                     "204Pb/208Pb" REAL,
                     "204Pb/208PbError" REAL, 
+                    "Calculated208Pb/204Pb" AS (CASE
+                        WHEN "208Pb/204Pb" IS NOT NULL THEN "208Pb/204Pb"
+                        WHEN "204Pb/208Pb" IS NOT NULL THEN 1/"204Pb/208Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/208Pb" AS (CASE
+                        WHEN "204Pb/208Pb" IS NOT NULL THEN "204Pb/208Pb"
+                        WHEN "208Pb/204Pb" IS NOT NULL THEN 1/"208Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
                     RatioErrorTypeID INTEGER,
-                    “ErrorCorr/Rho” REAL,
-                    "206Pb/207PbAge" REAL,
-                    "206Pb/207PbAgeError" REAL, 
+                    "ErrorCorr/Rho" REAL,
                     "207Pb/206PbAge" REAL,
                     "207Pb/206PbAgeError" REAL, 
                     "207Pb/235UAge" REAL,
                     "207Pb/235UAgeError" REAL, 
-                    "235U/207PbAge" REAL,
-                    "235U/207PbAgeError" REAL, 
                     "206Pb/238UAge" REAL,
-                    "206Pb/238UAgeError" REAL, 
-                    "238U/206PbAge" REAL,
-                    "238U/206PbAgeError" REAL, 
+                    "206Pb/238UAgeError" REAL,
                     AgeErrorTypeID INTEGER,
                     BestAge REAL,
                     BestAgeError REAL, 
                     BestAgeErrorTypeID INTEGER,
-                    “Concordance206Pb/238U-206Pb/207Pb” REAL,
-                    “Concordance206Pb/238U-206Pb/207PbTypeID” INTEGER, 
-                    “Concordance206Pb/238U-208Pb/232Th” REAL,
-                    “Concordance206Pb/238U-208Pb/232ThTypeID” INTEGER,
+                    “Concordance” REAL,
+                    “ConcordanceTypeID” INTEGER,
                     SpotSize REAL,
                     SpotSizeUnitID INTEGER,
                     Accepted INTEGER,
@@ -767,7 +850,7 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     FOREIGN KEY(BestAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
-                    )''' \
+                    )'''
 
 CREATE_UPBANALYSES_ANALYSISINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_AnalysisInterpretations(
                     UPbAnalysisID INTEGER,
@@ -928,7 +1011,75 @@ def create_tables(db_file):
             print(f'Ages query failed')
 
 
+def populate_age_units(conn):
+    """
+    Connect to the database and add the default age units
+    :param conn: Database connection from create_tables
+    """
 
+    with conn:
+        c = conn.cursor()
+        # Begin by deleting all rows in the table to allow for a reset if things get changed
+        sql = 'DELETE FROM AgeUnits'
+        c.execute(sql)
+        age_units = [('Billion years', 'Ga', '1000000000'),
+                     ('Million years', 'Ma', '1000000'),
+                     ('Thousand years', 'ka', '1000'),
+                     ('Years', 'a', '1')]
+        for unit in age_units:
+            sql = '''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation)
+                                    VALUES(?,?)'''
+            values = (unit[0], unit[1])
+            if not c.execute(sql, values):
+                print(f'failed to add {unit[0]}')
+        for unit1 in range(len(age_units)):
+            for unit2 in range(len(age_units)):
+                if unit2 > unit1:
+                    conversion1to2 = f'*{age_units[unit1][2]}/{age_units[unit2][2]}'
+                    conversion2to1 = f'*{age_units[unit1][2]}/{age_units[unit2][2]}'
+                    sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
+                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit1[0]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit2[0]}"),"{conversion1to2}")'''
+                    if not c.execute(sql):
+                        print(f'failed to add conversion for {unit1[0]} to {unit2[0]}')
+                    sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
+                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit2[0]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit1[0]}"),"{conversion2to1}")'''
+                    if not c.execute(sql):
+                        print(f'failed to add conversion for {unit2[0]} to {unit1[0]}')
+
+def populate_concordance_types(conn):
+    """
+        Connect to the database and add the default concordance types
+        :param conn: Database connection from create_tables
+        """
+
+    with conn:
+        c = conn.cursor()
+        # Begin by deleting all rows in the table to allow for a reset if things get changed
+        sql = 'DELETE FROM ConcordanceTypes'
+        c.execute(sql)
+        concordance_types = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
+                             ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
+                             ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
+                             ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
+        for concordance_type in concordance_types:
+            sql = '''INSERT INTO ConcordanceTypes(ConcordanceTypeName, ConcordanceTypeAbbreviation, ConcordanceTypeDescription)
+                                    VALUES(?,?,?)'''
+            values = (concordance_type[0], concordance_type[1], concordance_type[2])
+            if not c.execute(sql, values):
+                print(f'failed to add {concordance_type[0]}')
+        for type1 in range(len(concordance_types)):
+            for type2 in range(len(concordance_types)):
+                if type2 > type1:
+                    pass
+
+def populate_direction_units(conn):
+    pass
+
+def populate_distance_units(conn):
+    pass
+
+def populate_error_types(conn):
+    pass
 
 def populate_ages(conn):
     """
