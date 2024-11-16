@@ -37,6 +37,44 @@ def get_widget(w, d, depth=0, doPrint=False):
         get_widget(widget, newD, depth + 1)
     d[n] = newD
 
+def process_json_to_sql(json_string):
+    """
+    Converts a structured JSON string representing a filter group to a SQL WHERE clause.
+
+    :param json_string: A structured JSON string representing a filter group
+    :return: A SQL WHERE clause string
+    """
+    json_string = json_string.replace("'", "\"")
+    group = json.loads(json_string)
+    where = process_group(group)
+
+    table_names = process_table_names(group)
+    join = SQLUtils.get_join_from_table(table_names)
+
+    return f"SELECT * FROM Samples {join} WHERE {where};"
+
+def process_table_names(data):
+    table_names = set()
+    def collect_table_names(group):
+        conditions = group.get('conditions', [])
+        subgroups = group.get('subgroups', [])
+        for condition in conditions:
+            field = condition['field']
+            table_name = extract_table_name(field)
+            if table_name:
+                table_names.add(table_name)
+        for subgroup in subgroups:
+            collect_table_names(subgroup)
+    collect_table_names(data)
+    return table_names
+
+def extract_table_name(field):
+    if '.' in field:
+        parts = field.split('.')
+        return parts[0]
+    else:
+        return None
+
 
 def process_group(group):
     """
@@ -125,7 +163,7 @@ def process_group(group):
 
 def process_selects(group):
     """
-    Recursively process a group of conditions and subgroups to create a SQL WHERE clause.
+    Recursively process a group of conditions and subgroups to create a SQL SELECT clause.
 
     :param group: A dictionary representing the group with keys 'type' and 'conditions'
     :return: A SQL WHERE clause string
@@ -262,7 +300,7 @@ class InsertFilterGroupDialog(QDialog):
         # Collect data from inputs
         name = self.name_input.text()
         conn = sqlite3.connect(self.db_file)
-        with (conn):
+        with conn:
             sql_query = f"""SELECT FilterGroupName FROM FilterGroups;
                                     """
             c = conn.cursor()
@@ -280,29 +318,12 @@ class InsertFilterGroupDialog(QDialog):
                 color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
                 description = self.description_input.toPlainText()
 
-                conn = sqlite3.connect(self.db_file)
-
                 sql_query = f"""
                                 INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
                                 VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
                                 """
-                c = conn.cursor()
                 # todo change to bind value to prevent sql injection
                 c.execute(sql_query)
-
-                listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
-
-                for x in range(len(listWidget.items(None))):
-                    listWidget.takeItem(x)
-
-                sql_query = """SELECT * FROM FilterGroups;"""
-                c = conn.cursor()
-                for row in c.execute(sql_query):
-                    item = QListWidgetItem()
-                    item.setForeground(QColor(row[3]))
-                    item.setStatusTip(row[4])
-                    item.setText(row[1])
-                    listWidget.addItem(item)
 
                 # Close the dialog
                 self.accept()
@@ -731,9 +752,6 @@ class QueryBuilder(QWidget):
         conn = sqlite3.connect(self.db_file)
         self.listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
 
-        for x in self.listWidget.items(None):
-            self.listWidget.takeItem(x)
-
         with conn:
             sql_query = """SELECT * FROM FilterGroups;"""
             c = conn.cursor()
@@ -1048,3 +1066,15 @@ class QueryBuilder(QWidget):
 
     def save_filter(self):
         InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
+
+        self.listWidget.clear()
+
+        conn = sqlite3.connect(self.db_file)
+        with conn:
+            sql_query = """SELECT * FROM FilterGroups;"""
+            for row in conn.execute(sql_query):
+                item = QListWidgetItem()
+                item.setForeground(QColor(row[3]))
+                item.setStatusTip(row[4])
+                item.setText(row[1])
+                self.listWidget.addItem(item)
