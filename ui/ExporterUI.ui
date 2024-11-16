@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>1183</width>
-    <height>886</height>
+    <height>936</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -23,63 +23,6 @@
          <property name="text">
           <string>Step 1: Choose Export Format:</string>
          </property>
-        </widget>
-       </item>
-       <item row="0" column="1">
-        <widget class="QComboBox" name="exportformat_comboBox">
-         <property name="sizePolicy">
-          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-           <horstretch>0</horstretch>
-           <verstretch>0</verstretch>
-          </sizepolicy>
-         </property>
-         <property name="minimumSize">
-          <size>
-           <width>100</width>
-           <height>0</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>100</width>
-           <height>16777215</height>
-          </size>
-         </property>
-         <item>
-          <property name="text">
-           <string>CSV</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Excel</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>DetritalPy</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>IsoplotR</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>DZStats</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Database</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Custom</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="1" column="0">
@@ -124,11 +67,6 @@
            <string>Spots</string>
           </property>
          </item>
-         <item>
-          <property name="text">
-           <string>Units</string>
-          </property>
-         </item>
         </widget>
        </item>
        <item row="2" column="0">
@@ -161,6 +99,37 @@
         </widget>
        </item>
        <item row="3" column="0">
+        <widget class="QLabel" name="label">
+         <property name="text">
+          <string>Step 3A (optional): Select Filter Scope</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="1">
+        <widget class="QComboBox" name="filterscope_comboBox">
+         <item>
+          <property name="text">
+           <string>Samples</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Aliquots</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Spots</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>UPbData</string>
+          </property>
+         </item>
+        </widget>
+       </item>
+       <item row="4" column="0">
         <widget class="QLabel" name="label_5">
          <property name="text">
           <string>Step 3 (optional): Select Additional Filters</string>
@@ -170,7 +139,7 @@
          </property>
         </widget>
        </item>
-       <item row="3" column="1">
+       <item row="4" column="1">
         <widget class="CheckableComboBox" name="filterselection_comboBox">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
@@ -190,6 +159,53 @@
            <height>16777215</height>
           </size>
          </property>
+        </widget>
+       </item>
+       <item row="0" column="1">
+        <widget class="QComboBox" name="exportformat_comboBox">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>100</width>
+           <height>0</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>100</width>
+           <height>16777215</height>
+          </size>
+         </property>
+         <item>
+          <property name="text">
+           <string>detritalPy</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>IsoplotR</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>DZStats</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Database</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
+           <string>Custom</string>
+          </property>
+         </item>
         </widget>
        </item>
       </layout>
