@@ -205,11 +205,12 @@ CREATE_DIRECTION_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionUnits(
 )'''
 
 CREATE_DIRECTION_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionConversions(
-                    FromDirectionUnitID INTEGER NOT NULL CHECK(FromDirectionUnitID <> ''),
-                    ToDirectionUnitID INTEGER NOT NULL CHECK(ToDirectionUnitID <> ''),
+                    FromDirectionUnitID INTEGER,
+                    ToDirectionUnitID INTEGER,
                     DirectionConversionCalculation TEXT NOT NULL CHECK(DirectionConversionCalculation <> ''), 
                     DirectionConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     DirectionConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    UNIQUE (FromDirectionUnitID, ToDirectionUnitID),
                     FOREIGN KEY(FromDirectionUnitID) REFERENCES DirectionUnits(DirectionUnitID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -235,6 +236,7 @@ CREATE_DISTANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceConver
                     DistanceConversionCalculation TEXT NOT NULL CHECK(DistanceConversionCalculation <> ''), 
                     DistanceConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     DistanceConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    UNIQUE (FromDistanceUnitID, ToDistanceUnitID),
                     FOREIGN KEY(FromDistanceUnitID) REFERENCES DistanceUnits(DistanceUnitID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -259,7 +261,8 @@ CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorConversions(
                     ToErrorTypeID INTEGER NOT NULL CHECK(ToErrorTypeID <> ''),
                     ErrorConversionCalculation TEXT NOT NULL CHECK(ErrorConversionCalculation <> ''), 
                     ErrorConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ErrorConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    ErrorConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (FromErrorTypeID, ToErrorTypeID),
                     FOREIGN KEY(FromErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -382,7 +385,7 @@ CREATE_SAMPLE_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SampleContexts(
                     UNIQUE (ParentSampleContextID, SampleContextParentRow)
                     )'''
 
-CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAges_AgeConstraints(
+CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges_AgeConstraints(
                     SampleAgeID INTEGER NOT NULL,
                     AgeConstraintID INTEGER NOT NULL,
                     SamplesAges_AgeConstraintsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -395,7 +398,7 @@ CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAg
                         ON DELETE CASCADE
                     )'''
 
-CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS SamplesAges_AgeInterpretations(
+CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges_AgeInterpretations(
                     SampleAgeID INTEGER NOT NULL,
                     AgeInterpretationID INTEGER NOT NULL,
                     SamplesAges_AgeInterpretationsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -954,7 +957,7 @@ def create_tables(db_file):
 
         CT.create_triggers(c)
 
-        DBV.create_sample_view(c)
+        # DBV.create_sample_view(c)
 
         # Populate the age units table during initiation
         sql = '''SELECT * FROM AgeUnits'''
@@ -1027,8 +1030,7 @@ def populate_age_units(conn):
                      ('Thousand years', 'ka', '1000'),
                      ('Years', 'a', '1')]
         for unit in age_units:
-            sql = '''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation)
-                                    VALUES(?,?)'''
+            sql = '''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES(?,?)'''
             values = (unit[0], unit[1])
             if not c.execute(sql, values):
                 print(f'failed to add {unit[0]}')
@@ -1036,15 +1038,15 @@ def populate_age_units(conn):
             for unit2 in range(len(age_units)):
                 if unit2 > unit1:
                     conversion1to2 = f'*{age_units[unit1][2]}/{age_units[unit2][2]}'
-                    conversion2to1 = f'*{age_units[unit1][2]}/{age_units[unit2][2]}'
+                    conversion2to1 = f'*{age_units[unit2][2]}/{age_units[unit1][2]}'
                     sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
-                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit1[0]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit2[0]}"),"{conversion1to2}")'''
+                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit2][1]}"),"{conversion1to2}")'''
                     if not c.execute(sql):
-                        print(f'failed to add conversion for {unit1[0]} to {unit2[0]}')
+                        print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
                     sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
-                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit2[0]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{unit1[0]}"),"{conversion2to1}")'''
+                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit1][1]}"),"{conversion2to1}")'''
                     if not c.execute(sql):
-                        print(f'failed to add conversion for {unit2[0]} to {unit1[0]}')
+                        print(f'failed to add conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
 
 def populate_concordance_types(conn):
     """
@@ -1057,10 +1059,10 @@ def populate_concordance_types(conn):
         # Begin by deleting all rows in the table to allow for a reset if things get changed
         sql = 'DELETE FROM ConcordanceTypes'
         c.execute(sql)
-        concordance_types = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
-                             ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
-                             ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
-                             ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
+        concordance_types = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
+                             ('Concordance percent', 'Con%', 'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
+                             ('Discordance ratio', 'Dis', 'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
+                             ('Discordance percent', 'Dis%', 'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
         for concordance_type in concordance_types:
             sql = '''INSERT INTO ConcordanceTypes(ConcordanceTypeName, ConcordanceTypeAbbreviation, ConcordanceTypeDescription)
                                     VALUES(?,?,?)'''
@@ -1070,16 +1072,160 @@ def populate_concordance_types(conn):
         for type1 in range(len(concordance_types)):
             for type2 in range(len(concordance_types)):
                 if type2 > type1:
-                    pass
+                    if concordance_types[type1][1][-1] == '%' and concordance_types[type2][1][-1] == '%':
+                        # Both types are percent
+                        conversion1to2 = '100-x'
+                        conversion2to1 = '100-x'
+                    elif concordance_types[type1][1][-1] != '%' and concordance_types[type2][1][-1] != '%':
+                        # Both types are ratio
+                        conversion1to2 = '1-x'
+                        conversion2to1 = '1-x'
+                    elif concordance_types[type1][1][-1] != '%':
+                        # First type is ratio and second type is percent
+                        if (concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Con%') or (concordance_types[type1][1] == 'Dis' and concordance_types[type2][1] == 'Dis%'):
+                            # Both types are concordance or discordance
+                            conversion1to2 = 'x*100'
+                            conversion2to1 = 'x/100'
+                        elif concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Dis%':
+                            # First type is concordance ratio and second type is discordance percent
+                            conversion1to2 = '100*(1-x)'
+                            conversion2to1 = '1-(x/100)'
+                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceUnitID, ToConcordanceUnitID, ConcordanceConversionCalculation)
+                                                            VALUES((SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type1][1]}"),(SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
+                    if not c.execute(sql):
+                        print(f'failed to add conversion for {concordance_types[type1][1]} to {concordance_types[type2][1]}')
+                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceUnitID, ToConcordanceUnitID, ConcordanceConversionCalculation)
+                                                            VALUES((SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type2][1]}"),(SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
+                    if not c.execute(sql):
+                        print(f'failed to add conversion for {concordance_types[type2][1]} to {concordance_types[type1][1]}')
 
 def populate_direction_units(conn):
-    pass
+    c = conn.cursor()
+    # Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM DirectionUnits'
+    c.execute(sql)
+    direction_units = [('North', 'N', 1),
+                 ('South', 'S', -1),
+                 ('East', 'E', 1),
+                 ('West', 'W', -1)]
+    for unit in direction_units:
+        sql = '''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation)
+                                VALUES(?,?)'''
+        values = (unit[0], unit[1])
+        if not c.execute(sql, values):
+            print(f'failed to add {unit[0]}')
+        conversion = f'x*{unit[2]}'
+
+        sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
+                            VALUES(NULL,(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitName = "{unit[0]}"),"{conversion}")'''
+        if not c.execute(sql):
+            print(f'failed to add conversion to {unit[0]}')
+        sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
+                                    VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitName = "{unit[0]}"),NULL,"{conversion}")'''
+        if not c.execute(sql):
+            print(f'failed to add conversion from {unit[0]}')
 
 def populate_distance_units(conn):
-    pass
+    """
+        Connect to the database and add the default distance units
+        :param conn: Database connection from create_tables
+        """
+
+    with conn:
+        c = conn.cursor()
+        # Begin by deleting all rows in the table to allow for a reset if things get changed
+        sql = 'DELETE FROM DistanceUnits'
+        c.execute(sql)
+        # International standard foot is 0.3048 meters exactly
+        m_per_ft = 0.3048
+        inch_factor = 1 / 12
+        distance_units = [('kilometers', 'km', '1000'),
+                     ('Meters', 'm', '1'),
+                     ('Centimeters', 'cm', '0.01'),
+                     ('Millimeter', 'mm', '0.001'),
+                     ('Micrometer', 'µm', '0.000001'),
+                     ('Miles', 'mi', '5280'),
+                     ('Yards', 'yd', '3'),
+                     ('Feet', 'ft', '1'),
+                     ('Inches', 'in', 'inch_factor')]
+        for unit in distance_units:
+            sql = '''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
+                                        VALUES(?,?)'''
+            values = (unit[0], unit[1])
+            if not c.execute(sql, values):
+                print(f'failed to add {unit[0]}')
+        for unit1 in range(len(distance_units)):
+            for unit2 in range(len(distance_units)):
+                if unit2 > unit1:
+                    if (distance_units[unit1][1][-1] == 'm' and distance_units[unit2][1][-1] == 'm') or (distance_units[unit1][1][-1] != 'm' and distance_units[unit2][1][-1] != 'm'):
+                        # Both units are the same format
+                        conversion1to2 = f'{distance_units[unit1][2]/distance_units[unit2][2]}'
+                        conversion2to1 = f'{distance_units[unit2][2]/distance_units[unit1][2]}'
+                    elif distance_units[unit1][1][-1] == 'm':
+                        # Unit 1 is metric and unit 2 is imperial
+                        conversion1to2 = f'{distance_units[unit1][2]}/({m_per_ft}*{distance_units[unit2][2]})'
+                        conversion2to1 = f'({distance_units[unit2][2]}*{m_per_ft})/{distance_units[unit1][2]}'
+                    else:
+                        # Unit 1 is imperial and unit 2 is metric
+                        conversion1to2 = f'({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
+                        conversion2to1 = f'{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
+                    sql = f'''INSERT INTO DistanceConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceConversionCalculation)
+                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit1][0]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit2][0]}"),"{conversion1to2}")'''
+                    if not c.execute(sql):
+                        print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
+                    sql = f'''INSERT INTO DistanceConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceConversionCalculation)
+                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit2][0]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit1][0]}"),"{conversion2to1}")'''
+                    if not c.execute(sql):
+                        print(f'failed to add conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
 
 def populate_error_types(conn):
-    pass
+    """
+            Connect to the database and add the default error types
+            :param conn: Database connection from create_tables
+            """
+
+    with conn:
+        c = conn.cursor()
+        # Begin by deleting all rows in the table to allow for a reset if things get changed
+        sql = 'DELETE FROM ErrorTypes'
+        c.execute(sql)
+    error_types = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
+                         ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
+                         ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
+                         ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
+    for error_type in error_types:
+        sql = '''INSERT INTO ErrorTypes(ErrorTypeName, ErrorTypeAbbreviation, ErrorTypeDescription)
+                                    VALUES(?,?,?)'''
+        values = (error_type[0], error_type[1], error_type[2])
+        if not c.execute(sql, values):
+            print(f'failed to add {error_type[0]}')
+    for type1 in range(len(error_types)):
+        for type2 in range(len(error_types)):
+            if type2 > type1:
+                if (error_types[type1][1][-1] == '%' and error_types[type2][1][-1] == '%') or (error_types[type1][1][-1] != '%' and error_types[type2][1][-1] != '%'):
+                    # Both types are percent
+                    conversion1to2 = 'x*2'
+                    conversion2to1 = 'x/2'
+                elif error_types[type1][1][-1] != '%':
+                    # First type is ratio and second type is percent
+                    if (error_types[type1][1][0] == '2' and error_types[type2][1][0] == '2') or (
+                            error_types[type1][1][0] == '1' and error_types[type2][1][0] == '1'):
+                        # Both types are 1 sigma or 2 sigma
+                        conversion1to2 = 'x*100'
+                        conversion2to1 = 'x/100'
+                    else:
+                        # 1 sigma ratio to 2 sigma percent
+                        conversion1to2 = 'x*200'
+                        # 2 sigma percent to 1 sigma ratio
+                        conversion2to1 = 'x/200'
+                sql = f'''INSERT INTO ErrorConversions(FromErrorTypeID, ToErrorTypeID, ErrorConversionCalculation)
+                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type1][0]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type2][0]}"),"{conversion1to2}")'''
+                if not c.execute(sql):
+                    print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
+                sql = f'''INSERT INTO ErrorConversions(FromErrorTypeID, ToErrorTypeID, ErrorConversionCalculation)
+                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type2][0]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type1][0]}"),"{conversion2to1}")'''
+                if not c.execute(sql):
+                    print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
 
 def populate_ages(conn):
     """

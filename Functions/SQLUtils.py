@@ -33,8 +33,6 @@ old_age_join = 'LEFT JOIN Ages as OldA ON Samples.OldestAgeID=OldA.AgeID'
 young_age_join = 'LEFT JOIN Ages as YoungA ON Samples.YoungestAgeID=YoungA.AgeID'
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
                                     LEFT JOIN AgeSignatures ON AgeSignatures.AgeSignatureID=Samples_AgeSignatures.AgeSignatureID'''
-column_join = '''LEFT JOIN Samples_Columns ON Samples.SampleID=Samples_Columns.SampleID
-                                    LEFT JOIN Columns ON Columns.ColumnID=Samples_Columns.ColumnID'''
 rock_type_join = '''LEFT JOIN Samples_RockTypes ON Samples.SampleID=Samples_RockTypes.SampleID
                                 LEFT JOIN RockTypes ON RockTypes.RockTypeID=Samples_RockTypes.RockTypeID'''
 region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID=Samples_Regions.SampleID
@@ -65,3 +63,21 @@ editable_tables = []
 editable_trees = []
 conditionally_editable_tables = []
 conditionally_editable_trees = []
+
+# todo: Create generated columns and then join them in the query
+# Generated Columns
+'''
+SampleLat
+SampleLon
+SampleUTMZone
+SampleUTMN
+SampleUTME
+SampleElev
+ColumnBaseLat
+ColumnBaseLon
+ColumnBaseUTMZone
+ColumnBaseUTMN
+ColumnBaseUTME
+ColumnTotalHeightDepth
+
+'''
