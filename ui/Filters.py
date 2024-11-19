@@ -37,7 +37,7 @@ def get_widget(w, d, depth=0, doPrint=False):
         get_widget(widget, newD, depth + 1)
     d[n] = newD
 
-def process_json_to_sql(json_string):
+def process_json_to_sql(json_string, scope):
     """
     Converts a structured JSON string representing a filter group to a SQL WHERE clause.
 
@@ -50,8 +50,26 @@ def process_json_to_sql(json_string):
 
     table_names = process_table_names(group)
     join = SQLUtils.get_join_from_table(table_names)
-
-    return f"SELECT * FROM Samples {join} WHERE {where};"
+    if scope == 'Samples':
+        return f"SELECT * FROM Samples {join} WHERE {where};"
+    elif scope == 'Aliquots':
+        if SQLUtils.aliquot_join not in join:
+            join += SQLUtils.aliquot_join + '\n'
+        return f"SELECT * FROM Samples {join} WHERE {where};"
+    elif scope == 'Spots':
+        if SQLUtils.aliquot_join not in join:
+            join += SQLUtils.aliquot_join + '\n'
+        if SQLUtils.spot_join not in join:
+            join += SQLUtils.spot_join + '\n'
+        return f"SELECT * FROM Samples {join} WHERE {where};"
+    elif scope == 'UPbData':
+        if SQLUtils.aliquot_join not in join:
+            join += SQLUtils.aliquot_join + '\n'
+        if SQLUtils.spot_join not in join:
+            join += SQLUtils.spot_join + '\n'
+        if SQLUtils.upb_data_join not in join:
+            join += SQLUtils.upb_data_join + '\n'
+        return f"SELECT * FROM Samples {join} WHERE {where};"
 
 def process_table_names(data):
     table_names = set()
@@ -605,6 +623,8 @@ class RuleWidget(QWidget):
                                "207Pb/235UAgeError",
                                "206Pb/238UAge",
                                "206Pb/238UAgeError",
+                               "BestAge",
+                               "Error",
                                'UPbAnalysisCreated',
                                'UPbAnalysisModified']
             case 'Units':
