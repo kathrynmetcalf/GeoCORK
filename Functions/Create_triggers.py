@@ -444,6 +444,11 @@ def create_triggers(c):
     BEGIN
         UPDATE Regions SET RegionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Regions')};
     END;'''
+    REJECTIONREASONS_MODIFIED_TRIGGER = f'''
+    CREATE TRIGGER IF NOT EXISTS update_modified_rejectionreasons AFTER UPDATE ON RejectionReasons
+    BEGIN
+        UPDATE RejectionReasons SET RejectionReasonModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RejectionReasons')};
+    END;'''
     ROCKTYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_rocktypes AFTER UPDATE ON RockTypes
     BEGIN
@@ -564,6 +569,17 @@ def create_triggers(c):
     BEGIN
         UPDATE UPbAnalyses SET UPbAnalysisModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses')};
     END;'''
+    UPBANALYSES_ANALYSISNTERPRETATIONS_MODIFIED_TRIGGER = f'''
+    CREATE TRIGGER IF NOT EXISTS update_modified_upbanalyses_analysisinterpretations AFTER UPDATE ON UPbAnalyses_AnalysisInterpretations
+    BEGIN
+        UPDATE UPbAnalyses_AnalysisInterpretations SET UPbAnalyses_AnalysisInterpretationsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses_AnalysisInterpretations')};
+    END;'''
+    UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER = f'''
+    CREATE TRIGGER IF NOT EXISTS update_modified_upbanalyses_rejectionreasons AFTER UPDATE ON UPbAnalyses_RejectionReasons
+    BEGIN
+        UPDATE UPbAnalyses_RejectionReasons SET UPbAnalyses_RejectionReasonsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses_RejectionReasons')};
+    END;'''
+
 
 
     c.execute(CREATE_COLUMN_UNITS_INSERT_TRIGGERS)
@@ -603,6 +619,7 @@ def create_triggers(c):
     c.execute(INSTRUMENTS_MODIFIED_TRIGGER)
     c.execute(LABFACILITIES_MODIFIED_TRIGGER)
     c.execute(REGIONS_MODIFIED_TRIGGER)
+    c.execute(REJECTIONREASONS_MODIFIED_TRIGGER)
     c.execute(ROCKTYPES_MODIFIED_TRIGGER)
     c.execute(SAMPLEAGES_MODIFIED_TRIGGER)
     c.execute(SAMPLECONTEXT_MODIFIED_TRIGGER)
@@ -627,6 +644,8 @@ def create_triggers(c):
     c.execute(UNITS_MODIFIED_TRIGGER)
     c.execute(UPBANALYSISMETHODS_MODIFIED_TRIGGER)
     c.execute(UPBANALYSES_MODIFIED_TRIGGER)
+    c.execute(UPBANALYSES_ANALYSISNTERPRETATIONS_MODIFIED_TRIGGER)
+    c.execute(UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER)
 
 if __name__ == '__main__':
     db_file = '../DataTestSchema.db'

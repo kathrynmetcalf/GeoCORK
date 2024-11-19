@@ -348,6 +348,15 @@ CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     UNIQUE (ParentRegionID, RegionParentRow)
                     )'''
 
+CREATE_REJECTION_REASONS_TABLE = '''CREATE TABLE IF NOT EXISTS RejectionReasons(
+                    RejectionReasonID INTEGER PRIMARY KEY,
+                    RejectionReasonName TEXT NOT NULL CHECK (RejectionReasonName <> ''),
+                    RejectionReasonDescription TEXT,
+                    RejectionReasonCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    RejectionReasonModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (RejectionReasonName COLLATE NOCASE)
+                    )'''
+
 CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     RockTypeID INTEGER PRIMARY KEY,
                     ParentRockTypeID INTEGER,
@@ -915,6 +924,20 @@ CREATE_UPBANALYSES_ANALYSISINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS
                         ON DELETE CASCADE
                     )'''
 
+CREATE_UPBANALYSES_REJECTIONREASONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_RejectionReasons(
+                    UPbAnalysisID INTEGER,
+                    RejectionReasonID INTEGER,
+                    UPbAnalyses_RejectionReasonsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalyses_RejectionReasonsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisID, RejectionReasonID),
+                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
 
 '''Commands to create tables and populate default tables'''
 
@@ -951,6 +974,7 @@ def create_tables(db_file):
         c.execute(CREATE_ANALYSIS_INTERPRETATIONS_TABLE)
         c.execute(CREATE_INSTRUMENTS_TABLE)
         c.execute(CREATE_LAB_FACILITIES_TABLE)
+        c.execute(CREATE_REJECTION_REASONS_TABLE)
         c.execute(CREATE_SOURCES_TABLE)
         c.execute(CREATE_UPBANALYSIS_METHOD_TABLE)
 
@@ -1000,6 +1024,10 @@ def create_tables(db_file):
         # Create many-to-many spot tables
         c.execute(CREATE_SPOTS_SPOTCOMPOSITION_TABLE)
         c.execute(CREATE_SPOTS_SPOTCONTEXT_TABLE)
+
+        # Create many-to-many analysis tables
+        c.execute(CREATE_UPBANALYSES_ANALYSISINTERPRETATIONS_TABLE)
+        c.execute(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE)
 
         c.execute(CREATE_FILTER_GROUPS_TABLE)
 
