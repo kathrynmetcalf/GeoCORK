@@ -525,6 +525,7 @@ class CheckableSampleTableView(QtW.QTableView):
 class CheckableSqlTableModel(DisplayRoundedModel):
     def __init__(self):
         super().__init__()
+        self.primary_key_column = 0
         self.checked_data = {}
         self.partially_checked_data = {}
 

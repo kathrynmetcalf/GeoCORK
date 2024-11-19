@@ -17,8 +17,17 @@ from collections import Counter
 class ExportWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+
         self.checked_filter_list = []
-        self.checked_sample_names = "()"
+
+        self.checked_sample_list = []
+        self.checked_aliquot_list = []
+        self.checked_spot_list = []
+
+        self.checked_sample_names = '()'
+        self.checked_aliquot_names = '()'
+        self.checked_spot_names = '()'
+
         self.selected_columns = []
         self.ordered_columns = []
 
@@ -31,7 +40,7 @@ class ExportWidget(QWidget):
         self.settings = QSettings("CSUF", "GeoChron")
 
         ok = self.db.open()
-        self.checked_sample_list = []
+
         # self.loadWindowState()
 
         self.samplesincluded_comboBox: CheckableComboBox()
@@ -136,6 +145,7 @@ class ExportWidget(QWidget):
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filterselection_comboBox.setModel(self.filter_model)
+        self.filterselection_comboBox.currentIndexChanged.connect(lambda: self.update_filter_list(self.filter_model))
 
         #todo fix for updating the filter list when the filter model is updated
         self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
@@ -231,30 +241,6 @@ class ExportWidget(QWidget):
                     if saved_state is not None:
                         widget.setChecked(saved_state)
 
-    def view_preview(self):
-        # Dictionary to store checked items by table
-        checked_attributes = {}
-
-        # Loop through each table in the stack
-        for index in range(self.columnattributes_stack.count()):
-            table_widget = self.columnattributes_stack.widget(index)
-            table_name = self.columnselection_comboBox.itemText(index)
-            layout = table_widget.layout()
-
-            # List to store checked fields for the current table
-            checked_fields = []
-
-            # Iterate over each item in the layout and gather checked checkboxes
-            for i in range(layout.count()):
-                widget = layout.itemAt(i).widget()
-                if isinstance(widget, QCheckBox) and widget.isChecked():
-                    field_name = widget.property('field_name')
-
-                    checked_fields.append(field_name)
-
-            # Only add to dictionary if there are checked fields
-            if checked_fields:
-                checked_attributes[table_name] = checked_fields
 
     def get_selected_values(self):
         selected_columns = []
@@ -322,57 +308,41 @@ class ExportWidget(QWidget):
         columns_str = columns_str[0:-2]
         join = SQLUtils.get_join_from_table(tables)
 
-
         filtered_where_clause = ''
-
+        ids = []
         for filter_id, filter_json in self.checked_filter_list:
             # print(filter_id, filter_json)
             if len(self.checked_filter_list) > 0:
-                filtered_where_clause=Filters.process_json_to_sql(filter_json[1:-1])
+                filtered_where_clause=Filters.process_json_to_sql(filter_json[1:-1], scope='UPbData')
                 filtered_where_clause= filtered_where_clause[0:-1]
-        # print('filtered where clause')
-        # print(filtered_where_clause)
 
-        # Final SQL query
-        sql_query = ''
-        type = self.filterscope_comboBox.currentText()
-        if len(self.checked_filter_list) > 0:
-            if type == 'Samples':
-                sql_query = f"SELECT DISTINCT SampleID FROM ({filtered_where_clause});"
-            elif type == 'Aliquots':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                sql_query = f"SELECT DISTINCT AliquotID FROM ({filtered_where_clause});"
-            elif type == 'Spots':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                sql_query = f"SELECT DISTINCT SpotID FROM ({filtered_where_clause});"
-            elif type == 'UPbData':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.upb_data_join not in join:
-                    join += SQLUtils.upb_data_join + '\n'
-                sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
-            elif type is None:
-                pass
-            else:
-                print("Unknown Type Given")
+            sql_query = ''
+
+            if SQLUtils.aliquot_join not in join:
+                join += SQLUtils.aliquot_join + '\n'
+            if SQLUtils.spot_join not in join:
+                join += SQLUtils.spot_join + '\n'
+            if SQLUtils.upb_data_join not in join:
+                join += SQLUtils.upb_data_join + '\n'
+            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
 
             conn = sqlite3.connect(self.db_file)
-            ids=[]
-            # print(sql_query)
             with conn:
                 for id in conn.execute(sql_query).fetchall():
                     ids.append(id[0])
 
+        if len(self.checked_filter_list) == 1:
             ids = f"({', '.join(map(str, ids))})"
+        else:
+            # Count the occurrences of each ID
+            id_counts = Counter(ids)
+            # Extract IDs that appear more than once
+            ids_more_than_once = [id for id, count in id_counts.items() if count > 1]
+
+            ids = f"({', '.join(map(str, ids_more_than_once))})"
 
         #todo maybe change to pagination
-        #todo fix for working with aliquots and spots
+
         if len(self.checked_sample_names) > 2:
             query_str = f"SELECT {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
             if len(filtered_where_clause) > 0:
@@ -433,25 +403,51 @@ class ExportWidget(QWidget):
         # self.saveWindowState()
         super().closeEvent(a0)
 
-    def set_table(self, model: QtSql.QSqlTableModel, table: str):
+    def set_table(self, model, table: str):
         model.setTable(table)
         model.select()
         return model
 
     def update_sample_list(self, model):
-        self.checked_sample_list = []
-        for row in range(model.rowCount()):
-            name_index = model.index(row, 1, QtCore.QModelIndex())
-            if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
-                #todo update placeholder text to include samplename instead of "1" for now
+        if self.selectionscope_comboBox.currentText() == 'Samples':
+            self.checked_sample_list = []
+            for row in range(model.rowCount()):
+                name_index = model.index(row, 1, QtCore.QModelIndex())
+                if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                    # todo update placeholder text to include samplename instead of "1" for now
 
-                # name = model.data(name_index, QtCore.Qt.ItemDataRole.DisplayRole)
-                # self.checked_sample_list.append(name)
-                # add the sample id to the list
-                id_index = model.index(row, 0, QtCore.QModelIndex())
-                self.checked_sample_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
+                    # add the sample id to the list
+                    id_index = model.index(row, 0, QtCore.QModelIndex())
+                    self.checked_sample_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
 
-        self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
+            self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
+
+        elif self.selectionscope_comboBox.currentText() == 'Aliquots':
+            self.checked_aliquot_list = []
+            for row in range(model.rowCount()):
+                name_index = model.index(row, 1, QtCore.QModelIndex())
+                if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                    # todo update placeholder text to include samplename instead of "1" for now
+
+                    # add the sample id to the list
+                    id_index = model.index(row, 0, QtCore.QModelIndex())
+                    self.checked_aliquot_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
+
+            self.checked_aliquot_names = f"({', '.join(map(str, self.checked_aliquot_list))})"
+
+        elif self.selectionscope_comboBox.currentText() == 'Spots':
+            self.checked_spot_list = []
+            for row in range(model.rowCount()):
+                name_index = model.index(row, 1, QtCore.QModelIndex())
+                if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                    # todo update placeholder text to include samplename instead of "1" for now
+
+                    # add the sample id to the list
+                    id_index = model.index(row, 0, QtCore.QModelIndex())
+                    self.checked_spot_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
+
+            self.checked_spot_names = f"({', '.join(map(str, self.checked_spot_list))})"
+
         self.update_table_view()
 
     def update_filter_list(self, model):
@@ -470,9 +466,6 @@ class ExportWidget(QWidget):
                                                  model.data(filter_json, QtCore.Qt.ItemDataRole.DisplayRole)))
 
         self.update_table_view()
-        for filter_id, filter_json in self.checked_filter_list:
-            print(filter_id, filter_json)
-            print(Filters.process_json_to_sql(filter_json[1:-1]))
 
 
     def open_column_order_dialog(self):
