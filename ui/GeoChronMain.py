@@ -163,7 +163,7 @@ class GeoChron(QtW.QMainWindow):
         self.dbTable_comboBox.addItems(self.user_view_tables)
         self.previous_table = ''
         self.dbTable_comboBox.setCurrentText('Samples')
-        self.display_table()
+        # self.display_table()
 
     def display_table(self):
         """

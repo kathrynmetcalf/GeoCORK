@@ -165,7 +165,13 @@ CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                     ColumnDescription TEXT, 
                     ColumnCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     ColumnModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (ColumnName COLLATE NOCASE)
+                    UNIQUE (ColumnName COLLATE NOCASE),
+                    FOREIGN KEY(ColumnTotalHeightDepthUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(ColumnBaseGPSID) REFERENCES GPSLocations(GPSLocationID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
                     )'''
 
 CREATE_CONCORDANCE_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceTypes(
@@ -289,7 +295,16 @@ CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                     GPSElevUnitID INTEGER,
                     GPSLocationCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     GPSLocationModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID)
+                    UNIQUE (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID),
+                    FOREIGN KEY(GPSLatDirectionID) REFERENCES DirectionUnits(DirectionUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GPSLonDirectionID) REFERENCES DirectionUnits(DirectionUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GPSElevUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
 )'''
 
 CREATE_FILTER_GROUPS_TABLE = '''CREATE TABLE IF NOT EXISTS FilterGroups(
@@ -390,10 +405,11 @@ CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAge
                     AgeConstraintID INTEGER NOT NULL,
                     SamplesAges_AgeConstraintsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SamplesAges_AgeConstraintsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleAgeID, AgeConstraintID),
                     FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(AgeConstraintID) REFERENCES AgeConstraints(AgeConstraintsID)
+                    FOREIGN KEY(AgeConstraintID) REFERENCES AgeConstraints(AgeConstraintID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -403,6 +419,7 @@ CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Sampl
                     AgeInterpretationID INTEGER NOT NULL,
                     SamplesAges_AgeInterpretationsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SamplesAges_AgeInterpretationsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleAgeID, AgeInterpretationID),
                     FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -415,7 +432,6 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleID INTEGER PRIMARY KEY,
                     SampleName TEXT NOT NULL CHECK (SampleName <> ''), 
                     SampleIGSN TEXT, 
-                    SampleAgeID INTEGER,
                     SampleGPSLocationID INTEGER,
                     SampleColumnID INTEGER,
                     HeightDepth REAL,
@@ -425,10 +441,8 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (SampleName COLLATE NOCASE), 
-                    FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(SampleGPSLocationID) REFERENCES GPLocations(GPSLocationID)
+                    UNIQUE (SampleIGSN COLLATE NOCASE),
+                    FOREIGN KEY(SampleGPSLocationID) REFERENCES GPSLocations(GPSLocationID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
                     FOREIGN KEY(SampleColumnID) REFERENCES Columns(ColumnID)
@@ -444,6 +458,7 @@ CREATE_SAMPLES_AGESIGNATURES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_AgeSi
                     AgeSignatureID INTEGER NOT NULL,
                     Samples_AgeSignaturesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_AgeSignaturesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, AgeSignatureID),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -457,6 +472,7 @@ CREATE_SAMPLES_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Regions(
                     RegionID INTEGER NOT NULL,
                     Samples_RegionsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_RegionsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, RegionID),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -470,10 +486,25 @@ CREATE_SAMPLES_ROCKTYPES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_RockTypes
                     RockTypeID INTEGER,
                     Samples_RockTypesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_RockTypesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, RockTypeID),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
                     FOREIGN KEY(RockTypeID) REFERENCES RockTypes(RockTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLES_SAMPLEAGES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_SampleAges(
+                    SampleID INTEGER NOT NULL,
+                    SampleAgeID INTEGER NOT NULL,
+                    Samples_SampleAgesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Samples_SampleAgesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, SampleAgeID),
+                    FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -483,6 +514,7 @@ CREATE_SAMPLES_SAMPLECONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Sampl
                     SampleContextID INTEGER NOT NULL,
                     Samples_SampleContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_SampleContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, SampleContextID),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -496,6 +528,7 @@ CREATE_SAMPLES_SAMPLINGMETHODS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Sam
                     SamplingMethodID INTEGER NOT NULL,
                     Samples_SamplingMethodsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_SamplingMethodsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, SamplingMethodID),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -509,6 +542,7 @@ CREATE_SAMPLES_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Settings(
                     SettingID INTEGER NOT NULL,
                     Samples_SettingsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_SettingsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, SettingID),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -522,6 +556,7 @@ CREATE_SAMPLES_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Samples_Units(
                     UnitID INTEGER NOT NULL,
                     Samples_UnitsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Samples_UnitsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleID, UnitID),
                     FOREIGN KEY(SampleID) REFERENCES Samples(SampleID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -612,6 +647,7 @@ CREATE_SPOTS_SPOTCOMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotCom
                     SpotCompositionID INTEGER NOT NULL,
                     Spots_SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Spots_SpotCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SpotID, SpotCompositionID),
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -625,6 +661,7 @@ CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContext
                     SpotContextID INTEGER NOT NULL,
                     Spots_SpotContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     Spots_SpotContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SpotID, SpotContextID),
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -852,6 +889,15 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                         ON DELETE SET NULL, 
                     FOREIGN KEY(BestAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(“ConcordanceTypeID”) REFERENCES ConcordanceTypes(ConcordanceTypeID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(SpotSizeUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
+                        ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
 
@@ -860,6 +906,7 @@ CREATE_UPBANALYSES_ANALYSISINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS
                     AnalysisInterpretationID INTEGER,
                     UPbAnalyses_AnalysisInterpretationsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UPbAnalyses_AnalysisInterpretationsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisID, AnalysisInterpretationID),
                     FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -941,6 +988,7 @@ def create_tables(db_file):
         c.execute(CREATE_SAMPLES_AGESIGNATURES_TABLE)
         c.execute(CREATE_SAMPLES_REGIONS_TABLE)
         c.execute(CREATE_SAMPLES_ROCKTYPES_TABLE)
+        c.execute(CREATE_SAMPLES_SAMPLEAGES_TABLE)
         c.execute(CREATE_SAMPLES_SAMPLECONTEXT_TABLE)
         c.execute(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE)
         c.execute(CREATE_SAMPLES_SETTINGS_TABLE)
@@ -1030,22 +1078,28 @@ def populate_age_units(conn):
                      ('Thousand years', 'ka', '1000'),
                      ('Years', 'a', '1')]
         for unit in age_units:
-            sql = '''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES(?,?)'''
+            sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES(?,?)'''
+            # sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES('{unit[0]}','{unit[1]}')'''
             values = (unit[0], unit[1])
-            if not c.execute(sql, values):
+            try: c.execute(sql, values)
+            # try: c.execute(sql)
+            except:
                 print(f'failed to add {unit[0]}')
+
         for unit1 in range(len(age_units)):
             for unit2 in range(len(age_units)):
                 if unit2 > unit1:
-                    conversion1to2 = f'*{age_units[unit1][2]}/{age_units[unit2][2]}'
-                    conversion2to1 = f'*{age_units[unit2][2]}/{age_units[unit1][2]}'
+                    conversion1to2 = f'x*{age_units[unit1][2]}/{age_units[unit2][2]}'
+                    conversion2to1 = f'x*{age_units[unit2][2]}/{age_units[unit1][2]}'
                     sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
-                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit2][1]}"),"{conversion1to2}")'''
-                    if not c.execute(sql):
+                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
+                    try: c.execute(sql)
+                    except:
                         print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
                     sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
-                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitName = "{age_units[unit1][1]}"),"{conversion2to1}")'''
-                    if not c.execute(sql):
+                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
+                    try: c.execute(sql)
+                    except:
                         print(f'failed to add conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
 
 def populate_concordance_types(conn):
@@ -1067,7 +1121,8 @@ def populate_concordance_types(conn):
             sql = '''INSERT INTO ConcordanceTypes(ConcordanceTypeName, ConcordanceTypeAbbreviation, ConcordanceTypeDescription)
                                     VALUES(?,?,?)'''
             values = (concordance_type[0], concordance_type[1], concordance_type[2])
-            if not c.execute(sql, values):
+            try: c.execute(sql, values)
+            except:
                 print(f'failed to add {concordance_type[0]}')
         for type1 in range(len(concordance_types)):
             for type2 in range(len(concordance_types)):
@@ -1090,13 +1145,15 @@ def populate_concordance_types(conn):
                             # First type is concordance ratio and second type is discordance percent
                             conversion1to2 = '100*(1-x)'
                             conversion2to1 = '1-(x/100)'
-                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceUnitID, ToConcordanceUnitID, ConcordanceConversionCalculation)
-                                                            VALUES((SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type1][1]}"),(SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
-                    if not c.execute(sql):
+                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceConversionCalculation)
+                                                            VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
+                    try: c.execute(sql)
+                    except:
                         print(f'failed to add conversion for {concordance_types[type1][1]} to {concordance_types[type2][1]}')
-                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceUnitID, ToConcordanceUnitID, ConcordanceConversionCalculation)
-                                                            VALUES((SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type2][1]}"),(SELECT ConcordanceUnitID FROM ConcordanceUnits WHERE ConcordanceUnitName = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
-                    if not c.execute(sql):
+                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceConversionCalculation)
+                                                            VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
+                    try: c.execute(sql)
+                    except:
                         print(f'failed to add conversion for {concordance_types[type2][1]} to {concordance_types[type1][1]}')
 
 def populate_direction_units(conn):
@@ -1112,17 +1169,20 @@ def populate_direction_units(conn):
         sql = '''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation)
                                 VALUES(?,?)'''
         values = (unit[0], unit[1])
-        if not c.execute(sql, values):
+        try: c.execute(sql, values)
+        except:
             print(f'failed to add {unit[0]}')
         conversion = f'x*{unit[2]}'
 
         sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
-                            VALUES(NULL,(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitName = "{unit[0]}"),"{conversion}")'''
-        if not c.execute(sql):
+                            VALUES(NULL,(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{unit[1]}"),"{conversion}")'''
+        try: c.execute(sql)
+        except:
             print(f'failed to add conversion to {unit[0]}')
         sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
-                                    VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitName = "{unit[0]}"),NULL,"{conversion}")'''
-        if not c.execute(sql):
+                                    VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{unit[1]}"),NULL,"{conversion}")'''
+        try: c.execute(sql)
+        except:
             print(f'failed to add conversion from {unit[0]}')
 
 def populate_distance_units(conn):
@@ -1138,8 +1198,7 @@ def populate_distance_units(conn):
         c.execute(sql)
         # International standard foot is 0.3048 meters exactly
         m_per_ft = 0.3048
-        inch_factor = 1 / 12
-        distance_units = [('kilometers', 'km', '1000'),
+        distance_units = [('Kilometers', 'km', '1000'),
                      ('Meters', 'm', '1'),
                      ('Centimeters', 'cm', '0.01'),
                      ('Millimeter', 'mm', '0.001'),
@@ -1147,35 +1206,38 @@ def populate_distance_units(conn):
                      ('Miles', 'mi', '5280'),
                      ('Yards', 'yd', '3'),
                      ('Feet', 'ft', '1'),
-                     ('Inches', 'in', 'inch_factor')]
+                     ('Inches', 'in', f'(1/12)')]
         for unit in distance_units:
             sql = '''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
                                         VALUES(?,?)'''
             values = (unit[0], unit[1])
-            if not c.execute(sql, values):
+            try: c.execute(sql, values)
+            except:
                 print(f'failed to add {unit[0]}')
         for unit1 in range(len(distance_units)):
             for unit2 in range(len(distance_units)):
                 if unit2 > unit1:
                     if (distance_units[unit1][1][-1] == 'm' and distance_units[unit2][1][-1] == 'm') or (distance_units[unit1][1][-1] != 'm' and distance_units[unit2][1][-1] != 'm'):
                         # Both units are the same format
-                        conversion1to2 = f'{distance_units[unit1][2]/distance_units[unit2][2]}'
-                        conversion2to1 = f'{distance_units[unit2][2]/distance_units[unit1][2]}'
+                        conversion1to2 = f'x*{distance_units[unit1][2]}/{distance_units[unit2][2]}'
+                        conversion2to1 = f'x*{distance_units[unit2][2]}/{distance_units[unit1][2]}'
                     elif distance_units[unit1][1][-1] == 'm':
                         # Unit 1 is metric and unit 2 is imperial
-                        conversion1to2 = f'{distance_units[unit1][2]}/({m_per_ft}*{distance_units[unit2][2]})'
-                        conversion2to1 = f'({distance_units[unit2][2]}*{m_per_ft})/{distance_units[unit1][2]}'
+                        conversion1to2 = f'x*{distance_units[unit1][2]}/({m_per_ft}*{distance_units[unit2][2]})'
+                        conversion2to1 = f'x*({distance_units[unit2][2]}*{m_per_ft})/{distance_units[unit1][2]}'
                     else:
                         # Unit 1 is imperial and unit 2 is metric
-                        conversion1to2 = f'({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
-                        conversion2to1 = f'{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
+                        conversion1to2 = f'x*({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
+                        conversion2to1 = f'x*{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
                     sql = f'''INSERT INTO DistanceConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceConversionCalculation)
-                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit1][0]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit2][0]}"),"{conversion1to2}")'''
-                    if not c.execute(sql):
+                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
+                    try: c.execute(sql)
+                    except:
                         print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
                     sql = f'''INSERT INTO DistanceConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceConversionCalculation)
-                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit2][0]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitName = "{distance_units[unit1][0]}"),"{conversion2to1}")'''
-                    if not c.execute(sql):
+                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
+                    try: c.execute(sql)
+                    except:
                         print(f'failed to add conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
 
 def populate_error_types(conn):
@@ -1197,7 +1259,8 @@ def populate_error_types(conn):
         sql = '''INSERT INTO ErrorTypes(ErrorTypeName, ErrorTypeAbbreviation, ErrorTypeDescription)
                                     VALUES(?,?,?)'''
         values = (error_type[0], error_type[1], error_type[2])
-        if not c.execute(sql, values):
+        try: c.execute(sql, values)
+        except:
             print(f'failed to add {error_type[0]}')
     for type1 in range(len(error_types)):
         for type2 in range(len(error_types)):
@@ -1219,12 +1282,14 @@ def populate_error_types(conn):
                         # 2 sigma percent to 1 sigma ratio
                         conversion2to1 = 'x/200'
                 sql = f'''INSERT INTO ErrorConversions(FromErrorTypeID, ToErrorTypeID, ErrorConversionCalculation)
-                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type1][0]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type2][0]}"),"{conversion1to2}")'''
-                if not c.execute(sql):
+                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),"{conversion1to2}")'''
+                try: c.execute(sql)
+                except:
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
                 sql = f'''INSERT INTO ErrorConversions(FromErrorTypeID, ToErrorTypeID, ErrorConversionCalculation)
-                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type2][0]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeName = "{error_types[type1][0]}"),"{conversion2to1}")'''
-                if not c.execute(sql):
+                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),"{conversion2to1}")'''
+                try: c.execute(sql)
+                except:
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
 
 def populate_ages(conn):
@@ -1308,13 +1373,15 @@ def add_age(c, age):
         sql = '''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, MaxMa, MinMa)
                         VALUES(?,?,?,?,?)'''
         values = (age[0], age[1], age[2], age[3], age[4])
-        if not c.execute(sql, values):
+        try: c.execute(sql, values)
+        except:
             print(f'failed to add {age[2]}')
     else:
         sql = '''INSERT INTO Ages(AgeParentRow, AgeName, MaxMa, MinMa)
                         VALUES(?,?,?,?)'''
         values = (age[1], age[2], age[3], age[4])
-        if not c.execute(sql, values):
+        try: c.execute(sql, values)
+        except:
             print(f'failed to add {age[2]}')
 
 
