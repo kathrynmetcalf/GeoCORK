@@ -13,7 +13,7 @@ from Functions import SQLUtils
 
 # from PyQt6.QtSql import rollback
 from PyQt6.sip import delete
-from openpyxl.styles.builtins import total
+from openpyxl.styles.builtins import total, calculation
 
 # Map model column names back to database items
 table_model_cols = namedtuple('table_model_cols', ['model_col_name', 'source_table', 'table_cols', 'tag_table'])
@@ -22,17 +22,20 @@ age = table_model_cols("Age (Ma)", "Samples", ["AverageAge", "AverageAgeError"],
 age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatureName"], "Samples_AgeSignatures")
 
 
+def set_table(model: QtS.QSqlTableModel, table: str):
+    model.setTable(table)
+    model.select()
+    return model
+
+
+
 class SampleTableModel(QtS.QSqlQueryModel):
     def setupQuery(self, ids_to_show=None, rows_per_page=None, offset=None):
         sample_query = f'''
                     SELECT
                         {SQLUtils.qsample_id},
                         {SQLUtils.qsample_name},
-                        {SQLUtils.qlat},
-                        {SQLUtils.qlon},
-                        {SQLUtils.qutm_zone},
-                        {SQLUtils.qutm_n},
-                        {SQLUtils.qutm_e},
+                        {SQLUtils.qgps},
                         {SQLUtils.qelev},
                         {SQLUtils.qage},
                         {SQLUtils.qage_range},
@@ -41,9 +44,9 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         {SQLUtils.qcolumn_data},
                         {SQLUtils.qaliquots},
                         {SQLUtils.qspots},
-                        {SQLUtils.qreferences},
+                        {SQLUtils.qsources},
                         {SQLUtils.qage_signature},
-                        {SQLUtils.qcontext},
+                        {SQLUtils.qsample_context},
                         {SQLUtils.qrock_types},
                         {SQLUtils.qregions},
                         {SQLUtils.qsampling_methods},
@@ -55,22 +58,24 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         {SQLUtils.qspot_compositions},
                         {SQLUtils.qaliquot_context}
                     FROM Samples
+                    {SQLUtils.sample_age_join}
+                    {SQLUtils.gps_sample_join}
                     {SQLUtils.column_join}
-                    {SQLUtils.old_age_join}
-                    {SQLUtils.young_age_join}
+                    {SQLUtils.sample_old_age_join}
+                    {SQLUtils.sample_young_age_join}
                     {SQLUtils.age_signature_join}
                     {SQLUtils.rock_type_join}
                     {SQLUtils.sample_context_join}
                     {SQLUtils.aliquot_join}
                     {SQLUtils.spot_join}
-                    {SQLUtils.upb_data_join}
-                    {SQLUtils.source_join}
+                    {SQLUtils.upb_analysis_join}
+                    {SQLUtils.upb_source_join}
                     {SQLUtils.region_join}
                     {SQLUtils.sampling_method_join}
                     {SQLUtils.setting_join}
                     {SQLUtils.unit_join}
                     {SQLUtils.upb_method_join}
-                    {SQLUtils.labs_join}
+                    {SQLUtils.upb_labs_join}
                     {SQLUtils.spot_context_join}
                     {SQLUtils.spot_composition_join}
                     {SQLUtils.aliquot_context_join}
@@ -87,29 +92,31 @@ class SampleTableModel(QtS.QSqlQueryModel):
 def SampleDistinctQuery():
     sample_distinct_query = f'''
     SELECT 
-    GROUP_CONCAT(DISTINCT ifnull(AverageAge,"Null")) as "Average Ages",
-    GROUP_CONCAT(DISTINCT ifnull(AverageAgeError,"Null")) as "Average Age Errors",
-    GROUP_CONCAT(DISTINCT ifnull(ErrorSigma,"Null")) as "Error Sigmas",
-    GROUP_CONCAT(DISTINCT ifnull(OldestAge,"Null")) as "Oldest Ages",
-    GROUP_CONCAT(DISTINCT ifnull(YoungestAge,"Null")) as "Youngest Ages",
+    GROUP_CONCAT(DISTINCT ifnull(DirectAge,"Null")) as "Direct Ages",
+    GROUP_CONCAT(DISTINCT ifnull(DirectAgeError,"Null")) as "Direct Age Errors",
+    GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorTypeID,"Null")) as "Error Sigmas",
+    GROUP_CONCAT(DISTINCT ifnull(OldestDirectAge,"Null")) as "Oldest Ages",
+    GROUP_CONCAT(DISTINCT ifnull(YoungestDirectAge,"Null")) as "Youngest Ages",
     GROUP_CONCAT(DISTINCT ifnull(OldestAgeID,"Null")) as "Oldest Age IDs",
     GROUP_CONCAT(DISTINCT ifnull(YoungestAgeID,"Null")) as "Youngest Age IDs",
     GROUP_CONCAT(DISTINCT ifnull(HeightDepth,"Null")) as "HeightDepths",
     GROUP_CONCAT(DISTINCT ifnull(HeightDepthError,"Null")) as "HeightDepth Errors",
-    GROUP_CONCAT(DISTINCT ifnull(HeightDepthUnit,"Null")) as "HeightDepth Units",
-    GROUP_CONCAT(DISTINCT ifnull(LatDeg,"Null")) as "Latitude Degrees",
-    GROUP_CONCAT(DISTINCT ifnull(LatMin,"Null")) as "Latitude Minutes",
-    GROUP_CONCAT(DISTINCT ifnull(LatSec,"Null")) as "Latitude Seconds",
-    GROUP_CONCAT(DISTINCT ifnull(LonDeg,"Null")) as "Longitude Degrees",
-    GROUP_CONCAT(DISTINCT ifnull(LonMin,"Null")) as "Longitude Minutes",
-    GROUP_CONCAT(DISTINCT ifnull(LonSec,"Null")) as "Longitude Seconds",
-    GROUP_CONCAT(DISTINCT ifnull(UTMZone,"Null")) as "UTM Zones",
-    GROUP_CONCAT(DISTINCT ifnull(UTMN,"Null")) as "UTM Northings",
-    GROUP_CONCAT(DISTINCT ifnull(UTME,"Null")) as "UTM Eastings",
+    GROUP_CONCAT(DISTINCT ifnull(HeightDepthUnitID,"Null")) as "HeightDepth Units",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatDeg,"Null")) as "Latitude Degrees",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatMin,"Null")) as "Latitude Minutes",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatSec,"Null")) as "Latitude Seconds",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatDirectionID,"Null")) as "Latitude Directions",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonDeg,"Null")) as "Longitude Degrees",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonMin,"Null")) as "Longitude Minutes",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonSec,"Null")) as "Longitude Seconds",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonDirectionID,"Null")) as "Longitude Directions",
+    GROUP_CONCAT(DISTINCT ifnull(GPSUTMZone,"Null")) as "UTM Zones",
+    GROUP_CONCAT(DISTINCT ifnull(GPSUTMN,"Null")) as "UTM Northings",
+    GROUP_CONCAT(DISTINCT ifnull(GPSUTME,"Null")) as "UTM Eastings",
     GROUP_CONCAT(DISTINCT ifnull(Elev,"Null")) as "Elevations",
     GROUP_CONCAT(DISTINCT ifnull(ElevError,"Null")) as "Elevation Errors",
-    GROUP_CONCAT(DISTINCT ifnull(ElevUnit,"Null")) as "Elevation Units",
-    GROUP_CONCAT(DISTINCT ifnull(Description,"Null")) as "Descriptions"
+    GROUP_CONCAT(DISTINCT ifnull(ElevUnitID,"Null")) as "Elevation Units",
+    GROUP_CONCAT(DISTINCT ifnull(SampleDescription,"Null")) as "Descriptions"
     FROM Samples
     '''
     return sample_distinct_query
@@ -174,10 +181,10 @@ class SpotTableModel(QtS.QSqlQueryModel):
                     FROM Spots
                     {SQLUtils.spot_context_join}
                     {SQLUtils.spot_composition_join}
-                    {SQLUtils.upb_data_join}
-                    {SQLUtils.source_join}
+                    {SQLUtils.upb_analysis_join}
+                    {SQLUtils.upb_source_join}
                     {SQLUtils.upb_method_join}
-                    {SQLUtils.labs_join}
+                    {SQLUtils.upb_labs_join}
                     GROUP BY SpotName
                     ORDER BY Spots.SpotID
                     '''

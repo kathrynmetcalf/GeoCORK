@@ -95,8 +95,8 @@ CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
                     ParentAgeID INTEGER,
                     AgeParentRow INTEGER,
                     AgeName TEXT NOT NULL CHECK (AgeName <> ''),
-                    MaxMa REAL,
-                    MinMa REAL,
+                    OldestAge REAL,
+                    YoungestAge REAL,
                     AgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AgeModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     UNIQUE (AgeName COLLATE NOCASE),
@@ -142,18 +142,6 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots_Al
                     FOREIGN KEY(AliquotContextID) REFERENCES AliquotContexts(AliquotContextID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
-                    )'''
-
-CREATE_ANALYSIS_INTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AnalysisInterpretations(
-                    AnalysisInterpretationID INTEGER PRIMARY KEY,
-                    ParentAnalysisInterpretationID INTEGER,
-                    AnalysisInterpretationParentRow INTEGER,
-                    AnalysisInterpretationName TEXT NOT NULL CHECK (AnalysisInterpretationName <> ''),
-                    AnalysisInterpretationDescription TEXT,
-                    AnalysisInterpretationCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AnalysisInterpretationModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (AnalysisInterpretationName COLLATE NOCASE),
-                    UNIQUE (ParentAnalysisInterpretationID, AnalysisInterpretationParentRow)
                     )'''
 
 CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
@@ -210,21 +198,6 @@ CREATE_DIRECTION_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionUnits(
                     UNIQUE(DirectionUnitName COLLATE NOCASE)
 )'''
 
-CREATE_DIRECTION_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DirectionConversions(
-                    FromDirectionUnitID INTEGER,
-                    ToDirectionUnitID INTEGER,
-                    DirectionConversionCalculation TEXT NOT NULL CHECK(DirectionConversionCalculation <> ''), 
-                    DirectionConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    DirectionConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    UNIQUE (FromDirectionUnitID, ToDirectionUnitID),
-                    FOREIGN KEY(FromDirectionUnitID) REFERENCES DirectionUnits(DirectionUnitID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(ToDirectionUnitID) REFERENCES DirectionUnits(DirectionUnitID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
-                    )'''
-
 CREATE_DISTANCE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceUnits(
                     DistanceUnitID INTEGER PRIMARY KEY,
                     DistanceUnitName TEXT NOT NULL CHECK(DistanceUnitName <> ''),
@@ -277,19 +250,46 @@ CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorConversions(
                         ON DELETE CASCADE
                     )'''
 
+CREATE_GPS_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSConversions(
+                    FromGPSFormatID INTEGER NOT NULL CHECK(FromGPSFormatID <> ''),
+                    ToGPSFormatID INTEGER NOT NULL CHECK(ToGPSFormatID <> ''),
+                    GPSConversionCalculation TEXT NOT NULL CHECK(GPSConversionCalculation <> ''),
+                    GPSConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GPSConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (FromGPSFormatID, ToGPSFormatID),
+                    FOREIGN KEY(FromGPSFormatID) REFERENCES GPSFormats(GPSFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ToGPSFormatID) REFERENCES GPSFormats(GPSFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_GPS_FORMATS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSFormats(
+                    GPSFormatID INTEGER PRIMARY KEY,
+                    GPSFormatName TEXT NOT NULL CHECK(GPSFormatName <> ''),
+                    GPSFormatAbbreviation TEXT NOT NULL CHECK(GPSFormatAbbreviation <> ''),
+                    GPSFormatDescription TEXT,
+                    GPSFormatCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GPSFormatModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(GPSFormatName COLLATE NOCASE),
+                    UNIQUE(GPSFormatAbbreviation COLLATE NOCASE)
+)'''
+
 CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                     GPSLocationID INTEGER PRIMARY KEY,
                     GPSLatDeg REAL,
                     GPSLatMin REAL,
                     GPSLatSec REAL,
-                    GPSLatDirectionID INTEGER,
+                    GPSLatDirectionID INTEGER CHECK (GPSLatDirectionID IN (0, 1) OR GPSLatDirectionID IS NULL),
                     GPSLonDeg REAL,
                     GPSLonMin REAL,
                     GPSLonSec REAL,
-                    GPSLonDirectionID INTEGER,
+                    GPSLonDirectionID INTEGER CHECK (GPSLonDirectionID IN (2, 3) OR GPSLonDirectionID IS NULL),
                     GPSUTMZone TEXT,
                     GPSUTMN REAL,
                     GPSUTME REAL,
+                    GPSFormatID INTEGER,
                     GPSElev REAL,
                     GPSElevError REAL,
                     GPSElevUnitID INTEGER,
@@ -300,6 +300,9 @@ CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(GPSLonDirectionID) REFERENCES DirectionUnits(DirectionUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY (GPSFormatID) REFERENCES GPSFormats(GPSFormatID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(GPSElevUnitID) REFERENCES DistanceUnits(DistanceUnitID)
@@ -691,15 +694,6 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
                     UNIQUE (ParentUnitID, UnitParentRow)
                     )'''
 
-CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
-                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
-                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
-                    UPbAnalysisMethodDescription TEXT, 
-                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
-                    )'''
-
 CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     UPbAnalysisID INTEGER PRIMARY KEY,
                     SpotID INTEGER NOT NULL,
@@ -863,12 +857,16 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     "207Pb/235UAgeError" REAL, 
                     "206Pb/238UAge" REAL,
                     "206Pb/238UAgeError" REAL,
+                    "208Pb/232ThAge" REAL,
+                    "208Pb/232ThAgeError" REAL,
                     AgeErrorTypeID INTEGER,
                     BestAge REAL,
                     BestAgeError REAL, 
                     BestAgeErrorTypeID INTEGER,
-                    “Concordance” REAL,
-                    “ConcordanceTypeID” INTEGER,
+                    AgeUnitID INTEGER,
+                    AgeInterpretationID INTEGER,
+                    Concordance REAL,
+                    ConcordanceTypeID INTEGER,
                     SpotSize REAL,
                     SpotSizeUnitID INTEGER,
                     Accepted INTEGER,
@@ -896,10 +894,16 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     FOREIGN KEY(AgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
+                    FOREIGN KEY(AgeUnitID) REFERENCES AgeUnits(AgeUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
                     FOREIGN KEY(BestAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
-                    FOREIGN KEY(“ConcordanceTypeID”) REFERENCES ConcordanceTypes(ConcordanceTypeID)
+                    FOREIGN KEY(AgeInterpretationID) REFERENCES AgeInterpretations(AgeInterpretationID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(ConcordanceTypeID) REFERENCES ConcordanceTypes(ConcordanceTypeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(SpotSizeUnitID) REFERENCES DistanceUnits(DistanceUnitID)
@@ -908,20 +912,6 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
-                    )'''
-
-CREATE_UPBANALYSES_ANALYSISINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_AnalysisInterpretations(
-                    UPbAnalysisID INTEGER,
-                    AnalysisInterpretationID INTEGER,
-                    UPbAnalyses_AnalysisInterpretationsCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UPbAnalyses_AnalysisInterpretationsModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (UPbAnalysisID, AnalysisInterpretationID),
-                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(AnalysisInterpretationID) REFERENCES AnalysisInterpretations(AnalysisInterpretationID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
                     )'''
 
 CREATE_UPBANALYSES_REJECTIONREASONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_RejectionReasons(
@@ -936,6 +926,17 @@ CREATE_UPBANALYSES_REJECTIONREASONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAna
                     FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
+                    )'''
+
+CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMethods(
+                    UPbAnalysisMethodID INTEGER PRIMARY KEY,
+                    ParentUPbAnalysisMethodID INTEGER,
+                    UPbAnalysisMethodParentRow INTEGER,
+                    UPbAnalysisMethodName TEXT NOT NULL CHECK (UPbAnalysisMethodName <> ''),
+                    UPbAnalysisMethodDescription TEXT, 
+                    UPbAnalysisMethodCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisMethodModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisMethodName COLLATE NOCASE)
                     )'''
 
 
@@ -966,12 +967,10 @@ def create_tables(db_file):
         # Create conversion tables
         c.execute(CREATE_AGE_CONVERSIONS_TABLE)
         c.execute(CREATE_CONCORDANCE_CONVERSIONS_TABLE)
-        c.execute(CREATE_DIRECTION_CONVERSIONS_TABLE)
         c.execute(CREATE_DISTANCE_CONVERSIONS_TABLE)
         c.execute(CREATE_ERROR_CONVERSIONS_TABLE)
 
         # Create analysis tag tables
-        c.execute(CREATE_ANALYSIS_INTERPRETATIONS_TABLE)
         c.execute(CREATE_INSTRUMENTS_TABLE)
         c.execute(CREATE_LAB_FACILITIES_TABLE)
         c.execute(CREATE_REJECTION_REASONS_TABLE)
@@ -987,10 +986,12 @@ def create_tables(db_file):
 
         # Create sample tag tables
         c.execute(CREATE_AGE_CONSTRAINTS_TABLE)
-        c.execute(CREATE_AGE_INTERPRETATIONS_TABLE)
+        c.execute(CREATE_AGE_INTERPRETATIONS_TABLE) # Shared with upb analyses
         c.execute(CREATE_AGE_SIGNATURES_TABLE)
         c.execute(CREATE_AGES_TABLE)
         c.execute(CREATE_COLUMNS_TABLE)
+        c.execute(CREATE_GPS_CONVERSIONS_TABLE)
+        c.execute(CREATE_GPS_FORMATS_TABLE)
         c.execute(CREATE_GPS_LOCATIONS_TABLE)
         c.execute(CREATE_REGIONS_TABLE)
         c.execute(CREATE_ROCK_TYPES_TABLE)
@@ -1026,7 +1027,6 @@ def create_tables(db_file):
         c.execute(CREATE_SPOTS_SPOTCONTEXT_TABLE)
 
         # Create many-to-many analysis tables
-        c.execute(CREATE_UPBANALYSES_ANALYSISINTERPRETATIONS_TABLE)
         c.execute(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE)
 
         c.execute(CREATE_FILTER_GROUPS_TABLE)
@@ -1037,48 +1037,63 @@ def create_tables(db_file):
 
         # Populate the age units table during initiation
         sql = '''SELECT * FROM AgeUnits'''
-        if c.execute(sql):
-            out = c.fetchall()
-            if not out: # if there is no output, the table is empty
-                populate_age_units(conn) # populate it
-        else:
+        try: c.execute(sql)
+        except:
             print(f'AgeUnits query failed')
+            return
+        out = c.fetchall()
+        if not out:  # if there is no output, the table is empty
+            populate_age_units(conn)  # populate it
 
         # Populate the concordance type table during initiation
         sql = '''SELECT * FROM ConcordanceTypes'''
-        if c.execute(sql):
-            out = c.fetchall()
-            if not out: # if there is no output, the table is empty
-                populate_concordance_types(conn) # populate it
-        else:
+        try: c.execute(sql)
+        except:
             print(f'ConcordanceTypes query failed')
+            return
+        out = c.fetchall()
+        if not out: # if there is no output, the table is empty
+            populate_concordance_types(conn) # populate it
 
         # Populate the direction unit table during initiation
         sql = '''SELECT * FROM DirectionUnits'''
-        if c.execute(sql):
-            out = c.fetchall()
-            if not out: # if there is no output, the table is empty
-                populate_direction_units(conn) # populate it
-        else:
+        try: c.execute(sql)
+        except:
             print(f'DirectionUnits query failed')
+            return
+        out = c.fetchall()
+        if not out: # if there is no output, the table is empty
+            populate_direction_units(conn) # populate it
 
         # Populate the distance unit table during initiation
         sql = '''SELECT * FROM DistanceUnits'''
-        if c.execute(sql):
-            out = c.fetchall()
-            if not out: # if there is no output, the table is empty
-                populate_distance_units(conn) # populate it
-        else:
+        try: c.execute(sql)
+        except:
             print(f'DistanceUnits query failed')
+            return
+        out = c.fetchall()
+        if not out:  # if there is no output, the table is empty
+            populate_distance_units(conn)  # populate it
 
         # Populate the error type table during initiation
         sql = '''SELECT * FROM ErrorTypes'''
-        if c.execute(sql):
-            out = c.fetchall()
-            if not out: # if there is no output, the table is empty
-                populate_error_types(conn) # populate it
-        else:
+        try: c.execute(sql)
+        except:
             print(f'ErrorTypes query failed')
+            return
+        out = c.fetchall()
+        if not out:
+            populate_error_types(conn)
+
+        # Populate the gps format table during initiation
+        sql = '''SELECT * FROM GPSFormats'''
+        try: c.execute(sql)
+        except:
+            print(f'GPSFormats query failed')
+            return
+        out = c.fetchall()
+        if not out:
+            populate_gps_formats(conn)
 
         # Populate the age table during initiation
         sql = '''SELECT * FROM Ages'''
@@ -1189,10 +1204,8 @@ def populate_direction_units(conn):
     # Begin by deleting all rows in the table to allow for a reset if things get changed
     sql = 'DELETE FROM DirectionUnits'
     c.execute(sql)
-    direction_units = [('North', 'N', 1),
-                 ('South', 'S', -1),
-                 ('East', 'E', 1),
-                 ('West', 'W', -1)]
+    direction_units = [('Positive/Negative', '+/-'),
+                 ('Cardinal', 'NSEW')]
     for unit in direction_units:
         sql = '''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation)
                                 VALUES(?,?)'''
@@ -1200,18 +1213,46 @@ def populate_direction_units(conn):
         try: c.execute(sql, values)
         except:
             print(f'failed to add {unit[0]}')
-        conversion = f'x*{unit[2]}'
+    for unit1 in range(len(direction_units)):
+        for unit2 in range(len(direction_units)):
+            if unit2 > unit1:
+                if direction_units[unit1][1] == '+/-' and direction_units[unit2][1] == 'NSEW':
+                    conversion1to2 = '''
+                        if LatDirection == "N" and LonDirection == "E":
+                            return f'[lat*1, lon*1]'
+                        elif LatDirection == "N" and LonDirection == "W":
+                            return f'[lat*1, lon*(-1)]'
+                        elif LatDirection == "S" and LonDirection == "E":
+                            return f'[lat*(-1), lon*1]'
+                        elif LatDirection == "S" and LonDirection == "W":
+                            return f'[lat*(-1), lambda*(-1)]'
+                        else:
+                            return f'[lat*1, lon*1]'
+                        '''
+                    conversion2to1 = '''
+                        if Lat > 0 and Lon > 0:
+                            return f'[lat, N, lon E'
+                        elif Lat > 0 and Lon < 0:
+                            return f'[lat, N, (lon*(-1)) W'
+                        elif Lat < 0 and Lon > 0:
+                            return f'[(lat*(-1)), S, lon E'
+                        elif Lat < 0 and Lon < 0:
+                            return f'[(lat*(-1)), S, (lon*(-1)) W'
+                        '''
+                else:
+                    print('Conversion not defined')
+                    return
 
-        sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
-                            VALUES(NULL,(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{unit[1]}"),"{conversion}")'''
-        try: c.execute(sql)
-        except:
-            print(f'failed to add conversion to {unit[0]}')
-        sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
-                                    VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{unit[1]}"),NULL,"{conversion}")'''
-        try: c.execute(sql)
-        except:
-            print(f'failed to add conversion from {unit[0]}')
+                sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
+                        VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit1][1]}"),(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit2][1]}"),"{conversion1to2}")'''
+                try: c.execute(sql)
+                except:
+                    print(f'failed to add conversion for {direction_units[unit1][1]} to {direction_units[unit2][1]}')
+                sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
+                        VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit2][1]}"),(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit1][1]}"),"{conversion2to1}")'''
+                try: c.execute(sql)
+                except:
+                    print(f'failed to add conversion for {direction_units[unit2][1]} to {direction_units[unit1][1]}')
 
 def populate_distance_units(conn):
     """
@@ -1320,6 +1361,132 @@ def populate_error_types(conn):
                 except:
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
 
+def populate_gps_formats(conn):
+    """
+    Connect to the database and add the default GPS formats
+    :param conn: Database connection from create_tables
+    """
+
+    with (conn):
+        c = conn.cursor()
+        # Begin by deleting all rows in the table to allow for a reset if things get changed
+        sql = 'DELETE FROM GPSFormats'
+        c.execute(sql)
+        gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
+                       ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
+                       ('Degrees minutes positive/negative', 'DDM +/-', 'Degrees and decimal minutes with positive N and E and negative S and W'),
+                       ('Degrees minutes cardinal', 'DDM NSEW', 'Degrees and decimal minutes with cardinal directions'),
+                       ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
+                       ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
+                       ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+        for gps_format in gps_formats:
+            sql = '''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
+                        VALUES(?,?,?)'''
+            values = (gps_format[0], gps_format[1], gps_format[2])
+            try: c.execute(sql, values)
+            except:
+                print(f'failed to add {gps_format[0]}')
+        # todo: Figure out how to store the conversion formulas for coordinates. Maybe just directly call functions?
+        for format1 in range(len(gps_formats)):
+            for format2 in range(len(gps_formats)):
+                if format2 > format1:
+                    if gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DDM +/-':
+                        conversion1to2 = 'D = int(DD)\nM = (DD - D)*60'
+                        conversion2to1 = 'DD = D + M/60'
+                    elif gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DMS +/-':
+                        conversion1to2 = 'D = int(DD)\nM = int((DD - D)*60)\nS = (DD - D - M/60)*3600'
+                        conversion2to1 = 'DD = D + M/60 + S/3600'
+                    elif gps_format[format1][1] == 'DDM +/-' and gps_format[format2][1] == 'DMS +/-':
+                        conversion1to2 = 'D = D\nM = int(DM)\nS = (DM - M)*60'
+                        conversion2to1 = 'D=D\nDM = M + S/60'
+                    elif gps_format[format2][1] == 'UTM':
+                        if gps_format[format1][1] == 'DD':
+                            # Convert DD UTM
+                            conversion1to2 = '''
+                                import pyproj
+                                def convert_to_utm(GPSLatDeg, GPSLonDeg):
+                                    # Convert lat lon to UTM
+                                    # Calculate the UTM zone
+                                    zone = int(((GPSLatDeg)lon + 180)/6) + 1
+                                    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+                                    UTMN, UTME = proj_utm((GPSLatDeg), (GPSLonDeg))
+                                    return zone, UTMN, UTME
+                                '''
+                            # Convert UTM to DD
+                            conversion2to1 = '''
+                                import pyproj
+                                def convert_utm_to_dd(GPSUTMZone, GPSUTMN, GPSUTME):
+                                    # Convert UTM to lat lon
+                                    proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+                                    GPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+                                    return LatDD, LonDD
+                                '''
+                        elif gps_format[format1][1] == 'DDM':
+                            # Convert DDM or DMS to UTM
+                            conversion1to2 = '''
+                                import pyproj
+                                def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin):
+                                    # Convert lat lon to UTM
+                                    # Calculate the UTM zone
+                                    zone = int(((GPSLatDeg + GPSLatMin/60)lon + 180)/6) + 1
+                                    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+                                    UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60), (GPSLonDeg + GPSLonMin/60))
+                                    return zone, UTMN, UTME
+                                '''
+                            # Convert UTM to DDM
+                            conversion2to1 = '''
+                                import pyproj
+                                def convert_utm_to_ddm(GPSUTMZone, GPSUTMN, GPSUTME):
+                                    # Convert UTM to lat lon
+                                    proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+                                    LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+                                    GPSLatDeg = int(LatDD)
+                                    GPSLatMin = (LatDD - GPSLatDeg)*60
+                                    GPSLonDeg = int(LonDD)
+                                    GPSLonMin = (LonDD - GPSLonDeg)*60
+                                    return GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin
+                                '''
+                        elif gps_format[format1][1] == 'DMS':
+                            # Convert DMS to UTM
+                            conversion1to2 = '''
+                                import pyproj
+                                def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec):
+                                    # Convert lat lon to UTM
+                                    # Calculate the UTM zone
+                                    zone = int(((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600)lon + 180)/6) + 1
+                                    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+                                    UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600), (GPSLonDeg + GPSLonMin/60 + GPSLonSec/3600))
+                                    return zone, UTMN, UTME
+                                '''
+                            # Convert UTM to DMS
+                            conversion2to1 = '''
+                                import pyproj
+                                def convert_utm_to_dms(GPSUTMZone, GPSUTMN, GPSUTME):
+                                    # Convert UTM to lat lon
+                                    proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+                                    LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+                                    GPSLatDeg = int(LatDD)
+                                    GPSLatMin = int((LatDD - GPSLatDeg)*60)
+                                    GPSLatSec = (LatDD - GPSLatDeg - GPSLatMin/60)*3600
+                                    GPSLonDeg = int(LonDD)
+                                    GPSLonMin = int((LonDD - GPSLonDeg)*60)
+                                    GPSLonSec = (LonDD - GPSLonDeg - GPSLonMin/60)*3600
+                                    return GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec
+                                '''
+
+                        # conversion2to1 = 'proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")\nGPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTMW, inverse=True)\n'
+                    sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation) 
+                                VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),"{conversion1to2}")'''
+                    try: c.execute(sql)
+                    except:
+                        print(f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}')
+                    sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
+                                VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),"{conversion2to1}")'''
+                    try: c.execute(sql)
+                    except:
+                        print(f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}')
+
+
 def populate_ages(conn):
     """
     Connect to the database and add the Geologic timescale tree structure with names and ages
@@ -1398,14 +1565,14 @@ def add_age(c, age):
     """
     if age[0]:
         # if there is a parent
-        sql = '''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, MaxMa, MinMa)
+        sql = '''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge)
                         VALUES(?,?,?,?,?)'''
         values = (age[0], age[1], age[2], age[3], age[4])
         try: c.execute(sql, values)
         except:
             print(f'failed to add {age[2]}')
     else:
-        sql = '''INSERT INTO Ages(AgeParentRow, AgeName, MaxMa, MinMa)
+        sql = '''INSERT INTO Ages(AgeParentRow, AgeName, OldestAge, YoungestAge)
                         VALUES(?,?,?,?)'''
         values = (age[1], age[2], age[3], age[4])
         try: c.execute(sql, values)

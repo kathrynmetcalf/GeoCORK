@@ -27,11 +27,10 @@ def create_triggers(c):
         ratio_error_list = []
         age_error_list = []
         for column in columns:
-            if 'Error' in column[1]:
-                if 'AgeError' in column[1]:
-                    age_error_list.append(f'"{column[1]}"')
-                else:
-                    ratio_error_list.append(f'"{column[1]}"')
+            if column[1].endswith('AgeError'):
+                age_error_list.append(f'"{column[1]}"')
+            elif column[1].endswith('Error'):
+                ratio_error_list.append(f'"{column[1]}"')
         ratio_list = [column.replace('Error', '') for column in ratio_error_list]
         age_list = [column.replace('Error', '') for column in age_error_list]
         ratio_error_statement = ' OR '.join(ratio_error_list)
@@ -95,8 +94,32 @@ def create_triggers(c):
                 RAISE(ABORT, 'No minutes given for seconds')
             END;
         SELECT CASE
+            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLonDirectionID IS NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLatDirectionID IS NULL) THEN
+                RAISE(ABORT, 'Missing corresponding direction for latitude or longitude')
+            END;
+        SELECT CASE
+            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLonDeg IS NULL) THEN
+                RAISE(ABORT, 'Missing corresponding degrees for direction')
+            END;
+        SELECT CASE 
+            WHEN (NEW.GPSLatDirectionID IS 1 AND NEW.GPSLatDeg < 0) OR
+            (NEW.GPSLonDirectionID IS 3 AND NEW.GPSLonDeg < 0) THEN
+                RAISE(ABORT, 'Negative value with S or W direction')
+            END;
+        SELECT CASE
+            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) THEN
+                RAISE(ABORT, 'Lat Lon direction given for UTM coordinates. Coordinates should be entered in the format originally provided.')
+            END;
+        SELECT CASE
             WHEN NEW.GPSLatDeg IS NOT NULL AND NEW.GPSUTMN IS NOT NULL THEN
-                RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
+                RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format originally provided.')
+            END;
+        SELECT CASE 
+            WHEN NEW.GPSUTMZone IS NOT NULL AND (NEW.GPSLatDeg OR NEW.GPSLonDeg) IS NOT NULL THEN
+                RAISE (ABORT, 'UTM zone given for Lat Lon coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE
             WHEN NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL THEN
@@ -140,6 +163,48 @@ def create_triggers(c):
             (GPSLatSec IS NOT NULL AND NEW.GPSLatMin IS NULL) OR (GPSLonSec IS NOT NULL AND NEW.GPSLonMin IS NULL) OR
             (NEW.GPSLatSec IS NOT NULL AND GPSLatMin IS NULL) OR (NEW.GPSLonSec IS NOT NULL AND GPSLonMin IS NULL) THEN
                 RAISE(ABORT, 'No minutes given for seconds')
+            END;
+        SELECT CASE
+            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLonDirectionID IS NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLatDirectionID IS NULL) OR
+            (GPSLatDirectionID IS NOT NULL AND NEW.GPSLonDirectionID IS NULL) OR
+            (GPSLonDirectionID IS NOT NULL AND NEW.GPSLatDirectionID IS NULL) OR
+            (NEW.GPSLatDirectionID IS NOT NULL AND GPSLonDirectionID IS NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND GPSLatDirectionID IS NULL) THEN
+                RAISE(ABORT, 'Missing corresponding direction for latitude or longitude')
+            END;
+        SELECT CASE
+            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
+            (GPSLatDirectionID IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
+            (GPSLonDirectionID IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
+            (NEW.GPSLatDirectionID IS NOT NULL AND GPSLatDeg IS NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND GPSLonDeg IS NULL) THEN
+                RAISE(ABORT, 'Missing corresponding degrees for direction')
+            END;
+        SELECT CASE 
+            WHEN (NEW.GPSLatDirectionID IS 1 AND NEW.GPSLatDeg < 0) OR
+            (NEW.GPSLonDirectionID IS 3 AND NEW.GPSLonDeg < 0) OR 
+            (GPSLatDirectionID IS 1 AND NEW.GPSLatDeg < 0) OR
+            (GPSLonDirectionID IS 3 AND NEW.GPSLonDeg < 0) OR 
+            (NEW.GPSLatDirectionID IS 1 AND GPSLatDeg < 0) OR
+            (NEW.GPSLonDirectionID IS 3 AND GPSLonDeg < 0) THEN
+                RAISE(ABORT, 'Negative value with S or W direction')
+            END;
+        SELECT CASE 
+            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
+            (GPSLatDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
+            (GPSLonDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
+            (NEW.GPSLatDirectionID IS NOT NULL AND GPSUTMN IS NOT NULL) OR
+            (NEW.GPSLonDirectionID IS NOT NULL AND GPSUTMN IS NOT NULL) THEN
+                RAISE(ABORT, 'Lat Lon direction given for UTM coordinates. Coordinates should be entered in the format originally provided.')
+            END;
+        SELECT CASE 
+            WHEN NEW.GPSUTMZone IS NOT NULL AND (NEW.GPSLatDeg OR NEW.GPSLonDeg) IS NOT NULL OR 
+            (GPSUTMZone IS NOT NULL AND (NEW.GPSLatDeg OR NEW.GPSLonDeg) IS NOT NULL) OR 
+            (NEW.GPSUTMZone IS NOT NULL AND (GPSLatDeg OR GPSLonDeg) IS NOT NULL) THEN
+                RAISE (ABORT, 'UTM zone given for Lat Lon coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE
             WHEN (NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL) OR 
@@ -369,11 +434,6 @@ def create_triggers(c):
     BEGIN
         UPDATE Aliquots_AliquotContexts SET Aliquots_AliquotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots_AliquotContexts')};
     END;'''
-    ANALYSIS_INTERPRETATIONS_MODIFIED_TRIGGER = f'''
-    CREATE TRIGGER IF NOT EXISTS update_modified_analysis_interpretations AFTER UPDATE ON AnalysisInterpretations
-    BEGIN
-        UPDATE AnalysisInterpretations SET AnalysisInterpretationModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AnalysisInterpretations')};
-    END;'''
     COLUMNS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_columns AFTER UPDATE ON Columns
     BEGIN
@@ -418,6 +478,16 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS update_modified_error_conversions AFTER UPDATE ON ErrorConversions
     BEGIN
         UPDATE ErrorConversions SET ErrorConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorConversions')};
+    END;'''
+    GPS_CONVERSIONS_MODIFIED_TRIGGER = f'''
+    CREATE TRIGGER IF NOT EXISTS update_modified_gps_conversions AFTER UPDATE ON GPSConversions
+    BEGIN
+        UPDATE GPSConversions SET GPSConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSConversions')};
+    END;'''
+    GPS_FORMATS_MODIFIED_TRIGGER = f'''
+    CREATE TRIGGER IF NOT EXISTS update_modified_gps_formats AFTER UPDATE ON GPSFormats
+    BEGIN
+        UPDATE GPSFormats SET GPSFormatModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSFormats')};
     END;'''
     GPS_LOCATIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_gpslocations AFTER UPDATE ON GPSLocations
@@ -569,11 +639,6 @@ def create_triggers(c):
     BEGIN
         UPDATE UPbAnalyses SET UPbAnalysisModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses')};
     END;'''
-    UPBANALYSES_ANALYSISNTERPRETATIONS_MODIFIED_TRIGGER = f'''
-    CREATE TRIGGER IF NOT EXISTS update_modified_upbanalyses_analysisinterpretations AFTER UPDATE ON UPbAnalyses_AnalysisInterpretations
-    BEGIN
-        UPDATE UPbAnalyses_AnalysisInterpretations SET UPbAnalyses_AnalysisInterpretationsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses_AnalysisInterpretations')};
-    END;'''
     UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_upbanalyses_rejectionreasons AFTER UPDATE ON UPbAnalyses_RejectionReasons
     BEGIN
@@ -590,7 +655,6 @@ def create_triggers(c):
     c.execute(CREATE_SAMPLEAGES_UPDATE_TRIGGERS)
     c.execute(CREATE_SAMPLES_INSERT_TRIGGERS)
     c.execute(CREATE_SAMPLES_UPDATE_TRIGGERS)
-    # print(CREATE_UPBANALYSES_INSERT_TRIGGERS)
     c.execute(CREATE_UPBANALYSES_INSERT_TRIGGERS)
     c.execute(CREATE_UPBANALYSES_UPDATE_TRIGGERS)
 
@@ -604,7 +668,6 @@ def create_triggers(c):
     c.execute(ALIQUOTCONTEXT_MODIFIED_TRIGGER)
     c.execute(ALIQUOTS_MODIFIED_TRIGGER)
     c.execute(ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER)
-    c.execute(ANALYSIS_INTERPRETATIONS_MODIFIED_TRIGGER)
     c.execute(COLUMNS_MODIFIED_TRIGGER)
     c.execute(CONCORDANCETYPES_MODIFIED_TRIGGER)
     c.execute(CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER)
@@ -614,6 +677,8 @@ def create_triggers(c):
     c.execute(DISTANCE_CONVERSIONS_MODIFIED_TRIGGER)
     c.execute(ERRORTYPES_MODIFIED_TRIGGER)
     c.execute(ERROR_CONVERSIONS_MODIFIED_TRIGGER)
+    c.execute(GPS_CONVERSIONS_MODIFIED_TRIGGER)
+    c.execute(GPS_FORMATS_MODIFIED_TRIGGER)
     c.execute(GPS_LOCATIONS_MODIFIED_TRIGGER)
     c.execute(FILTERGROUPS_MODIFIED_TRIGGER)
     c.execute(INSTRUMENTS_MODIFIED_TRIGGER)
@@ -644,7 +709,6 @@ def create_triggers(c):
     c.execute(UNITS_MODIFIED_TRIGGER)
     c.execute(UPBANALYSISMETHODS_MODIFIED_TRIGGER)
     c.execute(UPBANALYSES_MODIFIED_TRIGGER)
-    c.execute(UPBANALYSES_ANALYSISNTERPRETATIONS_MODIFIED_TRIGGER)
     c.execute(UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER)
 
 if __name__ == '__main__':
