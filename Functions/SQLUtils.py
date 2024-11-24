@@ -47,8 +47,8 @@ sampleage_ageinterpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON
                                 LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
 
 # GPSLocation joins
-gps_sample_join = 'LEFT JOIN GPSLocations AS SampleGPS ON Samples.SampleGPSLocationID=GPSLocations.GPSLocationID'
-gps_column_join = 'LEFT JOIN GPSLocations AS ColumnGPS ON Columns.ColumnBaseGPSID=GPSLocations.GPSLocationID'
+gps_sample_join = 'LEFT JOIN GPSLocations AS SampleGPS ON Samples.SampleGPSLocationID=SampleGPS.GPSLocationID'
+gps_column_join = 'LEFT JOIN GPSLocations AS ColumnGPS ON Columns.ColumnBaseGPSID=ColumnGPS.GPSLocationID'
 
 # SampleJoins
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
@@ -90,7 +90,6 @@ upb_instruments_join = 'LEFT JOIN Instruments ON Instruments.InstrumentID=UPbAna
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalysisMethods.UPbAnalysisMethodID=UPbAnalyses.UPbAnalysisMethodID'
 upb_ratio_error_type_join = 'LEFT JOIN ErrorTypes AS RatioErrorTypes ON RatioErrorTypes.ErrorTypeID=UPbAnalyses.RatioErrorTypeID'
 upb_age_error_type_join = 'LEFT JOIN ErrorTypes AS AgeErrorTypes ON AgeErrorTypes.ErrorTypeID=UPbAnalyses.AgeErrorTypeID'
-upb_best_age_error_type_join = 'LEFT JOIN ErrorTypes AS BestAgeErrorTypes ON BestAgeErrorTypes.ErrorTypeID=UPbAnalyses.BestAgeErrorTypeID'
 upb_age_unit_join = 'LEFT JOIN AgeUnits AS UPbAgeUnits ON UPbAgeUnits.AgeUnitID=UPbAnalyses.AgeUnitID'
 upb_concordance_type_join = 'LEFT JOIN ConcordanceTypes ON ConcordanceTypes.ConcordanceTypeID=UPbAnalyses.ConcordanceTypeID'
 upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON SpotSizeUnits.DistanceUnitID=UPbAnalyses.SpotSizeUnitID'

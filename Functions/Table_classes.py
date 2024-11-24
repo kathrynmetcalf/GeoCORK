@@ -87,7 +87,6 @@ class SampleTableModel(QtS.QSqlQueryModel):
                     {SQLUtils.upb_method_join}
                     {SQLUtils.upb_ratio_error_type_join}
                     {SQLUtils.upb_age_error_type_join}
-                    {SQLUtils.upb_best_age_error_type_join}
                     {SQLUtils.upb_age_unit_join}
                     {SQLUtils.upb_concordance_type_join}
                     {SQLUtils.upb_spot_size_unit_join}
