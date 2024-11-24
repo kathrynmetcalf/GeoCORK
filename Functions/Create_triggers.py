@@ -54,7 +54,7 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_column_units_before_insert BEFORE INSERT ON Columns
     BEGIN
         SELECT CASE
-            WHEN NEW.ColumnTotalHeightDepth IS NOT NULL AND NEW.ColumnTotalHeightDepthUnitID IS NULL THEN
+            WHEN NEW."ColumnTotalHeightDepth" IS NOT NULL AND NEW."ColumnTotalHeightDepthUnitID" IS NULL THEN
                 RAISE (ABORT,'Column total height/depth value with missing units')
             END;
     END;'''
@@ -62,15 +62,15 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_column_units_before_update BEFORE UPDATE ON Columns
     BEGIN
         SELECT CASE
-            WHEN NEW.ColumnTotalHeightDepth IS NOT NULL AND NEW.ColumnTotalHeightDepthUnit IS NULL THEN
+            WHEN NEW."ColumnTotalHeightDepth" IS NOT NULL AND NEW."ColumnTotalHeightDepthUnitID" IS NULL THEN
                 RAISE (ABORT,'Column total height/depth value with missing units')
             END;
         SELECT CASE
-            WHEN ColumnTotalHeightDepth IS NOT NULL AND NEW.ColumnTotalHeightDepthUnit IS NULL THEN
+            WHEN "ColumnTotalHeightDepth" IS NOT NULL AND NEW."ColumnTotalHeightDepthUnitID" IS NULL THEN
                 RAISE (ABORT,'Column total height/depth value with missing units')
                 END;
         SELECT CASE
-            WHEN NEW.ColumnTotalHeightDepth IS NOT NULL AND ColumnTotalHeightDepthUnit IS NULL THEN
+            WHEN NEW."ColumnTotalHeightDepth" IS NOT NULL AND "ColumnTotalHeightDepthUnitID" IS NULL THEN
                 RAISE (ABORT,'Column total height/depth value with missing units')
             END;
     END;
@@ -79,66 +79,66 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_gps_before_insert BEFORE INSERT ON GPSLocations
     BEGIN
         SELECT CASE
-            WHEN (NEW.GPSLatDeg IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR 
-            (NEW.GPSLonDeg IS NOT NULL AND NEW.GPSLatDeg IS NULL) THEN
+            WHEN (NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR 
+            (NEW."GPSLonDeg" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) THEN
                 RAISE (ABORT, 'Missing corresponding degrees latitude or longitude')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatMin IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
-            (NEW.GPSLonMin IS NOT NULL AND NEW.GPSLonDeg IS NULL) THEN
+            WHEN (NEW."GPSLatMin" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR
+            (NEW."GPSLonMin" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) THEN
                 RAISE(ABORT, 'No degrees given for minutes')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatSec IS NOT NULL AND NEW.GPSLatMin IS NULL) OR
-            (NEW.GPSLonSec IS NOT NULL AND NEW.GPSLonMin IS NULL) THEN
+            WHEN (NEW."GPSLatSec" IS NOT NULL AND NEW."GPSLatMin" IS NULL) OR
+            (NEW."GPSLonSec" IS NOT NULL AND NEW."GPSLonMin" IS NULL) THEN
                 RAISE(ABORT, 'No minutes given for seconds')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLonDirectionID IS NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLatDirectionID IS NULL) THEN
+            WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSLonDirectionID" IS NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLatDirectionID" IS NULL) THEN
                 RAISE(ABORT, 'Missing corresponding direction for latitude or longitude')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLonDeg IS NULL) THEN
+            WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) THEN
                 RAISE(ABORT, 'Missing corresponding degrees for direction')
             END;
         SELECT CASE 
-            WHEN (NEW.GPSLatDirectionID IS 1 AND NEW.GPSLatDeg < 0) OR
-            (NEW.GPSLonDirectionID IS 3 AND NEW.GPSLonDeg < 0) THEN
+            WHEN (NEW."GPSLatDirectionID" IS 1 AND NEW."GPSLatDeg" < 0) OR
+            (NEW."GPSLonDirectionID" IS 3 AND NEW."GPSLonDeg" < 0) THEN
                 RAISE(ABORT, 'Negative value with S or W direction')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) THEN
+            WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) THEN
                 RAISE(ABORT, 'Lat Lon direction given for UTM coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE
-            WHEN NEW.GPSLatDeg IS NOT NULL AND NEW.GPSUTMN IS NOT NULL THEN
+            WHEN NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL THEN
                 RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE 
-            WHEN NEW.GPSUTMZone IS NOT NULL AND (NEW.GPSLatDeg OR NEW.GPSLonDeg) IS NOT NULL THEN
+            WHEN NEW."GPSUTMZone" IS NOT NULL AND (NEW."GPSLatDeg" OR NEW."GPSLonDeg") IS NOT NULL THEN
                 RAISE (ABORT, 'UTM zone given for Lat Lon coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE
-            WHEN NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL THEN
+            WHEN NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTMZone" IS NULL THEN
                 RAISE (ABORT,'UTM coordinates with missing zone')
             END;
         SELECT CASE
-            WHEN NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTME IS NULL THEN
+            WHEN NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTME" IS NULL THEN
                 RAISE (ABORT,'UTM northing missing corresponding easting')
             END;
         SELECT CASE
-            WHEN NEW.GPSUTME IS NOT NULL AND NEW.GPSUTMN IS NULL THEN
+            WHEN NEW."GPSUTME" IS NOT NULL AND NEW."GPSUTMN" IS NULL THEN
                 RAISE (ABORT,'UTM easting missing corresponding northing')
             END;
         SELECT CASE
-            WHEN NEW.GPSElev IS NOT NULL AND NEW.GPSElevUnitID IS NULL THEN
+            WHEN NEW."GPSElev" IS NOT NULL AND NEW."GPSElevUnitID" IS NULL THEN
                 RAISE (ABORT,'Elevation value with missing units')
             END;
         SELECT CASE
-            WHEN NEW.GPSElevError IS NOT NULL AND NEW.GPSEelev IS NULL THEN
+            WHEN NEW."GPSElevError" IS NOT NULL AND NEW."GPSElev" IS NULL THEN
                 RAISE (ABORT,'Elevation error value with missing elevation')
             END;
     END;
@@ -147,87 +147,87 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_gps_before_update BEFORE UPDATE ON GPSLocations
     BEGIN
         SELECT CASE
-            WHEN (NEW.GPSLatDeg IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR (NEW.GPSLonDeg IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR 
-            (GPSLatDeg IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR (NEW.GPSLonDeg IS NOT NULL AND GPSLatDeg IS NULL) OR 
-            (NEW.GPSLatDeg IS NOT NULL AND GPSLonDeg IS NULL) OR (GPSLonDeg IS NOT NULL AND NEW.GPSLatDeg IS NULL) THEN
+            WHEN (NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR (NEW."GPSLonDeg" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR 
+            ("GPSLatDeg" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR (NEW."GPSLonDeg" IS NOT NULL AND "GPSLatDeg" IS NULL) OR 
+            (NEW."GPSLatDeg" IS NOT NULL AND "GPSLonDeg" IS NULL) OR ("GPSLonDeg" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) THEN
                 RAISE (ABORT,'Missing corresponding degrees latitude or longitude')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatMin IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR (NEW.GPSLonMin IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
-            (GPSLatMin IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR (GPSLonMin IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
-            (NEW.GPSLatMin IS NOT NULL AND GPSLatDeg IS NULL) OR (NEW.GPSLonMin IS NOT NULL AND GPSLonDeg IS NULL) THEN
+            WHEN (NEW."GPSLatMin" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR (NEW."GPSLonMin" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
+            ("GPSLatMin" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR ("GPSLonMin" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
+            (NEW."GPSLatMin" IS NOT NULL AND "GPSLatDeg" IS NULL) OR (NEW."GPSLonMin" IS NOT NULL AND "GPSLonDeg" IS NULL) THEN
                 RAISE(ABORT, 'No degrees given for minutes')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatSec IS NOT NULL AND NEW.GPSLatMin IS NULL) OR (NEW.GPSLonSec IS NOT NULL AND NEW.GPSLonMin IS NULL) OR
-            (GPSLatSec IS NOT NULL AND NEW.GPSLatMin IS NULL) OR (GPSLonSec IS NOT NULL AND NEW.GPSLonMin IS NULL) OR
-            (NEW.GPSLatSec IS NOT NULL AND GPSLatMin IS NULL) OR (NEW.GPSLonSec IS NOT NULL AND GPSLonMin IS NULL) THEN
+            WHEN (NEW."GPSLatSec" IS NOT NULL AND NEW."GPSLatMin" IS NULL) OR (NEW."GPSLonSec" IS NOT NULL AND NEW."GPSLonMin" IS NULL) OR
+            ("GPSLatSec" IS NOT NULL AND NEW."GPSLatMin" IS NULL) OR ("GPSLonSec" IS NOT NULL AND NEW."GPSLonMin" IS NULL) OR
+            (NEW."GPSLatSec" IS NOT NULL AND "GPSLatMin" IS NULL) OR (NEW."GPSLonSec" IS NOT NULL AND "GPSLonMin" IS NULL) THEN
                 RAISE(ABORT, 'No minutes given for seconds')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLonDirectionID IS NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLatDirectionID IS NULL) OR
-            (GPSLatDirectionID IS NOT NULL AND NEW.GPSLonDirectionID IS NULL) OR
-            (GPSLonDirectionID IS NOT NULL AND NEW.GPSLatDirectionID IS NULL) OR
-            (NEW.GPSLatDirectionID IS NOT NULL AND GPSLonDirectionID IS NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND GPSLatDirectionID IS NULL) THEN
+            WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSLonDirectionID" IS NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLatDirectionID" IS NULL) OR
+            ("GPSLatDirectionID" IS NOT NULL AND NEW."GPSLonDirectionID" IS NULL) OR
+            ("GPSLonDirectionID" IS NOT NULL AND NEW."GPSLatDirectionID" IS NULL) OR
+            (NEW."GPSLatDirectionID" IS NOT NULL AND "GPSLonDirectionID" IS NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND "GPSLatDirectionID" IS NULL) THEN
                 RAISE(ABORT, 'Missing corresponding direction for latitude or longitude')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
-            (GPSLatDirectionID IS NOT NULL AND NEW.GPSLatDeg IS NULL) OR
-            (GPSLonDirectionID IS NOT NULL AND NEW.GPSLonDeg IS NULL) OR
-            (NEW.GPSLatDirectionID IS NOT NULL AND GPSLatDeg IS NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND GPSLonDeg IS NULL) THEN
+            WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
+            ("GPSLatDirectionID" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR
+            ("GPSLonDirectionID" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
+            (NEW."GPSLatDirectionID" IS NOT NULL AND "GPSLatDeg" IS NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND "GPSLonDeg" IS NULL) THEN
                 RAISE(ABORT, 'Missing corresponding degrees for direction')
             END;
         SELECT CASE 
-            WHEN (NEW.GPSLatDirectionID IS 1 AND NEW.GPSLatDeg < 0) OR
-            (NEW.GPSLonDirectionID IS 3 AND NEW.GPSLonDeg < 0) OR 
-            (GPSLatDirectionID IS 1 AND NEW.GPSLatDeg < 0) OR
-            (GPSLonDirectionID IS 3 AND NEW.GPSLonDeg < 0) OR 
-            (NEW.GPSLatDirectionID IS 1 AND GPSLatDeg < 0) OR
-            (NEW.GPSLonDirectionID IS 3 AND GPSLonDeg < 0) THEN
+            WHEN (NEW."GPSLatDirectionID" IS 1 AND NEW."GPSLatDeg" < 0) OR
+            (NEW."GPSLonDirectionID" IS 3 AND NEW."GPSLonDeg" < 0) OR 
+            ("GPSLatDirectionID" IS 1 AND NEW."GPSLatDeg" < 0) OR
+            ("GPSLonDirectionID" IS 3 AND NEW."GPSLonDeg" < 0) OR 
+            (NEW."GPSLatDirectionID" IS 1 AND "GPSLatDeg" < 0) OR
+            (NEW."GPSLonDirectionID" IS 3 AND "GPSLonDeg" < 0) THEN
                 RAISE(ABORT, 'Negative value with S or W direction')
             END;
         SELECT CASE 
-            WHEN (NEW.GPSLatDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
-            (GPSLatDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
-            (GPSLonDirectionID IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR
-            (NEW.GPSLatDirectionID IS NOT NULL AND GPSUTMN IS NOT NULL) OR
-            (NEW.GPSLonDirectionID IS NOT NULL AND GPSUTMN IS NOT NULL) THEN
+            WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
+            ("GPSLatDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
+            ("GPSLonDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
+            (NEW."GPSLatDirectionID" IS NOT NULL AND "GPSUTMN" IS NOT NULL) OR
+            (NEW."GPSLonDirectionID" IS NOT NULL AND "GPSUTMN" IS NOT NULL) THEN
                 RAISE(ABORT, 'Lat Lon direction given for UTM coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE 
-            WHEN NEW.GPSUTMZone IS NOT NULL AND (NEW.GPSLatDeg OR NEW.GPSLonDeg) IS NOT NULL OR 
-            (GPSUTMZone IS NOT NULL AND (NEW.GPSLatDeg OR NEW.GPSLonDeg) IS NOT NULL) OR 
-            (NEW.GPSUTMZone IS NOT NULL AND (GPSLatDeg OR GPSLonDeg) IS NOT NULL) THEN
+            WHEN NEW."GPSUTMZone" IS NOT NULL AND (NEW."GPSLatDeg" OR NEW."GPSLonDeg") IS NOT NULL OR 
+            ("GPSUTMZone" IS NOT NULL AND (NEW."GPSLatDeg" OR NEW."GPSLonDeg") IS NOT NULL) OR 
+            (NEW."GPSUTMZone" IS NOT NULL AND ("GPSLatDeg" OR "GPSLonDeg") IS NOT NULL) THEN
                 RAISE (ABORT, 'UTM zone given for Lat Lon coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE
-            WHEN (NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL) OR 
-            (NEW.GPSUTMN IS NOT NULL AND GPSUTMZone IS NULL) OR 
-            (GPSUTMN IS NOT NULL AND NEW.GPSUTMZone IS NULL) THEN
+            WHEN (NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTMZone" IS NULL) OR 
+            (NEW."GPSUTMN" IS NOT NULL AND "GPSUTMZone" IS NULL) OR 
+            ("GPSUTMN" IS NOT NULL AND NEW."GPSUTMZone" IS NULL) THEN
                 RAISE (ABORT,'UTM coordinates with missing zone')
             END;
         SELECT CASE
-            WHEN (NEW.GPSUTMN IS NOT NULL AND NEW.GPSUTME IS NULL) OR 
-            (NEW.GPSUTMN IS NOT NULL AND GPSUTME IS NULL) OR
-            (GPSUTMN IS NOT NULL AND NEW.GPSUTME IS NULL) THEN
+            WHEN (NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTME" IS NULL) OR 
+            (NEW."GPSUTMN" IS NOT NULL AND "GPSUTME" IS NULL) OR
+            ("GPSUTMN" IS NOT NULL AND NEW."GPSUTME" IS NULL) THEN
                 RAISE (ABORT,'UTM northing missing corresponding easting')
             END;
         SELECT CASE
-            WHEN (NEW.GPSUTME IS NOT NULL AND NEW.GPSUTMN IS NULL) OR
-            (NEW.GPSUTME IS NOT NULL AND GPSUTMN IS NULL) OR
-            (GPSUTME IS NOT NULL AND NEW.GPSUTMN IS NULL) THEN
+            WHEN (NEW."GPSUTME" IS NOT NULL AND NEW."GPSUTMN" IS NULL) OR
+            (NEW."GPSUTME" IS NOT NULL AND "GPSUTMN" IS NULL) OR
+            ("GPSUTME" IS NOT NULL AND NEW."GPSUTMN" IS NULL) THEN
                 RAISE (ABORT,'UTM easting missing corresponding northing')
             END;
         SELECT CASE
-            WHEN (NEW.GPSLatDeg IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) OR 
-            (NEW.GPSLatDeg IS NOT NULL AND GPSUTMN IS NOT NULL) OR
-            (GPSLatDeg IS NOT NULL AND NEW.GPSUTMN IS NOT NULL) THEN
+            WHEN (NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR 
+            (NEW."GPSLatDeg" IS NOT NULL AND "GPSUTMN" IS NOT NULL) OR
+            ("GPSLatDeg" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) THEN
                 RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
             END;
     END;
@@ -236,15 +236,15 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_age_units_before_insert BEFORE INSERT ON SampleAges
     BEGIN
         SELECT CASE
-            WHEN NEW.DirectAgeError IS NOT NULL AND NEW.DirectAgeErrorTypeID IS NULL THEN
+            WHEN NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAgeErrorTypeID" IS NULL THEN
                 RAISE (ABORT,'Direct age error value with missing units')
             END;
         SELECT CASE
-            WHEN NEW.DirectAgeError IS NOT NULL AND NEW.DirectAge IS NULL THEN
+            WHEN NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAge" IS NULL THEN
                 RAISE (ABORT,'Direct age error value with missing age')
             END;
         SELECT CASE
-            WHEN (NEW.DirectAge IS NOT NULL OR NEW.OldestDirectAge IS NOT NULL OR NEW.YoungestDirectAge IS NOT NULL) AND NEW.DirectAgeUnitID IS NULL THEN
+            WHEN (NEW."DirectAge" IS NOT NULL OR NEW."OldestDirectAge" IS NOT NULL OR NEW."YoungestDirectAge" IS NOT NULL) AND NEW."DirectAgeUnitID" IS NULL THEN
                 RAISE (ABORT,'Direct age value with missing units')
             END;
     END;
@@ -253,17 +253,17 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_age_units_before_update BEFORE UPDATE ON SampleAges
     BEGIN
         SELECT CASE
-            WHEN (NEW.DirectAgeError IS NOT NULL AND NEW.DirectAgeErrorTypeID IS NULL) OR (DirectAgeError IS NOT NULL AND NEW.DirectAgeErrorTypeID IS NULL) THEN
+            WHEN (NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAgeErrorTypeID" IS NULL) OR ("DirectAgeError" IS NOT NULL AND NEW."DirectAgeErrorTypeID" IS NULL) THEN
                 RAISE (ABORT,'Direct age error value with missing units')
             END;
         SELECT CASE
-            WHEN (NEW.DirectAgeError IS NOT NULL AND NEW.DirectAge IS NULL) OR (DirectAgeError IS NOT NULL AND NEW.DirectAge IS NULL) THEN
+            WHEN (NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAge" IS NULL) OR ("DirectAgeError" IS NOT NULL AND NEW."DirectAge" IS NULL) THEN
                 RAISE (ABORT,'Direct age error value with missing age')
             END;
         SELECT CASE
-            WHEN ((NEW.DirectAge IS NOT NULL OR NEW.OldestDirectAge IS NOT NULL OR NEW.YoungestDirectAge IS NOT NULL) AND NEW.DirectAgeUnitID IS NULL) OR 
-            ((DirectAge IS NOT NULL OR OldestDirectAge IS NOT NULL OR YoungestDirectAge IS NOT NULL) AND NEW.DirectAgeUnitID IS NULL) OR 
-            ((NEW.DirectAge IS NOT NULL OR NEW.OldestDirectAge IS NOT NULL OR NEW.YoungestDirectAge IS NOT NULL) AND DirectAgeUnitID IS NULL) THEN
+            WHEN ((NEW."DirectAge" IS NOT NULL OR NEW."OldestDirectAge" IS NOT NULL OR NEW."YoungestDirectAge" IS NOT NULL) AND NEW."DirectAgeUnitID" IS NULL) OR 
+            (("DirectAge" IS NOT NULL OR "OldestDirectAge" IS NOT NULL OR "YoungestDirectAge" IS NOT NULL) AND NEW."DirectAgeUnitID" IS NULL) OR 
+            ((NEW."DirectAge" IS NOT NULL OR NEW."OldestDirectAge" IS NOT NULL OR NEW."YoungestDirectAge" IS NOT NULL) AND "DirectAgeUnitID" IS NULL) THEN
                 RAISE (ABORT,'Direct age value with missing units')
             END;
     END;
@@ -272,15 +272,15 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_sample_info_before_insert BEFORE INSERT ON Samples
     BEGIN
         SELECT CASE
-            WHEN NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnitID IS NULL THEN
+            WHEN NEW."HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL THEN
                 RAISE (ABORT,'Height/depth value with missing units')
             END;
         SELECT CASE
-            WHEN NEW.HeightDepthError IS NOT NULL AND NEW.HeigthDepth IS NULL THEN
+            WHEN NEW."HeightDepthError" IS NOT NULL AND NEW."HeightDepth" IS NULL THEN
                 RAISE (ABORT,'Height/depth error value with missing height/depth value')
             END;
         SELECT CASE
-            WHEN NEW.HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL THEN
+            WHEN NEW."HeightDepth" IS NOT NULL AND NEW."SampleColumnID" IS NULL THEN
                 RAISE (ABORT,'Height/depth value with missing column')
             END;
     END;
@@ -289,21 +289,21 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_sample_info_before_update BEFORE UPDATE ON Samples
     BEGIN
         SELECT CASE
-            WHEN (NEW.HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL) OR 
-            (HeightDepth IS NOT NULL AND NEW.HeightDepthUnit IS NULL) OR 
-            (NEW.HeightDepth IS NOT NULL AND HeightDepthUnit IS NULL) THEN
+            WHEN (NEW."HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) OR 
+            ("HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) OR 
+            (NEW."HeightDepth" IS NOT NULL AND "HeightDepthUnitID" IS NULL) THEN
                 RAISE (ABORT,'Height/depth value with missing units')
             END;
         SELECT CASE
-            WHEN (NEW.HeightDepthError IS NOT NULL AND NEW.HeightDepth IS NULL) OR
-            (HeightDepthError IS NOT NULL AND NEW.HeightDepth IS NULL) OR
-            (NEW.HeightDepthError IS NOT NULL AND HeightDepth IS NULL) THEN
+            WHEN (NEW."HeightDepthError" IS NOT NULL AND NEW."HeightDepth" IS NULL) OR
+            ("HeightDepthError" IS NOT NULL AND NEW."HeightDepth" IS NULL) OR
+            (NEW."HeightDepthError" IS NOT NULL AND "HeightDepth" IS NULL) THEN
                 RAISE (ABORT,'Height/depth error value with missing height/depth value')
             END;
         SELECT CASE
-            WHEN (NEW.HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL) OR 
-            (HeightDepth IS NOT NULL AND NEW.ColumnID IS NULL) OR 
-            (NEW.HeightDepth IS NOT NULL AND ColumnID IS NULL) THEN
+            WHEN (NEW."HeightDepth" IS NOT NULL AND NEW."SampleColumnID" IS NULL) OR 
+            ("HeightDepth" IS NOT NULL AND NEW."SampleColumnID" IS NULL) OR 
+            (NEW."HeightDepth" IS NOT NULL AND "SampleColumnID" IS NULL) THEN
                 RAISE (ABORT,'Height/depth value with missing column')
             END;
     END;
@@ -312,7 +312,7 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_upbanalyses_before_insert BEFORE INSERT ON UPbAnalyses
     BEGIN
         SELECT CASE
-            WHEN ({new_ratio_error_statement}) IS NOT NULL AND NEW.RatioErrorTypeID IS NULL THEN
+            WHEN ({new_ratio_error_statement}) IS NOT NULL AND NEW."RatioErrorTypeID" IS NULL THEN
                 RAISE (ABORT,'Ratio error values with missing type')
             END;
         SELECT CASE
@@ -320,7 +320,7 @@ def create_triggers(c):
                 RAISE (ABORT,'Ratio error values with missing corresponding ratio')
             END;
         SELECT CASE
-            WHEN ({new_age_error_statement}) IS NOT NULL AND NEW.AgeErrorTypeID IS NULL THEN
+            WHEN ({new_age_error_statement}) IS NOT NULL AND NEW."AgeErrorTypeID" IS NULL THEN
                 RAISE (ABORT,'Age error values with missing type')
             END;
         SELECT CASE
@@ -328,15 +328,11 @@ def create_triggers(c):
                 RAISE (ABORT,'Age error values with missing corresponding age')
             END;
         SELECT CASE
-            WHEN NEW.BestAgeError IS NOT NULL AND NEW.BestAgeErrorTypeID IS NULL THEN
-                RAISE (ABORT,'Best age error value with missing type')
-            END;
-        SELECT CASE
-            WHEN NEW.“Concordance” IS NOT NULL AND NEW.“ConcordanceTypeID” IS NULL THEN
+            WHEN NEW."Concordance" IS NOT NULL AND NEW."ConcordanceTypeID" IS NULL THEN
                 RAISE (ABORT,'Concordance value with missing type')
             END;
         SELECT CASE
-            WHEN NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnitID IS NULL THEN
+            WHEN NEW."SpotSize" IS NOT NULL AND NEW."SpotSizeUnitID" IS NULL THEN
                 RAISE (ABORT,'Spot size value with missing units')
             END;
     END;
@@ -345,9 +341,9 @@ def create_triggers(c):
     CREATE TRIGGER IF NOT EXISTS validate_upbanalyses_before_update BEFORE UPDATE ON UPbAnalyses
     BEGIN
         SELECT CASE
-            WHEN (({new_ratio_error_statement}) IS NOT NULL AND NEW.RatioErrorTypeID IS NULL) OR 
-            (({ratio_error_statement}) IS NOT NULL AND NEW.RatioErrorTypeID IS NULL) OR 
-            (({new_ratio_error_statement}) IS NOT NULL AND RatioErrorTypeID IS NULL) THEN
+            WHEN (({new_ratio_error_statement}) IS NOT NULL AND NEW."RatioErrorTypeID" IS NULL) OR 
+            (({ratio_error_statement}) IS NOT NULL AND NEW."RatioErrorTypeID" IS NULL) OR 
+            (({new_ratio_error_statement}) IS NOT NULL AND "RatioErrorTypeID" IS NULL) THEN
                 RAISE (ABORT,'Ratio error values with missing type')
             END;
         SELECT CASE
@@ -355,9 +351,9 @@ def create_triggers(c):
                 RAISE (ABORT,'Ratio error values with missing corresponding ratio')
             END;
         SELECT CASE
-            WHEN (({new_age_error_statement}) IS NOT NULL AND NEW.AgeErrorTypeID IS NULL) OR 
-            (({age_error_statement}) IS NOT NULL AND NEW.AgeErrorTypeID IS NULL) OR
-            (({new_age_error_statement}) IS NOT NULL AND AgeErrorTypeID IS NULL) THEN
+            WHEN (({new_age_error_statement}) IS NOT NULL AND NEW."AgeErrorTypeID" IS NULL) OR 
+            (({age_error_statement}) IS NOT NULL AND NEW."AgeErrorTypeID" IS NULL) OR
+            (({new_age_error_statement}) IS NOT NULL AND "AgeErrorTypeID" IS NULL) THEN
                 RAISE (ABORT,'Age error values with missing type')
             END;
         SELECT CASE
@@ -365,19 +361,15 @@ def create_triggers(c):
                 RAISE (ABORT,'Age error values with missing corresponding age')
             END;
         SELECT CASE
-            WHEN (NEW.BestAgeError IS NOT NULL AND NEW.BestAgeErrorType IS NULL) OR (BestAgeError IS NOT NULL AND NEW.BestAgeErrorType IS NULL) OR (NEW.BestAgeError IS NOT NULL AND BestAgeErrorType IS NULL) THEN
-                RAISE (ABORT,'Best age error value with missing type')
+            WHEN (NEW."Concordance" IS NOT NULL AND NEW."ConcordanceTypeID" IS NULL) OR 
+            ("Concordance" IS NOT NULL AND NEW."ConcordanceTypeID" IS NULL) OR
+            (NEW."Concordance" IS NOT NULL AND "ConcordanceTypeID" IS NULL) THEN
+                RAISE (ABORT,'"Concordance" value with missing type')
             END;
         SELECT CASE
-            WHEN (NEW.“Concordance” IS NOT NULL AND NEW.“ConcordanceTypeID” IS NULL) OR 
-            (“Concordance” IS NOT NULL AND NEW.“ConcordanceTypeID” IS NULL) OR
-            (NEW.“Concordance” IS NOT NULL AND “ConcordanceTypeID” IS NULL) THEN
-                RAISE (ABORT,'Concordance value with missing type')
-            END;
-        SELECT CASE
-            WHEN (NEW.SpotSize IS NOT NULL AND NEW.SpotSizeUnitID IS NULL) OR 
-            (SpotSize IS NOT NULL AND NEW.SpotSizeUnitID IS NULL) OR
-            (NEW.SpotSize IS NOT NULL AND SpotSizeUnitID IS NULL) THEN
+            WHEN (NEW."SpotSize" IS NOT NULL AND NEW."SpotSizeUnitID" IS NULL) OR 
+            ("SpotSize" IS NOT NULL AND NEW."SpotSizeUnitID" IS NULL) OR
+            (NEW."SpotSize" IS NOT NULL AND "SpotSizeUnitID" IS NULL) THEN
                 RAISE (ABORT,'Spot size value with missing units')
             END;
     END;
@@ -387,262 +379,262 @@ def create_triggers(c):
     ABOUT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_about AFTER UPDATE ON About
     BEGIN
-        UPDATE About SET AboutModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'About')};
+        UPDATE "About" SET "AboutModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'About')};
     END;'''
     AGECONSTRAINTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ageconstraints AFTER UPDATE ON AgeConstraints
     BEGIN
-        UPDATE AgeConstraints SET AgeConstraintModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeConstraints')};
+        UPDATE "AgeConstraints" SET "AgeConstraintModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeConstraints')};
     END;'''
     AGE_CONVERSIONS_MODIFIED_TRIGGER = f'''
-        CREATE TRIGGER IF NOT EXISTS update_modified_age_conversions AFTER UPDATE ON AgeConversions
-        BEGIN
-            UPDATE AgeConversions SET AgeUnitConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeConversions')};
-        END;'''
+    CREATE TRIGGER IF NOT EXISTS update_modified_age_conversions AFTER UPDATE ON AgeUnitConversions
+    BEGIN
+        UPDATE "AgeUnitConversions" SET "AgeUnitConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeUnitConversions')};
+    END;'''
     AGEINTERPRETATIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ageinterpretations AFTER UPDATE ON AgeInterpretations
     BEGIN
-        UPDATE AgeInterpretations SET AgeInterpretationModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeInterpretations')};
+        UPDATE "AgeInterpretations" SET "AgeInterpretationModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeInterpretations')};
     END;'''
     AGESIGNATURES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_agesignatures AFTER UPDATE ON AgeSignatures
     BEGIN
-        UPDATE AgeSignatures SET AgeSignatureModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeSignatures')};
+        UPDATE "AgeSignatures" SET "AgeSignatureModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeSignatures')};
     END;'''
     AGEUNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ageunits AFTER UPDATE ON AgeUnits
     BEGIN
-        UPDATE AgeUnits SET AgeUnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeUnits')};
+        UPDATE "AgeUnits" SET "AgeUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeUnits')};
     END;'''
     AGES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ages AFTER UPDATE ON Ages
     BEGIN
-        UPDATE Ages SET AgeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Ages')};
+        UPDATE "Ages" SET "AgeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Ages')};
     END;'''
     ALIQUOTCONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_aliquotcontexts AFTER UPDATE ON AliquotContexts
     BEGIN
-        UPDATE AliquotContexts SET AliquotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AliquotContexts')};
+        UPDATE "AliquotContexts" SET "AliquotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AliquotContexts')};
     END;'''
     ALIQUOTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_aliquots AFTER UPDATE ON Aliquots
     BEGIN
-        UPDATE Aliquots SET AliquotModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots')};
+        UPDATE "Aliquots" SET "AliquotModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots')};
     END;'''
     ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_aliquots_aliquotcontexts AFTER UPDATE ON Aliquots_AliquotContexts
     BEGIN
-        UPDATE Aliquots_AliquotContexts SET Aliquots_AliquotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots_AliquotContexts')};
+        UPDATE "Aliquots_AliquotContexts" SET "Aliquots_AliquotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots_AliquotContexts')};
     END;'''
     COLUMNS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_columns AFTER UPDATE ON Columns
     BEGIN
-        UPDATE Columns SET ColumnModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Columns')};
+        UPDATE "Columns" SET "ColumnModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Columns')};
     END;'''
     CONCORDANCETYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_concordancetypes AFTER UPDATE ON ConcordanceTypes
     BEGIN
-        UPDATE ConcordanceTypes SET ConcordanceTypeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceTypes')};
+        UPDATE "ConcordanceTypes" SET "ConcordanceTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceTypes')};
     END;'''
     CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER = f'''
-    CREATE TRIGGER IF NOT EXISTS update_modified_concordance_conversions AFTER UPDATE ON ConcordanceConversions
+    CREATE TRIGGER IF NOT EXISTS update_modified_concordance_conversions AFTER UPDATE ON ConcordanceTypeConversions
     BEGIN 
-        UPDATE ConcordanceConversions SET ConcordanceConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceConversions')};
+        UPDATE "ConcordanceTypeConversions" SET "ConcordanceConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceTypeConversions')};
     END;'''
     DIRECTIONUNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_directionunits AFTER UPDATE ON DirectionUnits
     BEGIN
-        UPDATE DirectionUnits SET DirectionUnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DirectionUnits')};
-    END;'''
-    DIRECTION_CONVERSIONS_MODIFIED_TRIGGER = f'''
-    CREATE TRIGGER IF NOT EXISTS update_modified_direction_conversions AFTER UPDATE ON DirectionConversions
-    BEGIN
-        UPDATE DirectionConversions SET DirectionConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DirectionConversions')};
+        UPDATE "DirectionUnits" SET "DirectionUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DirectionUnits')};
     END;'''
     DISTANCEUNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_distanceunits AFTER UPDATE ON DistanceUnits
     BEGIN
-        UPDATE DistanceUnits SET DistanceUnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceUnits')};
+        UPDATE "DistanceUnits" SET "DistanceUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceUnits')};
     END;'''
     DISTANCE_CONVERSIONS_MODIFIED_TRIGGER = f'''
-    CREATE TRIGGER IF NOT EXISTS update_modified_distance_conversions AFTER UPDATE ON DistanceConversions
+    CREATE TRIGGER IF NOT EXISTS update_modified_distance_conversions AFTER UPDATE ON DistanceUnitConversions
     BEGIN
-        UPDATE DistanceConversions SET DistanceConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceConversions')};
+        UPDATE "DistanceUnitConversions" SET "DistanceConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceUnitConversions')};
     END;'''
     ERRORTYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_errortypes AFTER UPDATE ON ErrorTypes
     BEGIN
-        UPDATE ErrorTypes SET ErrorTypeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorTypes')};
+        UPDATE "ErrorTypes" SET "ErrorTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorTypes')};
     END;'''
     ERROR_CONVERSIONS_MODIFIED_TRIGGER = f'''
-    CREATE TRIGGER IF NOT EXISTS update_modified_error_conversions AFTER UPDATE ON ErrorConversions
+    CREATE TRIGGER IF NOT EXISTS update_modified_error_conversions AFTER UPDATE ON ErrorTypeConversions
     BEGIN
-        UPDATE ErrorConversions SET ErrorConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorConversions')};
+        UPDATE "ErrorTypeConversions" SET "ErrorConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorTypeConversions')};
     END;'''
     GPS_CONVERSIONS_MODIFIED_TRIGGER = f'''
-    CREATE TRIGGER IF NOT EXISTS update_modified_gps_conversions AFTER UPDATE ON GPSConversions
+    CREATE TRIGGER IF NOT EXISTS update_modified_gps_conversions AFTER UPDATE ON GPSLocationConversions
     BEGIN
-        UPDATE GPSConversions SET GPSConversionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSConversions')};
+        UPDATE "GPSLocationConversions" SET "GPSConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSLocationConversions')};
     END;'''
     GPS_FORMATS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_gps_formats AFTER UPDATE ON GPSFormats
     BEGIN
-        UPDATE GPSFormats SET GPSFormatModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSFormats')};
+        UPDATE "GPSFormats" SET "GPSFormatModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSFormats')};
     END;'''
     GPS_LOCATIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_gpslocations AFTER UPDATE ON GPSLocations
     BEGIN
-        UPDATE GPSLocations SET GPSLocationModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSLocations')};
+        UPDATE "GPSLocations" SET "GPSLocationModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSLocations')};
     END;'''
     FILTERGROUPS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_filtergroups AFTER UPDATE ON FilterGroups
     BEGIN
-        UPDATE FilterGroups SET FilterGroupModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'FilterGroups')};
+        UPDATE "FilterGroups" SET "FilterGroupModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'FilterGroups')};
     END;'''
     INSTRUMENTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_instruments AFTER UPDATE ON Instruments
     BEGIN
-        UPDATE Instruments SET InstrumentModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Instruments')};
+        UPDATE "Instruments" SET "InstrumentModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Instruments')};
     END;'''
     LABFACILITIES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_labfacilities AFTER UPDATE ON LabFacilities
     BEGIN
-        UPDATE LabFacilities SET LabFacilityModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'LabFacilities')};
+        UPDATE "LabFacilities" SET "LabFacilityModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'LabFacilities')};
     END;'''
     REGIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_regions AFTER UPDATE ON Regions
     BEGIN
-        UPDATE Regions SET RegionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Regions')};
+        UPDATE "Regions" SET "RegionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Regions')};
     END;'''
     REJECTIONREASONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_rejectionreasons AFTER UPDATE ON RejectionReasons
     BEGIN
-        UPDATE RejectionReasons SET RejectionReasonModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RejectionReasons')};
+        UPDATE "RejectionReasons" SET "RejectionReasonModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RejectionReasons')};
     END;'''
     ROCKTYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_rocktypes AFTER UPDATE ON RockTypes
     BEGIN
-        UPDATE RockTypes SET RockTypeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RockTypes')};
+        UPDATE "RockTypes" SET "RockTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RockTypes')};
     END;'''
     SAMPLEAGES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sampleages AFTER UPDATE ON SampleAges
     BEGIN
-        UPDATE SampleAges SET SampleAgeModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges')};
+        UPDATE "SampleAges" SET "SampleAgeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges')};
     END;'''
     SAMPLECONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samplecontexts AFTER UPDATE ON SampleContexts
     BEGIN
-        UPDATE SampleContexts SET SampleContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleContexts')};
+        UPDATE "SampleContexts" SET "SampleContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleContexts')};
     END;'''
     SAMPLEAGES_AGECONSTRAINTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_ageconstraints AFTER UPDATE ON SampleAges_AgeConstraints
     BEGIN
-        UPDATE SampleAges_AgeConstraints SET SampleAges_AgeConstraintsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges_AgeConstraints')};
+        UPDATE "SampleAges_AgeConstraints" SET "SampleAges_AgeConstraintsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges_AgeConstraints')};
     END;'''
     SAMPLEAGES_AGEINTERPRETATIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_ageinterpretations AFTER UPDATE ON SampleAges_AgeInterpretations
     BEGIN
-        UPDATE SampleAges_AgeInterpretations SET {modified_list_statement(c, 'SampleAges_AgeInterpretations')};
+        UPDATE "SampleAges_AgeInterpretations" SET {modified_list_statement(c, 'SampleAges_AgeInterpretations')};
+    END;'''
+    SAMPLEAGES_SOURCES_MODIFIED_TRIGGER = f'''
+    CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_sources AFTER UPDATE ON SampleAges_Sources
+    BEGIN
+        UPDATE "SampleAges_Sources" SET "SampleAges_SourcesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges_Sources')};
     END;'''
     SAMPLES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples AFTER UPDATE ON Samples
     BEGIN
-        UPDATE Samples SET SampleModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples')};
+        UPDATE "Samples" SET "SampleModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples')};
     END;'''
     SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_agesignatures AFTER UPDATE ON Samples_AgeSignatures
     BEGIN
-        UPDATE Samples_AgeSignatures SET Samples_AgeSignaturesModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_AgeSignatures')};
+        UPDATE "Samples_AgeSignatures" SET "Samples_AgeSignaturesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_AgeSignatures')};
     END;'''
     SAMPLES_REGIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_regions AFTER UPDATE ON Samples_Regions
     BEGIN
-        UPDATE Samples_Regions SET Samples_RegionsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Regions')};
+        UPDATE "Samples_Regions" SET "Samples_RegionsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Regions')};
     END;'''
     SAMPLES_ROCKTYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_rocktypes AFTER UPDATE ON Samples_RockTypes
     BEGIN
-        UPDATE Samples_RockTypes SET Samples_RockTypesModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_RockTypes')};
+        UPDATE "Samples_RockTypes" SET "Samples_RockTypesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_RockTypes')};
     END;'''
     SAMPLES_SAMPLECONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplecontexts AFTER UPDATE ON Samples_SampleContexts
     BEGIN
-        UPDATE Samples_SampleContext SET Samples_SampleContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SampleContexts')};
+        UPDATE "Samples_SampleContexts" SET "Samples_SampleContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SampleContexts')};
     END;'''
     SAMPLES_SAMPLINGMETHODS_MODIFIED_RIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplingmethods AFTER UPDATE ON Samples_SamplingMethods
     BEGIN
-        UPDATE Samples_SamplingMethods SET Samples_SamplingMethodsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SamplingMethods')};
+        UPDATE "Samples_SamplingMethods" SET "Samples_SamplingMethodsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SamplingMethods')};
     END;'''
     SAMPLES_SETTINGS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_settings AFTER UPDATE ON Samples_Settings
     BEGIN
-        UPDATE Samples_Settings SET Samples_SettingsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Settings')};
+        UPDATE "Samples_Settings" SET "Samples_SettingsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Settings')};
     END;'''
     SAMPLES_UNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_units AFTER UPDATE ON Samples_Units
     BEGIN
-        UPDATE Samples_Units SET Samples_UnitsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Units')};
+        UPDATE "Samples_Units" SET "Samples_UnitsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Units')};
     END;'''
     SAMPLINGMETHODS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samplingmethods AFTER UPDATE ON SamplingMethods
     BEGIN
-        UPDATE SamplingMethods SET SamplingMethodModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SamplingMethods')};
+        UPDATE "SamplingMethods" SET "SamplingMethodModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SamplingMethods')};
     END;'''
     SETTINGS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_settings AFTER UPDATE ON Settings
     BEGIN
-        UPDATE Settings SET SettingModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Settings')};
+        UPDATE "Settings" SET "SettingModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Settings')};
     END;'''
     SOURCES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sources AFTER UPDATE ON Sources
     BEGIN
-        UPDATE Sources SET SourceModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Sources')};
+        UPDATE "Sources" SET "SourceModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Sources')};
     END;'''
     SPOTCOMPOSITIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spotcompositions AFTER UPDATE ON SpotCompositions
     BEGIN
-        UPDATE SpotCompositions SET SpotCompositionModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotCompositions')};
+        UPDATE "SpotCompositions" SET "SpotCompositionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotCompositions')};
     END;'''
     SPOTCONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spotcontexts AFTER UPDATE ON SpotContexts
     BEGIN
-        UPDATE SpotContexts SET SpotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotContexts')};
+        UPDATE "SpotContexts" SET "SpotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotContexts')};
     END;'''
     SPOTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spots AFTER UPDATE ON Spots
     BEGIN
-        UPDATE Spots SET SpotModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots')};
+        UPDATE "Spots" SET "SpotModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots')};
     END;'''
     SPOTS_SPOTCOMPOSITIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcompositions AFTER UPDATE ON Spots_SpotCompositions
     BEGIN
-        UPDATE Spots_SpotCompositions SET Spots_SpotCompositionsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotCompositions')};
+        UPDATE "Spots_SpotCompositions" SET "Spots_SpotCompositionsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotCompositions')};
     END;'''
     SPOTS_SPOTCONTEXTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcontexts AFTER UPDATE ON Spots_SpotContexts
     BEGIN
-        UPDATE Spots_SpotContexts SET Spots_SpotContextModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotContexts')};
+        UPDATE "Spots_SpotContexts" SET "Spots_SpotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotContexts')};
     END;'''
     UNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_units AFTER UPDATE ON Units
     BEGIN
-        UPDATE Units SET UnitModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Units')};
+        UPDATE "Units" SET "UnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Units')};
     END;'''
     UPBANALYSISMETHODS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_upbanalysismethods AFTER UPDATE ON UPbAnalysisMethods
     BEGIN
-        UPDATE UPbAnalysisMethods SET UPbAnalysisMethodModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalysisMethods')};
+        UPDATE "UPbAnalysisMethods" SET "UPbAnalysisMethodModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalysisMethods')};
     END;'''
     UPBANALYSES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_upbdata AFTER UPDATE ON UPbAnalyses
     BEGIN
-        UPDATE UPbAnalyses SET UPbAnalysisModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses')};
+        UPDATE "UPbAnalyses" SET "UPbAnalysisModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses')};
     END;'''
     UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_upbanalyses_rejectionreasons AFTER UPDATE ON UPbAnalyses_RejectionReasons
     BEGIN
-        UPDATE UPbAnalyses_RejectionReasons SET UPbAnalyses_RejectionReasonsModified = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses_RejectionReasons')};
+        UPDATE "UPbAnalyses_RejectionReasons" SET "UPbAnalyses_RejectionReasonsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses_RejectionReasons')};
     END;'''
 
 
@@ -672,7 +664,6 @@ def create_triggers(c):
     c.execute(CONCORDANCETYPES_MODIFIED_TRIGGER)
     c.execute(CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER)
     c.execute(DIRECTIONUNITS_MODIFIED_TRIGGER)
-    c.execute(DIRECTION_CONVERSIONS_MODIFIED_TRIGGER)
     c.execute(DISTANCEUNITS_MODIFIED_TRIGGER)
     c.execute(DISTANCE_CONVERSIONS_MODIFIED_TRIGGER)
     c.execute(ERRORTYPES_MODIFIED_TRIGGER)
@@ -690,6 +681,7 @@ def create_triggers(c):
     c.execute(SAMPLECONTEXT_MODIFIED_TRIGGER)
     c.execute(SAMPLEAGES_AGECONSTRAINTS_MODIFIED_TRIGGER)
     c.execute(SAMPLEAGES_AGEINTERPRETATIONS_MODIFIED_TRIGGER)
+    c.execute(SAMPLEAGES_SOURCES_MODIFIED_TRIGGER)
     c.execute(SAMPLES_MODIFIED_TRIGGER)
     c.execute(SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER)
     c.execute(SAMPLES_REGIONS_MODIFIED_TRIGGER)

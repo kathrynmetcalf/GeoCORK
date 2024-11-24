@@ -2,6 +2,7 @@ import sqlite3
 import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
 import Functions.DB_views as DBV # views
+from Functions.Alter_database import populate_generated_columns
 
 '''
 Commands to create the database
@@ -9,7 +10,7 @@ Foreign keys are set to cascade on update
 When a foreign key is deleted, most will be set to null
 The only exception is the AliquotID in the Spots table, which will cascade on delete
 Names must be unique and are checked for case sensitivity
-Analyses where Accepted is 1 are considered accepted, 0 are considered rejected
+Analyses where Rejected is 0 are considered accepted, 1 are considered rejected
 '''
 # look under linking aboutmodified to other tables
 '''SQL strings to create each table'''
@@ -75,12 +76,12 @@ CREATE_AGE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeUnits(
                     UNIQUE(AgeUnitAbbreviation COLLATE NOCASE)
                     )'''
 
-CREATE_AGE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeConversions(
+CREATE_AGE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS AgeUnitConversions(
                     FromAgeUnitID INTEGER NOT NULL CHECK(FromAgeUnitID <> ''),
                     ToAgeUnitID INTEGER NOT NULL CHECK(ToAgeUnitID <> ''),
-                    AgeConversionCalculation TEXT NOT NULL CHECK(AgeConversionCalculation <> ''), 
-                    AgeConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    AgeConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    AgeUnitConversionCalculation TEXT NOT NULL CHECK(AgeUnitConversionCalculation <> ''), 
+                    AgeUnitConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    AgeUnitConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     UNIQUE (FromAgeUnitID, ToAgeUnitID),
                     FOREIGN KEY(FromAgeUnitID) REFERENCES AgeUnits(AgeUnitID)
                         ON UPDATE CASCADE
@@ -173,12 +174,12 @@ CREATE_CONCORDANCE_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceTypes(
                     UNIQUE(ConcordanceTypeAbbreviation COLLATE NOCASE)
 )'''
 
-CREATE_CONCORDANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceConversions(
+CREATE_CONCORDANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceTypeConversions(
                     FromConcordanceTypeID INTEGER NOT NULL CHECK(FromConcordanceTypeID <> ''),
                     ToConcordanceTypeID INTEGER NOT NULL CHECK(ToConcordanceTypeID <> ''),
-                    ConcordanceConversionCalculation TEXT NOT NULL CHECK(ConcordanceConversionCalculation <> ''), 
-                    ConcordanceConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ConcordanceConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    ConcordanceTypeConversionCalculation TEXT NOT NULL CHECK(ConcordanceTypeConversionCalculation <> ''), 
+                    ConcordanceTypeConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ConcordanceTypeConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     UNIQUE (FromConcordanceTypeID, ToConcordanceTypeID),
                     FOREIGN KEY(FromConcordanceTypeID) REFERENCES ConcordanceTypes(ConcordanceTypeID)
                         ON UPDATE CASCADE
@@ -209,12 +210,12 @@ CREATE_DISTANCE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceUnits(
                     UNIQUE(DistanceUnitAbbreviation COLLATE NOCASE)
 )'''
 
-CREATE_DISTANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceConversions(
+CREATE_DISTANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceUnitConversions(
                     FromDistanceUnitID INTEGER NOT NULL CHECK(FromDistanceUnitID <> ''),
                     ToDistanceUnitID INTEGER NOT NULL CHECK(ToDistanceUnitID <> ''),
-                    DistanceConversionCalculation TEXT NOT NULL CHECK(DistanceConversionCalculation <> ''), 
-                    DistanceConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    DistanceConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    DistanceUnitConversionCalculation TEXT NOT NULL CHECK(DistanceUnitConversionCalculation <> ''), 
+                    DistanceUnitConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    DistanceUnitConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     UNIQUE (FromDistanceUnitID, ToDistanceUnitID),
                     FOREIGN KEY(FromDistanceUnitID) REFERENCES DistanceUnits(DistanceUnitID)
                         ON UPDATE CASCADE
@@ -235,12 +236,12 @@ CREATE_ERROR_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorTypes(
                     UNIQUE(ErrorTypeAbbreviation COLLATE NOCASE)
 )'''
 
-CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorConversions(
+CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorTypeConversions(
                     FromErrorTypeID INTEGER NOT NULL CHECK(FromErrorTypeID <> ''),
                     ToErrorTypeID INTEGER NOT NULL CHECK(ToErrorTypeID <> ''),
-                    ErrorConversionCalculation TEXT NOT NULL CHECK(ErrorConversionCalculation <> ''), 
-                    ErrorConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ErrorConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ErrorTypeConversionCalculation TEXT NOT NULL CHECK(ErrorTypeConversionCalculation <> ''), 
+                    ErrorTypeConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ErrorTypeConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (FromErrorTypeID, ToErrorTypeID),
                     FOREIGN KEY(FromErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
@@ -250,12 +251,12 @@ CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorConversions(
                         ON DELETE CASCADE
                     )'''
 
-CREATE_GPS_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSConversions(
+CREATE_GPS_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocationConversions(
                     FromGPSFormatID INTEGER NOT NULL CHECK(FromGPSFormatID <> ''),
                     ToGPSFormatID INTEGER NOT NULL CHECK(ToGPSFormatID <> ''),
-                    GPSConversionCalculation TEXT NOT NULL CHECK(GPSConversionCalculation <> ''),
-                    GPSConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    GPSConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GPSLocationConversionCalculation TEXT NOT NULL CHECK(GPSLocationConversionCalculation <> ''),
+                    GPSLocationConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GPSLocationConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (FromGPSFormatID, ToGPSFormatID),
                     FOREIGN KEY(FromGPSFormatID) REFERENCES GPSFormats(GPSFormatID)
                         ON UPDATE CASCADE
@@ -281,11 +282,11 @@ CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                     GPSLatDeg REAL,
                     GPSLatMin REAL,
                     GPSLatSec REAL,
-                    GPSLatDirectionID INTEGER CHECK (GPSLatDirectionID IN (0, 1) OR GPSLatDirectionID IS NULL),
+                    GPSLatDirectionID INTEGER CHECK (GPSLatDirectionID IN (1, 2) OR GPSLatDirectionID IS NULL),
                     GPSLonDeg REAL,
                     GPSLonMin REAL,
                     GPSLonSec REAL,
-                    GPSLonDirectionID INTEGER CHECK (GPSLonDirectionID IN (2, 3) OR GPSLonDirectionID IS NULL),
+                    GPSLonDirectionID INTEGER CHECK (GPSLonDirectionID IN (3, 4) OR GPSLonDirectionID IS NULL),
                     GPSUTMZone TEXT,
                     GPSUTMN REAL,
                     GPSUTME REAL,
@@ -436,6 +437,20 @@ CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Sampl
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
                     FOREIGN KEY(AgeInterpretationID) REFERENCES AgeInterpretations(AgeInterpretationID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_SAMPLEAGES_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges_Sources(
+                    SampleAgeID INTEGER NOT NULL,
+                    SourceID INTEGER NOT NULL,
+                    SamplesAges_SourcesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SamplesAges_SourcesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleAgeID, SourceID),
+                    FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SourceID) REFERENCES Sources(SourceID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -859,17 +874,16 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     "206Pb/238UAgeError" REAL,
                     "208Pb/232ThAge" REAL,
                     "208Pb/232ThAgeError" REAL,
-                    AgeErrorTypeID INTEGER,
                     BestAge REAL,
                     BestAgeError REAL, 
-                    BestAgeErrorTypeID INTEGER,
+                    AgeErrorTypeID INTEGER,
                     AgeUnitID INTEGER,
                     AgeInterpretationID INTEGER,
                     Concordance REAL,
                     ConcordanceTypeID INTEGER,
                     SpotSize REAL,
                     SpotSizeUnitID INTEGER,
-                    Accepted INTEGER,
+                    Rejected INTEGER,
                     RejectionReasonID INTEGER,
                     UPbAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -895,9 +909,6 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
                     FOREIGN KEY(AgeUnitID) REFERENCES AgeUnits(AgeUnitID)
-                        ON UPDATE CASCADE
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(BestAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(AgeInterpretationID) REFERENCES AgeInterpretations(AgeInterpretationID)
@@ -999,6 +1010,7 @@ def create_tables(db_file):
         c.execute(CREATE_SAMPLE_CONTEXT_TABLE)
         c.execute(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE)
         c.execute(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE)
+        c.execute(CREATE_SAMPLEAGES_SOURCES_TABLE)
         c.execute(CREATE_SAMPLING_METHODS_TABLE)
         c.execute(CREATE_SETTINGS_TABLE)
         c.execute(CREATE_UNITS_TABLE)
@@ -1104,6 +1116,14 @@ def create_tables(db_file):
         else:
             print(f'Ages query failed')
 
+    conn.commit()
+    conn.close()
+
+    # Create and populate generated columns
+    populate_generated_columns()
+
+
+
 
 def populate_age_units(conn):
     """
@@ -1134,12 +1154,12 @@ def populate_age_units(conn):
                 if unit2 > unit1:
                     conversion1to2 = f'x*{age_units[unit1][2]}/{age_units[unit2][2]}'
                     conversion2to1 = f'x*{age_units[unit2][2]}/{age_units[unit1][2]}'
-                    sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
+                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                         VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
                     try: c.execute(sql)
                     except:
                         print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
-                    sql = f'''INSERT INTO AgeConversions(FromAgeUnitID, ToAgeUnitID, AgeConversionCalculation)
+                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                         VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
                     try: c.execute(sql)
                     except:
@@ -1188,12 +1208,12 @@ def populate_concordance_types(conn):
                             # First type is concordance ratio and second type is discordance percent
                             conversion1to2 = '100*(1-x)'
                             conversion2to1 = '1-(x/100)'
-                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceConversionCalculation)
+                    sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
                                                             VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
                     try: c.execute(sql)
                     except:
                         print(f'failed to add conversion for {concordance_types[type1][1]} to {concordance_types[type2][1]}')
-                    sql = f'''INSERT INTO ConcordanceConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceConversionCalculation)
+                    sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
                                                             VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
                     try: c.execute(sql)
                     except:
@@ -1204,55 +1224,17 @@ def populate_direction_units(conn):
     # Begin by deleting all rows in the table to allow for a reset if things get changed
     sql = 'DELETE FROM DirectionUnits'
     c.execute(sql)
-    direction_units = [('Positive/Negative', '+/-'),
-                 ('Cardinal', 'NSEW')]
+    direction_units = [('North', 'N','positive north'),
+                       ('South', 'S','positive south'),
+                       ('East', 'E','positive east'),
+                       ('West', 'W','positive west')]
     for unit in direction_units:
-        sql = '''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation)
-                                VALUES(?,?)'''
-        values = (unit[0], unit[1])
+        sql = '''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitAbbreviation)
+                                VALUES(?,?,?)'''
+        values = (unit[0], unit[1], unit[2])
         try: c.execute(sql, values)
         except:
             print(f'failed to add {unit[0]}')
-    for unit1 in range(len(direction_units)):
-        for unit2 in range(len(direction_units)):
-            if unit2 > unit1:
-                if direction_units[unit1][1] == '+/-' and direction_units[unit2][1] == 'NSEW':
-                    conversion1to2 = '''
-                        if LatDirection == "N" and LonDirection == "E":
-                            return f'[lat*1, lon*1]'
-                        elif LatDirection == "N" and LonDirection == "W":
-                            return f'[lat*1, lon*(-1)]'
-                        elif LatDirection == "S" and LonDirection == "E":
-                            return f'[lat*(-1), lon*1]'
-                        elif LatDirection == "S" and LonDirection == "W":
-                            return f'[lat*(-1), lambda*(-1)]'
-                        else:
-                            return f'[lat*1, lon*1]'
-                        '''
-                    conversion2to1 = '''
-                        if Lat > 0 and Lon > 0:
-                            return f'[lat, N, lon E'
-                        elif Lat > 0 and Lon < 0:
-                            return f'[lat, N, (lon*(-1)) W'
-                        elif Lat < 0 and Lon > 0:
-                            return f'[(lat*(-1)), S, lon E'
-                        elif Lat < 0 and Lon < 0:
-                            return f'[(lat*(-1)), S, (lon*(-1)) W'
-                        '''
-                else:
-                    print('Conversion not defined')
-                    return
-
-                sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
-                        VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit1][1]}"),(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit2][1]}"),"{conversion1to2}")'''
-                try: c.execute(sql)
-                except:
-                    print(f'failed to add conversion for {direction_units[unit1][1]} to {direction_units[unit2][1]}')
-                sql = f'''INSERT INTO DirectionConversions(FromDirectionUnitID, ToDirectionUnitID, DirectionConversionCalculation)
-                        VALUES((SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit2][1]}"),(SELECT DirectionUnitID FROM DirectionUnits WHERE DirectionUnitAbbreviation = "{direction_units[unit1][1]}"),"{conversion2to1}")'''
-                try: c.execute(sql)
-                except:
-                    print(f'failed to add conversion for {direction_units[unit2][1]} to {direction_units[unit1][1]}')
 
 def populate_distance_units(conn):
     """
@@ -1298,12 +1280,12 @@ def populate_distance_units(conn):
                         # Unit 1 is imperial and unit 2 is metric
                         conversion1to2 = f'x*({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
                         conversion2to1 = f'x*{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
-                    sql = f'''INSERT INTO DistanceConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceConversionCalculation)
+                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
                                             VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
                     try: c.execute(sql)
                     except:
                         print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
-                    sql = f'''INSERT INTO DistanceConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceConversionCalculation)
+                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
                                             VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
                     try: c.execute(sql)
                     except:
@@ -1335,27 +1317,27 @@ def populate_error_types(conn):
         for type2 in range(len(error_types)):
             if type2 > type1:
                 if (error_types[type1][1][-1] == '%' and error_types[type2][1][-1] == '%') or (error_types[type1][1][-1] != '%' and error_types[type2][1][-1] != '%'):
-                    # Both types are percent
+                    # Both are the same type, percent or absolute
                     conversion1to2 = 'x*2'
                     conversion2to1 = 'x/2'
                 elif error_types[type1][1][-1] != '%':
-                    # First type is ratio and second type is percent
+                    # First type is absolute and second type is percent
                     if (error_types[type1][1][0] == '2' and error_types[type2][1][0] == '2') or (
                             error_types[type1][1][0] == '1' and error_types[type2][1][0] == '1'):
-                        # Both types are 1 sigma or 2 sigma
-                        conversion1to2 = 'x*100'
-                        conversion2to1 = 'x/100'
+                        # Both types are 1 sigma or 2 sigma, x is the databased error and y is the value it is an error of
+                        conversion1to2 = '(x/y)*100'
+                        conversion2to1 = '(x/100)*y'
                     else:
-                        # 1 sigma ratio to 2 sigma percent
-                        conversion1to2 = 'x*200'
-                        # 2 sigma percent to 1 sigma ratio
-                        conversion2to1 = 'x/200'
-                sql = f'''INSERT INTO ErrorConversions(FromErrorTypeID, ToErrorTypeID, ErrorConversionCalculation)
+                        # 1 sigma ratio to 2 sigma percent, x is the databased error and y is the value it is an error of
+                        conversion1to2 = '(x/y)*200'
+                        # 2 sigma percent to 1 sigma absolute, x is the databased error and y is the value it is an error of
+                        conversion2to1 = '(x/200)*y'
+                sql = f'''INSERT INTO ErrorTypeConversions(FromErrorTypeID, ToErrorTypeID, ErrorTypeConversionCalculation)
                                     VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),"{conversion1to2}")'''
                 try: c.execute(sql)
                 except:
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
-                sql = f'''INSERT INTO ErrorConversions(FromErrorTypeID, ToErrorTypeID, ErrorConversionCalculation)
+                sql = f'''INSERT INTO ErrorTypeConversions(FromErrorTypeID, ToErrorTypeID, ErrorTypeConversionCalculation)
                                     VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),"{conversion2to1}")'''
                 try: c.execute(sql)
                 except:
@@ -1387,104 +1369,104 @@ def populate_gps_formats(conn):
             except:
                 print(f'failed to add {gps_format[0]}')
         # todo: Figure out how to store the conversion formulas for coordinates. Maybe just directly call functions?
-        for format1 in range(len(gps_formats)):
-            for format2 in range(len(gps_formats)):
-                if format2 > format1:
-                    if gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DDM +/-':
-                        conversion1to2 = 'D = int(DD)\nM = (DD - D)*60'
-                        conversion2to1 = 'DD = D + M/60'
-                    elif gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DMS +/-':
-                        conversion1to2 = 'D = int(DD)\nM = int((DD - D)*60)\nS = (DD - D - M/60)*3600'
-                        conversion2to1 = 'DD = D + M/60 + S/3600'
-                    elif gps_format[format1][1] == 'DDM +/-' and gps_format[format2][1] == 'DMS +/-':
-                        conversion1to2 = 'D = D\nM = int(DM)\nS = (DM - M)*60'
-                        conversion2to1 = 'D=D\nDM = M + S/60'
-                    elif gps_format[format2][1] == 'UTM':
-                        if gps_format[format1][1] == 'DD':
-                            # Convert DD UTM
-                            conversion1to2 = '''
-                                import pyproj
-                                def convert_to_utm(GPSLatDeg, GPSLonDeg):
-                                    # Convert lat lon to UTM
-                                    # Calculate the UTM zone
-                                    zone = int(((GPSLatDeg)lon + 180)/6) + 1
-                                    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-                                    UTMN, UTME = proj_utm((GPSLatDeg), (GPSLonDeg))
-                                    return zone, UTMN, UTME
-                                '''
-                            # Convert UTM to DD
-                            conversion2to1 = '''
-                                import pyproj
-                                def convert_utm_to_dd(GPSUTMZone, GPSUTMN, GPSUTME):
-                                    # Convert UTM to lat lon
-                                    proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
-                                    GPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTME, inverse=True)
-                                    return LatDD, LonDD
-                                '''
-                        elif gps_format[format1][1] == 'DDM':
-                            # Convert DDM or DMS to UTM
-                            conversion1to2 = '''
-                                import pyproj
-                                def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin):
-                                    # Convert lat lon to UTM
-                                    # Calculate the UTM zone
-                                    zone = int(((GPSLatDeg + GPSLatMin/60)lon + 180)/6) + 1
-                                    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-                                    UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60), (GPSLonDeg + GPSLonMin/60))
-                                    return zone, UTMN, UTME
-                                '''
-                            # Convert UTM to DDM
-                            conversion2to1 = '''
-                                import pyproj
-                                def convert_utm_to_ddm(GPSUTMZone, GPSUTMN, GPSUTME):
-                                    # Convert UTM to lat lon
-                                    proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
-                                    LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
-                                    GPSLatDeg = int(LatDD)
-                                    GPSLatMin = (LatDD - GPSLatDeg)*60
-                                    GPSLonDeg = int(LonDD)
-                                    GPSLonMin = (LonDD - GPSLonDeg)*60
-                                    return GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin
-                                '''
-                        elif gps_format[format1][1] == 'DMS':
-                            # Convert DMS to UTM
-                            conversion1to2 = '''
-                                import pyproj
-                                def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec):
-                                    # Convert lat lon to UTM
-                                    # Calculate the UTM zone
-                                    zone = int(((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600)lon + 180)/6) + 1
-                                    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-                                    UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600), (GPSLonDeg + GPSLonMin/60 + GPSLonSec/3600))
-                                    return zone, UTMN, UTME
-                                '''
-                            # Convert UTM to DMS
-                            conversion2to1 = '''
-                                import pyproj
-                                def convert_utm_to_dms(GPSUTMZone, GPSUTMN, GPSUTME):
-                                    # Convert UTM to lat lon
-                                    proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
-                                    LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
-                                    GPSLatDeg = int(LatDD)
-                                    GPSLatMin = int((LatDD - GPSLatDeg)*60)
-                                    GPSLatSec = (LatDD - GPSLatDeg - GPSLatMin/60)*3600
-                                    GPSLonDeg = int(LonDD)
-                                    GPSLonMin = int((LonDD - GPSLonDeg)*60)
-                                    GPSLonSec = (LonDD - GPSLonDeg - GPSLonMin/60)*3600
-                                    return GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec
-                                '''
-
-                        # conversion2to1 = 'proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")\nGPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTMW, inverse=True)\n'
-                    sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation) 
-                                VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),"{conversion1to2}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}')
-                    sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
-                                VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),"{conversion2to1}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}')
+        # for format1 in range(len(gps_formats)):
+        #     for format2 in range(len(gps_formats)):
+        #         if format2 > format1:
+        #             if gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DDM +/-':
+        #                 conversion1to2 = 'D = int(DD)\nM = (DD - D)*60'
+        #                 conversion2to1 = 'DD = D + M/60'
+        #             elif gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DMS +/-':
+        #                 conversion1to2 = 'D = int(DD)\nM = int((DD - D)*60)\nS = (DD - D - M/60)*3600'
+        #                 conversion2to1 = 'DD = D + M/60 + S/3600'
+        #             elif gps_format[format1][1] == 'DDM +/-' and gps_format[format2][1] == 'DMS +/-':
+        #                 conversion1to2 = 'D = D\nM = int(DM)\nS = (DM - M)*60'
+        #                 conversion2to1 = 'D=D\nDM = M + S/60'
+        #             elif gps_format[format2][1] == 'UTM':
+        #                 if gps_format[format1][1] == 'DD':
+        #                     # Convert DD UTM
+        #                     conversion1to2 = '''
+        #                         import pyproj
+        #                         def convert_to_utm(GPSLatDeg, GPSLonDeg):
+        #                             # Convert lat lon to UTM
+        #                             # Calculate the UTM zone
+        #                             zone = int(((GPSLatDeg)lon + 180)/6) + 1
+        #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+        #                             UTMN, UTME = proj_utm((GPSLatDeg), (GPSLonDeg))
+        #                             return zone, UTMN, UTME
+        #                         '''
+        #                     # Convert UTM to DD
+        #                     conversion2to1 = '''
+        #                         import pyproj
+        #                         def convert_utm_to_dd(GPSUTMZone, GPSUTMN, GPSUTME):
+        #                             # Convert UTM to lat lon
+        #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+        #                             GPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+        #                             return LatDD, LonDD
+        #                         '''
+        #                 elif gps_format[format1][1] == 'DDM':
+        #                     # Convert DDM or DMS to UTM
+        #                     conversion1to2 = '''
+        #                         import pyproj
+        #                         def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin):
+        #                             # Convert lat lon to UTM
+        #                             # Calculate the UTM zone
+        #                             zone = int(((GPSLatDeg + GPSLatMin/60)lon + 180)/6) + 1
+        #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+        #                             UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60), (GPSLonDeg + GPSLonMin/60))
+        #                             return zone, UTMN, UTME
+        #                         '''
+        #                     # Convert UTM to DDM
+        #                     conversion2to1 = '''
+        #                         import pyproj
+        #                         def convert_utm_to_ddm(GPSUTMZone, GPSUTMN, GPSUTME):
+        #                             # Convert UTM to lat lon
+        #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+        #                             LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+        #                             GPSLatDeg = int(LatDD)
+        #                             GPSLatMin = (LatDD - GPSLatDeg)*60
+        #                             GPSLonDeg = int(LonDD)
+        #                             GPSLonMin = (LonDD - GPSLonDeg)*60
+        #                             return GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin
+        #                         '''
+        #                 elif gps_format[format1][1] == 'DMS':
+        #                     # Convert DMS to UTM
+        #                     conversion1to2 = '''
+        #                         import pyproj
+        #                         def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec):
+        #                             # Convert lat lon to UTM
+        #                             # Calculate the UTM zone
+        #                             zone = int(((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600)lon + 180)/6) + 1
+        #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+        #                             UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600), (GPSLonDeg + GPSLonMin/60 + GPSLonSec/3600))
+        #                             return zone, UTMN, UTME
+        #                         '''
+        #                     # Convert UTM to DMS
+        #                     conversion2to1 = '''
+        #                         import pyproj
+        #                         def convert_utm_to_dms(GPSUTMZone, GPSUTMN, GPSUTME):
+        #                             # Convert UTM to lat lon
+        #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+        #                             LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+        #                             GPSLatDeg = int(LatDD)
+        #                             GPSLatMin = int((LatDD - GPSLatDeg)*60)
+        #                             GPSLatSec = (LatDD - GPSLatDeg - GPSLatMin/60)*3600
+        #                             GPSLonDeg = int(LonDD)
+        #                             GPSLonMin = int((LonDD - GPSLonDeg)*60)
+        #                             GPSLonSec = (LonDD - GPSLonDeg - GPSLonMin/60)*3600
+        #                             return GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec
+        #                         '''
+        #
+        #                 # conversion2to1 = 'proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")\nGPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTMW, inverse=True)\n'
+        #             sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
+        #                         VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),"{conversion1to2}")'''
+        #             try: c.execute(sql)
+        #             except:
+        #                 print(f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}')
+        #             sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
+        #                         VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),"{conversion2to1}")'''
+        #             try: c.execute(sql)
+        #             except:
+        #                 print(f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}')
 
 
 def populate_ages(conn):

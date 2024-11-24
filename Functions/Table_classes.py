@@ -35,7 +35,6 @@ class SampleTableModel(QtS.QSqlQueryModel):
                     SELECT
                         {SQLUtils.qsample_id},
                         {SQLUtils.qsample_name},
-                        {SQLUtils.qgps},
                         {SQLUtils.qelev},
                         {SQLUtils.qage},
                         {SQLUtils.qage_range},
@@ -58,27 +57,41 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         {SQLUtils.qspot_compositions},
                         {SQLUtils.qaliquot_context}
                     FROM Samples
-                    {SQLUtils.sample_age_join}
-                    {SQLUtils.gps_sample_join}
-                    {SQLUtils.column_join}
-                    {SQLUtils.sample_old_age_join}
-                    {SQLUtils.sample_young_age_join}
                     {SQLUtils.age_signature_join}
+                    {SQLUtils.column_join}
+                    {SQLUtils.region_join}
                     {SQLUtils.rock_type_join}
                     {SQLUtils.sample_context_join}
-                    {SQLUtils.aliquot_join}
-                    {SQLUtils.spot_join}
-                    {SQLUtils.upb_analysis_join}
-                    {SQLUtils.upb_source_join}
-                    {SQLUtils.region_join}
+                    {SQLUtils.sample_sampleage_join}
                     {SQLUtils.sampling_method_join}
                     {SQLUtils.setting_join}
                     {SQLUtils.unit_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.spot_composition_join}
+                    {SQLUtils.sample_age_join}
+                    {SQLUtils.sample_age_error_type_join}
+                    {SQLUtils.sample_age_unit_join}
+                    {SQLUtils.sample_old_age_join}
+                    {SQLUtils.sample_young_age_join}
+                    {SQLUtils.sampleage_ageconstraint_join}
+                    {SQLUtils.sampleage_ageinterpretation_join}
+                    {SQLUtils.gps_sample_join}
+                    {SQLUtils.gps_column_join}
+                    {SQLUtils.aliquot_join}
                     {SQLUtils.aliquot_context_join}
+                    {SQLUtils.spot_join}
+                    {SQLUtils.spot_composition_join}
+                    {SQLUtils.spot_context_join}
+                    {SQLUtils.upb_analysis_join}
+                    {SQLUtils.upb_source_join}
+                    {SQLUtils.upb_labs_join}
+                    {SQLUtils.upb_instruments_join}
+                    {SQLUtils.upb_method_join}
+                    {SQLUtils.upb_ratio_error_type_join}
+                    {SQLUtils.upb_age_error_type_join}
+                    {SQLUtils.upb_best_age_error_type_join}
+                    {SQLUtils.upb_age_unit_join}
+                    {SQLUtils.upb_concordance_type_join}
+                    {SQLUtils.upb_spot_size_unit_join}
+                    {SQLUtils.upb_rejection_reason_join}
                     {f"WHERE Samples.SampleID IN {ids_to_show}" if ids_to_show is not None else ""}
                     GROUP BY Samples.SampleName
 					ORDER BY Samples.SampleID
@@ -86,7 +99,16 @@ class SampleTableModel(QtS.QSqlQueryModel):
 					{f"OFFSET {offset}" if offset is not None else ""}
                     '''
 
-        print(sample_query)
+        simple_sample_query = f'''
+                    SELECT
+                        {SQLUtils.qsample_id},
+                        {SQLUtils.qsample_name},
+                        {SQLUtils.qelev}
+                    FROM Samples
+                    {SQLUtils.gps_sample_join}
+                    '''
+
+        print(simple_sample_query)
         return sample_query
 
 def SampleDistinctQuery():
@@ -404,13 +426,13 @@ def delete_samples(sample_ids: list, db: QtS.QSqlDatabase):
     def release_savepoint():
         save_query = QtS.QSqlQuery(db)
         if save_query.exec('RELEASE SAVEPOINT before_delete') is False:
-            errtxt = query.lastError().text()
+            errtxt = save_query.lastError().text()
             return errtxt
 
     def rollback_savepoint():
         save_query = QtS.QSqlQuery(db)
         if save_query.exec('ROLLBACK TO before_delete') is False:
-            errtxt = query.lastError().text()
+            errtxt = save_query.lastError().text()
             return errtxt
 
     def delete_query(table, ids, id_name):
