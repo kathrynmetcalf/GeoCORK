@@ -1,8 +1,10 @@
 import sqlite3
+import PyQt6
+from PyQt6 import QtSql as QtS
 import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
 import Functions.DB_views as DBV # views
-from Functions.Alter_database import populate_generated_columns
+import Functions.Alter_database as AlterDB # alter database
 
 '''
 Commands to create the database
@@ -954,364 +956,345 @@ CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMetho
 '''Commands to create tables and populate default tables'''
 
 
-def create_tables(db_file):
+def create_tables(db):
     """
     Connect to the database and execute the sql strings defined above to create the database tables
     Only creates tables that do not already exist - does not overwrite existing tables
     If the Ages table is empty, it will fill it from the Geologic timescale xml file
-    :param db_file: Database file with full path
+    :param db: QSqlDatabase object
     """
-    conn = sqlite3.connect(db_file)
-    with conn:
-        c = conn.cursor()
+    
+    query = QtS.QSqlQuery(db)
 
-        # Create the tables
-        c.execute(CREATE_ABOUT_TABLE)
+    # Create the tables
+    query.exec(CREATE_ABOUT_TABLE)
 
-        # Create unit and type tables
-        c.execute(CREATE_AGE_UNITS_TABLE)
-        c.execute(CREATE_CONCORDANCE_TYPES_TABLE)
-        c.execute(CREATE_DIRECTION_UNITS_TABLE)
-        c.execute(CREATE_DISTANCE_UNITS_TABLE)
-        c.execute(CREATE_ERROR_TYPES_TABLE)
+    # Create unit and type tables
+    query.exec(CREATE_AGE_UNITS_TABLE)
+    query.exec(CREATE_CONCORDANCE_TYPES_TABLE)
+    query.exec(CREATE_DIRECTION_UNITS_TABLE)
+    query.exec(CREATE_DISTANCE_UNITS_TABLE)
+    query.exec(CREATE_ERROR_TYPES_TABLE)
 
-        # Create conversion tables
-        c.execute(CREATE_AGE_CONVERSIONS_TABLE)
-        c.execute(CREATE_CONCORDANCE_CONVERSIONS_TABLE)
-        c.execute(CREATE_DISTANCE_CONVERSIONS_TABLE)
-        c.execute(CREATE_ERROR_CONVERSIONS_TABLE)
+    # Create conversion tables
+    query.exec(CREATE_AGE_CONVERSIONS_TABLE)
+    query.exec(CREATE_CONCORDANCE_CONVERSIONS_TABLE)
+    query.exec(CREATE_DISTANCE_CONVERSIONS_TABLE)
+    query.exec(CREATE_ERROR_CONVERSIONS_TABLE)
 
-        # Create analysis tag tables
-        c.execute(CREATE_INSTRUMENTS_TABLE)
-        c.execute(CREATE_LAB_FACILITIES_TABLE)
-        c.execute(CREATE_REJECTION_REASONS_TABLE)
-        c.execute(CREATE_SOURCES_TABLE)
-        c.execute(CREATE_UPBANALYSIS_METHOD_TABLE)
+    # Create analysis tag tables
+    query.exec(CREATE_INSTRUMENTS_TABLE)
+    query.exec(CREATE_LAB_FACILITIES_TABLE)
+    query.exec(CREATE_REJECTION_REASONS_TABLE)
+    query.exec(CREATE_SOURCES_TABLE)
+    query.exec(CREATE_UPBANALYSIS_METHOD_TABLE)
 
-        # Create spot tag tables
-        c.execute(CREATE_SPOT_COMPOSITION_TABLE)
-        c.execute(CREATE_SPOT_CONTEXT_TABLE)
+    # Create spot tag tables
+    query.exec(CREATE_SPOT_COMPOSITION_TABLE)
+    query.exec(CREATE_SPOT_CONTEXT_TABLE)
 
-        # Create aliquot tag tables
-        c.execute(CREATE_ALIQUOT_CONTEXT_TABLE)
+    # Create aliquot tag tables
+    query.exec(CREATE_ALIQUOT_CONTEXT_TABLE)
 
-        # Create sample tag tables
-        c.execute(CREATE_AGE_CONSTRAINTS_TABLE)
-        c.execute(CREATE_AGE_INTERPRETATIONS_TABLE) # Shared with upb analyses
-        c.execute(CREATE_AGE_SIGNATURES_TABLE)
-        c.execute(CREATE_AGES_TABLE)
-        c.execute(CREATE_COLUMNS_TABLE)
-        c.execute(CREATE_GPS_CONVERSIONS_TABLE)
-        c.execute(CREATE_GPS_FORMATS_TABLE)
-        c.execute(CREATE_GPS_LOCATIONS_TABLE)
-        c.execute(CREATE_REGIONS_TABLE)
-        c.execute(CREATE_ROCK_TYPES_TABLE)
-        c.execute(CREATE_SAMPLE_AGE_TABLE)
-        c.execute(CREATE_SAMPLE_CONTEXT_TABLE)
-        c.execute(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE)
-        c.execute(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE)
-        c.execute(CREATE_SAMPLEAGES_SOURCES_TABLE)
-        c.execute(CREATE_SAMPLING_METHODS_TABLE)
-        c.execute(CREATE_SETTINGS_TABLE)
-        c.execute(CREATE_UNITS_TABLE)
+    # Create sample tag tables
+    query.exec(CREATE_AGE_CONSTRAINTS_TABLE)
+    query.exec(CREATE_AGE_INTERPRETATIONS_TABLE) # Shared with upb analyses
+    query.exec(CREATE_AGE_SIGNATURES_TABLE)
+    query.exec(CREATE_AGES_TABLE)
+    query.exec(CREATE_COLUMNS_TABLE)
+    query.exec(CREATE_GPS_CONVERSIONS_TABLE)
+    query.exec(CREATE_GPS_FORMATS_TABLE)
+    query.exec(CREATE_GPS_LOCATIONS_TABLE)
+    query.exec(CREATE_REGIONS_TABLE)
+    query.exec(CREATE_ROCK_TYPES_TABLE)
+    query.exec(CREATE_SAMPLE_AGE_TABLE)
+    query.exec(CREATE_SAMPLE_CONTEXT_TABLE)
+    query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE)
+    query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE)
+    query.exec(CREATE_SAMPLEAGES_SOURCES_TABLE)
+    query.exec(CREATE_SAMPLING_METHODS_TABLE)
+    query.exec(CREATE_SETTINGS_TABLE)
+    query.exec(CREATE_UNITS_TABLE)
 
-        # Create sample item and analysis tables
-        c.execute(CREATE_SAMPLES_TABLE)
-        c.execute(CREATE_ALIQUOTS_TABLE)
-        c.execute(CREATE_SPOTS_TABLE)
-        c.execute(CREATE_UPBANALYSES_TABLE)
+    # Create sample item and analysis tables
+    query.exec(CREATE_SAMPLES_TABLE)
+    query.exec(CREATE_ALIQUOTS_TABLE)
+    query.exec(CREATE_SPOTS_TABLE)
+    query.exec(CREATE_UPBANALYSES_TABLE)
 
-        # Create many-to-many sample tables
-        c.execute(CREATE_SAMPLES_AGESIGNATURES_TABLE)
-        c.execute(CREATE_SAMPLES_REGIONS_TABLE)
-        c.execute(CREATE_SAMPLES_ROCKTYPES_TABLE)
-        c.execute(CREATE_SAMPLES_SAMPLEAGES_TABLE)
-        c.execute(CREATE_SAMPLES_SAMPLECONTEXT_TABLE)
-        c.execute(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE)
-        c.execute(CREATE_SAMPLES_SETTINGS_TABLE)
-        c.execute(CREATE_SAMPLES_UNITS_TABLE)
+    # Create many-to-many sample tables
+    query.exec(CREATE_SAMPLES_AGESIGNATURES_TABLE)
+    query.exec(CREATE_SAMPLES_REGIONS_TABLE)
+    query.exec(CREATE_SAMPLES_ROCKTYPES_TABLE)
+    query.exec(CREATE_SAMPLES_SAMPLEAGES_TABLE)
+    query.exec(CREATE_SAMPLES_SAMPLECONTEXT_TABLE)
+    query.exec(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE)
+    query.exec(CREATE_SAMPLES_SETTINGS_TABLE)
+    query.exec(CREATE_SAMPLES_UNITS_TABLE)
 
-        # Create many-to-many anliquot tables
-        c.execute(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE)
+    # Create many-to-many anliquot tables
+    query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE)
 
-        # Create many-to-many spot tables
-        c.execute(CREATE_SPOTS_SPOTCOMPOSITION_TABLE)
-        c.execute(CREATE_SPOTS_SPOTCONTEXT_TABLE)
+    # Create many-to-many spot tables
+    query.exec(CREATE_SPOTS_SPOTCOMPOSITION_TABLE)
+    query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE)
 
-        # Create many-to-many analysis tables
-        c.execute(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE)
+    # Create many-to-many analysis tables
+    query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE)
 
-        c.execute(CREATE_FILTER_GROUPS_TABLE)
+    query.exec(CREATE_FILTER_GROUPS_TABLE)
 
-        CT.create_triggers(c)
+    CT.create_triggers(db)
 
-        # DBV.create_sample_view(c)
+    # DBV.create_sample_view(c)
 
-        # Populate the age units table during initiation
-        sql = '''SELECT * FROM AgeUnits'''
-        try: c.execute(sql)
-        except:
-            print(f'AgeUnits query failed')
-            return
-        out = c.fetchall()
+    # Populate the age units table during initiation
+    sql = '''SELECT * FROM AgeUnits'''
+    try: query.exec(sql)
+    except:
+        print(f'AgeUnits query failed')
+        return
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out:  # if there is no output, the table is empty
+        populate_age_units()  # populate it
+
+    # Populate the concordance type table during initiation
+    sql = '''SELECT * FROM ConcordanceTypes'''
+    try: query.exec(sql)
+    except:
+        print(f'ConcordanceTypes query failed')
+        return
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out: # if there is no output, the table is empty
+        populate_concordance_types() # populate it
+
+    # Populate the direction unit table during initiation
+    sql = '''SELECT * FROM DirectionUnits'''
+    try: query.exec(sql)
+    except:
+        print(f'DirectionUnits query failed')
+        return
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out: # if there is no output, the table is empty
+        populate_direction_units() # populate it
+
+    # Populate the distance unit table during initiation
+    sql = '''SELECT * FROM DistanceUnits'''
+    try: query.exec(sql)
+    except:
+        print(f'DistanceUnits query failed')
+        return
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out:  # if there is no output, the table is empty
+        populate_distance_units()  # populate it
+
+    # Populate the error type table during initiation
+    sql = '''SELECT * FROM ErrorTypes'''
+    try: query.exec(sql)
+    except:
+        print(f'ErrorTypes query failed')
+        return
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out:
+        populate_error_types()
+
+    # Populate the gps format table during initiation
+    sql = '''SELECT * FROM GPSFormats'''
+    try: query.exec(sql)
+    except:
+        print(f'GPSFormats query failed')
+        return
+    out = []
+    while query.next(): out.append(query.value(1))
+    if not out:
+        populate_gps_formats()
+
+    # Populate the age table during initiation
+    sql = '''SELECT * FROM Ages'''
+    if query.exec(sql):
+        out = []
+        while query.next(): out.append(query.value(3))
         if not out:  # if there is no output, the table is empty
-            populate_age_units(conn)  # populate it
-
-        # Populate the concordance type table during initiation
-        sql = '''SELECT * FROM ConcordanceTypes'''
-        try: c.execute(sql)
-        except:
-            print(f'ConcordanceTypes query failed')
-            return
-        out = c.fetchall()
-        if not out: # if there is no output, the table is empty
-            populate_concordance_types(conn) # populate it
-
-        # Populate the direction unit table during initiation
-        sql = '''SELECT * FROM DirectionUnits'''
-        try: c.execute(sql)
-        except:
-            print(f'DirectionUnits query failed')
-            return
-        out = c.fetchall()
-        if not out: # if there is no output, the table is empty
-            populate_direction_units(conn) # populate it
-
-        # Populate the distance unit table during initiation
-        sql = '''SELECT * FROM DistanceUnits'''
-        try: c.execute(sql)
-        except:
-            print(f'DistanceUnits query failed')
-            return
-        out = c.fetchall()
-        if not out:  # if there is no output, the table is empty
-            populate_distance_units(conn)  # populate it
-
-        # Populate the error type table during initiation
-        sql = '''SELECT * FROM ErrorTypes'''
-        try: c.execute(sql)
-        except:
-            print(f'ErrorTypes query failed')
-            return
-        out = c.fetchall()
-        if not out:
-            populate_error_types(conn)
-
-        # Populate the gps format table during initiation
-        sql = '''SELECT * FROM GPSFormats'''
-        try: c.execute(sql)
-        except:
-            print(f'GPSFormats query failed')
-            return
-        out = c.fetchall()
-        if not out:
-            populate_gps_formats(conn)
-
-        # Populate the age table during initiation
-        sql = '''SELECT * FROM Ages'''
-        if c.execute(sql):
-            out = c.fetchall()
-            if not out:  # if there is no output, the table is empty
-                populate_ages(conn)  # populate it
-        else:
-            print(f'Ages query failed')
-
-    conn.commit()
-    conn.close()
+            populate_ages()  # populate it
+    else:
+        print(f'Ages query failed')
 
     # Create and populate generated columns
-    populate_generated_columns()
+    tables_affected = [['SampleAges', CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', CREATE_UPBANALYSES_TABLE],
+                       ['GPSLocations', CREATE_GPS_LOCATIONS_TABLE], ['Samples', CREATE_SAMPLES_TABLE],
+                       ['Columns', CREATE_COLUMNS_TABLE]]
+    AlterDB.drop_virtual_columns(db, tables_affected)
+    AlterDB.populate_generated_columns(db)
 
 
 
 
-def populate_age_units(conn):
+def populate_age_units():
     """
     Connect to the database and add the default age units
-    :param conn: Database connection from create_tables
     """
 
-    with conn:
-        c = conn.cursor()
-        # Begin by deleting all rows in the table to allow for a reset if things get changed
-        sql = 'DELETE FROM AgeUnits'
-        c.execute(sql)
-        age_units = [('Billion years', 'Ga', '1000000000'),
-                     ('Million years', 'Ma', '1000000'),
-                     ('Thousand years', 'ka', '1000'),
-                     ('Years', 'a', '1')]
-        for unit in age_units:
-            sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES(?,?)'''
-            # sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES('{unit[0]}','{unit[1]}')'''
-            values = (unit[0], unit[1])
-            try: c.execute(sql, values)
-            # try: c.execute(sql)
-            except:
-                print(f'failed to add {unit[0]}')
+    query = QtS.QSqlQuery()
+    # Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM AgeUnits'
+    query.exec(sql)
+    age_units = [('Billion years', 'Ga', '1000000000'),
+                 ('Million years', 'Ma', '1000000'),
+                 ('Thousand years', 'ka', '1000'),
+                 ('Years', 'a', '1')]
+    for unit in age_units:
+        sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES("{unit[0]}","{unit[1]}")'''
+        if not query.exec(sql):
+            print(f'failed to add {unit[0]}')
 
-        for unit1 in range(len(age_units)):
-            for unit2 in range(len(age_units)):
-                if unit2 > unit1:
-                    conversion1to2 = f'x*{age_units[unit1][2]}/{age_units[unit2][2]}'
-                    conversion2to1 = f'x*{age_units[unit2][2]}/{age_units[unit1][2]}'
-                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
-                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
-                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
-                                        VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
+    for unit1 in range(len(age_units)):
+        for unit2 in range(len(age_units)):
+            if unit2 > unit1:
+                conversion1to2 = f'x*{age_units[unit1][2]}/{age_units[unit2][2]}'
+                conversion2to1 = f'x*{age_units[unit2][2]}/{age_units[unit1][2]}'
+                sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
+                                    VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
+                if not query.exec(sql):
+                    print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
+                sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
+                                    VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
+                if not query.exec(sql):
+                    print(f'failed to add conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
 
-def populate_concordance_types(conn):
+def populate_concordance_types():
     """
         Connect to the database and add the default concordance types
-        :param conn: Database connection from create_tables
         """
 
-    with conn:
-        c = conn.cursor()
-        # Begin by deleting all rows in the table to allow for a reset if things get changed
-        sql = 'DELETE FROM ConcordanceTypes'
-        c.execute(sql)
-        concordance_types = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
-                             ('Concordance percent', 'Con%', 'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
-                             ('Discordance ratio', 'Dis', 'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
-                             ('Discordance percent', 'Dis%', 'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
-        for concordance_type in concordance_types:
-            sql = '''INSERT INTO ConcordanceTypes(ConcordanceTypeName, ConcordanceTypeAbbreviation, ConcordanceTypeDescription)
-                                    VALUES(?,?,?)'''
-            values = (concordance_type[0], concordance_type[1], concordance_type[2])
-            try: c.execute(sql, values)
-            except:
-                print(f'failed to add {concordance_type[0]}')
-        for type1 in range(len(concordance_types)):
-            for type2 in range(len(concordance_types)):
-                if type2 > type1:
-                    if concordance_types[type1][1][-1] == '%' and concordance_types[type2][1][-1] == '%':
-                        # Both types are percent
-                        conversion1to2 = '100-x'
-                        conversion2to1 = '100-x'
-                    elif concordance_types[type1][1][-1] != '%' and concordance_types[type2][1][-1] != '%':
-                        # Both types are ratio
-                        conversion1to2 = '1-x'
-                        conversion2to1 = '1-x'
-                    elif concordance_types[type1][1][-1] != '%':
-                        # First type is ratio and second type is percent
-                        if (concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Con%') or (concordance_types[type1][1] == 'Dis' and concordance_types[type2][1] == 'Dis%'):
-                            # Both types are concordance or discordance
-                            conversion1to2 = 'x*100'
-                            conversion2to1 = 'x/100'
-                        elif concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Dis%':
-                            # First type is concordance ratio and second type is discordance percent
-                            conversion1to2 = '100*(1-x)'
-                            conversion2to1 = '1-(x/100)'
-                    sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
-                                                            VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {concordance_types[type1][1]} to {concordance_types[type2][1]}')
-                    sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
-                                                            VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {concordance_types[type2][1]} to {concordance_types[type1][1]}')
+    query = QtS.QSqlQuery()
+    # Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM ConcordanceTypes'
+    query.exec(sql)
+    concordance_types = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
+                         ('Concordance percent', 'Con%', 'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
+                         ('Discordance ratio', 'Dis', 'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
+                         ('Discordance percent', 'Dis%', 'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
+    for concordance_type in concordance_types:
+        sql = f'''INSERT INTO ConcordanceTypes(ConcordanceTypeName, ConcordanceTypeAbbreviation, ConcordanceTypeDescription)
+                                VALUES("{concordance_type[0]}","{concordance_type[1]}","{concordance_type[2]}")'''
+        if not query.exec(sql):
+            print(f'failed to add {concordance_type[0]}')
+    for type1 in range(len(concordance_types)):
+        for type2 in range(len(concordance_types)):
+            if type2 > type1:
+                if concordance_types[type1][1][-1] == '%' and concordance_types[type2][1][-1] == '%':
+                    # Both types are percent
+                    conversion1to2 = '100-x'
+                    conversion2to1 = '100-x'
+                elif concordance_types[type1][1][-1] != '%' and concordance_types[type2][1][-1] != '%':
+                    # Both types are ratio
+                    conversion1to2 = '1-x'
+                    conversion2to1 = '1-x'
+                elif concordance_types[type1][1][-1] != '%':
+                    # First type is ratio and second type is percent
+                    if (concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Con%') or (concordance_types[type1][1] == 'Dis' and concordance_types[type2][1] == 'Dis%'):
+                        # Both types are concordance or discordance
+                        conversion1to2 = 'x*100'
+                        conversion2to1 = 'x/100'
+                    elif concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Dis%':
+                        # First type is concordance ratio and second type is discordance percent
+                        conversion1to2 = '100*(1-x)'
+                        conversion2to1 = '1-(x/100)'
+                sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
+                                                        VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
+                if not query.exec(sql):
+                    print(f'failed to add conversion for {concordance_types[type1][1]} to {concordance_types[type2][1]}')
+                sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
+                                                        VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
+                if not query.exec(sql):
+                    print(f'failed to add conversion for {concordance_types[type2][1]} to {concordance_types[type1][1]}')
 
-def populate_direction_units(conn):
-    c = conn.cursor()
+def populate_direction_units():
+    query = QtS.QSqlQuery()
     # Begin by deleting all rows in the table to allow for a reset if things get changed
     sql = 'DELETE FROM DirectionUnits'
-    c.execute(sql)
+    query.exec(sql)
     direction_units = [('North', 'N','positive north'),
                        ('South', 'S','positive south'),
                        ('East', 'E','positive east'),
                        ('West', 'W','positive west')]
     for unit in direction_units:
-        sql = '''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitAbbreviation)
-                                VALUES(?,?,?)'''
-        values = (unit[0], unit[1], unit[2])
-        try: c.execute(sql, values)
-        except:
+        sql = f'''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitAbbreviation)
+                                VALUES("{unit[0]}", "{unit[1]}", "{unit[2]}")'''
+        if not query.exec(sql):
             print(f'failed to add {unit[0]}')
 
-def populate_distance_units(conn):
+def populate_distance_units():
     """
         Connect to the database and add the default distance units
-        :param conn: Database connection from create_tables
         """
 
-    with conn:
-        c = conn.cursor()
-        # Begin by deleting all rows in the table to allow for a reset if things get changed
-        sql = 'DELETE FROM DistanceUnits'
-        c.execute(sql)
-        # International standard foot is 0.3048 meters exactly
-        m_per_ft = 0.3048
-        distance_units = [('Kilometers', 'km', '1000'),
-                     ('Meters', 'm', '1'),
-                     ('Centimeters', 'cm', '0.01'),
-                     ('Millimeter', 'mm', '0.001'),
-                     ('Micrometer', 'µm', '0.000001'),
-                     ('Miles', 'mi', '5280'),
-                     ('Yards', 'yd', '3'),
-                     ('Feet', 'ft', '1'),
-                     ('Inches', 'in', f'(1/12)')]
-        for unit in distance_units:
-            sql = '''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
-                                        VALUES(?,?)'''
-            values = (unit[0], unit[1])
-            try: c.execute(sql, values)
-            except:
-                print(f'failed to add {unit[0]}')
-        for unit1 in range(len(distance_units)):
-            for unit2 in range(len(distance_units)):
-                if unit2 > unit1:
-                    if (distance_units[unit1][1][-1] == 'm' and distance_units[unit2][1][-1] == 'm') or (distance_units[unit1][1][-1] != 'm' and distance_units[unit2][1][-1] != 'm'):
-                        # Both units are the same format
-                        conversion1to2 = f'x*{distance_units[unit1][2]}/{distance_units[unit2][2]}'
-                        conversion2to1 = f'x*{distance_units[unit2][2]}/{distance_units[unit1][2]}'
-                    elif distance_units[unit1][1][-1] == 'm':
-                        # Unit 1 is metric and unit 2 is imperial
-                        conversion1to2 = f'x*{distance_units[unit1][2]}/({m_per_ft}*{distance_units[unit2][2]})'
-                        conversion2to1 = f'x*({distance_units[unit2][2]}*{m_per_ft})/{distance_units[unit1][2]}'
-                    else:
-                        # Unit 1 is imperial and unit 2 is metric
-                        conversion1to2 = f'x*({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
-                        conversion2to1 = f'x*{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
-                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
-                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
-                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
-                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
-                    try: c.execute(sql)
-                    except:
-                        print(f'failed to add conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
+    query = QtS.QSqlQuery()
+    # Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM DistanceUnits'
+    query.exec(sql)
+    # International standard foot is 0.3048 meters exactly
+    m_per_ft = 0.3048
+    distance_units = [('Kilometers', 'km', '1000'),
+                 ('Meters', 'm', '1'),
+                 ('Centimeters', 'cm', '0.01'),
+                 ('Millimeter', 'mm', '0.001'),
+                 ('Micrometer', 'µm', '0.000001'),
+                 ('Miles', 'mi', '5280'),
+                 ('Yards', 'yd', '3'),
+                 ('Feet', 'ft', '1'),
+                 ('Inches', 'in', f'(1/12)')]
+    for unit in distance_units:
+        sql = f'''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
+                                    VALUES("{unit[0]}","{unit[1]}")'''
+        if not query.exec(sql):
+            print(f'failed to add {unit[0]}')
+    for unit1 in range(len(distance_units)):
+        for unit2 in range(len(distance_units)):
+            if unit2 > unit1:
+                if (distance_units[unit1][1][-1] == 'm' and distance_units[unit2][1][-1] == 'm') or (distance_units[unit1][1][-1] != 'm' and distance_units[unit2][1][-1] != 'm'):
+                    # Both units are the same format
+                    conversion1to2 = f'x*{distance_units[unit1][2]}/{distance_units[unit2][2]}'
+                    conversion2to1 = f'x*{distance_units[unit2][2]}/{distance_units[unit1][2]}'
+                elif distance_units[unit1][1][-1] == 'm':
+                    # Unit 1 is metric and unit 2 is imperial
+                    conversion1to2 = f'x*{distance_units[unit1][2]}/({m_per_ft}*{distance_units[unit2][2]})'
+                    conversion2to1 = f'x*({distance_units[unit2][2]}*{m_per_ft})/{distance_units[unit1][2]}'
+                else:
+                    # Unit 1 is imperial and unit 2 is metric
+                    conversion1to2 = f'x*({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
+                    conversion2to1 = f'x*{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
+                sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
+                                        VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
+                if not query.exec(sql):
+                    print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
+                sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
+                                        VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
+                if not query.exec(sql):
+                    print(f'failed to add conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
 
-def populate_error_types(conn):
+def populate_error_types():
     """
             Connect to the database and add the default error types
-            :param conn: Database connection from create_tables
             """
 
-    with conn:
-        c = conn.cursor()
-        # Begin by deleting all rows in the table to allow for a reset if things get changed
-        sql = 'DELETE FROM ErrorTypes'
-        c.execute(sql)
+    query = QtS.QSqlQuery()
+    # Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM ErrorTypes'
+    query.exec(sql)
     error_types = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
                          ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
                          ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
                          ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
     for error_type in error_types:
-        sql = '''INSERT INTO ErrorTypes(ErrorTypeName, ErrorTypeAbbreviation, ErrorTypeDescription)
-                                    VALUES(?,?,?)'''
-        values = (error_type[0], error_type[1], error_type[2])
-        try: c.execute(sql, values)
-        except:
+        sql = f'''INSERT INTO ErrorTypes(ErrorTypeName, ErrorTypeAbbreviation, ErrorTypeDescription)
+                                    VALUES("{error_type[0]}","{error_type[1]}","{error_type[2]}")'''
+        if not query.exec(sql):
             print(f'failed to add {error_type[0]}')
     for type1 in range(len(error_types)):
         for type2 in range(len(error_types)):
@@ -1334,231 +1317,225 @@ def populate_error_types(conn):
                         conversion2to1 = '(x/200)*y'
                 sql = f'''INSERT INTO ErrorTypeConversions(FromErrorTypeID, ToErrorTypeID, ErrorTypeConversionCalculation)
                                     VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),"{conversion1to2}")'''
-                try: c.execute(sql)
-                except:
+                if not query.exec(sql):
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
                 sql = f'''INSERT INTO ErrorTypeConversions(FromErrorTypeID, ToErrorTypeID, ErrorTypeConversionCalculation)
                                     VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),"{conversion2to1}")'''
-                try: c.execute(sql)
-                except:
+                if not query.exec(sql):
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
 
-def populate_gps_formats(conn):
+def populate_gps_formats():
     """
     Connect to the database and add the default GPS formats
     :param conn: Database connection from create_tables
     """
 
-    with (conn):
-        c = conn.cursor()
-        # Begin by deleting all rows in the table to allow for a reset if things get changed
-        sql = 'DELETE FROM GPSFormats'
-        c.execute(sql)
-        gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
-                       ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
-                       ('Degrees minutes positive/negative', 'DDM +/-', 'Degrees and decimal minutes with positive N and E and negative S and W'),
-                       ('Degrees minutes cardinal', 'DDM NSEW', 'Degrees and decimal minutes with cardinal directions'),
-                       ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
-                       ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
-                       ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
-        for gps_format in gps_formats:
-            sql = '''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
-                        VALUES(?,?,?)'''
-            values = (gps_format[0], gps_format[1], gps_format[2])
-            try: c.execute(sql, values)
-            except:
-                print(f'failed to add {gps_format[0]}')
-        # todo: Figure out how to store the conversion formulas for coordinates. Maybe just directly call functions?
-        # for format1 in range(len(gps_formats)):
-        #     for format2 in range(len(gps_formats)):
-        #         if format2 > format1:
-        #             if gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DDM +/-':
-        #                 conversion1to2 = 'D = int(DD)\nM = (DD - D)*60'
-        #                 conversion2to1 = 'DD = D + M/60'
-        #             elif gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DMS +/-':
-        #                 conversion1to2 = 'D = int(DD)\nM = int((DD - D)*60)\nS = (DD - D - M/60)*3600'
-        #                 conversion2to1 = 'DD = D + M/60 + S/3600'
-        #             elif gps_format[format1][1] == 'DDM +/-' and gps_format[format2][1] == 'DMS +/-':
-        #                 conversion1to2 = 'D = D\nM = int(DM)\nS = (DM - M)*60'
-        #                 conversion2to1 = 'D=D\nDM = M + S/60'
-        #             elif gps_format[format2][1] == 'UTM':
-        #                 if gps_format[format1][1] == 'DD':
-        #                     # Convert DD UTM
-        #                     conversion1to2 = '''
-        #                         import pyproj
-        #                         def convert_to_utm(GPSLatDeg, GPSLonDeg):
-        #                             # Convert lat lon to UTM
-        #                             # Calculate the UTM zone
-        #                             zone = int(((GPSLatDeg)lon + 180)/6) + 1
-        #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-        #                             UTMN, UTME = proj_utm((GPSLatDeg), (GPSLonDeg))
-        #                             return zone, UTMN, UTME
-        #                         '''
-        #                     # Convert UTM to DD
-        #                     conversion2to1 = '''
-        #                         import pyproj
-        #                         def convert_utm_to_dd(GPSUTMZone, GPSUTMN, GPSUTME):
-        #                             # Convert UTM to lat lon
-        #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
-        #                             GPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTME, inverse=True)
-        #                             return LatDD, LonDD
-        #                         '''
-        #                 elif gps_format[format1][1] == 'DDM':
-        #                     # Convert DDM or DMS to UTM
-        #                     conversion1to2 = '''
-        #                         import pyproj
-        #                         def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin):
-        #                             # Convert lat lon to UTM
-        #                             # Calculate the UTM zone
-        #                             zone = int(((GPSLatDeg + GPSLatMin/60)lon + 180)/6) + 1
-        #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-        #                             UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60), (GPSLonDeg + GPSLonMin/60))
-        #                             return zone, UTMN, UTME
-        #                         '''
-        #                     # Convert UTM to DDM
-        #                     conversion2to1 = '''
-        #                         import pyproj
-        #                         def convert_utm_to_ddm(GPSUTMZone, GPSUTMN, GPSUTME):
-        #                             # Convert UTM to lat lon
-        #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
-        #                             LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
-        #                             GPSLatDeg = int(LatDD)
-        #                             GPSLatMin = (LatDD - GPSLatDeg)*60
-        #                             GPSLonDeg = int(LonDD)
-        #                             GPSLonMin = (LonDD - GPSLonDeg)*60
-        #                             return GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin
-        #                         '''
-        #                 elif gps_format[format1][1] == 'DMS':
-        #                     # Convert DMS to UTM
-        #                     conversion1to2 = '''
-        #                         import pyproj
-        #                         def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec):
-        #                             # Convert lat lon to UTM
-        #                             # Calculate the UTM zone
-        #                             zone = int(((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600)lon + 180)/6) + 1
-        #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
-        #                             UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600), (GPSLonDeg + GPSLonMin/60 + GPSLonSec/3600))
-        #                             return zone, UTMN, UTME
-        #                         '''
-        #                     # Convert UTM to DMS
-        #                     conversion2to1 = '''
-        #                         import pyproj
-        #                         def convert_utm_to_dms(GPSUTMZone, GPSUTMN, GPSUTME):
-        #                             # Convert UTM to lat lon
-        #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
-        #                             LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
-        #                             GPSLatDeg = int(LatDD)
-        #                             GPSLatMin = int((LatDD - GPSLatDeg)*60)
-        #                             GPSLatSec = (LatDD - GPSLatDeg - GPSLatMin/60)*3600
-        #                             GPSLonDeg = int(LonDD)
-        #                             GPSLonMin = int((LonDD - GPSLonDeg)*60)
-        #                             GPSLonSec = (LonDD - GPSLonDeg - GPSLonMin/60)*3600
-        #                             return GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec
-        #                         '''
-        #
-        #                 # conversion2to1 = 'proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")\nGPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTMW, inverse=True)\n'
-        #             sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
-        #                         VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),"{conversion1to2}")'''
-        #             try: c.execute(sql)
-        #             except:
-        #                 print(f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}')
-        #             sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
-        #                         VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),"{conversion2to1}")'''
-        #             try: c.execute(sql)
-        #             except:
-        #                 print(f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}')
+    query = QtS.QSqlQuery()
+    # Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM GPSFormats'
+    query.exec(sql)
+    gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
+                   ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
+                   ('Degrees minutes positive/negative', 'DDM +/-', 'Degrees and decimal minutes with positive N and E and negative S and W'),
+                   ('Degrees minutes cardinal', 'DDM NSEW', 'Degrees and decimal minutes with cardinal directions'),
+                   ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
+                   ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
+                   ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+    for gps_format in gps_formats:
+        sql = f'''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
+                    VALUES("{gps_format[0]}","{gps_format[1]}","{gps_format[2]}")'''
+        if not query.exec(sql):
+            print(f'failed to add {gps_format[0]}')
+    # todo: Figure out how to store the conversion formulas for coordinates. Maybe just directly call functions?
+    # for format1 in range(len(gps_formats)):
+    #     for format2 in range(len(gps_formats)):
+    #         if format2 > format1:
+    #             if gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DDM +/-':
+    #                 conversion1to2 = 'D = int(DD)\nM = (DD - D)*60'
+    #                 conversion2to1 = 'DD = D + M/60'
+    #             elif gps_format[format1][1] == 'DD +/-' and gps_format[format2][1] == 'DMS +/-':
+    #                 conversion1to2 = 'D = int(DD)\nM = int((DD - D)*60)\nS = (DD - D - M/60)*3600'
+    #                 conversion2to1 = 'DD = D + M/60 + S/3600'
+    #             elif gps_format[format1][1] == 'DDM +/-' and gps_format[format2][1] == 'DMS +/-':
+    #                 conversion1to2 = 'D = D\nM = int(DM)\nS = (DM - M)*60'
+    #                 conversion2to1 = 'D=D\nDM = M + S/60'
+    #             elif gps_format[format2][1] == 'UTM':
+    #                 if gps_format[format1][1] == 'DD':
+    #                     # Convert DD UTM
+    #                     conversion1to2 = '''
+    #                         import pyproj
+    #                         def convert_to_utm(GPSLatDeg, GPSLonDeg):
+    #                             # Convert lat lon to UTM
+    #                             # Calculate the UTM zone
+    #                             zone = int(((GPSLatDeg)lon + 180)/6) + 1
+    #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+    #                             UTMN, UTME = proj_utm((GPSLatDeg), (GPSLonDeg))
+    #                             return zone, UTMN, UTME
+    #                         '''
+    #                     # Convert UTM to DD
+    #                     conversion2to1 = '''
+    #                         import pyproj
+    #                         def convert_utm_to_dd(GPSUTMZone, GPSUTMN, GPSUTME):
+    #                             # Convert UTM to lat lon
+    #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+    #                             GPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+    #                             return LatDD, LonDD
+    #                         '''
+    #                 elif gps_format[format1][1] == 'DDM':
+    #                     # Convert DDM or DMS to UTM
+    #                     conversion1to2 = '''
+    #                         import pyproj
+    #                         def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin):
+    #                             # Convert lat lon to UTM
+    #                             # Calculate the UTM zone
+    #                             zone = int(((GPSLatDeg + GPSLatMin/60)lon + 180)/6) + 1
+    #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+    #                             UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60), (GPSLonDeg + GPSLonMin/60))
+    #                             return zone, UTMN, UTME
+    #                         '''
+    #                     # Convert UTM to DDM
+    #                     conversion2to1 = '''
+    #                         import pyproj
+    #                         def convert_utm_to_ddm(GPSUTMZone, GPSUTMN, GPSUTME):
+    #                             # Convert UTM to lat lon
+    #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+    #                             LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+    #                             GPSLatDeg = int(LatDD)
+    #                             GPSLatMin = (LatDD - GPSLatDeg)*60
+    #                             GPSLonDeg = int(LonDD)
+    #                             GPSLonMin = (LonDD - GPSLonDeg)*60
+    #                             return GPSLatDeg, GPSLatMin, GPSLonDeg, GPSLonMin
+    #                         '''
+    #                 elif gps_format[format1][1] == 'DMS':
+    #                     # Convert DMS to UTM
+    #                     conversion1to2 = '''
+    #                         import pyproj
+    #                         def convert_to_utm(GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec):
+    #                             # Convert lat lon to UTM
+    #                             # Calculate the UTM zone
+    #                             zone = int(((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600)lon + 180)/6) + 1
+    #                             proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84")
+    #                             UTMN, UTME = proj_utm((GPSLatDeg + GPSLatMin/60 + GPSLatSec/3600), (GPSLonDeg + GPSLonMin/60 + GPSLonSec/3600))
+    #                             return zone, UTMN, UTME
+    #                         '''
+    #                     # Convert UTM to DMS
+    #                     conversion2to1 = '''
+    #                         import pyproj
+    #                         def convert_utm_to_dms(GPSUTMZone, GPSUTMN, GPSUTME):
+    #                             # Convert UTM to lat lon
+    #                             proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")
+    #                             LatDD, LonDD = proj_utm(GPSUTMN, GPSUTME, inverse=True)
+    #                             GPSLatDeg = int(LatDD)
+    #                             GPSLatMin = int((LatDD - GPSLatDeg)*60)
+    #                             GPSLatSec = (LatDD - GPSLatDeg - GPSLatMin/60)*3600
+    #                             GPSLonDeg = int(LonDD)
+    #                             GPSLonMin = int((LonDD - GPSLonDeg)*60)
+    #                             GPSLonSec = (LonDD - GPSLonDeg - GPSLonMin/60)*3600
+    #                             return GPSLatDeg, GPSLatMin, GPSLatSec, GPSLonDeg, GPSLonMin, GPSLonSec
+    #                         '''
+    #
+    #                 # conversion2to1 = 'proj_utm = pyproj.Proj(proj="utm", zone=GPSUTMZone, datum="WGS84")\nGPSLatDeg, GPSLonDeg = proj_utm(GPSUTMN, GPSUTMW, inverse=True)\n'
+    #             sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
+    #                         VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),"{conversion1to2}")'''
+    #             try: query.exec(sql)
+    #             except:
+    #                 print(f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}')
+    #             sql = f'''INSERT INTO GPSConversions(FromGPSFormatID, ToGPSFormatID, GPSConversionCalculation)
+    #                         VALUES((SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format2][1]}"),(SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{gps_formats[format1][1]}"),"{conversion2to1}")'''
+    #             try: query.exec(sql)
+    #             except:
+    #                 print(f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}')
 
 
-def populate_ages(conn):
+def populate_ages():
     """
     Connect to the database and add the Geologic timescale tree structure with names and ages
     GSA Geologic Time Scale v. 5.0 as a xml file
     Overwrites any previous changes to this table
-    :param conn: Database connection from create_tables
     """
 
-    with conn:
-        c = conn.cursor()
-        # Begin by deleting all rows in the table to allow for a reset if things get changed
-        sql = 'DELETE FROM Ages'
-        c.execute(sql)
-        xml_file = "./Reference/GeologicTime_Ages.xml"
-        tree = ET.parse(xml_file)
-        root = tree.getroot()
-        eon_row = 0
+    query = QtS.QSqlQuery()
+    # Begin by deleting all rows in the table to allow for a reset if things get changed
+    sql = 'DELETE FROM Ages'
+    query.exec(sql)
+    xml_file = "./Reference/GeologicTime_Ages.xml"
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+    eon_row = 0
+    era_row = 0
+    period_row = 0
+    epoch_row = 0
+    age_row = 0
+    for eon in root.findall('Eon'):
+        age_item = ('', eon_row, f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
+        add_age(age_item)
+        for era in eon.findall('Era'):
+            eon_name = eon.get("name")
+            if query.exec(f'SELECT AgeID FROM AGES WHERE AgeName = "{eon_name}"'):
+                out = []
+                while query.next(): out.append(query.value(0))
+                eon_id = out[0]
+                age_item = (eon_id, era_row, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
+                add_age(age_item)
+                for period in era.findall('Period'):
+                    era_name = era.get("name")
+                    if query.exec(f'SELECT AgeID FROM AGES WHERE AgeName = "{era_name}"'):
+                        out = []
+                        while query.next(): out.append(query.value(0))
+                        era_id = out[0]
+                        age_item = (
+                            era_id, period_row, f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
+                        add_age(age_item)
+                        for epoch in period.findall('Epoch'):
+                            period_name = period.get("name")
+                            if query.exec(f'SELECT AgeID FROM AGES WHERE AgeName = "{period_name}"'):
+                                out = []
+                                while query.next(): out.append(query.value(0))
+                                period_id = out[0]
+                                age_item = (period_id, epoch_row, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
+                                            f'{epoch.get("youngest")}')
+                                add_age(age_item)
+                                for age in epoch.findall('Age'):
+                                    epoch_name = epoch.get("name")
+                                    # Many epochs have the same name, need to get most recent one
+                                    if query.exec(
+                                            f'SELECT AgeID FROM AGES WHERE AgeName = "{epoch_name}" '
+                                            f'ORDER BY AgeID DESC'):
+                                        out = []
+                                        while query.next(): out.append(query.value(0))
+                                        epoch_id = out[0]
+                                        age_item = (epoch_id, age_row, f'{age.get("name")}', f'{age.get("oldest")}',
+                                                    f'{age.get("youngest")}')
+                                        add_age(age_item)
+                                    age_row += 1
+                                epoch_row += 1
+                                age_row = 0
+                        period_row += 1
+                        epoch_row = 0
+                era_row += 1
+                period_row = 0
+        eon_row += 1
         era_row = 0
-        period_row = 0
-        epoch_row = 0
-        age_row = 0
-        for eon in root.findall('Eon'):
-            age_item = ('', eon_row, f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
-            add_age(c, age_item)
-            for era in eon.findall('Era'):
-                eon_name = eon.get("name")
-                if c.execute(f'SELECT AgeID FROM AGES WHERE AgeName = "{eon_name}"'):
-                    out = c.fetchall()
-                    eon_id = out[0][0]
-                    age_item = (eon_id, era_row, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
-                    add_age(c, age_item)
-                    for period in era.findall('Period'):
-                        era_name = era.get("name")
-                        if c.execute(f'SELECT AgeID FROM AGES WHERE AgeName = "{era_name}"'):
-                            out = c.fetchall()
-                            era_id = out[0][0]
-                            age_item = (
-                                era_id, period_row, f'{period.get("name")}', f'{period.get("oldest")}', f'{period.get("youngest")}')
-                            add_age(c, age_item)
-                            for epoch in period.findall('Epoch'):
-                                period_name = period.get("name")
-                                if c.execute(f'SELECT AgeID FROM AGES WHERE AgeName = "{period_name}"'):
-                                    out = c.fetchall()
-                                    period_id = out[0][0]
-                                    age_item = (period_id, epoch_row, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
-                                                f'{epoch.get("youngest")}')
-                                    add_age(c, age_item)
-                                    for age in epoch.findall('Age'):
-                                        epoch_name = epoch.get("name")
-                                        # Many epochs have the same name, need to get most recent one
-                                        if c.execute(
-                                                f'SELECT AgeID FROM AGES WHERE AgeName = "{epoch_name}" '
-                                                f'ORDER BY AgeID DESC'):
-                                            out = c.fetchall()
-                                            epoch_id = out[0][0]
-                                            age_item = (epoch_id, age_row, f'{age.get("name")}', f'{age.get("oldest")}',
-                                                        f'{age.get("youngest")}')
-                                            add_age(c, age_item)
-                                        age_row += 1
-                                    epoch_row += 1
-                                    age_row = 0
-                            period_row += 1
-                            epoch_row = 0
-                    era_row += 1
-                    period_row = 0
-            eon_row += 1
-            era_row = 0
 
 
-def add_age(c, age):
+def add_age(age):
     """
     Called by populate_ages
     Adds each age item to the table with its parent ID
     :param c: database connection cursor
     :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma)
     """
+    query = QtS.QSqlQuery()
     if age[0]:
         # if there is a parent
-        sql = '''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge)
-                        VALUES(?,?,?,?,?)'''
-        values = (age[0], age[1], age[2], age[3], age[4])
-        try: c.execute(sql, values)
-        except:
+        sql = f'''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge)
+                        VALUES({age[0]}, {age[1]}, "{age[2]}", {age[3]}, {age[4]})'''
+        if not query.exec(sql):
             print(f'failed to add {age[2]}')
     else:
-        sql = '''INSERT INTO Ages(AgeParentRow, AgeName, OldestAge, YoungestAge)
-                        VALUES(?,?,?,?)'''
-        values = (age[1], age[2], age[3], age[4])
-        try: c.execute(sql, values)
-        except:
+        sql = f'''INSERT INTO Ages(AgeParentRow, AgeName, OldestAge, YoungestAge)
+                        VALUES({age[1]}, "{age[2]}", {age[3]}, {age[4]})'''
+        if not query.exec(sql):
             print(f'failed to add {age[2]}')
 
 

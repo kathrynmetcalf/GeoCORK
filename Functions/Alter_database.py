@@ -1,11 +1,65 @@
 import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
-from Functions.Table_classes import set_table
-from pyproj import Proj, transform
+from PyQt6.QtSql import QSqlDatabase
 
-def populate_generated_columns():
-    create_savepoint()
+from Functions.Table_classes import set_table
+# from pyproj import Proj, transform
+
+def drop_virtual_columns(db, tables_affected: list):
+    create_savepoint(db)
+    for table_info in tables_affected:
+        table = table_info[0]
+        create_sql = table_info[1]
+        table_model = QtS.QSqlTableModel()
+        set_table(table_model, table)
+        query = QtS.QSqlQuery(db)
+        query.exec(f'PRAGMA table_xinfo({table})')
+        virtual = []
+        stored = []
+        columns = []
+        modified_column = False
+        while query.next():
+            if not modified_column:
+                if 'Modified' in query.value(1):
+                    modified_column = True
+                    columns.append(f'"{query.value(1)}"')
+                elif 'Calculated' in query.value(1):
+                    stored.append(f'"{query.value(1)}"')
+                else:
+                    columns.append(f'"{query.value(1)}"')
+            else:
+                virtual.append(f'"{query.value(1)}"')
+        if virtual:
+            column_str = ', '.join(columns)
+            query.exec('PRAGMA foreign_keys=OFF')
+            if not query.exec(f'ALTER TABLE {table} RENAME TO {table}_old'):
+                if 'already' in query.lastError().text():
+                    if not query.exec(f'DROP TABLE {table}_old'):
+                        print(f'Error dropping leftover old {table} table: {query.lastError().text()}')
+                        rollback_savepoint(db)
+                        return
+                else:
+                    print(f'Error renaming {table} table: {query.lastError().text()}')
+                    rollback_savepoint(db)
+                    return
+            # Select only the stored columns, not the virtual ones
+            if not query.exec(create_sql):
+                print(f'Error creating new {table} table: {query.lastError().text()}')
+                rollback_savepoint(db)
+                return
+            if not query.exec(f'INSERT INTO {table} SELECT {column_str} FROM {table}_old'):
+                print(f'Error copying data from {table} table: {query.lastError().text()}')
+                rollback_savepoint(db)
+                return
+            if not query.exec(f'DROP TABLE {table}_old'):
+                print(f'Error dropping old {table} table: {query.lastError().text()}')
+                rollback_savepoint(db)
+                return
+            query.exec('PRAGMA foreign_keys=ON')
+
+def populate_generated_columns(db):
+    create_savepoint(db)
     # Default units and types
     age_unit_id = 2
     elevation_unit_id = 2
@@ -19,7 +73,6 @@ def populate_generated_columns():
 
     # Affected list format: [table, unit/type ID header, column1, column2, ...]
     # Save age errors to handle both age unit and age error type
-    tables_affected = ['SampleAges', 'UPbAnalyses', 'GPSLocations', 'Samples', 'Columns']
     age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge'],
                          ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge']]
     elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
@@ -43,57 +96,16 @@ def populate_generated_columns():
     age_error_type_affected = [['SampleAges', ['DirectAgeErrorTypeID','DirectAgeUnitID'], 'DirectAgeError'], affected_upb_age]
     ratio_error_type_affected = [affected_upb_ratio]
 
-    drop_virtual_columns(tables_affected)
-
-    convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
-    convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id])
+    convert_columns(db, age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
+    convert_columns(db, elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id])
     # convert_gps_columns(gps_unit_affected, gps_format_id)
-    convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
-    convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id])
-    convert_columns(age_error_type_affected, ['ErrorTypeConversions', 'AgeUnitConversions'], ['ErrorType','AgeUnit'], [age_error_type_id, age_unit_id])
-    convert_columns(ratio_error_type_affected, ['ErrorTypeConversions'], ['ErrorType'], [ratio_error_type_id])
-    release_savepoint()
+    convert_columns(db, heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
+    convert_columns(db, spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id])
+    convert_columns(db, age_error_type_affected, ['ErrorTypeConversions', 'AgeUnitConversions'], ['ErrorType','AgeUnit'], [age_error_type_id, age_unit_id])
+    convert_columns(db, ratio_error_type_affected, ['ErrorTypeConversions'], ['ErrorType'], [ratio_error_type_id])
+    release_savepoint(db)
 
-def drop_virtual_columns(tables_affected: list):
-    for table in tables_affected:
-        table_model = QtS.QSqlTableModel()
-        set_table(table_model, table)
-        query = QtS.QSqlQuery()
-        query.exec(f'PRAGMA table_xinfo({table})')
-        virtual = []
-        stored = []
-        modified_column = False
-        while query.next():
-            if not modified_column:
-                if 'Modified' in query.value(1):
-                    modified_column = True
-                    stored.append(f'"{query.value(1)}"')
-                else:
-                    stored.append(f'"{query.value(1)}"')
-            else:
-                virtual.append(f'"{query.value(1)}"')
-        if virtual:
-            stored_str = ', '.join(stored)
-            query.exec('PRAGMA foreign_keys=OFF')
-            if query.exec(f'ALTER TABLE {table} RENAME TO {table}_old'):
-                # Select only the stored columns, not the virtual ones
-                if query.exec(f'CREATE TABLE {table} AS SELECT {stored_str} FROM {table}_old'):
-                    if query.exec(f'DROP TABLE {table}_old'):
-                        query.exec('PRAGMA foreign_keys=ON')
-                    else:
-                        print(f'Error dropping old {table} table: {query.lastError().text()}')
-                        rollback_savepoint()
-                        return
-                else:
-                    print(f'Error creating new {table} table: {query.lastError().text()}')
-                    rollback_savepoint()
-                    return
-            else:
-                print(f'Error renaming {table} table: {query.lastError().text()}')
-                rollback_savepoint()
-                return
-
-def convert_columns(affected: list, conversion_table: list, id_header_base: list, selected_id: list):
+def convert_columns(db: QSqlDatabase, affected: list, conversion_table: list, id_header_base: list, selected_id: list):
     if id_header_base[0] in ['AgeUnit', 'DistanceUnit', 'ErrorType']:
         for table_list in affected:
             table = table_list.pop(0)
@@ -104,14 +116,14 @@ def convert_columns(affected: list, conversion_table: list, id_header_base: list
                 table_id_header = table_list.pop(0)
             affected_column_names = table_list
 
-            conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0])
+            conversions = retrieve_conversions(db, conversion_table[0], id_header_base[0], selected_id[0])
             if len(conversion_table) > 1:
-                age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1])
-                generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id, conversions, age_conversions)
+                age_conversions = retrieve_conversions(db, conversion_table[1], id_header_base[1], selected_id[1])
+                generate_age_error_columns(db, affected_column_names, table, table_id_headers, selected_id, conversions, age_conversions)
             else:
-                generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions)
+                generate_columns(db, affected_column_names, table, table_id_header, selected_id[0], conversions)
 
-def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int):
+def retrieve_conversions(db, conversion_table: str, id_header_base: str, selected_id: int):
     unit_conversion_model = QtS.QSqlTableModel()
     set_table(unit_conversion_model, conversion_table)
     unit_conversion_model.setFilter(f'To{id_header_base}ID={selected_id}')
@@ -128,7 +140,7 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
         print('Calculation and from columns not found')
-        rollback_savepoint()
+        rollback_savepoint(db)
         return
     conversions = []
     for row in range(unit_conversion_model.rowCount()):
@@ -137,8 +149,8 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
         conversions.append((from_id, conversion))
     return conversions
 
-def generate_columns(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list):
-    query = QtS.QSqlQuery()
+def generate_columns(db: QSqlDatabase, affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list):
+    query = QtS.QSqlQuery(db)
     for column in affected_column_names:
         if '/' in column:
             calc_column_name = f'"Calculated{column}"'
@@ -157,15 +169,15 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
         # print(sql_alter)
         if not query.exec(sql_alter):
             print(f'Error adding the calculated column Calculated{column}: {query.lastError().text()}')
-            rollback_savepoint()
+            rollback_savepoint(db)
             return
 
-def generate_age_error_columns(affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list, err_conversions: list, age_conversions: list):
+def generate_age_error_columns(db: QSqlDatabase, affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list, err_conversions: list, age_conversions: list):
     table_error_id_header = table_id_headers[0]
     table_age_id_header = table_id_headers[1]
     selected_error_type_id = selected_id[0]
     selected_age_unit_id = selected_id[1]
-    query = QtS.QSqlQuery()
+    query = QtS.QSqlQuery(db)
     for err_column in affected_column_names:
         if '/' in err_column:
             calc_column_name = f'"Calculated{err_column}"'
@@ -191,7 +203,7 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
         # print(sql_alter)
         if not query.exec(sql_alter):
             print(f'Error adding the calculated column Calculated{err_column}: {query.lastError().text()}')
-            rollback_savepoint()
+            rollback_savepoint(db)
             return
 
 
@@ -298,20 +310,20 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
 #
 #
 
-def create_savepoint():
-    save_query = QtS.QSqlQuery()
+def create_savepoint(db):
+    save_query = QtS.QSqlQuery(db)
     if save_query.exec('SAVEPOINT before_alter') is False:
         errtxt = save_query.lastError().text()
         return errtxt
 
-def release_savepoint():
-    save_query = QtS.QSqlQuery()
+def release_savepoint(db):
+    save_query = QtS.QSqlQuery(db)
     if save_query.exec('RELEASE SAVEPOINT before_alter') is False:
         errtxt = save_query.lastError().text()
         return errtxt
 
-def rollback_savepoint():
-    save_query = QtS.QSqlQuery()
+def rollback_savepoint(db):
+    save_query = QtS.QSqlQuery(db)
     if save_query.exec('ROLLBACK TO before_alter') is False:
         errtxt = save_query.lastError().text()
         return errtxt

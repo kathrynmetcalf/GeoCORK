@@ -9,6 +9,7 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop, QRegularExpression
 from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction, QRegularExpressionValidator, \
     QDoubleValidator
+from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
@@ -261,51 +262,46 @@ class InsertFilterGroupDialog(QDialog):
     def insert_data(self):
         # Collect data from inputs
         name = self.name_input.text()
-        conn = sqlite3.connect(self.db_file)
-        with (conn):
-            sql_query = f"""SELECT FilterGroupName FROM FilterGroups;
-                                    """
-            c = conn.cursor()
-            c.execute(sql_query)
-            existing_filters = []
-            for row in c.fetchall():
-                existing_filters.append(row[0])
-
-            if name in existing_filters:
-                self.warning_label.show()
-                self.warning_label.setText('<font color="red">Name must be unique</font>')
-                self.warning_label.setAlignment(
-                    QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-            else:
-                color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
-                description = self.description_input.toPlainText()
-
-                conn = sqlite3.connect(self.db_file)
-
-                sql_query = f"""
-                                INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
-                                VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
+        query = QSqlQuery()
+        sql_query = f"""SELECT FilterGroupName FROM FilterGroups;
                                 """
-                c = conn.cursor()
-                # todo change to bind value to prevent sql injection
-                c.execute(sql_query)
+        query.exec(sql_query)
+        existing_filters = []
+        while query.next(): existing_filters.append(query.value(0))
 
-                listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
+        if name in existing_filters:
+            self.warning_label.show()
+            self.warning_label.setText('<font color="red">Name must be unique</font>')
+            self.warning_label.setAlignment(
+                QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        else:
+            color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
+            description = self.description_input.toPlainText()
 
-                for x in range(len(listWidget.items(None))):
-                    listWidget.takeItem(x)
+            sql_query = f"""
+                            INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
+                            VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
+                            """
+            query = QSqlQuery()
+            # todo change to bind value to prevent sql injection
+            query.exec(sql_query)
 
-                sql_query = """SELECT * FROM FilterGroups;"""
-                c = conn.cursor()
-                for row in c.execute(sql_query):
-                    item = QListWidgetItem()
-                    item.setForeground(QColor(row[3]))
-                    item.setStatusTip(row[4])
-                    item.setText(row[1])
-                    listWidget.addItem(item)
+            listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
 
-                # Close the dialog
-                self.accept()
+            for x in range(len(listWidget.items(None))):
+                listWidget.takeItem(x)
+
+            sql_query = """SELECT * FROM FilterGroups;"""
+            query.exec(sql_query)
+            while query.next():
+                item = QListWidgetItem()
+                item.setForeground(QColor(query.value(3)))
+                item.setStatusTip(query.value(4))
+                item.setText(query.value(1))
+                listWidget.addItem(item)
+
+            # Close the dialog
+            self.accept()
 
 
 class FocusWheelComboBox(QComboBox):
@@ -728,21 +724,20 @@ class QueryBuilder(QWidget):
             if widget.inherits("QMainWindow"):
                 self.db_file = widget.db_file
 
-        conn = sqlite3.connect(self.db_file)
         self.listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
 
         for x in self.listWidget.items(None):
             self.listWidget.takeItem(x)
 
-        with conn:
-            sql_query = """SELECT * FROM FilterGroups;"""
-            c = conn.cursor()
-            for row in c.execute(sql_query):
-                item = QListWidgetItem()
-                item.setForeground(QColor(row[3]))
-                item.setToolTip(row[4])
-                item.setText(row[1])
-                self.listWidget.addItem(item)
+        query = QSqlQuery()
+        sql_query = """SELECT * FROM FilterGroups;"""
+        query.exec(sql_query)
+        while query.next():
+            item = QListWidgetItem()
+            item.setForeground(QColor(query.value(3)))
+            item.setToolTip(query.value(4))
+            item.setText(query.value(1))
+            self.listWidget.addItem(item)
 
         self.listWidget.itemDoubleClicked.connect(lambda state: self.populate_filters(state))
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -826,24 +821,22 @@ class QueryBuilder(QWidget):
             row = self.listWidget.row(item)
             self.listWidget.takeItem(row)
 
-            conn = sqlite3.connect(self.db_file)
-            with conn:
-                sql_query = f"""DELETE FROM FilterGroups WHERE FilterGroupName="{item.text()}";"""
-                c = conn.cursor()
-                c.execute(sql_query)
+            query = QSqlQuery()
+            sql_query = f"""DELETE FROM FilterGroups WHERE FilterGroupName="{item.text()}";"""
+            query.exec(sql_query)
 
     def populate_filters(self, filter_name):
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            sql_query = f"""SELECT SQLQuery, FilterGroupName FROM FilterGroups WHERE FilterGroupName = '{filter_name.text()}';"""
-            c = conn.cursor()
-            row = c.execute(sql_query).fetchall()
-            self.main_group_box.deleteLater()
-            self.main_group_box = GroupBox(ast.literal_eval(row[0][0][1:-1]))
-            self.main_group_box.setParent(self)
-            self.layout1.insertWidget(0, self.scrollarea)
-            self.scrollarea.setWidget(self.main_group_box)
-            self.show()
+        query = QSqlQuery()
+        sql_query = f"""SELECT SQLQuery, FilterGroupName FROM FilterGroups WHERE FilterGroupName = '{filter_name.text()}';"""
+        query.exec(sql_query)
+        query.next()
+        row = query.record()
+        self.main_group_box.deleteLater()
+        self.main_group_box = GroupBox(ast.literal_eval(row[0][0][1:-1]))
+        self.main_group_box.setParent(self)
+        self.layout1.insertWidget(0, self.scrollarea)
+        self.scrollarea.setWidget(self.main_group_box)
+        self.show()
 
     def view_analysis(self):
         filtered_ids = self.get_filtered_ids('upbdata')
@@ -902,14 +895,14 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def get_filtered_ids(self, type):
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            sql_query = self.get_sql(type)
-            c = conn.cursor()
+        query = QSqlQuery()
+        sql_query = self.get_sql(type)
+        out = []
+        while query.next(): out.append(query.value(0))
+        if out == []:
+            return None
+        return out
 
-            if c.execute(sql_query).fetchall() == []:
-                return None
-            return c.execute(sql_query).fetchall()
 
     def get_sql(self, type):
         structure = self.main_group_box.get_structure()

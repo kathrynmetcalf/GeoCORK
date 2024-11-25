@@ -1,36 +1,41 @@
 import sqlite3
 
+from PyQt6 import QtSql as QtS
 
 
-def create_triggers(c):
+def create_triggers(db: QtS.QSqlDatabase):
     """
     Take database cursor and execute the sql strings defined above to create the database triggers
-    :param c: Cursor of database connection
+    :param db: QSqlDatabase object
     """
 
     '''Methods for creating the database triggers'''
     '''SQL strings to create each trigger'''
 
-    def modified_list_statement(c: sqlite3.Cursor, table: str):
-        c.execute(f'PRAGMA table_info({table})')
-        columns = c.fetchall()
+    def modified_list_statement(table: str):
+        query = QtS.QSqlQuery(db)
+        query.exec(f'PRAGMA table_info({table})')
+        columns = []
+        while query.next(): columns.append(query.value(1))
         modified_list = []
         for column in columns:
-            if 'Created' or 'Modified' not in column[1]:
-                modified_list.append(f'"{column[1]}"')
+            if 'Created' or 'Modified' not in column:
+                modified_list.append(f'"{column}"')
         modified_statement = ' OR '.join([f'{column} = NEW.{column}' for column in modified_list])
         return modified_statement
 
-    def check_error_columns(c: sqlite3.Cursor):
-        c.execute('PRAGMA table_info(UPbAnalyses)')
-        columns = c.fetchall()
+    def check_error_columns():
+        query = QtS.QSqlQuery(db)
+        query.exec('PRAGMA table_info(UPbAnalyses)')
+        columns = []
+        while query.next(): columns.append(query.value(1))
         ratio_error_list = []
         age_error_list = []
         for column in columns:
-            if column[1].endswith('AgeError'):
-                age_error_list.append(f'"{column[1]}"')
-            elif column[1].endswith('Error'):
-                ratio_error_list.append(f'"{column[1]}"')
+            if column.endswith('AgeError'):
+                age_error_list.append(f'"{column}"')
+            elif column.endswith('Error'):
+                ratio_error_list.append(f'"{column}"')
         ratio_list = [column.replace('Error', '') for column in ratio_error_list]
         age_list = [column.replace('Error', '') for column in age_error_list]
         ratio_error_statement = ' OR '.join(ratio_error_list)
@@ -45,8 +50,7 @@ def create_triggers(c):
         missing_age_statement = ' OR '.join(missing_age_list)
         return ratio_error_statement, new_ratio_error_statement, age_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement
 
-    ratio_error_statement, new_ratio_error_statement, age_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement = check_error_columns(
-        c)
+    ratio_error_statement, new_ratio_error_statement, age_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement = check_error_columns()
 
     '''Triggers for missing pairs and units, only triggers if there is corresponding data'''
     '''e.g. there is latitude but not longitude or an elevation value but no unit'''
@@ -379,333 +383,326 @@ def create_triggers(c):
     ABOUT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_about AFTER UPDATE ON About
     BEGIN
-        UPDATE "About" SET "AboutModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'About')};
+        UPDATE "About" SET "AboutModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('About')};
     END;'''
     AGECONSTRAINTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ageconstraints AFTER UPDATE ON AgeConstraints
     BEGIN
-        UPDATE "AgeConstraints" SET "AgeConstraintModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeConstraints')};
+        UPDATE "AgeConstraints" SET "AgeConstraintModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('AgeConstraints')};
     END;'''
     AGE_CONVERSIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_age_conversions AFTER UPDATE ON AgeUnitConversions
     BEGIN
-        UPDATE "AgeUnitConversions" SET "AgeUnitConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeUnitConversions')};
+        UPDATE "AgeUnitConversions" SET "AgeUnitConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('AgeUnitConversions')};
     END;'''
     AGEINTERPRETATIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ageinterpretations AFTER UPDATE ON AgeInterpretations
     BEGIN
-        UPDATE "AgeInterpretations" SET "AgeInterpretationModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeInterpretations')};
+        UPDATE "AgeInterpretations" SET "AgeInterpretationModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('AgeInterpretations')};
     END;'''
     AGESIGNATURES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_agesignatures AFTER UPDATE ON AgeSignatures
     BEGIN
-        UPDATE "AgeSignatures" SET "AgeSignatureModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeSignatures')};
+        UPDATE "AgeSignatures" SET "AgeSignatureModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('AgeSignatures')};
     END;'''
     AGEUNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ageunits AFTER UPDATE ON AgeUnits
     BEGIN
-        UPDATE "AgeUnits" SET "AgeUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AgeUnits')};
+        UPDATE "AgeUnits" SET "AgeUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('AgeUnits')};
     END;'''
     AGES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_ages AFTER UPDATE ON Ages
     BEGIN
-        UPDATE "Ages" SET "AgeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Ages')};
+        UPDATE "Ages" SET "AgeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Ages')};
     END;'''
     ALIQUOTCONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_aliquotcontexts AFTER UPDATE ON AliquotContexts
     BEGIN
-        UPDATE "AliquotContexts" SET "AliquotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'AliquotContexts')};
+        UPDATE "AliquotContexts" SET "AliquotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('AliquotContexts')};
     END;'''
     ALIQUOTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_aliquots AFTER UPDATE ON Aliquots
     BEGIN
-        UPDATE "Aliquots" SET "AliquotModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots')};
+        UPDATE "Aliquots" SET "AliquotModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Aliquots')};
     END;'''
     ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_aliquots_aliquotcontexts AFTER UPDATE ON Aliquots_AliquotContexts
     BEGIN
-        UPDATE "Aliquots_AliquotContexts" SET "Aliquots_AliquotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Aliquots_AliquotContexts')};
+        UPDATE "Aliquots_AliquotContexts" SET "Aliquots_AliquotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Aliquots_AliquotContexts')};
     END;'''
     COLUMNS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_columns AFTER UPDATE ON Columns
     BEGIN
-        UPDATE "Columns" SET "ColumnModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Columns')};
+        UPDATE "Columns" SET "ColumnModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Columns')};
     END;'''
     CONCORDANCETYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_concordancetypes AFTER UPDATE ON ConcordanceTypes
     BEGIN
-        UPDATE "ConcordanceTypes" SET "ConcordanceTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceTypes')};
+        UPDATE "ConcordanceTypes" SET "ConcordanceTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('ConcordanceTypes')};
     END;'''
     CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_concordance_conversions AFTER UPDATE ON ConcordanceTypeConversions
     BEGIN 
-        UPDATE "ConcordanceTypeConversions" SET "ConcordanceConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ConcordanceTypeConversions')};
+        UPDATE "ConcordanceTypeConversions" SET "ConcordanceConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('ConcordanceTypeConversions')};
     END;'''
     DIRECTIONUNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_directionunits AFTER UPDATE ON DirectionUnits
     BEGIN
-        UPDATE "DirectionUnits" SET "DirectionUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DirectionUnits')};
+        UPDATE "DirectionUnits" SET "DirectionUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('DirectionUnits')};
     END;'''
     DISTANCEUNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_distanceunits AFTER UPDATE ON DistanceUnits
     BEGIN
-        UPDATE "DistanceUnits" SET "DistanceUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceUnits')};
+        UPDATE "DistanceUnits" SET "DistanceUnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('DistanceUnits')};
     END;'''
     DISTANCE_CONVERSIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_distance_conversions AFTER UPDATE ON DistanceUnitConversions
     BEGIN
-        UPDATE "DistanceUnitConversions" SET "DistanceConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'DistanceUnitConversions')};
+        UPDATE "DistanceUnitConversions" SET "DistanceConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('DistanceUnitConversions')};
     END;'''
     ERRORTYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_errortypes AFTER UPDATE ON ErrorTypes
     BEGIN
-        UPDATE "ErrorTypes" SET "ErrorTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorTypes')};
+        UPDATE "ErrorTypes" SET "ErrorTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('ErrorTypes')};
     END;'''
     ERROR_CONVERSIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_error_conversions AFTER UPDATE ON ErrorTypeConversions
     BEGIN
-        UPDATE "ErrorTypeConversions" SET "ErrorConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'ErrorTypeConversions')};
+        UPDATE "ErrorTypeConversions" SET "ErrorConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('ErrorTypeConversions')};
     END;'''
     GPS_CONVERSIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_gps_conversions AFTER UPDATE ON GPSLocationConversions
     BEGIN
-        UPDATE "GPSLocationConversions" SET "GPSConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSLocationConversions')};
+        UPDATE "GPSLocationConversions" SET "GPSConversionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('GPSLocationConversions')};
     END;'''
     GPS_FORMATS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_gps_formats AFTER UPDATE ON GPSFormats
     BEGIN
-        UPDATE "GPSFormats" SET "GPSFormatModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSFormats')};
+        UPDATE "GPSFormats" SET "GPSFormatModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('GPSFormats')};
     END;'''
     GPS_LOCATIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_gpslocations AFTER UPDATE ON GPSLocations
     BEGIN
-        UPDATE "GPSLocations" SET "GPSLocationModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'GPSLocations')};
+        UPDATE "GPSLocations" SET "GPSLocationModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('GPSLocations')};
     END;'''
     FILTERGROUPS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_filtergroups AFTER UPDATE ON FilterGroups
     BEGIN
-        UPDATE "FilterGroups" SET "FilterGroupModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'FilterGroups')};
+        UPDATE "FilterGroups" SET "FilterGroupModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('FilterGroups')};
     END;'''
     INSTRUMENTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_instruments AFTER UPDATE ON Instruments
     BEGIN
-        UPDATE "Instruments" SET "InstrumentModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Instruments')};
+        UPDATE "Instruments" SET "InstrumentModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Instruments')};
     END;'''
     LABFACILITIES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_labfacilities AFTER UPDATE ON LabFacilities
     BEGIN
-        UPDATE "LabFacilities" SET "LabFacilityModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'LabFacilities')};
+        UPDATE "LabFacilities" SET "LabFacilityModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('LabFacilities')};
     END;'''
     REGIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_regions AFTER UPDATE ON Regions
     BEGIN
-        UPDATE "Regions" SET "RegionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Regions')};
+        UPDATE "Regions" SET "RegionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Regions')};
     END;'''
     REJECTIONREASONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_rejectionreasons AFTER UPDATE ON RejectionReasons
     BEGIN
-        UPDATE "RejectionReasons" SET "RejectionReasonModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RejectionReasons')};
+        UPDATE "RejectionReasons" SET "RejectionReasonModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('RejectionReasons')};
     END;'''
     ROCKTYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_rocktypes AFTER UPDATE ON RockTypes
     BEGIN
-        UPDATE "RockTypes" SET "RockTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'RockTypes')};
+        UPDATE "RockTypes" SET "RockTypeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('RockTypes')};
     END;'''
     SAMPLEAGES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sampleages AFTER UPDATE ON SampleAges
     BEGIN
-        UPDATE "SampleAges" SET "SampleAgeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges')};
+        UPDATE "SampleAges" SET "SampleAgeModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('SampleAges')};
     END;'''
     SAMPLECONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samplecontexts AFTER UPDATE ON SampleContexts
     BEGIN
-        UPDATE "SampleContexts" SET "SampleContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleContexts')};
+        UPDATE "SampleContexts" SET "SampleContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('SampleContexts')};
     END;'''
     SAMPLEAGES_AGECONSTRAINTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_ageconstraints AFTER UPDATE ON SampleAges_AgeConstraints
     BEGIN
-        UPDATE "SampleAges_AgeConstraints" SET "SampleAges_AgeConstraintsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges_AgeConstraints')};
+        UPDATE "SampleAges_AgeConstraints" SET "SampleAges_AgeConstraintsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('SampleAges_AgeConstraints')};
     END;'''
     SAMPLEAGES_AGEINTERPRETATIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_ageinterpretations AFTER UPDATE ON SampleAges_AgeInterpretations
     BEGIN
-        UPDATE "SampleAges_AgeInterpretations" SET {modified_list_statement(c, 'SampleAges_AgeInterpretations')};
+        UPDATE "SampleAges_AgeInterpretations" SET {modified_list_statement('SampleAges_AgeInterpretations')};
     END;'''
     SAMPLEAGES_SOURCES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sampleages_sources AFTER UPDATE ON SampleAges_Sources
     BEGIN
-        UPDATE "SampleAges_Sources" SET "SampleAges_SourcesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SampleAges_Sources')};
+        UPDATE "SampleAges_Sources" SET "SampleAges_SourcesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('SampleAges_Sources')};
     END;'''
     SAMPLES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples AFTER UPDATE ON Samples
     BEGIN
-        UPDATE "Samples" SET "SampleModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples')};
+        UPDATE "Samples" SET "SampleModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples')};
     END;'''
     SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_agesignatures AFTER UPDATE ON Samples_AgeSignatures
     BEGIN
-        UPDATE "Samples_AgeSignatures" SET "Samples_AgeSignaturesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_AgeSignatures')};
+        UPDATE "Samples_AgeSignatures" SET "Samples_AgeSignaturesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples_AgeSignatures')};
     END;'''
     SAMPLES_REGIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_regions AFTER UPDATE ON Samples_Regions
     BEGIN
-        UPDATE "Samples_Regions" SET "Samples_RegionsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Regions')};
+        UPDATE "Samples_Regions" SET "Samples_RegionsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples_Regions')};
     END;'''
     SAMPLES_ROCKTYPES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_rocktypes AFTER UPDATE ON Samples_RockTypes
     BEGIN
-        UPDATE "Samples_RockTypes" SET "Samples_RockTypesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_RockTypes')};
+        UPDATE "Samples_RockTypes" SET "Samples_RockTypesModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples_RockTypes')};
     END;'''
     SAMPLES_SAMPLECONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplecontexts AFTER UPDATE ON Samples_SampleContexts
     BEGIN
-        UPDATE "Samples_SampleContexts" SET "Samples_SampleContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SampleContexts')};
+        UPDATE "Samples_SampleContexts" SET "Samples_SampleContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples_SampleContexts')};
     END;'''
     SAMPLES_SAMPLINGMETHODS_MODIFIED_RIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_samplingmethods AFTER UPDATE ON Samples_SamplingMethods
     BEGIN
-        UPDATE "Samples_SamplingMethods" SET "Samples_SamplingMethodsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_SamplingMethods')};
+        UPDATE "Samples_SamplingMethods" SET "Samples_SamplingMethodsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples_SamplingMethods')};
     END;'''
     SAMPLES_SETTINGS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_settings AFTER UPDATE ON Samples_Settings
     BEGIN
-        UPDATE "Samples_Settings" SET "Samples_SettingsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Settings')};
+        UPDATE "Samples_Settings" SET "Samples_SettingsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples_Settings')};
     END;'''
     SAMPLES_UNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samples_units AFTER UPDATE ON Samples_Units
     BEGIN
-        UPDATE "Samples_Units" SET "Samples_UnitsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Samples_Units')};
+        UPDATE "Samples_Units" SET "Samples_UnitsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Samples_Units')};
     END;'''
     SAMPLINGMETHODS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_samplingmethods AFTER UPDATE ON SamplingMethods
     BEGIN
-        UPDATE "SamplingMethods" SET "SamplingMethodModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SamplingMethods')};
+        UPDATE "SamplingMethods" SET "SamplingMethodModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('SamplingMethods')};
     END;'''
     SETTINGS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_settings AFTER UPDATE ON Settings
     BEGIN
-        UPDATE "Settings" SET "SettingModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Settings')};
+        UPDATE "Settings" SET "SettingModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Settings')};
     END;'''
     SOURCES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_sources AFTER UPDATE ON Sources
     BEGIN
-        UPDATE "Sources" SET "SourceModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Sources')};
+        UPDATE "Sources" SET "SourceModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Sources')};
     END;'''
     SPOTCOMPOSITIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spotcompositions AFTER UPDATE ON SpotCompositions
     BEGIN
-        UPDATE "SpotCompositions" SET "SpotCompositionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotCompositions')};
+        UPDATE "SpotCompositions" SET "SpotCompositionModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('SpotCompositions')};
     END;'''
     SPOTCONTEXT_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spotcontexts AFTER UPDATE ON SpotContexts
     BEGIN
-        UPDATE "SpotContexts" SET "SpotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'SpotContexts')};
+        UPDATE "SpotContexts" SET "SpotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('SpotContexts')};
     END;'''
     SPOTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spots AFTER UPDATE ON Spots
     BEGIN
-        UPDATE "Spots" SET "SpotModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots')};
+        UPDATE "Spots" SET "SpotModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Spots')};
     END;'''
     SPOTS_SPOTCOMPOSITIONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcompositions AFTER UPDATE ON Spots_SpotCompositions
     BEGIN
-        UPDATE "Spots_SpotCompositions" SET "Spots_SpotCompositionsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotCompositions')};
+        UPDATE "Spots_SpotCompositions" SET "Spots_SpotCompositionsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Spots_SpotCompositions')};
     END;'''
     SPOTS_SPOTCONTEXTS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_spots_spotcontexts AFTER UPDATE ON Spots_SpotContexts
     BEGIN
-        UPDATE "Spots_SpotContexts" SET "Spots_SpotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Spots_SpotContexts')};
+        UPDATE "Spots_SpotContexts" SET "Spots_SpotContextModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Spots_SpotContexts')};
     END;'''
     UNITS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_units AFTER UPDATE ON Units
     BEGIN
-        UPDATE "Units" SET "UnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'Units')};
+        UPDATE "Units" SET "UnitModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('Units')};
     END;'''
     UPBANALYSISMETHODS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_upbanalysismethods AFTER UPDATE ON UPbAnalysisMethods
     BEGIN
-        UPDATE "UPbAnalysisMethods" SET "UPbAnalysisMethodModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalysisMethods')};
+        UPDATE "UPbAnalysisMethods" SET "UPbAnalysisMethodModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('UPbAnalysisMethods')};
     END;'''
     UPBANALYSES_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_upbdata AFTER UPDATE ON UPbAnalyses
     BEGIN
-        UPDATE "UPbAnalyses" SET "UPbAnalysisModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses')};
+        UPDATE "UPbAnalyses" SET "UPbAnalysisModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('UPbAnalyses')};
     END;'''
     UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER = f'''
     CREATE TRIGGER IF NOT EXISTS update_modified_upbanalyses_rejectionreasons AFTER UPDATE ON UPbAnalyses_RejectionReasons
     BEGIN
-        UPDATE "UPbAnalyses_RejectionReasons" SET "UPbAnalyses_RejectionReasonsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement(c, 'UPbAnalyses_RejectionReasons')};
+        UPDATE "UPbAnalyses_RejectionReasons" SET "UPbAnalyses_RejectionReasonsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('UPbAnalyses_RejectionReasons')};
     END;'''
 
+    query = QtS.QSqlQuery()
 
+    query.exec(CREATE_COLUMN_UNITS_INSERT_TRIGGERS)
+    query.exec(CREATE_COLUMN_UNITS_UPDATE_TRIGGERS)
+    query.exec(CREATE_GPS_INSERT_TRIGGERS)
+    query.exec(CREATE_GPS_UPDATE_TRIGGERS)
+    query.exec(CREATE_SAMPLEAGES_INSERT_TRIGGERS)
+    query.exec(CREATE_SAMPLEAGES_UPDATE_TRIGGERS)
+    query.exec(CREATE_SAMPLES_INSERT_TRIGGERS)
+    query.exec(CREATE_SAMPLES_UPDATE_TRIGGERS)
+    query.exec(CREATE_UPBANALYSES_INSERT_TRIGGERS)
+    query.exec(CREATE_UPBANALYSES_UPDATE_TRIGGERS)
 
-    c.execute(CREATE_COLUMN_UNITS_INSERT_TRIGGERS)
-    c.execute(CREATE_COLUMN_UNITS_UPDATE_TRIGGERS)
-    c.execute(CREATE_GPS_INSERT_TRIGGERS)
-    c.execute(CREATE_GPS_UPDATE_TRIGGERS)
-    c.execute(CREATE_SAMPLEAGES_INSERT_TRIGGERS)
-    c.execute(CREATE_SAMPLEAGES_UPDATE_TRIGGERS)
-    c.execute(CREATE_SAMPLES_INSERT_TRIGGERS)
-    c.execute(CREATE_SAMPLES_UPDATE_TRIGGERS)
-    c.execute(CREATE_UPBANALYSES_INSERT_TRIGGERS)
-    c.execute(CREATE_UPBANALYSES_UPDATE_TRIGGERS)
-
-    c.execute(ABOUT_MODIFIED_TRIGGER)
-    c.execute(AGECONSTRAINTS_MODIFIED_TRIGGER)
-    c.execute(AGE_CONVERSIONS_MODIFIED_TRIGGER)
-    c.execute(AGEINTERPRETATIONS_MODIFIED_TRIGGER)
-    c.execute(AGESIGNATURES_MODIFIED_TRIGGER)
-    c.execute(AGEUNITS_MODIFIED_TRIGGER)
-    c.execute(AGES_MODIFIED_TRIGGER)
-    c.execute(ALIQUOTCONTEXT_MODIFIED_TRIGGER)
-    c.execute(ALIQUOTS_MODIFIED_TRIGGER)
-    c.execute(ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER)
-    c.execute(COLUMNS_MODIFIED_TRIGGER)
-    c.execute(CONCORDANCETYPES_MODIFIED_TRIGGER)
-    c.execute(CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER)
-    c.execute(DIRECTIONUNITS_MODIFIED_TRIGGER)
-    c.execute(DISTANCEUNITS_MODIFIED_TRIGGER)
-    c.execute(DISTANCE_CONVERSIONS_MODIFIED_TRIGGER)
-    c.execute(ERRORTYPES_MODIFIED_TRIGGER)
-    c.execute(ERROR_CONVERSIONS_MODIFIED_TRIGGER)
-    c.execute(GPS_CONVERSIONS_MODIFIED_TRIGGER)
-    c.execute(GPS_FORMATS_MODIFIED_TRIGGER)
-    c.execute(GPS_LOCATIONS_MODIFIED_TRIGGER)
-    c.execute(FILTERGROUPS_MODIFIED_TRIGGER)
-    c.execute(INSTRUMENTS_MODIFIED_TRIGGER)
-    c.execute(LABFACILITIES_MODIFIED_TRIGGER)
-    c.execute(REGIONS_MODIFIED_TRIGGER)
-    c.execute(REJECTIONREASONS_MODIFIED_TRIGGER)
-    c.execute(ROCKTYPES_MODIFIED_TRIGGER)
-    c.execute(SAMPLEAGES_MODIFIED_TRIGGER)
-    c.execute(SAMPLECONTEXT_MODIFIED_TRIGGER)
-    c.execute(SAMPLEAGES_AGECONSTRAINTS_MODIFIED_TRIGGER)
-    c.execute(SAMPLEAGES_AGEINTERPRETATIONS_MODIFIED_TRIGGER)
-    c.execute(SAMPLEAGES_SOURCES_MODIFIED_TRIGGER)
-    c.execute(SAMPLES_MODIFIED_TRIGGER)
-    c.execute(SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER)
-    c.execute(SAMPLES_REGIONS_MODIFIED_TRIGGER)
-    c.execute(SAMPLES_ROCKTYPES_MODIFIED_TRIGGER)
-    c.execute(SAMPLES_SAMPLECONTEXT_MODIFIED_TRIGGER)
-    c.execute(SAMPLES_SAMPLINGMETHODS_MODIFIED_RIGGER)
-    c.execute(SAMPLES_SETTINGS_MODIFIED_TRIGGER)
-    c.execute(SAMPLES_UNITS_MODIFIED_TRIGGER)
-    c.execute(SAMPLINGMETHODS_MODIFIED_TRIGGER)
-    c.execute(SETTINGS_MODIFIED_TRIGGER)
-    c.execute(SOURCES_MODIFIED_TRIGGER)
-    c.execute(SPOTCOMPOSITIONS_MODIFIED_TRIGGER)
-    c.execute(SPOTCONTEXT_MODIFIED_TRIGGER)
-    c.execute(SPOTS_MODIFIED_TRIGGER)
-    c.execute(SPOTS_SPOTCOMPOSITIONS_MODIFIED_TRIGGER)
-    c.execute(SPOTS_SPOTCONTEXTS_MODIFIED_TRIGGER)
-    c.execute(UNITS_MODIFIED_TRIGGER)
-    c.execute(UPBANALYSISMETHODS_MODIFIED_TRIGGER)
-    c.execute(UPBANALYSES_MODIFIED_TRIGGER)
-    c.execute(UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER)
-
-if __name__ == '__main__':
-    db_file = '../DataTestSchema.db'
-    conn = sqlite3.connect(db_file)
-    with conn:
-        c = conn.cursor()
-        create_triggers(db_file)
+    query.exec(ABOUT_MODIFIED_TRIGGER)
+    query.exec(AGECONSTRAINTS_MODIFIED_TRIGGER)
+    query.exec(AGE_CONVERSIONS_MODIFIED_TRIGGER)
+    query.exec(AGEINTERPRETATIONS_MODIFIED_TRIGGER)
+    query.exec(AGESIGNATURES_MODIFIED_TRIGGER)
+    query.exec(AGEUNITS_MODIFIED_TRIGGER)
+    query.exec(AGES_MODIFIED_TRIGGER)
+    query.exec(ALIQUOTCONTEXT_MODIFIED_TRIGGER)
+    query.exec(ALIQUOTS_MODIFIED_TRIGGER)
+    query.exec(ALIQUOTS_ALIQUOTCONTEXT_MODIFIED_TRIGGER)
+    query.exec(COLUMNS_MODIFIED_TRIGGER)
+    query.exec(CONCORDANCETYPES_MODIFIED_TRIGGER)
+    query.exec(CONCORDANCE_CONVERSIONS_MODIFIED_TRIGGER)
+    query.exec(DIRECTIONUNITS_MODIFIED_TRIGGER)
+    query.exec(DISTANCEUNITS_MODIFIED_TRIGGER)
+    query.exec(DISTANCE_CONVERSIONS_MODIFIED_TRIGGER)
+    query.exec(ERRORTYPES_MODIFIED_TRIGGER)
+    query.exec(ERROR_CONVERSIONS_MODIFIED_TRIGGER)
+    query.exec(GPS_CONVERSIONS_MODIFIED_TRIGGER)
+    query.exec(GPS_FORMATS_MODIFIED_TRIGGER)
+    query.exec(GPS_LOCATIONS_MODIFIED_TRIGGER)
+    query.exec(FILTERGROUPS_MODIFIED_TRIGGER)
+    query.exec(INSTRUMENTS_MODIFIED_TRIGGER)
+    query.exec(LABFACILITIES_MODIFIED_TRIGGER)
+    query.exec(REGIONS_MODIFIED_TRIGGER)
+    query.exec(REJECTIONREASONS_MODIFIED_TRIGGER)
+    query.exec(ROCKTYPES_MODIFIED_TRIGGER)
+    query.exec(SAMPLEAGES_MODIFIED_TRIGGER)
+    query.exec(SAMPLECONTEXT_MODIFIED_TRIGGER)
+    query.exec(SAMPLEAGES_AGECONSTRAINTS_MODIFIED_TRIGGER)
+    query.exec(SAMPLEAGES_AGEINTERPRETATIONS_MODIFIED_TRIGGER)
+    query.exec(SAMPLEAGES_SOURCES_MODIFIED_TRIGGER)
+    query.exec(SAMPLES_MODIFIED_TRIGGER)
+    query.exec(SAMPLES_AGESIGNATURES_MODIFIED_TRIGGER)
+    query.exec(SAMPLES_REGIONS_MODIFIED_TRIGGER)
+    query.exec(SAMPLES_ROCKTYPES_MODIFIED_TRIGGER)
+    query.exec(SAMPLES_SAMPLECONTEXT_MODIFIED_TRIGGER)
+    query.exec(SAMPLES_SAMPLINGMETHODS_MODIFIED_RIGGER)
+    query.exec(SAMPLES_SETTINGS_MODIFIED_TRIGGER)
+    query.exec(SAMPLES_UNITS_MODIFIED_TRIGGER)
+    query.exec(SAMPLINGMETHODS_MODIFIED_TRIGGER)
+    query.exec(SETTINGS_MODIFIED_TRIGGER)
+    query.exec(SOURCES_MODIFIED_TRIGGER)
+    query.exec(SPOTCOMPOSITIONS_MODIFIED_TRIGGER)
+    query.exec(SPOTCONTEXT_MODIFIED_TRIGGER)
+    query.exec(SPOTS_MODIFIED_TRIGGER)
+    query.exec(SPOTS_SPOTCOMPOSITIONS_MODIFIED_TRIGGER)
+    query.exec(SPOTS_SPOTCONTEXTS_MODIFIED_TRIGGER)
+    query.exec(UNITS_MODIFIED_TRIGGER)
+    query.exec(UPBANALYSISMETHODS_MODIFIED_TRIGGER)
+    query.exec(UPBANALYSES_MODIFIED_TRIGGER)
+    query.exec(UPBANALYSES_REJECTIONREASONS_MODIFIED_TRIGGER)

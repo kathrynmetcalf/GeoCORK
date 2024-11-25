@@ -107,7 +107,7 @@ class SampleTableModel(QtS.QSqlQueryModel):
                     {SQLUtils.gps_sample_join}
                     '''
 
-        print(simple_sample_query)
+        print(sample_query)
         return sample_query
 
 def SampleDistinctQuery():

@@ -1,6 +1,9 @@
 selected_age_unit = 'Ma'
 selected_elev_unit = 'm'
 selected_heightdepth_unit = 'm'
+spot_size_unit = 'um'
+ratio_error_type = '1σ %'
+age_error_type = '1σ abs'
 
 # ID columns
 qsample_id = 'Samples.SampleID'
@@ -103,9 +106,6 @@ user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
 conditionally_editable_tables = ['Aliquots', 'GPSLocations', 'SampleAges', 'Spots']
 conditionally_editable_trees = ['Aliquots']
-
-# todo: Create generated columns and then join them in the query
-# Generated Columns
 
 
 '''

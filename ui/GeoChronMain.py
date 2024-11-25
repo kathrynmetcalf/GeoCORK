@@ -17,6 +17,7 @@ import Functions.Create_database as Create_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
+from Functions import SQLUtils
 import ui.import_wizard
 import ui.New_source
 from ui.ExportWidget import ExportWidget
@@ -38,7 +39,7 @@ class GeoChron(QtW.QMainWindow):
         super().__init__()
         # Define any variables here
         self.landingpage = landingpage
-        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE', 'GeoChron_connection')
         self.db_file = self.landingpage.get_filename()
         self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
@@ -51,16 +52,12 @@ class GeoChron(QtW.QMainWindow):
 
         self.switch_to_table()
 
-        Create_db.create_tables(self.db_file)
+        Create_db.create_tables(self.db)
         #list of all user-viewable tables in the database
-        self.user_view_tables = ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
-                        'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
-                        'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units']
+        self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure
-        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',
-                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'Units']
-        self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData',
-                            'AnalysisMethods']
+        self.dbtree_list = SQLUtils.user_viewable_trees
+        self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
 
         self.ui_widgets()
 
@@ -176,9 +173,7 @@ class GeoChron(QtW.QMainWindow):
         self.dbTable_comboBox: QtW.QComboBox
         self.add_pushButton: QtW.QPushButton
         self.case_checkBox: QtW.QCheckBox
-        table_name = self.dbTable_comboBox.currentText()
-        # Remove spaces from display names
-        table = TxM.remove_spaces(table_name)
+        table = self.dbTable_comboBox.currentText()
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != table:
             TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
@@ -190,11 +185,8 @@ class GeoChron(QtW.QMainWindow):
             self.switch_to_table()
             self.edit_samples_pushButton.show()
             query = TbC.SampleTableModel().setupQuery()
-            self.sample_model.setQuery(QtS.QSqlQuery(query, self.db))
+            self.sample_model.setQuery(QtS.QSqlQuery(query))
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
-            # view = "SampleView"
-            # self.sample_proxy_model.setTable(view)
-            # self.sample_proxy_model.select()
             for col in range(self.sample_model.columnCount()):
                 header = TxM.add_spaces_camel(
                     self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
@@ -256,7 +248,7 @@ class GeoChron(QtW.QMainWindow):
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
-        self.edit_pushButton.setText(f"Edit {table_name}")
+        self.edit_pushButton.setText(f"Edit {table}")
 
     def search(self):
         """
@@ -288,26 +280,6 @@ class GeoChron(QtW.QMainWindow):
                 self.dbTable_treeView.expandAll()
         else:
             self.table_proxy_model.setFilterRegularExpression(search_expression)
-
-    def get_existing(self, field, table):
-        """
-        Get all the entries for the selected field in the selected table
-        Parameters
-        ----------
-        field: column name
-        table: database table name
-
-        Returns
-        -------
-        existing: list of the existing entries
-        """
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            sql = f'''SELECT {field} FROM {table}'''
-            if c.execute(sql):
-                existing = c.fetchall()
-                return existing
 
     def edit_popup(self):
         table_name = self.dbTable_comboBox.currentText()
