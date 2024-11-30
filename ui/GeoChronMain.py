@@ -39,7 +39,7 @@ class GeoChron(QtW.QMainWindow):
         super().__init__()
         # Define any variables here
         self.landingpage = landingpage
-        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE', 'GeoChron_connection')
+        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db_file = self.landingpage.get_filename()
         self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
@@ -95,16 +95,6 @@ class GeoChron(QtW.QMainWindow):
     def closeEvent(self, a0):
         self.landingpage.show()
         self.saveWindowState()
-        """When the main window is closing, drop all the views except the SampleView"""
-        view_list = QtS.QSqlQuery('''SELECT name FROM sqlite_schema WHERE type = "view"''')
-        while view_list.next():
-            view = view_list.value(0)
-            if view != 'SampleView':
-                # if the view is not SampleView, drop it
-                query = QtS.QSqlQuery()
-                query.prepare(f'''DROP VIEW IF EXISTS {view}''')
-                if query.exec():
-                    print(f'Successfully dropped {view}')
         super().closeEvent(a0)
 
     # Define any methods here
@@ -167,6 +157,9 @@ class GeoChron(QtW.QMainWindow):
         Displays the selected table
         :return:
         """
+        # if not self.db.isOpen():
+        #     print("Database is not open")
+        #     return
         self.edit_pushButton: QPushButton
         self.dbTable_tableView: QtW.QTableView
         self.dbTable_treeView: QtW.QTreeView

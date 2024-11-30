@@ -102,7 +102,7 @@ upb_rejection_reason_join = 'LEFT JOIN RejectionReasons ON UPbAnalyses.Rejection
 user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Columns', 'Instruments', 'LabFacilities',
                         'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'Sources',
                         'SpotCompositions', 'SpotContexts', 'UPbAnalyses', 'UPbAnalysisMethods', 'Units']
-user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',
+user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts',
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
 conditionally_editable_tables = ['Aliquots', 'GPSLocations', 'SampleAges', 'Spots']
 conditionally_editable_trees = ['Aliquots']

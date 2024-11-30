@@ -3,7 +3,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.QtSql import QSqlDatabase
 
-from Functions.Table_classes import set_table
+from Functions.Table_classes import set_table, get_columns
 # from pyproj import Proj, transform
 
 def drop_virtual_columns(db, tables_affected: list):
@@ -13,23 +13,7 @@ def drop_virtual_columns(db, tables_affected: list):
         create_sql = table_info[1]
         table_model = QtS.QSqlTableModel()
         set_table(table_model, table)
-        query = QtS.QSqlQuery(db)
-        query.exec(f'PRAGMA table_xinfo({table})')
-        virtual = []
-        stored = []
-        columns = []
-        modified_column = False
-        while query.next():
-            if not modified_column:
-                if 'Modified' in query.value(1):
-                    modified_column = True
-                    columns.append(f'"{query.value(1)}"')
-                elif 'Calculated' in query.value(1):
-                    stored.append(f'"{query.value(1)}"')
-                else:
-                    columns.append(f'"{query.value(1)}"')
-            else:
-                virtual.append(f'"{query.value(1)}"')
+        query, virtual, stored, columns = get_columns(db, table)
         if virtual:
             column_str = ', '.join(columns)
             query.exec('PRAGMA foreign_keys=OFF')
@@ -54,6 +38,11 @@ def drop_virtual_columns(db, tables_affected: list):
                 return
             if not query.exec(f'DROP TABLE {table}_old'):
                 print(f'Error dropping old {table} table: {query.lastError().text()}')
+                rollback_savepoint(db)
+                return
+            new_query, new_virtual, new_stored, new_columns = get_columns(db, table)
+            if new_columns != columns:
+                print(f'Error copying new table {table} columns')
                 rollback_savepoint(db)
                 return
             query.exec('PRAGMA foreign_keys=ON')

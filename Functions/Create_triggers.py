@@ -1,5 +1,5 @@
 import sqlite3
-
+import PyQt6
 from PyQt6 import QtSql as QtS
 
 
@@ -641,7 +641,7 @@ def create_triggers(db: QtS.QSqlDatabase):
         UPDATE "UPbAnalyses_RejectionReasons" SET "UPbAnalyses_RejectionReasonsModified" = CURRENT_TIMESTAMP WHERE {modified_list_statement('UPbAnalyses_RejectionReasons')};
     END;'''
 
-    query = QtS.QSqlQuery()
+    query = QtS.QSqlQuery(db)
 
     query.exec(CREATE_COLUMN_UNITS_INSERT_TRIGGERS)
     query.exec(CREATE_COLUMN_UNITS_UPDATE_TRIGGERS)

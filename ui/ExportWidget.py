@@ -11,7 +11,7 @@ class ExportWidget(QWidget):
             if widget.inherits("QMainWindow"):
                 self.db_file = widget.db_file
 
-        self.db = QSqlDatabase.addDatabase('QSQLITE')
+        self.db = QSqlDatabase.addDatabase('QSQLITE', 'Exporter')
         self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
 

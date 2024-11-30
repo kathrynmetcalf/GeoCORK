@@ -212,6 +212,26 @@ class SpotTableModel(QtS.QSqlQueryModel):
 
         return spot_query
 
+def get_columns(db, table: str):
+    query = QtS.QSqlQuery(db)
+    query.exec(f'PRAGMA table_xinfo({table})')
+    virtual = []
+    stored = []
+    columns = []
+    modified_column = False
+    while query.next():
+        if not modified_column:
+            if 'Modified' in query.value(1):
+                modified_column = True
+                columns.append(f'"{query.value(1)}"')
+            elif 'Calculated' in query.value(1):
+                stored.append(f'"{query.value(1)}"')
+            else:
+                columns.append(f'"{query.value(1)}"')
+        else:
+            virtual.append(f'"{query.value(1)}"')
+    return query, virtual, stored, columns
+
 class ComboList(QtW.QComboBox):
     def __init__(self, parent, model):
         super().__init__(parent)
