@@ -39,23 +39,23 @@ class SampleTableModel(QtS.QSqlQueryModel):
                         {SQLUtils.qage},
                         {SQLUtils.qage_range},
                         {SQLUtils.qgeo_age},
-                        {SQLUtils.qcolumn_name},
+                        {SQLUtils.qcolumn_name_distinct},
                         {SQLUtils.qcolumn_data},
-                        {SQLUtils.qaliquots},
-                        {SQLUtils.qspots},
-                        {SQLUtils.qsources},
-                        {SQLUtils.qage_signature},
-                        {SQLUtils.qsample_context},
-                        {SQLUtils.qrock_types},
-                        {SQLUtils.qregions},
-                        {SQLUtils.qsampling_methods},
-                        {SQLUtils.qsettings},
-                        {SQLUtils.qunits},
-                        {SQLUtils.qupb_methods},
-                        {SQLUtils.qlabs},
-                        {SQLUtils.qspot_context},
-                        {SQLUtils.qspot_compositions},
-                        {SQLUtils.qaliquot_context}
+                        {SQLUtils.qaliquots_distinct},
+                        {SQLUtils.qspots_distinct},
+                        {SQLUtils.qsources_distinct},
+                        {SQLUtils.qage_signature_distinct},
+                        {SQLUtils.qsample_context_distinct},
+                        {SQLUtils.qrock_types_distinct},
+                        {SQLUtils.qregions_distinct},
+                        {SQLUtils.qsampling_methods_distinct},
+                        {SQLUtils.qsettings_distinct},
+                        {SQLUtils.qunits_distinct},
+                        {SQLUtils.qupb_methods_distinct},
+                        {SQLUtils.qlabs_distinct},
+                        {SQLUtils.qspot_context_distinct},
+                        {SQLUtils.qspot_compositions_distinct},
+                        {SQLUtils.qaliquot_context_distinct}
                     FROM Samples
                     {SQLUtils.age_signature_join}
                     {SQLUtils.column_join}
@@ -98,48 +98,62 @@ class SampleTableModel(QtS.QSqlQueryModel):
 					{f"OFFSET {offset}" if offset is not None else ""}
                     '''
 
-        simple_sample_query = f'''
-                    SELECT
-                        {SQLUtils.qsample_id},
-                        {SQLUtils.qsample_name},
-                        {SQLUtils.qelev}
-                    FROM Samples
-                    {SQLUtils.gps_sample_join}
-                    '''
-
-        print(sample_query)
+        # print(sample_query)
         return sample_query
 
 def SampleDistinctQuery():
     sample_distinct_query = f'''
     SELECT 
-    GROUP_CONCAT(DISTINCT ifnull(DirectAge,"Null")) as "Direct Ages",
-    GROUP_CONCAT(DISTINCT ifnull(DirectAgeError,"Null")) as "Direct Age Errors",
-    GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorTypeID,"Null")) as "Error Sigmas",
-    GROUP_CONCAT(DISTINCT ifnull(OldestDirectAge,"Null")) as "Oldest Ages",
-    GROUP_CONCAT(DISTINCT ifnull(YoungestDirectAge,"Null")) as "Youngest Ages",
-    GROUP_CONCAT(DISTINCT ifnull(OldestAgeID,"Null")) as "Oldest Age IDs",
-    GROUP_CONCAT(DISTINCT ifnull(YoungestAgeID,"Null")) as "Youngest Age IDs",
-    GROUP_CONCAT(DISTINCT ifnull(HeightDepth,"Null")) as "HeightDepths",
-    GROUP_CONCAT(DISTINCT ifnull(HeightDepthError,"Null")) as "HeightDepth Errors",
-    GROUP_CONCAT(DISTINCT ifnull(HeightDepthUnitID,"Null")) as "HeightDepth Units",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatDeg,"Null")) as "Latitude Degrees",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatMin,"Null")) as "Latitude Minutes",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatSec,"Null")) as "Latitude Seconds",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatDirectionID,"Null")) as "Latitude Directions",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonDeg,"Null")) as "Longitude Degrees",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonMin,"Null")) as "Longitude Minutes",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonSec,"Null")) as "Longitude Seconds",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonDirectionID,"Null")) as "Longitude Directions",
-    GROUP_CONCAT(DISTINCT ifnull(GPSUTMZone,"Null")) as "UTM Zones",
-    GROUP_CONCAT(DISTINCT ifnull(GPSUTMN,"Null")) as "UTM Northings",
-    GROUP_CONCAT(DISTINCT ifnull(GPSUTME,"Null")) as "UTM Eastings",
-    GROUP_CONCAT(DISTINCT ifnull(Elev,"Null")) as "Elevations",
-    GROUP_CONCAT(DISTINCT ifnull(ElevError,"Null")) as "Elevation Errors",
-    GROUP_CONCAT(DISTINCT ifnull(ElevUnitID,"Null")) as "Elevation Units",
-    GROUP_CONCAT(DISTINCT ifnull(SampleDescription,"Null")) as "Descriptions"
+        {SQLUtils.qigsn_distinct},
+        {SQLUtils.qgps_id_distinct},
+        {SQLUtils.qcolumn_name_distinct},
+        {SQLUtils.qheight_depth_distinct},
+        {SQLUtils.qheight_depth_error_distinct},
+        {SQLUtils.qheight_depth_unit_distinct},
+        {SQLUtils.qsample_description_distinct},
+        {SQLUtils.qlat_deg_distinct},
+        {SQLUtils.qlat_min_distinct},
+        {SQLUtils.qlat_sec_distinct},
+        {SQLUtils.qlat_dir_distinct},
+        {SQLUtils.qlon_deg_distinct},
+        {SQLUtils.qlon_min_distinct},
+        {SQLUtils.qlon_sec_distinct},
+        {SQLUtils.qlon_dir_distinct},
+        {SQLUtils.qutm_zone_distinct},
+        {SQLUtils.qutm_northing_distinct},
+        {SQLUtils.qutm_easting_distinct},
+        {SQLUtils.qgps_format_distinct},
+        {SQLUtils.qgps_elev_distinct},
+        {SQLUtils.qgps_elev_error_distinct},
+        {SQLUtils.qgps_elev_unit_distinct},
+        {SQLUtils.qsample_default_age_id_distinct},
+        {SQLUtils.qsample_direct_age_distinct},
+        {SQLUtils.qsample_direct_age_error_distinct},
+        {SQLUtils.qsample_direct_age_error_type_distinct},
+        {SQLUtils.qsample_oldest_direct_age_distinct},
+        {SQLUtils.qsample_youngest_direct_age_distinct},
+        {SQLUtils.qsample_direct_age_unit_distinct},
+        {SQLUtils.qsample_oldest_rel_age_distinct},
+        {SQLUtils.qsample_youngest_rel_age_distinct},
+        {SQLUtils.qsample_age_description_distinct},
+        {SQLUtils.qsample_age_constraint_distinct},
+        {SQLUtils.qsample_age_interpretation_distinct},
+        {SQLUtils.qsample_age_source_distinct}
+        
     FROM Samples
+    {SQLUtils.column_join}
+    {SQLUtils.column_unit_join}
+    {SQLUtils.gps_sample_join}
+    {SQLUtils.sample_sampleage_join}
+    {SQLUtils.sample_age_error_type_join}
+    {SQLUtils.sample_age_unit_join}
+    {SQLUtils.sample_old_age_join}
+    {SQLUtils.sample_young_age_join}
+    {SQLUtils.sampleage_ageconstraint_join}
+    {SQLUtils.sampleage_ageinterpretation_join}
+    {SQLUtils.sampleage_source_join}
     '''
+    # print(sample_distinct_query)
     return sample_distinct_query
 
 class AliquotTableModel(QtS.QSqlQueryModel):
@@ -212,6 +226,44 @@ class SpotTableModel(QtS.QSqlQueryModel):
 
         return spot_query
 
+def GPSDistinctQuery():
+    gps_distinct_query = f'''
+    SELECT 
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatDeg, "Null")) as "Latitude Degrees",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatMin, "Null")) as "Latitude Minutes",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatSec, "Null")) as "Latitude Seconds",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLatDirectionID, "Null")) as "Latitude Direction",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonDeg, "Null")) as "Longitude Degrees",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonMin, "Null")) as "Longitude Minutes",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonSec, "Null")) as "Longitude Seconds",
+    GROUP_CONCAT(DISTINCT ifnull(GPSLonDirectionID, "Null")) as "Longitude Direction",
+    GROUP_CONCAT(DISTINCT ifnull(GPSUTMZone, "Null")) as "UTM Zone",
+    GROUP_CONCAT(DISTINCT ifnull(GPSUTMN, "Null")) as "UTM Northing",
+    GROUP_CONCAT(DISTINCT ifnull(GPSUTME, "Null")) as "UTM Easting",
+    GROUP_CONCAT(DISTINCT ifnull(GPSFormatID, "Null")) as "GPS Format",
+    GROUP_CONCAT(DISTINCT ifnull(GPSElev, "Null")) as "Elevation",
+    GROUP_CONCAT(DISTINCT ifnull(GPSElevError, "Null")) as "Elevation Error",
+    GROUP_CONCAT(DISTINCT ifnull(GPSElevUnitID, "Null")) as "Elevation Unit"
+    FROM GPSLocations
+    '''
+    return gps_distinct_query
+
+def SampleAgeDistinctQuery():
+    sample_age_distinct_query = f'''
+    SELECT 
+    GROUP_CONCAT(DISTINCT ifnull(DirectAge, "Null")) as "Direct Ages",
+    GROUP_CONCAT(DISTINCT ifnull(DirectAgeError, "Null")) as "Direct Age Errors",
+    GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorTypeID, "Null")) as "Direct Age Error Types",
+    GROUP_CONCAT(DISTINCT ifnull(OldestDirectAge, "Null")) as "Oldest Direct Ages",
+    GROUP_CONCAT(DISTINCT ifnull(YoungestDirectAge, "Null")) as "Youngest Direct Ages",
+    GROUP_CONCAT(DISTINCT ifnull(DirectAgeUnitID, "Null")) as "Direct Age Units",
+    GROUP_CONCAT(DISTINCT ifnull(OldestAgeID, "Null")) as "Oldest Age IDs",
+    GROUP_CONCAT(DISTINCT ifnull(YoungestAgeID, "Null")) as "Youngest Age IDs",
+    GROUP_CONCAT(DISTINCT ifnull(SampleAgeDescription, "Null")) as "Sample Age Descriptions"
+    FROM SampleAges
+    '''
+    return sample_age_distinct_query
+
 def get_columns(db, table: str):
     query = QtS.QSqlQuery(db)
     query.exec(f'PRAGMA table_xinfo({table})')
@@ -231,6 +283,19 @@ def get_columns(db, table: str):
         else:
             virtual.append(f'"{query.value(1)}"')
     return query, virtual, stored, columns
+
+def name_column(table: str):
+    if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+        return 3
+    elif 'Type' in table or 'Unit' in table:
+        # return the column for the abbreviation
+        return 2
+    elif table == 'Sources':
+        return 6
+    elif table in SQLUtils.user_viewable_tables or table == 'Spots':
+        return 1
+    else:
+        return None
 
 class ComboList(QtW.QComboBox):
     def __init__(self, parent, model):

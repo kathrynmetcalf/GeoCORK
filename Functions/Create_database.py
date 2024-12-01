@@ -466,6 +466,7 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     HeightDepth REAL,
                     HeightDepthError REAL,
                     HeightDepthUnitID INTEGER,
+                    DefaultSampleAgeID INTEGER,
                     SampleDescription TEXT,
                     SampleCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleModified DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -478,6 +479,9 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
                     FOREIGN KEY(HeightDepthUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(DefaultSampleAgeID) REFERENCES SampleAges(SampleAgeID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
