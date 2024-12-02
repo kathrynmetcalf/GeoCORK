@@ -37,6 +37,7 @@ qspot_compositions_distinct = 'GROUP_CONCAT(DISTINCT SpotCompositionName) AS "Sp
 qaliquot_context_distinct = 'GROUP_CONCAT(DISTINCT AliquotContextName) AS "Aliquot Contexts"'
 
 # Sample information columns
+qsample_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(Samples.SampleID,"Null")) AS "Sample IDs"'
 qigsn_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleIGSN,"Null")) AS "Sample IGSNs"'
 qgps_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPSLocationID,"Null")) AS "GPS Location IDs"'
 qcolumn_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleColumnID,"Null")) AS "Column IDs"'

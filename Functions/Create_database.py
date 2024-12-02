@@ -377,6 +377,7 @@ CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
 
 CREATE_SAMPLE_AGE_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges(
                     SampleAgeID INTEGER PRIMARY KEY, 
+                    SampleAgeDisplay AS (DirectAge || " ± " || DirectAgeError || ", " || OldestDirectAge || "-" || YoungestDirectAge || ", " || OldestAgeID || "-" || YoungestAgeID) STORED,
                     DirectAge REAL,
                     DirectAgeError REAL,
                     DirectAgeErrorTypeID INTEGER,
@@ -385,7 +386,7 @@ CREATE_SAMPLE_AGE_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges(
                     DirectAgeUnitID INTEGER,
                     OldestAgeID INTEGER,
                     YoungestAgeID INTEGER,
-                    SampleAgeDescription TEXT, 
+                    SampleAgeDescription TEXT,
                     SampleAgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleAgeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (DirectAge, DirectAgeError, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, OldestAgeID, YoungestAgeID),

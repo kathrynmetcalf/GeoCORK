@@ -104,6 +104,7 @@ class SampleTableModel(QtS.QSqlQueryModel):
 def SampleDistinctQuery():
     sample_distinct_query = f'''
     SELECT 
+        {SQLUtils.qsample_id_distinct},
         {SQLUtils.qigsn_distinct},
         {SQLUtils.qgps_id_distinct},
         {SQLUtils.qcolumn_name_distinct},
@@ -153,7 +154,7 @@ def SampleDistinctQuery():
     {SQLUtils.sampleage_ageinterpretation_join}
     {SQLUtils.sampleage_source_join}
     '''
-    # print(sample_distinct_query)
+    print(sample_distinct_query)
     return sample_distinct_query
 
 class AliquotTableModel(QtS.QSqlQueryModel):
@@ -292,7 +293,7 @@ def name_column(table: str):
         return 2
     elif table == 'Sources':
         return 6
-    elif table in SQLUtils.user_viewable_tables or table == 'Spots':
+    elif table in SQLUtils.user_viewable_tables or table == 'Spots' or table == 'SampleAges':
         return 1
     else:
         return None
@@ -333,10 +334,7 @@ class CheckableSqlTableModel(QtS.QSqlTableModel):
 
     def flags(self, index):
         flags = super().flags(index)
-        if self.tableName() == 'Sources':
-            col = 6
-        else:
-            col = 1
+        col = name_column(self.tableName())
         if index.column() == col:
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
         return flags
@@ -344,10 +342,7 @@ class CheckableSqlTableModel(QtS.QSqlTableModel):
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return False
-        if self.tableName() == 'Sources':
-            col = 6
-        else:
-            col = 1
+        col = name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if index.row() in self.checked_data.keys():
                 return QtC.Qt.CheckState.Checked
@@ -358,10 +353,7 @@ class CheckableSqlTableModel(QtS.QSqlTableModel):
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
-        if self.tableName() == 'Sources':
-            col = 6
-        else:
-            col = 1
+        col = name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
                 self.checked_data[index.row()] = value
@@ -464,6 +456,52 @@ class CheckableComboBox(QtW.QComboBox):
                 self.showPopup()
                 return True
             return super().eventFilter(obj, event)
+
+class SampleAgeTableModel(CheckableSqlTableModel):
+    def __init__(self):
+        super().__init__()
+        self.bolded_rows = []
+
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        if index.row in self.bolded_rows and role == QtC.Qt.ItemDataRole.FontRole:
+            font = QtG.QFont()
+            font.setBold(True)
+            return font
+        if index.column() == 1 and role == QtC.Qt.ItemDataRole.DisplayRole:
+            str = super().data(index, role)
+            # split string on commas
+            age_elements = str.split(', ')
+            age_ids = age_elements[2].split('-')
+            age_model = QtS.QSqlTableModel()
+            age_model = set_table(age_model, 'Ages')
+            if age_ids[0] != '':
+                old_age_id = int(age_ids[0])
+                age_model.setFilter(f'AgeID={old_age_id}')
+                old_age_name = age_model.record(0).value('AgeName')
+            else:
+                old_age_name = ''
+            if age_ids[1] != '':
+                young_age_id = int(age_ids[1])
+                age_model.setFilter(f'AgeID={young_age_id}')
+                young_age_name = age_model.record(0).value('AgeName')
+            else:
+                young_age_name = ''
+            return f'{old_age_name}-{young_age_name}'
+        return super().data(index, role)
+
+    def make_bold(self, index):
+        row = index.row()
+        if row not in self.bolded_rows:
+            self.bolded_rows.append(row)
+            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
+
+    def make_not_bold(self, index):
+        row = index.row()
+        if row in self.bolded_rows:
+            self.bolded_rows.remove(row)
+            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
 
 def comboBox_display_table(comboBox):
     comboBox.tableView.resizeColumnsToContents()

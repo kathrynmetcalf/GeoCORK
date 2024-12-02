@@ -24,7 +24,7 @@ import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import ui.import_wizard
 import ui.New_source
-from Functions.Table_classes import CheckableSqlTableModel
+from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -34,8 +34,9 @@ from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTr
 
 class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
-        super().__init__()
-        # Define any variables here
+        print("SampleInformation init")
+        super().__init__(parent=parent_window)
+        print("SampleInformation super")
         self.parent_window = parent_window
         self.db = self.parent_window.db
         self.settings = QSettings("CSUF", "SampleInformation")
@@ -70,6 +71,7 @@ class SampleInformation(QtW.QDialog):
 
         # Sample information models
         self.samples_table = QtS.QSqlQueryModel()
+        # todo: display the abbreviation instead of the id for unit and type fields
         self.gps_format_model = QtS.QSqlTableModel()
         self.gps_location_model = QtS.QSqlTableModel()
         self.direction_unit_model = QtS.QSqlTableModel()
@@ -79,7 +81,7 @@ class SampleInformation(QtW.QDialog):
         self.elevation_unit_model = QtS.QSqlTableModel()
         self.column_model = QtS.QSqlTableModel()
         self.column_unit_model = QtS.QSqlTableModel()
-        self.sample_age_model = CheckableSqlTableModel()
+        self.sample_age_model = SampleAgeTableModel()
         self.age_tree_view = QtW.QTreeView()
         self.age_model = QtS.QSqlTableModel()
         self.oldest_age_tree = TreeModel()
@@ -325,85 +327,91 @@ class SampleInformation(QtW.QDialog):
             # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
             text = self.samples_table.index(0, col).data()
             if ',' in text:
-                text_values.append('-')
+                if len(text_values) == 23:
+                    text_values.append(text)
+                else:
+                    text_values.append('-')
             elif text == 'Null':
                 text_values.append('')
             else:
                 text_values.append(text)
-        self.sample_igsn_lineEdit.setText(f"{text_values[0]}")
-        self.gps_location_ids = text_values[1]
-        self.set_comboBox_text(self.column_name_comboBox, text_values[2])
-        self.height_depth_lineEdit.setText(f"{text_values[3]}")
-        self.height_depth_error_lineEdit.setText(f"{text_values[4]}")
-        self.set_comboBox_text(self.height_depth_unit_comboBox, text_values[5])
-        self.sample_description_lineEdit.setText(text_values[6])
-        self.lat_deg_lineEdit.setText(f"{text_values[7]}")
-        self.lat_min_lineEdit.setText(f"{text_values[8]}")
-        self.lat_sec_lineEdit.setText(f"{text_values[9]}")
-        self.set_comboBox_text(self.lat_comboBox, text_values[10])
-        self.lon_deg_lineEdit.setText(f"{text_values[11]}")
-        self.lon_min_lineEdit.setText(f"{text_values[12]}")
-        self.lon_sec_lineEdit.setText(f"{text_values[13]}")
-        self.set_comboBox_text(self.lon_comboBox, text_values[14])
-        self.utm_zone_lineEdit.setText(f"{text_values[15]}")
-        self.utm_n_lineEdit.setText(f"{text_values[16]}")
-        self.utm_e_lineEdit.setText(f"{text_values[17]}")
-        self.set_comboBox_text(self.gps_format_comboBox, text_values[18])
-        self.elevation_lineEdit.setText(f"{text_values[19]}")
-        self.elevation_error_lineEdit.setText(f"{text_values[20]}")
-        self.set_comboBox_text(self.elevation_unit_comboBox, text_values[21])
-        default_age_ids = text_values[22]
-        self.direct_age_lineEdit.setText(f"{text_values[23]}")
-        self.direct_age_error_lineEdit.setText(f"{text_values[24]}")
-        self.set_comboBox_text(self.direct_age_error_type_comboBox, text_values[25])
-        self.oldest_dir_lineEdit.setText(f"{text_values[26]}")
-        self.youngest_dir_lineEdit.setText(f"{text_values[27]}")
-        self.set_comboBox_text(self.direct_age_unit_comboBox, text_values[28])
-        self.set_comboBox_text(self.oldest_rel_comboBox, text_values[29])
-        self.set_comboBox_text(self.youngest_rel_comboBox, text_values[30])
-        self.age_description_lineEdit.setText(text_values[31])
-        self.set_comboBox_text(self.age_constraint_comboBox, text_values[32])
-        self.set_comboBox_text(self.age_interpretation_comboBox, text_values[33])
-        self.set_comboBox_text(self.age_source_comboBox, text_values[34])
+        if len(text_values) > 0:
+            self.sample_igsn_lineEdit.setText(f"{text_values[1]}")
+            self.gps_location_ids = text_values[2]
+            self.set_comboBox_text(self.column_name_comboBox, text_values[3])
+            self.height_depth_lineEdit.setText(f"{text_values[4]}")
+            self.height_depth_error_lineEdit.setText(f"{text_values[5]}")
+            self.set_comboBox_text(self.height_depth_unit_comboBox, text_values[6])
+            self.sample_description_lineEdit.setText(text_values[7])
+            self.lat_deg_lineEdit.setText(f"{text_values[8]}")
+            self.lat_min_lineEdit.setText(f"{text_values[9]}")
+            self.lat_sec_lineEdit.setText(f"{text_values[10]}")
+            self.set_comboBox_text(self.lat_comboBox, text_values[11])
+            self.lon_deg_lineEdit.setText(f"{text_values[12]}")
+            self.lon_min_lineEdit.setText(f"{text_values[13]}")
+            self.lon_sec_lineEdit.setText(f"{text_values[14]}")
+            self.set_comboBox_text(self.lon_comboBox, text_values[15])
+            self.utm_zone_lineEdit.setText(f"{text_values[16]}")
+            self.utm_n_lineEdit.setText(f"{text_values[17]}")
+            self.utm_e_lineEdit.setText(f"{text_values[18]}")
+            self.set_comboBox_text(self.gps_format_comboBox, text_values[19])
+            self.elevation_lineEdit.setText(f"{text_values[20]}")
+            self.elevation_error_lineEdit.setText(f"{text_values[21]}")
+            self.set_comboBox_text(self.elevation_unit_comboBox, text_values[22])
+            default_age_ids = text_values[23]
+            self.direct_age_lineEdit.setText(f"{text_values[24]}")
+            self.direct_age_error_lineEdit.setText(f"{text_values[25]}")
+            self.set_comboBox_text(self.direct_age_error_type_comboBox, text_values[26])
+            self.oldest_dir_lineEdit.setText(f"{text_values[27]}")
+            self.youngest_dir_lineEdit.setText(f"{text_values[28]}")
+            self.set_comboBox_text(self.direct_age_unit_comboBox, text_values[29])
+            self.set_comboBox_text(self.oldest_rel_comboBox, text_values[30])
+            self.set_comboBox_text(self.youngest_rel_comboBox, text_values[31])
+            self.age_description_lineEdit.setText(text_values[32])
+            self.set_comboBox_text(self.age_constraint_comboBox, text_values[33])
+            self.set_comboBox_text(self.age_interpretation_comboBox, text_values[34])
+            self.set_comboBox_text(self.age_source_comboBox, text_values[35])
 
-        self.display_gps()
-        # self.display_age()
+            self.display_gps()
 
-        # Age tags
-        text = self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_model, self.age_constraint_tree)
-        self.age_constraint_comboBox.setCurrentText(text)
-        text = self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_model, self.age_interpretation_tree)
-        self.age_interpretation_comboBox.setCurrentText(text)
-        text = self.populate_checks('SampleAges_Sources', self.age_source_model)
-        self.age_source_comboBox.setCurrentText(text)
+            # Age tags
+            self.display_age(default_age_ids)
+            text = self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_model, self.age_constraint_tree)
+            self.age_constraint_comboBox.setCurrentText(text)
+            text = self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_model, self.age_interpretation_tree)
+            self.age_interpretation_comboBox.setCurrentText(text)
+            text = self.populate_checks('SampleAges_Sources', self.age_source_model)
+            self.age_source_comboBox.setCurrentText(text)
 
-        # Sample tags
-        text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_tree)
-        self.sample_context_comboBox.setCurrentText(text)
-        text = self.populate_checks('Samples_SamplingMethods', self.sampling_method_model, self.sampling_method_tree)
-        self.sampling_method_comboBox.setCurrentText(text)
-        text = self.populate_checks('Samples_Units', self.unit_model, self.unit_tree)
-        self.unit_comboBox.setCurrentText(text)
-        text = self.populate_checks('Samples_RockTypes', self.rock_type_model, self.rock_type_tree)
-        self.rock_type_comboBox.setCurrentText(text)
-        text = self.populate_checks('Samples_Regions', self.region_model, self.region_tree)
-        self.region_comboBox.setCurrentText(text)
-        text = self.populate_checks('Samples_Settings', self.setting_model, self.setting_tree)
-        self.setting_comboBox.setCurrentText(text)
-        text = self.populate_checks('Samples_AgeSignatures', self.age_signature_model, self.age_signature_tree)
-        self.age_signature_comboBox.setCurrentText(text)
-        text = self.populate_upb_checks(self.source_model)
-        self.source_comboBox.set_single_click(True)
-        self.source_comboBox.setCurrentText(text)
-        text = self.populate_upb_checks(self.analysis_method_model)
-        self.analysis_method_comboBox.set_single_click(True)
-        self.analysis_method_comboBox.setCurrentText(text)
-        text = self.populate_upb_checks(self.lab_facility_model)
-        self.lab_facility_comboBox.set_single_click(True)
-        self.lab_facility_comboBox.setCurrentText(text)
-        text = self.populate_upb_checks(self.instrument_model)
-        self.instrument_comboBox.set_single_click(True)
-        self.instrument_comboBox.setCurrentText(text)
+            # Sample tags
+            text = self.populate_checks('Samples_SampleAges', self.sample_age_model)
+            self.view_age_comboBox.setCurrentText(text)
+            text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_tree)
+            self.sample_context_comboBox.setCurrentText(text)
+            text = self.populate_checks('Samples_SamplingMethods', self.sampling_method_model, self.sampling_method_tree)
+            self.sampling_method_comboBox.setCurrentText(text)
+            text = self.populate_checks('Samples_Units', self.unit_model, self.unit_tree)
+            self.unit_comboBox.setCurrentText(text)
+            text = self.populate_checks('Samples_RockTypes', self.rock_type_model, self.rock_type_tree)
+            self.rock_type_comboBox.setCurrentText(text)
+            text = self.populate_checks('Samples_Regions', self.region_model, self.region_tree)
+            self.region_comboBox.setCurrentText(text)
+            text = self.populate_checks('Samples_Settings', self.setting_model, self.setting_tree)
+            self.setting_comboBox.setCurrentText(text)
+            text = self.populate_checks('Samples_AgeSignatures', self.age_signature_model, self.age_signature_tree)
+            self.age_signature_comboBox.setCurrentText(text)
+            text = self.populate_upb_checks(self.source_model)
+            self.source_comboBox.set_single_click(True)
+            self.source_comboBox.setCurrentText(text)
+            text = self.populate_upb_checks(self.analysis_method_model)
+            self.analysis_method_comboBox.set_single_click(True)
+            self.analysis_method_comboBox.setCurrentText(text)
+            text = self.populate_upb_checks(self.lab_facility_model)
+            self.lab_facility_comboBox.set_single_click(True)
+            self.lab_facility_comboBox.setCurrentText(text)
+            text = self.populate_upb_checks(self.instrument_model)
+            self.instrument_comboBox.set_single_click(True)
+            self.instrument_comboBox.setCurrentText(text)
 
     def set_comboBox_text(self, comboBox: QtW.QComboBox, text: str):
         if text == '' or text == '-':
@@ -468,8 +476,16 @@ class SampleInformation(QtW.QDialog):
                 self.lat_comboBox.show()
                 self.lon_comboBox.show()
 
-    # def display_age(self):
-
+    def display_age(self, default_age_ids: str):
+        model = self.view_age_comboBox.model()
+        # split on commas and convert everything to integers
+        default_age_ids = list(map(int, default_age_ids.split(',')))
+        for row in range(model.rowCount()):
+            if model.index(row, 0).data() in default_age_ids:
+                # Make the text at that row bold
+                model.make_bold(model.index(row, 0))
+            else:
+                model.make_not_bold(model.index(row, 0))
 
     def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
         many_to_many_model = QtS.QSqlTableModel()

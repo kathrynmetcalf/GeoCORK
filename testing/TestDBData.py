@@ -97,6 +97,6 @@ def add_data(db_file):
 
 
 if __name__ == '__main__':
-    db_file = '../novschema.db'
+    db_file = '../dec_schema.db'
     app = QtC.QCoreApplication([])
     add_data(db_file)
