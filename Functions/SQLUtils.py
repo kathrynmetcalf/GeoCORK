@@ -12,8 +12,8 @@ qspot_id = 'Spots.SpotID'
 
 # View columns
 qsample_name = 'SampleName AS "Sample Name"'
-qage = f'CalculatedDirectAge || "±" || COALESCE(CalculatedDirectAgeError, " ") AS "Age {selected_age_unit}"'
-qage_range = f'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ") AS "Age Range {selected_age_unit}"'
+qage = f'CalculatedDirectAge || "±" || COALESCE(CalculatedDirectAgeError, " ") AS "Age ({selected_age_unit})"'
+qage_range = f'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ") AS "Age Range ({selected_age_unit})"'
 qgeo_age = 'COALESCE(OldAge.AgeName, " ") || "-" || COALESCE(YoungAge.AgeName, " ") AS "Geologic Age"'
 qage_signature_distinct = 'GROUP_CONCAT(DISTINCT AgeSignatureName) AS "Age Signatures"'
 qcolumn_name = 'GROUP_CONCAT(DISTINCT ColumnName) AS "Measured Column Name"'

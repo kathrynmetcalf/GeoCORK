@@ -154,7 +154,7 @@ def SampleDistinctQuery():
     {SQLUtils.sampleage_ageinterpretation_join}
     {SQLUtils.sampleage_source_join}
     '''
-    print(sample_distinct_query)
+    # print(sample_distinct_query)
     return sample_distinct_query
 
 class AliquotTableModel(QtS.QSqlQueryModel):
@@ -457,10 +457,16 @@ class CheckableComboBox(QtW.QComboBox):
                 return True
             return super().eventFilter(obj, event)
 
-class SampleAgeTableModel(CheckableSqlTableModel):
+class SampleAgeTableModel(QtS.QSqlQueryModel):
     def __init__(self):
         super().__init__()
         self.bolded_rows = []
+        query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
+                        OldestAgeID, YoungestAgeID, SampleAgeDescription, SampleAgeCreated, SampleAgeModified FROM SampleAges'''
+        self.setQuery(query)
+
+    def tableName(self):
+        return 'SampleAges'
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -473,6 +479,9 @@ class SampleAgeTableModel(CheckableSqlTableModel):
             str = super().data(index, role)
             # split string on commas
             age_elements = str.split(', ')
+            # element 0 is the direct age with error, element 1 is the direct age range, and element 2 is the relative age range
+            # for 0, retrieve the number in parentheses, the direct age unit ID which is the same for 0 and 1
+            age_unit_id = int(age_elements[0].split(' (')[1].split(')')[0])
             age_ids = age_elements[2].split('-')
             age_model = QtS.QSqlTableModel()
             age_model = set_table(age_model, 'Ages')
@@ -488,7 +497,18 @@ class SampleAgeTableModel(CheckableSqlTableModel):
                 young_age_name = age_model.record(0).value('AgeName')
             else:
                 young_age_name = ''
-            return f'{old_age_name}-{young_age_name}'
+            age_unit_model = QtS.QSqlTableModel()
+            age_unit_model = set_table(age_unit_model, 'AgeUnits')
+            if age_unit_id is not None:
+                age_unit_model.setFilter(f'AgeUnitID={age_unit_id}')
+                age_unit_abbreviation = age_unit_model.record(0).value('AgeUnitAbbreviation')
+            else:
+                age_unit_abbreviation = ''
+            # in age_elements[0] and age_elements[1], replace the direct age unit ID with the unit abbreviation
+            age_elements[0] = age_elements[0].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+            age_elements[1] = age_elements[1].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+            age_elements[2] = f'{old_age_name}-{young_age_name}'
+            return ', '.join(age_elements)
         return super().data(index, role)
 
     def make_bold(self, index):

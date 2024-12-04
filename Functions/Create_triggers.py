@@ -293,10 +293,24 @@ def create_triggers(db: QtS.QSqlDatabase):
     CREATE TRIGGER IF NOT EXISTS validate_sample_info_before_update BEFORE UPDATE ON Samples
     BEGIN
         SELECT CASE
-            WHEN (NEW."HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) OR 
-            ("HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) OR 
-            (NEW."HeightDepth" IS NOT NULL AND "HeightDepthUnitID" IS NULL) THEN
-                RAISE (ABORT,'Height/depth value with missing units')
+            WHEN "HeightDepthUnitID" IS NOT NULL THEN
+                RAISE(ABORT, 'The height/depth unit id is not null')
+            END;
+        SELECT CASE
+            WHEN HeightDepth IS NOT NULL THEN
+                RAISE(ABORT, 'The height/depth value is not null')
+            END;
+        SELECT CASE
+            WHEN (NEW."HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) THEN
+                RAISE (ABORT,'New height/depth is not null and new height/depth unit is null')
+            END;
+        SELECT CASE
+            WHEN ("HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) THEN
+                RAISE (ABORT,'Old height/depth is not null and new height/depth unit is null')
+            END;
+        SELECT CASE
+            WHEN (NEW."HeightDepth" IS NOT NULL AND "HeightDepthUnitID" IS NULL) THEN
+                RAISE (ABORT,'New height/depth is not null and old height/depth unit is null')
             END;
         SELECT CASE
             WHEN (NEW."HeightDepthError" IS NOT NULL AND NEW."HeightDepth" IS NULL) OR
