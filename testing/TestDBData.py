@@ -48,7 +48,7 @@ def add_data(db_file):
     query.exec('''INSERT INTO Samples (SampleName, SampleGPSLocationID, DefaultSampleAgeID, SampleDescription) VALUES ("S1", 1, 3, "Sample 3")''')
     query.exec('''INSERT INTO Samples (SampleName, SampleGPSLocationID, DefaultSampleAgeID, SampleDescription) VALUES ("S2", 2, 2, "Sample 2")''')
     query.exec('''INSERT INTO Samples (SampleName, SampleGPSLocationID, DefaultSampleAgeID, SampleDescription) VALUES ("S3", 3, 3, "Sample 1")''')
-    query.exec('UPDATE Samples SET HeightDepth = 8, HeightDepthUnitID = 5 WHERE SampleID = 1')
+    # query.exec('UPDATE Samples SET HeightDepth = 8, HeightDepthUnitID = 5 WHERE SampleID = 1')
     query.exec('INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES(1, 1)')
     query.exec('INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES(2, 2)')
     query.exec('INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES(3, 3)')

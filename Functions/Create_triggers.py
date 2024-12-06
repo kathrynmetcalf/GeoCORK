@@ -38,19 +38,17 @@ def create_triggers(db: QtS.QSqlDatabase):
                 ratio_error_list.append(f'"{column}"')
         ratio_list = [column.replace('Error', '') for column in ratio_error_list]
         age_list = [column.replace('Error', '') for column in age_error_list]
-        ratio_error_statement = ' OR '.join(ratio_error_list)
         new_ratio_error_statement = ' OR '.join([f'NEW.{column}' for column in ratio_error_list])
-        missing_ratio_list = [f'({column_error} IS NOT NULL AND {column} IS NULL)' for column_error, column in
+        missing_ratio_list = [f'(NEW.{column_error} IS NOT NULL AND NEW.{column} IS NULL)' for column_error, column in
                               zip(ratio_error_list, ratio_list)]
         missing_ratio_statement = ' OR '.join(missing_ratio_list)
-        age_error_statement = ' OR '.join(age_error_list)
         new_age_error_statement = ' OR '.join([f'NEW.{column}' for column in age_error_list])
-        missing_age_list = [f'({column_error} IS NOT NULL AND {column} IS NULL)' for column_error, column in
+        missing_age_list = [f'(NEW.{column_error} IS NOT NULL AND NEW.{column} IS NULL)' for column_error, column in
                             zip(age_error_list, age_list)]
         missing_age_statement = ' OR '.join(missing_age_list)
-        return ratio_error_statement, new_ratio_error_statement, age_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement
+        return new_ratio_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement
 
-    ratio_error_statement, new_ratio_error_statement, age_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement = check_error_columns()
+    new_ratio_error_statement, new_age_error_statement, missing_ratio_statement, missing_age_statement = check_error_columns()
 
     '''Triggers for missing pairs and units, only triggers if there is corresponding data'''
     '''e.g. there is latitude but not longitude or an elevation value but no unit'''
@@ -67,14 +65,6 @@ def create_triggers(db: QtS.QSqlDatabase):
     BEGIN
         SELECT CASE
             WHEN NEW."ColumnTotalHeightDepth" IS NOT NULL AND NEW."ColumnTotalHeightDepthUnitID" IS NULL THEN
-                RAISE (ABORT,'Column total height/depth value with missing units')
-            END;
-        SELECT CASE
-            WHEN "ColumnTotalHeightDepth" IS NOT NULL AND NEW."ColumnTotalHeightDepthUnitID" IS NULL THEN
-                RAISE (ABORT,'Column total height/depth value with missing units')
-                END;
-        SELECT CASE
-            WHEN NEW."ColumnTotalHeightDepth" IS NOT NULL AND "ColumnTotalHeightDepthUnitID" IS NULL THEN
                 RAISE (ABORT,'Column total height/depth value with missing units')
             END;
     END;
@@ -151,87 +141,55 @@ def create_triggers(db: QtS.QSqlDatabase):
     CREATE TRIGGER IF NOT EXISTS validate_gps_before_update BEFORE UPDATE ON GPSLocations
     BEGIN
         SELECT CASE
-            WHEN (NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR (NEW."GPSLonDeg" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR 
-            ("GPSLatDeg" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR (NEW."GPSLonDeg" IS NOT NULL AND "GPSLatDeg" IS NULL) OR 
-            (NEW."GPSLatDeg" IS NOT NULL AND "GPSLonDeg" IS NULL) OR ("GPSLonDeg" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) THEN
+            WHEN (NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR (NEW."GPSLonDeg" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) THEN
                 RAISE (ABORT,'Missing corresponding degrees latitude or longitude')
             END;
         SELECT CASE
-            WHEN (NEW."GPSLatMin" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR (NEW."GPSLonMin" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
-            ("GPSLatMin" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR ("GPSLonMin" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
-            (NEW."GPSLatMin" IS NOT NULL AND "GPSLatDeg" IS NULL) OR (NEW."GPSLonMin" IS NOT NULL AND "GPSLonDeg" IS NULL) THEN
+            WHEN (NEW."GPSLatMin" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR (NEW."GPSLonMin" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) THEN
                 RAISE(ABORT, 'No degrees given for minutes')
             END;
         SELECT CASE
-            WHEN (NEW."GPSLatSec" IS NOT NULL AND NEW."GPSLatMin" IS NULL) OR (NEW."GPSLonSec" IS NOT NULL AND NEW."GPSLonMin" IS NULL) OR
-            ("GPSLatSec" IS NOT NULL AND NEW."GPSLatMin" IS NULL) OR ("GPSLonSec" IS NOT NULL AND NEW."GPSLonMin" IS NULL) OR
-            (NEW."GPSLatSec" IS NOT NULL AND "GPSLatMin" IS NULL) OR (NEW."GPSLonSec" IS NOT NULL AND "GPSLonMin" IS NULL) THEN
+            WHEN (NEW."GPSLatSec" IS NOT NULL AND NEW."GPSLatMin" IS NULL) OR (NEW."GPSLonSec" IS NOT NULL AND NEW."GPSLonMin" IS NULL) THEN
                 RAISE(ABORT, 'No minutes given for seconds')
             END;
         SELECT CASE
             WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSLonDirectionID" IS NULL) OR
-            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLatDirectionID" IS NULL) OR
-            ("GPSLatDirectionID" IS NOT NULL AND NEW."GPSLonDirectionID" IS NULL) OR
-            ("GPSLonDirectionID" IS NOT NULL AND NEW."GPSLatDirectionID" IS NULL) OR
-            (NEW."GPSLatDirectionID" IS NOT NULL AND "GPSLonDirectionID" IS NULL) OR
-            (NEW."GPSLonDirectionID" IS NOT NULL AND "GPSLatDirectionID" IS NULL) THEN
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLatDirectionID" IS NULL) THEN
                 RAISE(ABORT, 'Missing corresponding direction for latitude or longitude')
             END;
         SELECT CASE
             WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR
-            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
-            ("GPSLatDirectionID" IS NOT NULL AND NEW."GPSLatDeg" IS NULL) OR
-            ("GPSLonDirectionID" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) OR
-            (NEW."GPSLatDirectionID" IS NOT NULL AND "GPSLatDeg" IS NULL) OR
-            (NEW."GPSLonDirectionID" IS NOT NULL AND "GPSLonDeg" IS NULL) THEN
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSLonDeg" IS NULL) THEN
                 RAISE(ABORT, 'Missing corresponding degrees for direction')
             END;
         SELECT CASE 
             WHEN (NEW."GPSLatDirectionID" IS 1 AND NEW."GPSLatDeg" < 0) OR
-            (NEW."GPSLonDirectionID" IS 3 AND NEW."GPSLonDeg" < 0) OR 
-            ("GPSLatDirectionID" IS 1 AND NEW."GPSLatDeg" < 0) OR
-            ("GPSLonDirectionID" IS 3 AND NEW."GPSLonDeg" < 0) OR 
-            (NEW."GPSLatDirectionID" IS 1 AND "GPSLatDeg" < 0) OR
-            (NEW."GPSLonDirectionID" IS 3 AND "GPSLonDeg" < 0) THEN
+            (NEW."GPSLonDirectionID" IS 3 AND NEW."GPSLonDeg" < 0) THEN
                 RAISE(ABORT, 'Negative value with S or W direction')
             END;
         SELECT CASE 
             WHEN (NEW."GPSLatDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
-            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
-            ("GPSLatDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
-            ("GPSLonDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR
-            (NEW."GPSLatDirectionID" IS NOT NULL AND "GPSUTMN" IS NOT NULL) OR
-            (NEW."GPSLonDirectionID" IS NOT NULL AND "GPSUTMN" IS NOT NULL) THEN
+            (NEW."GPSLonDirectionID" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) THEN
                 RAISE(ABORT, 'Lat Lon direction given for UTM coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE 
-            WHEN NEW."GPSUTMZone" IS NOT NULL AND (NEW."GPSLatDeg" OR NEW."GPSLonDeg") IS NOT NULL OR 
-            ("GPSUTMZone" IS NOT NULL AND (NEW."GPSLatDeg" OR NEW."GPSLonDeg") IS NOT NULL) OR 
-            (NEW."GPSUTMZone" IS NOT NULL AND ("GPSLatDeg" OR "GPSLonDeg") IS NOT NULL) THEN
+            WHEN NEW."GPSUTMZone" IS NOT NULL AND (NEW."GPSLatDeg" OR NEW."GPSLonDeg") IS NOT NULL THEN
                 RAISE (ABORT, 'UTM zone given for Lat Lon coordinates. Coordinates should be entered in the format originally provided.')
             END;
         SELECT CASE
-            WHEN (NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTMZone" IS NULL) OR 
-            (NEW."GPSUTMN" IS NOT NULL AND "GPSUTMZone" IS NULL) OR 
-            ("GPSUTMN" IS NOT NULL AND NEW."GPSUTMZone" IS NULL) THEN
+            WHEN (NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTMZone" IS NULL) THEN
                 RAISE (ABORT,'UTM coordinates with missing zone')
             END;
         SELECT CASE
-            WHEN (NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTME" IS NULL) OR 
-            (NEW."GPSUTMN" IS NOT NULL AND "GPSUTME" IS NULL) OR
-            ("GPSUTMN" IS NOT NULL AND NEW."GPSUTME" IS NULL) THEN
+            WHEN (NEW."GPSUTMN" IS NOT NULL AND NEW."GPSUTME" IS NULL) THEN
                 RAISE (ABORT,'UTM northing missing corresponding easting')
             END;
         SELECT CASE
-            WHEN (NEW."GPSUTME" IS NOT NULL AND NEW."GPSUTMN" IS NULL) OR
-            (NEW."GPSUTME" IS NOT NULL AND "GPSUTMN" IS NULL) OR
-            ("GPSUTME" IS NOT NULL AND NEW."GPSUTMN" IS NULL) THEN
+            WHEN (NEW."GPSUTME" IS NOT NULL AND NEW."GPSUTMN" IS NULL) THEN
                 RAISE (ABORT,'UTM easting missing corresponding northing')
             END;
         SELECT CASE
-            WHEN (NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) OR 
-            (NEW."GPSLatDeg" IS NOT NULL AND "GPSUTMN" IS NOT NULL) OR
-            ("GPSLatDeg" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) THEN
+            WHEN (NEW."GPSLatDeg" IS NOT NULL AND NEW."GPSUTMN" IS NOT NULL) THEN
                 RAISE (ABORT, 'Coordinates already exist. Coordinates should be entered in the format orignially provided.')
             END;
     END;
@@ -257,17 +215,15 @@ def create_triggers(db: QtS.QSqlDatabase):
     CREATE TRIGGER IF NOT EXISTS validate_age_units_before_update BEFORE UPDATE ON SampleAges
     BEGIN
         SELECT CASE
-            WHEN (NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAgeErrorTypeID" IS NULL) OR ("DirectAgeError" IS NOT NULL AND NEW."DirectAgeErrorTypeID" IS NULL) THEN
+            WHEN (NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAgeErrorTypeID" IS NULL)THEN
                 RAISE (ABORT,'Direct age error value with missing units')
             END;
         SELECT CASE
-            WHEN (NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAge" IS NULL) OR ("DirectAgeError" IS NOT NULL AND NEW."DirectAge" IS NULL) THEN
+            WHEN (NEW."DirectAgeError" IS NOT NULL AND NEW."DirectAge" IS NULL) THEN
                 RAISE (ABORT,'Direct age error value with missing age')
             END;
         SELECT CASE
-            WHEN ((NEW."DirectAge" IS NOT NULL OR NEW."OldestDirectAge" IS NOT NULL OR NEW."YoungestDirectAge" IS NOT NULL) AND NEW."DirectAgeUnitID" IS NULL) OR 
-            (("DirectAge" IS NOT NULL OR "OldestDirectAge" IS NOT NULL OR "YoungestDirectAge" IS NOT NULL) AND NEW."DirectAgeUnitID" IS NULL) OR 
-            ((NEW."DirectAge" IS NOT NULL OR NEW."OldestDirectAge" IS NOT NULL OR NEW."YoungestDirectAge" IS NOT NULL) AND "DirectAgeUnitID" IS NULL) THEN
+            WHEN ((NEW."DirectAge" IS NOT NULL OR NEW."OldestDirectAge" IS NOT NULL OR NEW."YoungestDirectAge" IS NOT NULL) AND NEW."DirectAgeUnitID" IS NULL) THEN
                 RAISE (ABORT,'Direct age value with missing units')
             END;
     END;
@@ -293,35 +249,15 @@ def create_triggers(db: QtS.QSqlDatabase):
     CREATE TRIGGER IF NOT EXISTS validate_sample_info_before_update BEFORE UPDATE ON Samples
     BEGIN
         SELECT CASE
-            WHEN "HeightDepthUnitID" IS NOT NULL THEN
-                RAISE(ABORT, 'The height/depth unit id is not null')
-            END;
-        SELECT CASE
-            WHEN HeightDepth IS NOT NULL THEN
-                RAISE(ABORT, 'The height/depth value is not null')
-            END;
-        SELECT CASE
             WHEN (NEW."HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) THEN
                 RAISE (ABORT,'New height/depth is not null and new height/depth unit is null')
             END;
         SELECT CASE
-            WHEN ("HeightDepth" IS NOT NULL AND NEW."HeightDepthUnitID" IS NULL) THEN
-                RAISE (ABORT,'Old height/depth is not null and new height/depth unit is null')
-            END;
-        SELECT CASE
-            WHEN (NEW."HeightDepth" IS NOT NULL AND "HeightDepthUnitID" IS NULL) THEN
-                RAISE (ABORT,'New height/depth is not null and old height/depth unit is null')
-            END;
-        SELECT CASE
-            WHEN (NEW."HeightDepthError" IS NOT NULL AND NEW."HeightDepth" IS NULL) OR
-            ("HeightDepthError" IS NOT NULL AND NEW."HeightDepth" IS NULL) OR
-            (NEW."HeightDepthError" IS NOT NULL AND "HeightDepth" IS NULL) THEN
+            WHEN (NEW."HeightDepthError" IS NOT NULL AND NEW."HeightDepth" IS NULL) THEN
                 RAISE (ABORT,'Height/depth error value with missing height/depth value')
             END;
         SELECT CASE
-            WHEN (NEW."HeightDepth" IS NOT NULL AND NEW."SampleColumnID" IS NULL) OR 
-            ("HeightDepth" IS NOT NULL AND NEW."SampleColumnID" IS NULL) OR 
-            (NEW."HeightDepth" IS NOT NULL AND "SampleColumnID" IS NULL) THEN
+            WHEN (NEW."HeightDepth" IS NOT NULL AND NEW."SampleColumnID" IS NULL) THEN
                 RAISE (ABORT,'Height/depth value with missing column')
             END;
     END;
@@ -359,9 +295,7 @@ def create_triggers(db: QtS.QSqlDatabase):
     CREATE TRIGGER IF NOT EXISTS validate_upbanalyses_before_update BEFORE UPDATE ON UPbAnalyses
     BEGIN
         SELECT CASE
-            WHEN (({new_ratio_error_statement}) IS NOT NULL AND NEW."RatioErrorTypeID" IS NULL) OR 
-            (({ratio_error_statement}) IS NOT NULL AND NEW."RatioErrorTypeID" IS NULL) OR 
-            (({new_ratio_error_statement}) IS NOT NULL AND "RatioErrorTypeID" IS NULL) THEN
+            WHEN (({new_ratio_error_statement}) IS NOT NULL AND NEW."RatioErrorTypeID" IS NULL) THEN
                 RAISE (ABORT,'Ratio error values with missing type')
             END;
         SELECT CASE
@@ -369,9 +303,7 @@ def create_triggers(db: QtS.QSqlDatabase):
                 RAISE (ABORT,'Ratio error values with missing corresponding ratio')
             END;
         SELECT CASE
-            WHEN (({new_age_error_statement}) IS NOT NULL AND NEW."AgeErrorTypeID" IS NULL) OR 
-            (({age_error_statement}) IS NOT NULL AND NEW."AgeErrorTypeID" IS NULL) OR
-            (({new_age_error_statement}) IS NOT NULL AND "AgeErrorTypeID" IS NULL) THEN
+            WHEN (({new_age_error_statement}) IS NOT NULL AND NEW."AgeErrorTypeID" IS NULL) THEN
                 RAISE (ABORT,'Age error values with missing type')
             END;
         SELECT CASE
@@ -379,15 +311,11 @@ def create_triggers(db: QtS.QSqlDatabase):
                 RAISE (ABORT,'Age error values with missing corresponding age')
             END;
         SELECT CASE
-            WHEN (NEW."Concordance" IS NOT NULL AND NEW."ConcordanceTypeID" IS NULL) OR 
-            ("Concordance" IS NOT NULL AND NEW."ConcordanceTypeID" IS NULL) OR
-            (NEW."Concordance" IS NOT NULL AND "ConcordanceTypeID" IS NULL) THEN
+            WHEN (NEW."Concordance" IS NOT NULL AND NEW."ConcordanceTypeID" IS NULL) THEN
                 RAISE (ABORT,'"Concordance" value with missing type')
             END;
         SELECT CASE
-            WHEN (NEW."SpotSize" IS NOT NULL AND NEW."SpotSizeUnitID" IS NULL) OR 
-            ("SpotSize" IS NOT NULL AND NEW."SpotSizeUnitID" IS NULL) OR
-            (NEW."SpotSize" IS NOT NULL AND "SpotSizeUnitID" IS NULL) THEN
+            WHEN (NEW."SpotSize" IS NOT NULL AND NEW."SpotSizeUnitID" IS NULL) THEN
                 RAISE (ABORT,'Spot size value with missing units')
             END;
     END;

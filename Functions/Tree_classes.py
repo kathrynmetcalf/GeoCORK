@@ -1035,6 +1035,7 @@ class TreeCombobox(QtW.QComboBox):
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 self.treeView.setCurrentIndex(self.treeView.selectedIndexes()[0])
                 self.lineEdit().setText(self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole))
+                self.hidePopup()
                 return True
             return super().eventFilter(obj, event)
         return super().eventFilter(obj, event)
