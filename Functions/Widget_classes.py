@@ -10,33 +10,27 @@ class FocusGroupBox(QtW.QGroupBox):
         self.setFocusPolicy(QtC.Qt.FocusPolicy.NoFocus)
         self.installEventFilter(self)
         self.install_children_event_filter()
+        self.focus_lost_timer = QtC.QTimer(self)
+        self.focus_lost_timer.setSingleShot(True)
+        self.focus_lost_timer.timeout.connect(self.check_focus_state)
 
     def install_children_event_filter(self):
         for child in self.findChildren(QtW.QWidget):
             child.installEventFilter(self)
-            print(f"{self.title} child installed")
-        for child in self.findChildren(QtW.QGroupBox):
-            child.installEventFilter(self)
-            print(f"{self.title} child installed")
 
     def eventFilter(self, obj, event):
         if event.type() == QtC.QEvent.Type.FocusOut:
-            QtW.QApplication.instance().processEvents()
-            self.check_focus_state()
+            self.focus_lost_timer.start(0)
         return super().eventFilter(obj, event)
 
     def check_focus_state(self, child=None):
         has_focus = self.any_child_has_focus()
         if not has_focus:
+            print(f'{self.objectName()} has lost focus')
             self.focusLost.emit()
 
     def any_child_has_focus(self):
         for child in self.findChildren(QtW.QWidget):
-            try:
-                if child.any_child_has_focus():
-                    return True
-            except AttributeError:
-                pass
             if child.hasFocus():
                 return True
         return False

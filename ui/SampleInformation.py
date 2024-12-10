@@ -257,7 +257,7 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
 
-        self.location_groupBox.install_children_event_filter()
+        # self.location_groupBox.install_children_event_filter()
         self.latlon_groupBox.install_children_event_filter()
         self.utm_groupBox.install_children_event_filter()
         self.elev_groupBox.install_children_event_filter()
@@ -286,10 +286,10 @@ class SampleInformation(QtW.QDialog):
         self.sample_names_model.dataChanged.connect(self.update_sample_list)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'"{self.sample_igsn_lineEdit.text()}"'))
         self.gps_format_comboBox.currentTextChanged.connect(self.display_gps)
-        self.latlon_groupBox.focusLost.connect(lambda: print("latlon focus lost"))
-        self.utm_groupBox.focusLost.connect(lambda: print("utm focus lost"))
-        self.elev_groupBox.focusLost.connect(lambda: print("elev focus lost"))
-        self.location_groupBox.focusLost.connect(self.update_gps)
+        self.latlon_groupBox.focusLost.connect(self.update_gps)
+        self.utm_groupBox.focusLost.connect(self.update_gps)
+        self.elev_groupBox.focusLost.connect(self.update_gps)
+        # self.location_groupBox.focusLost.connect(self.update_gps)
         self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('ColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
         self.height_depth_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepth', self.height_depth_lineEdit.text()))
@@ -704,23 +704,37 @@ class SampleInformation(QtW.QDialog):
             if 'D' in gps_format_name:
                 lat_deg = self.lat_deg_lineEdit.text()
                 lon_deg = self.lon_deg_lineEdit.text()
+                qlat_deg = f'= {lat_deg}'
+                qlon_deg = f'= {lon_deg}'
                 if 'M' in gps_format_name:
                     lat_min = self.lat_min_lineEdit.text()
                     lon_min = self.lon_min_lineEdit.text()
+                    qlat_min = f'= {lat_min}'
+                    qlon_min = f'= {lon_min}'
                     if 'S' in gps_format_name:
                         lat_sec = self.lat_sec_lineEdit.text()
                         lon_sec = self.lon_sec_lineEdit.text()
+                        qlat_sec = f'= {lat_sec}'
+                        qlon_sec = f'= {lon_sec}'
                     else:
-                        lat_sec = None
-                        lon_sec = None
+                        lat_sec = 'Null'
+                        lon_sec = 'Null'
+                        qlat_sec = 'is Null'
+                        qlon_sec = 'is Null'
                 else:
-                    lat_min = None
-                    lon_min = None
-                    lat_sec = None
-                    lon_sec = None
+                    lat_min = 'Null'
+                    lon_min = 'Null'
+                    lat_sec = 'Null'
+                    lon_sec = 'Null'
+                    qlat_min = 'is Null'
+                    qlon_min = 'is Null'
+                    qlat_sec = 'is Null'
+                    qlon_sec = 'is Null'
                 if '+/-' in gps_format_name:
-                    lat_dir = None
-                    lon_dir = None
+                    lat_dir = 'Null'
+                    lon_dir = 'Null'
+                    qlat_dir = 'is Null'
+                    qlon_dir = 'is Null'
                 elif ' NSEW' in gps_format_name:
                     lat_dir = self.lat_comboBox.currentText()
                     lon_dir = self.lon_comboBox.currentText()
@@ -728,65 +742,109 @@ class SampleInformation(QtW.QDialog):
                     lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
                     self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
                     lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-                utm_zone = None
-                utm_n = None
-                utm_e = None
+                    qlat_dir = f'= {lat_dir}'
+                    qlon_dir = f'= {lon_dir}'
+                utm_zone = 'Null'
+                utm_n = 'Null'
+                utm_e = 'Null'
+                qutm_zone = 'is Null'
+                qutm_n = 'is Null'
+                qutm_e = 'is Null'
             elif gps_format_name == 'UTM':
-                lat_deg = None
-                lat_min = None
-                lat_sec = None
-                lat_dir = None
-                lon_deg = None
-                lon_min = None
-                lon_sec = None
-                lon_dir = None
+                lat_deg = 'Null'
+                lat_min = 'Null'
+                lat_sec = 'Null'
+                lat_dir = 'Null'
+                lon_deg = 'Null'
+                lon_min = 'Null'
+                lon_sec = 'Null'
+                lon_dir = 'Null'
+                qlat_deg = 'is Null'
+                qlat_min = 'is Null'
+                qlat_sec = 'is Null'
+                qlat_dir = 'is Null'
+                qlon_deg = 'is Null'
+                qlon_min = 'is Null'
+                qlon_sec = 'is Null'
+                qlon_dir = 'is Null'
                 utm_zone = self.utm_zone_lineEdit.text()
                 utm_n = self.utm_n_lineEdit.text()
                 utm_e = self.utm_e_lineEdit.text()
+                qutm_zone = f'= {utm_zone}'
+                qutm_n = f'= {utm_n}'
+                qutm_e = f'= {utm_e}'
             elevation = self.elevation_lineEdit.text()
             elevation_error = self.elevation_error_lineEdit.text()
             elevation_unit = self.elevation_unit_comboBox.currentText()
-            self.elevation_unit_model.setFilter(f"DistanceUnitAbbreviation = '{elevation_unit}'")
-            elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            if not elevation:
+                elevation = 'Null'
+                qelevation = 'is Null'
+            else:
+                qelevation = f'= {elevation}'
+            if not elevation_error:
+                elevation_error = 'Null'
+                qelevation_error = 'is Null'
+            else:
+                qelevation_error = f'= {elevation_error}'
+            if not elevation_unit:
+                elevation_unit = 'Null'
+                qelevation_unit = 'is Null'
+            else:
+                self.elevation_unit_model.setFilter(f"DistanceUnitAbbreviation = '{elevation_unit}'")
+                elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+                qelevation_unit = f'= {elevation_unit}'
 
-            query = QtS.QSqlQuery()
-            if len(self.checked_sample_list) == 1:
-                self.samples_table.setFilter(f"SampleID = {self.checked_sample_list[0]}")
-            else:
-                self.samples_table.setFilter(f"SampleID in {tuple(self.checked_sample_list)}")
+            if len(self.checked_sample_list) > 1:
+                self.sample_names_model.setFilter(f"SampleID in {tuple(self.checked_sample_list)}")
+            elif len(self.checked_sample_list) == 1:
+                self.sample_names_model.setFilter(f"SampleID = {self.checked_sample_list[0]}")
             gps_ids = []
-            for row in range(self.samples_table.rowCount()):
-                if self.samples_table.index(row, 3).data is not None:
-                    gps_ids.append(self.samples_table.index(row, 3).data())
-            if len(gps_ids) > 1:
-                if not query.exec(f'DELETE FROM GPSLocations WHERE GPSLocationID in {tuple(gps_ids)}'):
-                    errtxt = query.lastError().text()
-                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    self.rollback('before_update')
-                    return
-                if not query.exec(f'''INSERT INTO GPSLocations (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID) VALUES 
-                    ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}'''):
-                    errtxt = query.lastError().text()
-                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    self.rollback('before_update')
-                    return
-            elif len(gps_ids) == 1:
-                if not query.exec(f'''UPDATE GPSLocations SET (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID) VALUES 
-                    ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit} WHERE GPSLocationID = {gps_ids[0]}'''):
-                    errtxt = query.lastError().text()
-                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    self.rollback('before_update')
-                    return
-            else:
-                if not query.exec(f'''INSERT INTO GPSLocations (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID) VALUES 
-                    ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}'''):
-                    errtxt = query.lastError().text()
-                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    self.rollback('before_update')
-            self.gps_location_model.setFilter(f"GPSLatDeg = {lat_deg} AND GPSLatMin = {lat_min} AND GPSLatSec = {lat_sec} AND GPSLatDirectionID = {lat_dir} AND GPSLonDeg = {lon_deg} AND GPSLonMin = {lon_min} AND GPSLonSec = {lon_sec} AND GPSLonDirectionID = {lon_dir} AND GPSUTMZone = {utm_zone} AND GPSUTMN = {utm_n} AND GPSUTME = {utm_e} AND GPSElev = {elevation} AND GPSElevError = {elevation_error} AND GPSElevUnitID = {elevation_unit}")
+            for row in range(self.sample_names_model.rowCount()):
+                if self.sample_names_model.index(row, 3).data() != 'Null':
+                    gps_ids.append(self.sample_names_model.index(row, 3).data())
+            query = QtS.QSqlQuery()
+            gps_to_delete = []
+            gps_to_update = []
+            if len(gps_ids) > 0:
+                for gps in gps_ids:
+                    self.sample_names_model.setFilter(f"SampleGPSLocationID = {gps}")
+                    self.column_model.setFilter(f"ColumnBaseGPSLocationID = {gps}")
+                    samples_with_gps = []
+                    for row in range(self.sample_names_model.rowCount()):
+                        if self.sample_names_model.index(row, 0).data() not in self.checked_sample_list:
+                            samples_with_gps.append(self.sample_names_model.index(row, 0).data())
+                    if len(samples_with_gps) == 0 and self.column_model.rowCount() == 0:
+                        # There are no other samples or columns with this GPS location
+                        if len(gps_to_update) == 0:
+                            # Choose the first GPS location to update and delete the rest that will be unused
+                            gps_to_update.append(gps)
+                        else:
+                            gps_to_delete.append(gps)
+                if len(gps_to_update) == 0:
+                    # All gps are associated with other samples or columns, so create a new one
+                    if not query.exec(f'''INSERT INTO GPSLocations (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID) = 
+                        ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}'''):
+                        errtxt = query.lastError().text()
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        self.rollback('before_update')
+                        return
+                else:
+                    if not query.exec(f'''UPDATE GPSLocations SET (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID) = 
+                        ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}) WHERE GPSLocationID = {gps_to_update[0]}'''):
+                        errtxt = query.lastError().text()
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        self.rollback('before_update')
+                        return
+                    if len(gps_to_delete) > 0:
+                        if not query.exec(f'DELECT FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
+                            errtxt = query.lastError().text()
+                            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                            self.rollback('before_update')
+                        return
+            self.gps_location_model.setFilter(f"GPSLatDeg {qlat_deg} AND GPSLatMin {qlat_min} AND GPSLatSec {qlat_sec} AND GPSLatDirectionID {qlat_dir} AND GPSLonDeg {qlon_deg} AND GPSLonMin {qlon_min} AND GPSLonSec {qlon_sec} AND GPSLonDirectionID {qlon_dir} AND GPSUTMZone {qutm_zone} AND GPSUTMN {qutm_n} AND GPSUTME {qutm_e} AND GPSElev {qelevation} AND GPSElevError {qelevation_error} AND GPSElevUnitID {qelevation_unit}")
             gps_id = self.gps_location_model.data(self.gps_location_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
             for sample_id in self.checked_sample_list:
-                if not query.exec(f'''UPDATE Samples SET GPSLocationID = {gps_id} WHERE SampleID = {sample_id}'''):
+                if not query.exec(f'''UPDATE Samples SET SampleGPSLocationID = {gps_id} WHERE SampleID = {sample_id}'''):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                     self.rollback('before_update')
@@ -828,8 +886,8 @@ class SampleInformation(QtW.QDialog):
 
             self.createSavepoint('before_update')
             query = QtS.QSqlQuery()
-            if not query.exec(f'''UPDATE SampleAges SET (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) 
-                VALUES ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_dir}, {youngest_dir}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}") 
+            if not query.exec(f'''UPDATE SampleAges SET (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) = 
+                ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_dir}, {youngest_dir}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}") 
                 WHERE SampleAgeID = {sample_age_id}'''):
                 errtxt = query.lastError().text()
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)

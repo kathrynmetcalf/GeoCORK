@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Dialog</string>
   </property>
-  <widget class="FocusGroupBox" name="location_groupBox">
+  <widget class="QGroupBox" name="location_groupBox">
    <property name="geometry">
     <rect>
      <x>40</x>
@@ -754,7 +754,7 @@
     </layout>
    </widget>
   </widget>
-  <widget class="QGroupBox" name="column_groupBox">
+  <widget class="FocusGroupBox" name="column_groupBox">
    <property name="geometry">
     <rect>
      <x>40</x>
