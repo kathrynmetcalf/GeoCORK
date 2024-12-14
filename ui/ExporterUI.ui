@@ -47,6 +47,11 @@
          </property>
          <item>
           <property name="text">
+           <string>Custom</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
            <string>detritalPy</string>
           </property>
          </item>
@@ -63,11 +68,6 @@
          <item>
           <property name="text">
            <string>Database</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Custom</string>
           </property>
          </item>
         </widget>
@@ -307,9 +307,6 @@
         </widget>
        </item>
       </layout>
-     </item>
-     <item>
-      <widget class="QTabWidget" name="workbooktabs"/>
      </item>
     </layout>
    </item>

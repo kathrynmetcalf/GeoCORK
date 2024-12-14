@@ -6,6 +6,7 @@ from PyQt6.QtCore import QSettings, QSize
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQueryModel
 from PyQt6.QtWidgets import QWidget, QApplication, QGridLayout, QLabel, QCheckBox, QStackedWidget, QSpacerItem, \
     QSizePolicy, QTableView, QTabWidget, QVBoxLayout, QMessageBox, QPushButton, QHBoxLayout, QInputDialog
+from PyQt6.QtWidgets import QDialog, QListWidget, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
 
 import Filters
 import SQLUtils
@@ -48,11 +49,8 @@ class ExportWidget(QWidget):
 
         uic.loadUi('ui/ExporterUI.ui', self)
 
-        # Create the first workbook tab with the existing tableView
-        self.create_first_workbook_tab()
-
         # Connect buttons to methods
-        self.add_workbook_button.clicked.connect(self.add_workbook_tab)
+        self.add_workbook_button.clicked.connect(lambda: self.add_workbook_tab(None, None, None))
         self.remove_workbook_button.clicked.connect(self.remove_current_workbook_tab)
 
         # List of all user-viewable tables in the database
@@ -159,6 +157,7 @@ class ExportWidget(QWidget):
 
         self.update_step_2_list()
         self.populate_stack()
+        self.workbooktabs.deleteLater()
         self.export_format()
 
         self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
@@ -168,9 +167,12 @@ class ExportWidget(QWidget):
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
 
-        self.workbooktabs.tabBarDoubleClicked.connect(self.rename_workbook_tab)
-
-        self.show()
+        # self.show()
+    def tab_changed(self):
+        self.save_checkbox_states(self.previous_workbook)
+        self.load_checkbox_states()
+        self.previous_workbook = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        self.update_table_view()
 
     def rename_workbook_tab(self, index):
         if index == -1:
@@ -201,29 +203,60 @@ class ExportWidget(QWidget):
         tab1.setLayout(tab1_layout)
         tableView = QTableView()
         tab1_layout.addWidget(tableView)
-        self.workbooktabs.addTab(tab1, "Workbook 1")
-
         # Create a data model for this tableView
         model = QSqlQueryModel()
 
-        # Store the tableView and model in the workbook_tabs dictionary
         self.workbook_tabs["Workbook 1"] = {
             'tableView': tableView,
             'model': model,
-            'selected_columns': [],
-            'ordered_columns': []
+            'selected_columns': {},
+            'ordered_columns': {}
         }
 
-    def add_workbook_tab(self):
-        # Determine the new workbook name
-        workbook_number = len(self.workbook_tabs) + 1
-        workbook_name, ok = QInputDialog.getText(self, "New Workbook", "Enter workbook name:")
-        if not ok or not workbook_name:
-            return  # User canceled or didn't enter a name
+        self.workbooktabs.blockSignals(True)
+        self.workbooktabs.addTab(tab1, "Workbook 1")
+        self.workbooktabs.blockSignals(False)
 
-        if workbook_name in self.workbook_tabs:
-            QMessageBox.warning(self, "Duplicate Name", "A workbook with that name already exists.")
-            return
+        self.load_checkbox_states('Workbook 1')
+
+        self.update_table_view()
+        self.repaint()
+
+
+    def delete_workbook_tab(self):
+        return
+
+    def delete_all_workbook_tabs(self):
+        self.workbooktabs: QTabWidget
+        self.verticalLayout_7.removeWidget(self.workbooktabs)
+        self.workbooktabs.deleteLater()
+        self.workbooktabs = QTabWidget()
+
+        self.workbooktabs.currentChanged.connect(self.tab_changed)
+        self.workbooktabs.tabBarDoubleClicked.connect(self.rename_workbook_tab)
+        self.previous_workbook = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+
+        self.verticalLayout_7.addWidget(self.workbooktabs)
+
+        self.workbook_tabs = {}
+        self.previous_workbook = None
+
+
+    def add_workbook_tab(self, workbook_name=None, selected_columns=None, ordered_columns=None):
+        # Determine the new workbook name
+        if ordered_columns is None:
+            ordered_columns = {}
+        if selected_columns is None:
+            selected_columns = {}
+        if workbook_name is None:
+            workbook_name, ok = QInputDialog.getText(self, "New Workbook", "Enter workbook name:")
+            if not ok or not workbook_name:
+                return  # User canceled or didn't enter a name
+
+            if workbook_name in self.workbook_tabs:
+                QMessageBox.warning(self, "Duplicate Name", "A workbook with that name already exists.")
+                return
+
 
         # Create a new tableView
         new_tableView = QTableView()
@@ -236,21 +269,29 @@ class ExportWidget(QWidget):
         tab_layout = QVBoxLayout()
         new_tab.setLayout(tab_layout)
         tab_layout.addWidget(new_tableView)
-        self.workbooktabs.addTab(new_tab, workbook_name)
-
         # Store the tableView and model in the workbook_tabs dictionary
         self.workbook_tabs[workbook_name] = {
             'tableView': new_tableView,
             'model': model,
-            'selected_columns': [],
-            'ordered_columns': []
+            'selected_columns': selected_columns,
+            'ordered_columns': ordered_columns
         }
+        self.workbooktabs.blockSignals(True)
+        self.workbooktabs.addTab(new_tab, workbook_name)
+
+        self.workbooktabs.blockSignals(False)
+        self.load_checkbox_states(workbook_name)
+        self.workbooktabs.setCurrentWidget(new_tab)
+
+
+
 
         # Switch to the new tab
-        self.workbooktabs.setCurrentWidget(new_tab)
+
 
         # Update the table view
         self.update_table_view()
+        self.repaint()
 
     def remove_current_workbook_tab(self):
         if self.workbooktabs.count() <= 1:
@@ -302,8 +343,8 @@ class ExportWidget(QWidget):
                 # Set the field name as a property of the checkbox to save and restore state
                 checkbox.setProperty("field_name", field)
                 checkbox.setProperty('table_name', table_name)
-                checkbox.checkStateChanged.connect(self.update_table_view)
-
+                checkbox.checkStateChanged.connect(lambda: self.update_table_view(deleted=False))
+                # checkbox.checkStateChanged.connect(lamd)
             # Add a vertical spacer at the bottom to push content upwards
             vertical_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
             layout.addItem(vertical_spacer, row + 1, 0, 1, 2)  # Add spacer across both columns
@@ -322,32 +363,62 @@ class ExportWidget(QWidget):
 
         self.update_table_view()
 
-    def save_checkbox_states(self):
-        # Save the state of checkboxes for the current table
-        current_widget = self.columnattributes_stack.currentWidget()
-        if current_widget:
-            layout = current_widget.layout()
-            for i in range(layout.count()):
-                widget = layout.itemAt(i).widget()
-                if isinstance(widget, QCheckBox):
-                    # Save checkbox state as a custom property or external storage
-                    widget.setProperty("saved_state", widget.isChecked())
+    def save_checkbox_states(self, previous_workbook=None):
+        # Save the state of checkboxes for all tables
+        current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        checkbox_states = {}
 
-    def load_checkbox_states(self):
-        # Load the state of checkboxes for the current table
-        current_widget = self.columnattributes_stack.currentWidget()
-        if current_widget:
-            layout = current_widget.layout()
-            for i in range(layout.count()):
-                widget = layout.itemAt(i).widget()
-                if isinstance(widget, QCheckBox):
-                    # Retrieve and set the saved state if it exists
-                    saved_state = widget.property("saved_state")
-                    if saved_state is not None:
-                        widget.setChecked(saved_state)
+        for index in range(self.columnattributes_stack.count()):
+            table_widget = self.columnattributes_stack.widget(index)
+            table_name = self.columnselection_comboBox.itemText(index)
+            if table_widget:
+                layout = table_widget.layout()
+                for i in range(layout.count()):
+                    item = layout.itemAt(i)
+                    if item is None:
+                        continue
+                    widget = item.widget()
+                    if isinstance(widget, QCheckBox):
+                        field_name = widget.property('field_name')
+                        checked = widget.isChecked()
+                        checkbox_states[(table_name, field_name)] = checked
+        # Store checkbox_states in the workbook's data
+        if previous_workbook is None:
+            self.workbook_tabs[current_workbook_name]['selected_columns'] = checkbox_states
+        else:
+            self.workbook_tabs[previous_workbook]['selected_columns'] = checkbox_states
+
+    def load_checkbox_states(self, workbook_name=None):
+        # Load the state of checkboxes for all tables
+
+        if workbook_name is not None:
+            current_workbook_name = workbook_name
+        else:
+            current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        checkbox_states = self.workbook_tabs[current_workbook_name].get('selected_columns', {})
+        print(current_workbook_name)
+        print(checkbox_states)
+        for index in range(self.columnattributes_stack.count()):
+            table_widget = self.columnattributes_stack.widget(index)
+            table_name = self.columnselection_comboBox.itemText(index)
+            if table_widget:
+                layout = table_widget.layout()
+                for i in range(layout.count()):
+                    item = layout.itemAt(i)
+                    if item is None:
+                        continue
+                    widget = item.widget()
+                    if isinstance(widget, QCheckBox):
+                        field_name = widget.property('field_name')
+
+                        checked = checkbox_states.get((table_name, field_name), False)
+
+                        widget.blockSignals(True)  # Prevent signals during state change
+                        widget.setChecked(checked)
+                        widget.blockSignals(False)
 
     def get_selected_values(self):
-        selected_columns = []
+        selected_columns = {}
         for index in range(self.columnattributes_stack.count()):
             table_widget = self.columnattributes_stack.widget(index)
             table_name = self.columnselection_comboBox.itemText(index)
@@ -359,17 +430,19 @@ class ExportWidget(QWidget):
                         continue
                     widget = item.widget()
                     if isinstance(widget, QCheckBox) and widget.isChecked():
+
                         field_name = widget.property('field_name')
                         # Ensure table_name is associated with the checkbox
                         widget_table_name = widget.property('table_name')
+                        print(field_name, widget_table_name)
                         if widget_table_name is None:
                             widget.setProperty('table_name', table_name)
                             widget_table_name = table_name
-                        selected_columns.append((widget_table_name, field_name))
+                        selected_columns[(widget_table_name, field_name)] = True
         # Store selected_columns in the current workbook
         current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
-        self.workbook_tabs[current_workbook_name]['selected_columns'] = tuple(selected_columns)
-        return tuple(selected_columns)
+        self.workbook_tabs[current_workbook_name]['selected_columns'] = selected_columns
+        return selected_columns
 
     def select_checkboxes(self, values):
         # Values should be tuple format ('table_name', 'field_name')
@@ -390,20 +463,29 @@ class ExportWidget(QWidget):
                             widget.setChecked(True)
         self.update_table_view()
 
-    def update_table_view(self):
+    def update_table_view(self, deleted=False):
         # Get the current workbook
         current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         tableView = self.workbook_tabs[current_workbook_name]['tableView']
-        model = self.workbook_tabs[current_workbook_name]['model']
+        # self.load_checkbox_states()
+        if deleted:
+            self.workbook_tabs[current_workbook_name]['selected_columns'] = self.workbook_tabs[current_workbook_name].get('ordered_columns', {})
+            ordered_columns = self.workbook_tabs[current_workbook_name].get('ordered_columns', {})
 
-        # Get the selected columns for the current workbook
-        self.get_selected_values()
-        selected_columns = self.workbook_tabs[current_workbook_name].get('selected_columns', [])
-        ordered_columns = self.workbook_tabs[current_workbook_name].get('ordered_columns', [])
+        else:
+            # # update selected columns
+            self.get_selected_values()
 
-        if Counter(selected_columns) != Counter(ordered_columns):
-            ordered_columns = selected_columns
-            self.workbook_tabs[current_workbook_name]['ordered_columns'] = ordered_columns
+            print(f"selected values: {self.workbook_tabs}")
+
+            # Get the selected columns for the current workbook
+            selected_columns = self.workbook_tabs[current_workbook_name].get('selected_columns', {})
+            ordered_columns = self.workbook_tabs[current_workbook_name].get('ordered_columns', {})
+
+            if Counter(selected_columns) != Counter(ordered_columns):
+                ordered_columns = selected_columns
+                self.workbook_tabs[current_workbook_name]['ordered_columns'] = ordered_columns
+
 
         if not ordered_columns:
             # No columns selected, clear the table view
@@ -411,14 +493,19 @@ class ExportWidget(QWidget):
             return
 
         # Build the SQL query
-        tables = []
+        tables = set()
         columns_str = ''
         for table, field in ordered_columns:
-            tables.append(table)
+            tables.add(table)
+
             columns_str += f'[{field}], '
+            print(columns_str)
 
         columns_str = columns_str[0:-2]
-        join = SQLUtils.get_join_from_table(tables)
+
+        tables.add('Samples')
+
+        join = SQLUtils.get_join_from_table(list(tables))
 
         filtered_where_clause = ''
         ids = []
@@ -461,12 +548,13 @@ class ExportWidget(QWidget):
         else:
             query_str = f"SELECT {columns_str} FROM Samples {join} WHERE FALSE"
 
-        model.beginResetModel()
+        model = QSqlQueryModel()
         model.setQuery(query_str)
-        model.endResetModel()
+        self.workbook_tabs[current_workbook_name]['model'] = model
+        print(query_str)
 
-        for col in range(model.columnCount()):
-            header = model.headerData(col, QtCore.Qt.Orientation.Horizontal, QtCore.Qt.ItemDataRole.DisplayRole)
+        for col, (table, field) in enumerate(ordered_columns):
+            header = f"{table}.{field}"
             model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
@@ -478,17 +566,25 @@ class ExportWidget(QWidget):
         # Implement your export functionality here
 
     def export_format(self):
+        self.delete_all_workbook_tabs()
         match self.exportformat_comboBox.currentText():
             case 'detritalPy':
-                values = [('Samples', 'SampleName'),
-                          ('Spots', 'SpotName'),
-                          ('UPb Data', 'Uppm'),
-                          ('UPb Data', 'U/Th'),
-                          ('UPb Data', 'BestAge'),
-                          ('UPb Data', 'Error'),
-                          ('UPb Data', 'Conc')
-                          ]
-                self.select_checkboxes(values)
+                Samples_columns= {('Samples', 'SampleName'): True,
+                                   ('Units', 'UnitName'): True,
+                                   ('Samples', 'Latitude'): True,
+                                   ('Samples', 'Longitude'): True,
+                                   ('Sources', 'ShortCitation'): True}
+                self.add_workbook_tab('Samples', Samples_columns, Samples_columns)
+
+                ZrUPb_columns = {('Samples', 'SampleName'): True,
+                          ('Spots', 'SpotName'): True,
+                          ('UPb Data', 'Uppm'): True,
+                          ('UPb Data', 'U/Th'): True,
+                          ('UPb Data', 'BestAge'): True,
+                          ('UPb Data', 'Error'): True,
+                          ('UPb Data', 'Conc'): True}
+
+                self.add_workbook_tab('ZrUPb', ZrUPb_columns, ZrUPb_columns)
                 return
             case 'IsoplotR':
                 pass
@@ -497,9 +593,8 @@ class ExportWidget(QWidget):
             case 'Database':
                 pass
             case 'Custom':
-                pass
-        current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
-        self.workbook_tabs[current_workbook_name]['tableView'].setModel(None)
+                self.create_first_workbook_tab()
+                return
 
     def update_step_2_list(self):
         if self.selectionscope_comboBox.currentText() == 'Samples':
@@ -587,10 +682,9 @@ class ExportWidget(QWidget):
             # Update the selected columns
             self.workbook_tabs[current_workbook_name]['ordered_columns'] = adjusted_columns
             # Update the table view with the new column order
-            self.update_table_view()
+            self.update_table_view(deleted=True)
 
 
-from PyQt6.QtWidgets import QDialog, QListWidget, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
 
 
 class ColumnOrderDialog(QDialog):
