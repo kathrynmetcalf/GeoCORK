@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1281</width>
-    <height>824</height>
+    <width>1268</width>
+    <height>762</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -43,7 +43,7 @@
        <x>10</x>
        <y>20</y>
        <width>589</width>
-       <height>61</height>
+       <height>62</height>
       </rect>
      </property>
      <layout class="QVBoxLayout" name="verticalLayout">
@@ -351,7 +351,7 @@
      <rect>
       <x>10</x>
       <y>30</y>
-      <width>221</width>
+      <width>611</width>
       <height>24</height>
      </rect>
     </property>
@@ -378,10 +378,23 @@
      <item>
       <widget class="QComboBox" name="gps_format_comboBox"/>
      </item>
+     <item>
+      <spacer name="horizontalSpacer_7">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
     </layout>
    </widget>
   </widget>
-  <widget class="FocusGroupBox" name="age_groupBox">
+  <widget class="QGroupBox" name="age_groupBox">
    <property name="geometry">
     <rect>
      <x>690</x>
@@ -489,14 +502,14 @@
      </property>
      <layout class="QHBoxLayout" name="horizontalLayout_5">
       <item>
-       <widget class="QLabel" name="oldest_dir_label">
+       <widget class="QLabel" name="oldest_direct_label">
         <property name="text">
          <string>Oldest:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="oldest_dir_lineEdit"/>
+       <widget class="QLineEdit" name="oldest_direct_lineEdit"/>
       </item>
       <item>
        <spacer name="horizontalSpacer_6">
@@ -515,14 +528,14 @@
        </spacer>
       </item>
       <item>
-       <widget class="QLabel" name="youngest_dir_label">
+       <widget class="QLabel" name="youngest_direct_label">
         <property name="text">
          <string>Youngest:</string>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QLineEdit" name="youngest_dir_lineEdit"/>
+       <widget class="QLineEdit" name="youngest_direct_lineEdit"/>
       </item>
       <item>
        <widget class="QComboBox" name="direct_unit_comboBox">

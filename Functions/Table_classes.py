@@ -461,9 +461,9 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
     def __init__(self):
         super().__init__()
         self.bolded_rows = []
-        query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
+        self.default_query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
                         OldestAgeID, YoungestAgeID, SampleAgeDescription, SampleAgeCreated, SampleAgeModified FROM SampleAges'''
-        self.setQuery(query)
+        self.setQuery(self.default_query)
 
     def tableName(self):
         return 'SampleAges'
