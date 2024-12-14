@@ -9,6 +9,7 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop, QRegularExpression
 from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction, QRegularExpressionValidator, \
     QDoubleValidator
+from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
@@ -1088,7 +1089,7 @@ class QueryBuilder(QWidget):
         InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
 
         self.listWidget.clear()
-
+        db = QSqlDatabase()
         conn = sqlite3.connect(self.db_file)
         with conn:
             sql_query = """SELECT * FROM FilterGroups;"""
