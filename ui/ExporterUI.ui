@@ -260,19 +260,6 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="viewpreview_pushbutton">
-       <property name="focusPolicy">
-        <enum>Qt::ClickFocus</enum>
-       </property>
-       <property name="text">
-        <string>View Preview</string>
-       </property>
-       <property name="autoDefault">
-        <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QPushButton" name="export_pushbutton">
        <property name="text">
         <string>Export</string>
@@ -307,6 +294,9 @@
         </widget>
        </item>
       </layout>
+     </item>
+     <item>
+      <widget class="QTabWidget" name="workbooktabs"/>
      </item>
     </layout>
    </item>
