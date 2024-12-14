@@ -20,24 +20,6 @@ from Functions import SQLUtils
 from ui.DataViewerWidget import DataViewerWidget
 from ui.QComboBoxLabel import QComboBoxLabel
 
-
-def get_widget(w, d, depth=0, doPrint=False):
-    '''
-        Recursively searches through all widgets down the tree and prints if desired.
-    :param w: the widget to search from
-    :param d: the dictionary to add it to
-    :param depth: current depth we are at
-    :param doPrint: if we need to print
-    :return:
-    '''
-    n = w.objectName()
-    n = n if n else str(w)
-    if doPrint: print("\t" * depth, n)
-    newD = {}
-    for widget in w.children():
-        get_widget(widget, newD, depth + 1)
-    d[n] = newD
-
 def process_json_to_sql(json_string, scope):
     """
     Converts a structured JSON string representing a filter group to a SQL WHERE clause.

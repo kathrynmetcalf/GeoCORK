@@ -1,19 +1,21 @@
 import sqlite3
-from dataclasses import field
+from collections import Counter
 
-from PyQt6 import uic, QtSql, QtCore
-from PyQt6.QtCore import QSettings, QSize
-from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQueryModel
-from PyQt6.QtWidgets import QWidget, QApplication, QGridLayout, QLabel, QCheckBox, QStackedWidget, QSpacerItem, \
-    QSizePolicy, QTableView, QTabWidget, QVBoxLayout, QMessageBox, QPushButton, QHBoxLayout, QInputDialog
-from PyQt6.QtWidgets import QDialog, QListWidget, QPushButton, QVBoxLayout, QHBoxLayout, QMessageBox
+from PyQt6 import uic, QtCore
+from PyQt6.QtCore import QSettings
+from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel
+from PyQt6.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
+    QGridLayout, QLabel, QCheckBox, QSpacerItem,
+    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox
+)
 
+from openpyxl import Workbook
 import Filters
 import SQLUtils
+
 from Table_classes import CheckableSqlTableModel, CheckableComboBox
-from QComboBoxLabel import QComboBoxLabel
-from Tree_classes import CheckableTreeCombobox
-from collections import Counter
 
 
 class ExportWidget(QWidget):
@@ -37,11 +39,7 @@ class ExportWidget(QWidget):
             if widget.inherits("QMainWindow"):
                 self.db_file = widget.db_file
 
-        self.db = QSqlDatabase.addDatabase('QSQLITE')
-        self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
-
-        ok = self.db.open()
 
         # self.loadWindowState()
 
@@ -52,6 +50,7 @@ class ExportWidget(QWidget):
         # Connect buttons to methods
         self.add_workbook_button.clicked.connect(lambda: self.add_workbook_tab(None, None, None))
         self.remove_workbook_button.clicked.connect(self.remove_current_workbook_tab)
+        self.export_pushbutton.clicked.connect(self.export_to_excel)
 
         # List of all user-viewable tables in the database
         self.user_view_tables = ['Ages',
@@ -157,17 +156,15 @@ class ExportWidget(QWidget):
 
         self.update_step_2_list()
         self.populate_stack()
-        self.workbooktabs.deleteLater()
         self.export_format()
 
         self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
-        self.viewpreview_pushbutton.clicked.connect(self.update_table_view)
 
         self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
 
-        # self.show()
+
     def tab_changed(self):
         self.save_checkbox_states(self.previous_workbook)
         self.load_checkbox_states()
@@ -222,14 +219,11 @@ class ExportWidget(QWidget):
         self.update_table_view()
         self.repaint()
 
-
-    def delete_workbook_tab(self):
-        return
-
     def delete_all_workbook_tabs(self):
-        self.workbooktabs: QTabWidget
+        self.workbooktabs.setParent(None)
         self.verticalLayout_7.removeWidget(self.workbooktabs)
         self.workbooktabs.deleteLater()
+
         self.workbooktabs = QTabWidget()
 
         self.workbooktabs.currentChanged.connect(self.tab_changed)
@@ -283,12 +277,6 @@ class ExportWidget(QWidget):
         self.load_checkbox_states(workbook_name)
         self.workbooktabs.setCurrentWidget(new_tab)
 
-
-
-
-        # Switch to the new tab
-
-
         # Update the table view
         self.update_table_view()
         self.repaint()
@@ -297,7 +285,6 @@ class ExportWidget(QWidget):
         if self.workbooktabs.count() <= 1:
             QMessageBox.warning(self, "Cannot Remove Workbook", "At least one workbook must remain.")
             return
-
 
         # Get the current workbook name
         current_index = self.workbooktabs.currentIndex()
@@ -396,8 +383,7 @@ class ExportWidget(QWidget):
         else:
             current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         checkbox_states = self.workbook_tabs[current_workbook_name].get('selected_columns', {})
-        print(current_workbook_name)
-        print(checkbox_states)
+
         for index in range(self.columnattributes_stack.count()):
             table_widget = self.columnattributes_stack.widget(index)
             table_name = self.columnselection_comboBox.itemText(index)
@@ -463,9 +449,12 @@ class ExportWidget(QWidget):
                             widget.setChecked(True)
         self.update_table_view()
 
-    def update_table_view(self, deleted=False):
+    def update_table_view(self, deleted=False, workbook_name=None):
         # Get the current workbook
-        current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        if workbook_name is None:
+            current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        else:
+            current_workbook_name = workbook_name
         tableView = self.workbook_tabs[current_workbook_name]['tableView']
         # self.load_checkbox_states()
         if deleted:
@@ -475,8 +464,6 @@ class ExportWidget(QWidget):
         else:
             # # update selected columns
             self.get_selected_values()
-
-            print(f"selected values: {self.workbook_tabs}")
 
             # Get the selected columns for the current workbook
             selected_columns = self.workbook_tabs[current_workbook_name].get('selected_columns', {})
@@ -499,7 +486,6 @@ class ExportWidget(QWidget):
             tables.add(table)
 
             columns_str += f'[{field}], '
-            print(columns_str)
 
         columns_str = columns_str[0:-2]
 
@@ -539,8 +525,9 @@ class ExportWidget(QWidget):
 
             ids = f"({', '.join(map(str, ids_more_than_once))})"
 
-        # Maybe change to pagination
+        # todo Maybe change to pagination
 
+        #todo add distinct checkbox, always use first column, default to false
         if len(self.checked_sample_names) > 2:
             query_str = f"SELECT {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
             if len(filtered_where_clause) > 0:
@@ -551,7 +538,6 @@ class ExportWidget(QWidget):
         model = QSqlQueryModel()
         model.setQuery(query_str)
         self.workbook_tabs[current_workbook_name]['model'] = model
-        print(query_str)
 
         for col, (table, field) in enumerate(ordered_columns):
             header = f"{table}.{field}"
@@ -559,11 +545,61 @@ class ExportWidget(QWidget):
 
         tableView.setModel(model)
 
-    def export_data(self):
-        current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
-        model = self.workbook_tabs[current_workbook_name]['model']
-        query = model.query()
-        # Implement your export functionality here
+    def export_to_excel(self):
+        # Prompt user for where to save the Excel file
+        fileName, _ = QFileDialog.getSaveFileName(
+            None,
+            "Save Excel File",
+            "",
+            "Excel Files (*.xlsx)"
+        )
+
+        if not fileName:
+            return
+
+        # Ensure the filename ends with .xlsx
+        if not fileName.lower().endswith(".xlsx"):
+            fileName += ".xlsx"
+
+        # Create a new workbook
+        wb = Workbook()
+
+        # The first sheet is created by default. We'll rename or replace it as we go.
+        first_sheet = True
+
+        for sheet_name, info in self.workbook_tabs.items():
+            self.update_table_view(workbook_name=sheet_name)
+            model = info['model']
+            if first_sheet:
+                ws = wb.active
+                ws.title = sheet_name
+                first_sheet = False
+            else:
+                ws = wb.create_sheet(title=sheet_name)
+
+            # Write headers
+            headers = []
+            for col in range(model.columnCount()):
+                header_text = model.headerData(col, QtCore.Qt.Orientation.Horizontal)
+                headers.append(header_text if header_text is not None else "")
+            for col_idx, header in enumerate(headers, start=1):
+                ws.cell(row=1, column=col_idx, value=header)
+
+            # Write data rows
+            for row in range(model.rowCount()):
+                for col in range(model.columnCount()):
+                    cell_value = model.data(model.index(row, col), QtCore.Qt.ItemDataRole.DisplayRole)
+                    ws.cell(row=row + 2, column=col + 1, value=cell_value)
+
+        # Attempt to save the workbook
+        try:
+            wb.save(fileName)
+        except Exception as e:
+            QMessageBox.warning(None, "Save Failed", f"Could not save the Excel file.\n{e}")
+            return
+
+        # Open the file using the system's default application
+        QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(fileName))
 
     def export_format(self):
         self.delete_all_workbook_tabs()
@@ -683,9 +719,6 @@ class ExportWidget(QWidget):
             self.workbook_tabs[current_workbook_name]['ordered_columns'] = adjusted_columns
             # Update the table view with the new column order
             self.update_table_view(deleted=True)
-
-
-
 
 class ColumnOrderDialog(QDialog):
     def __init__(self, ordered_columns, parent=None):
