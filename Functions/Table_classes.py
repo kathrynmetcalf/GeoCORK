@@ -523,6 +523,13 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
             self.bolded_rows.remove(row)
             self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
 
+class FontDelegate(QtW.QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        font = index.data(QtC.Qt.ItemDataRole.FontRole)
+        if font:
+            option.font = font
+
 def comboBox_display_table(comboBox):
     comboBox.tableView.resizeColumnsToContents()
     columns = comboBox.model().columnCount()

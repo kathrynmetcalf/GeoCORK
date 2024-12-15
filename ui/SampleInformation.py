@@ -24,7 +24,7 @@ import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import ui.import_wizard
 import ui.New_source
-from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table
+from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -66,6 +66,7 @@ class SampleInformation(QtW.QDialog):
                 self.sample_names_model.setFilter(f"SampleID = {self.selected_sample_list[0]}")
         self.checked_sample_list = []
         self.checked_sample_names = ""
+        self.default_age_ids = []
 
         # Sample information models
         self.samples_table = QtS.QSqlQueryModel()
@@ -174,6 +175,7 @@ class SampleInformation(QtW.QDialog):
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
         self.disconnect_text_signals()
+        self.populate_age_dropdown()
         self.populate_fields()
         self.connect_signals()
 
@@ -268,12 +270,23 @@ class SampleInformation(QtW.QDialog):
 
 
     def populate_age_dropdown(self):
+        self.edit_age_comboBox.setItemDelegate(FontDelegate(self.edit_age_comboBox))
         samples_sampleage_model = QtS.QSqlTableModel()
         set_table(samples_sampleage_model, 'Samples_SampleAges')
         samples_sampleage_model.setFilter(f'SampleID = {self.checked_sample_list[0]}')
         sample_ages = []
         for row in range(samples_sampleage_model.rowCount()):
             sample_ages.append(samples_sampleage_model.index(row, 1).data())
+        if len(sample_ages) > 1:
+            self.sample_age_model.setQuery(f'{self.sample_age_model.default_query} WHERE SampleAgeID in {tuple(sample_ages)}')
+        elif len(sample_ages) == 1:
+            self.sample_age_model.setQuery(f'{self.sample_age_model.default_query} WHERE SampleAgeID = {sample_ages[0]}')
+        for row in range(self.sample_age_model.rowCount()):
+            if self.sample_age_model.index(row, 0).data() in self.default_age_ids:
+                # Make the text at that row bold
+                self.sample_age_model.make_bold(self.sample_age_model.index(row, 0))
+            else:
+                self.sample_age_model.make_not_bold(self.sample_age_model.index(row, 0))
 
     def set_table(self, model: QtS.QSqlTableModel, table: str):
         model.setTable(table)
@@ -307,6 +320,8 @@ class SampleInformation(QtW.QDialog):
         self.height_depth_error_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepthError', self.height_depth_error_lineEdit.text()))
         self.height_depth_unit_comboBox.currentTextChanged.connect(lambda: self.update_id('HeightDepthUnitID', 'DistanceUnitAbbreviation', self.height_depth_unit_comboBox.currentText(), 'DistanceUnits'))
+        self.edit_age_comboBox.currentTextChanged.connect(self.display_age)
+        self.default_age_checkBox.clicked.connect(self.update_age)
         self.direct_age_groupBox.connect_child_signals()
         self.direct_age_groupBox.focusLost.connect(self.update_age)
         self.relative_age_groupBox.connect_child_signals()
@@ -324,6 +339,7 @@ class SampleInformation(QtW.QDialog):
         # self.analysis_method_comboBox.closing.connect(lambda: self.update_subfield_id(self.analysis_method_model, 'UPbAnalysisMethodID'))
         # self.lab_facility_comboBox.closing.connect(lambda: self.update_subfield_id(self.lab_facility_model, 'LabFacilityID'))
         # self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id(self.instrument_model, 'InstrumentID'))
+        self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'"{self.sample_description_lineEdit.text()}"'))
 
     def disconnect_text_signals(self):
         self.latlon_groupBox.disconnect_child_signals()
@@ -448,7 +464,17 @@ class SampleInformation(QtW.QDialog):
             self.elevation_error_lineEdit.setText(f"{text_values[21]}")
             self.set_comboBox_text(self.elevation_unit_comboBox, text_values[22])
             default_age_ids = text_values[23]
-            self.default_age_checkBox.setChecked(default_age_ids != '')
+            self.default_age_ids = []
+            if default_age_ids != '':
+                if ',' in default_age_ids:
+                    self.default_age_ids = [int(x) for x in default_age_ids.split(',')]
+                else:
+                    self.default_age_ids = [int(default_age_ids)]
+                for row in range(self.sample_age_model.rowCount()):
+                    if self.sample_age_model.index(row, 0).data() == self.default_age_ids[0]:
+                        self.edit_age_comboBox.setCurrentIndex(row)
+                        break
+            self.default_age_checkBox.setChecked(self.default_age_ids != '')
             self.direct_age_lineEdit.setText(f"{text_values[24]}")
             self.direct_age_error_lineEdit.setText(f"{text_values[25]}")
             self.set_comboBox_text(self.direct_age_error_type_comboBox, text_values[26])
@@ -465,7 +491,6 @@ class SampleInformation(QtW.QDialog):
             self.display_gps()
 
             # Age tags
-            self.display_age(default_age_ids)
             text = self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_model, self.age_constraint_tree)
             self.age_constraint_comboBox.setCurrentText(text)
             text = self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_model, self.age_interpretation_tree)
@@ -566,35 +591,55 @@ class SampleInformation(QtW.QDialog):
                 self.lat_comboBox.show()
                 self.lon_comboBox.show()
 
-    def display_age(self, default_age_ids: str):
-        model = self.edit_age_comboBox.model()
-        samples_sampleage_model = QtS.QSqlTableModel()
-        set_table(samples_sampleage_model, 'Samples_SampleAges')
-        if len(self.checked_sample_list) > 1:
-            samples_sampleage_model.setFilter(f'SampleID in {tuple(self.checked_sample_list)}')
-        elif len(self.checked_sample_list) == 1:
-            samples_sampleage_model.setFilter(f'SampleID = {self.checked_sample_list[0]}')
-        ages_to_list = []
-        for row in range(samples_sampleage_model.rowCount()):
-            age_id = samples_sampleage_model.index(row, 1).data()
-            if age_id not in ages_to_list:
-                ages_to_list.append(age_id)
-        if len(ages_to_list) > 1:
-            sql = f"{model.default_query} WHERE SampleAgeID in {tuple(ages_to_list)}"
+    def display_age(self):
+        sample_age_row = self.edit_age_comboBox.currentIndex()
+        sample_age_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if sample_age_id in self.default_age_ids:
+            self.default_age_checkBox.setChecked(True)
         else:
-            sql = f"{model.default_query} WHERE SampleAgeID = {ages_to_list[0]}"
-        model.setQuery(sql)
-        if ',' in default_age_ids:
-            # split on commas and convert everything to integers
-            default_age_ids = list(map(int, default_age_ids.split(',')))
-        else:
-            default_age_ids = [int(default_age_ids)]
-        for row in range(model.rowCount()):
-            if model.index(row, 0).data() in default_age_ids:
-                # Make the text at that row bold
-                model.make_bold(model.index(row, 0))
-            else:
-                model.make_not_bold(model.index(row, 0))
+            self.default_age_checkBox.setChecked(False)
+        self.direct_age_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 2), QtC.Qt.ItemDataRole.DisplayRole)}")
+        self.direct_age_error_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 3), QtC.Qt.ItemDataRole.DisplayRole)}")
+        age_error_type_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 4), QtC.Qt.ItemDataRole.DisplayRole)
+        for row in range(self.direct_age_error_model.rowCount()):
+            if self.direct_age_error_model.index(row, 0).data() == age_error_type_id:
+                age_error_abbreviation = self.direct_age_error_model.index(row, 2).data()
+                self.set_comboBox_text(self.direct_age_error_type_comboBox, age_error_abbreviation)
+                break
+        self.oldest_direct_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 5), QtC.Qt.ItemDataRole.DisplayRole)}")
+        self.youngest_direct_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 6), QtC.Qt.ItemDataRole.DisplayRole)}")
+        direct_age_unit_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 7), QtC.Qt.ItemDataRole.DisplayRole)
+        for row in range(self.direct_age_unit_model.rowCount()):
+            if self.direct_age_unit_model.index(row, 0).data() == direct_age_unit_id:
+                direct_age_unit_abbreviation = self.direct_age_unit_model.index(row, 2).data()
+                self.set_comboBox_text(self.direct_age_unit_comboBox, direct_age_unit_abbreviation)
+                break
+        oldest_age_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 8), QtC.Qt.ItemDataRole.DisplayRole)
+        for row in range(self.age_model.rowCount()):
+            if self.age_model.index(row, 0).data() == oldest_age_id:
+                oldest_age = self.age_model.index(row, 3).data()
+                self.set_comboBox_text(self.oldest_rel_comboBox, oldest_age)
+                break
+        youngest_age_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 9), QtC.Qt.ItemDataRole.DisplayRole)
+        for row in range(self.age_model.rowCount()):
+            if self.age_model.index(row, 0).data() == youngest_age_id:
+                youngest_age = self.age_model.index(row, 3).data()
+                self.set_comboBox_text(self.youngest_rel_comboBox, youngest_age)
+                break
+        self.age_description_lineEdit.setText(self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 10), QtC.Qt.ItemDataRole.DisplayRole))
+        sampleage_ageconstraint_model = QtS.QSqlTableModel()
+        self.set_table(sampleage_ageconstraint_model, 'SampleAges_AgeConstraints')
+        text = self.populate_checks('SampleAges_AgeConstraints', sampleage_ageconstraint_model)
+        self.set_comboBox_text(self.age_constraint_comboBox, text)
+        sampleage_ageinterpretation_model = QtS.QSqlTableModel()
+        self.set_table(sampleage_ageinterpretation_model, 'SampleAges_AgeInterpretations')
+        text = self.populate_checks('SampleAges_AgeInterpretations', sampleage_ageinterpretation_model)
+        self.set_comboBox_text(self.age_interpretation_comboBox, text)
+        sampleage_source_model = QtS.QSqlTableModel()
+        self.set_table(sampleage_source_model, 'SampleAges_Sources')
+        text = self.populate_checks('SampleAges_Sources', sampleage_source_model)
+        self.set_comboBox_text(self.age_source_comboBox, text)
+
 
     def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
         many_to_many_model = QtS.QSqlTableModel()
@@ -879,6 +924,7 @@ class SampleInformation(QtW.QDialog):
 
             row = self.edit_age_comboBox.currentIndex()
             sample_age_id = self.sample_age_model.data(self.sample_age_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            old_sample_age_id = sample_age_id
             if direct_age_unit == '':
                 direct_age_unit_id = 'Null'
             else:
@@ -981,14 +1027,28 @@ class SampleInformation(QtW.QDialog):
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         self.rollback('before_update')
                         return
-                else:
-                    if default_age:
-                        if not query.exec(f'''UPDATE Samples SET DefaultSampleAgeID = {sample_age_id} WHERE SampleID = {sample_id}'''):
-                            errtxt = query.lastError().text()
-                            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                            self.rollback('before_update')
-                            return
+                if default_age:
+                    if not query.exec(f'''UPDATE Samples SET DefaultSampleAgeID = {sample_age_id} WHERE SampleID = {sample_id}'''):
+                        errtxt = query.lastError().text()
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        self.rollback('before_update')
+                        return
+                    print(f"Updated DefaultSampleAgeID to {sample_age_id} for SampleID {sample_id}")
+                if old_sample_age_id != sample_age_id:
+                    if not query.exec(f'''DELETE FROM Samples_SampleAges WHERE SampleID = {sample_id} AND SampleAgeID = {old_sample_age_id}'''):
+                        errtxt = query.lastError().text()
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        self.rollback('before_update')
+                        return
+            self.default_age_ids = []
+            self.sample_names_model.select()
+            for row in range(self.sample_names_model.rowCount()):
+                if self.sample_names_model.index(row, 0).data() in self.checked_sample_list:
+                    default_age_id = self.sample_names_model.index(row, 8).data()
+                    if default_age_id not in self.default_age_ids:
+                        self.default_age_ids.append(default_age_id)
             self.releaseSavepoint('before_update')
+            self.populate_age_dropdown()
 
     def update_subfield_id(self, model: CheckableSqlTableModel, field: str):
         aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)

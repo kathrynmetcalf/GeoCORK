@@ -52,6 +52,7 @@ def add_data(db_file):
     query.exec('INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES(1, 1)')
     query.exec('INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES(2, 2)')
     query.exec('INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES(3, 3)')
+    query.exec('INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES(1, 3)')
     query.exec('INSERT INTO Samples_RockTypes (SampleID, RockTypeID) VALUES(1, 1)')
     query.exec('INSERT INTO Samples_RockTypes (SampleID, RockTypeID) VALUES(1, 2)')
     query.exec('INSERT INTO Samples_RockTypes (SampleID, RockTypeID) VALUES(2, 2)')

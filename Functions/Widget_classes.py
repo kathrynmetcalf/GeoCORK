@@ -66,7 +66,7 @@ class FocusGroupBox(QtW.QGroupBox):
     def set_edited(self, child: QtW.QWidget):
         try: child.objectName()
         except AttributeError: return
-        print(f'{child.objectName()} called set_edited')
+        # print(f'{child.objectName()} called set_edited')
         initial_value = None
         for pair in self.initial_values:
             if pair[0] == child:
@@ -75,7 +75,7 @@ class FocusGroupBox(QtW.QGroupBox):
             return
         if isinstance(child, QtW.QLineEdit):
             if child.text() != initial_value:
-                print(f'{child.objectName()} was edited')
+                # print(f'{child.objectName()} was edited')
                 self.edited = True
         elif isinstance(child, QtW.QComboBox):
             if child.currentIndex() != initial_value:
@@ -92,9 +92,9 @@ class FocusGroupBox(QtW.QGroupBox):
     def check_focus_state(self, child=None):
         has_focus = self.any_child_has_focus()
         if not has_focus:
-            print(f'{self.objectName()} has lost focus')
+            # print(f'{self.objectName()} has lost focus')
             if self.edited:
-                print(f'{self.objectName()} was edited and needs to be updated')
+                # print(f'{self.objectName()} was edited and needs to be updated')
                 self.focusLost.emit()
                 self.edited = False
 
