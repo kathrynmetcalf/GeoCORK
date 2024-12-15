@@ -12,6 +12,7 @@ import Functions.Errors as Er
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Table_classes import SampleTableModel
 import Functions.Text_manipulations as TxM
+from Functions import SQLUtils
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
@@ -82,16 +83,13 @@ class EditSampleTable(QtW.QDialog):
 
     def display_dropdown(self):
         selected_index = self.edit_tableView.selectedIndexes()
-        print(f"Clicked column: {selected_index[0].column()}")
+        header = self.filter_proxy_model.headerData(selected_index[0].column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        print(f"Clicked column: {header}")
+        header = TxM.remove_spaces(header)
         if len(selected_index) == 1:
-            if 23 > selected_index[0].column() > 15:
-                # Column header is Age Signatures, Sample Context, Rock Types, Regions, Sampling Methods, Settings, or Units
-                header = self.filter_proxy_model.headerData(selected_index[0].column(), QtC.Qt.Orientation.Horizontal,
-                                                       QtC.Qt.ItemDataRole.DisplayRole)
-                if ' ' in header:
-                    table = TxM.remove_spaces(header)
-                else:
-                    table = header
+            if header in SQLUtils.sample_cols_quick_edit:
+                # Column header is AgeSignatures, SampleContext, RockTypes, Regions, SamplingMethods, Settings, or Units
+                table = header
             else:
                 return
             self.combo_index = selected_index[0]

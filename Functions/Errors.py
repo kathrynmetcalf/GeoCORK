@@ -21,7 +21,7 @@ def savepoint_release_fail(header):
     text = f'Failed to release savepoint for {header}'
     return text
 
-def rollback_fail(header):
+def savepoint_rollback_fail(header):
     text = f'Failed to rollback {header}'
     return text
 

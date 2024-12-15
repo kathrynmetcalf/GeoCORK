@@ -24,13 +24,14 @@ import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import ui.import_wizard
 import ui.New_source
+from Functions.Alter_database import release_savepoint
 from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.Filters import QueryBuilder
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
-
+from Functions.DatabaseManager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 
 class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
@@ -38,6 +39,7 @@ class SampleInformation(QtW.QDialog):
         self.parent_window = parent_window
         self.db = self.parent_window.db
         self.settings = QSettings("CSUF", "SampleInformation")
+        self.savepoint_manager = SavepointManager.get_instance()
         # self.loadWindowState()
 
         self.lat_deg_lineEdit: QtW.QLineEdit
@@ -118,7 +120,7 @@ class SampleInformation(QtW.QDialog):
         self.gps_location_ids = ""
 
         self.msg = QtW.QMessageBox(self)
-        self.createSavepoint('before_edit')
+        create_savepoint('before_edit', self)
         self.close_by_dialog = False
 
         # Fill in information based on selected samples
@@ -128,18 +130,6 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
 
         self.installEventFilter(self)
-
-    def createSavepoint(self, savepoint_name: str):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec(f'SAVEPOINT {savepoint_name}') is False:
-            errtxt = Er.savepoint_fail("Samples")
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-
-    def releaseSavepoint(self, savepoint_name: str):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec(f'RELEASE SAVEPOINT {savepoint_name}') is False:
-            errtxt = Er.savepoint_release_fail("Samples")
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def check_all_samples(self):
         if len(self.selected_sample_list) > 0:
@@ -749,19 +739,18 @@ class SampleInformation(QtW.QDialog):
 
     def update_field(self, field: str, text: str):
         if text != "-":
-            self.createSavepoint('before_update')
             if len(self.checked_sample_list) > 0:
                 if text is None or text == '':
                     text = 'Null'
+                query = QtS.QSqlQuery()
+                create_savepoint('before_update', self)
                 for sample_id in self.checked_sample_list:
-                    query = QtS.QSqlQuery()
-                    # todo: figure out why there is a null trigger for fields not being updated even though the values are already NULL
-                    query.prepare(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}")
-                    if query.exec():
-                        self.releaseSavepoint('before_update')
-                    else:
+                    if not query.exec(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}"):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        rollback_savepoint('before_update', self)
+                        return
+                release_savepoint('before_update', self)
 
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
         table_model = QtS.QSqlTableModel()
@@ -771,19 +760,19 @@ class SampleInformation(QtW.QDialog):
         table_model.setFilter(f"{name_field} is '{text}'")
         item_id = table_model.data(table_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
         if len(self.checked_sample_list) > 0:
-            self.createSavepoint('before_update')
+            query = QtS.QSqlQuery()
+            create_savepoint('before_update', self)
             for sample_id in self.checked_sample_list:
-                query = QtS.QSqlQuery()
-                query.prepare(f"UPDATE Samples SET {id_field} = {item_id} WHERE SampleID = {sample_id}")
-                if query.exec():
-                    self.releaseSavepoint('before_update')
-                else:
+                if not query.exec(f"UPDATE Samples SET {id_field} = {item_id} WHERE SampleID = {sample_id}"):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                    rollback_savepoint('before_update', self)
+                    return
+            release_savepoint('before_update', self)
 
     def update_gps(self):
         if len(self.checked_sample_list) > 0:
-            self.createSavepoint('before_update')
+            create_savepoint('before_update', self)
             gps_format_name = self.gps_format_comboBox.currentText()
             if 'D' in gps_format_name:
                 lat_deg = self.lat_deg_lineEdit.text()
@@ -872,7 +861,7 @@ class SampleInformation(QtW.QDialog):
                         ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                         return
                     gps_id = query.lastInsertId()
                 else:
@@ -880,21 +869,22 @@ class SampleInformation(QtW.QDialog):
                         ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}) WHERE GPSLocationID = {gps_to_update[0]}'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                         return
                     gps_id = gps_to_update[0]
                     if len(gps_to_delete) > 0:
                         if not query.exec(f'DELECT FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
                             errtxt = query.lastError().text()
                             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                            self.rollback('before_update')
+                            rollback_savepoint('before_update', self)
                         return
             for sample_id in self.checked_sample_list:
                 if not query.exec(f'''UPDATE Samples SET SampleGPSLocationID = {gps_id} WHERE SampleID = {sample_id}'''):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    self.rollback('before_update')
+                    rollback_savepoint('before_update', self)
                     return
+            release_savepoint('before_update', self)
 
     def update_age(self):
         if len(self.checked_sample_list) > 0:
@@ -961,7 +951,7 @@ class SampleInformation(QtW.QDialog):
                 self.source_model.setFilter(f"ShortCitation = '{age_source}'")
                 age_source_id = self.source_model.data(self.source_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
 
-            self.createSavepoint('before_update')
+            create_savepoint('before_update', self)
             update_age = True
             samples_sampleages_model = QtS.QSqlTableModel()
             set_table(samples_sampleages_model, 'Samples_SampleAges')
@@ -977,14 +967,14 @@ class SampleInformation(QtW.QDialog):
                     WHERE SampleAgeID = {sample_age_id}'''):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    self.rollback('before_update')
+                    rollback_savepoint('before_update', self)
                     return
             else:
                 if not query.exec(f'''INSERT INTO SampleAges (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) VALUES 
                     ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_direct}, {youngest_direct}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}")'''):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    self.rollback('before_update')
+                    rollback_savepoint('before_update', self)
                     return
                 sample_age_id = query.lastInsertId()
             if age_constraint_id != 'Null':
@@ -995,7 +985,7 @@ class SampleInformation(QtW.QDialog):
                     if not query.exec(f'''INSERT INTO SampleAges_AgeConstraints (SampleAgeID, AgeConstraintID) VALUES ({sample_age_id}, {age_constraint_id})'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                     return
             if age_interpretation_id != 'Null':
                 sampleages_ageinterpretations_model = QtS.QSqlTableModel()
@@ -1005,7 +995,7 @@ class SampleInformation(QtW.QDialog):
                     if not query.exec(f'''INSERT INTO SampleAges_AgeInterpretations (SampleAgeID, AgeInterpretationID) VALUES ({sample_age_id}, {age_interpretation_id})'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                     return
             if age_source_id != 'Null':
                 sampleages_sources_model = QtS.QSqlTableModel()
@@ -1015,7 +1005,7 @@ class SampleInformation(QtW.QDialog):
                     if not query.exec(f'''INSERT INTO SampleAges_Sources (SampleAgeID, SourceID) VALUES ({sample_age_id}, {age_source_id})'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                     return
             for sample_id in self.checked_sample_list:
                 samples_sampleages_model = QtS.QSqlTableModel()
@@ -1025,20 +1015,20 @@ class SampleInformation(QtW.QDialog):
                     if not query.exec(f'''INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES ({sample_id}, {sample_age_id})'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                         return
                 if default_age:
                     if not query.exec(f'''UPDATE Samples SET DefaultSampleAgeID = {sample_age_id} WHERE SampleID = {sample_id}'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                         return
                     print(f"Updated DefaultSampleAgeID to {sample_age_id} for SampleID {sample_id}")
                 if old_sample_age_id != sample_age_id:
                     if not query.exec(f'''DELETE FROM Samples_SampleAges WHERE SampleID = {sample_id} AND SampleAgeID = {old_sample_age_id}'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        self.rollback('before_update')
+                        rollback_savepoint('before_update', self)
                         return
             self.default_age_ids = []
             self.sample_names_model.select()
@@ -1047,7 +1037,7 @@ class SampleInformation(QtW.QDialog):
                     default_age_id = self.sample_names_model.index(row, 8).data()
                     if default_age_id not in self.default_age_ids:
                         self.default_age_ids.append(default_age_id)
-            self.releaseSavepoint('before_update')
+            release_savepoint('before_update', self)
             self.populate_age_dropdown()
 
     def update_subfield_id(self, model: CheckableSqlTableModel, field: str):
@@ -1067,7 +1057,7 @@ class SampleInformation(QtW.QDialog):
                     checked_item_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
             # todo: optimize update for thousands of analysis IDs
             # todo: figure out what other transaction is going on before beginning one for the updates
-            self.createSavepoint('before_update')
+            create_savepoint('before_update', self)
             query_start_time = time.time()
             if model.database().transaction():
                 query = QtS.QSqlQuery()
@@ -1080,13 +1070,14 @@ class SampleInformation(QtW.QDialog):
                     query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}")
                 if model.database().commit():
                     print(f"Updated {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}")
-                    self.releaseSavepoint('before_update')
+                    release_savepoint('before_update', self)
                 else:
                     print(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}")
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
             query_end_time = time.time()
             print(f"Query time: {query_end_time - query_start_time}")
+            release_savepoint('before_update', self)
 
     def update_sample_tags(self, model: TrC.CheckableTreeModel, table: str):
         print(f"update_tags called with {model.source_model.tableName()} and {table}")
@@ -1096,15 +1087,15 @@ class SampleInformation(QtW.QDialog):
 
         if len(self.checked_sample_list) > 0:
             checked_ids , partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
-            self.createSavepoint('before_update')
+            create_savepoint('before_update', self)
             for sample_id in self.checked_sample_list:
                 update = model.update_db(checked_ids, partially_checked_ids, sample_id)
                 if update is False:
-                    self.rollback('before_update')
+                    rollback_savepoint('before_update', self)
                     errtxt = update
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                     return
-            self.releaseSavepoint('before_update')
+            release_savepoint('before_update', self)
 
     def update_sub_tags(self, model: TrC.CheckableTreeModel, table: str):
         field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -1114,7 +1105,7 @@ class SampleInformation(QtW.QDialog):
         checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
         if len(checked_ids) == 1:
             # Should only be one checked value
-            self.createSavepoint('before_update')
+            create_savepoint('before_update', self)
             query = QtS.QSqlQuery()
             if len(upb_data_ids) > 1:
                 query.prepare(
@@ -1122,13 +1113,13 @@ class SampleInformation(QtW.QDialog):
             if len(upb_data_ids) == 1:
                 query.prepare(
                     f"UPDATE UPbData SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {upb_data_ids[0]}")
-            if query.exec():
-                print(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
-                self.releaseSavepoint('before_update')
-            else:
-                self.rollback('before_update')
+            if not query.exec():
+                rollback_savepoint('before_update', self)
                 errtxt = query.lastError().text()
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                return
+            print(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
+            release_savepoint('before_update', self)
 
     def eventFilter(self, object, event):
         if event.type() == QtC.QEvent.Type.MouseButtonRelease:
@@ -1160,7 +1151,7 @@ class SampleInformation(QtW.QDialog):
         msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
         response = msg_box.exec()
         if response == QtW.QMessageBox.StandardButton.Yes:
-            self.rollback('before_edit')
+            rollback_savepoint('before_edit', self)
         else:
             pass
 
@@ -1178,7 +1169,7 @@ class SampleInformation(QtW.QDialog):
 
     def rollback(self, savepoint_name: str):
         query = QtS.QSqlQuery(self.db)
-        if query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}') is False:
+        if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
             errtxt = Er.rollback_fail("Samples")
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
@@ -1188,7 +1179,7 @@ class SampleInformation(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
-        self.releaseSavepoint('before_edit')
+        release_savepoint('before_edit', self)
         # TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         self.close_by_dialog = True
         self.close()

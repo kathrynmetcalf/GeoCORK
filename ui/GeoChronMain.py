@@ -18,6 +18,7 @@ import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
+from Functions import DatabaseManager
 import ui.import_wizard
 import ui.New_source
 from ui.ExportWidget import ExportWidget
@@ -53,6 +54,7 @@ class GeoChron(QtW.QMainWindow):
         self.switch_to_table()
 
         Create_db.create_tables(self.db)
+        self.savepoint_manager = DatabaseManager.SavepointManager()
         #list of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure
@@ -307,3 +309,13 @@ class GeoChron(QtW.QMainWindow):
     def loadWindowState(self):
         self.move(self.settings.value("ui/GeoChronMain/pos", defaultValue=QPoint(410, 241)))
         self.resize(self.settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
+
+    def closeEvent(self, event):
+        self.saveWindowState()
+        # print(f"Closing with active savepoints: {self.savepoint_manager.active_savepoints()}")
+        self.savepoint_manager.reset()
+        if self.db.isOpen():
+            if not self.db.commit():
+                print("Failed to commit database")
+            self.db.close()
+        super().closeEvent(event)
