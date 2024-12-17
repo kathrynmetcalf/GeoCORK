@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 from operator import index
@@ -20,8 +21,10 @@ class EditSampleTable(QtW.QDialog):
     def __init__(self, database, sample_model: TbC.DisplayRoundedModel):
         super().__init__()
 
-        tags_ui_file = "ui/EditSampleTable.ui"
-        loadUi(tags_ui_file, self)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "EditSampleTable.ui")
+        loadUi(sources_ui_file, self)
+
         self.table = 'Samples'
         self.view = 'SampleView'
         self.db = database

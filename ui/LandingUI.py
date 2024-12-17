@@ -15,12 +15,14 @@ from Functions.Create_database import create_tables
 from ui.GeoChronMain import GeoChron
 
 from ui.QPropertiesDialog import QPropertiesDialog
-
+import os, sys
 
 class LandingPage(QWidget):
     def __init__(self):
         super().__init__()
-        sources_ui_file = "ui/landingpage.ui"
+
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file =os.path.join(base_path,  "landingpage.ui")
         loadUi(sources_ui_file, self)
 
         self.settings = QSettings("CSUF", "GeoChron")
