@@ -1,0 +1,609 @@
+import PyQt6
+from PyQt6 import QtSql as QtS
+from PyQt6 import QtCore as QtC
+
+def update_modified_timestamp(table: str, record_id_header: str, record_ids: list):
+    """
+    Update the ModifiedTimestamp field for the given records
+    @param table: table to be updated
+    @param record_id_header: header for id column
+    @param record_ids: list of record ids to be updated
+    @return: Nothing if successful, error message if not
+    """
+    query = QtS.QSqlQuery()
+    if len(record_ids) > 1:
+        record_ids = ', '.join(record_ids)
+        if not query.exec(f'UPDATE {table} SET ModifiedTimestamp = CURRENT_TIMESTAMP WHERE {record_id_header} IN ({record_ids})'):
+            return f'Unable to update modified timestamps for {table}: {query.lastError().text()}'
+    if len(record_ids) == 1:
+        if not query.exec(f'UPDATE {table} SET ModifiedTimestamp = CURRENT_TIMESTAMP WHERE {record_id_header} = {record_ids[0]}'):
+            return f'Unable to update modified timestamps for {table}: {query.lastError().text()}'
+
+
+def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | None):
+    """
+    Check that the values being inserted into the database are valid
+    The corresponding columns and values should be in the same index in their respective lists
+    Tables that need to be validated are Columns, GPSLocations, SampleAges, Samples, and UPbAnalyses
+    @param table: table to be inserted into
+    @param columns: list of names of columns to be inserted into
+    @param values: list of values to be inserted into the columns
+    @param GPSFormatID: the id of the GPS format to be used for the GPS location, if applicable
+    @return: Nothing if successful, error message if not
+    """
+    if len(columns) != len(values):
+        return "Number of columns to set does not match number of values given"
+    pairs = []
+    for index in range(len(columns)):
+        pairs.append([columns[index], values[index]])
+
+    if table == 'Columns':
+        error = check_insert_pairs(pairs, 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitID')
+        if error:
+            if error != 'ColumnTotalHeightDepthUnitID missing ColumnTotalHeightDepth':
+                return "Column total height/depth value missing units"
+    if table == 'GPSLocations':
+        error = check_gps_format_insert(pairs, GPSFormatID)
+        if error:
+            return error
+    if table == 'SampleAges':
+        error = check_insert_pairs(pairs, 'DirectAgeError', 'DirectAgeErrorTypeID')
+        if error:
+            if error != 'DirectAgeErrorTypeID missing DirectAgeError':
+                return "Direct age error given without error type"
+        error = check_insert_pairs(pairs, 'DirectAgeError', 'DirectAge')
+        if error:
+            if error != 'DirectAge missing DirectAgeError':
+                return "Direct age error given without direct age"
+        unit_error = check_insert_pairs(pairs, 'DirectAge', 'DirectAgeUnitID')
+        if unit_error == 'DirectAgeUnitID missing DirectAge':
+            unit_error = None
+        oldest_unit_error = check_insert_pairs(pairs, 'OldestDirectAge', 'DirectAgeUnitID')
+        if oldest_unit_error == 'DirectAgeUnitID missing OldestDirectAge':
+            oldest_unit_error = None
+        youngest_unit_error = check_insert_pairs(pairs, 'YoungestDirectAge', 'DirectAgeUnitID')
+        if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
+            youngest_unit_error = None
+        if unit_error or oldest_unit_error or youngest_unit_error:
+            return "Direct age missing units"
+    if table == 'Samples':
+        error = check_insert_pairs(pairs, 'HeightDepth', 'HeightDepthUnitID')
+        if error:
+            if error != 'HeightDepthUnitID missing HeightDepth':
+                return "Height/depth value missing units"
+        error = check_insert_pairs(pairs, 'HeightDepthError', 'HeightDepth')
+        if error:
+            if error != 'HeightDepth missing HeightDepthError':
+                return "Height/depth error given without value"
+        error = check_insert_pairs(pairs, 'HeightDepth', 'SampleColumnID')
+        if error:
+            if error != 'SampleColumnID missing HeightDepth':
+                return "Height/depth value missing column"
+    if table == 'UPbAnalyses':
+        ratio_error_list = []
+        age_error_list = []
+        for column in columns:
+            if column.endswith('AgeError'):
+                age_error_list.append(f'"{column}"')
+            elif column.endswith('Error'):
+                ratio_error_list.append(f'"{column}"')
+        ratio_list = [column.replace('Error', '') for column in ratio_error_list]
+        age_list = [column.replace('Error', '') for column in age_error_list]
+        for index in range(len(ratio_error_list)):
+            error = check_insert_pairs(pairs, ratio_error_list[index], ratio_list[index])
+            if error:
+                if error != f'{ratio_list[index]} missing {ratio_error_list[index]}':
+                    return f'{ratio_error_list[index]} missing {ratio_list[index]}'
+            error = check_insert_pairs(pairs, ratio_error_list[index], 'RatioErrorTypeID')
+            if error:
+                if error != 'RatioErrorTypeID missing RatioError':
+                    return "Ratio error given without error type"
+        for index in range(len(age_error_list)):
+            error = check_insert_pairs(pairs, age_error_list[index], age_list[index])
+            if error:
+                if error != f'{age_list[index]} missing {age_error_list[index]}':
+                    return f'{age_error_list[index]} missing {age_list[index]}'
+            error = check_insert_pairs(pairs, age_error_list[index], 'AgeErrorTypeID')
+            if error:
+                if error != 'AgeErrorTypeID missing AgeError':
+                    return "Age error given without error type"
+        error = check_insert_pairs(pairs, 'Concordance', 'ConcordanceTypeID')
+        if error:
+            if error != 'ConcordanceTypeID missing Concordance':
+                return "Concordance/discordance given without type"
+        error = check_insert_pairs(pairs, 'SpotSize', 'SpotSizeUnitID')
+        if error:
+            if error != 'SpotSizeUnitID missing SpotSize':
+                return "Spot size given without units"
+
+def validate_update(table: str, columns: list, values: list, where: str):
+    """
+    Check that the values being updated in the database are valid
+    The corresponding columns and values should be in the same index in their respective lists
+    Tables that need to be validated are Columns, GPSLocations, SampleAges, Samples, and UPbAnalyses
+    @param table: the table to be updated
+    @param columns: the columns to be updated
+    @param values: the string values to be entered into the database. Null values should be 'Null'
+    @param where: the text that would come after WHERE in a sql statement
+    @return: Nothing if successful, error message if not
+    """
+    if len(columns) != len(values):
+        return "Number of columns to set does not match number of values given"
+    query = QtS.QSqlQuery()
+    column_str = ", ".join(columns)
+    value_str = ", ".join(values)
+    pairs = []
+    for index in range(len(columns)):
+        pairs.append([columns[index], values[index]])
+    table_model = QtS.QSqlTableModel()
+    table_model.setTable(table)
+    table_model.select()
+    table_model.setFilter(where)
+    all_records = []
+    for col in range(table_model.columnCount()):
+        column_name = table_model.record().fieldName(col)
+        new_value = ''
+        for index in range(len(columns)):
+            if columns[index] == column_name:
+                new_value = values[index]
+        old_values = []
+        for row in range(table_model.rowCount()):
+            old_value = table_model.data(table_model.index(row, col, QtC.QModelIndex()))
+            if old_value == '':
+                old_value = 'Null'
+            old_values.append(old_value)
+        all_records.append([column_name, new_value, old_values])
+    if table == 'Columns':
+        error = check_update_units(all_records, ['ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitID'])
+        if error:
+            return f'Column total height/depth {error}'
+    if table == 'GPSLocations':
+        error = check_gps_format_update(all_records, values[columns.index('GPSFormatID')])
+        if error:
+            return error
+    if table == 'SampleAges':
+        error = check_update_units(all_records, 'DirectAgeError', 'DirectAgeErrorTypeID')
+        if error:
+            if error != 'DirectAgeErrorTypeID missing DirectAgeError':
+                return "Direct age error given without error type"
+        error = check_update_pairs(all_records, 'DirectAgeError', 'DirectAge')
+        if error:
+            if error != 'DirectAge missing DirectAgeError':
+                return "Direct age error given without direct age"
+        unit_error = check_update_pairs(all_records, 'DirectAge', 'DirectAgeUnitID')
+        if unit_error == 'DirectAgeUnitID missing DirectAge':
+            unit_error = None
+        oldest_unit_error = check_update_pairs(all_records, 'OldestDirectAge', 'DirectAgeUnitID')
+        if oldest_unit_error == 'DirectAgeUnitID missing OldestDirectAge':
+            oldest_unit_error = None
+        youngest_unit_error = check_update_pairs(all_records, 'YoungestDirectAge', 'DirectAgeUnitID')
+        if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
+            youngest_unit_error = None
+        if unit_error or oldest_unit_error or youngest_unit_error:
+            return "Direct age missing units"
+    if table == 'Samples':
+        error = check_update_pairs(all_records, 'HeightDepth', 'HeightDepthUnitID')
+        if error:
+            if error != 'HeightDepthUnitID missing HeightDepth':
+                return "Height/depth value missing units"
+        error = check_update_pairs(all_records, 'HeightDepthError', 'HeightDepth')
+        if error:
+            if error != 'HeightDepth missing HeightDepthError':
+                return "Height/depth error given without value"
+        error = check_update_pairs(all_records, 'HeightDepth', 'SampleColumnID')
+        if error:
+            if error != 'SampleColumnID missing HeightDepth':
+                return "Height/depth value missing column"
+    if table == 'UPbAnalyses':
+        ratio_error_list = []
+        age_error_list = []
+        for column in all_records:
+            if column[0].endswith('AgeError'):
+                age_error_list.append(f'"{column}"')
+            elif column[0].endswith('Error'):
+                ratio_error_list.append(f'"{column}"')
+        ratio_list = [column.replace('Error', '') for column in ratio_error_list]
+        age_list = [column.replace('Error', '') for column in age_error_list]
+        for index in range(len(ratio_error_list)):
+            error = check_update_pairs(all_records, ratio_error_list[index], ratio_list[index])
+            if error:
+                if error != f'{ratio_list[index]} missing {ratio_error_list[index]}':
+                    return f'{ratio_error_list[index]} missing {ratio_list[index]}'
+            error = check_update_pairs(all_records, ratio_error_list[index], 'RatioErrorTypeID')
+            if error:
+                if error != 'RatioErrorTypeID missing RatioError':
+                    return "Ratio error given without error type"
+        for index in range(len(age_error_list)):
+            error = check_update_pairs(all_records, age_error_list[index], age_list[index])
+            if error:
+                if error != f'{age_list[index]} missing {age_error_list[index]}':
+                    return f'{age_error_list[index]} missing {age_list[index]}'
+            error = check_update_pairs(all_records, age_error_list[index], 'AgeErrorTypeID')
+            if error:
+                if error != 'AgeErrorTypeID missing AgeError':
+                    return "Age error given without error type"
+        error = check_update_pairs(all_records, 'Concordance', 'ConcordanceTypeID')
+        if error:
+            if error != 'ConcordanceTypeID missing Concordance':
+                return "Concordance/discordance given without type"
+        error = check_update_pairs(all_records, 'SpotSize', 'SpotSizeUnitID')
+        if error:
+            if error != 'SpotSizeUnitID missing SpotSize':
+                return "Spot size given without units"
+
+def check_update_units(all_records: list, value_col: str, unit_id_col: str):
+    """
+    Check that the value and unit id are both being set, both not set, or the value is not being set without a unit id
+    @param all_records: list of lists [column_name, new_value, old_values] for each column in the table
+    @param value_col: the name of the column that holds the value
+    @param unit_id_col: the name of the column that holds the unit id
+    @return: Nothing if successful, error message if not
+    """
+
+    for record in all_records:
+        if record[0] == value_col:
+            new_value = record[1]
+            old_values = record[2]
+        if record[0] == unit_id_col:
+            new_unit_id = record[1]
+            old_unit_ids = record[2]
+    if new_value != '' and new_unit_id != '':
+        # Both the value and unit id are changing
+        if new_value != 'Null' and new_unit_id == 'Null':
+            return f"{value_col} missing {unit_id_col}"
+    elif new_value != '':
+        # Only the value is being set, so compare with the old unit id
+        if new_value != 'Null' and 'Null' in old_unit_ids:
+            return f"{value_col} missing {unit_id_col}"
+    # A unit id missing a value is not problematic
+
+def check_insert_pairs(pairs: list, column1, column2):
+    for pair in pairs:
+        if pair[0] == column1:
+            new_column1 = pair[1]
+        if pair[0] == column2:
+            new_column2 = pair[1]
+    if new_column1 != 'Null' and new_column2 == 'Null':
+        return f'{column1} missing {column2}'
+    if new_column1 == 'Null' and new_column2 != 'Null':
+        return f'{column2} missing {column1}'
+
+
+def check_update_pairs(all_records: list, column1, column2):
+    for record in all_records:
+        if record[0] == column1:
+            new_column1 = record[1]
+            old_column1s = record[2]
+        if record[0] == column2:
+            new_column2 = record[1]
+            old_column2s = record[2]
+    if new_column1 != '' and new_column2 != '':
+        # Both the columns are changing
+        if new_column1 != 'Null' and new_column2 == 'Null':
+            return f'{column1} missing {column2}'
+        if new_column1 == 'Null' and new_column2 != 'Null':
+            return f'{column2} missing {column1}'
+    elif new_column1 != '':
+        # Only column1 is being set, so compare with the old column2
+        if (new_column1 != 'Null' and 'Null' in old_column2s):
+            return f'{column1} missing {column2}'
+        if new_column1 == 'Null' and 'Null' not in old_column2s:
+            return f'{column2} missing {column1}'
+    elif new_column2 != '':
+        # Only column2 is being set, so compare with the old column1
+        if new_column2 != 'Null' and 'Null' in old_column1s:
+            return f'{column2} missing {column1}'
+        if new_column2 == 'Null' and 'Null' not in old_column1s:
+            return f'{column1} missing {column2}'
+
+def check_gps_format_insert(pairs: list, format_id: int):
+    gps_format_model = QtS.QSqlTableModel()
+    gps_format_model.setTable('GPSFormats')
+    gps_format_model.select()
+    gps_format_model.setFilter(f'GPSFormatID = {format_id}')
+    gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
+    for pair in pairs:
+        if pair[0] == 'GPSLatDeg':
+            new_latdeg = pair[1]
+        if pair[0] == 'GPSLatMin':
+            new_latmin = pair[1]
+        if pair[0] == 'GPSLatSec':
+            new_latsec = pair[1]
+        if pair[0] == 'GPSLatDirectionID':
+            new_latdir = pair[1]
+        if pair[0] == 'GPSLonDeg':
+            new_londeg = pair[1]
+        if pair[0] == 'GPSLonMin':
+            new_lonmin = pair[1]
+        if pair[0] == 'GPSLonSec':
+            new_lonsec = pair[1]
+        if pair[0] == 'GPSLonDirectionID':
+            new_londir = pair[1]
+        if pair[0] == 'GPSUTMZone':
+            new_utmzone = pair[1]
+        if pair[0] == 'GPSUTMN':
+            new_utmn = pair[1]
+        if pair[0] == 'GPSUTME':
+            new_utme = pair[1]
+        if pair[0] == 'GPSElev':
+            new_elev = pair[1]
+        if pair[0] == 'GPSElevError':
+            new_elev_error = pair[1]
+        if pair[0] == 'GPSElevUnitID':
+            new_elev_unit = pair[1]
+
+    if 'D' in gps_format_abbreviation:
+        # DD, DDM, or DMS
+        if (new_utmn != 'Null' or new_utme != 'Null' or new_utmzone != 'Null'):
+            return 'UTM coordinates given for degrees format. Coordinates should be entered in the format originally provided.'
+        if (new_latdeg != 'Null' and new_londeg == 'Null') or (new_latdeg == 'Null' and new_londeg != 'Null'):
+            return 'Missing degrees lat or lon in degree format'
+        if 'DD ' in gps_format_abbreviation:
+            # DD
+            if new_latmin != 'Null' or new_latsec != 'Null' or new_lonmin != 'Null' or new_lonsec != 'Null':
+                return 'Minutes and/or seconds given in DD format'
+        elif 'DM' in gps_format_abbreviation:
+            # DDM or DMS
+            if (new_latmin != 'Null' and new_lonmin == 'Null') or (new_latmin == 'Null' and new_lonmin != 'Null'):
+                return 'Missing minutes lat or lon in degree format'
+            if (new_latdeg == 'Null' and new_latmin != 'Null') or (new_londeg == 'Null' and new_lonmin != 'Null'):
+                return 'Minutes given without degrees in degree format'
+        elif 'DDM ' in gps_format_abbreviation:
+            if new_latsec != 'Null' or new_lonsec != 'Null':
+                return 'Seconds given in DDM format'
+        elif 'DMS' in gps_format_abbreviation:
+            if (new_latsec != 'Null' and new_lonsec == 'Null') or (new_latsec == 'Null' and new_lonsec != 'Null'):
+                return 'Missing seconds lat or lon in DMS format'
+            if (new_latmin == 'Null' and new_latsec != 'Null') or (new_lonmin == 'Null' and new_lonsec != 'Null'):
+                return 'Seconds given without minutes in DMS format'
+        if '+/-' in gps_format_abbreviation:
+            if new_latdir != 'Null' or new_londir != 'Null':
+                return 'Use signs instead of directions in +/- format'
+        elif 'NSEW' in gps_format_abbreviation:
+            if (new_latdir == 'Null' and new_londir != 'Null') or (new_latdir != 'Null' and new_londir == 'Null'):
+                return 'Only one direction given in NSEW format'
+            if (new_latdir == 'Null' and new_latdeg != 'Null') or (new_londir == 'Null' and new_londeg != 'Null'):
+                return 'Missing direction in NSEW format'
+            if '-' in new_latdeg or '-' in new_londeg:
+                return 'Use only positive coordinates in NSEW format'
+    if 'UTM' in gps_format_abbreviation:
+        if new_latdeg != 'Null' or new_londeg != 'Null' or new_latmin != 'Null' or new_lonmin != 'Null' or new_latsec != 'Null' or new_lonsec != 'Null' or new_latdir != 'Null' or new_londir != 'Null':
+            return 'Degree coordinates given for UTM format. Coordinates should be entered in the format originally provided.'
+        if (new_utmn != 'Null' and new_utme == 'Null') or (new_utme != 'Null' and new_utmn == 'Null'):
+            return 'Missing easting or northing in UTM format'
+        if (new_utmn != 'Null' and new_utmzone == 'Null') or (new_utmzone != 'Null' and new_utmn == 'Null'):
+            return 'Missing UTM zone in UTM format'
+        if (new_utmzone != 'Null' and new_utmn == 'Null') or (new_utmzone == 'Null' and new_utmn != 'Null'):
+            return 'UTM zone given without coordinates in UTM format'
+    if new_elev != 'Null' and new_elev_unit == 'Null':
+        return 'Elevation missing units'
+    if new_elev_error != 'Null' and new_elev == 'Null':
+        return 'Elevation error given without elevation'
+
+def check_gps_format_update(all_records: list, new_format_id: int):
+    gps_format_model = QtS.QSqlTableModel()
+    gps_format_model.setTable('GPSFormats')
+    gps_format_model.select()
+    gps_format_model.setFilter(f'GPSFormatID = {new_format_id}')
+    gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
+    for record in all_records:
+        if record[0] == 'GPSLatDeg':
+            new_latdeg = record[1]
+            old_latdegs = record[2]
+        if record[0] == 'GPSLatMin':
+            new_latmin = record[1]
+            old_latmins = record[2]
+        if record[0] == 'GPSLatSec':
+            new_latsec = record[1]
+            old_latsecs = record[2]
+        if record[0] == 'GPSLatDirectionID':
+            new_latdir = record[1]
+            old_latdirs = record[2]
+        if record[0] == 'GPSLonDeg':
+            new_londeg = record[1]
+            old_londegs = record[2]
+        if record[0] == 'GPSLonMin':
+            new_lonmin = record[1]
+            old_lonmins = record[2]
+        if record[0] == 'GPSLonSec':
+            new_lonsec = record[1]
+            old_lonsecs = record[2]
+        if record[0] == 'GPSLonDirectionID':
+            new_londir = record[1]
+            old_londirs = record[2]
+        if record[0] == 'GPSUTMZone':
+            new_utmzone = record[1]
+            old_utmzones = record[2]
+        if record[0] == 'GPSUTMN':
+            new_utmn = record[1]
+            old_utmns = record[2]
+        if record[0] == 'GPSUTME':
+            new_utme = record[1]
+            old_utmes = record[2]
+        if record[0] == 'GPSElev':
+            new_elev = record[1]
+            old_elevs = record[2]
+        if record[0] == 'GPSElevError':
+            new_elev_error = record[1]
+            old_elev_errors = record[2]
+        if record[0] == 'GPSElevUnitID':
+            new_elev_unit = record[1]
+            old_elev_units = record[2]
+
+    if 'D' in gps_format_abbreviation:
+        # DD, DDM, or DMS
+        if (new_utmn != 'Null' or (new_utmn == '' and 'Null' not in old_utmns)) or (new_utme != 'Null' or (new_utme == '' and 'Null' not in old_utmes) or (new_utmzone != 'Null' or (new_utmzone == '' and 'Null' not in old_utmzones))):
+            return 'UTM coordinates given for degrees format. Coordinates should be entered in the format originally provided.'
+        if (new_latdeg != 'Null' and new_londeg == 'Null') or (new_latdeg == 'Null' and new_londeg != 'Null'):
+            return 'Missing degrees lat or lon in degree format'
+        if (new_latdeg == '' and 'Null' not in old_latdegs) or (new_londeg == '' and 'Null' not in old_londegs):
+            return 'Missing degrees lat or lon in degree format'
+        if 'DD ' in gps_format_abbreviation:
+            # DD
+            if new_latmin != 'Null' or new_latsec != 'Null' or new_lonmin != 'Null' or new_lonsec != 'Null':
+                return 'Minutes and/or seconds given in DD format'
+            if (new_latmin == '' and 'Null' not in old_latmins) or (new_latsec == '' and 'Null' not in old_latsecs) or (new_lonmin == '' and 'Null' not in old_lonmins) or (new_lonsec == '' and 'Null' not in old_lonsecs):
+                return 'Minutes and/or seconds given in DD format'
+        elif 'DM' in gps_format_abbreviation:
+            # DDM or DMS
+            if (new_latmin != 'Null' and new_lonmin == 'Null') or (new_latmin == 'Null' and new_lonmin != 'Null'):
+                return 'Missing minutes lat or lon in degrees format'
+            if (new_latmin == '' and 'Null' not in old_latmins) or (new_lonmin == '' and 'Null' not in old_lonmins):
+                return 'Missing minutes lat or lon in degree format'
+            if (new_latdeg == 'Null' and new_latmin != 'Null') or (new_londeg == 'Null' and new_lonmin != 'Null'):
+                return 'Minutes given without degrees in degree format'
+            if (new_latdeg == '' and 'Null' not in old_latdegs) or (new_londeg == '' and 'Null' not in old_londegs):
+                return 'Minutes given without degrees in degree format'
+        elif 'DDM ' in gps_format_abbreviation:
+            if new_latsec != 'Null' or new_lonsec != 'Null':
+                return 'Seconds given in DDM format'
+            if (new_latsec == '' and 'Null' not in old_latsecs) or (new_lonsec == '' and 'Null' not in old_lonsecs):
+                return 'Seconds given in DDM format'
+        elif 'DMS' in gps_format_abbreviation:
+            if (new_latsec != 'Null' and new_lonsec == 'Null') or (new_latsec == 'Null' and new_lonsec != 'Null'):
+                return 'Missing seconds lat or lon in DMS format'
+            if (new_latsec == '' and 'Null' not in old_latsecs) or (new_lonsec == '' and 'Null' not in old_lonsecs):
+                return 'Missing seconds lat or lon in DMS format'
+            if (new_latmin == 'Null' and new_latsec != 'Null') or (new_lonmin == 'Null' and new_lonsec != 'Null'):
+                return 'Seconds given without minutes in DMS format'
+            if (new_latmin == '' and 'Null' not in old_latmins) or (new_lonmin == '' and 'Null' not in old_lonmins):
+                return 'Seconds given without minutes in DMS format'
+        if '+/-' in gps_format_abbreviation:
+            if new_latdir != 'Null' or new_londir != 'Null':
+                return 'Use signs instead of directions in +/- format'
+            if (new_latdir == '' and 'Null' not in old_latdirs) or (new_londir == '' and 'Null' not in old_londirs):
+                return 'Use signs instead of directions in +/- format'
+        elif 'NSEW' in gps_format_abbreviation:
+            if (new_latdir == 'Null' and new_londir != 'Null') or (new_latdir != 'Null' and new_londir == 'Null'):
+                return 'Only one direction given in NSEW format'
+            if ((new_latdir == '' and 'Null' not in old_latdirs) and (new_londir != '' and 'Null' in old_londirs)) or ((new_londir == '' and 'Null' not in old_londirs) and (new_latdir != '' and 'Null' in old_latdirs)):
+                return 'Only one direction given in NSEW format'
+            if ((new_latdir == 'Null' and new_latdeg != 'Null') or (new_londir == 'Null' and new_londeg != 'Null') or
+                    (new_latdir == 'Null' and new_latdeg =='' and 'Null' not in old_latdegs) or (new_londir == 'Null' and new_londeg == '' and 'Null' not in old_londegs) or
+                    (new_latdir == '' and 'Null' in old_latdirs and new_latdeg != 'Null') or (new_londir == '' and 'Null' in old_londirs and new_londeg != 'Null')):
+                return 'Missing direction in NSEW format'
+            if ((new_latdir != 'Null' and new_latdeg == 'Null') or (new_londir != 'Null' and new_londeg == 'Null') or
+                    (new_latdir != 'Null' and new_latdeg == '' and 'Null' in old_latdegs) or (new_londir != 'Null' and new_londeg == '' and 'Null' in old_londegs) or
+                    (new_latdir == '' and 'Null' not in old_latdirs and new_latdeg == 'Null') or (new_londir == '' and 'Null' not in old_londirs and new_londeg == 'Null')):
+                return 'Direction given without coordinates in NSEW format'
+            if '-' in new_latdeg or '-' in new_londeg or (new_latdeg == '' and '-' in old_latdegs) or (new_londeg == '' and '-' in old_londegs):
+                return 'Use only positive coordinates in NSEW format'
+    if 'UTM' in gps_format_abbreviation:
+        if ((new_latdeg != 'Null' or (new_latdeg == '' and 'Null' not in old_latdegs)) or (new_londeg != 'Null' or (new_londeg == '' and 'Null' not in old_londegs)) or
+                (new_latmin != 'Null' or (new_latmin == '' and 'Null' not in old_latmins)) or (new_lonmin != 'Null' or (new_lonmin == '' and 'Null' not in old_lonmins)) or
+                (new_latsec != 'Null' or (new_latsec == '' and 'Null' not in old_latsecs)) or (new_lonsec != 'Null' or (new_lonsec == '' and 'Null' not in old_lonsecs)) or
+                (new_latdir != 'Null' or (new_latdir == '' and 'Null' not in old_latdirs)) or (new_londir != 'Null' or (new_londir == '' and 'Null' not in old_londirs))):
+            return 'Degrees coordinates given for UTM format. Coordinates should be entered in the format originally provided.'
+        if ((new_utmn != 'Null' and new_utme == 'Null') or (new_utme != 'Null' and new_utmn == 'Null') or
+                (new_utmn != 'Null' and new_utme == '' and 'Null' in old_utmes) or (new_utme != 'Null' and new_utmn == '' and 'Null' in old_utmns) or
+                (new_utmn == '' and 'Null' not in old_utmns and new_utme == 'Null') or (new_utme == '' and 'Null' not in old_utmes and new_utmn == 'Null')):
+            return 'Missing easting or northing in UTM format'
+        if ((new_utmn != 'Null' and new_utmzone == 'Null') or
+                (new_utmn != 'Null' and new_utmzone == '' and 'Null' in old_utmzones) or
+                (new_utmn == '' and 'Null' not in old_utmns and new_utmzone == 'Null')):
+            return 'Missing UTM zone in UTM format'
+        if ((new_utmzone != 'Null' and new_utmn == 'Null') or
+                (new_utmzone != 'Null' and new_utmn == '' and 'Null' in old_utmns) or
+                (new_utmzone == '' and 'Null' not in old_utmzones and new_utmn == 'Null')):
+            return 'UTM zone given without coordinates in UTM format'
+    if (new_elev != 'Null' and new_elev_unit == 'Null') or (new_elev != 'Null' and new_elev_unit == '' and 'Null' in old_elev_units) or (new_elev == '' and 'Null' not in old_elevs and new_elev_unit == 'Null'):
+        return 'Elevation missing units'
+    if (new_elev == 'Null' and new_elev_error != 'Null') or (new_elev == 'Null' and new_elev_error == '' and 'Null' not in old_elev_errors) or (new_elev == '' and 'Null' in old_elevs and new_elev_error != 'Null'):
+        return 'Elevation error missing elevation'
+
+def check_dependencies(table: str, record_id_header: str, record_ids: list, record_names: list):
+    """
+    Check whether the records provided are being used in other tables
+    @param table: the table to be deleted from
+    @param record_id_header: the header for the id column
+    @param record_ids: the list of record ids to be deleted
+    @return: Nothing if successful, error message if not
+    """
+
+    def build_dependencies_check(table: str, dependent_table: str, record_id_header: str, record_ids: list, record_names: list):
+        """
+        Check if the records are being used in the dependent table
+        @param table: name of the table to be checked
+        @param dependent_table: name of the table that the records are being checked against
+        @param record_id_header: name of the column to be checked in the dependent table
+        @param record_ids: list of record ids to be checked
+        @param record_names: list of names of the records, empty string if not applicable
+        @return: text of the dependencies
+        """
+        query = QtS.QSqlQuery()
+        dependencies_text = ''
+        record_dependent_ids = []
+        for index in range(len(record_ids)):
+            if not query.exec(f'SELECT * FROM {dependent_table} WHERE {record_id_header} = {record_ids[index]}'):
+                return f'Unable to check if {table} records are being used in {dependent_table}: {query.lastError().text()}'
+            dependent_ids = []
+            while query.next():
+                dependent_ids.append(query.value(0))
+            if dependent_ids:
+                if record_names[index]:
+                    name = record_names[index]
+                else:
+                    name = record_ids[index]
+                dependencies_text += f'{table}: {name} is associated with {len(dependent_ids)} records in {dependent_table}.\n'
+            record_dependent_ids.append(dependent_ids)
+        return dependencies_text, record_dependent_ids
+
+    def build_child_check(table: str, record_id_header: str, record_ids: list, record_names: list):
+        query = QtS.QSqlQuery()
+        children_text = ''
+        record_child_ids = []
+        for index in range(len(record_ids)):
+            if not query.exec(f'SELECT * FROM {table} WHERE "Parent{record_id_header}" = {record_ids[index]}'):
+                return f'Unable to check if {table} records have children: {query.lastError().text()}'
+            child_ids = []
+            while query.next():
+                child_ids.append(query.value(0))
+            if child_ids:
+                if record_names[index]:
+                    name = record_names[index]
+                else:
+                    name = record_ids[index]
+                children_text += f'{table}: {name} has {len(child_ids)} children.\n'
+            record_child_ids.append(child_ids)
+        return children_text, record_child_ids
+
+    def build_parent_check(table: str, record_id_header:str, record_ids: list, record_names: list):
+        query = QtS.QSqlQuery()
+        parents_text = ''
+        record_parent_ids = []
+        for index in range(len(record_ids)):
+            if not query.exec(f'SELECT "Parent{record_id_header}" FROM {table} WHERE {record_id_header} = {record_ids[index]}'):
+                return f'Unable to check if {table} records have parents: {query.lastError().text()}'
+            parent_ids = []
+            while query.next():
+                parent_ids.append(query.value(0))
+            if parent_ids:
+                if record_names[index]:
+                    name = record_names[index]
+                else:
+                    name = record_ids[index]
+                parents_text += f'{table}: {name} has {len(parent_ids)} parents.\n'
+            record_parent_ids.append(parent_ids)
+        return parents_text, record_parent_ids
+
+    if table == 'AgeConstraints' or table == 'AgeInterpretations' or table == 'Sources':
+        # Check if the record is being used in SampleAges
+        dependencies_text = build_dependencies_check(table, 'SampleAges', record_id_header, record_ids, record_names)
+        return dependencies_text
+    if table == 'Ages':
+        # Check if the record is being used in SampleAges
+        dependencies_text, record_dependent_ids = build_dependencies_check(table, 'SampleAges', 'OldestAgeID', record_ids, record_names)
+        text, list = build_dependencies_check(table, 'SampleAges', 'YoungestAgeID', record_ids, record_names)
+        dependencies_text += text
+        for item in list:
+            record_dependent_ids.append(item)
+        children_text, record_child_ids = build_child_check(table, 'parentAgeID', record_ids, record_names)
+        parent_text, record_parent_ids = build_parent_check(table, record_id_header, 'parentAgeID', record_ids, record_names)
+        return dependencies_text, record_dependent_ids
+    if table == 'AliquotContexts':
+        # Check if the record is being used in Aliquots_AliquotContexts
+        dependencies_text = build_dependencies_check(table, 'Aliquots_AliquotContexts', 'AliquotContextID', record_ids, record_names)
+        return dependencies_text
+    if table == 'Aliquots':
+        # Check which samples it belongs to
+        dependencies_text = build_dependencies_check(table, 'Samples', 'SampleID', record_ids, record_names)

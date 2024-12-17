@@ -32,6 +32,7 @@ from ui.EditTree import EditTree
 from ui.Filters import QueryBuilder
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.DatabaseManager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Check_triggers import validate_insert, validate_update
 
 class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
@@ -773,14 +774,17 @@ class SampleInformation(QtW.QDialog):
     def update_gps(self):
         if len(self.checked_sample_list) > 0:
             create_savepoint('before_update', self)
-            gps_format_name = self.gps_format_comboBox.currentText()
-            if 'D' in gps_format_name:
+            gps_format_abbreviation = self.gps_format_comboBox.currentText()
+            self.gps_format_model.setFilter(f"GPSFormatAbbreviation = '{gps_format_abbreviation}'")
+            gps_format_id = self.gps_format_model.data(self.gps_format_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            self.gps_format_model.setFilter('')  # Clear the filter
+            if 'D' in gps_format_abbreviation:
                 lat_deg = self.lat_deg_lineEdit.text()
                 lon_deg = self.lon_deg_lineEdit.text()
-                if 'M' in gps_format_name:
+                if 'M' in gps_format_abbreviation:
                     lat_min = self.lat_min_lineEdit.text()
                     lon_min = self.lon_min_lineEdit.text()
-                    if 'S' in gps_format_name:
+                    if 'S' in gps_format_abbreviation:
                         lat_sec = self.lat_sec_lineEdit.text()
                         lon_sec = self.lon_sec_lineEdit.text()
                     else:
@@ -791,10 +795,10 @@ class SampleInformation(QtW.QDialog):
                     lon_min = 'Null'
                     lat_sec = 'Null'
                     lon_sec = 'Null'
-                if '+/-' in gps_format_name:
+                if '+/-' in gps_format_abbreviation:
                     lat_dir = 'Null'
                     lon_dir = 'Null'
-                elif ' NSEW' in gps_format_name:
+                elif ' NSEW' in gps_format_abbreviation:
                     lat_dir = self.lat_comboBox.currentText()
                     lon_dir = self.lon_comboBox.currentText()
                     self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
@@ -804,7 +808,7 @@ class SampleInformation(QtW.QDialog):
                 utm_zone = 'Null'
                 utm_n = 'Null'
                 utm_e = 'Null'
-            elif gps_format_name == 'UTM':
+            elif gps_format_abbreviation == 'UTM':
                 lat_deg = 'Null'
                 lat_min = 'Null'
                 lat_sec = 'Null'
@@ -838,6 +842,13 @@ class SampleInformation(QtW.QDialog):
                 if self.sample_names_model.index(row, 3).data() != 'Null':
                     gps_ids.append(self.sample_names_model.index(row, 3).data())
             query = QtS.QSqlQuery()
+            gps_columns = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin',
+                           'GPSLonSec', 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'GPSElev',
+                           'GPSElevError', 'GPSElevUnitID']
+            qgps_columns = ', '.join(gps_columns)
+            gps_values = [lat_deg, lat_min, lat_sec, lat_dir, lon_deg, lon_min, lon_sec, lon_dir, utm_zone, utm_n,
+                          utm_e, elevation, elevation_error, elevation_unit]
+            qgps_values = ', '.join(gps_values)
             gps_to_delete = []
             gps_to_update = []
             if len(gps_ids) > 0:
@@ -857,23 +868,33 @@ class SampleInformation(QtW.QDialog):
                             gps_to_delete.append(gps)
                 if len(gps_to_update) == 0:
                     # All gps are associated with other samples or columns, so create a new one
-                    if not query.exec(f'''INSERT INTO GPSLocations (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID) = 
-                        ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}'''):
+                    error = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
+                    if error:
+                        errtxt = error
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        rollback_savepoint('before_update', self)
+                        return
+                    if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) = (qgps_values)'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update', self)
                         return
                     gps_id = query.lastInsertId()
                 else:
-                    if not query.exec(f'''UPDATE GPSLocations SET (GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID, GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID, GPSUTMZone, GPSUTMN, GPSUTME, GPSElev, GPSElevError, GPSElevUnitID) = 
-                        ({lat_deg}, {lat_min}, {lat_sec}, {lat_dir}, {lon_deg}, {lon_min}, {lon_sec}, {lon_dir}, {utm_zone}, {utm_n}, {utm_e}, {elevation}, {elevation_error}, {elevation_unit}) WHERE GPSLocationID = {gps_to_update[0]}'''):
+                    error = validate_update('GPSLocations', gps_columns, gps_values, gps_format_id)
+                    if error:
+                        errtxt = error
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        rollback_savepoint('before_update', self)
+                        return
+                    if not query.exec(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({qgps_values}) WHERE GPSLocationID = {gps_to_update[0]}'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update', self)
                         return
                     gps_id = gps_to_update[0]
                     if len(gps_to_delete) > 0:
-                        if not query.exec(f'DELECT FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
+                        if not query.exec(f'DELETE FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
                             errtxt = query.lastError().text()
                             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                             rollback_savepoint('before_update', self)

@@ -4,10 +4,11 @@ from PyQt6 import QtCore as QtC
 from PyQt6.QtSql import QSqlDatabase
 
 from Functions.Table_classes import set_table, get_columns
+from Functions.DatabaseManager import create_savepoint, release_savepoint, rollback_savepoint
 # from pyproj import Proj, transform
 
-def drop_virtual_columns(db, tables_affected: list):
-    create_savepoint(db)
+def drop_virtual_columns(tables_affected: list):
+    create_savepoint()
     for table_info in tables_affected:
         table = table_info[0]
         create_sql = table_info[1]
@@ -195,9 +196,6 @@ def generate_age_error_columns(db: QSqlDatabase, affected_column_names: list[str
             rollback_savepoint(db)
             return
 
-
-
-
 # if id_header_base in ['DirectionUnit'] or id_header_base in ['GPSFormat']:
 #     gps_location_model = QtS.QSqlTableModel()
 #     set_table(gps_location_model, 'GPSLocations')
@@ -299,20 +297,3 @@ def generate_age_error_columns(db: QSqlDatabase, affected_column_names: list[str
 #
 #
 
-def create_savepoint(db):
-    save_query = QtS.QSqlQuery(db)
-    if save_query.exec('SAVEPOINT before_alter') is False:
-        errtxt = save_query.lastError().text()
-        return errtxt
-
-def release_savepoint(db):
-    save_query = QtS.QSqlQuery(db)
-    if save_query.exec('RELEASE SAVEPOINT before_alter') is False:
-        errtxt = save_query.lastError().text()
-        return errtxt
-
-def rollback_savepoint(db):
-    save_query = QtS.QSqlQuery(db)
-    if save_query.exec('ROLLBACK TO before_alter') is False:
-        errtxt = save_query.lastError().text()
-        return errtxt
