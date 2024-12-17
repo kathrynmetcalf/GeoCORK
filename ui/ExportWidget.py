@@ -1,4 +1,6 @@
+import os
 import sqlite3
+import sys
 from collections import Counter
 
 from PyQt6 import uic, QtCore
@@ -10,17 +12,21 @@ from PyQt6.QtWidgets import (
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
     QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox
 )
+from PyQt6.uic import loadUi
 
 from openpyxl import Workbook
-import Filters
-import SQLUtils
+from ui import Filters
+from Functions import SQLUtils
 
-from Table_classes import CheckableSqlTableModel, CheckableComboBox
+from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox
 
 
 class ExportWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "ExporterUI.ui")
+        loadUi(sources_ui_file, self)
 
         self.checked_filter_list = []
 
@@ -44,8 +50,6 @@ class ExportWidget(QWidget):
         # self.loadWindowState()
 
         self.samplesincluded_comboBox: CheckableComboBox()
-
-        uic.loadUi('ui/ExporterUI.ui', self)
 
         # Connect buttons to methods
         self.add_workbook_button.clicked.connect(lambda: self.add_workbook_tab(None, None, None))
