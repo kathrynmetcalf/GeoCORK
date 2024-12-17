@@ -1,3 +1,4 @@
+import os
 import sys
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -15,8 +16,10 @@ class EditTree(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "ui/EditTree.ui"
-        loadUi(tags_ui_file, self)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "EditTree.ui")
+        loadUi(sources_ui_file, self)
+
         self.db = database
         self.model = model
         # print(model)

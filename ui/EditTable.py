@@ -1,3 +1,4 @@
+import os
 import sys
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -13,8 +14,10 @@ class EditTable(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "ui/EditTable.ui"
-        loadUi(tags_ui_file, self)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "EditTable.ui")
+        loadUi(sources_ui_file, self)
+
         self.table = TxM.remove_spaces(table_name)
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
             pass

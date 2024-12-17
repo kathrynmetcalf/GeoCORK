@@ -1,4 +1,6 @@
+import os
 import sqlite3
+import sys
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
@@ -40,7 +42,8 @@ class DataViewerWidget(QWidget):
 
         self.loadWindowState()
 
-        sources_ui_file = "ui/DataViewerWidget.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
         loadUi(sources_ui_file, self)
 
         self.id_condition = "()"

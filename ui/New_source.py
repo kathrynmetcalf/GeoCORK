@@ -1,3 +1,4 @@
+import os
 import sys
 import sqlite3
 from PyQt6 import QtWidgets as QtW
@@ -10,7 +11,8 @@ class NewSource(QtW.QDialog):
 
         # Define any widgets here
         self.db_file = '../geochron_samples.db'
-        sources_ui_file = "New_source.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "New_source.ui")
         loadUi(sources_ui_file, self)
 
         self.existing = existing

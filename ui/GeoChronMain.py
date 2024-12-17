@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 import sqlite3
@@ -46,7 +47,8 @@ class GeoChron(QtW.QMainWindow):
         print("Database is open: " + str(ok))
         self.loadWindowState()
 
-        sources_ui_file = "ui/GeochronMain.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "GeochronMain.ui")
         loadUi(sources_ui_file, self)
 
         self.switch_to_table()
