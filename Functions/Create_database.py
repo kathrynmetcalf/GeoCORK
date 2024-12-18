@@ -611,7 +611,7 @@ def populate_ages(conn):
         c.execute(sql)
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        xml_file = os.path.join(base_path, "/Reference/GeologicTime_Ages.xml")
+        xml_file = os.path.join(base_path, "./Reference/GeologicTime_Ages.xml")
         tree = ET.parse(xml_file)
         root = tree.getroot()
         eon_row = 0
