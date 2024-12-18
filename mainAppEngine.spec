@@ -3,11 +3,11 @@
 
 a = Analysis(
     ['mainAppEngine.py'],
-    pathex=[''],
+    pathex=['.venv/lib/python3.11/site-packages'],
     binaries=[],
     datas=[('ui/*.ui', '.'),
             ('Reference/GeologicTime_Ages.xml', 'Reference')],
-    hiddenimports=[],
+    hiddenimports=['PyQt6', 'PyQt6-Qt6', 'PyQt6_sip', 'platformdirs'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
