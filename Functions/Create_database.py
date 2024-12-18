@@ -610,7 +610,7 @@ def populate_ages(conn):
         sql = 'DELETE FROM Ages'
         c.execute(sql)
 
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         xml_file = os.path.join(base_path, "/Reference/GeologicTime_Ages.xml")
         tree = ET.parse(xml_file)
         root = tree.getroot()
