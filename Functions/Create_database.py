@@ -608,7 +608,9 @@ def populate_ages(conn):
         # Begin by deleting all rows in the table to allow for a reset if things get changed
         sql = 'DELETE FROM Ages'
         c.execute(sql)
-        xml_file = "./Reference/GeologicTime_Ages.xml"
+
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)
+        xml_file = os.path.join(base_path, "/Reference/GeologicTime_Ages.xml")
         tree = ET.parse(xml_file)
         root = tree.getroot()
         eon_row = 0
