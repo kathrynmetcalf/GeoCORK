@@ -13,7 +13,7 @@ jobs:
           spec: 'mainAppEngine.spec'
           requirements: 'requirements.txt'
           upload_exe_with_name: 'GeoCORK-windows'
-          options: --onefile, --name "GeoCORK", --windowed
+          
   pyinstaller-build-mac:
     runs-on: macos-14
     steps:
@@ -24,4 +24,4 @@ jobs:
           spec: 'mainAppEngine.spec'
           requirements: 'requirements.txt'
           upload_exe_with_name: 'GeoCORK-macos'
-          options: --onefile, --name "GeoCORK", --windowed
+          
