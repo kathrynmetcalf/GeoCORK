@@ -15,7 +15,7 @@ jobs:
           upload_exe_with_name: 'GeoCORK-windows'
           
   pyinstaller-build-mac:
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       - name: Create Executable
         uses: sayyid5416/pyinstaller@v1.8.0
