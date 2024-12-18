@@ -3,7 +3,7 @@
 
 a = Analysis(
     ['mainAppEngine.py'],
-    pathex=['/Users/jarrodburges/Documents/GeoCORK/'],
+    pathex=[''],
     binaries=[],
     datas=[('ui/*.ui', '.')],
     hiddenimports=[],
@@ -22,11 +22,11 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name='mainAppEngine',
-    debug=False,
+    debug=True,
     bootloader_ignore_signals=False,
     strip=False,
     upx=True,
-    console=False,
+    console=True,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
