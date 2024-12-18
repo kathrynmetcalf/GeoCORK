@@ -2,6 +2,7 @@ import sqlite3
 import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
 import Functions.DB_views as DBV # views
+import sys, os
 
 '''Commands to create the database
 Foreign keys are set to cascade on update
