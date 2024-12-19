@@ -1,13 +1,17 @@
 name: PyInstaller
 
+
 on: [workflow_dispatch]
 
 jobs:
   pyinstaller-build-windows:
     runs-on: windows-latest
+    
     steps:
       - name: Create Executable
         uses: sayyid5416/pyinstaller@v1
+        env: 
+          PYTHONPATH: ${{ github.workspace }}
         with:
           python_ver: '3.11.6'
           spec: 'mainAppEngine.spec'
@@ -19,6 +23,8 @@ jobs:
     steps:
       - name: Create Executable
         uses: sayyid5416/pyinstaller@v1.8.0
+        env: 
+          PYTHONPATH: ${{ github.workspace }}
         with:
           python_ver: '3.11.6'
           spec: 'mainAppEngine.spec'
