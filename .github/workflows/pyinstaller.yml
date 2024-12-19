@@ -18,7 +18,7 @@ jobs:
         python-version: 3.11
 
     - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
-    - run: pyinstaller mainAppEngine.py --console --windowed --onefile
+    - run: pyinstaller mainAppEngine.spec
     
     - uses: actions/upload-artifact@v4
       with:
