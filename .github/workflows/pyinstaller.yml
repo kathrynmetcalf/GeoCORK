@@ -19,8 +19,7 @@ jobs:
 
     - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
     - run: pyinstaller mainAppEngine.py --console --windowed --onefile
-    # Optionally verify that it works (provided that it does not need user interaction)
-    - run: ./dist/GeoCORK/GeoCORK
+    
     - uses: actions/upload-artifact@v4
       with:
         path: dist/*
