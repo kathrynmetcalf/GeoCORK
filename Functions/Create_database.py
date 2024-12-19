@@ -2,7 +2,10 @@ import sqlite3
 import PyQt6
 from PyQt6 import QtSql as QtS
 import xml.etree.ElementTree as ET  # xml reader
+import Functions.Create_triggers as CT # triggers
+import Functions.DB_views as DBV # views
 import Functions.SQLUtils as SQLUtils
+import sys, os
 
 '''
 Commands to create the database
@@ -958,7 +961,7 @@ def create_tables():
     Populates the units, types, and conversion tables
     Uses the default database connection
     """
-    
+
     query = QtS.QSqlQuery()
 
     # Create the tables
