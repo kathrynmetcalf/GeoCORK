@@ -4,19 +4,34 @@ name: PyInstaller
 on: [workflow_dispatch]
 
 jobs:
-  build:
-    runs-on: 'macos-latest'
-
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-      with:
-        python-version: 3.11
-
-    - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
-    - run: pyinstaller mainAppEngine.py --windowed --onefile --console --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTags.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/GeochronMain.ui:." --add-data "ui/import_wizard.ui:." --add-data "ui/landingpage.ui:." --add-data "ui/New_lab_facility.ui:." --add-data "ui/New_source.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/ui_Settings.ui:."
-
-    
-    - uses: actions/upload-artifact@v4
-      with:
-        path: dist/*
+  macos-builder:
+      runs-on: 'macos-latest'
+  
+      steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+  
+      - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
+      - run: pyinstaller mainAppEngine.py --windowed --onefile --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTags.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/GeochronMain.ui:." --add-data "ui/import_wizard.ui:." --add-data "ui/landingpage.ui:." --add-data "ui/New_lab_facility.ui:." --add-data "ui/New_source.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/ui_Settings.ui:."
+  
+      - uses: actions/upload-artifact@v4
+        with:
+          path: dist/*
+          
+  windows-builder:
+      runs-on: 'windows-latest'
+  
+      steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.11
+  
+      - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
+      - run: pyinstaller mainAppEngine.py --windowed --onedir --add-data "ui/AddTags.ui;." --add-data "ui/AddTreeTags.ui;." --add-data "ui/DataViewerWidget.ui;." --add-data "ui/EditSampleTable.ui;." --add-data "ui/EditTable.ui;." --add-data "ui/EditTags.ui;." --add-data "ui/EditTree.ui;." --add-data "ui/ExporterUI.ui;." --add-data "ui/GeochronMain.ui;." --add-data "ui/import_wizard.ui;." --add-data "ui/landingpage.ui;." --add-data "ui/New_lab_facility.ui;." --add-data "ui/New_source.ui;." --add-data "ui/SampleInformation.ui;." --add-data "ui/ui_Settings.ui;."
+  
+      - uses: actions/upload-artifact@v4
+        with:
+          path: dist/*
