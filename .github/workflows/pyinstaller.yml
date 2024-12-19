@@ -17,8 +17,8 @@ jobs:
       with:
         python-version: 3.11
 
-    - run: pip install -r requirements.txt pyinstaller
-    - run: pyinstaller mainAppEngine.py --debug all --console --windowed --onefile
+    - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
+    - run: pyinstaller mainAppEngine.py --console --windowed --onefile
     # Optionally verify that it works (provided that it does not need user interaction)
     - run: ./dist/CORK/GeoCORK
     - uses: actions/upload-artifact@v4
