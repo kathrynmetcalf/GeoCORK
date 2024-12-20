@@ -6,6 +6,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
+import Functions.Check_triggers as Ct
 
 
 class EditTags(QtW.QDialog):
@@ -74,6 +75,7 @@ class EditTags(QtW.QDialog):
                 WHERE {self.columns[0]} = {item_id}
                 ''')
             if query.exec():
+                Ct.update_modified_timestamp(self.table, item_id)
                 self.model.setTable(self.table)
                 self.model.select()
                 self.accept()

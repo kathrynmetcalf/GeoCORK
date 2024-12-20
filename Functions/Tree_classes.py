@@ -10,6 +10,7 @@ from numpy import integer
 
 import Functions.Errors as Er
 import Functions.Text_manipulations as TxM
+import Functions.Check_triggers as Ct
 
 '''
 Editable tree model example:
@@ -465,6 +466,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             # print(f'Error updating parent for {itemID}')
             return None
         else:
+            Ct.update_modified_timestamp(self.table, [itemID])
             # print(f'Successfully updated parent for {itemID}')
             return True
 

@@ -32,7 +32,9 @@ from ui.EditTree import EditTree
 from ui.Filters import QueryBuilder
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.DatabaseManager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Check_triggers import validate_insert, validate_update
+from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+
+# todo: Figure out why it is slowing down after checking and unchecking a bunch of stuff
 
 class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
@@ -751,6 +753,7 @@ class SampleInformation(QtW.QDialog):
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update', self)
                         return
+                    update_modified_timestamp('Samples', sample_id)
                 release_savepoint('before_update', self)
 
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
@@ -769,6 +772,7 @@ class SampleInformation(QtW.QDialog):
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                     rollback_savepoint('before_update', self)
                     return
+                update_modified_timestamp('Samples', sample_id)
             release_savepoint('before_update', self)
 
     def update_gps(self):
@@ -892,6 +896,7 @@ class SampleInformation(QtW.QDialog):
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update', self)
                         return
+                    update_modified_timestamp('GPSLocations', gps_to_update)
                     gps_id = gps_to_update[0]
                     if len(gps_to_delete) > 0:
                         if not query.exec(f'DELETE FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
@@ -905,6 +910,7 @@ class SampleInformation(QtW.QDialog):
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                     rollback_savepoint('before_update', self)
                     return
+                update_modified_timestamp('Samples', sample_id)
             release_savepoint('before_update', self)
 
     def update_age(self):
@@ -990,6 +996,7 @@ class SampleInformation(QtW.QDialog):
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                     rollback_savepoint('before_update', self)
                     return
+                update_modified_timestamp('SampleAges', sample_age_id)
             else:
                 if not query.exec(f'''INSERT INTO SampleAges (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) VALUES 
                     ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_direct}, {youngest_direct}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}")'''):
@@ -1044,6 +1051,7 @@ class SampleInformation(QtW.QDialog):
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update', self)
                         return
+                    update_modified_timestamp('Samples', sample_id)
                     print(f"Updated DefaultSampleAgeID to {sample_age_id} for SampleID {sample_id}")
                 if old_sample_age_id != sample_age_id:
                     if not query.exec(f'''DELETE FROM Samples_SampleAges WHERE SampleID = {sample_id} AND SampleAgeID = {old_sample_age_id}'''):
@@ -1086,9 +1094,17 @@ class SampleInformation(QtW.QDialog):
                 if len(upb_data_ids) > 1:
                     print(len(upb_data_ids))
                     upb_data_ids.sort()
-                    query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)[0:10]}")
+                    if not query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)[0:10]}"):
+                        print(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}")
+                        errtxt = query.lastError().text()
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                    update_modified_timestamp('UPbData', upb_data_ids[0:10])
                 else:
-                    query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}")
+                    if not query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}"):
+                        print(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0]}")
+                        errtxt = query.lastError().text()
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                    update_modified_timestamp('UPbData', upb_data_ids[0])
                 if model.database().commit():
                     print(f"Updated {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}")
                     release_savepoint('before_update', self)
@@ -1139,6 +1155,7 @@ class SampleInformation(QtW.QDialog):
                 errtxt = query.lastError().text()
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                 return
+            update_modified_timestamp('UPbData', upb_data_ids)
             print(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
             release_savepoint('before_update', self)
 

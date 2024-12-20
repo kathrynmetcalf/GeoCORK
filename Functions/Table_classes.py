@@ -265,8 +265,8 @@ def SampleAgeDistinctQuery():
     '''
     return sample_age_distinct_query
 
-def get_columns(db, table: str):
-    query = QtS.QSqlQuery(db)
+def get_columns(table: str):
+    query = QtS.QSqlQuery()
     query.exec(f'PRAGMA table_xinfo({table})')
     virtual = []
     stored = []
@@ -277,7 +277,7 @@ def get_columns(db, table: str):
             if 'Modified' in query.value(1):
                 modified_column = True
                 columns.append(f'"{query.value(1)}"')
-            elif 'Calculated' in query.value(1):
+            elif 'Calculated' in query.value(1) or 'Display' in query.value(1):
                 stored.append(f'"{query.value(1)}"')
             else:
                 columns.append(f'"{query.value(1)}"')
@@ -559,27 +559,28 @@ def comboBox_display_table(comboBox):
     else:
         comboBox.tableView.setFixedHeight(total_height)
 
-def delete_samples(sample_ids: list, db: QtS.QSqlDatabase):
+def delete_samples(sample_ids: list):
     # Delete the selected samples and all aliquots, spots, and UPb data associated with them
-    aliquot_ids, spot_ids, upb_data_ids = find_sub_items(sample_ids, 'UPbData', db)
+    aliquot_ids, spot_ids, upb_data_ids = find_sub_items(sample_ids, 'UPbData')
 
     # Get a list of tables in the database
+    query = QtS.QSqlQuery()
+    db = QtS.QSqlDatabase.database('qt_sql_default_connection')
     tables = db.tables()
-    query = QtS.QSqlQuery(db)
 
-    save_query = QtS.QSqlQuery(db)
+    save_query = QtS.QSqlQuery()
     if save_query.exec('SAVEPOINT before_delete') is False:
         errtxt = save_query.lastError().text()
         return errtxt
 
     def release_savepoint():
-        save_query = QtS.QSqlQuery(db)
+        save_query = QtS.QSqlQuery()
         if save_query.exec('RELEASE SAVEPOINT before_delete') is False:
             errtxt = save_query.lastError().text()
             return errtxt
 
     def rollback_savepoint():
-        save_query = QtS.QSqlQuery(db)
+        save_query = QtS.QSqlQuery()
         if save_query.exec('ROLLBACK TO before_delete') is False:
             errtxt = save_query.lastError().text()
             return errtxt
@@ -607,9 +608,9 @@ def delete_samples(sample_ids: list, db: QtS.QSqlDatabase):
 
     release_savepoint()
 
-def find_sub_items(sample_ids, db):
+def find_sub_items(sample_ids):
     # Find all the sub items of a list of samples
-    query = QtS.QSqlQuery(db)
+    query = QtS.QSqlQuery()
     aliquot_ids = []
     spot_ids = []
     upb_data_ids = []

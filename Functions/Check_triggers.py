@@ -2,14 +2,18 @@ import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 
-def update_modified_timestamp(table: str, record_id_header: str, record_ids: list):
+def update_modified_timestamp(table: str, record_ids: list):
     """
     Update the ModifiedTimestamp field for the given records
     @param table: table to be updated
-    @param record_id_header: header for id column
     @param record_ids: list of record ids to be updated
     @return: Nothing if successful, error message if not
     """
+    # Get the header for the first column, the ID column
+    table_model = QtS.QSqlTableModel()
+    table_model.setTable(table)
+    table_model.select()
+    record_id_header = table_model.record().fieldName(0)
     query = QtS.QSqlQuery()
     if len(record_ids) > 1:
         record_ids = ', '.join(record_ids)

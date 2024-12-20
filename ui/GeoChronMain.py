@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget
 
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
+import Functions.Alter_database as Alter_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
@@ -30,6 +31,7 @@ from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.Filters import QueryBuilder
 from ui.SampleInformation import  SampleInformation
+import Functions.Check_triggers as Ct
 
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
@@ -51,10 +53,13 @@ class GeoChron(QtW.QMainWindow):
         sources_ui_file = "ui/GeochronMain.ui"
         loadUi(sources_ui_file, self)
 
+        savepoint_manager = DatabaseManager.SavepointManager()
+        self.savepoint_manager = savepoint_manager.get_instance()
+        self.msg = QtW.QMessageBox(self)
         self.switch_to_table()
 
-        Create_db.create_tables(self.db)
-        self.savepoint_manager = DatabaseManager.SavepointManager()
+        Create_db.create_tables(self)
+        Alter_db.settings_reset(self)
         #list of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure

@@ -7,6 +7,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
+import Functions.Check_triggers as Ct
 
 class AddTags(QtW.QDialog):
     def __init__(self, database, model, table):

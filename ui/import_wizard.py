@@ -15,6 +15,7 @@ from ui.QComboBoxLabel import QComboBoxLabel
 from ui.QLineEditLabel import QLineEditLabel
 from ui.FlowLayout import FlowLayout
 from pandas.core.interchange import dataframe
+import Functions.Check_triggers as Ct
 
 
 # noinspection PyArgumentList

@@ -32,27 +32,27 @@ class SavepointManager:
     def active_savepoints(self):
         return self.savepoint_list
 
-def create_savepoint(savepoint_name: str, widget: QtW.QWidget):
+def create_savepoint(savepoint_name: str, window: QtW.QMainWindow | QtW.QDialog):
     query = QtS.QSqlQuery()
     if not query.exec(f'SAVEPOINT {savepoint_name}'):
         errtxt = Er.savepoint_fail("Samples")
-        widget.msg.critical(widget, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+        window.msg.critical(window, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.add_savepoint(savepoint_name)
 
-def release_savepoint(savepoint_name: str, widget: QtW.QWidget):
+def release_savepoint(savepoint_name: str, window: QtW.QMainWindow | QtW.QDialog):
     query = QtS.QSqlQuery()
     if not query.exec(f'RELEASE SAVEPOINT {savepoint_name}'):
         errtxt = Er.savepoint_release_fail("Samples")
-        widget.msg.critical(widget, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+        window.msg.critical(window, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.remove_savepoint(savepoint_name)
 
-def rollback_savepoint(savepoint_name: str, widget: QtW.QWidget):
+def rollback_savepoint(savepoint_name: str, window: QtW.QMainWindow | QtW.QDialog):
     query = QtS.QSqlQuery()
     if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
         errtxt = Er.savepoint_rollback_fail("Samples")
-        widget.msg.critical(widget, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+        window.msg.critical(window, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.rollback_savepoint(savepoint_name)
 

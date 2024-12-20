@@ -10,6 +10,7 @@ from Functions.Tree_classes import TreeModel
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Tree_classes as TrC
+import Functions.Check_triggers as Ct
 
 class AddTreeTags(QtW.QDialog):
     def __init__(self, database: QtS.QSqlDatabase, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
