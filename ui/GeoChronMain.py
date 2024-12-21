@@ -276,7 +276,7 @@ class GeoChron(QtW.QMainWindow):
             self.sample_proxy_model.setFilterRegularExpression(search_expression)
         elif table in self.dbtree_list:
             self.tree_proxy_model.setFilterRegularExpression(search_expression)
-            if search_expression is not "":
+            if search_expression != "":
                 self.dbTable_treeView.expandAll()
         else:
             self.table_proxy_model.setFilterRegularExpression(search_expression)

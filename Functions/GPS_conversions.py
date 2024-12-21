@@ -143,7 +143,7 @@ def convert_direction_to_sign(lat: list, lon: list):
 
 def convert_dd_to_utm(ddlat, ddlon):
     """
-    Convert latitude and longitude in decimal degrees to UTM coordinates
+    Convert latitude and longitude in decimal degrees to UTM coordinates using WGS84 datum
     @param ddlat: latitude in decimal degrees as real number
     @param ddlon: longitude in decimal degrees as real number
     @return: UTMN, UTME, zone with N or S, or "Invalid input"
@@ -180,19 +180,25 @@ def convert_dd_to_utm(ddlat, ddlon):
     UTMN, UTME = proj_utm(lat_deg, lon_deg)
     return UTMN, UTME, zone_txt
 
-def convert_utm_to_dd(UTMN, UTME, zone_txt):
+def convert_utm_to_dd(zone_txt, UTME, UTMN):
     """
-    Convert UTM coordinates to latitude and longitude in decimal degrees
-    @param UTMN: UTM northing as real number
-    @param UTME: UTM easting as real number
+    Convert UTM coordinates to latitude and longitude in decimal degrees using WGS84 datum
     @param zone_txt: UTM zone as string with N or S to indicate hemisphere, e.g. "10N", assumes N if no direction given
+    @param UTME: UTM easting as real number
+    @param UTMN: UTM northing as real number
     @return: decimal degree latitude and longitude as real numbers or "Invalid input"
     """
+    # remove any spaces in the zone text
+    zone_txt = zone_txt.replace(" ", "")
     if zone_txt[-1] == 'S':
         south = True
+        zone = int(zone_txt[:-1])
+    elif zone_txt[-1] == 'N':
+        south = False
+        zone = int(zone_txt[:-1])
     else:
         south = False
-    zone = int(zone_txt[:-1])
+        zone = int(zone_txt)
     proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84", south=south)
     lat, lon = proj_utm(UTME, UTMN, inverse=True)
-    return lat, lon
+    return [lat], [lon]

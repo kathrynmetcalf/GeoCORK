@@ -4,10 +4,11 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtSql import QSqlDatabase
 
+import pyproj
 import Functions.Create_database as Create_db
 from Functions.Table_classes import set_table, get_columns
 from Functions.DatabaseManager import create_savepoint, release_savepoint, rollback_savepoint
-# from pyproj import Proj, transform
+import Functions.GPS_conversions as GPS # gps conversions
 
 # todo: test new settings_reset function
 def settings_reset(window: QtW.QMainWindow | QtW.QDialog):
@@ -209,7 +210,11 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
 
 def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list, window: QtW.QMainWindow | QtW.QDialog):
     query = QtS.QSqlQuery()
-    column = 'GPSLocationDisplay'
+    column = 'GPSLocationConverted'
+    variables = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
+                 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME']
+    modules = ['GPS', 'pyproj']
+    global_vars = {name: globals()[name] for name in modules}
     gps_model = QtS.QSqlTableModel()
     set_table(gps_model, table)
     for row in range(gps_model.rowCount()):
@@ -225,15 +230,18 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         GPSUTMZone = gps_model.record(row).value('GPSUTMZone')
         GPSUTMN = gps_model.record(row).value('GPSUTMN')
         GPSUTME = gps_model.record(row).value('GPSUTME')
+        local_vars = {name: locals()[name] for name in variables}
 
         for conversion in conversions:
             if conversion[0] == gps_id:
                 gps_code = conversion[1]
-                gps_display = eval(gps_code)
+                exec(gps_code, global_vars, local_vars)
+                gps_display = local_vars.get('converted')
                 if not query.exec(f'UPDATE {table} SET {column}="{gps_display}" WHERE {table_id_header}={gps_id}'):
                     print(f'Error updating GPSLocationDisplay: {query.lastError().text()}')
                     rollback_savepoint('before_populate', window)
                     return
+                break
 
 
 # def convert_gps_columns(selected_gps_format_id: int, selected_direction_unit_id: int):
