@@ -6,7 +6,7 @@ from collections import Counter
 from PyQt6 import uic, QtCore
 from PyQt6.QtCore import QSettings
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel
+from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
@@ -512,12 +512,18 @@ class ExportWidget(QWidget):
                 join += SQLUtils.spot_join + '\n'
             if SQLUtils.upb_data_join not in join:
                 join += SQLUtils.upb_data_join + '\n'
-            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
 
-            conn = sqlite3.connect(self.db_file)
-            with conn:
-                for id in conn.execute(sql_query).fetchall():
-                    ids.append(id[0])
+            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
+            query = QSqlQuery()
+
+            # Execute the query
+            if not query.exec(sql_query):
+                # Handle query execution error
+                print("Failed to execute query:", query.lastError().text())
+
+            # Fetch all results
+            while query.next():
+                ids.append(query.value(0))
 
         if len(self.checked_filter_list) == 1:
             ids = f"({', '.join(map(str, ids))})"
