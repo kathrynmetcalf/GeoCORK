@@ -9,6 +9,7 @@ from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop, QRegularExpression
 from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction, QRegularExpressionValidator, \
     QDoubleValidator
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (
@@ -301,46 +302,52 @@ class InsertFilterGroupDialog(QDialog):
     def insert_data(self):
         # Collect data from inputs
         name = self.name_input.text()
-        query = QSqlQuery()
-        sql_query = f"""SELECT FilterGroupName FROM FilterGroups;
-                                """
-        query.exec(sql_query)
-        existing_filters = []
-        while query.next(): existing_filters.append(query.value(0))
+        color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
+        description = self.description_input.toPlainText()
 
-        if name in existing_filters:
+        # Open a connection to the default database
+        db = QSqlDatabase.database()
+        if not db.isOpen():
+            self.warning_label.show()
+            self.warning_label.setText('<font color="red">Database is not open</font>')
+            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            return
+
+        query = QSqlQuery(db)
+
+        # Check if the name already exists in the table
+        check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name"
+        query.prepare(check_query)
+        query.bindValue(":name", name)
+        if not query.exec():
+            self.warning_label.show()
+            self.warning_label.setText('<font color="red">Failed to execute query</font>')
+            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            return
+
+        if query.next():  # If a result is found
             self.warning_label.show()
             self.warning_label.setText('<font color="red">Name must be unique</font>')
-            self.warning_label.setAlignment(
-                QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
+            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         else:
-            color = getattr(self, 'color', '#FFFFFF')  # Default to white if no color selected
-            description = self.description_input.toPlainText()
+            # Insert the new record into the table
+            insert_query = """
+                INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
+                VALUES (:name, :sql_query, :color, :description)
+            """
+            query.prepare(insert_query)
+            query.bindValue(":name", name)
+            query.bindValue(":sql_query", self.sql_structure)
+            query.bindValue(":color", color)
+            query.bindValue(":description", description)
 
-            sql_query = f"""
-                            INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
-                            VALUES ('{name}', "'{self.sql_structure}'", '{color}', '{description}');
-                            """
-            query = QSqlQuery()
-            # todo change to bind value to prevent sql injection
-            query.exec(sql_query)
-
-            listWidget: QListWidget = self.parentWidget().parentWidget().findChild(QListWidget, 'listWidget')
-
-            for x in range(len(listWidget.items(None))):
-                listWidget.takeItem(x)
-
-            sql_query = """SELECT * FROM FilterGroups;"""
-            query.exec(sql_query)
-            while query.next():
-                item = QListWidgetItem()
-                item.setForeground(QColor(query.value(3)))
-                item.setStatusTip(query.value(4))
-                item.setText(query.value(1))
-                listWidget.addItem(item)
-
-            # Close the dialog
-            self.accept()
+            if not query.exec():
+                self.warning_label.show()
+                self.warning_label.setText('<font color="red">Failed to insert data</font>')
+                self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            else:
+                # Close the dialog
+                self.accept()
 
 
 class FocusWheelComboBox(QComboBox):
@@ -761,24 +768,13 @@ class QueryBuilder(QWidget):
     # todo swap this whole code to QListWidget
     def __init__(self, parent):
         super().__init__(parent)
-        for widget in QApplication.topLevelWidgets():
-            if widget.inherits("QMainWindow"):
-                self.db_file = widget.db_file
+        # for widget in QApplication.topLevelWidgets():
+        #     if widget.inherits("QMainWindow"):
+        #         self.db_file = widget.db_file
 
         self.listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
 
-        for x in self.listWidget.items(None):
-            self.listWidget.takeItem(x)
-
-        query = QSqlQuery()
-        sql_query = """SELECT * FROM FilterGroups;"""
-        query.exec(sql_query)
-        while query.next():
-            item = QListWidgetItem()
-            item.setForeground(QColor(query.value(3)))
-            item.setToolTip(query.value(4))
-            item.setText(query.value(1))
-            self.listWidget.addItem(item)
+        self.update_filter_list()
 
         self.listWidget.itemDoubleClicked.connect(lambda state: self.populate_filters(state))
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -863,28 +859,55 @@ class QueryBuilder(QWidget):
             self.listWidget.takeItem(row)
 
             query = QSqlQuery()
-            sql_query = f"""DELETE FROM FilterGroups WHERE FilterGroupName="{item.text()}";"""
-            query.exec(sql_query)
+            sql_query = """
+                    DELETE FROM FilterGroups 
+                    WHERE FilterGroupName = :filter_name;
+                """
+            query.prepare(sql_query)
+            query.bindValue(":filter_name", item.text())  # Bind the value to prevent SQL injection
+
+            # Execute the query
+            if not query.exec():
+                # Handle query execution error
+                print("Failed to execute query:", query.lastError().text())
+            else:
+                print(f"Filter group '{item.text()}' successfully deleted.")
 
     def populate_filters(self, filter_name):
         query = QSqlQuery()
-        sql_query = f"""SELECT SQLQuery, FilterGroupName FROM FilterGroups WHERE FilterGroupName = '{filter_name.text()}';"""
-        query.exec(sql_query)
-        query.next()
-        row = query.record()
-        self.main_group_box.deleteLater()
-        self.main_group_box = GroupBox(ast.literal_eval(row[0][0][1:-1]))
-        self.main_group_box.setParent(self)
-        self.layout1.insertWidget(0, self.scrollarea)
-        self.scrollarea.setWidget(self.main_group_box)
-        self.show()
+        sql_query = """
+                SELECT SQLQuery, FilterGroupName 
+                FROM FilterGroups 
+                WHERE FilterGroupName = :filter_name;
+            """
+        query.prepare(sql_query)
+        query.bindValue(":filter_name", filter_name.text())  # Use bindValue to prevent SQL injection
+
+        # Execute the query
+        if query.exec():
+            if query.next():  # Retrieve the first (and expected only) row
+                sql_query_result = query.value(0)  # SQLQuery column
+                filter_group_name = query.value(1)  # FilterGroupName column
+
+                # Update the UI with the retrieved data
+                self.main_group_box.deleteLater()
+                self.main_group_box = GroupBox(ast.literal_eval(sql_query_result[1:-1]))
+                self.main_group_box.setParent(self)
+                self.layout1.insertWidget(0, self.scrollarea)
+                self.scrollarea.setWidget(self.main_group_box)
+                self.show()
+            else:
+                print("No matching filter group found.")
+        else:
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
 
     def view_analysis(self):
         filtered_ids = self.get_filtered_ids('upbdata')
         if filtered_ids is None:
             self.display_no_ids_error('upb data')
             return
-        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'upbdata')
+        dataviewer = DataViewerWidget(filtered_ids, 'upbdata')
         dataviewer.setWindowTitle("Filtered Analysis View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -898,7 +921,7 @@ class QueryBuilder(QWidget):
         if filtered_ids is None:
             self.display_no_ids_error('spot')
             return
-        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'spot')
+        dataviewer = DataViewerWidget(filtered_ids, 'spot')
         dataviewer.setWindowTitle("Filtered Spot View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -912,7 +935,7 @@ class QueryBuilder(QWidget):
         if filtered_ids is None:
             self.display_no_ids_error('aliquot')
             return
-        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'aliquot')
+        dataviewer = DataViewerWidget(filtered_ids, 'aliquot')
         dataviewer.setWindowTitle("Filtered Aliquot View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -926,7 +949,7 @@ class QueryBuilder(QWidget):
         if filtered_ids is None:
             self.display_no_ids_error('sample')
             return
-        dataviewer = DataViewerWidget(self.db_file, filtered_ids, 'sample')
+        dataviewer = DataViewerWidget(filtered_ids, 'sample')
         dataviewer.setWindowTitle("Filtered Sample View")
 
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -936,14 +959,22 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def get_filtered_ids(self, type):
-        query = QSqlQuery()
+        # Get the SQL query for the given type
         sql_query = self.get_sql(type)
-        out = []
-        while query.next(): out.append(query.value(0))
-        if out == []:
-            return None
-        return out
 
+        # Prepare and execute the query
+        query = QSqlQuery()
+        if not query.exec(sql_query):
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+            return None
+
+        # Fetch all results
+        results = []
+        while query.next():
+            results.append(tuple(query.value(i) for i in range(query.record().count())))
+
+        return results if results else None
 
     def get_sql(self, type=None):
         structure = self.main_group_box.get_structure()
@@ -954,8 +985,8 @@ class QueryBuilder(QWidget):
         for table in self.main_group_box.get_tables():
             match (table):
                 case 'Ages':
-                    if SQLUtils.age_join not in join:
-                        join += SQLUtils.age_join + '\n'
+                    if SQLUtils.sample_age_join not in join:
+                        join += SQLUtils.sample_age_join + '\n'
                 case 'Age Signatures':
                     if SQLUtils.age_signature_join not in join:
                         join += SQLUtils.age_signature_join + '\n'
@@ -975,19 +1006,19 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
-                    if SQLUtils.labs_join not in join:
-                        join += SQLUtils.labs_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_labs_join not in join:
+                        join += SQLUtils.upb_labs_join + '\n'
                 case 'Instruments':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
-                    if SQLUtils.instruments_join not in join:
-                        join += SQLUtils.instruments_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_instruments_join not in join:
+                        join += SQLUtils.upb_instruments_join + '\n'
                 case 'Regions':
                     if SQLUtils.region_join not in join:
                         join += SQLUtils.region_join + '\n'
@@ -1010,10 +1041,10 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
-                    if SQLUtils.source_join not in join:
-                        join += SQLUtils.source_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_reference_join not in join:
+                        join += SQLUtils.upb_reference_join + '\n'
                 case 'Spot Compositions':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
@@ -1036,15 +1067,15 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
                 case 'UPb Analysis Methods':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
                     if SQLUtils.upb_method_join not in join:
                         join += SQLUtils.upb_method_join + '\n'
                 case 'Units':
@@ -1068,8 +1099,8 @@ class QueryBuilder(QWidget):
                 join += SQLUtils.aliquot_join + '\n'
             if SQLUtils.spot_join not in join:
                 join += SQLUtils.spot_join + '\n'
-            if SQLUtils.upb_data_join not in join:
-                join += SQLUtils.upb_data_join + '\n'
+            if SQLUtils.upb_analysis_join not in join:
+                join += SQLUtils.upb_analysis_join + '\n'
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbData.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
         elif type is None:
             pass
@@ -1080,17 +1111,25 @@ class QueryBuilder(QWidget):
     def display_no_ids_error(self, type):
         QMessageBox.critical(self, "No IDs Found", f"No {type} IDs were found matching the criteria.")
 
+    def update_filter_list(self):
+        query = QSqlQuery()
+        sql_query = "SELECT * FROM FilterGroups;"
+        if query.exec(sql_query):  # Execute the query
+            while query.next():  # Iterate over each row in the result set
+                item = QListWidgetItem()
+
+                # Assuming column indices: row[3] -> DefaultColor, row[4] -> FilterGroupDescription, row[1] -> FilterGroupName
+                item.setForeground(QColor(query.value(3)))  # Set the color from column 3
+                item.setToolTip(query.value(4))  # Set the tooltip from column 4
+                item.setText(query.value(1))  # Set the text from column 1
+
+                self.listWidget.addItem(item)
+        else:
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+
     def save_filter(self):
-        InsertFilterGroupDialog(self.main_group_box.get_structure(), self.db_file, self).exec()
+        InsertFilterGroupDialog(self.main_group_box.get_structure(), self).exec()
 
         self.listWidget.clear()
-        db = QSqlDatabase()
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            sql_query = """SELECT * FROM FilterGroups;"""
-            for row in conn.execute(sql_query):
-                item = QListWidgetItem()
-                item.setForeground(QColor(row[3]))
-                item.setStatusTip(row[4])
-                item.setText(row[1])
-                self.listWidget.addItem(item)
+        self.update_filter_list()

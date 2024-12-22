@@ -6,6 +6,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
+from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QHBoxLayout, QPushButton, QVBoxLayout, QComboBox
 from PyQt6.uic import loadUi
 
@@ -19,9 +20,8 @@ from Functions.Tree_classes import TreeSortFilterProxyModel
 
 
 class DataViewerWidget(QWidget):
-    def __init__(self, db_file, ids_to_show, table_type):
+    def __init__(self, ids_to_show, table_type):
         super().__init__()
-        self.db_file = db_file
         self.table_type = table_type
         self.ids_to_show = '('
 
@@ -34,11 +34,11 @@ class DataViewerWidget(QWidget):
             self.ids_to_show = self.ids_to_show[0:-2]
             self.ids_to_show += ")"
 
-        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-        self.db.setDatabaseName(self.db_file)
+        # self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+        # self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
 
-        self.db.open()
+        # self.db.open()
 
         self.loadWindowState()
 
@@ -46,7 +46,7 @@ class DataViewerWidget(QWidget):
         sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
         loadUi(sources_ui_file, self)
 
-        self.id_condition = "()"
+        self.id_condition = '()'
 
         self.current_selection = []
         self.current_table = ""
@@ -84,7 +84,7 @@ class DataViewerWidget(QWidget):
 
         # Pagination variables
         self.current_page_1 = 0
-        self.rows_per_page_1 = 5
+        self.rows_per_page_1 = 50
         self.total_records_1 = self.get_total_records_1()
 
         self.current_page_2 = 0
@@ -104,9 +104,9 @@ class DataViewerWidget(QWidget):
 
         # Connect buttons to their respective functions
         self.prev_button.clicked.connect(lambda: self.previous_page_1(self.db_stackedWidget, self.dbTable_tableView,
-                                                                      self.dbTable_comboBox, self.edit_pushButton))
+                                                                      self.dbTable_comboBox, self.edit_pushButton, table_type))
         self.next_button.clicked.connect(lambda: self.next_page_1(self.db_stackedWidget, self.dbTable_tableView,
-                                                                  self.dbTable_comboBox, self.edit_pushButton))
+                                                                  self.dbTable_comboBox, self.edit_pushButton, table_type))
 
         self.prev_button_2.clicked.connect(
             (lambda: self.previous_page_2(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
@@ -212,16 +212,28 @@ class DataViewerWidget(QWidget):
         """
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            if table == "LabFacilities":
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.ids_to_show}")
-            elif table == "UPbData":
-                c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.ids_to_show}")
-            else:
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.ids_to_show}")
-            return c.fetchone()[0]
+        query = QSqlQuery()
+        sql_query = ""
+
+        # Construct the query based on the table
+        if table == "LabFacilities":
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.ids_to_show}"
+        elif table == "UPbData":
+            sql_query = f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.ids_to_show}"
+        else:
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.ids_to_show}"
+
+        # Execute the query
+        if not query.exec(sql_query):
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+            return 0
+
+        # Fetch the count
+        if query.next():
+            return query.value(0)
+
+        return 0
 
     def get_total_records_2(self, dbTable_comboBox):
         """
@@ -229,18 +241,28 @@ class DataViewerWidget(QWidget):
         """
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            if table == "LabFacilities":
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.id_condition}")
-            elif table == "UPbData":
-                c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.id_condition}")
-            else:
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition}")
-            test = c.fetchone()[0]
-            print(f"{table} : {test}")
-            return test
+        query = QSqlQuery()
+        sql_query = ""
+
+        # Construct the query based on the table
+        if table == "LabFacilities":
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.id_condition}"
+        elif table == "UPbData":
+            sql_query = f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.id_condition}"
+        else:
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.id_condition}"
+
+        # Execute the query
+        if not query.exec(sql_query):
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+            return 0
+
+        # Fetch the count
+        if query.next():
+            return query.value(0)
+
+        return 0
 
     def get_record_index(self, record_id, dbTable_comboBox):
         """
@@ -248,14 +270,35 @@ class DataViewerWidget(QWidget):
         """
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            c.execute(
-                f"SELECT row_number FROM (SELECT ROW_NUMBER() OVER (ORDER BY {table[0:-1]}ID) AS row_number, {table[0:-1]}ID FROM {table} WHERE {table[0:-1]}ID IN {self.ids_to_show}) WHERE {table[0:-1]}ID = ?",
-                (record_id,))
-            result = c.fetchone()
-            return result[0] - 1 if result else -1
+        query = QSqlQuery()
+
+        # Construct the SQL query
+        base_id_column = f"{table[:-1]}ID"
+        sql_query = f"""
+                SELECT row_number 
+                FROM (
+                    SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} 
+                    FROM {table} 
+                    WHERE {base_id_column} IN {self.ids_to_show}
+                ) 
+                WHERE {base_id_column} = :record_id
+            """
+
+        # Prepare and bind parameters
+        query.prepare(sql_query)
+        query.bindValue(":record_id", record_id)
+
+        # Execute the query
+        if not query.exec():
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+            return -1
+
+        # Fetch the result
+        if query.next():
+            return query.value(0) - 1  # Convert to zero-based index
+
+        return -1
 
     def switch_to_table(self, db_stackedWidget):
         """
@@ -289,7 +332,7 @@ class DataViewerWidget(QWidget):
             # todo very slow because of the sample view
             sample_model = TbC.SampleTableModel()
             query = TbC.SampleTableModel().setupQuery(self.ids_to_show, self.rows_per_page_1, offset)
-            sample_model.setQuery(QtS.QSqlQuery(query, self.db))
+            sample_model.setQuery(QtS.QSqlQuery(query))
 
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_proxy_model.setSourceModel(sample_model)
@@ -307,7 +350,7 @@ class DataViewerWidget(QWidget):
 
             aliquot_model = TbC.AliquotTableModel()
             query = TbC.AliquotTableModel().setupQuery()
-            aliquot_model.setQuery(QtS.QSqlQuery(query, self.db))
+            aliquot_model.setQuery(QtS.QSqlQuery(query))
 
             aliquot_proxy_model = QtC.QSortFilterProxyModel()
             aliquot_proxy_model.setSourceModel(aliquot_model)
@@ -323,7 +366,7 @@ class DataViewerWidget(QWidget):
             self.switch_to_table(db_stackedWidget)
             spot_model = TbC.SpotTableModel()
             query = TbC.AliquotTableModel().setupQuery()
-            spot_model.setQuery(QtS.QSqlQuery(query, self.db))
+            spot_model.setQuery(QtS.QSqlQuery(query))
 
             spot_proxy_model = QtC.QSortFilterProxyModel()
             spot_proxy_model.setSourceModel(spot_model)
@@ -350,7 +393,7 @@ class DataViewerWidget(QWidget):
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         else:
-            print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
+            print(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 
         # Update page info label
         start_record = offset + 1
@@ -365,10 +408,7 @@ class DataViewerWidget(QWidget):
 
         # Connect the selectionChanged signal to the onSelectionChanged method
         self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
-        # Update page info label
-        start_record = offset + 1
-        end_record = min(offset + self.rows_per_page_2, self.total_records_2)
-        self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
+
         edit_pushButton.setText(f"Edit {table_name}")
 
     def on_select_changed(self):
@@ -421,34 +461,48 @@ class DataViewerWidget(QWidget):
                             sql += SQLUtils.aliquot_join + '\n'
                         if SQLUtils.spot_join not in sql:
                             sql += SQLUtils.spot_join + '\n'
+                    elif table_type == 'upbdata':
+                        table_condition = f" WHERE UPbData.UPbAnalysisID IN ({', '.join(condition_ids)})"
+                        if SQLUtils.aliquot_join not in sql:
+                            sql += SQLUtils.aliquot_join + '\n'
+                        if SQLUtils.spot_join not in sql:
+                            sql += SQLUtils.spot_join + '\n'
+                        if SQLUtils.upb_data_join not in sql:
+                            sql += SQLUtils.upb_data_join + '\n'
                     # "(19,39,58)"
 
                 sql += table_condition
-                print(sql)
-                conn = sqlite3.connect(self.db_file)
-                with conn:
-                    c = conn.cursor()
-                    if c.execute(sql):
-                        existing = c.fetchall()
-                        for row in existing:
-                            if row[0] is not None:
-                                ids_to_show.append(str(row[0]))
-                    self.id_condition = f'({", ".join(ids_to_show)})'
+                print(f'self.id_condition sql: {sql}')
+                query = QSqlQuery()
+                ids_to_show = []
+
+                # Execute the query
+                if query.exec(sql):
+                    while query.next():  # Iterate through all results
+                        row_id = query.value(0)
+                        if row_id is not None and row_id is not '':
+                            ids_to_show.append(str(row_id))
+
+                # Update the id_condition attribute
+
+                self.id_condition = f'({", ".join(ids_to_show)}'
+                self.id_condition = self.id_condition + ')'
+                print(f'id condition: {self.id_condition}')
 
         if table in self.dbtree_list:
             self.switch_to_tree(db_stackedWidget)
-            model = QtS.QSqlTableModel(db=self.db)
+            model = QtS.QSqlTableModel()
             model.setTable(table)
             model.select()
-            if table not in ["UPbData", "LabFacilities"]:
-                model.setFilter(f'{table[0:-1]}ID  IN ( '
-                                f'WITH RECURSIVE ParentTree AS '
-                                f'(SELECT * FROM {table} '
-                                f'WHERE {table[0:-1]}ID IN {self.id_condition} '
-                                f'UNION ALL '
-                                f'SELECT {table}.* FROM {table} '
-                                f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
-                                f'SELECT {table[0:-1]}ID FROM ParentTree) ')
+
+            model.setFilter(f'{table[0:-1]}ID  IN ( '
+                            f'WITH RECURSIVE ParentTree AS '
+                            f'(SELECT * FROM {table} '
+                            f'WHERE {table[0:-1]}ID IN {self.id_condition} '
+                            f'UNION ALL '
+                            f'SELECT {table}.* FROM {table} '
+                            f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
+                            f'SELECT {table[0:-1]}ID FROM ParentTree) ')
             tree_model = TrC.TreeModel(model, None)
 
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
@@ -477,9 +531,9 @@ class DataViewerWidget(QWidget):
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE UPbAnalysisID IN {self.id_condition} ORDER BY UPbAnalysisID LIMIT {self.rows_per_page_2} OFFSET {offset}")
             else:
+                print(f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
-
             for col in range(model.columnCount()):
                 header = TxM.add_spaces_camel(
                     model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
@@ -497,7 +551,7 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, table_proxy_model))
 
         else:
-            print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
+            print(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
         # Update page info label
@@ -623,15 +677,6 @@ class DataViewerWidget(QWidget):
         proxy_model.setFilterRegularExpression(search_expression)
         if dbTable_treeView is not None:
             dbTable_treeView.expandAll()
-
-    def get_existing(self, field, table):
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            sql = f'''SELECT {field} FROM {table}'''
-            if c.execute(sql):
-                existing = c.fetchall()
-                return existing
 
     def edit_popup(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton):
         dbTable_comboBox: QComboBox
