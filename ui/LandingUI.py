@@ -5,7 +5,7 @@ from pathlib import Path
 import PyQt6
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import QSettings, QEventLoop, Qt, QPoint, QSize
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.uic import loadUi
 import qtawesome
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QStyle, QMessageBox, QWidget, \
@@ -48,6 +48,12 @@ class LandingPage(QWidget):
 
         self.listWidget: QListWidget
         self.listWidget.itemDoubleClicked.connect(self.clicked_file)
+
+
+        pixmap = QPixmap(os.path.join(base_path, './geocork.png'))
+        scaled_pixmap = pixmap.scaled(500, 100, Qt.AspectRatioMode.KeepAspectRatio,
+                                      Qt.TransformationMode.SmoothTransformation)
+        self.label.setPixmap(scaled_pixmap)
         self.show()
 
     def closeEvent(self, a0):
