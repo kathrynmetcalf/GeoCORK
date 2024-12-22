@@ -203,13 +203,19 @@ class ExportWidget(QWidget):
         tab1_layout = QVBoxLayout()
         tab1.setLayout(tab1_layout)
         tableView = QTableView()
+        distinct_checkbox = QCheckBox("Distinct Rows")
+        distinct_checkbox.setToolTip("Check this box to only show distinct or unique rows a single time")
+        distinct_checkbox.setChecked(False)
+        tab1_layout.addWidget(distinct_checkbox)
         tab1_layout.addWidget(tableView)
+
         # Create a data model for this tableView
         model = QSqlQueryModel()
 
         self.workbook_tabs["Workbook 1"] = {
             'tableView': tableView,
             'model': model,
+            'distinct': False,
             'selected_columns': {},
             'ordered_columns': {}
         }
@@ -220,6 +226,7 @@ class ExportWidget(QWidget):
 
         self.load_checkbox_states('Workbook 1')
 
+        distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
         self.update_table_view()
         self.repaint()
 
@@ -240,7 +247,7 @@ class ExportWidget(QWidget):
         self.previous_workbook = None
 
 
-    def add_workbook_tab(self, workbook_name=None, selected_columns=None, ordered_columns=None):
+    def add_workbook_tab(self, workbook_name=None, distinct=False, selected_columns=None, ordered_columns=None):
         # Determine the new workbook name
         if ordered_columns is None:
             ordered_columns = {}
@@ -266,11 +273,17 @@ class ExportWidget(QWidget):
         new_tab = QWidget()
         tab_layout = QVBoxLayout()
         new_tab.setLayout(tab_layout)
+        distinct_checkbox = QCheckBox("Distinct Rows")
+        distinct_checkbox.setToolTip("Check this box to only show distinct or unique rows a single time")
+        distinct_checkbox.setChecked(distinct)
+        tab_layout.addWidget(distinct_checkbox)
         tab_layout.addWidget(new_tableView)
+
         # Store the tableView and model in the workbook_tabs dictionary
         self.workbook_tabs[workbook_name] = {
             'tableView': new_tableView,
             'model': model,
+            'distinct': distinct,
             'selected_columns': selected_columns,
             'ordered_columns': ordered_columns
         }
@@ -281,9 +294,18 @@ class ExportWidget(QWidget):
         self.load_checkbox_states(workbook_name)
         self.workbooktabs.setCurrentWidget(new_tab)
 
+        #todo change to method so it actually works
+        distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
         # Update the table view
         self.update_table_view()
         self.repaint()
+
+    def update_distinct_checkbox(self):
+        current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        distinct_checkbox = self.workbook_tabs[current_workbook_name]['distinct']
+        self.workbook_tabs[current_workbook_name]['distinct'] = not distinct_checkbox
+        self.update_table_view()
+        print('checkbox state  ', distinct_checkbox)
 
     def remove_current_workbook_tab(self):
         if self.workbooktabs.count() <= 1:
@@ -539,12 +561,12 @@ class ExportWidget(QWidget):
 
         #todo add distinct checkbox, always use first column, default to false
         if len(self.checked_sample_names) > 2:
-            query_str = f"SELECT {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
+            query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
             if len(filtered_where_clause) > 0:
-                query_str = f"SELECT {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
+                query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
         else:
-            query_str = f"SELECT {columns_str} FROM Samples {join} WHERE FALSE"
-
+            query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
+        print (query_str)
         model = QSqlQueryModel()
         model.setQuery(query_str)
         self.workbook_tabs[current_workbook_name]['model'] = model
@@ -620,7 +642,7 @@ class ExportWidget(QWidget):
                                    ('Samples', 'Latitude'): True,
                                    ('Samples', 'Longitude'): True,
                                    ('Sources', 'ShortCitation'): True}
-                self.add_workbook_tab('Samples', Samples_columns, Samples_columns)
+                self.add_workbook_tab('Samples', True, Samples_columns, Samples_columns)
 
                 ZrUPb_columns = {('Samples', 'SampleName'): True,
                           ('Spots', 'SpotName'): True,
@@ -630,7 +652,7 @@ class ExportWidget(QWidget):
                           ('UPb Data', 'Error'): True,
                           ('UPb Data', 'Conc'): True}
 
-                self.add_workbook_tab('ZrUPb', ZrUPb_columns, ZrUPb_columns)
+                self.add_workbook_tab('ZrUPb', False, ZrUPb_columns, ZrUPb_columns)
                 return
             case 'IsoplotR':
                 pass
