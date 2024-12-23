@@ -22,7 +22,7 @@ CREATE_ABOUT_TABLE = '''CREATE TABLE IF NOT EXISTS About(
                     Name TEXT NOT NULL CHECK (Name <> ''),
                     Authors TEXT NOT NULL CHECK (Authors <> ''),
                     Citation TEXT NOT NULL CHECK (Citation <> ''),
-                    SourceLink TEXT NOT NULL CHECK (SourceLink <> ''),
+                    ReferenceLink TEXT NOT NULL CHECK (ReferenceLink <> ''),
                     Version TEXT NOT NULL CHECK (Version <> ''),
                     Description TEXT,
                     CreatedBy TEXT NOT NULL CHECK (CreatedBy <> ''),
@@ -342,6 +342,19 @@ CREATE_LAB_FACILITIES_TABLE = '''CREATE TABLE IF NOT EXISTS LabFacilities(
                     UNIQUE (LabFacilityName COLLATE NOCASE)
                     )'''
 
+CREATE_REFERENCES_TABLE = '''CREATE TABLE IF NOT EXISTS "References"(
+                    ReferenceID INTEGER PRIMARY KEY,
+                    Authors TEXT,
+                    Year INTEGER,
+                    Title TEXT,
+                    Source TEXT,
+                    DOI TEXT,
+                    ReferenceDescription TEXT,
+                    ReferenceCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ReferenceModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (Authors, Year, Title, Source, DOI)
+                    )'''
+
 CREATE_REGIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Regions(
                     RegionID INTEGER PRIMARY KEY,
                     ParentRegionID INTEGER,
@@ -376,8 +389,7 @@ CREATE_ROCK_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS RockTypes(
                     )'''
 
 CREATE_SAMPLE_AGE_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges(
-                    SampleAgeID INTEGER PRIMARY KEY, 
-                    SampleAgeDisplay AS (ifnull(DirectAge, "") || " ± " || ifnull(DirectAgeError, "") || " (" || ifnull(DirectAgeUnitID, "") || "), " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || " (" || ifnull(DirectAgeUnitID, "") || "), " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, "")) STORED,
+                    SampleAgeID INTEGER PRIMARY KEY,
                     DirectAge REAL,
                     DirectAgeError REAL,
                     DirectAgeErrorTypeID INTEGER,
@@ -444,16 +456,16 @@ CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS Sampl
                         ON DELETE CASCADE
                     )'''
 
-CREATE_SAMPLEAGES_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges_Sources(
+CREATE_SAMPLEAGES_REFERENCES_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges_References(
                     SampleAgeID INTEGER NOT NULL,
-                    SourceID INTEGER NOT NULL,
-                    SamplesAges_SourcesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    SamplesAges_SourcesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SampleAgeID, SourceID),
+                    ReferenceID INTEGER NOT NULL,
+                    SamplesAges_ReferencesCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SamplesAges_ReferencesModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SampleAgeID, ReferenceID),
                     FOREIGN KEY(SampleAgeID) REFERENCES SampleAges(SampleAgeID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(SourceID) REFERENCES Sources(SourceID)
+                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -623,20 +635,6 @@ CREATE_SETTINGS_TABLE = '''CREATE TABLE IF NOT EXISTS Settings(
                     UNIQUE (ParentSettingID, SettingParentRow)
                     )'''
 
-CREATE_SOURCES_TABLE = '''CREATE TABLE IF NOT EXISTS Sources(
-                    SourceID INTEGER PRIMARY KEY,
-                    Authors TEXT,
-                    Year INTEGER,
-                    Title TEXT,
-                    Source TEXT,
-                    doi TEXT,
-                    SourceDescription TEXT,
-                    CitationDisplay TEXT AS (Authors || " (" || Year || "). " || Title || ". " || Source || ". DOI: " || doi) STORED, 
-                    SourceCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    SourceModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (Authors, Year, Title, Source, doi)
-                    )'''
-
 CREATE_SPOT_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS SpotCompositions(
                     SpotCompositionID INTEGER PRIMARY KEY,
                     ParentSpotCompositionID INTEGER,
@@ -720,7 +718,7 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
 CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     UPbAnalysisID INTEGER PRIMARY KEY,
                     SpotID INTEGER NOT NULL,
-                    SourceID INTEGER,
+                    ReferenceID INTEGER,
                     LabFacilityID INTEGER,
                     InstrumentID INTEGER,
                     UPbAnalysisMethodID INTEGER, 
@@ -898,7 +896,7 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(SourceID) REFERENCES Sources(SourceID)
+                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
@@ -993,7 +991,7 @@ def create_tables(window):
     query.exec(CREATE_INSTRUMENTS_TABLE)
     query.exec(CREATE_LAB_FACILITIES_TABLE)
     query.exec(CREATE_REJECTION_REASONS_TABLE)
-    query.exec(CREATE_SOURCES_TABLE)
+    query.exec(CREATE_REFERENCES_TABLE)
     query.exec(CREATE_UPBANALYSIS_METHOD_TABLE)
 
     # Create spot tag tables
@@ -1018,7 +1016,7 @@ def create_tables(window):
     query.exec(CREATE_SAMPLE_CONTEXT_TABLE)
     query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE)
     query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE)
-    query.exec(CREATE_SAMPLEAGES_SOURCES_TABLE)
+    query.exec(CREATE_SAMPLEAGES_REFERENCES_TABLE)
     query.exec(CREATE_SAMPLING_METHODS_TABLE)
     query.exec(CREATE_SETTINGS_TABLE)
     query.exec(CREATE_UNITS_TABLE)
@@ -1050,10 +1048,6 @@ def create_tables(window):
     query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE)
 
     query.exec(CREATE_FILTER_GROUPS_TABLE)
-
-    # CT.create_triggers()
-
-    # DBV.create_sample_view(c)
 
     # Populate the age units table during initiation
     sql = '''SELECT * FROM AgeUnits'''

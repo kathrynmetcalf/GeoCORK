@@ -22,12 +22,15 @@ class SavepointManager:
 
     def add_savepoint(self, savepoint_name: str):
         self.savepoint_list.append(savepoint_name)
+        # print(self.savepoint_list)
 
     def remove_savepoint(self, savepoint_name: str):
         self.savepoint_list.remove(savepoint_name)
+        # print(self.savepoint_list)
 
     def rollback_savepoint(self, savepoint_name: str):
         self.savepoint_list.remove(savepoint_name)
+        # print(self.savepoint_list)
 
     def active_savepoints(self):
         return self.savepoint_list

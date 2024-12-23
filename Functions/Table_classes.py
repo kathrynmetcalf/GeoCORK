@@ -10,13 +10,14 @@ from PyQt6 import QtSql as QtS
 from collections import namedtuple
 
 from Functions import SQLUtils
+from Functions import DB_views
 
 # from PyQt6.QtSql import rollback
 from PyQt6.sip import delete
 from openpyxl.styles.builtins import total, calculation
 
 # Map model column names back to database items
-table_model_cols = namedtuple('table_model_cols', ['model_col_name', 'source_table', 'table_cols', 'tag_table'])
+table_model_cols = namedtuple('table_model_cols', ['model_col_name', 'reference_table', 'table_cols', 'tag_table'])
 sample_name = table_model_cols("Sample Name", "Samples", ["SampleName"], '')
 age = table_model_cols("Age (Ma)", "Samples", ["AverageAge", "AverageAgeError"], '')
 age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatureName"], "Samples_AgeSignatures")
@@ -30,76 +31,27 @@ def set_table(model: QtS.QSqlTableModel, table: str):
 
 
 class SampleTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self, ids_to_show=None, rows_per_page=None, offset=None):
-        sample_query = f'''
-                    SELECT
-                        {SQLUtils.qsample_id},
-                        {SQLUtils.qsample_name},
-                        {SQLUtils.qelev},
-                        {SQLUtils.qage},
-                        {SQLUtils.qage_range},
-                        {SQLUtils.qgeo_age},
-                        {SQLUtils.qcolumn_name_distinct},
-                        {SQLUtils.qcolumn_data},
-                        {SQLUtils.qaliquots_distinct},
-                        {SQLUtils.qspots_distinct},
-                        {SQLUtils.qsources_distinct},
-                        {SQLUtils.qage_signature_distinct},
-                        {SQLUtils.qsample_context_distinct},
-                        {SQLUtils.qrock_types_distinct},
-                        {SQLUtils.qregions_distinct},
-                        {SQLUtils.qsampling_methods_distinct},
-                        {SQLUtils.qsettings_distinct},
-                        {SQLUtils.qunits_distinct},
-                        {SQLUtils.qupb_methods_distinct},
-                        {SQLUtils.qlabs_distinct},
-                        {SQLUtils.qspot_context_distinct},
-                        {SQLUtils.qspot_compositions_distinct},
-                        {SQLUtils.qaliquot_context_distinct}
-                    FROM Samples
-                    {SQLUtils.age_signature_join}
-                    {SQLUtils.column_join}
-                    {SQLUtils.region_join}
-                    {SQLUtils.rock_type_join}
-                    {SQLUtils.sample_context_join}
-                    {SQLUtils.sample_sampleage_join}
-                    {SQLUtils.sampling_method_join}
-                    {SQLUtils.setting_join}
-                    {SQLUtils.unit_join}
-                    {SQLUtils.sample_age_join}
-                    {SQLUtils.sample_age_error_type_join}
-                    {SQLUtils.sample_age_unit_join}
-                    {SQLUtils.sample_old_age_join}
-                    {SQLUtils.sample_young_age_join}
-                    {SQLUtils.sampleage_ageconstraint_join}
-                    {SQLUtils.sampleage_ageinterpretation_join}
-                    {SQLUtils.gps_sample_join}
-                    {SQLUtils.gps_column_join}
-                    {SQLUtils.aliquot_join}
-                    {SQLUtils.aliquot_context_join}
-                    {SQLUtils.spot_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.upb_analysis_join}
-                    {SQLUtils.upb_source_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.upb_instruments_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_ratio_error_type_join}
-                    {SQLUtils.upb_age_error_type_join}
-                    {SQLUtils.upb_age_unit_join}
-                    {SQLUtils.upb_concordance_type_join}
-                    {SQLUtils.upb_spot_size_unit_join}
-                    {SQLUtils.upb_rejection_reason_join}
-                    {f"WHERE Samples.SampleID IN {ids_to_show}" if ids_to_show is not None else ""}
-                    GROUP BY Samples.SampleName
-					ORDER BY Samples.SampleID
-					{f"LIMIT {rows_per_page}" if rows_per_page is not None else ""}
-					{f"OFFSET {offset}" if offset is not None else ""}
-                    '''
+    def __init__(self, main_window: QtW.QMainWindow):
+        super().__init__()
+        self.main_window = main_window
+        self.default_query = DB_views.SampleViewQuery(main_window)
+        self.setQuery(self.default_query)
 
-        # print(sample_query)
+    def setupQuery(self, ids_to_show=None, rows_per_page=None, offset=None):
+        sample_query = DB_views.SampleViewQuery(self.main_window, ids_to_show)
         return sample_query
+
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        if role == QtC.Qt.ItemDataRole.DisplayRole:
+            # check the header of the selected index
+            header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            age_unit = self.main_window.settings.value('age_unit_abbreviation')
+            if header == f'Age {age_unit}':
+                string = super().data(index, role)
+                return display_age(string)
+        return super().data(index, role)
 
 def SampleDistinctQuery():
     sample_distinct_query = f'''
@@ -139,7 +91,7 @@ def SampleDistinctQuery():
         {SQLUtils.qsample_age_description_distinct},
         {SQLUtils.qsample_age_constraint_distinct},
         {SQLUtils.qsample_age_interpretation_distinct},
-        {SQLUtils.qsample_age_source_distinct}
+        {SQLUtils.qsample_age_reference_distinct}
         
     FROM Samples
     {SQLUtils.column_join}
@@ -152,7 +104,7 @@ def SampleDistinctQuery():
     {SQLUtils.sample_young_age_join}
     {SQLUtils.sampleage_ageconstraint_join}
     {SQLUtils.sampleage_ageinterpretation_join}
-    {SQLUtils.sampleage_source_join}
+    {SQLUtils.sampleage_reference_join}
     '''
     # print(sample_distinct_query)
     return sample_distinct_query
@@ -165,7 +117,7 @@ class AliquotTableModel(QtS.QSqlQueryModel):
         spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
         spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
         spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
+        references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) as "References"'
         upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
 
@@ -186,7 +138,7 @@ class AliquotTableModel(QtS.QSqlQueryModel):
                     {SQLUtils.spot_context_join}
                     {SQLUtils.spot_composition_join}
                     {SQLUtils.upb_data_join}
-                    {SQLUtils.source_join}
+                    {SQLUtils.reference_join}
                     {SQLUtils.upb_method_join}
                     {SQLUtils.labs_join}
                     GROUP BY AliquotName
@@ -201,7 +153,7 @@ class SpotTableModel(QtS.QSqlQueryModel):
         spots = 'SpotName as "Spots"'
         spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
         spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
+        references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) as "References"'
         upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
         labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
 
@@ -218,7 +170,7 @@ class SpotTableModel(QtS.QSqlQueryModel):
                     {SQLUtils.spot_context_join}
                     {SQLUtils.spot_composition_join}
                     {SQLUtils.upb_analysis_join}
-                    {SQLUtils.upb_source_join}
+                    {SQLUtils.upb_reference_join}
                     {SQLUtils.upb_method_join}
                     {SQLUtils.upb_labs_join}
                     GROUP BY SpotName
@@ -267,7 +219,9 @@ def SampleAgeDistinctQuery():
 
 def get_columns(table: str):
     query = QtS.QSqlQuery()
-    query.exec(f'PRAGMA table_xinfo({table})')
+    if not query.exec(f'PRAGMA table_xinfo("{table}")'):
+        print(f"Failed to get columns for {table}")
+        return query, [], [], []
     virtual = []
     stored = []
     columns = []
@@ -291,7 +245,7 @@ def name_column(table: str):
     elif 'Type' in table or 'Unit' in table:
         # return the column for the abbreviation
         return 2
-    elif table == 'Sources':
+    elif table == '"References"':
         return 6
     elif table in SQLUtils.user_viewable_tables or table == 'Spots' or table == 'SampleAges':
         return 1
@@ -389,7 +343,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setText(text)
 
     def clear_all_checks(self):
-        if self.model().tableName() == 'Sources':
+        if self.model().tableName() == '"References"':
             col = 6
         else:
             col = 1
@@ -476,39 +430,8 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
             font.setBold(True)
             return font
         if index.column() == 1 and role == QtC.Qt.ItemDataRole.DisplayRole:
-            str = super().data(index, role)
-            # split string on commas
-            age_elements = str.split(', ')
-            # element 0 is the direct age with error, element 1 is the direct age range, and element 2 is the relative age range
-            # for 0, retrieve the number in parentheses, the direct age unit ID which is the same for 0 and 1
-            age_unit_id = int(age_elements[0].split(' (')[1].split(')')[0])
-            age_ids = age_elements[2].split('-')
-            age_model = QtS.QSqlTableModel()
-            age_model = set_table(age_model, 'Ages')
-            if age_ids[0] != '':
-                old_age_id = int(age_ids[0])
-                age_model.setFilter(f'AgeID={old_age_id}')
-                old_age_name = age_model.record(0).value('AgeName')
-            else:
-                old_age_name = ''
-            if age_ids[1] != '':
-                young_age_id = int(age_ids[1])
-                age_model.setFilter(f'AgeID={young_age_id}')
-                young_age_name = age_model.record(0).value('AgeName')
-            else:
-                young_age_name = ''
-            age_unit_model = QtS.QSqlTableModel()
-            age_unit_model = set_table(age_unit_model, 'AgeUnits')
-            if age_unit_id is not None:
-                age_unit_model.setFilter(f'AgeUnitID={age_unit_id}')
-                age_unit_abbreviation = age_unit_model.record(0).value('AgeUnitAbbreviation')
-            else:
-                age_unit_abbreviation = ''
-            # in age_elements[0] and age_elements[1], replace the direct age unit ID with the unit abbreviation
-            age_elements[0] = age_elements[0].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
-            age_elements[1] = age_elements[1].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
-            age_elements[2] = f'{old_age_name}-{young_age_name}'
-            return ', '.join(age_elements)
+            string = super().data(index, role)
+            return display_age(string)
         return super().data(index, role)
 
     def make_bold(self, index):
@@ -522,6 +445,40 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
         if row in self.bolded_rows:
             self.bolded_rows.remove(row)
             self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
+
+def display_age(string: str):
+    # split string on commas
+    age_elements = string.split(', ')
+    # element 0 is the direct age with error, element 1 is the direct age range, and element 2 is the relative age range
+    # for 0, retrieve the number in parentheses, the direct age unit ID which is the same for 0 and 1
+    age_unit_id = int(age_elements[0].split(' (')[1].split(')')[0])
+    age_ids = age_elements[2].split('-')
+    age_model = QtS.QSqlTableModel()
+    age_model = set_table(age_model, 'Ages')
+    if age_ids[0] != '':
+        old_age_id = int(age_ids[0])
+        age_model.setFilter(f'AgeID={old_age_id}')
+        old_age_name = age_model.record(0).value('AgeName')
+    else:
+        old_age_name = ''
+    if age_ids[1] != '':
+        young_age_id = int(age_ids[1])
+        age_model.setFilter(f'AgeID={young_age_id}')
+        young_age_name = age_model.record(0).value('AgeName')
+    else:
+        young_age_name = ''
+    age_unit_model = QtS.QSqlTableModel()
+    age_unit_model = set_table(age_unit_model, 'AgeUnits')
+    if age_unit_id is not None:
+        age_unit_model.setFilter(f'AgeUnitID={age_unit_id}')
+        age_unit_abbreviation = age_unit_model.record(0).value('AgeUnitAbbreviation')
+    else:
+        age_unit_abbreviation = ''
+    # in age_elements[0] and age_elements[1], replace the direct age unit ID with the unit abbreviation
+    age_elements[0] = age_elements[0].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+    age_elements[1] = age_elements[1].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+    age_elements[2] = f'{old_age_name}-{young_age_name}'
+    return ', '.join(age_elements)
 
 class FontDelegate(QtW.QStyledItemDelegate):
     def initStyleOption(self, option, index):

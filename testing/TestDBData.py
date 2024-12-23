@@ -23,7 +23,7 @@ def add_data(db_file):
     query.exec('DELETE FROM Samples_Units')
     query.exec('DELETE FROM Aliquots')
     query.exec('DELETE FROM Spots')
-    query.exec('DELETE FROM Sources')
+    query.exec('DELETE FROM "References"')
     query.exec('DELETE FROM UPbAnalyses')
     query.exec('INSERT INTO RockTypes (RockTypeName, RockTypeDescription) '
               'VALUES("Sedimentary", "Sedimentary rocks types")')
@@ -88,13 +88,13 @@ def add_data(db_file):
     query.exec('INSERT INTO Spots (SpotName, AliquotID) VALUES("S1_1", 1)')
     query.exec('INSERT INTO Spots (SpotName, AliquotID) VALUES("S2_2", 1)')
     query.exec('INSERT INTO Spots (SpotName, AliquotID) VALUES("S3_3", 1)')
-    query.exec('''INSERT INTO Sources (Authors, Year, ShortCitation) 
-              VALUES("Kathryn Metcalf, Paul Kapp",2019,"Metcalf and Kapp, 2019")''')
-    query.exec('''INSERT INTO UPbAnalyses (SpotID, SourceID, "U/Th", "206Pb/238UAge", "206Pb/238UAgeError", "207Pb/235UAge", "207Pb/235UAgeError", "207Pb/206PbAge", "207Pb/206PbAgeError", "AgeErrorTypeID", "AgeUnitID") 
+    query.exec('''INSERT INTO "References" (Authors, Year, Source) 
+              VALUES("Kathryn Metcalf, Paul Kapp",2019,"Geological Society of London")''')
+    query.exec('''INSERT INTO UPbAnalyses (SpotID, ReferenceID, "U/Th", "206Pb/238UAge", "206Pb/238UAgeError", "207Pb/235UAge", "207Pb/235UAgeError", "207Pb/206PbAge", "207Pb/206PbAgeError", "AgeErrorTypeID", "AgeUnitID") 
                 VALUES(1, 1, 325, 59, 3, 58, 8, 77, 20, 1, 2)''')
-    query.exec('''INSERT INTO UPbAnalyses (SpotID, SourceID, "Th/U", "206Pb/238UAge", "206Pb/238UAgeError", "207Pb/235UAge", "207Pb/235UAgeError", "207Pb/206PbAge", "207Pb/206PbAgeError", "AgeErrorTypeID", "AgeUnitID")
+    query.exec('''INSERT INTO UPbAnalyses (SpotID, ReferenceID, "Th/U", "206Pb/238UAge", "206Pb/238UAgeError", "207Pb/235UAge", "207Pb/235UAgeError", "207Pb/206PbAge", "207Pb/206PbAgeError", "AgeErrorTypeID", "AgeUnitID")
                 VALUES(1, 1, 0.0435, 450, 10, 445, 20, 600, 30, 1, 2)''')
-    query.exec('''INSERT INTO UPbAnalyses (SpotID, SourceID, "206Pb/238UAge", "206Pb/238UAgeError", "207Pb/235UAge", "207Pb/235UAgeError", "207Pb/206PbAge", "207Pb/206PbAgeError", "AgeErrorTypeID", "AgeUnitID")
+    query.exec('''INSERT INTO UPbAnalyses (SpotID, ReferenceID, "206Pb/238UAge", "206Pb/238UAgeError", "207Pb/235UAge", "207Pb/235UAgeError", "207Pb/206PbAge", "207Pb/206PbAgeError", "AgeErrorTypeID", "AgeUnitID")
                 VALUES(1, 1, 18, 1.5, 17, 2, 25, 5, 2, 3)''')
 
 

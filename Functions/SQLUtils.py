@@ -1,9 +1,32 @@
-selected_age_unit = 'Ma'
-selected_elev_unit = 'm'
-selected_heightdepth_unit = 'm'
-spot_size_unit = 'um'
-ratio_error_type = '1σ %'
-age_error_type = '1σ abs'
+import PyQt6
+from PyQt6.QtWidgets import QMainWindow
+from Functions.Table_classes import set_table
+from ui.Settings import return_abbreviations
+
+# Query columns with text dependent on settings
+def get_qsample_age_str(main_window: QMainWindow):
+    settings = main_window.settings
+    abbreviations = return_abbreviations(settings)
+    selected_age_unit = abbreviations['age_unit']
+    return f'SampleAges.SampleAgeDisplay AS "Age ({selected_age_unit})"'
+
+def get_qage_range_str(main_window: QMainWindow):
+    settings = main_window.settings
+    abbreviations = return_abbreviations(settings)
+    selected_age_unit = abbreviations['age_unit']
+    return f'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ") AS "Age Range ({selected_age_unit})"'
+
+def get_qsample_elev_str(main_window: QMainWindow):
+    settings = main_window.settings
+    abbreviations = return_abbreviations(settings)
+    selected_elev_unit = abbreviations['elevation_unit']
+    return f'SampleGPS.CalculatedGPSElev || "±" || SampleGPS.CalculatedGPSElevError AS "Elevation ({selected_elev_unit})"'
+
+def get_qcolumn_data_str(main_window: QMainWindow):
+    settings = main_window.settings
+    abbreviations = return_abbreviations(settings)
+    selected_heightdepth_unit = abbreviations['heightdepth_unit']
+    return f'HeightDepth || "±" || HeightDepthError AS "Column Data ({selected_heightdepth_unit})"'
 
 # ID columns
 qsample_id = 'Samples.SampleID'
@@ -11,19 +34,19 @@ qaliquot_id = 'Aliquots.AliquotID'
 qspot_id = 'Spots.SpotID'
 
 # View columns
-qsample_name = 'SampleName AS "Sample Name"'
-qage = f'CalculatedDirectAge || "±" || COALESCE(CalculatedDirectAgeError, " ") AS "Age ({selected_age_unit})"'
-qage_range = f'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ") AS "Age Range ({selected_age_unit})"'
+qsample_name = 'Samples.SampleName AS "Sample Name"'
+qsample_description = 'Samples.SampleDescription AS "Description"'
+qigsn = 'Samples.SampleIGSN AS "IGSN"'
 qgeo_age = 'COALESCE(OldAge.AgeName, " ") || "-" || COALESCE(YoungAge.AgeName, " ") AS "Geologic Age"'
 qage_signature_distinct = 'GROUP_CONCAT(DISTINCT AgeSignatureName) AS "Age Signatures"'
+qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName) AS "Age Constraints"'
+qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName) AS "Age Interpretations"'
 qcolumn_name = 'GROUP_CONCAT(DISTINCT ColumnName) AS "Measured Column Name"'
-qcolumn_data = f'HeightDepth || "±" || HeightDepthError AS "Column Data ({selected_heightdepth_unit})"'
-qcolumn_gps = f'''ColumnGPS.CalculatedBaseGPS AS "GPS Coordinates"'''
-qgps = f'''SampleGPS.CalculatedGPSCoordinates AS "GPS Coordinates"'''
-qelev = f'SampleGPS.CalculatedGPSElev || "±" || SampleGPS.CalculatedGPSElevError AS "Elevation ({selected_elev_unit})"'
+qcolumn_gps = f'''ColumnGPS.GPSLocationConverted AS "Column base GPS"'''
+qgps = f'''SampleGPS.GPSLocationConverted AS "GPS Coordinates"'''
 qaliquots_distinct = 'GROUP_CONCAT(DISTINCT AliquotName) AS "Aliquots"'
 qspots_distinct = 'GROUP_CONCAT(DISTINCT SpotName) AS "Spots"'
-qsources_distinct = 'GROUP_CONCAT(DISTINCT ShortCitation) AS "Sources"'
+qreferences_distinct = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) AS "References"'
 qsample_context_distinct = 'GROUP_CONCAT(DISTINCT SampleContextName) AS "Sample Contexts"'
 qsampling_methods_distinct = 'GROUP_CONCAT(DISTINCT SamplingMethodName) AS "Sampling Method"'
 qrock_types_distinct = 'GROUP_CONCAT(DISTINCT RockTypeName) AS "Rock Types"'
@@ -42,11 +65,14 @@ qigsn_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleIGSN,"Null")) AS "Sample IG
 qgps_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPSLocationID,"Null")) AS "GPS Location IDs"'
 qcolumn_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleColumnID,"Null")) AS "Column IDs"'
 qcolumn_name_distinct = 'GROUP_CONCAT(DISTINCT ifnull(Columns.ColumnName,"Null")) AS "Column Names"'
+qcolumn_gps_converted_distinct = 'GROUP_CONCAT(DISTINCT ifnull(ColumnGPS.GPSLocationConverted,"Null")) AS "Column GPS"'
 qheight_depth_distinct = 'GROUP_CONCAT(DISTINCT ifnull(HeightDepth,"Null")) AS "HeightDepths"'
 qheight_depth_error_distinct = 'GROUP_CONCAT(DISTINCT ifnull(HeightDepthError,"Null")) AS "HeightDepth Errors"'
 qheight_depth_unit_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(HeightDepthUnitID,"Null")) AS "HeightDepth Units"'
 qheight_depth_unit_distinct = 'GROUP_CONCAT(DISTINCT ifnull(ColumnHeightDepthUnits.DistanceUnitName,"Null")) AS "HeightDepth Units"'
 qsample_description_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleDescription,"Null")) AS "Descriptions"'
+qsample_reference_distinct = 'GROUP_CONCAT(DISTINCT ifnull(ReferenceDisplay,"Null")) AS "References"'
+qsample_gps_converted_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLocationConverted,"Null")) AS "Sample GPS"'
 qlat_deg_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLatDeg, "Null")) AS "Latitude Degrees"'
 qlat_min_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLatMin, "Null")) AS "Latitude Minutes"'
 qlat_sec_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLatSec, "Null")) AS "Latitude Seconds"'
@@ -84,8 +110,8 @@ qsample_age_constraint_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges_Ag
 qsample_age_constraint_distinct = 'GROUP_CONCAT(DISTINCT ifnull(AgeConstraints.AgeConstraintName,"Null")) AS "Age Constraints"'
 qsample_age_interpretation_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges_AgeInterpretations.AgeInterpretationID,"Null")) AS "Age Interpretation IDs"'
 qsample_age_interpretation_distinct = 'GROUP_CONCAT(DISTINCT ifnull(AgeInterpretations.AgeInterpretationName,"Null")) AS "Age Interpretations"'
-qsample_age_source_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(AgeSources.SourceID,"Null")) AS "Age Source IDs"'
-qsample_age_source_distinct = 'GROUP_CONCAT(DISTINCT ifnull(AgeSources.ShortCitation,"Null")) AS "Age Sources"'
+qsample_age_reference_id_distinct = 'GROUP_CONCAT(DISTINCT ifnull(AgeReferences.ReferenceID,"Null")) AS "Age Reference IDs"'
+qsample_age_reference_distinct = 'GROUP_CONCAT(DISTINCT ifnull(AgeReferences.ReferenceDisplay,"Null")) AS "Age References"'
 
 # Join lines
 # SampleAge-Age joins
@@ -98,17 +124,17 @@ sampleage_ageconstraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleA
                                 LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID'''
 sampleage_ageinterpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
                                 LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
-sampleage_source_join = '''LEFT JOIN SampleAges_Sources ON SampleAges.SampleAgeID=SampleAges_Sources.SampleAgeID
-                            LEFT JOIN Sources AS AgeSources ON AgeSources.SourceID=SampleAges_Sources.SourceID'''
+sampleage_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID=SampleAges_References.SampleAgeID
+                            LEFT JOIN "References" AS AgeReferences ON AgeReferences.ReferenceID=SampleAges_References.ReferenceID'''
 
 # GPSLocation joins
-gps_sample_join = '''LEFT JOIN GPSLocations AS SampleGPS ON Samples.SampleGPSLocationID=SampleGPS.GPSLocationID
-                        LEFT JOIN DirectionUnits AS SampleLatDirections ON SampleLatDirections.DirectionUnitID=SampleGPS.GPSLatDirectionID
+gps_sample_join = '''LEFT JOIN GPSLocations AS SampleGPS ON Samples.SampleGPSLocationID=SampleGPS.GPSLocationID'''
+gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON SampleLatDirections.DirectionUnitID=SampleGPS.GPSLatDirectionID
                         LEFT JOIN DirectionUnits AS SampleLonDirections ON SampleLonDirections.DirectionUnitID=SampleGPS.GPSLonDirectionID
                         LEFT JOIN DistanceUnits AS SampleElevationUnits ON SampleElevationUnits.DistanceUnitID=SampleGPS.GPSElevUnitID
                         LEFT JOIN GPSFormats AS SampleGPSFormats ON SampleGPSFormats.GPSFormatID=SampleGPS.GPSFormatID'''
-gps_column_join = '''LEFT JOIN GPSLocations AS ColumnGPS ON Columns.ColumnBaseGPSID=ColumnGPS.GPSLocationID
-                        LEFT JOIN DirectionUnits AS ColumnLatDirections ON ColumnLatDirections.DirectionUnitID=ColumnGPS.GPSLatDirectionID
+gps_column_join = '''LEFT JOIN GPSLocations AS ColumnGPS ON Columns.ColumnBaseGPSID=ColumnGPS.GPSLocationID'''
+gps_columns_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON ColumnLatDirections.DirectionUnitID=ColumnGPS.GPSLatDirectionID
                         LEFT JOIN DirectionUnits AS ColumnLonDirections ON ColumnLonDirections.DirectionUnitID=ColumnGPS.GPSLonDirectionID
                         LEFT JOIN DistanceUnits AS ColumnElevationUnits ON ColumnElevationUnits.DistanceUnitID=ColumnGPS.GPSElevUnitID
                         LEFT JOIN GPSFormats AS ColumnGPSFormats ON ColumnGPSFormats.GPSFormatID=ColumnGPS.GPSFormatID'''
@@ -148,7 +174,7 @@ spot_context_join = '''LEFT JOIN Spots_SpotContexts ON Spots.SpotID=Spots_SpotCo
 upb_analysis_join = 'LEFT JOIN UPbAnalyses ON UPbAnalyses.SpotID=Spots.SpotID'
 
 # UPbJoins
-upb_source_join = 'LEFT JOIN Sources ON Sources.SourceID=UPbAnalyses.SourceID'
+upb_reference_join = 'LEFT JOIN "References" ON "References".ReferenceID=UPbAnalyses.ReferenceID'
 upb_labs_join = 'LEFT JOIN LabFacilities ON LabFacilities.LabFacilityID=UPbAnalyses.LabFacilityID'
 upb_instruments_join = 'LEFT JOIN Instruments ON Instruments.InstrumentID=UPbAnalyses.InstrumentID'
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalysisMethods.UPbAnalysisMethodID=UPbAnalyses.UPbAnalysisMethodID'
@@ -159,29 +185,26 @@ upb_concordance_type_join = 'LEFT JOIN ConcordanceTypes ON ConcordanceTypes.Conc
 upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON SpotSizeUnits.DistanceUnitID=UPbAnalyses.SpotSizeUnitID'
 upb_rejection_reason_join = 'LEFT JOIN RejectionReasons ON UPbAnalyses.RejectionReasonID=RejectionReasons.RejectionReasonID'
 
-sample_cols_quick_edit = ['AgeSignatures', 'SampleContext', 'RockTypes', 'Regions', 'SamplingMethods', 'Settings', 'Units']
+sample_cols_quick_edit = ['AgeSignatures', 'SampleContext', 'RockTypes', 'Regions', 'SamplingMethods',
+                          'Settings', 'Units']
+settings_tables = ['AgeUnits', 'DistanceUnits', 'GPSFormats', 'ErrorTypes']
+settings_ids = ['age_unit_id', 'elevation_unit_id', 'gps_format_id', 'heightdepth_unit_id', 'spotsize_unit_id',
+                'age_error_type_id', 'ratio_error_type_id']
+settings_ids_tables = [['age_unit_id', 'AgeUnits'], ['elevation_unit_id', 'DistanceUnits'],
+                       ['gps_format_id', 'GPSFormats'], ['heightdepth_unit_id', 'DistanceUnits'],
+                       ['spotsize_unit_id', 'DistanceUnits'], ['age_error_type_id', 'ErrorTypes'],
+                       ['ratio_error_type_id', 'ErrorTypes']]
 
-user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Columns', 'Instruments', 'LabFacilities',
-                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'Sources',
+user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
+                        'Columns', 'Instruments', 'LabFacilities',
+                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
+                        'SamplingMethods', 'Settings', '"References"',
                         'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
-user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts',
-                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
+user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
+                       'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts',
+                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods',
+                       'Units']
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-
-'''
-SampleLat
-SampleLon
-SampleUTMZone
-SampleUTMN
-SampleUTME
-SampleElev
-ColumnBaseLat
-ColumnBaseLon
-ColumnBaseUTMZone
-ColumnBaseUTMN
-ColumnBaseUTME
-ColumnTotalHeightDepth
-
-'''
+views = ['SampleView', 'AliquotView', 'SpotView', 'UPbView']

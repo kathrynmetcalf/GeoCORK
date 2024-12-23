@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Alter_database as Alter_db
+import Functions.DB_views as DB_views
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
@@ -22,6 +23,7 @@ from Functions import SQLUtils
 from Functions import DatabaseManager
 import ui.import_wizard
 import ui.New_source
+from Functions.DB_views import drop_view
 from ui.ExportWidget import ExportWidget
 from Functions.Tree_classes import TreeSortFilterProxyModel
 from ui.EditTags import EditTags
@@ -31,6 +33,7 @@ from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.Filters import QueryBuilder
 from ui.SampleInformation import  SampleInformation
+from ui.Settings import default_settings, update_settings
 import Functions.Check_triggers as Ct
 
 
@@ -45,7 +48,7 @@ class GeoChron(QtW.QMainWindow):
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db_file = self.landingpage.get_filename()
         self.db.setDatabaseName(self.db_file)
-        self.settings = QSettings("CSUF", "GeoChron")
+        self.settings = QSettings("User", "GeoCORK")
         ok = self.db.open()
         print("Database is open: " + str(ok))
         self.loadWindowState()
@@ -59,7 +62,13 @@ class GeoChron(QtW.QMainWindow):
         self.switch_to_table()
 
         Create_db.create_tables(self)
+        self.drop_views()
         Alter_db.settings_reset(self)
+        if not self.settings.contains("default_settings"):
+            self.settings.setValue("default_settings", True)
+        if self.settings.value("default_settings") is True:
+            default_settings(self.settings)
+        DB_views.create_sample_view(self)
         #list of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure
@@ -103,8 +112,6 @@ class GeoChron(QtW.QMainWindow):
         self.landingpage.show()
         self.saveWindowState()
         super().closeEvent(a0)
-
-    # Define any methods here
 
     def ui_widgets(self):
         self.dbTable_tableView: QtW.QTableView
@@ -184,13 +191,12 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             self.switch_to_table()
             self.edit_samples_pushButton.show()
-            query = TbC.SampleTableModel().setupQuery()
-            self.sample_model.setQuery(QtS.QSqlQuery(query))
+            self.sample_model = TbC.SampleTableModel(self)
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
-            for col in range(self.sample_model.columnCount()):
-                header = TxM.add_spaces_camel(
-                    self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-                self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+            # for col in range(self.sample_model.columnCount()):
+            #     header = TxM.add_spaces_camel(
+            #         self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            #     self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
 
             self.sample_proxy_model.setSourceModel(self.sample_model)
             self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
@@ -306,6 +312,16 @@ class GeoChron(QtW.QMainWindow):
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         self.display_table()
+
+    def drop_views(self):
+        """
+        Drop all views in the database
+        :return:
+        """
+        query = QtS.QSqlQuery()
+        for view in SQLUtils.views:
+            if not query.exec(f'DROP VIEW IF EXISTS {view}'):
+                print(f'Failed to drop view {view}')
 
     def saveWindowState(self):
         self.settings.setValue("ui/GeoChronMain/pos", self.pos())

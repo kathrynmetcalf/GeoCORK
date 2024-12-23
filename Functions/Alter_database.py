@@ -10,11 +10,10 @@ from Functions.Table_classes import set_table, get_columns
 from Functions.DatabaseManager import create_savepoint, release_savepoint, rollback_savepoint
 import Functions.GPS_conversions as GPS # gps conversions
 
-# todo: test new settings_reset function
 def settings_reset(window: QtW.QMainWindow | QtW.QDialog):
     tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
                        ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE], ['Samples', Create_db.CREATE_SAMPLES_TABLE],
-                       ['Columns', Create_db.CREATE_COLUMNS_TABLE]]
+                       ['Columns', Create_db.CREATE_COLUMNS_TABLE], ['References', Create_db.CREATE_REFERENCES_TABLE]]
     drop_virtual_columns(tables_affected, window)
     populate_generated_columns(window)
 
@@ -26,10 +25,14 @@ def drop_virtual_columns(tables_affected: list, window: QtW.QMainWindow | QtW.QD
         table_model = QtS.QSqlTableModel()
         set_table(table_model, table)
         query, virtual, stored, columns = get_columns(table)
+        if query.lastError().text() != '':
+            print(f'Error getting {table} columns: {query.lastError().text()}')
+            rollback_savepoint('before_drop', window)
+            return
         if virtual:
             column_str = ', '.join(columns)
             query.exec('PRAGMA foreign_keys=OFF')
-            if not query.exec(f'ALTER TABLE {table} RENAME TO {table}_old'):
+            if not query.exec(f'ALTER TABLE "{table}" RENAME TO {table}_old'):
                 if 'already' in query.lastError().text():
                     if not query.exec(f'DROP TABLE {table}_old'):
                         print(f'Error dropping leftover old {table} table: {query.lastError().text()}')
@@ -44,7 +47,7 @@ def drop_virtual_columns(tables_affected: list, window: QtW.QMainWindow | QtW.QD
                 print(f'Error creating new {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop', window)
                 return
-            if not query.exec(f'INSERT INTO {table} SELECT {column_str} FROM {table}_old'):
+            if not query.exec(f'INSERT INTO "{table}" SELECT {column_str} FROM {table}_old'):
                 print(f'Error copying data from {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop', window)
                 return
@@ -58,19 +61,20 @@ def drop_virtual_columns(tables_affected: list, window: QtW.QMainWindow | QtW.QD
                 rollback_savepoint('before_drop', window)
                 return
             query.exec('PRAGMA foreign_keys=ON')
+    release_savepoint('before_drop', window)
 
 def populate_generated_columns(window: QtW.QMainWindow | QtW.QDialog):
     create_savepoint('before_populate', window)
-    # Default units and types
-    age_unit_id = 2
-    elevation_unit_id = 2
-    gps_format_id = 1
-    heightdepth_unit_id = 2
-    spotsize_unit_id = 5
-    age_error_type_id = 1
-    ratio_error_type_id = 3
-
-    # Eventually, these will be user-selected
+    # Retrieve the settings
+    settings = window.settings
+    age_unit_id = settings.value('age_unit_id')
+    elevation_unit_id = settings.value('elevation_unit_id')
+    gps_format_id = settings.value('gps_format_id')
+    heightdepth_unit_id = settings.value('heightdepth_unit_id')
+    spotsize_unit_id = settings.value('spotsize_unit_id')
+    age_error_type_id = settings.value('age_error_type_id')
+    ratio_error_type_id = settings.value('ratio_error_type_id')
+    reference_format = settings.value('reference_format')
 
     # Affected list format: [table, unit/type ID header, column1, column2, ...]
     # Save age errors to handle both age unit and age error type
@@ -96,13 +100,34 @@ def populate_generated_columns(window: QtW.QMainWindow | QtW.QDialog):
     age_error_type_affected = [['SampleAges', ['DirectAgeErrorTypeID','DirectAgeUnitID'], 'DirectAgeError'], affected_upb_age]
     ratio_error_type_affected = [affected_upb_ratio]
 
-    convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id], window)
-    convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id], window)
-    convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id], window)
-    convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id], window)
-    convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id], window)
-    convert_columns(age_error_type_affected, ['ErrorTypeConversions', 'AgeUnitConversions'], ['ErrorType','AgeUnit'], [age_error_type_id, age_unit_id], window)
-    convert_columns(ratio_error_type_affected, ['ErrorTypeConversions'], ['ErrorType'], [ratio_error_type_id], window)
+    # Convert the columns and catch any errors
+    output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id], window)
+    if output == "error":
+        return
+    output = convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id], window)
+    if output == "error":
+        return
+    output = convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id], window)
+    if output == "error":
+        return
+    output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id], window)
+    if output == "error":
+        return
+    output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id], window)
+    if output == "error":
+        return
+    output = convert_columns(age_error_type_affected, ['ErrorTypeConversions', 'AgeUnitConversions'], ['ErrorType','AgeUnit'], [age_error_type_id, age_unit_id], window)
+    if output == "error":
+        return
+    output = convert_columns(ratio_error_type_affected, ['ErrorTypeConversions'], ['ErrorType'], [ratio_error_type_id], window)
+    if output == "error":
+        return
+    output = generate_reference_column('References', 'ReferenceID', reference_format, window)
+    if output == "error":
+        return
+    output = generate_age_display_column('SampleAges', 'SampleAgeID', window)
+    if output == "error":
+        return
     release_savepoint('before_populate', window)
 
 def convert_columns(affected: list, conversion_table: list, id_header_base: list, selected_id: list, window: QtW.QMainWindow | QtW.QDialog):
@@ -117,13 +142,23 @@ def convert_columns(affected: list, conversion_table: list, id_header_base: list
             affected_column_names = table_list
 
             conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0], window)
+            if conversions == "error":
+                return "error"
             if len(conversion_table) > 1:
                 age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1], window)
-                generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id, conversions, age_conversions, window)
+                if age_conversions == "error":
+                    return "error"
+                output = generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id, conversions, age_conversions, window)
+                if output == "error":
+                    return "error"
             elif id_header_base[0] == 'GPSFormat':
-                generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions, window)
+                output = generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions, window)
+                if output == "error":
+                    return "error"
             else:
-                generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions, window)
+                output = generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions, window)
+                if output == "error":
+                    return "error"
 
 def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int, window: QtW.QMainWindow | QtW.QDialog):
     unit_conversion_model = QtS.QSqlTableModel()
@@ -143,7 +178,7 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
         # Error handling
         print('Calculation and from columns not found')
         rollback_savepoint('before_populate', window)
-        return
+        return "error"
     conversions = []
     for row in range(unit_conversion_model.rowCount()):
         conversion = unit_conversion_model.record(row).value(calculation_col)
@@ -172,7 +207,16 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
         if not query.exec(sql_alter):
             print(f'Error adding the calculated column Calculated{column}: {query.lastError().text()}')
             rollback_savepoint('before_populate', window)
-            return
+            return "error"
+
+def generate_age_display_column(table: str, table_id_header: str, window: QtW.QMainWindow | QtW.QDialog):
+    query = QtS.QSqlQuery()
+    column = 'SampleAgeDisplay'
+    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || " ± " || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
+    if not query.exec(sql_alter):
+        print(f'Error updating SampleAgeDisplay: {query.lastError().text()}')
+        rollback_savepoint('before_populate', window)
+        return "error"
 
 def generate_age_error_columns(affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list, err_conversions: list, age_conversions: list, window: QtW.QMainWindow | QtW.QDialog):
     table_error_id_header = table_id_headers[0]
@@ -206,7 +250,7 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
         if not query.exec(sql_alter):
             print(f'Error adding the calculated column Calculated{err_column}: {query.lastError().text()}')
             rollback_savepoint('before_populate', window)
-            return
+            return "error"
 
 def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list, window: QtW.QMainWindow | QtW.QDialog):
     query = QtS.QSqlQuery()
@@ -240,86 +284,15 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                 if not query.exec(f'UPDATE {table} SET {column}="{gps_display}" WHERE {table_id_header}={gps_id}'):
                     print(f'Error updating GPSLocationDisplay: {query.lastError().text()}')
                     rollback_savepoint('before_populate', window)
-                    return
+                    return "error"
                 break
 
+def generate_reference_column(table: str, table_id_header: str, constructor: str, window: QtW.QMainWindow | QtW.QDialog):
+    query = QtS.QSqlQuery()
+    column = 'ReferenceDisplay'
 
-# def convert_gps_columns(selected_gps_format_id: int, selected_direction_unit_id: int):
-#     query = QtS.QSqlQuery()
-#     sql_alter = f'ALTER TABLE GPSLocations ADD COLUMN CalculatedGPSCoordinates REAL AS (CASE'
-#     if selected_gps_format_id == 0:
-#         # Selected DD
-#         sql_alter += f'''
-#             WHEN GPSFormatID={selected_gps_format_id} THEN'''
-#         if selected_direction_unit_id == 0:
-#             # Selected +/-
-#             sql_alter += f'''
-#                 CASE
-#                     WHEN (GPSLatDirectionID IS NULL AND GPSLonDirectionID IS NULL) OR (GPSLatDirectionID=0 AND GPSLonDirectionID=2) THEN GPSLatDeg  || "," || GPSLonDeg
-#                     WHEN GPSLatDirectionID=1 AND GPSLonDirectionID=3 THEN GPSLatDeg, -GPSLonDeg
-#                     WHEN GPSLatDirectionID=2 AND GPSLonDirectionID=0 THEN -GPSLatDeg, GPSLonDeg
-#                     WHEN GPSLatDirectionID=3 AND GPSLonDirectionID=1 THEN -GPSLatDeg, -GPSLonDeg
-#                 END'''
-#         elif selected_direction_unit_id == 1:
-#             # Selected NSEW
-#             sql_alter += f'''
-#                 CASE
-#                     WHEN GPSLatDirectionID=0 AND GPSLonDirectionID=2 THEN GPSLatDeg || " N," ||  GPSLonDeg || " E"
-#                     WHEN GPSLatDirectionID=1 AND GPSLonDirectionID=2 THEN GPSLatDeg || " S," ||  GPSLonDeg || " E"
-#                     WHEN GPSLatDirectionID=0 AND GPSLonDirectionID=3 THEN GPSLatDeg || " N," ||  GPSLonDeg || " W"
-#                     WHEN GPSLatDirectionID=1 AND GPSLonDirectionID=3 THEN GPSLatDeg || " S," ||  GPSLonDeg || " W"
-#                     WHEN GPSLatDirectionID IS NULL AND GPSLonDirectionID IS NULL THEN
-#                         CASE
-#                             WHEN GPSLatDeg > 0 AND GPSLonDeg > 0 THEN GPSLatDeg || " N," ||  GPSLonDeg || " E"
-#                             WHEN GPSLatDeg < 0 AND GPSLonDeg > 0 THEN GPSLatDeg || " S," ||  GPSLonDeg || " E"
-#                             WHEN GPSLatDeg > 0 AND GPSLonDeg < 0 THEN GPSLatDeg || " N," ||  GPSLonDeg || " W"
-#                             WHEN GPSLatDeg < 0 AND GPSLonDeg < 0 THEN GPSLatDeg || " S," ||  GPSLonDeg || " W"
-#                         END
-#                 END'''
-#
-#
-#
-
-# def convert_gps(GPSColumns: list, selected_gps_id: int, selected_dir_id: int, conversions: list):
-#     GPSLatDeg = GPSColumns[0]
-#     GPSLatMin = GPSColumns[1]
-#     GPSLatSec = GPSColumns[2]
-#     GPSLatDirectionID = GPSColumns[3]
-#     GPSLonDeg = GPSColumns[4]
-#     GPSLonMin = GPSColumns[5]
-#     GPSLonSec = GPSColumns[6]
-#     GPSLonDirectionID = GPSColumns[7]
-#     GPSUTMZone = GPSColumns[8]
-#     GPSUTMN = GPSColumns[9]
-#     GPSUTME = GPSColumns[10]
-#
-#     # Convert direction to positive and negative
-#     direction_unit_table = QtS.QSqlTableModel()
-#     set_table(direction_unit_table, 'DirectionUnits')
-#     S_id = direction_unit_table.setFilter('DirectionUnitAbbreviation="S"').record(0).value('DirectionUnitID')
-#     S_conversion = direction_unit_table.setFilter('DirectionUnitAbbreviation="S"').record(0).value('DirectionUnitConversion')
-#     W_id = direction_unit_table.setFilter('DirectionUnitAbbreviation="W"').record(0).value('DirectionUnitID')
-#     W_conversion = direction_unit_table.setFilter('DirectionUnitAbbreviation="W"').record(0).value('DirectionUnitConversion')
-#     gps_format_table = QtS.QSqlTableModel()
-#     set_table(gps_format_table, 'GPSFormats')
-#     DD_id = gps_format_table.setFilter('GPSFormatAbbreviation="DD"').record(0).value('GPSFormatID')
-#     DDM_id = gps_format_table.setFilter('GPSFormatAbbreviation="DDM"').record(0).value('GPSFormatID')
-#     DMS_id = gps_format_table.setFilter('GPSFormatAbbreviation="DMS"').record(0).value('GPSFormatID')
-#     UTM_id = gps_format_table.setFilter('GPSFormatAbbreviation="UTM"').record(0).value('GPSFormatID')
-#     gps_conversion_table = QtS.QSqlTableModel()
-#     set_table(gps_conversion_table, 'GPSConversions')
-#
-#     if GPSLatDirectionID == S_id:
-#         GPSLatDeg = S_conversion.replace('x', f'{GPSLatDeg}')
-#         GPSLatMin = S_conversion.replace('x', f'{GPSLatMin}')
-#         GPSLatSec = S_conversion.replace('x', f'{GPSLatSec}')
-#     if GPSLonDirectionID == W_id:
-#         GPSLonDeg = W_conversion.replace('x', f'{GPSLonDeg}')
-#         GPSLonMin = W_conversion.replace('x', f'{GPSLonMin}')
-#         GPSLonSec = W_conversion.replace('x', f'{GPSLonSec}')
-#     for conversion in conversions:
-#         from_id = conversion[0]
-#
-#
-#
-#
+    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS {constructor} VIRTUAL'
+    if not query.exec(sql_alter):
+        print(f'Error updating ReferenceDisplay: {query.lastError().text()}')
+        rollback_savepoint('before_populate', window)
+        return "error"
