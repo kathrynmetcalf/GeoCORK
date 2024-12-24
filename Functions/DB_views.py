@@ -193,7 +193,7 @@ def create_sample_view(conditions: str = None):
     else:
         sample_query = base_query
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
-    print(sample_view)
+    # print(sample_view)
     query = QtS.QSqlQuery()
     if not query.exec(sample_view):
         print('Sample view creation failed')

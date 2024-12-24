@@ -74,14 +74,13 @@ class VerifiableSqlTableModel(QtS.QSqlTableModel):
             return False
 
 class SampleTableModel(QtS.QSqlQueryModel):
-    def __init__(self, main_window: QtW.QMainWindow):
+    def __init__(self):
         super().__init__()
-        self.main_window = main_window
-        self.default_query = DB_views.SampleViewQuery(main_window)
+        self.default_query = DB_views.SampleViewQuery()
         self.setQuery(self.default_query)
 
     def setupQuery(self, ids_to_show=None, rows_per_page=None, offset=None):
-        sample_query = DB_views.SampleViewQuery(self.main_window, ids_to_show)
+        sample_query = DB_views.SampleViewQuery(ids_to_show)
         return sample_query
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
@@ -90,10 +89,15 @@ class SampleTableModel(QtS.QSqlQueryModel):
         if role == QtC.Qt.ItemDataRole.DisplayRole:
             # check the header of the selected index
             header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            age_unit = self.main_window.settings.value('age_unit_abbreviation')
-            if header == f'Age ({age_unit})':
+            if header == f'Age ({settings.value('age_unit_abbreviation')})':
                 string = super().data(index, role)
                 return display_age(string)
+            elif 'GPS' in header:
+                string = super().data(index, role)
+                return display_gps(string)
+            elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
+                string = super().data(index, role)
+                return display_value_with_error(string)
         return super().data(index, role)
 
 def SampleIfNullQuery():
@@ -137,17 +141,38 @@ def SampleIfNullQuery():
         {SQLUtils.qsample_age_reference_ifnull}
         
     FROM Samples
+    {SQLUtils.age_signature_join}
     {SQLUtils.column_join}
     {SQLUtils.column_unit_join}
-    {SQLUtils.gps_sample_join}
+    {SQLUtils.region_join}
+    {SQLUtils.rock_type_join}
+    {SQLUtils.sample_context_join}
     {SQLUtils.sample_sampleage_join}
-    {SQLUtils.sample_age_error_type_join}
-    {SQLUtils.sample_age_unit_join}
-    {SQLUtils.sample_old_age_join}
-    {SQLUtils.sample_young_age_join}
-    {SQLUtils.sampleage_ageconstraint_join}
-    {SQLUtils.sampleage_ageinterpretation_join}
-    {SQLUtils.sampleage_reference_join}
+    {SQLUtils.sampling_method_join}
+    {SQLUtils.setting_join}
+    {SQLUtils.unit_join}
+    {SQLUtils.sample_age_join}
+    {SQLUtils.sample_age_left_joins}
+    {SQLUtils.gps_sample_join}
+    {SQLUtils.gps_sample_left_joins}
+    {SQLUtils.gps_column_join}
+    {SQLUtils.gps_column_left_joins}
+    {SQLUtils.aliquot_join}
+    {SQLUtils.aliquot_context_join}
+    {SQLUtils.spot_join}
+    {SQLUtils.spot_composition_join}
+    {SQLUtils.spot_context_join}
+    {SQLUtils.upb_analysis_join}
+    {SQLUtils.upb_reference_join}
+    {SQLUtils.upb_labs_join}
+    {SQLUtils.upb_instruments_join}
+    {SQLUtils.upb_method_join}
+    {SQLUtils.upb_ratio_error_type_join}
+    {SQLUtils.upb_age_error_type_join}
+    {SQLUtils.upb_age_unit_join}
+    {SQLUtils.upb_concordance_type_join}
+    {SQLUtils.upb_spot_size_unit_join}
+    {SQLUtils.upb_rejection_reason_join}
     '''
     # print(sample_ifnull_query)
     return sample_ifnull_query
@@ -491,7 +516,6 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
 
 def display_age(string: str):
     # split string on commas
-    decimal_places = settings.value('decimals_to_show')
     age_elements = string.split(', ')
     # element 0 is the direct age with error, element 1 is the direct age range, and element 2 is the relative age range
     # for 0, retrieve the number in parentheses, the direct age unit ID which is the same for 0 and 1
@@ -540,28 +564,59 @@ def display_age(string: str):
     return ', '.join(age_elements)
 
 def display_gps(string: str):
-    decimal_places = settings.value('decimals_to_show')
-    items_to_round = []
     if '"' in string:
         # DMS format, (lat_deg°lat_min'lat_sec" lat_dir, lon_deg°lon_min'lon_sec" lon_dir) or (lat_deg°lat_min'lat_sec", lon_deg°lon_min'lon_sec")
         lat_sec = string.split('°')[1].split('\'')[1].split('"')[0]
         lon_sec = string.split('°')[1].split('\'')[1].split('"')[1]
         rounded_lat_sec = return_rounded(lat_sec)
-        if '.' in lon_sec:
-            rounded_lon_sec = f'{float(lon_sec):.{decimal_places}f}'
-        else:
-            rounded_lon_sec = lon_sec
+        rounded_lon_sec = return_rounded(lon_sec)
+        string = string.replace(lat_sec, rounded_lat_sec)
+        string = string.replace(lon_sec, rounded_lon_sec)
     if "'" in string:
         # DM format, (lat_deg°lat_min' lat_dir, lon_deg°lon_min' lon_dir) or (lat_deg°lat_min', lon_deg°lon_min')
         lat_min = string.split('°')[1].split('\'')[0]
         lon_min = string.split('°')[1].split('\'')[1]
+        rounded_lat_min = return_rounded(lat_min)
+        rounded_lon_min = return_rounded(lon_min)
+        string = string.replace(lat_min, rounded_lat_min)
+        string = string.replace(lon_min, rounded_lon_min)
+    if '°' in string:
+        # D format, (lat_deg° lat_dir, lon_deg° lon_dir)
+        lat_deg = string.split('°')[0]
+        lon_deg = string.split(', ')[1].split('°')[0]
+        rounded_lat_deg = return_rounded(lat_deg)
+        rounded_lon_deg = return_rounded(lon_deg)
+        string = string.replace(lat_deg, rounded_lat_deg)
+        string = string.replace(lon_deg, rounded_lon_deg)
+    else:
+        # UTM format, (UTMZone, UTMEasting, UTMNorthing)
+        utm_easting = string.split(',')[1]
+        utm_northing = string.split(',')[2]
+        rounded_northing = return_rounded(utm_northing)
+        rounded_easting = return_rounded(utm_easting)
+        string = string.replace(utm_northing, rounded_northing)
+        string = string.replace(utm_easting, rounded_easting)
+    return string
+
+def display_value_with_error(string: str):
+    if '±' in string:
+        # value with error, value±error (unit) or value±error
+        value = string.split('±')[0]
+        rounded_value = return_rounded(value)
+        error = string.split('±')[1].split(' ')[0]
+        rounded_error = return_rounded(error)
+        string = string.replace(f'{value}±{error}', f'{rounded_value}±{rounded_error}')
+    return string
 
 def return_rounded(value: str | float | int):
     decimal_places = settings.value('decimals_to_show')
     if isinstance(value, str):
         if '.' in value:
-            if float(value):
-                rounded_value = f'{float(value):.{decimal_places}f}'
+            if float(value): # value is numbers, not text
+                if value.split('.')[1] != '0':
+                    rounded_value = f'{float(value):.{decimal_places}f}'
+                else: # value is an integer
+                    rounded_value = int(float(value))
             else:
                 rounded_value = value
         else:

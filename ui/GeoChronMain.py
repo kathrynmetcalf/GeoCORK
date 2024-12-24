@@ -80,7 +80,7 @@ class GeoChron(QtW.QMainWindow):
         self.ui_widgets()
 
         # Set up models
-        self.sample_model = QtS.QSqlQueryModel()
+        self.sample_model = TbC.SampleTableModel()
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = QtS.QSqlTableModel()
         self.tree_model = TrC.TreeModel()
@@ -185,7 +185,7 @@ class GeoChron(QtW.QMainWindow):
         table = self.dbTable_comboBox.currentText()
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != table:
-            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
+            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, settings)
         self.previous_table = table
 
         # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
@@ -229,7 +229,7 @@ class GeoChron(QtW.QMainWindow):
                 # self.dbTable_treeView.hideColumn(7)  # don't show modified column
                 # self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, self.settings)
+            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, settings)
         elif table in self.dbtable_list:
             self.switch_to_table()
             self.edit_samples_pushButton.hide()
@@ -327,8 +327,8 @@ class GeoChron(QtW.QMainWindow):
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def saveWindowState(self):
-        self.settings.setValue("ui/GeoChronMain/pos", self.pos())
-        self.settings.setValue("ui/GeoChronMain/size", self.size())
+        settings.setValue("ui/GeoChronMain/pos", self.pos())
+        settings.setValue("ui/GeoChronMain/size", self.size())
 
     def loadWindowState(self):
         self.move(settings.value("ui/GeoChronMain/pos", defaultValue=QPoint(410, 241)))

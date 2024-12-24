@@ -212,7 +212,7 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
 def generate_age_display_column(table: str, table_id_header: str):
     query = QtS.QSqlQuery()
     column = 'SampleAgeDisplay'
-    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || " ± " || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
+    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || "±" || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
     if not query.exec(sql_alter):
         print(f'Error updating SampleAgeDisplay: {query.lastError().text()}')
         rollback_savepoint('before_populate')
