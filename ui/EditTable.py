@@ -6,8 +6,10 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
+import Functions.Table_classes as TbC
 from ui.AddTags import AddTags
 
+# todo: figure out how to change non-text values to none or null
 class EditTable(QtW.QDialog):
     def __init__(self, database, model, table_name):
         super().__init__()
@@ -21,12 +23,13 @@ class EditTable(QtW.QDialog):
         else:
             self.db = database
             self.model = model
-            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
-            self.filter_proxy_model = QtC.QSortFilterProxyModel()
+            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
+            self.filter_proxy_model = TbC.VerifiableProxyModel()
             self.filter_proxy_model.setSourceModel(self.model)
             self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.msg = QtW.QMessageBox(self)
             self.display_table()
+            self.model.submitAll()
             self.createSavepoint()
 
             self.filter_proxy_model.dataChanged.connect(self.update_model)

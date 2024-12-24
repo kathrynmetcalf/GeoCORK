@@ -9,6 +9,8 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from collections import namedtuple
 
+from PyQt6.QtCore import QMetaType
+
 from Functions.Settings_manager import settings
 from Functions import SQLUtils
 from Functions import DB_views
@@ -47,7 +49,17 @@ class VerifiableSqlTableModel(QtS.QSqlTableModel):
         self.edited_indexes = []
         self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
 
+    def setData(self, index, value, role = ...):
+        field_type = self.record().field(index.column()).typeID()
+        print(f"Field type: {field_type}, Value: {value}")
+        if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
+            # Set the value to NULL
+            return super().setData(index, None, role)
+        return super().setData(index, value, role)
+
     def submit(self, current_row: int = ...):
+        if not self.isDirty():
+            return True
         if self.tableName() in SQLUtils.trigger_tables:
             columns = []
             values = []
@@ -72,6 +84,17 @@ class VerifiableSqlTableModel(QtS.QSqlTableModel):
         if error is not None:
             print(error)
             return False
+
+class VerifiableProxyModel(QtC.QSortFilterProxyModel):
+    def __init__(self):
+        super().__init__()
+
+    def setData(self, index, value, role = ...):
+        if role == QtC.Qt.ItemDataRole.EditRole:
+            if value == '' or value is None:
+                # Explicitly set the value to None
+                value = None
+        return super().setData(index, value, role)
 
 class SampleTableModel(QtS.QSqlQueryModel):
     def __init__(self):

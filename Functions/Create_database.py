@@ -153,7 +153,7 @@ CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                     ColumnDescription TEXT, 
                     ColumnCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     ColumnModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (ColumnName COLLATE NOCASE),
+                    UNIQUE (ColumnName, ColumnTotalHeightDepth, ColumnTotalHeightDepthUnitID, ColumnBaseGPSID, ColumnDescription),
                     FOREIGN KEY(ColumnTotalHeightDepthUnitID) REFERENCES DistanceUnits(DistanceUnitID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,

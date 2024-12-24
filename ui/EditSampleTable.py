@@ -87,9 +87,12 @@ class EditSampleTable(QtW.QDialog):
         print(f"Clicked column: {header}")
         header = TxM.remove_spaces(header)
         if len(selected_index) == 1:
-            if header in SQLUtils.many_editable:
-                table = header
-            else:
+            table = ''
+            for list in SQLUtils.many_editable:
+                if header in list:
+                    table = header
+                    break
+            if table == '':
                 return
             self.combo_index = selected_index[0]
             self.combo = CheckableTreeCombobox()
