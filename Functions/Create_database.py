@@ -2,8 +2,6 @@ import sqlite3
 import PyQt6
 from PyQt6 import QtSql as QtS
 import xml.etree.ElementTree as ET  # xml reader
-import Functions.Create_triggers as CT # triggers
-import Functions.DB_views as DBV # views
 
 '''
 Commands to create the database
@@ -659,6 +657,7 @@ CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContexts(
                     UNIQUE (ParentSpotContextID, SpotContextParentRow)
                     )'''
 
+# todo: make a call if Spots and SpotCompositions should be many-to-many or one-to-many, leaning towards one-to-many and using context for additional qualifications
 CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     SpotID INTEGER PRIMARY KEY,
                     SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
@@ -890,7 +889,6 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     SpotSize REAL,
                     SpotSizeUnitID INTEGER,
                     Rejected INTEGER,
-                    RejectionReasonID INTEGER,
                     UPbAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
@@ -925,9 +923,6 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                         ON DELETE SET NULL,
                     FOREIGN KEY(SpotSizeUnitID) REFERENCES DistanceUnits(DistanceUnitID)
                         ON UPDATE CASCADE
-                        ON DELETE SET NULL,
-                    FOREIGN KEY(RejectionReasonID) REFERENCES RejectionReasons(RejectionReasonID)
-                        ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
 
@@ -960,7 +955,7 @@ CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMetho
 '''Commands to create tables and populate default tables'''
 
 
-def create_tables(window):
+def create_tables():
     """
     Connect to the database and execute the sql strings defined above to create the database tables
     Only creates tables that do not already exist - does not overwrite existing tables
@@ -1124,13 +1119,6 @@ def create_tables(window):
             populate_ages()  # populate it
     else:
         print(f'Ages query failed')
-
-    # Create and populate generated columns
-    # tables_affected = [['SampleAges', CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', CREATE_UPBANALYSES_TABLE],
-    #                    ['GPSLocations', CREATE_GPS_LOCATIONS_TABLE], ['Samples', CREATE_SAMPLES_TABLE],
-    #                    ['Columns', CREATE_COLUMNS_TABLE]]
-    # AlterDB.drop_virtual_columns(tables_affected, window)
-    # AlterDB.populate_generated_columns(window)
 
 
 

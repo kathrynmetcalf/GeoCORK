@@ -20,20 +20,21 @@ import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
-from Functions import DatabaseManager
+from Functions import Database_manager
+from Functions.Settings_manager import settings
 import ui.import_wizard
 import ui.New_source
 from Functions.DB_views import drop_view
 from ui.ExportWidget import ExportWidget
 from Functions.Tree_classes import TreeSortFilterProxyModel
-from ui.EditTags import EditTags
+# from ui.EditTags import EditTags
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.Filters import QueryBuilder
 from ui.SampleInformation import  SampleInformation
-from ui.Settings import default_settings, update_settings
+from ui.Settings import default_settings, update_settings, user_settings
 import Functions.Check_triggers as Ct
 
 
@@ -48,7 +49,6 @@ class GeoChron(QtW.QMainWindow):
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db_file = self.landingpage.get_filename()
         self.db.setDatabaseName(self.db_file)
-        self.settings = QSettings("User", "GeoCORK")
         ok = self.db.open()
         print("Database is open: " + str(ok))
         self.loadWindowState()
@@ -56,19 +56,21 @@ class GeoChron(QtW.QMainWindow):
         sources_ui_file = "ui/GeochronMain.ui"
         loadUi(sources_ui_file, self)
 
-        savepoint_manager = DatabaseManager.SavepointManager()
+        savepoint_manager = Database_manager.SavepointManager()
         self.savepoint_manager = savepoint_manager.get_instance()
         self.msg = QtW.QMessageBox(self)
         self.switch_to_table()
 
-        Create_db.create_tables(self)
+        Create_db.create_tables()
         self.drop_views()
-        Alter_db.settings_reset(self)
-        if not self.settings.contains("default_settings"):
-            self.settings.setValue("default_settings", True)
-        if self.settings.value("default_settings") is True:
-            default_settings(self.settings)
-        DB_views.create_sample_view(self)
+        Alter_db.settings_reset()
+        if not settings.contains("default_settings"):
+            settings.setValue("default_settings", True)
+        if settings.value("default_settings") is True:
+            default_settings()
+        else:
+            user_settings()
+        DB_views.create_sample_view()
         #list of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure
@@ -191,7 +193,7 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             self.switch_to_table()
             self.edit_samples_pushButton.show()
-            self.sample_model = TbC.SampleTableModel(self)
+            self.sample_model.setQuery('SELECT * FROM SampleView')
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
             # for col in range(self.sample_model.columnCount()):
             #     header = TxM.add_spaces_camel(
@@ -318,18 +320,19 @@ class GeoChron(QtW.QMainWindow):
         Drop all views in the database
         :return:
         """
-        query = QtS.QSqlQuery()
         for view in SQLUtils.views:
-            if not query.exec(f'DROP VIEW IF EXISTS {view}'):
-                print(f'Failed to drop view {view}')
+            output = DB_views.drop_view(view)
+            if output is not None and output.type == str:
+                errtxt = output
+                self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def saveWindowState(self):
         self.settings.setValue("ui/GeoChronMain/pos", self.pos())
         self.settings.setValue("ui/GeoChronMain/size", self.size())
 
     def loadWindowState(self):
-        self.move(self.settings.value("ui/GeoChronMain/pos", defaultValue=QPoint(410, 241)))
-        self.resize(self.settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
+        self.move(settings.value("ui/GeoChronMain/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
 
     def closeEvent(self, event):
         self.saveWindowState()
@@ -337,6 +340,7 @@ class GeoChron(QtW.QMainWindow):
         self.savepoint_manager.reset()
         if self.db.isOpen():
             if not self.db.commit():
-                print("Failed to commit database")
+                if 'no transaction is active' not in self.db.lastError().text():
+                    print(self.db.lastError().text())
             self.db.close()
         super().closeEvent(event)

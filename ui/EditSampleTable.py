@@ -87,8 +87,7 @@ class EditSampleTable(QtW.QDialog):
         print(f"Clicked column: {header}")
         header = TxM.remove_spaces(header)
         if len(selected_index) == 1:
-            if header in SQLUtils.sample_cols_quick_edit:
-                # Column header is AgeSignatures, SampleContext, RockTypes, Regions, SamplingMethods, Settings, or Units
+            if header in SQLUtils.many_editable:
                 table = header
             else:
                 return

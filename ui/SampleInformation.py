@@ -31,7 +31,7 @@ from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.Filters import QueryBuilder
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
-from Functions.DatabaseManager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 
 # todo: Figure out why it is slowing down after checking and unchecking a bunch of stuff
@@ -411,15 +411,18 @@ class SampleInformation(QtW.QDialog):
             pass
 
     def populate_fields(self):
-        sample_distinct_query = TbC.SampleDistinctQuery()
+        sample_ifnull_query = TbC.SampleIfNullQuery()
         sample_query_table = QtS.QSqlTableModel()
         self.set_table(sample_query_table, 'Samples')
         if len(self.checked_sample_list) > 1:
-            self.samples_table.setQuery(f'{sample_distinct_query} WHERE Samples.SampleID in {tuple(self.checked_sample_list)}')
+            self.samples_table.setQuery(f'{sample_ifnull_query} WHERE Samples.SampleID in {tuple(self.checked_sample_list)}')
         elif len(self.checked_sample_list) == 1:
-            self.samples_table.setQuery(f'{sample_distinct_query} WHERE Samples.SampleID = {self.checked_sample_list[0]}')
+            self.samples_table.setQuery(f'{sample_ifnull_query} WHERE Samples.SampleID = {self.checked_sample_list[0]}')
         else:
-            self.samples_table.setQuery(f'{sample_distinct_query}')
+            self.samples_table.setQuery(f'{sample_ifnull_query}')
+        if self.samples_table.lastError().text() != '':
+            self.msg.critical(self, 'Error', self.samples_table.lastError().text(), QtW.QMessageBox.StandardButton.Ok)
+            return
         text_values = []
         for col in range(self.samples_table.columnCount()):
             # If there is only one value concatenated in the column, add it to the list, otherwise add '-'

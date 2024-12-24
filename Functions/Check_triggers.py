@@ -28,7 +28,7 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
     """
     Check that the values being inserted into the database are valid
     The corresponding columns and values should be in the same index in their respective lists
-    Tables that need to be validated are Columns, GPSLocations, SampleAges, Samples, and UPbAnalyses
+    Tables that need to be validated are in SQLUtils.trigger_tables
     @param table: table to be inserted into
     @param columns: list of names of columns to be inserted into
     @param values: list of values to be inserted into the columns
@@ -124,7 +124,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
     """
     Check that the values being updated in the database are valid
     The corresponding columns and values should be in the same index in their respective lists
-    Tables that need to be validated are Columns, GPSLocations, SampleAges, Samples, and UPbAnalyses
+    Tables that need to be validated are in SQLUtils.trigger_tables
     @param table: the table to be updated
     @param columns: the columns to be updated
     @param values: the string values to be entered into the database. Null values should be 'Null'

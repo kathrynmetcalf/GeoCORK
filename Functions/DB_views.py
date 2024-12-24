@@ -4,7 +4,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
 
-def SampleViewQuery(main_window: QtW.QMainWindow, ids_to_show=None):
+def SampleViewQuery(ids_to_show=None):
     # Select columns
     if ids_to_show is not None:
         ids_to_show = tuple(ids_to_show)
@@ -14,29 +14,37 @@ def SampleViewQuery(main_window: QtW.QMainWindow, ids_to_show=None):
     sample_query = f'''
             SELECT
                     {SQLUtils.qsample_id},
+                    {SQLUtils.qigsn},
                     {SQLUtils.qsample_name},
                     {SQLUtils.qgps},
-                    {SQLUtils.get_qsample_elev_str(main_window)},
-                    {SQLUtils.get_qsample_age_str(main_window)},
+                    {SQLUtils.qsample_elev},
+                    {SQLUtils.qsample_age},
                     {SQLUtils.qsample_age_constraint},
                     {SQLUtils.qsample_age_interpretation},
-                    {SQLUtils.qcolumn_name_distinct},
-                    {SQLUtils.get_qcolumn_data_str(main_window)},
-                    {SQLUtils.qreferences_distinct},
-                    {SQLUtils.qage_signature_distinct},
-                    {SQLUtils.qsample_context_distinct},
-                    {SQLUtils.qrock_types_distinct},
-                    {SQLUtils.qregions_distinct},
-                    {SQLUtils.qsampling_methods_distinct},
-                    {SQLUtils.qsettings_distinct},
-                    {SQLUtils.qunits_distinct},
-                    {SQLUtils.qaliquots_distinct},
-                    {SQLUtils.qaliquot_context_distinct},
-                    {SQLUtils.qspots_distinct},
-                    {SQLUtils.qupb_methods_distinct},
-                    {SQLUtils.qlabs_distinct},
-                    {SQLUtils.qspot_context_distinct},
-                    {SQLUtils.qspot_compositions_distinct}
+                    {SQLUtils.qsample_age_references},
+                    {SQLUtils.qcolumn_name},
+                    {SQLUtils.qcolumn_data},
+                    {SQLUtils.qreferences},
+                    {SQLUtils.qage_signature},
+                    {SQLUtils.qregions},
+                    {SQLUtils.qrock_types},
+                    {SQLUtils.qsample_context},
+                    {SQLUtils.qsampling_methods},
+                    {SQLUtils.qsettings},
+                    {SQLUtils.qunits},
+                    {SQLUtils.qaliquots},
+                    {SQLUtils.qaliquot_contexts},
+                    {SQLUtils.qspots},
+                    {SQLUtils.qspot_compositions},
+                    {SQLUtils.qspot_contexts},
+                    {SQLUtils.qlab_facilities},
+                    {SQLUtils.qupb_analysis_methods},
+                    {SQLUtils.qupb_ratio_error_types},
+                    {SQLUtils.qupb_age_units},
+                    {SQLUtils.qupb_age_error_types},
+                    {SQLUtils.qconcordance_types},
+                    {SQLUtils.qspot_sizes},
+                    {SQLUtils.qupb_rejection_reasons}
                 FROM Samples
                 {SQLUtils.age_signature_join}
                 {SQLUtils.column_join}
@@ -48,12 +56,7 @@ def SampleViewQuery(main_window: QtW.QMainWindow, ids_to_show=None):
                 {SQLUtils.setting_join}
                 {SQLUtils.unit_join}
                 {SQLUtils.sample_age_join}
-                {SQLUtils.sample_age_error_type_join}
-                {SQLUtils.sample_age_unit_join}
-                {SQLUtils.sample_old_age_join}
-                {SQLUtils.sample_young_age_join}
-                {SQLUtils.sampleage_ageconstraint_join}
-                {SQLUtils.sampleage_ageinterpretation_join}
+                {SQLUtils.sample_age_left_joins}
                 {SQLUtils.gps_sample_join}
                 {SQLUtils.gps_column_join}
                 {SQLUtils.aliquot_join}
@@ -77,7 +80,7 @@ def SampleViewQuery(main_window: QtW.QMainWindow, ids_to_show=None):
                 ORDER BY Samples.SampleID
                 '''
 
-    sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
+    # print(sample_query)
     return sample_query
 
 def AliquotViewQuery(sample_ids: list):
@@ -183,8 +186,8 @@ def SpotViewQuery(parent_id, id_type='sample'):
     spot_view = f'CREATE VIEW IF NOT EXISTS {parent_text}_SpotView AS {spot_query}'
     return spot_view
 
-def create_sample_view(main_window: QtW.QMainWindow, conditions: str = None):
-    base_query = SampleViewQuery(main_window)
+def create_sample_view(conditions: str = None):
+    base_query = SampleViewQuery()
     if conditions:
         sample_query = f'{base_query} {conditions}'
     else:
@@ -193,7 +196,7 @@ def create_sample_view(main_window: QtW.QMainWindow, conditions: str = None):
     print(sample_view)
     query = QtS.QSqlQuery()
     if not query.exec(sample_view):
-        # print('Sample view creation failed')
+        print('Sample view creation failed')
         return False
 
 def create_aliquot_view(sample_IDs, conditions: str = None):
@@ -219,7 +222,9 @@ def create_spot_view(c, parent_ID, parent_type):
 
 def drop_view(view: str):
     query = QtS.QSqlQuery()
-    query.exec(f'DROP VIEW IF EXISTS {view}')
+    if not query.exec(f'DROP VIEW IF EXISTS {view}'):
+        print(f'Failed to drop {view}: {query.lastError().text()}')
+        return False
 
 
 if __name__ == '__main__':

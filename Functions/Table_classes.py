@@ -9,8 +9,10 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from collections import namedtuple
 
+from Functions.Settings_manager import settings
 from Functions import SQLUtils
 from Functions import DB_views
+from Functions import Check_triggers
 
 # from PyQt6.QtSql import rollback
 from PyQt6.sip import delete
@@ -28,7 +30,48 @@ def set_table(model: QtS.QSqlTableModel, table: str):
     model.select()
     return model
 
+class DecimalDelegate(QtW.QStyledItemDelegate):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.decimal_places = settings.value('decimals_to_show')
 
+    def display_text(self, value):
+        if isinstance(value, float):
+
+            return f'{value:.{self.decimal_places}f}'
+
+class VerifiableSqlTableModel(QtS.QSqlTableModel):
+    row_submitted = QtC.pyqtSignal(int)
+    def __init__(self):
+        super().__init__()
+        self.edited_indexes = []
+        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
+
+    def submit(self, current_row: int = ...):
+        if self.tableName() in SQLUtils.trigger_tables:
+            columns = []
+            values = []
+            id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            for column in range(1, self.columnCount()):
+                columns.append(self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                values.append(self.data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole))
+            where = f'{id_header}={id}'
+            error = Check_triggers.validate_update(self.tableName(), columns, values, where)
+            if error is not None:
+                print(error)
+                return False
+        if super().submit():
+            self.row_submitted.emit(current_row)
+            return True
+        return False
+
+    def on_row_submitted(self, row):
+        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        error = Check_triggers.update_modified_timestamp(self.tableName(), [record_id])
+        if error is not None:
+            print(error)
+            return False
 
 class SampleTableModel(QtS.QSqlQueryModel):
     def __init__(self, main_window: QtW.QMainWindow):
@@ -48,50 +91,50 @@ class SampleTableModel(QtS.QSqlQueryModel):
             # check the header of the selected index
             header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             age_unit = self.main_window.settings.value('age_unit_abbreviation')
-            if header == f'Age {age_unit}':
+            if header == f'Age ({age_unit})':
                 string = super().data(index, role)
                 return display_age(string)
         return super().data(index, role)
 
-def SampleDistinctQuery():
-    sample_distinct_query = f'''
+def SampleIfNullQuery():
+    sample_ifnull_query = f'''
     SELECT 
-        {SQLUtils.qsample_id_distinct},
-        {SQLUtils.qigsn_distinct},
-        {SQLUtils.qgps_id_distinct},
-        {SQLUtils.qcolumn_name_distinct},
-        {SQLUtils.qheight_depth_distinct},
-        {SQLUtils.qheight_depth_error_distinct},
-        {SQLUtils.qheight_depth_unit_distinct},
-        {SQLUtils.qsample_description_distinct},
-        {SQLUtils.qlat_deg_distinct},
-        {SQLUtils.qlat_min_distinct},
-        {SQLUtils.qlat_sec_distinct},
-        {SQLUtils.qlat_dir_distinct},
-        {SQLUtils.qlon_deg_distinct},
-        {SQLUtils.qlon_min_distinct},
-        {SQLUtils.qlon_sec_distinct},
-        {SQLUtils.qlon_dir_distinct},
-        {SQLUtils.qutm_zone_distinct},
-        {SQLUtils.qutm_northing_distinct},
-        {SQLUtils.qutm_easting_distinct},
-        {SQLUtils.qgps_format_distinct},
-        {SQLUtils.qgps_elev_distinct},
-        {SQLUtils.qgps_elev_error_distinct},
-        {SQLUtils.qgps_elev_unit_distinct},
-        {SQLUtils.qsample_default_age_id_distinct},
-        {SQLUtils.qsample_direct_age_distinct},
-        {SQLUtils.qsample_direct_age_error_distinct},
-        {SQLUtils.qsample_direct_age_error_type_distinct},
-        {SQLUtils.qsample_oldest_direct_age_distinct},
-        {SQLUtils.qsample_youngest_direct_age_distinct},
-        {SQLUtils.qsample_direct_age_unit_distinct},
-        {SQLUtils.qsample_oldest_rel_age_distinct},
-        {SQLUtils.qsample_youngest_rel_age_distinct},
-        {SQLUtils.qsample_age_description_distinct},
-        {SQLUtils.qsample_age_constraint_distinct},
-        {SQLUtils.qsample_age_interpretation_distinct},
-        {SQLUtils.qsample_age_reference_distinct}
+        {SQLUtils.qsample_id_ifnull},
+        {SQLUtils.qigsn_ifnull},
+        {SQLUtils.qgps_id_ifnull},
+        {SQLUtils.qcolumn_name_ifnull},
+        {SQLUtils.qheight_depth_ifnull},
+        {SQLUtils.qheight_depth_error_ifnull},
+        {SQLUtils.qheight_depth_unit_ifnull},
+        {SQLUtils.qsample_description_ifnull},
+        {SQLUtils.qlat_deg_ifnull},
+        {SQLUtils.qlat_min_ifnull},
+        {SQLUtils.qlat_sec_ifnull},
+        {SQLUtils.qlat_dir_ifnull},
+        {SQLUtils.qlon_deg_ifnull},
+        {SQLUtils.qlon_min_ifnull},
+        {SQLUtils.qlon_sec_ifnull},
+        {SQLUtils.qlon_dir_ifnull},
+        {SQLUtils.qutm_zone_ifnull},
+        {SQLUtils.qutm_northing_ifnull},
+        {SQLUtils.qutm_easting_ifnull},
+        {SQLUtils.qgps_format_ifnull},
+        {SQLUtils.qgps_elev_ifnull},
+        {SQLUtils.qgps_elev_error_ifnull},
+        {SQLUtils.qgps_elev_unit_ifnull},
+        {SQLUtils.qsample_default_age_id_ifnull},
+        {SQLUtils.qsample_direct_age_ifnull},
+        {SQLUtils.qsample_direct_age_error_ifnull},
+        {SQLUtils.qsample_direct_age_error_type_ifnull},
+        {SQLUtils.qsample_oldest_direct_age_ifnull},
+        {SQLUtils.qsample_youngest_direct_age_ifnull},
+        {SQLUtils.qsample_direct_age_unit_ifnull},
+        {SQLUtils.qsample_oldest_rel_age_ifnull},
+        {SQLUtils.qsample_youngest_rel_age_ifnull},
+        {SQLUtils.qsample_age_description_ifnull},
+        {SQLUtils.qsample_age_constraint_ifnull},
+        {SQLUtils.qsample_age_interpretation_ifnull},
+        {SQLUtils.qsample_age_reference_ifnull}
         
     FROM Samples
     {SQLUtils.column_join}
@@ -106,8 +149,8 @@ def SampleDistinctQuery():
     {SQLUtils.sampleage_ageinterpretation_join}
     {SQLUtils.sampleage_reference_join}
     '''
-    # print(sample_distinct_query)
-    return sample_distinct_query
+    # print(sample_ifnull_query)
+    return sample_ifnull_query
 
 class AliquotTableModel(QtS.QSqlQueryModel):
     def setupQuery(self):
@@ -179,8 +222,8 @@ class SpotTableModel(QtS.QSqlQueryModel):
 
         return spot_query
 
-def GPSDistinctQuery():
-    gps_distinct_query = f'''
+def GPSIfNullQuery():
+    gps_ifnull_query = f'''
     SELECT 
     GROUP_CONCAT(DISTINCT ifnull(GPSLatDeg, "Null")) as "Latitude Degrees",
     GROUP_CONCAT(DISTINCT ifnull(GPSLatMin, "Null")) as "Latitude Minutes",
@@ -199,10 +242,10 @@ def GPSDistinctQuery():
     GROUP_CONCAT(DISTINCT ifnull(GPSElevUnitID, "Null")) as "Elevation Unit"
     FROM GPSLocations
     '''
-    return gps_distinct_query
+    return gps_ifnull_query
 
-def SampleAgeDistinctQuery():
-    sample_age_distinct_query = f'''
+def SampleAgeIfNullQuery():
+    sample_age_ifnull_query = f'''
     SELECT 
     GROUP_CONCAT(DISTINCT ifnull(DirectAge, "Null")) as "Direct Ages",
     GROUP_CONCAT(DISTINCT ifnull(DirectAgeError, "Null")) as "Direct Age Errors",
@@ -215,7 +258,7 @@ def SampleAgeDistinctQuery():
     GROUP_CONCAT(DISTINCT ifnull(SampleAgeDescription, "Null")) as "Sample Age Descriptions"
     FROM SampleAges
     '''
-    return sample_age_distinct_query
+    return sample_age_ifnull_query
 
 def get_columns(table: str):
     query = QtS.QSqlQuery()
@@ -448,10 +491,10 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
 
 def display_age(string: str):
     # split string on commas
+    decimal_places = settings.value('decimals_to_show')
     age_elements = string.split(', ')
     # element 0 is the direct age with error, element 1 is the direct age range, and element 2 is the relative age range
     # for 0, retrieve the number in parentheses, the direct age unit ID which is the same for 0 and 1
-    age_unit_id = int(age_elements[0].split(' (')[1].split(')')[0])
     age_ids = age_elements[2].split('-')
     age_model = QtS.QSqlTableModel()
     age_model = set_table(age_model, 'Ages')
@@ -467,18 +510,67 @@ def display_age(string: str):
         young_age_name = age_model.record(0).value('AgeName')
     else:
         young_age_name = ''
-    age_unit_model = QtS.QSqlTableModel()
-    age_unit_model = set_table(age_unit_model, 'AgeUnits')
-    if age_unit_id is not None:
-        age_unit_model.setFilter(f'AgeUnitID={age_unit_id}')
-        age_unit_abbreviation = age_unit_model.record(0).value('AgeUnitAbbreviation')
-    else:
-        age_unit_abbreviation = ''
-    # in age_elements[0] and age_elements[1], replace the direct age unit ID with the unit abbreviation
-    age_elements[0] = age_elements[0].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
-    age_elements[1] = age_elements[1].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+    if ' (' in age_elements[0]:
+        # age unit is in the display, so replace ids with abbreviations
+        age_unit_id = int(age_elements[0].split(' (')[1].split(')')[0])
+        age_unit_model = QtS.QSqlTableModel()
+        age_unit_model = set_table(age_unit_model, 'AgeUnits')
+        if age_unit_id is not None:
+            age_unit_model.setFilter(f'AgeUnitID={age_unit_id}')
+            age_unit_abbreviation = age_unit_model.record(0).value('AgeUnitAbbreviation')
+        else:
+            age_unit_abbreviation = ''
+        # in age_elements[0] and age_elements[1], replace the direct age unit ID with the unit abbreviation
+        age_elements[0] = age_elements[0].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+        age_elements[1] = age_elements[1].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+    # age_elements[0] is in the format 'DirectAge±DirectAgeError (DirectAgeUnitID)' or 'DirectAge±DirectAgeError'
+    # age_elements[1] is in the format 'OldestDirectAge-YoungestDirectAge (DirectAgeUnitID)' or 'OldestDirectAge-YoungestDirectAge'
+    # replace the float values with the rounded values unless the value is an integer
+    age = age_elements[0].split('±')[0]
+    rounded_age = return_rounded(age)
+    age_error = age_elements[0].split('±')[1].split(' ')[0]
+    rounded_error = return_rounded(age_error)
+    old_age = age_elements[1].split('-')[0]
+    rounded_old_age = return_rounded(old_age)
+    young_age = age_elements[1].split('-')[1]
+    rounded_young_age = return_rounded(young_age)
+    age_elements[0] = age_elements[0].replace(f'{age}±{age_error}', f'{rounded_age}±{rounded_error}')
+    age_elements[1] = age_elements[1].replace(f'{old_age}-{young_age}', f'{rounded_old_age}-{rounded_young_age}')
     age_elements[2] = f'{old_age_name}-{young_age_name}'
     return ', '.join(age_elements)
+
+def display_gps(string: str):
+    decimal_places = settings.value('decimals_to_show')
+    items_to_round = []
+    if '"' in string:
+        # DMS format, (lat_deg°lat_min'lat_sec" lat_dir, lon_deg°lon_min'lon_sec" lon_dir) or (lat_deg°lat_min'lat_sec", lon_deg°lon_min'lon_sec")
+        lat_sec = string.split('°')[1].split('\'')[1].split('"')[0]
+        lon_sec = string.split('°')[1].split('\'')[1].split('"')[1]
+        rounded_lat_sec = return_rounded(lat_sec)
+        if '.' in lon_sec:
+            rounded_lon_sec = f'{float(lon_sec):.{decimal_places}f}'
+        else:
+            rounded_lon_sec = lon_sec
+    if "'" in string:
+        # DM format, (lat_deg°lat_min' lat_dir, lon_deg°lon_min' lon_dir) or (lat_deg°lat_min', lon_deg°lon_min')
+        lat_min = string.split('°')[1].split('\'')[0]
+        lon_min = string.split('°')[1].split('\'')[1]
+
+def return_rounded(value: str | float | int):
+    decimal_places = settings.value('decimals_to_show')
+    if isinstance(value, str):
+        if '.' in value:
+            if float(value):
+                rounded_value = f'{float(value):.{decimal_places}f}'
+            else:
+                rounded_value = value
+        else:
+            rounded_value = value
+    elif isinstance(value, float):
+        rounded_value = f'{value:.{decimal_places}f}'
+    else:
+        rounded_value = value
+    return rounded_value
 
 class FontDelegate(QtW.QStyledItemDelegate):
     def initStyleOption(self, option, index):

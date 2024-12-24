@@ -2,23 +2,24 @@ import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
+from Functions.Settings_manager import settings
 from PyQt6.QtSql import QSqlDatabase
 
 import pyproj
 import Functions.Create_database as Create_db
 from Functions.Table_classes import set_table, get_columns
-from Functions.DatabaseManager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Database_manager import create_savepoint, release_savepoint, rollback_savepoint
 import Functions.GPS_conversions as GPS # gps conversions
 
-def settings_reset(window: QtW.QMainWindow | QtW.QDialog):
+def settings_reset():
     tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
                        ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE], ['Samples', Create_db.CREATE_SAMPLES_TABLE],
                        ['Columns', Create_db.CREATE_COLUMNS_TABLE], ['References', Create_db.CREATE_REFERENCES_TABLE]]
-    drop_virtual_columns(tables_affected, window)
-    populate_generated_columns(window)
+    drop_virtual_columns(tables_affected)
+    populate_generated_columns()
 
-def drop_virtual_columns(tables_affected: list, window: QtW.QMainWindow | QtW.QDialog):
-    create_savepoint('before_drop', window)
+def drop_virtual_columns(tables_affected: list):
+    create_savepoint('before_drop')
     for table_info in tables_affected:
         table = table_info[0]
         create_sql = table_info[1]
@@ -27,7 +28,7 @@ def drop_virtual_columns(tables_affected: list, window: QtW.QMainWindow | QtW.QD
         query, virtual, stored, columns = get_columns(table)
         if query.lastError().text() != '':
             print(f'Error getting {table} columns: {query.lastError().text()}')
-            rollback_savepoint('before_drop', window)
+            rollback_savepoint('before_drop')
             return
         if virtual:
             column_str = ', '.join(columns)
@@ -36,37 +37,36 @@ def drop_virtual_columns(tables_affected: list, window: QtW.QMainWindow | QtW.QD
                 if 'already' in query.lastError().text():
                     if not query.exec(f'DROP TABLE {table}_old'):
                         print(f'Error dropping leftover old {table} table: {query.lastError().text()}')
-                        rollback_savepoint('before_drop', window)
+                        rollback_savepoint('before_drop')
                         return
                 else:
                     print(f'Error renaming {table} table: {query.lastError().text()}')
-                    rollback_savepoint('before_drop', window)
+                    rollback_savepoint('before_drop')
                     return
             # Select only the stored columns, not the virtual ones
             if not query.exec(create_sql):
                 print(f'Error creating new {table} table: {query.lastError().text()}')
-                rollback_savepoint('before_drop', window)
+                rollback_savepoint('before_drop')
                 return
             if not query.exec(f'INSERT INTO "{table}" SELECT {column_str} FROM {table}_old'):
                 print(f'Error copying data from {table} table: {query.lastError().text()}')
-                rollback_savepoint('before_drop', window)
+                rollback_savepoint('before_drop')
                 return
             if not query.exec(f'DROP TABLE {table}_old'):
                 print(f'Error dropping old {table} table: {query.lastError().text()}')
-                rollback_savepoint('before_drop', window)
+                rollback_savepoint('before_drop')
                 return
             new_query, new_virtual, new_stored, new_columns = get_columns(table)
             if new_columns != columns:
                 print(f'Error copying new table {table} columns')
-                rollback_savepoint('before_drop', window)
+                rollback_savepoint('before_drop')
                 return
             query.exec('PRAGMA foreign_keys=ON')
-    release_savepoint('before_drop', window)
+    release_savepoint('before_drop')
 
-def populate_generated_columns(window: QtW.QMainWindow | QtW.QDialog):
-    create_savepoint('before_populate', window)
+def populate_generated_columns():
+    create_savepoint('before_populate')
     # Retrieve the settings
-    settings = window.settings
     age_unit_id = settings.value('age_unit_id')
     elevation_unit_id = settings.value('elevation_unit_id')
     gps_format_id = settings.value('gps_format_id')
@@ -101,36 +101,36 @@ def populate_generated_columns(window: QtW.QMainWindow | QtW.QDialog):
     ratio_error_type_affected = [affected_upb_ratio]
 
     # Convert the columns and catch any errors
-    output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id], window)
+    output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
     if output == "error":
         return
-    output = convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id], window)
+    output = convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id])
     if output == "error":
         return
-    output = convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id], window)
+    output = convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id])
     if output == "error":
         return
-    output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id], window)
+    output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
     if output == "error":
         return
-    output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id], window)
+    output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id])
     if output == "error":
         return
-    output = convert_columns(age_error_type_affected, ['ErrorTypeConversions', 'AgeUnitConversions'], ['ErrorType','AgeUnit'], [age_error_type_id, age_unit_id], window)
+    output = convert_columns(age_error_type_affected, ['ErrorTypeConversions', 'AgeUnitConversions'], ['ErrorType','AgeUnit'], [age_error_type_id, age_unit_id])
     if output == "error":
         return
-    output = convert_columns(ratio_error_type_affected, ['ErrorTypeConversions'], ['ErrorType'], [ratio_error_type_id], window)
+    output = convert_columns(ratio_error_type_affected, ['ErrorTypeConversions'], ['ErrorType'], [ratio_error_type_id])
     if output == "error":
         return
-    output = generate_reference_column('References', 'ReferenceID', reference_format, window)
+    output = generate_reference_column('References', 'ReferenceID', reference_format)
     if output == "error":
         return
-    output = generate_age_display_column('SampleAges', 'SampleAgeID', window)
+    output = generate_age_display_column('SampleAges', 'SampleAgeID')
     if output == "error":
         return
-    release_savepoint('before_populate', window)
+    release_savepoint('before_populate')
 
-def convert_columns(affected: list, conversion_table: list, id_header_base: list, selected_id: list, window: QtW.QMainWindow | QtW.QDialog):
+def convert_columns(affected: list, conversion_table: list, id_header_base: list, selected_id: list):
     if id_header_base[0] in ['AgeUnit', 'DistanceUnit', 'ErrorType', 'GPSFormat']:
         for table_list in affected:
             table = table_list.pop(0)
@@ -141,26 +141,26 @@ def convert_columns(affected: list, conversion_table: list, id_header_base: list
                 table_id_header = table_list.pop(0)
             affected_column_names = table_list
 
-            conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0], window)
+            conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0])
             if conversions == "error":
                 return "error"
             if len(conversion_table) > 1:
-                age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1], window)
+                age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1])
                 if age_conversions == "error":
                     return "error"
-                output = generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id, conversions, age_conversions, window)
+                output = generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id, conversions, age_conversions)
                 if output == "error":
                     return "error"
             elif id_header_base[0] == 'GPSFormat':
-                output = generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions, window)
+                output = generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions)
                 if output == "error":
                     return "error"
             else:
-                output = generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions, window)
+                output = generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions)
                 if output == "error":
                     return "error"
 
-def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int, window: QtW.QMainWindow | QtW.QDialog):
+def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int):
     unit_conversion_model = QtS.QSqlTableModel()
     set_table(unit_conversion_model, conversion_table)
     unit_conversion_model.setFilter(f'To{id_header_base}ID={selected_id}')
@@ -177,7 +177,7 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
         print('Calculation and from columns not found')
-        rollback_savepoint('before_populate', window)
+        rollback_savepoint('before_populate')
         return "error"
     conversions = []
     for row in range(unit_conversion_model.rowCount()):
@@ -186,7 +186,7 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
         conversions.append((from_id, conversion))
     return conversions
 
-def generate_columns(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list, window: QtW.QMainWindow | QtW.QDialog):
+def generate_columns(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list):
     query = QtS.QSqlQuery()
     for column in affected_column_names:
         if '/' in column:
@@ -206,19 +206,19 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
         # print(sql_alter)
         if not query.exec(sql_alter):
             print(f'Error adding the calculated column Calculated{column}: {query.lastError().text()}')
-            rollback_savepoint('before_populate', window)
+            rollback_savepoint('before_populate')
             return "error"
 
-def generate_age_display_column(table: str, table_id_header: str, window: QtW.QMainWindow | QtW.QDialog):
+def generate_age_display_column(table: str, table_id_header: str):
     query = QtS.QSqlQuery()
     column = 'SampleAgeDisplay'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || " ± " || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
     if not query.exec(sql_alter):
         print(f'Error updating SampleAgeDisplay: {query.lastError().text()}')
-        rollback_savepoint('before_populate', window)
+        rollback_savepoint('before_populate')
         return "error"
 
-def generate_age_error_columns(affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list, err_conversions: list, age_conversions: list, window: QtW.QMainWindow | QtW.QDialog):
+def generate_age_error_columns(affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list, err_conversions: list, age_conversions: list):
     table_error_id_header = table_id_headers[0]
     table_age_id_header = table_id_headers[1]
     selected_error_type_id = selected_id[0]
@@ -249,10 +249,10 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
         # print(sql_alter)
         if not query.exec(sql_alter):
             print(f'Error adding the calculated column Calculated{err_column}: {query.lastError().text()}')
-            rollback_savepoint('before_populate', window)
+            rollback_savepoint('before_populate')
             return "error"
 
-def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list, window: QtW.QMainWindow | QtW.QDialog):
+def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list):
     query = QtS.QSqlQuery()
     column = 'GPSLocationConverted'
     variables = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
@@ -283,16 +283,16 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                 gps_display = local_vars.get('converted')
                 if not query.exec(f'UPDATE {table} SET {column}="{gps_display}" WHERE {table_id_header}={gps_id}'):
                     print(f'Error updating GPSLocationDisplay: {query.lastError().text()}')
-                    rollback_savepoint('before_populate', window)
+                    rollback_savepoint('before_populate')
                     return "error"
                 break
 
-def generate_reference_column(table: str, table_id_header: str, constructor: str, window: QtW.QMainWindow | QtW.QDialog):
+def generate_reference_column(table: str, table_id_header: str, constructor: str):
     query = QtS.QSqlQuery()
     column = 'ReferenceDisplay'
 
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS {constructor} VIRTUAL'
     if not query.exec(sql_alter):
         print(f'Error updating ReferenceDisplay: {query.lastError().text()}')
-        rollback_savepoint('before_populate', window)
+        rollback_savepoint('before_populate')
         return "error"
