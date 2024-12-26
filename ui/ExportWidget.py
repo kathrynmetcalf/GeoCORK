@@ -57,7 +57,7 @@ class ExportWidget(QWidget):
         # Connect buttons to methods
         self.add_workbook_button.clicked.connect(lambda: self.add_workbook_tab(None, None, None))
         self.remove_workbook_button.clicked.connect(self.remove_current_workbook_tab)
-        self.export_pushbutton.clicked.connect(self.export_to_excel)
+        self.export_pushbutton.clicked.connect(self.export_button)
 
         # List of all user-viewable tables in the database
         self.user_view_tables = ['Ages',
@@ -581,6 +581,37 @@ class ExportWidget(QWidget):
             model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
+    def export_button(self):
+        match self.exportformat_comboBox.currentText():
+            case 'detritalPy':
+                self.export_to_excel()
+            case 'IsoplotR':
+                self.export_to_excel()
+            case 'DZStats':
+                self.export_to_excel()
+            case 'Database':
+                self.export_to_datbase()
+                pass
+            case 'Custom':
+                self.export_to_excel()
+                pass
+    def export_to_datbase(self):
+        fileName, _ = QFileDialog.getSaveFileName(
+            None,
+            "Save Database File",
+            "",
+            "Database Files (*.db)"
+        )
+
+        if not fileName:
+            return
+
+        if not fileName.lower().endswith(".db"):
+            fileName += ".db"
+
+        ExportDatabase.subset_database(self.db_file, fileName, self.checked_sample_list)
+
+        # QDesktopServices.openUrl(QtCore.QUrl(QtCore.QUrl.fromLocalFile(fileName).path().replace(fileName, '')[0:-1]))
 
     def export_to_excel(self):
         # Prompt user for where to save the Excel file
@@ -665,21 +696,35 @@ class ExportWidget(QWidget):
 
                 self.add_workbook_tab('ZrUPb', False, ZrUPb_columns, ZrUPb_columns)
                 pass
-            case 'IsoplotR':
-                pass
+            case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
+                UPb_columns = {
+                                 ('UPb Data', '238U/206Pb'): True
+                                 }
+
+                # modeled after UPb6.csv in IsoplotR
+                # 207/235
+                # 206/238
+                # 204/238
+                # 207/206
+                # 204/207
+                # 204/206
+            case 'IsoplotR - 38/06, 07/06':
+                UPb_columns = {
+                    ('UPb Data', '238U/206Pb'): True
+                }
+                # modeled after UPb2.csv in IsoplotR
+                # 238/206
+                # 207/206
+
             case 'DZStats':
                 pass
             case 'Database':
-
-
-                print('detected database tab')
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').clear()
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').setParent(None)
                     QSqlDatabase.removeDatabase('temp')
                     self.findChild(QWidget, 'database_tab').setParent(None)
-                if self.checked_sample_list == []:
-                    return
+
                 self.selectionscope_comboBox.setCurrentText('Samples')
                 self.selectionscope_comboBox.setEnabled(False)
                 self.columnattributes_stack.setEnabled(False)
@@ -687,6 +732,8 @@ class ExportWidget(QWidget):
                 self.editorder_pushbutton.setEnabled(False)
                 self.add_workbook_button.setEnabled(False)
                 self.remove_workbook_button.setEnabled(False)
+                if self.checked_sample_list == []:
+                    return
 
                 import os
                 src_db = "/Users/jarrodburges/Downloads/newschema.db"
@@ -733,6 +780,7 @@ class ExportWidget(QWidget):
                 tab_layout.addWidget(table_view)
 
                 self.workbooktabs.addTab(new_tab, 'Database')
+
                 # todo create combobox changer, connect to new table view switcher
                 # merge over exporter code to this
                 # add logic to ensure db is closed/not locked
