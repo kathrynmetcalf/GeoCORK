@@ -200,7 +200,7 @@
                 </size>
                </property>
                <property name="placeholderText">
-                <string>p</string>
+                <string/>
                </property>
               </widget>
              </item>

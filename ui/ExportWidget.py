@@ -4,17 +4,20 @@ import sys
 from collections import Counter
 
 from PyQt6 import uic, QtCore
-from PyQt6.QtCore import QSettings
+from PyQt6.QtCore import QSettings, QSortFilterProxyModel
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery
+from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
-    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox
+    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QStackedWidget
 )
 from PyQt6.uic import loadUi
 
 from openpyxl import Workbook
+
+import ExportDatabase
+import FilterDatabase
 from ui import Filters
 from Functions import SQLUtils
 
@@ -170,6 +173,8 @@ class ExportWidget(QWidget):
 
 
     def tab_changed(self):
+        if self.workbooktabs.tabText(self.workbooktabs.currentIndex()) == 'Database':
+            return
         self.save_checkbox_states(self.previous_workbook)
         self.load_checkbox_states()
         self.previous_workbook = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
@@ -635,6 +640,12 @@ class ExportWidget(QWidget):
 
     def export_format(self):
         self.delete_all_workbook_tabs()
+        self.selectionscope_comboBox.setEnabled(True)
+        self.columnattributes_stack.setEnabled(True)
+        self.columnselection_comboBox.setEnabled(True)
+        self.editorder_pushbutton.setEnabled(True)
+        self.add_workbook_button.setEnabled(True)
+        self.remove_workbook_button.setEnabled(True)
         match self.exportformat_comboBox.currentText():
             case 'detritalPy':
                 Samples_columns= {('Samples', 'SampleName'): True,
@@ -653,16 +664,99 @@ class ExportWidget(QWidget):
                           ('UPb Data', 'Conc'): True}
 
                 self.add_workbook_tab('ZrUPb', False, ZrUPb_columns, ZrUPb_columns)
-                return
+                pass
             case 'IsoplotR':
                 pass
             case 'DZStats':
                 pass
             case 'Database':
+
+
+                print('detected database tab')
+                if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
+                    self.findChild(QSqlTableModel, 'database_QSqlTableModel').clear()
+                    self.findChild(QSqlTableModel, 'database_QSqlTableModel').setParent(None)
+                    QSqlDatabase.removeDatabase('temp')
+                    self.findChild(QWidget, 'database_tab').setParent(None)
+                if self.checked_sample_list == []:
+                    return
+                self.selectionscope_comboBox.setCurrentText('Samples')
+                self.selectionscope_comboBox.setEnabled(False)
+                self.columnattributes_stack.setEnabled(False)
+                self.columnselection_comboBox.setEnabled(False)
+                self.editorder_pushbutton.setEnabled(False)
+                self.add_workbook_button.setEnabled(False)
+                self.remove_workbook_button.setEnabled(False)
+
+                import os
+                src_db = "/Users/jarrodburges/Downloads/newschema.db"
+
+                if os.path.isfile("temp.db"):
+                    os.remove("temp.db")
+                tgt_db_file = "temp.db"
+
+                sample_id_to_subset = self.checked_sample_list
+                # if 'temp' in QSqlDatabase().addDatabase('QSQLITE', 'temp').connectionNames():
+                #     QSqlDatabase().removeDatabase('temp')
+
+                db_id_subset = FilterDatabase.gather_ids_for_subset(QSqlDatabase(), sample_id_to_subset)
+
+                # tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'temp')
+                # tgt_db.setDatabaseName(tgt_db_file)
+                # tgt_db.open()
+
+                # Create a new tableView
+
+                # Create a new tab
+                new_tab = QWidget(self)
+                new_tab.setObjectName('database_tab')
+                tab_layout = QVBoxLayout(self)
+                new_tab.setLayout(tab_layout)
+
+                database_model = QSqlTableModel(parent=self)
+                database_model.setObjectName('database_QSqlTableModel')
+
+                table_filterproxy = QSortFilterProxyModel()
+                table_filterproxy.setSourceModel(database_model)
+
+                table_view = QTableView()
+                table_view.setModel(table_filterproxy)
+
+                table_swtcher_combobox = QComboBox(new_tab)
+                table_swtcher_combobox.addItems(self.user_view_tables)
+                table_swtcher_combobox.setObjectName('database_table_switcher')
+                table_swtcher_combobox.currentIndexChanged.connect(lambda: self.table_switcher(db_id_subset))
+
+                tab_layout.addWidget(table_swtcher_combobox)
+                database_model.setTable('Ages')
+                database_model.select()
+                tab_layout.addWidget(table_view)
+
+                self.workbooktabs.addTab(new_tab, 'Database')
+                # todo create combobox changer, connect to new table view switcher
+                # merge over exporter code to this
+                # add logic to ensure db is closed/not locked
+                # temp file save to memory
+                # populate table view based on combobox selection
+
                 pass
             case 'Custom':
                 self.create_first_workbook_tab()
-                return
+                pass
+
+    def table_switcher(self, db_id_subset):
+        table = self.findChild(QComboBox, 'database_table_switcher').currentText()
+        table = table.replace(' ', '')
+        tableView: QSqlTableModel = self.findChild(QSqlTableModel, 'database_QSqlTableModel')
+        tableView.setTable(table)
+        tableView.select()
+        db_id_subset= f"({', '.join(map(str, db_id_subset[table]))})"
+        if table == 'UPbData':
+            tableView.setFilter(f'UPbAnalysisID IN ' + db_id_subset)
+        elif table == 'LabFacilities':
+            tableView.setFilter(f'LabFacilityID IN ' + db_id_subset)
+        else:
+            tableView.setFilter(f'{table[0:-1]}ID IN ' + db_id_subset)
 
     def update_step_2_list(self):
         if self.selectionscope_comboBox.currentText() == 'Samples':
@@ -717,8 +811,11 @@ class ExportWidget(QWidget):
                     self.checked_spot_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
 
             self.checked_spot_names = f"({', '.join(map(str, self.checked_spot_list))})"
+        if self.exportformat_comboBox.currentText() != 'Database':
 
-        self.update_table_view()
+            self.update_table_view()
+        else:
+            self.export_format()
 
     def update_filter_list(self, model):
         self.checked_filter_list = []
@@ -730,8 +827,10 @@ class ExportWidget(QWidget):
                 filter_json = model.index(row, 2, QtCore.QModelIndex())
                 self.checked_filter_list.append((model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole),
                                                  model.data(filter_json, QtCore.Qt.ItemDataRole.DisplayRole)))
-
-        self.update_table_view()
+        if self.exportformat_comboBox.currentText() != 'Database':
+            self.update_table_view()
+        else:
+            self.export_format()
 
     def open_column_order_dialog(self):
         # Get current selected columns
