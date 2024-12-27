@@ -52,15 +52,18 @@ class VerifiableSqlTableModel(QtS.QSqlTableModel):
     def setData(self, index, value, role = ...):
         field_type = self.record().field(index.column()).typeID()
         print(f"Field type: {field_type}, Value: {value}")
-        if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
-            # Set the value to NULL
-            return super().setData(index, None, role)
+        if role == QtC.Qt.ItemDataRole.EditRole:
+            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
+                # Set the value to NULL
+                return super().setData(index, None, role)
         return super().setData(index, value, role)
 
-    def submit(self, current_row: int = ...):
+    def submit(self):
         if not self.isDirty():
             return True
         if self.tableName() in SQLUtils.trigger_tables:
+            # get the edited row
+            current_row = self.edited_indexes[0].row()
             columns = []
             values = []
             id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -85,16 +88,121 @@ class VerifiableSqlTableModel(QtS.QSqlTableModel):
             print(error)
             return False
 
-class VerifiableProxyModel(QtC.QSortFilterProxyModel):
+class VerifiableRelationalTableModel(QtS.QSqlRelationalTableModel):
+    row_submitted = QtC.pyqtSignal(int)
     def __init__(self):
         super().__init__()
+        self.edited_indexes = []
+        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
 
     def setData(self, index, value, role = ...):
+        field_type = self.record().field(index.column()).typeID()
+        print(f"Field type: {field_type}, Value: {value}")
         if role == QtC.Qt.ItemDataRole.EditRole:
-            if value == '' or value is None:
-                # Explicitly set the value to None
-                value = None
+            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
+                # Set the value to NULL
+                return super().setData(index, None, role)
         return super().setData(index, value, role)
+
+    def submit(self):
+        if not self.isDirty():
+            return True
+        if self.tableName() in SQLUtils.trigger_tables:
+            # get the edited row
+            current_row = self.edited_indexes[0].row()
+            columns = []
+            values = []
+            id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            for column in range(1, self.columnCount()):
+                columns.append(self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                values.append(self.data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole))
+            where = f'{id_header}={id}'
+            error = Check_triggers.validate_update(self.tableName(), columns, values, where)
+            if error is not None:
+                print(error)
+                return False
+        if super().submit():
+            self.row_submitted.emit(self.edited_indexes[0].row())
+            return True
+        return False
+
+    def on_row_submitted(self, row):
+        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        error = Check_triggers.update_modified_timestamp(self.tableName(), [record_id])
+        if error is not None:
+            print(error)
+            return False
+
+
+class NullDoubleSpinBox(QtW.QDoubleSpinBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setSpecialValueText('')
+        self.nan_placeholder = float("nan")
+        self.setDecimals(settings.value('decimals_to_show'))
+
+    def validate(self, input, pos):
+        print(f'Validate: {input}')
+        if input == '':
+            return QtG.QValidator.State.Acceptable, input, pos
+        return super().validate(input, pos)
+
+    def textFromValue(self, value):
+        if self.specialValueText() or value != value:
+            print(f'TextFromValue: {self.specialValueText()}')
+            return self.specialValueText()
+        return super().textFromValue(value)
+
+    def valueFromText(self, text):
+        if text == self.specialValueText():
+            print(f'ValueFromText: {self.nan_placeholder}')
+            return self.nan_placeholder
+        return super().valueFromText(text)
+
+    def interpretText(self):
+        value = self.valueFromText(self.text())
+        print(f'Interpret text: {value}')
+        self.setValue(value)
+
+    def focusOutEvent(self, event):
+        print(f'Focus out event: {self.value()}')
+        super().focusOutEvent(event)
+
+class NullDoubleSpinBoxDelegate(QtW.QStyledItemDelegate):
+    def createEditor(self, parent, option, index):
+        editor = NullDoubleSpinBox(parent)
+        return editor
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
+        print(f"Set editor value: {value}")
+        if value is None or value == '' or value != value:
+            editor.setValue(editor.nan_placeholder)
+        else:
+            editor.setValue(float(value))
+
+    def setModelData(self, editor, model, index):
+        value = editor.value()
+        print(f"Set model value: {value}")
+        if value != value:
+            model.setData(index, None, QtC.Qt.ItemDataRole.EditRole)
+        else:
+            model.setData(index, value, QtC.Qt.ItemDataRole.EditRole)
+
+    def updateEditorGeometry(self, editor, option, index):
+        editor.setGeometry(option.rect)
+
+    # def eventFilter(self, object, event: QtC.QEvent):
+    #     if event.type() == QtC.QEvent.Type.KeyPress:
+    #         if event.key() == QtC.Qt.Key.Key_Return or event.key() == QtC.Qt.Key.Key_Enter:
+    #             object.clearFocus()
+    #             return True
+    #
+    #     if event.type() == QtC.QEvent.Type.FocusOut:
+    #         self.commitData.emit(object)
+    #         self.closeEditor.emit(object, QtW.QAbstractItemDelegate.EndEditHint.NoHint)
+    #     return super().eventFilter(object, event)
 
 class SampleTableModel(QtS.QSqlQueryModel):
     def __init__(self):

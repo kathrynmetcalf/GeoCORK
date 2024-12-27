@@ -299,7 +299,7 @@ class GeoChron(QtW.QMainWindow):
         elif table in self.dbtree_list:
             dlg = EditTree(self.db, self.model, table_name)
         else:
-            dlg = EditTable(self.db, self.model, table_name)
+            dlg = EditTable(self.model, table_name)
         dlg.exec()
         self.display_table()
 
