@@ -59,90 +59,7 @@ class ExportWidget(QWidget):
         self.remove_workbook_button.clicked.connect(self.remove_current_workbook_tab)
         self.export_pushbutton.clicked.connect(self.export_button)
 
-        # List of all user-viewable tables in the database
-        self.user_view_tables = ['Ages',
-                                 'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Analysis Methods', 'Columns',
-                                 'Instruments', 'Lab Facilities',
-                                 'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings',
-                                 'Sources', 'Spots',
-                                 'Spot Compositions', 'Spot Contexts', 'Units', 'UPb Data', 'UPb Analysis Methods'
-                                 ]
-
-        self.table_fields = {
-            'Ages': [
-                "AgeName", "MaxMa", "MinMa", "AgeCreated", "AgeModified"
-            ],
-            'Age Signatures': [
-                "AgeSignatureName", "AgeSignatureDescription", "AgeSignatureCreated", "AgeSignatureModified"
-            ],
-            'Aliquots': [
-                "AliquotName", "AliquotCreated", "AliquotModified"
-            ],
-            'Aliquot Contexts': [
-                "AliquotContextName", "AliquotContextDescription", "AliquotContextCreated", "AliquotContextModified"
-            ],
-            'Analysis Methods': [
-                "AnalysisMethodsName", "AnalysisMethodsDescription", "AnalysisMethodsCreated", "AnalysisMethodsModified"
-            ],
-            'Columns': [
-                "ColumnName", "ColumnDescription", "ColumnCreated", "ColumnModified"
-            ],
-            'Instruments': [
-                "InstrumentName", "InstrumentDescription", "InstrumentCreated", "InstrumentModified"
-            ],
-            'Lab Facilities': [
-                "LabFacilityName", "LabFacilityDescription", "LabFacilityCreated", "LabFacilityModified"
-            ],
-            'Regions': [
-                "RegionName", "RegionDescription", "RegionCreated", "RegionModified"
-            ],
-            'RockTypes': [
-                "RockTypeName", "RockTypeDescription", "RockTypeCreated", "RockTypeModified"
-            ],
-            'Sample Contexts': [
-                "SampleContextName", "SampleContextDescription", "SampleContextCreated", "SampleContextModified"
-            ],
-            'Samples': [
-                "SampleName", "AverageAge", "AverageAgeError", "ErrorSigma", "OldestAge", "YoungestAge",
-                "OldestAgeID", "YoungestAgeID", "HeightDepth", "HeightDepthError", "HeightDepthUnit",
-                "LatDeg", "LatMin", "LatSec", "LonDeg", "LonMin", "LonSec", "UTMZone", "UTMN", "UTME",
-                "Elev", "ElevError", "ElevUnit", "Description", "SampleCreated", "SampleModified"
-            ],
-            'Sampling Methods': [
-                "SamplingMethodName", "SamplingMethodDescription", "SamplingMethodCreated", "SamplingMethodModified"
-            ],
-            'Settings': [
-                "SettingName", "SettingDescription", "SettingCreated", "SettingModified"
-            ],
-            'Sources': [
-                "Authors", "Year", "Title", "Source", "doi", "ShortCitation", "SourceCreated", "SourceModified"
-            ],
-            'Spots': [
-                "SpotName", "SpotCreated", "SpotModified"
-            ],
-            'Spot Compositions': [
-                "SpotCompositionName", "SpotCompositionDescription", "SpotCompositionCreated", "SpotCompositionModified"
-            ],
-            'Spot Contexts': [
-                "SpotContextName", "SpotContextDescription", "SpotContextCreated", "SpotContextModified"
-            ],
-            'Units': [
-                "UnitName", "UnitDescription", "UnitCreated", "UnitModified"
-            ],
-            'UPb Data': [
-                "U/Th", "206Pb/204Pb", "206Pb/207Pb", "206Pb/207Pberror", "207Pb/235U", "207Pb/235Uerror",
-                "206Pb/238U", "206Pb/238Uerror", "ErrorCorr", "206Pb/207PbAge", "206Pb/207PbAgeError",
-                "207Pb/235UAge", "207Pb/235UAgeError", "206Pb/238UAge", "206Pb/238UAgeError", "BestAge", "Error",
-                "Conc",
-                "UPbAnalysisCreated", "UPbAnalysisModified"
-            ],
-            'UPb Analysis Methods': [
-                "UPbAnalysisMethodName", "UPbAnalysisMethodDescription", "UPbAnalysisMethodCreated",
-                "UPbAnalysisMethodModified"
-            ]
-        }
-
-        self.columnselection_comboBox.addItems(self.user_view_tables)
+        self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
 
         self.samples_model = CheckableSqlTableModel()
         self.samples_model = self.set_table(self.samples_model, 'Samples')
@@ -334,7 +251,7 @@ class ExportWidget(QWidget):
         del self.workbook_tabs[current_workbook_name]
 
     def populate_stack(self):
-        for table_name, field_items in self.table_fields.items():
+        for table_name, field_items in SQLUtils.table_attributes_dict.items():
             # Create a widget and layout for each table
             table_widget = QWidget()
             layout = QGridLayout()
