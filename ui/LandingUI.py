@@ -6,6 +6,7 @@ import PyQt6
 from PyQt6 import QtWidgets, QtCore
 from PyQt6.QtCore import QSettings, QEventLoop, Qt, QPoint, QSize
 from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtSql import QSqlDatabase
 from PyQt6.uic import loadUi
 import qtawesome
 from PyQt6.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QStyle, QMessageBox, QWidget, \
@@ -103,13 +104,23 @@ class LandingPage(QWidget):
 
 
     def new_database_dialog(self):
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Database Files(*.db)",
-                                                   options=options)
+        file_name, _ = QFileDialog.getSaveFileName(
+            None,
+            "Save Database File",
+            "",
+            "Database Files (*.db)"
+        )
+        if not file_name:
+            return
+
+        # Ensure the filename ends with .xlsx
+        if not file_name.lower().endswith(".db"):
+            file_name += ".db"
+
         if file_name:
-            # create_tables(file_name + ".db")
-            file_name = file_name + ".db"
+            QSqlDatabase.addDatabase("QSQLITE")
+            QSqlDatabase.database().setDatabaseName(file_name)
+            create_tables()
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
                 self.list_recents.append(self.selected_files)

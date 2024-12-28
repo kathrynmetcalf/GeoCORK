@@ -494,8 +494,7 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleDescription TEXT,
                     SampleCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SampleName COLLATE NOCASE), 
-                    UNIQUE (SampleIGSN COLLATE NOCASE),
+                    UNIQUE (SampleName COLLATE NOCASE, SampleIGSN COLLATE NOCASE), 
                     FOREIGN KEY(SampleGPSLocationID) REFERENCES GPSLocations(GPSLocationID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
