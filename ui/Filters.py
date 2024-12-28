@@ -368,10 +368,7 @@ class RuleWidget(QWidget):
 
         # table
         self.table_combo = FocusWheelComboBox()
-        self.table_combo.addItems(
-            ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
-             'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
-             'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units'])
+        self.table_combo.addItems(SQLUtils.user_viewable_tables)
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
         if field is not None:
@@ -487,156 +484,8 @@ class RuleWidget(QWidget):
             return
 
     def table_switcher(self):
-        field_items = list()
-        match self.table_combo.currentText():
-            case 'Age Signature':
-                field_items = ["SampleContextName",
-                               "SampleContextDescription",
-                               "SampleContextCreated",
-                               "SampleContextModified"]
-            case 'Ages':
-                field_items = ["AgeName",
-                               "MaxMa",
-                               "MinMa",
-                               "AgeCreated",
-                               "AgeModified"]
-            case 'Aliquot Contexts':
-                field_items = ["AliquotContextName",
-                               "AliquotContextDescription",
-                               "AliquotContextCreated",
-                               "AliquotContextModified"]
-            case 'Aliquots':
-                field_items = ["AliquotName",
-                               "AliquotCreated",
-                               "AliquotModified"]
-            case 'Analysis Methods':
-                field_items = ["AnalysisMethodsName",
-                               "AnalysisMethodsDescription",
-                               "AnalysisMethodsCreated",
-                               "AnalysisMethodsModified"]
-            case 'Columns':
-                field_items = ["ColumnName",
-                               "ColumnDescription",
-                               "ColumnCreated",
-                               "ColumnModified"]
-            case 'Instruments':
-                field_items = ["InstrumentName",
-                               "InstrumentDescription",
-                               "InstrumentCreated",
-                               "InstrumentModified"]
-            case 'Lab Facilities':
-                field_items = ["LabFacilityName",
-                               "LabFacilityDescription",
-                               "LabFacilityCreated",
-                               "LabFacilityModified"]
-            case 'Regions':
-                field_items = ["RegionName",
-                               "RegionDescription",
-                               "RegionCreated",
-                               "RegionModified"]
-            case 'Rock Types':
-                field_items = ["RockTypeName",
-                               "RockTypeDescription",
-                               "RockTypeCreated",
-                               "RockTypeModified"]
-            case 'Sample Contexts':
-                field_items = ["SampleContextName",
-                               "SampleContextDescription",
-                               "SampleContextCreated",
-                               "SampleContextModified"]
-            case 'Samples':
-                field_items = ["SampleName",
-                               "AverageAge",
-                               "AverageAgeError",
-                               "ErrorSigma",
-                               "OldestAge",
-                               "YoungestAge",
-                               "OldestAgeID",
-                               "YoungestAgeID",
-                               "HeightDepth",
-                               "HeightDepthError",
-                               "HeightDepthUnit",
-                               "LatDeg",
-                               "LatMin",
-                               "LatSec",
-                               "LonDeg",
-                               "LonMin",
-                               "LonSec",
-                               "UTMZone",
-                               "UTMN",
-                               "UTME",
-                               "Elev",
-                               "ElevError",
-                               "ElevUnit",
-                               "Description",
-                               "SampleCreated",
-                               "SampleModified"]
-
-            case 'Sampling Methods':
-                field_items = ["SamplingMethodName",
-                               "SamplingMethodDescription",
-                               "SamplingMethodCreated",
-                               "SamplingMethodModified"]
-            case 'Settings':
-                field_items = ["SettingName",
-                               "SettingDescription",
-                               "SettingCreated",
-                               "SettingModified"]
-            case 'Sources':
-                field_items = ["Authors",
-                               "Year",
-                               "Title",
-                               "Source",
-                               "doi",
-                               "ShortCitation",
-                               "SourceCreated",
-                               "SourceModified"]
-            case 'Spot Compositions':
-                field_items = ["SpotCompositionName",
-                               "SpotCompositionDescription",
-                               "SpotCompositionCreated",
-                               "SpotCompositionModified"]
-            case 'Spot Contexts':
-                field_items = ["SpotContextName",
-                               "SpotContextDescription",
-                               "SpotContextCreated",
-                               "SpotContextModified"]
-            case 'Spots':
-                field_items = ["SpotName",
-                               "SpotCreated",
-                               "SpotModified"]
-            case 'UPb Analysis Methods':
-                field_items = ["UPbAnalysisMethodName",
-                               "UPbAnalysisMethodDescription",
-                               "UPbAnalysisMethodCreated",
-                               "UPbAnalysisMethodModified"]
-            case 'UPb Data':
-                field_items = ["U/Th",
-                               "206Pb/204Pb",
-                               "206Pb/207Pb",
-                               "206Pb/207Pberror",
-                               "207Pb/235U",
-                               "207Pb/235Uerror",
-                               "206Pb/238U",
-                               "206Pb/238Uerror",
-                               "ErrorCorr",
-                               "206Pb/207PbAge",
-                               "206Pb/207PbAgeError",
-                               "207Pb/235UAge",
-                               "207Pb/235UAgeError",
-                               "206Pb/238UAge",
-                               "206Pb/238UAgeError",
-                               "BestAge",
-                               "Error",
-                               'UPbAnalysisCreated',
-                               'UPbAnalysisModified']
-            case 'Units':
-                field_items = ["UnitName",
-                               "UnitDescription",
-                               "UnitCreated",
-                               "UnitModified"]
         self.attribute_combo.clear()
-        self.attribute_combo.addItems(field_items)
+        self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
 
 
 class GroupBox(QGroupBox):

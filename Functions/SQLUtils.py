@@ -196,10 +196,15 @@ gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON Co
 column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON ColumnUnits.DistanceUnitID=Columns.ColumnTotalHeightDepthUnitID'
 
 # SampleJoins
+age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON Samples.SampleID=SampleAges_AgeConstraints.SampleAgeID
+                        LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID'''
+age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON Samples.SampleID=SampleAges_AgeInterpretations.SampleAgeID
+                            LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
                                     LEFT JOIN AgeSignatures ON AgeSignatures.AgeSignatureID=Samples_AgeSignatures.AgeSignatureID'''
 column_join = 'LEFT JOIN Columns ON Samples.SampleColumnID=Columns.ColumnID'
 column_unit_join = '''LEFT JOIN DistanceUnits AS ColumnHeightDepthUnits ON ColumnHeightDepthUnits.DistanceUnitID=Samples.HeightDepthUnitID'''
+
 region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID=Samples_Regions.SampleID
                                 LEFT JOIN Regions ON Regions.RegionID=Samples_Regions.RegionID'''
 rock_type_join = '''LEFT JOIN Samples_RockTypes ON Samples.SampleID=Samples_RockTypes.SampleID
@@ -208,7 +213,7 @@ sample_context_join = '''LEFT JOIN Samples_SampleContexts ON Samples.SampleID=Sa
                                 LEFT JOIN SampleContexts ON SampleContexts.SampleContextID=Samples_SampleContexts.SampleContextID'''
 sample_sampleage_join = '''LEFT JOIN Samples_SampleAges ON Samples.DefaultSampleAgeID=Samples_SampleAges.SampleAgeID
                                     LEFT JOIN SampleAges ON SampleAges.SampleAgeID=Samples_SampleAges.SampleAgeID'''
-default_sample_age_join = '''LEFT JOIN SampleAges as DefaultSampleAges ON SampleAges.SampleAgeID=Samples.DefaultSampleAgeID'''
+default_sample_age_join = '''LEFT JOIN SampleAges ON SampleAges.SampleAgeID=Samples.DefaultSampleAgeID'''
 sampling_method_join = '''LEFT JOIN Samples_SamplingMethods ON Samples.SampleID=Samples_SamplingMethods.SampleID
                                 LEFT JOIN SamplingMethods ON SamplingMethods.SamplingMethodID=Samples_SamplingMethods.SamplingMethodID'''
 setting_join = '''LEFT JOIN Samples_Settings ON Samples.SampleID=Samples_Settings.SampleID
@@ -255,20 +260,20 @@ sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcol
                        qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons]
 
 # Many-to-many tables related to table at the beginning of each list, populate multiple selection dropdowns
-many_editable = [['Samples', 'AgeSignatures', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'Units'],
-             ['Aliquots', 'AliquotContexts'], ['Spots', 'SpotCompositions', 'SpotContexts'], ['UPbAnalyses', 'RejectionReasons']]
+many_editable = [
+    ['Samples', 'AgeSignatures', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'Units'],
+    ['Aliquots', 'AliquotContexts'], ['Spots', 'SpotCompositions', 'SpotContexts'], ['UPbAnalyses', 'RejectionReasons']]
 # One-to-many columns related to table at the beginning of each list, populate single selection dropdowns
 one_editable = [['Samples', 'SampleAges', 'Columns', 'DistanceUnits'],
             ['Columns', 'DistanceUnits'], ['Aliquots', 'Samples'], ['Spots', 'Aliquots', 'SpotCompositions'],
             ['UPbAnalyses', 'Spots', 'References', 'LabFacilities', 'Instruments', 'UPbAnalysisMethods', 'ErrorFormats', 'AgeUnits', 'AgeInterpretations', 'ConcordanceFormats', 'DistanceUnits']]
 
 
-
-user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
+user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'Ages', 'AgeSignatures', 'AliquotContexts',
                         'Columns', 'Instruments', 'LabFacilities',
-                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
-                        'SamplingMethods', 'Settings', '"References"',
-                        'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
+                        '"References"', 'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
+                        'SamplingMethods', 'Settings',
+                        'Spots', 'SpotCompositions', 'SpotContexts', 'UPbAnalyses', 'UPbAnalysisMethods', 'Units']
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts',
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods',
@@ -319,21 +324,191 @@ gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees 
                    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
 
 
+table_attributes_dict = {
+    'AgeConstraints': [
+        "AgeConstraintName", "AgeConstraintDescription",
+        "AgeConstraintCreated", "AgeConstraintModified"],
+    'AgeInterpretations': [
+        "AgeInterpretationName", "AgeInterpretationDescription",
+        "AgeInterpretationCreated", "AgeInterpretationModified"],
+    'Ages': [
+        "AgeName", "MaxMa", "MinMa",
+        "AgeCreated", "AgeModified"
+    ],
+    'AgeSignatures': [
+        "AgeSignatureName", "AgeSignatureDescription",
+        "AgeSignatureCreated", "AgeSignatureModified"
+    ],
+    'AliquotContexts': [
+        "AliquotContextName", "AliquotContextDescription",
+        "AliquotContextCreated", "AliquotContextModified"
+    ],
+    'Aliquots': [
+        "AliquotName", "AliquotCreated", "AliquotModified"
+    ],
+    'Columns': [
+        "ColumnName", "ColumnDescription",
+        "ColumnCreated", "ColumnModified"
+    ],
+    'Instruments': [
+        "InstrumentName", "InstrumentDescription",
+        "InstrumentCreated", "InstrumentModified"
+    ],
+    'LabFacilities': [
+        "LabFacilityName", "LabFacilityDescription",
+        "LabFacilityCreated", "LabFacilityModified"
+    ],
+    'References': [
+        "Authors", "Year", "Title", "Source", "doi", "ShortCitation", "ReferenceDescription",
+        "ReferenceCreated", "ReferenceModified"
+    ],
+    'Regions': [
+        "RegionName", "RegionDescription",
+        "RegionCreated", "RegionModified"
+    ],
+    'RejectionReasons': [
+        "RejectionReasonName", "RejectionReasonDescription",
+        "RejectionReasonCreated", "RejectionReasonModified"
+    ],
+    'RockTypes': [
+        "RockTypeName", "RockTypeDescription",
+        "RockTypeCreated", "RockTypeModified"
+    ],
+    'SampleAges': [
+        "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge",
+        "SampleAgeDescription", "SampleAgeCreated", "SampleAgeModified"
+    ],
+    'SampleContexts': [
+        "SampleContextName", "SampleContextDescription",
+        "SampleContextCreated", "SampleContextModified"
+    ],
+    'Samples': [
+        "SampleName", "SampleIGSN", "CalculatedHeightDepth", "CalculatedHeightDepthError", "SampleDescription",
+        "SampleCreated", "SampleModified"
+    ],
+    'SamplingMethods': [
+        "SamplingMethodName", "SamplingMethodDescription",
+        "SamplingMethodCreated", "SamplingMethodModified"
+    ],
+    'Settings': [
+        "SettingName", "SettingDescription",
+        "SettingCreated", "SettingModified"
+    ],
+    'Spots': [
+        "SpotName", "SpotCreated", "SpotModified"
+    ],
+    'SpotCompositions': [
+        "SpotCompositionName", "SpotCompositionDescription",
+        "SpotCompositionCreated", "SpotCompositionModified"
+    ],
+    'SpotContexts': [
+        "SpotContextName", "SpotContextDescription",
+        "SpotContextCreated", "SpotContextModified"
+    ],
+    'UPbAnalyses': [
+        "Pb204cps",
+        "Pb206cps",
+        "Pb207cps",
+        "Pb208cps",
+        "Pb*cps",
+        "Th232cps",
+        "U235cps",
+        "U238cps",
+        "Uppm",
+        "Thppm",
+        "CalculatedU/Th",
+        "CalculatedTh/U",
+        "Calculated206Pb/207Pb",
+        "Calculated207Pb/206Pb",
+        "Calculated207Pb/235U",
+        "Calculated235U/207Pb",
+        "Calculated206Pb/238U",
+        "Calculated238U/206Pb",
+        "Calculated208Pb/232Th",
+        "Calculated232Th/208Pb",
+        "Calculated238U/232Th",
+        "Calculated232Th/238U",
+        "Calculated204Pb/238U",
+        "Calculated238U/204Pb",
+        "Calculated206Pb/204Pb",
+        "Calculated204Pb/206Pb",
+        "Calculated207Pb/204Pb",
+        "Calculated204Pb/207Pb",
+        "Calculated208Pb/204Pb",
+        "Calculated204Pb/208Pb",
+        "RatioErrorTypeID",
+        "CalculatedCordance",
+        "Rejected",
+        "UPbAnalysisCreated",
+        "UPbAnalysisModified",
+        "Calculated207Pb/206PbAge",
+        "Calculated206Pb/238UAge",
+        "Calculated207Pb/235UAge",
+        "Calculated208Pb/232ThAge",
+        "CalculatedSpotSize",
+        "Calculated207Pb/206PbAgeError",
+        "Calculated207Pb/235UAgeError",
+        "Calculated206Pb/238UAgeError",
+        "Calculated208Pb/232ThAgeError",
+        "CalculatedBestAgeError",
+        "Calculated206Pb/207PbError",
+        "Calculated207Pb/206PbError",
+        "Calculated207Pb/235UError",
+        "Calculated235U/207PbError",
+        "Calculated206Pb/238UError",
+        "Calculated238U/206PbError",
+        "Calculated208Pb/232ThError",
+        "Calculated232Th/208PbError",
+        "Calculated238U/232ThError",
+        "Calculated232Th/238UError",
+        "Calculated204Pb/238UError",
+        "Calculated238U/204PbError",
+        "Calculated206Pb/204PbError",
+        "Calculated204Pb/206PbError",
+        "Calculated207Pb/204PbError",
+        "Calculated204Pb/207PbError",
+        "Calculated208Pb/204PbError",
+        "Calculated204Pb/208PbError"
+    ],
+    'UPbAnalysisMethods': [
+        "UPbAnalysisMethodName", "UPbAnalysisMethodDescription",
+        "UPbAnalysisMethodCreated", "UPbAnalysisMethodModified"
+    ],
+    'Units': [
+        "UnitName", "UnitDescription",
+        "UnitCreated", "UnitModified"
+    ]
+}
+
+
 def get_join_from_table(tables):
     join = ""
 
     for table in tables:
         match table:
+            case 'AgeConstraints':
+                if default_sample_age_join not in join:
+                    join += default_sample_age_join + '\n'
+                if age_constraint_join not in join:
+                    join += age_constraint_join + '\n'
+            case 'AgeInterpretations':
+                if default_sample_age_join not in join:
+                    join += default_sample_age_join + '\n'
+                if age_interpretation_join not in join:
+                    join += age_interpretation_join + '\n'
+            case 'AgeSignatures':
+                if age_signature_join not in join:
+                    join += age_signature_join + '\n'
             case 'Ages':
-                if age_join not in join:
-                    join += age_join + '\n'
-            case 'Age Signatures':
+                if sample_age_join not in join:
+                    join += sample_age_join + '\n'
+            case 'AgeSignatures':
                 if age_signature_join not in join:
                     join += age_signature_join + '\n'
             case 'Aliquots':
                 if aliquot_join not in join:
                     join += aliquot_join + '\n'
-            case 'Aliquot Contexts':
+            case 'AliquotContexts':
                 if aliquot_join not in join:
                     join += aliquot_join + '\n'
                 if aliquot_context_join not in join:
@@ -341,7 +516,7 @@ def get_join_from_table(tables):
             case 'Columns':
                 if column_join not in join:
                     join += column_join + '\n'
-            case 'Lab Facilities':
+            case 'LabFacilities':
                 if aliquot_join not in join:
                     join += aliquot_join + '\n'
                 if spot_join not in join:
@@ -359,14 +534,80 @@ def get_join_from_table(tables):
                     join += upb_analysis_join + '\n'
                 if upb_instruments_join not in join:
                     join += upb_instruments_join + '\n'
+            case 'References':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_analysis_join not in join:
+                    join += upb_analysis_join + '\n'
+                if upb_reference_join not in join:
+                    join += upb_reference_join + '\n'
             case 'Regions':
                 if region_join not in join:
                     join += region_join + '\n'
+            case 'RejectionReasons':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_analysis_join not in join:
+                    join += upb_analysis_join + '\n'
+                if upb_rejection_reason_join not in join:
+                    join += upb_rejection_reason_join + '\n'
             case 'RockTypes':
                 if rock_type_join not in join:
                     join += rock_type_join + '\n'
-            case 'Sample Contexts':
+            case 'SampleAges':
+                if default_sample_age_join not in join:
+                    join += default_sample_age_join + '\n'
+            case 'SampleContexts':
                 if sample_context_join not in join:
                     join += sample_context_join + '\n'
+            case 'SamplingMethods':
+                if sampling_method_join not in join:
+                    join += sampling_method_join + '\n'
+            case 'Settings':
+                if setting_join not in join:
+                    join += setting_join + '\n'
+            case 'Spots':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+            case 'SpotCompositions':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if spot_composition_join not in join:
+                    join += spot_composition_join + '\n'
+            case 'SpotContexts':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if spot_context_join not in join:
+                    join += spot_context_join + '\n'
+            case 'UPbAnalyses':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_analysis_join not in join:
+                    join += upb_analysis_join + '\n'
+            case 'UPbAnalysisMethods':
+                if aliquot_join not in join:
+                    join += aliquot_join + '\n'
+                if spot_join not in join:
+                    join += spot_join + '\n'
+                if upb_analysis_join not in join:
+                    join += upb_analysis_join + '\n'
+                if upb_method_join not in join:
+                    join += upb_method_join + '\n'
+            case 'Units':
+                if unit_join not in join:
+                    join += unit_join + '\n'
             case 'Samples':
                 pass
+    return join
