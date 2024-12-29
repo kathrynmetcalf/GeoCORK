@@ -80,7 +80,7 @@ class GeoChron(QtW.QMainWindow):
         create_view_end = time.time()
         print(f"Create views time: {create_view_end - create_view_begin}")
         #list of all user-viewable tables in the database
-        self.user_view_tables = SQLUtils.user_viewable_tables
+        self.user_view_tables = SQLUtils.user_viewable_alltables
         #list of tables to display as a tree structure
         self.dbtree_list = SQLUtils.user_viewable_trees
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]

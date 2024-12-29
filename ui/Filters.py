@@ -10,6 +10,9 @@ from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop, QRegul
 from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction, QRegularExpressionValidator, \
     QDoubleValidator
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtSql import QSqlQuery
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
     QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
@@ -366,10 +369,7 @@ class RuleWidget(QWidget):
 
         # table
         self.table_combo = FocusWheelComboBox()
-        self.table_combo.addItems(
-            ['Ages', 'Age Signatures', 'Aliquots', 'Aliquot Context', 'Columns', 'Lab Facilities', 'Instruments',
-             'Regions', 'Rock Types', 'Sample Context', 'Samples', 'Sampling Methods', 'Settings', 'Sources',
-             'Spot Compositions', 'Spot Context', 'UPb Data', 'UPb Analysis Methods', 'Units'])
+        self.table_combo.addItems(SQLUtils.user_viewable_alltables)
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
         if field is not None:
@@ -485,156 +485,8 @@ class RuleWidget(QWidget):
             return
 
     def table_switcher(self):
-        field_items = list()
-        match self.table_combo.currentText():
-            case 'Age Signature':
-                field_items = ["SampleContextName",
-                               "SampleContextDescription",
-                               "SampleContextCreated",
-                               "SampleContextModified"]
-            case 'Ages':
-                field_items = ["AgeName",
-                               "MaxMa",
-                               "MinMa",
-                               "AgeCreated",
-                               "AgeModified"]
-            case 'Aliquot Contexts':
-                field_items = ["AliquotContextName",
-                               "AliquotContextDescription",
-                               "AliquotContextCreated",
-                               "AliquotContextModified"]
-            case 'Aliquots':
-                field_items = ["AliquotName",
-                               "AliquotCreated",
-                               "AliquotModified"]
-            case 'Analysis Methods':
-                field_items = ["AnalysisMethodsName",
-                               "AnalysisMethodsDescription",
-                               "AnalysisMethodsCreated",
-                               "AnalysisMethodsModified"]
-            case 'Columns':
-                field_items = ["ColumnName",
-                               "ColumnDescription",
-                               "ColumnCreated",
-                               "ColumnModified"]
-            case 'Instruments':
-                field_items = ["InstrumentName",
-                               "InstrumentDescription",
-                               "InstrumentCreated",
-                               "InstrumentModified"]
-            case 'Lab Facilities':
-                field_items = ["LabFacilityName",
-                               "LabFacilityDescription",
-                               "LabFacilityCreated",
-                               "LabFacilityModified"]
-            case 'Regions':
-                field_items = ["RegionName",
-                               "RegionDescription",
-                               "RegionCreated",
-                               "RegionModified"]
-            case 'Rock Types':
-                field_items = ["RockTypeName",
-                               "RockTypeDescription",
-                               "RockTypeCreated",
-                               "RockTypeModified"]
-            case 'Sample Contexts':
-                field_items = ["SampleContextName",
-                               "SampleContextDescription",
-                               "SampleContextCreated",
-                               "SampleContextModified"]
-            case 'Samples':
-                field_items = ["SampleName",
-                               "AverageAge",
-                               "AverageAgeError",
-                               "ErrorSigma",
-                               "OldestAge",
-                               "YoungestAge",
-                               "OldestAgeID",
-                               "YoungestAgeID",
-                               "HeightDepth",
-                               "HeightDepthError",
-                               "HeightDepthUnit",
-                               "LatDeg",
-                               "LatMin",
-                               "LatSec",
-                               "LonDeg",
-                               "LonMin",
-                               "LonSec",
-                               "UTMZone",
-                               "UTMN",
-                               "UTME",
-                               "Elev",
-                               "ElevError",
-                               "ElevUnit",
-                               "Description",
-                               "SampleCreated",
-                               "SampleModified"]
-
-            case 'Sampling Methods':
-                field_items = ["SamplingMethodName",
-                               "SamplingMethodDescription",
-                               "SamplingMethodCreated",
-                               "SamplingMethodModified"]
-            case 'Settings':
-                field_items = ["SettingName",
-                               "SettingDescription",
-                               "SettingCreated",
-                               "SettingModified"]
-            case 'Sources':
-                field_items = ["Authors",
-                               "Year",
-                               "Title",
-                               "Source",
-                               "doi",
-                               "ShortCitation",
-                               "SourceCreated",
-                               "SourceModified"]
-            case 'Spot Compositions':
-                field_items = ["SpotCompositionName",
-                               "SpotCompositionDescription",
-                               "SpotCompositionCreated",
-                               "SpotCompositionModified"]
-            case 'Spot Contexts':
-                field_items = ["SpotContextName",
-                               "SpotContextDescription",
-                               "SpotContextCreated",
-                               "SpotContextModified"]
-            case 'Spots':
-                field_items = ["SpotName",
-                               "SpotCreated",
-                               "SpotModified"]
-            case 'UPb Analysis Methods':
-                field_items = ["UPbAnalysisMethodName",
-                               "UPbAnalysisMethodDescription",
-                               "UPbAnalysisMethodCreated",
-                               "UPbAnalysisMethodModified"]
-            case 'UPb Data':
-                field_items = ["U/Th",
-                               "206Pb/204Pb",
-                               "206Pb/207Pb",
-                               "206Pb/207Pberror",
-                               "207Pb/235U",
-                               "207Pb/235Uerror",
-                               "206Pb/238U",
-                               "206Pb/238Uerror",
-                               "ErrorCorr",
-                               "206Pb/207PbAge",
-                               "206Pb/207PbAgeError",
-                               "207Pb/235UAge",
-                               "207Pb/235UAgeError",
-                               "206Pb/238UAge",
-                               "206Pb/238UAgeError",
-                               "BestAge",
-                               "Error",
-                               'UPbAnalysisCreated',
-                               'UPbAnalysisModified']
-            case 'Units':
-                field_items = ["UnitName",
-                               "UnitDescription",
-                               "UnitCreated",
-                               "UnitModified"]
         self.attribute_combo.clear()
-        self.attribute_combo.addItems(field_items)
+        self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
 
 
 class GroupBox(QGroupBox):
@@ -983,8 +835,8 @@ class QueryBuilder(QWidget):
         for table in self.main_group_box.get_tables():
             match (table):
                 case 'Ages':
-                    if SQLUtils.age_join not in join:
-                        join += SQLUtils.age_join + '\n'
+                    if SQLUtils.sample_age_join not in join:
+                        join += SQLUtils.sample_age_join + '\n'
                 case 'Age Signatures':
                     if SQLUtils.age_signature_join not in join:
                         join += SQLUtils.age_signature_join + '\n'
@@ -1004,19 +856,19 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
-                    if SQLUtils.labs_join not in join:
-                        join += SQLUtils.labs_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_labs_join not in join:
+                        join += SQLUtils.upb_labs_join + '\n'
                 case 'Instruments':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
-                    if SQLUtils.instruments_join not in join:
-                        join += SQLUtils.instruments_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_instruments_join not in join:
+                        join += SQLUtils.upb_instruments_join + '\n'
                 case 'Regions':
                     if SQLUtils.region_join not in join:
                         join += SQLUtils.region_join + '\n'
@@ -1039,10 +891,10 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
-                    if SQLUtils.source_join not in join:
-                        join += SQLUtils.source_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
+                    if SQLUtils.upb_reference_join not in join:
+                        join += SQLUtils.upb_reference_join + '\n'
                 case 'Spot Compositions':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
@@ -1065,15 +917,15 @@ class QueryBuilder(QWidget):
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
                 case 'UPb Analysis Methods':
                     if SQLUtils.aliquot_join not in join:
                         join += SQLUtils.aliquot_join + '\n'
                     if SQLUtils.spot_join not in join:
                         join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_data_join not in join:
-                        join += SQLUtils.upb_data_join + '\n'
+                    if SQLUtils.upb_analysis_join not in join:
+                        join += SQLUtils.upb_analysis_join + '\n'
                     if SQLUtils.upb_method_join not in join:
                         join += SQLUtils.upb_method_join + '\n'
                 case 'Units':
@@ -1097,9 +949,9 @@ class QueryBuilder(QWidget):
                 join += SQLUtils.aliquot_join + '\n'
             if SQLUtils.spot_join not in join:
                 join += SQLUtils.spot_join + '\n'
-            if SQLUtils.upb_data_join not in join:
-                join += SQLUtils.upb_data_join + '\n'
-            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbData.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
+            if SQLUtils.upb_analysis_join not in join:
+                join += SQLUtils.upb_analysis_join + '\n'
+            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM (SELECT UPbAnalyses.UPbAnalysisID, {self.main_group_box.get_selects()} FROM Samples {join} WHERE {where_clause}) WHERE UPbAnalysisID IS NOT NULL;"
         elif type is None:
             pass
         else:

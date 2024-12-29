@@ -269,7 +269,7 @@ one_editable = [['Samples', 'SampleAges', 'Columns', 'DistanceUnits'],
             ['UPbAnalyses', 'Spots', 'References', 'LabFacilities', 'Instruments', 'UPbAnalysisMethods', 'ErrorFormats', 'AgeUnits', 'AgeInterpretations', 'ConcordanceFormats', 'DistanceUnits']]
 
 
-user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'Ages', 'AgeSignatures', 'AliquotContexts',
+user_viewable_alltables = ['AgeConstraints', 'AgeInterpretations', 'Ages', 'AgeSignatures', 'Aliquots', 'AliquotContexts',
                         'Columns', 'Instruments', 'LabFacilities',
                         '"References"', 'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
                         'SamplingMethods', 'Settings',
@@ -278,6 +278,9 @@ user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 
                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts',
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods',
                        'Units']
+user_viewable_tables = ['Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbAnalyses', 'Spots',
+                        'UPbAnalysisMethods']
+
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
@@ -450,6 +453,7 @@ table_attributes_dict = {
         "Calculated207Pb/235UAgeError",
         "Calculated206Pb/238UAgeError",
         "Calculated208Pb/232ThAgeError",
+        "BestAge",
         "CalculatedBestAgeError",
         "Calculated206Pb/207PbError",
         "Calculated207Pb/206PbError",
@@ -481,7 +485,7 @@ table_attributes_dict = {
 }
 
 
-def get_join_from_table(tables):
+def get_join_from_table(tables: list[str]) -> str:
     join = ""
 
     for table in tables:
