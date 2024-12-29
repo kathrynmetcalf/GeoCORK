@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1268</width>
-    <height>762</height>
+    <width>1281</width>
+    <height>824</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -884,7 +884,7 @@
                 <widget class="CheckableTreeCombobox" name="age_interpretation_comboBox"/>
                </item>
                <item row="1" column="2">
-                <widget class="CheckableComboBox" name="age_source_comboBox"/>
+                <widget class="CheckableComboBox" name="age_reference_comboBox"/>
                </item>
                <item row="0" column="0">
                 <widget class="QLabel" name="age_constraint_label">
@@ -907,9 +907,9 @@
                 </widget>
                </item>
                <item row="0" column="2">
-                <widget class="QLabel" name="age_source_label">
+                <widget class="QLabel" name="age_reference_label">
                  <property name="text">
-                  <string>Age Source</string>
+                  <string>Age Reference</string>
                  </property>
                  <property name="alignment">
                   <set>Qt::AlignCenter</set>
@@ -1080,9 +1080,9 @@
         <item>
          <layout class="QVBoxLayout" name="verticalLayout_9">
           <item>
-           <widget class="QLabel" name="source_label">
+           <widget class="QLabel" name="reference_label">
             <property name="text">
-             <string>Source</string>
+             <string>Reference</string>
             </property>
             <property name="alignment">
              <set>Qt::AlignCenter</set>
@@ -1090,7 +1090,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableComboBox" name="source_comboBox"/>
+           <widget class="CheckableComboBox" name="reference_comboBox"/>
           </item>
          </layout>
         </item>

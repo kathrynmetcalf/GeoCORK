@@ -72,7 +72,8 @@ class LandingPage(QWidget):
         file_name, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Database Files(*.db)",
                                                    options=options)
         if file_name:
-            create_tables(file_name + ".db")
+            # create_tables(file_name + ".db")
+            file_name = file_name + ".db"
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
                 self.list_recents.append(self.selected_files)

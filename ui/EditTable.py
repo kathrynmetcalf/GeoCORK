@@ -21,6 +21,7 @@ class EditTable(QtW.QDialog):
         if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
             pass
         elif self.table == 'Columns':
+            # todo: implement relational table model for Columns so that there are dropdown distance units and readable GPS locations
             self.model = TbC.VerifiableRelationalTableModel()
             self.model.setTable(self.table)
             self.model.select()

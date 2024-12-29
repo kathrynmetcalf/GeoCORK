@@ -222,12 +222,15 @@ class SampleTableModel(QtS.QSqlQueryModel):
             header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if header == f'Age ({settings.value('age_unit_abbreviation')})':
                 string = super().data(index, role)
+                print(f'Displaying {string}')
                 return display_age(string)
             elif 'GPS' in header:
                 string = super().data(index, role)
+                print(f'Displaying {string}')
                 return display_gps(string)
             elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
                 string = super().data(index, role)
+                print(f'Displaying {string}')
                 return display_value_with_error(string)
         return super().data(index, role)
 
@@ -405,7 +408,7 @@ def SampleAgeIfNullQuery():
     SELECT 
     GROUP_CONCAT(DISTINCT ifnull(DirectAge, "Null")) as "Direct Ages",
     GROUP_CONCAT(DISTINCT ifnull(DirectAgeError, "Null")) as "Direct Age Errors",
-    GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorTypeID, "Null")) as "Direct Age Error Types",
+    GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorFormatID, "Null")) as "Direct Age Error Formats",
     GROUP_CONCAT(DISTINCT ifnull(OldestDirectAge, "Null")) as "Oldest Direct Ages",
     GROUP_CONCAT(DISTINCT ifnull(YoungestDirectAge, "Null")) as "Youngest Direct Ages",
     GROUP_CONCAT(DISTINCT ifnull(DirectAgeUnitID, "Null")) as "Direct Age Units",
@@ -441,7 +444,7 @@ def get_columns(table: str):
 def name_column(table: str):
     if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
         return 3
-    elif 'Type' in table or 'Unit' in table:
+    elif 'Format' in table or 'Unit' in table:
         # return the column for the abbreviation
         return 2
     elif table == '"References"':
@@ -614,7 +617,7 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
     def __init__(self):
         super().__init__()
         self.bolded_rows = []
-        self.default_query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
+        self.default_query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
                         OldestAgeID, YoungestAgeID, SampleAgeDescription, SampleAgeCreated, SampleAgeModified FROM SampleAges'''
         self.setQuery(self.default_query)
 
@@ -647,52 +650,55 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
 
 def display_age(string: str):
     # split string on commas
-    age_elements = string.split(', ')
-    # element 0 is the direct age with error, element 1 is the direct age range, and element 2 is the relative age range
-    # for 0, retrieve the number in parentheses, the direct age unit ID which is the same for 0 and 1
-    age_ids = age_elements[2].split('-')
-    age_model = QtS.QSqlTableModel()
-    age_model = set_table(age_model, 'Ages')
-    if age_ids[0] != '':
-        old_age_id = int(age_ids[0])
-        age_model.setFilter(f'AgeID={old_age_id}')
-        old_age_name = age_model.record(0).value('AgeName')
+    if ',' not in string:
+        return ''
     else:
-        old_age_name = ''
-    if age_ids[1] != '':
-        young_age_id = int(age_ids[1])
-        age_model.setFilter(f'AgeID={young_age_id}')
-        young_age_name = age_model.record(0).value('AgeName')
-    else:
-        young_age_name = ''
-    if ' (' in age_elements[0]:
-        # age unit is in the display, so replace ids with abbreviations
-        age_unit_id = int(age_elements[0].split(' (')[1].split(')')[0])
-        age_unit_model = QtS.QSqlTableModel()
-        age_unit_model = set_table(age_unit_model, 'AgeUnits')
-        if age_unit_id is not None:
-            age_unit_model.setFilter(f'AgeUnitID={age_unit_id}')
-            age_unit_abbreviation = age_unit_model.record(0).value('AgeUnitAbbreviation')
+        age_elements = string.split(', ')
+        # element 0 is the direct age with error, element 1 is the direct age range, and element 2 is the relative age range
+        # for 0, retrieve the number in parentheses, the direct age unit ID which is the same for 0 and 1
+        age_ids = age_elements[2].split('-')
+        age_model = QtS.QSqlTableModel()
+        age_model = set_table(age_model, 'Ages')
+        if age_ids[0] != '':
+            old_age_id = int(age_ids[0])
+            age_model.setFilter(f'AgeID={old_age_id}')
+            old_age_name = age_model.record(0).value('AgeName')
         else:
-            age_unit_abbreviation = ''
-        # in age_elements[0] and age_elements[1], replace the direct age unit ID with the unit abbreviation
-        age_elements[0] = age_elements[0].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
-        age_elements[1] = age_elements[1].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
-    # age_elements[0] is in the format 'DirectAge±DirectAgeError (DirectAgeUnitID)' or 'DirectAge±DirectAgeError'
-    # age_elements[1] is in the format 'OldestDirectAge-YoungestDirectAge (DirectAgeUnitID)' or 'OldestDirectAge-YoungestDirectAge'
-    # replace the float values with the rounded values unless the value is an integer
-    age = age_elements[0].split('±')[0]
-    rounded_age = return_rounded(age)
-    age_error = age_elements[0].split('±')[1].split(' ')[0]
-    rounded_error = return_rounded(age_error)
-    old_age = age_elements[1].split('-')[0]
-    rounded_old_age = return_rounded(old_age)
-    young_age = age_elements[1].split('-')[1]
-    rounded_young_age = return_rounded(young_age)
-    age_elements[0] = age_elements[0].replace(f'{age}±{age_error}', f'{rounded_age}±{rounded_error}')
-    age_elements[1] = age_elements[1].replace(f'{old_age}-{young_age}', f'{rounded_old_age}-{rounded_young_age}')
-    age_elements[2] = f'{old_age_name}-{young_age_name}'
-    return ', '.join(age_elements)
+            old_age_name = ''
+        if age_ids[1] != '':
+            young_age_id = int(age_ids[1])
+            age_model.setFilter(f'AgeID={young_age_id}')
+            young_age_name = age_model.record(0).value('AgeName')
+        else:
+            young_age_name = ''
+        if ' (' in age_elements[0]:
+            # age unit is in the display, so replace ids with abbreviations
+            age_unit_id = int(age_elements[0].split(' (')[1].split(')')[0])
+            age_unit_model = QtS.QSqlTableModel()
+            age_unit_model = set_table(age_unit_model, 'AgeUnits')
+            if age_unit_id is not None:
+                age_unit_model.setFilter(f'AgeUnitID={age_unit_id}')
+                age_unit_abbreviation = age_unit_model.record(0).value('AgeUnitAbbreviation')
+            else:
+                age_unit_abbreviation = ''
+            # in age_elements[0] and age_elements[1], replace the direct age unit ID with the unit abbreviation
+            age_elements[0] = age_elements[0].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+            age_elements[1] = age_elements[1].replace(f'({age_unit_id})', f'({age_unit_abbreviation})')
+        # age_elements[0] is in the format 'DirectAge±DirectAgeError (DirectAgeUnitID)' or 'DirectAge±DirectAgeError'
+        # age_elements[1] is in the format 'OldestDirectAge-YoungestDirectAge (DirectAgeUnitID)' or 'OldestDirectAge-YoungestDirectAge'
+        # replace the float values with the rounded values unless the value is an integer
+        age = age_elements[0].split('±')[0]
+        rounded_age = return_rounded(age)
+        age_error = age_elements[0].split('±')[1].split(' ')[0]
+        rounded_error = return_rounded(age_error)
+        old_age = age_elements[1].split('-')[0]
+        rounded_old_age = return_rounded(old_age)
+        young_age = age_elements[1].split('-')[1]
+        rounded_young_age = return_rounded(young_age)
+        age_elements[0] = age_elements[0].replace(f'{age}±{age_error}', f'{rounded_age}±{rounded_error}')
+        age_elements[1] = age_elements[1].replace(f'{old_age}-{young_age}', f'{rounded_old_age}-{rounded_young_age}')
+        age_elements[2] = f'{old_age_name}-{young_age_name}'
+        return ', '.join(age_elements)
 
 def display_gps(string: str):
     if '"' in string:
@@ -717,9 +723,9 @@ def display_gps(string: str):
         lon_deg = string.split(', ')[1].split('°')[0]
         rounded_lat_deg = return_rounded(lat_deg)
         rounded_lon_deg = return_rounded(lon_deg)
-        string = string.replace(lat_deg, rounded_lat_deg)
-        string = string.replace(lon_deg, rounded_lon_deg)
-    else:
+        string = string.replace(lat_deg, f'{rounded_lat_deg}')
+        string = string.replace(lon_deg, f'{rounded_lon_deg}')
+    elif ',' in string:
         # UTM format, (UTMZone, UTMEasting, UTMNorthing)
         utm_easting = string.split(',')[1]
         utm_northing = string.split(',')[2]
@@ -727,6 +733,9 @@ def display_gps(string: str):
         rounded_easting = return_rounded(utm_easting)
         string = string.replace(utm_northing, rounded_northing)
         string = string.replace(utm_easting, rounded_easting)
+    else:
+        # No GPS given, return ''
+        string = ''
     return string
 
 def display_value_with_error(string: str):

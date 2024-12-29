@@ -21,9 +21,10 @@ import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions import Database_manager
+from Functions import Database_converter
 from Functions.Settings_manager import settings
 import ui.import_wizard
-import ui.New_source
+import ui.New_reference
 from Functions.DB_views import drop_view
 from ui.ExportWidget import ExportWidget
 from Functions.Tree_classes import TreeSortFilterProxyModel
@@ -36,7 +37,7 @@ from ui.Filters import QueryBuilder
 from ui.SampleInformation import  SampleInformation
 from ui.Settings import default_settings, update_settings, user_settings
 import Functions.Check_triggers as Ct
-
+import time
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
@@ -53,6 +54,7 @@ class GeoChron(QtW.QMainWindow):
         print("Database is open: " + str(ok))
         self.loadWindowState()
 
+        blank_schema_file = "Reference/GeoCORK_v1-0.db"
         sources_ui_file = "ui/GeochronMain.ui"
         loadUi(sources_ui_file, self)
 
@@ -61,6 +63,7 @@ class GeoChron(QtW.QMainWindow):
         self.msg = QtW.QMessageBox(self)
         self.switch_to_table()
 
+        self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
         Create_db.create_tables()
         self.drop_views()
         Alter_db.settings_reset()
@@ -70,7 +73,11 @@ class GeoChron(QtW.QMainWindow):
             default_settings()
         else:
             user_settings()
+        create_view_begin = time.time()
+        print("Creating sample view")
         DB_views.create_sample_view()
+        create_view_end = time.time()
+        print(f"Create view time: {create_view_end - create_view_begin}")
         #list of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure
@@ -80,7 +87,11 @@ class GeoChron(QtW.QMainWindow):
         self.ui_widgets()
 
         # Set up models
+        retrieve_view_begin = time.time()
+        print("Retrieving view")
         self.sample_model = TbC.SampleTableModel()
+        retrieve_view_end = time.time()
+        print(f"Retrieve view time: {retrieve_view_end - retrieve_view_begin}")
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = TbC.VerifiableSqlTableModel()
         self.tree_model = TrC.TreeModel()
@@ -193,7 +204,6 @@ class GeoChron(QtW.QMainWindow):
         if table == 'Samples':
             self.switch_to_table()
             self.edit_samples_pushButton.show()
-            self.sample_model.setQuery('SELECT * FROM SampleView')
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
             # for col in range(self.sample_model.columnCount()):
             #     header = TxM.add_spaces_camel(
@@ -204,6 +214,7 @@ class GeoChron(QtW.QMainWindow):
             self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.sample_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
+            self.dbTable_tableView.verticalHeader().hide()
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)

@@ -6,6 +6,9 @@ selected_age_unit = abbreviations['age_unit']
 selected_elev_unit = abbreviations['elevation_unit']
 selected_heightdepth_unit = abbreviations['heightdepth_unit']
 selected_spotsize_unit = abbreviations['spotsize_unit']
+selected_gps_format = abbreviations['gps_format']
+selected_age_error_format = abbreviations['age_error_format']
+selected_ratio_error_format = abbreviations['ratio_error_format']
 
 # ID columns
 qsample_id = 'Samples.SampleID'
@@ -42,11 +45,11 @@ qreferences = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay) AS "UPb Ref
 qlab_facilities = 'GROUP_CONCAT(DISTINCT LabFacilityName) AS "Lab Facilities"'
 qinstruments = 'GROUP_CONCAT(DISTINCT InstrumentName) AS "Instruments"'
 qupb_analysis_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) AS "UPb Analysis Methods"'
-qupb_ratio_error_types = 'GROUP_CONCAT(DISTINCT RatioErrorTypes.ErrorTypeAbbreviation) AS "UPb Ratio Error Types"'
-qupb_age_error_types = 'GROUP_CONCAT(DISTINCT AgeErrorTypes.ErrorTypeAbbreviation) AS "UPb Age Error Types"'
+qupb_ratio_error_formats = 'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation) AS "UPb Ratio Error Formats"'
+qupb_age_error_formats = 'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation) AS "UPb Age Error Formats"'
 qupb_age_units = 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation) AS "UPb Age Units"'
 qupb_age_interpretations = 'GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInterpretationName) AS "UPb Age Interpretations"'
-qconcordance_types = 'GROUP_CONCAT(DISTINCT ConcordanceTypes.ConcordanceTypeAbbreviation) AS "Concordance Types"'
+qconcordance_formats = 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation) AS "Concordance Formats"'
 qspot_sizes = f'GROUP_CONCAT(DISTINCT SpotSize) AS "Spot Sizes ({selected_spotsize_unit})"'
 qupb_rejection_reasons = 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName) AS "UPb Rejection Reasons"'
 
@@ -85,8 +88,8 @@ qgps_elev_unit_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleElevationUnits.Dista
 qsample_default_age_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(DefaultSampleAgeID,"Null")) AS "Default Age IDs"'
 qsample_direct_age_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.DirectAge,"Null")) AS "Direct Ages"'
 qsample_direct_age_error_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.DirectAgeError,"Null")) AS "Direct Age Errors"'
-qsample_direct_age_error_type_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.DirectAgeErrorTypeID,"Null")) AS "Direct Age Error Type IDs"'
-qsample_direct_age_error_type_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorTypes.ErrorTypeAbbreviation,"Null")) AS "Direct Age Error Types"'
+qsample_direct_age_error_format_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.DirectAgeErrorFormatID,"Null")) AS "Direct Age Error Format IDs"'
+qsample_direct_age_error_format_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorFormats.ErrorFormatAbbreviation,"Null")) AS "Direct Age Error Formats"'
 qsample_oldest_direct_age_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.OldestDirectAge,"Null")) AS "Oldest Direct Ages"'
 qsample_youngest_direct_age_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.YoungestDirectAge,"Null")) AS "Youngest Direct Ages"'
 qsample_direct_age_unit_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.DirectAgeUnitID,"Null")) AS "Direct Age Unit IDs"'
@@ -123,7 +126,7 @@ qsample_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(Samples.SampleID,"Null")) AS "
 # Join lines
 # SampleAge-Age joins
 sample_age_join = 'LEFT JOIN Ages ON SampleAges.OldestAgeID=Ages.AgeID OR SampleAges.YoungestAgeID=Ages.AgeID'
-sample_age_left_joins = '''LEFT JOIN ErrorTypes AS DirectAgeErrorTypes ON DirectAgeErrorTypes.ErrorTypeID=SampleAges.DirectAgeErrorTypeID
+sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON DirectAgeErrorFormats.ErrorFormatID=SampleAges.DirectAgeErrorFormatID
                         LEFT JOIN AgeUnits ON AgeUnits.AgeUnitID=SampleAges.DirectAgeUnitID
                         LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID=OldAge.AgeID
                         LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID=YoungAge.AgeID
@@ -186,11 +189,11 @@ upb_reference_join = 'LEFT JOIN "References" AS UPbReferences ON UPbReferences.R
 upb_labs_join = 'LEFT JOIN LabFacilities ON LabFacilities.LabFacilityID=UPbAnalyses.LabFacilityID'
 upb_instruments_join = 'LEFT JOIN Instruments ON Instruments.InstrumentID=UPbAnalyses.InstrumentID'
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalysisMethods.UPbAnalysisMethodID=UPbAnalyses.UPbAnalysisMethodID'
-upb_ratio_error_type_join = 'LEFT JOIN ErrorTypes AS RatioErrorTypes ON RatioErrorTypes.ErrorTypeID=UPbAnalyses.RatioErrorTypeID'
-upb_age_error_type_join = 'LEFT JOIN ErrorTypes AS AgeErrorTypes ON AgeErrorTypes.ErrorTypeID=UPbAnalyses.AgeErrorTypeID'
+upb_ratio_error_format_join = 'LEFT JOIN ErrorFormats AS RatioErrorFormats ON RatioErrorFormats.ErrorFormatID=UPbAnalyses.RatioErrorFormatID'
+upb_age_error_format_join = 'LEFT JOIN ErrorFormats AS AgeErrorFormats ON AgeErrorFormats.ErrorFormatID=UPbAnalyses.AgeErrorFormatID'
 upb_age_unit_join = 'LEFT JOIN AgeUnits AS UPbAgeUnits ON UPbAgeUnits.AgeUnitID=UPbAnalyses.AgeUnitID'
 upb_age_interpretation_join = 'LEFT JOIN AgeInterpretations AS UPbAgeInterpretations ON AgeInterpretations.AgeInterpretationID=UPbAnalyses.AgeInterpretationID'
-upb_concordance_type_join = 'LEFT JOIN ConcordanceTypes ON ConcordanceTypes.ConcordanceTypeID=UPbAnalyses.ConcordanceTypeID'
+upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats ON ConcordanceFormats.ConcordanceFormatID=UPbAnalyses.ConcordanceFormatID'
 upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON SpotSizeUnits.DistanceUnitID=UPbAnalyses.SpotSizeUnitID'
 upb_rejection_reason_join = '''LEFT JOIN UPbAnalyses_RejectionReasons ON UPbAnalyses.UPbAnalysisID=UPbAnalyses_RejectionReasons.UPbAnalysisID
                                     LEFT JOIN RejectionReasons AS UPbRejectionReasons ON UPbRejectionReasons.RejectionReasonID=UPbAnalyses_RejectionReasons.RejectionReasonID'''
@@ -202,8 +205,8 @@ sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcol
                        qsample_age_references, qsample_description, qage_signature, qregions, qrock_types,
                        qsample_context, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts,
                        qspots, qspot_compositions, qspot_contexts, qreferences, qlab_facilities, qinstruments,
-                       qupb_analysis_methods, qupb_ratio_error_types, qupb_age_error_types, qupb_age_units,
-                       qupb_age_interpretations, qconcordance_types, qspot_sizes, qupb_rejection_reasons]
+                       qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_error_formats, qupb_age_units,
+                       qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons]
 
 # Many-to-many tables related to table at the beginning of each list, populate multiple selection dropdowns
 many_editable = [['Samples', 'AgeSignatures', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'Units'],
@@ -211,7 +214,7 @@ many_editable = [['Samples', 'AgeSignatures', 'Regions', 'RockTypes', 'SampleCon
 # One-to-many columns related to table at the beginning of each list, populate single selection dropdowns
 one_editable = [['Samples', 'SampleAges', 'Columns', 'DistanceUnits'],
             ['Columns', 'DistanceUnits'], ['Aliquots', 'Samples'], ['Spots', 'Aliquots', 'SpotCompositions'],
-            ['UPbAnalyses', 'Spots', 'References', 'LabFacilities', 'Instruments', 'UPbAnalysisMethods', 'ErrorTypes', 'AgeUnits', 'AgeInterpretations', 'ConcordanceTypes', 'DistanceUnits']]
+            ['UPbAnalyses', 'Spots', 'References', 'LabFacilities', 'Instruments', 'UPbAnalysisMethods', 'ErrorFormats', 'AgeUnits', 'AgeInterpretations', 'ConcordanceFormats', 'DistanceUnits']]
 
 
 

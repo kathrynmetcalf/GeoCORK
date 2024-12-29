@@ -162,28 +162,28 @@ CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                         ON DELETE SET NULL
                     )'''
 
-CREATE_CONCORDANCE_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceTypes(
-                    ConcordanceTypeID INTEGER PRIMARY KEY,
-                    ConcordanceTypeName TEXT NOT NULL CHECK(ConcordanceTypeName <> ''),
-                    ConcordanceTypeAbbreviation TEXT NOT NULL CHECK(ConcordanceTypeAbbreviation <> ''),
-                    ConcordanceTypeDescription TEXT,
-                    ConcordanceTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ConcordanceTypeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(ConcordanceTypeName COLLATE NOCASE),
-                    UNIQUE(ConcordanceTypeAbbreviation COLLATE NOCASE)
+CREATE_CONCORDANCE_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceFormats(
+                    ConcordanceFormatID INTEGER PRIMARY KEY,
+                    ConcordanceFormatName TEXT NOT NULL CHECK(ConcordanceFormatName <> ''),
+                    ConcordanceFormatAbbreviation TEXT NOT NULL CHECK(ConcordanceFormatAbbreviation <> ''),
+                    ConcordanceFormatDescription TEXT,
+                    ConcordanceFormatCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ConcordanceFormatModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(ConcordanceFormatName COLLATE NOCASE),
+                    UNIQUE(ConcordanceFormatAbbreviation COLLATE NOCASE)
 )'''
 
-CREATE_CONCORDANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceTypeConversions(
-                    FromConcordanceTypeID INTEGER NOT NULL CHECK(FromConcordanceTypeID <> ''),
-                    ToConcordanceTypeID INTEGER NOT NULL CHECK(ToConcordanceTypeID <> ''),
-                    ConcordanceTypeConversionCalculation TEXT NOT NULL CHECK(ConcordanceTypeConversionCalculation <> ''), 
-                    ConcordanceTypeConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ConcordanceTypeConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
-                    UNIQUE (FromConcordanceTypeID, ToConcordanceTypeID),
-                    FOREIGN KEY(FromConcordanceTypeID) REFERENCES ConcordanceTypes(ConcordanceTypeID)
+CREATE_CONCORDANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceFormatConversions(
+                    FromConcordanceFormatID INTEGER NOT NULL CHECK(FromConcordanceFormatID <> ''),
+                    ToConcordanceFormatID INTEGER NOT NULL CHECK(ToConcordanceFormatID <> ''),
+                    ConcordanceFormatConversionCalculation TEXT NOT NULL CHECK(ConcordanceFormatConversionCalculation <> ''), 
+                    ConcordanceFormatConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ConcordanceFormatConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
+                    UNIQUE (FromConcordanceFormatID, ToConcordanceFormatID),
+                    FOREIGN KEY(FromConcordanceFormatID) REFERENCES ConcordanceFormats(ConcordanceFormatID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(ToConcordanceTypeID) REFERENCES ConcordanceTypes(ConcordanceTypeID)
+                    FOREIGN KEY(ToConcordanceFormatID) REFERENCES ConcordanceFormats(ConcordanceFormatID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -224,28 +224,28 @@ CREATE_DISTANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceUnitCo
                         ON DELETE CASCADE
                     )'''
 
-CREATE_ERROR_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorTypes(
-                    ErrorTypeID INTEGER PRIMARY KEY,
-                    ErrorTypeName TEXT NOT NULL CHECK(ErrorTypeName <> ''),
-                    ErrorTypeAbbreviation TEXT NOT NULL CHECK(ErrorTypeAbbreviation <> ''),
-                    ErrorTypeDescription TEXT,
-                    ErrorTypeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ErrorTypeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(ErrorTypeName COLLATE NOCASE),
-                    UNIQUE(ErrorTypeAbbreviation COLLATE NOCASE)
+CREATE_ERROR_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormats(
+                    ErrorFormatID INTEGER PRIMARY KEY,
+                    ErrorFormatName TEXT NOT NULL CHECK(ErrorFormatName <> ''),
+                    ErrorFormatAbbreviation TEXT NOT NULL CHECK(ErrorFormatAbbreviation <> ''),
+                    ErrorFormatDescription TEXT,
+                    ErrorFormatCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ErrorFormatModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(ErrorFormatName COLLATE NOCASE),
+                    UNIQUE(ErrorFormatAbbreviation COLLATE NOCASE)
 )'''
 
-CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorTypeConversions(
-                    FromErrorTypeID INTEGER NOT NULL CHECK(FromErrorTypeID <> ''),
-                    ToErrorTypeID INTEGER NOT NULL CHECK(ToErrorTypeID <> ''),
-                    ErrorTypeConversionCalculation TEXT NOT NULL CHECK(ErrorTypeConversionCalculation <> ''), 
-                    ErrorTypeConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    ErrorTypeConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (FromErrorTypeID, ToErrorTypeID),
-                    FOREIGN KEY(FromErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormatConversions(
+                    FromErrorFormatID INTEGER NOT NULL CHECK(FromErrorFormatID <> ''),
+                    ToErrorFormatID INTEGER NOT NULL CHECK(ToErrorFormatID <> ''),
+                    ErrorFormatConversionCalculation TEXT NOT NULL CHECK(ErrorFormatConversionCalculation <> ''), 
+                    ErrorFormatConversionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    ErrorFormatConversionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (FromErrorFormatID, ToErrorFormatID),
+                    FOREIGN KEY(FromErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
-                    FOREIGN KEY(ToErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                    FOREIGN KEY(ToErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE
                     )'''
@@ -390,7 +390,7 @@ CREATE_SAMPLE_AGE_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges(
                     SampleAgeID INTEGER PRIMARY KEY,
                     DirectAge REAL,
                     DirectAgeError REAL,
-                    DirectAgeErrorTypeID INTEGER,
+                    DirectAgeErrorFormatID INTEGER,
                     OldestDirectAge REAL,
                     YoungestDirectAge REAL, 
                     DirectAgeUnitID INTEGER,
@@ -399,8 +399,8 @@ CREATE_SAMPLE_AGE_TABLE = '''CREATE TABLE IF NOT EXISTS SampleAges(
                     SampleAgeDescription TEXT,
                     SampleAgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleAgeModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (DirectAge, DirectAgeError, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, OldestAgeID, YoungestAgeID),
-                    FOREIGN KEY(DirectAgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                    UNIQUE (DirectAge, DirectAgeError, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, OldestAgeID, YoungestAgeID),
+                    FOREIGN KEY(DirectAgeErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(DirectAgeUnitID) REFERENCES AgeUnits(AgeUnitID)
@@ -657,7 +657,6 @@ CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContexts(
                     UNIQUE (ParentSpotContextID, SpotContextParentRow)
                     )'''
 
-# todo: make a call if Spots and SpotCompositions should be many-to-many or one-to-many, leaning towards one-to-many and using context for additional qualifications
 CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     SpotID INTEGER PRIMARY KEY,
                     SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
@@ -672,20 +671,6 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     FOREIGN KEY(SpotCompositionID) REFERENCES SpotCompositions(SpotCompositionID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
-                    )'''
-
-CREATE_SPOTS_SPOTCOMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotCompositions(
-                    SpotID INTEGER NOT NULL,
-                    SpotCompositionID INTEGER NOT NULL,
-                    Spots_SpotCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    Spots_SpotCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SpotID, SpotCompositionID),
-                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE,
-                    FOREIGN KEY(SpotCompositionID) REFERENCES SpotCompositions(SpotCompositionID)
-                        ON UPDATE CASCADE
-                        ON DELETE CASCADE
                     )'''
 
 CREATE_SPOTS_SPOTCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Spots_SpotContexts(
@@ -869,7 +854,7 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                         WHEN "208Pb/204Pb" IS NOT NULL THEN 1/"208Pb/204Pb"
                         ELSE NULL
                         END) STORED,
-                    RatioErrorTypeID INTEGER,
+                    RatioErrorFormatID INTEGER,
                     "ErrorCorr/Rho" REAL,
                     "207Pb/206PbAge" REAL,
                     "207Pb/206PbAgeError" REAL, 
@@ -881,11 +866,11 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     "208Pb/232ThAgeError" REAL,
                     BestAge REAL,
                     BestAgeError REAL, 
-                    AgeErrorTypeID INTEGER,
+                    AgeErrorFormatID INTEGER,
                     AgeUnitID INTEGER,
                     AgeInterpretationID INTEGER,
                     Concordance REAL,
-                    ConcordanceTypeID INTEGER,
+                    ConcordanceFormatID INTEGER,
                     SpotSize REAL,
                     SpotSizeUnitID INTEGER,
                     Rejected INTEGER,
@@ -906,10 +891,10 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
-                    FOREIGN KEY(RatioErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                    FOREIGN KEY(RatioErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
-                    FOREIGN KEY(AgeErrorTypeID) REFERENCES ErrorTypes(ErrorTypeID)
+                    FOREIGN KEY(AgeErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
                     FOREIGN KEY(AgeUnitID) REFERENCES AgeUnits(AgeUnitID)
@@ -918,7 +903,7 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     FOREIGN KEY(AgeInterpretationID) REFERENCES AgeInterpretations(AgeInterpretationID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
-                    FOREIGN KEY(ConcordanceTypeID) REFERENCES ConcordanceTypes(ConcordanceTypeID)
+                    FOREIGN KEY(ConcordanceFormatID) REFERENCES ConcordanceFormats(ConcordanceFormatID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL,
                     FOREIGN KEY(SpotSizeUnitID) REFERENCES DistanceUnits(DistanceUnitID)
@@ -1036,7 +1021,6 @@ def create_tables():
     query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE)
 
     # Create many-to-many spot tables
-    query.exec(CREATE_SPOTS_SPOTCOMPOSITION_TABLE)
     query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE)
 
     # Create many-to-many analysis tables
@@ -1044,7 +1028,12 @@ def create_tables():
 
     query.exec(CREATE_FILTER_GROUPS_TABLE)
 
+    # Populate the tables
+    populate_tables()
+
+def populate_tables():
     # Populate the age units table during initiation
+    query = QtS.QSqlQuery()
     sql = '''SELECT * FROM AgeUnits'''
     try: query.exec(sql)
     except:
@@ -1056,10 +1045,10 @@ def create_tables():
         populate_age_units()  # populate it
 
     # Populate the concordance type table during initiation
-    sql = '''SELECT * FROM ConcordanceTypes'''
+    sql = '''SELECT * FROM ConcordanceFormats'''
     try: query.exec(sql)
     except:
-        print(f'ConcordanceTypes query failed')
+        print(f'ConcordanceFormats query failed')
         return
     out = []
     while query.next(): out.append(query.value(1))
@@ -1089,10 +1078,10 @@ def create_tables():
         populate_distance_units()  # populate it
 
     # Populate the error type table during initiation
-    sql = '''SELECT * FROM ErrorTypes'''
+    sql = '''SELECT * FROM ErrorFormats'''
     try: query.exec(sql)
     except:
-        print(f'ErrorTypes query failed')
+        print(f'ErrorFormats query failed')
         return
     out = []
     while query.next(): out.append(query.value(1))
@@ -1130,12 +1119,6 @@ def populate_age_units():
 
     query = QtS.QSqlQuery()
     # Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM AgeUnits'
-    if not query.exec(sql):
-        print(f'failed to delete AgeUnits')
-    sql = 'DELETE FROM AgeUnitConversions'
-    if not query.exec(sql):
-        print(f'failed to delete AgeUnitConversions')
     age_units = [('Billion years', 'Ga', '1000000000'),
                  ('Million years', 'Ma', '1000000'),
                  ('Thousand years', 'ka', '1000'),
@@ -1165,19 +1148,12 @@ def populate_concordance_types():
         """
 
     query = QtS.QSqlQuery()
-    # Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM ConcordanceTypes'
-    if not query.exec(sql):
-        print(f'failed to delete ConcordanceTypes')
-    sql = 'DELETE FROM ConcordanceTypeConversions'
-    if not query.exec(sql):
-        print(f'failed to delete ConcordanceTypeConversions')
     concordance_types = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
                          ('Concordance percent', 'Con%', 'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
                          ('Discordance ratio', 'Dis', 'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
                          ('Discordance percent', 'Dis%', 'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
     for concordance_type in concordance_types:
-        sql = f'''INSERT INTO ConcordanceTypes(ConcordanceTypeName, ConcordanceTypeAbbreviation, ConcordanceTypeDescription)
+        sql = f'''INSERT INTO ConcordanceFormats(ConcordanceFormatName, ConcordanceFormatAbbreviation, ConcordanceFormatDescription)
                                 VALUES("{concordance_type[0]}","{concordance_type[1]}","{concordance_type[2]}")'''
         if not query.exec(sql):
             print(f'failed to add {concordance_type[0]}')
@@ -1202,21 +1178,18 @@ def populate_concordance_types():
                         # First type is concordance ratio and second type is discordance percent
                         conversion1to2 = '100*(1-x)'
                         conversion2to1 = '1-(x/100)'
-                sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
-                                                        VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
+                sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
+                                                        VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type1][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
                 if not query.exec(sql):
                     print(f'failed to add conversion for {concordance_types[type1][1]} to {concordance_types[type2][1]}')
-                sql = f'''INSERT INTO ConcordanceTypeConversions(FromConcordanceTypeID, ToConcordanceTypeID, ConcordanceTypeConversionCalculation)
-                                                        VALUES((SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type2][1]}"),(SELECT ConcordanceTypeID FROM ConcordanceTypes WHERE ConcordanceTypeAbbreviation = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
+                sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
+                                                        VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type2][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
                 if not query.exec(sql):
                     print(f'failed to add conversion for {concordance_types[type2][1]} to {concordance_types[type1][1]}')
 
 def populate_direction_units():
     query = QtS.QSqlQuery()
     # Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM DirectionUnits'
-    if not query.exec(sql):
-        print(f'failed to delete DirectionUnits')
     direction_units = [('North', 'N','positive north'),
                        ('South', 'S','positive south'),
                        ('East', 'E','positive east'),
@@ -1233,13 +1206,6 @@ def populate_distance_units():
         """
 
     query = QtS.QSqlQuery()
-    # Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM DistanceUnits'
-    if not query.exec(sql):
-        print(f'failed to delete DistanceUnits')
-    sql = 'DELETE FROM DistanceUnitConversions'
-    if not query.exec(sql):
-        print(f'failed to delete DistanceUnitConversions')
     # International standard foot is 0.3048 meters exactly
     m_per_ft = 0.3048
     distance_units = [('Kilometers', 'km', '1000'),
@@ -1286,19 +1252,12 @@ def populate_error_types():
             """
 
     query = QtS.QSqlQuery()
-    # Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM ErrorTypes'
-    if not query.exec(sql):
-        print(f'failed to delete ErrorTypes')
-    sql = 'DELETE FROM ErrorTypeConversions'
-    if not query.exec(sql):
-        print(f'failed to delete ErrorTypeConversions')
     error_types = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
                          ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
                          ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
                          ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
     for error_type in error_types:
-        sql = f'''INSERT INTO ErrorTypes(ErrorTypeName, ErrorTypeAbbreviation, ErrorTypeDescription)
+        sql = f'''INSERT INTO ErrorFormats(ErrorFormatName, ErrorFormatAbbreviation, ErrorFormatDescription)
                                     VALUES("{error_type[0]}","{error_type[1]}","{error_type[2]}")'''
         if not query.exec(sql):
             print(f'failed to add {error_type[0]}')
@@ -1321,12 +1280,12 @@ def populate_error_types():
                         conversion1to2 = '(x/y)*200'
                         # 2 sigma percent to 1 sigma absolute, x is the databased error and y is the value it is an error of
                         conversion2to1 = '(x/200)*y'
-                sql = f'''INSERT INTO ErrorTypeConversions(FromErrorTypeID, ToErrorTypeID, ErrorTypeConversionCalculation)
-                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),"{conversion1to2}")'''
+                sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
+                                    VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type1][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type2][1]}"),"{conversion1to2}")'''
                 if not query.exec(sql):
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
-                sql = f'''INSERT INTO ErrorTypeConversions(FromErrorTypeID, ToErrorTypeID, ErrorTypeConversionCalculation)
-                                    VALUES((SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type2][1]}"),(SELECT ErrorTypeID FROM ErrorTypes WHERE ErrorTypeAbbreviation = "{error_types[type1][1]}"),"{conversion2to1}")'''
+                sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
+                                    VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type2][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type1][1]}"),"{conversion2to1}")'''
                 if not query.exec(sql):
                     print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
 
@@ -1337,13 +1296,6 @@ def populate_gps_formats():
     """
 
     query = QtS.QSqlQuery()
-    # Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM GPSFormats'
-    if not query.exec(sql):
-        print(f'failed to delete GPSFormats')
-    sql = 'DELETE FROM GPSFormatConversions'
-    if not query.exec(sql):
-        print(f'failed to delete GPSFormatConversions')
     gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
                    ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
                    ('Degrees minutes positive/negative', 'DDM +/-', 'Degrees and decimal minutes with positive N and E and negative S and W'),
@@ -1519,9 +1471,6 @@ def populate_ages():
     """
 
     query = QtS.QSqlQuery()
-    # Begin by deleting all rows in the table to allow for a reset if things get changed
-    sql = 'DELETE FROM Ages'
-    query.exec(sql)
     xml_file = "./Reference/GeologicTime_Ages.xml"
     tree = ET.parse(xml_file)
     root = tree.getroot()

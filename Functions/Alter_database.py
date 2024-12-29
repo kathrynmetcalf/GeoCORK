@@ -9,6 +9,7 @@ import pyproj
 import Functions.Create_database as Create_db
 from Functions.Table_classes import set_table, get_columns
 from Functions.Database_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions import Database_manager
 import Functions.GPS_conversions as GPS # gps conversions
 
 def settings_reset():
@@ -52,6 +53,7 @@ def drop_virtual_columns(tables_affected: list):
                 print(f'Error copying data from {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop')
                 return
+            table_model.clear()
             if not query.exec(f'DROP TABLE {table}_old'):
                 print(f'Error dropping old {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop')
@@ -86,8 +88,8 @@ def populate_generated_columns():
     spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
     upb_analyses_model = QtS.QSqlTableModel()
     set_table(upb_analyses_model, 'UPbAnalyses')
-    affected_upb_ratio = ['UPbAnalyses', 'RatioErrorTypeID']
-    affected_upb_age = ['UPbAnalyses', ['AgeErrorTypeID','AgeUnitID']]
+    affected_upb_ratio = ['UPbAnalyses', 'RatioErrorFormatID']
+    affected_upb_age = ['UPbAnalyses', ['AgeErrorFormatID','AgeUnitID']]
     for col in range(upb_analyses_model.columnCount()):
         if upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole).endswith(
                 'AgeError'):
@@ -97,7 +99,7 @@ def populate_generated_columns():
                                              QtC.Qt.ItemDataRole.DisplayRole).endswith('Error'):
             affected_upb_ratio.append(
                 upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-    age_error_type_affected = [['SampleAges', ['DirectAgeErrorTypeID','DirectAgeUnitID'], 'DirectAgeError'], affected_upb_age]
+    age_error_type_affected = [['SampleAges', ['DirectAgeErrorFormatID','DirectAgeUnitID'], 'DirectAgeError'], affected_upb_age]
     ratio_error_type_affected = [affected_upb_ratio]
 
     # Convert the columns and catch any errors
@@ -116,10 +118,10 @@ def populate_generated_columns():
     output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id])
     if output == "error":
         return
-    output = convert_columns(age_error_type_affected, ['ErrorTypeConversions', 'AgeUnitConversions'], ['ErrorType','AgeUnit'], [age_error_type_id, age_unit_id])
+    output = convert_columns(age_error_type_affected, ['ErrorFormatConversions', 'AgeUnitConversions'], ['ErrorFormat','AgeUnit'], [age_error_type_id, age_unit_id])
     if output == "error":
         return
-    output = convert_columns(ratio_error_type_affected, ['ErrorTypeConversions'], ['ErrorType'], [ratio_error_type_id])
+    output = convert_columns(ratio_error_type_affected, ['ErrorFormatConversions'], ['ErrorFormat'], [ratio_error_type_id])
     if output == "error":
         return
     output = generate_reference_column('References', 'ReferenceID', reference_format)
@@ -131,7 +133,7 @@ def populate_generated_columns():
     release_savepoint('before_populate')
 
 def convert_columns(affected: list, conversion_table: list, id_header_base: list, selected_id: list):
-    if id_header_base[0] in ['AgeUnit', 'DistanceUnit', 'ErrorType', 'GPSFormat']:
+    if id_header_base[0] in ['AgeUnit', 'DistanceUnit', 'ErrorFormat', 'GPSFormat']:
         for table_list in affected:
             table = table_list.pop(0)
             if len(conversion_table) > 1:

@@ -23,7 +23,7 @@ import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import ui.import_wizard
-import ui.New_source
+import ui.New_reference
 from Functions.Alter_database import release_savepoint
 from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate
 from ui.EditSampleTable import EditSampleTable
@@ -33,6 +33,7 @@ from ui.Filters import QueryBuilder
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+from Functions.Settings_manager import settings
 
 # todo: Figure out why it is slowing down after checking and unchecking a bunch of stuff
 
@@ -40,8 +41,6 @@ class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
         super().__init__(parent=parent_window)
         self.parent_window = parent_window
-        self.db = self.parent_window.db
-        self.settings = QSettings("CSUF", "SampleInformation")
         self.savepoint_manager = SavepointManager.get_instance()
         # self.loadWindowState()
 
@@ -96,7 +95,7 @@ class SampleInformation(QtW.QDialog):
         self.age_constraint_tree = CheckableTreeModel()
         self.age_interpretation_model = QtS.QSqlTableModel()
         self.age_interpretation_tree = CheckableTreeModel()
-        self.age_source_model = CheckableSqlTableModel()
+        self.age_reference_model = CheckableSqlTableModel()
         self.sample_context_model = QtS.QSqlTableModel()
         self.sample_context_tree = CheckableTreeModel()
         self.sampling_method_model = QtS.QSqlTableModel()
@@ -116,7 +115,7 @@ class SampleInformation(QtW.QDialog):
         self.instrument_model = CheckableSqlTableModel()
         self.lab_facility_model = CheckableSqlTableModel()
         self.rejection_reason_model = QtS.QSqlTableModel()
-        self.source_model = CheckableSqlTableModel()
+        self.reference_model = CheckableSqlTableModel()
         self.upb_analysis_method_model = QtS.QSqlTableModel()
         self.concordance_type_model = QtS.QSqlTableModel()
 
@@ -176,20 +175,22 @@ class SampleInformation(QtW.QDialog):
         self.gps_format_model = self.set_table(self.gps_format_model, 'GPSFormats')
         self.gps_location_model = self.set_table(self.gps_location_model, 'GPSLocations')
         self.lat_direction_model = self.set_table(self.lat_direction_model, 'DirectionUnits')
+        self.lat_direction_model.setFilter('DirectionUnitAbbreviation = "N" OR DirectionUnitAbbreviation = "S"')
         self.lon_direction_model = self.set_table(self.lon_direction_model, 'DirectionUnits')
+        self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
         self.elevation_unit_model = self.set_table(self.elevation_unit_model, 'DistanceUnits')
         self.column_model = self.set_table(self.column_model, 'Columns')
         self.column_unit_model = self.set_table(self.column_unit_model, 'DistanceUnits')
         self.age_model = self.set_table(self.age_model, 'Ages')
         self.direct_age_unit_model = self.set_table(self.direct_age_unit_model, 'AgeUnits')
-        self.direct_age_error_model = self.set_table(self.direct_age_error_model, 'ErrorTypes')
+        self.direct_age_error_model = self.set_table(self.direct_age_error_model, 'ErrorFormats')
         self.oldest_age_tree.setSourceModel(self.age_model)
         self.youngest_age_tree.setSourceModel(self.age_model)
         self.age_constraint_model = self.set_table(self.age_constraint_model, 'AgeConstraints')
         self.age_constraint_tree.setSourceModel(self.age_constraint_model)
         self.age_interpretation_model = self.set_table(self.age_interpretation_model, 'AgeInterpretations')
         self.age_interpretation_tree.setSourceModel(self.age_interpretation_model)
-        self.age_source_model = self.set_table(self.source_model, 'Sources')
+        self.age_reference_model = self.set_table(self.reference_model, '"References"')
         self.sample_context_model = self.set_table(self.sample_context_model, 'SampleContexts')
         self.sample_context_tree.setSourceModel(self.sample_context_model)
         self.sampling_method_model = self.set_table(self.sampling_method_model, 'SamplingMethods')
@@ -204,7 +205,7 @@ class SampleInformation(QtW.QDialog):
         self.setting_tree.setSourceModel(self.setting_model)
         self.age_signature_model = self.set_table(self.age_signature_model, 'AgeSignatures')
         self.age_signature_tree.setSourceModel(self.age_signature_model)
-        self.source_model = self.set_table(self.source_model, 'Sources')
+        self.reference_model = self.set_table(self.reference_model, '"References"')
         self.analysis_method_model = self.set_table(self.analysis_method_model, 'UPbAnalysisMethods')
         self.analysis_method_tree.setSourceModel(self.analysis_method_model)
         self.lab_facility_model = self.set_table(self.lab_facility_model, 'LabFacilities')
@@ -230,12 +231,12 @@ class SampleInformation(QtW.QDialog):
         self.direct_age_unit_comboBox.setModel(self.direct_age_unit_model)
         self.show_column(self.direct_age_unit_comboBox, 'AgeUnitAbbreviation')
         self.direct_age_error_type_comboBox.setModel(self.direct_age_error_model)
-        self.show_column(self.direct_age_error_type_comboBox, 'ErrorTypeAbbreviation')
+        self.show_column(self.direct_age_error_type_comboBox, 'ErrorFormatAbbreviation')
         self.oldest_rel_comboBox.setModel(self.oldest_age_tree)
         self.youngest_rel_comboBox.setModel(self.youngest_age_tree)
         self.age_constraint_comboBox.setModel(self.age_constraint_tree)
         self.age_interpretation_comboBox.setModel(self.age_interpretation_tree)
-        self.age_source_comboBox.setModel(self.age_source_model)
+        self.age_reference_comboBox.setModel(self.age_reference_model)
         self.sample_context_comboBox.setModel(self.sample_context_tree)
         self.sampling_method_comboBox.setModel(self.sampling_method_tree)
         self.unit_comboBox.setModel(self.unit_tree)
@@ -243,7 +244,7 @@ class SampleInformation(QtW.QDialog):
         self.region_comboBox.setModel(self.region_tree)
         self.setting_comboBox.setModel(self.setting_tree)
         self.age_signature_comboBox.setModel(self.age_signature_tree)
-        self.source_comboBox.setModel(self.source_model)
+        self.reference_comboBox.setModel(self.reference_model)
         self.analysis_method_comboBox.setModel(self.analysis_method_tree)
         self.lab_facility_comboBox.setModel(self.lab_facility_model)
         self.instrument_comboBox.setModel(self.instrument_model)
@@ -266,7 +267,12 @@ class SampleInformation(QtW.QDialog):
         self.edit_age_comboBox.setItemDelegate(FontDelegate(self.edit_age_comboBox))
         samples_sampleage_model = QtS.QSqlTableModel()
         set_table(samples_sampleage_model, 'Samples_SampleAges')
-        samples_sampleage_model.setFilter(f'SampleID = {self.checked_sample_list[0]}')
+        if len(self.checked_sample_list) > 1:
+            samples_sampleage_model.setFilter(f'SampleID in {tuple(self.checked_sample_list)}')
+        elif len(self.checked_sample_list) == 1:
+            samples_sampleage_model.setFilter(f'SampleID = {self.checked_sample_list[0]}')
+        else:
+            samples_sampleage_model.setFilter('')
         sample_ages = []
         for row in range(samples_sampleage_model.rowCount()):
             sample_ages.append(samples_sampleage_model.index(row, 1).data())
@@ -328,7 +334,7 @@ class SampleInformation(QtW.QDialog):
         self.region_comboBox.closing.connect(lambda: self.update_sample_tags(self.region_tree, 'Regions'))
         self.setting_comboBox.closing.connect(lambda: self.update_sample_tags(self.setting_tree, 'Settings'))
         self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_tree, 'AgeSignatures'))
-        # self.source_comboBox.closing.connect(lambda: self.update_subfield_id(self.source_model, 'SourceID'))
+        # self.reference_comboBox.closing.connect(lambda: self.update_subfield_id(self.reference_model, 'ReferenceID'))
         # self.analysis_method_comboBox.closing.connect(lambda: self.update_subfield_id(self.analysis_method_model, 'UPbAnalysisMethodID'))
         # self.lab_facility_comboBox.closing.connect(lambda: self.update_subfield_id(self.lab_facility_model, 'LabFacilityID'))
         # self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id(self.instrument_model, 'InstrumentID'))
@@ -482,7 +488,7 @@ class SampleInformation(QtW.QDialog):
             self.age_description_lineEdit.setText(text_values[32])
             self.set_comboBox_text(self.age_constraint_comboBox, text_values[33])
             self.set_comboBox_text(self.age_interpretation_comboBox, text_values[34])
-            self.set_comboBox_text(self.age_source_comboBox, text_values[35])
+            self.set_comboBox_text(self.age_reference_comboBox, text_values[35])
 
             self.display_gps()
 
@@ -491,8 +497,8 @@ class SampleInformation(QtW.QDialog):
             self.age_constraint_comboBox.setCurrentText(text)
             text = self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_model, self.age_interpretation_tree)
             self.age_interpretation_comboBox.setCurrentText(text)
-            text = self.populate_checks('SampleAges_Sources', self.age_source_model)
-            self.age_source_comboBox.setCurrentText(text)
+            text = self.populate_checks('SampleAges_References', self.age_reference_model)
+            self.age_reference_comboBox.setCurrentText(text)
 
             # Sample tags
             text = self.populate_checks('Samples_SampleAges', self.sample_age_model)
@@ -511,9 +517,9 @@ class SampleInformation(QtW.QDialog):
             self.setting_comboBox.setCurrentText(text)
             text = self.populate_checks('Samples_AgeSignatures', self.age_signature_model, self.age_signature_tree)
             self.age_signature_comboBox.setCurrentText(text)
-            text = self.populate_upb_checks(self.source_model)
-            self.source_comboBox.set_single_click(True)
-            self.source_comboBox.setCurrentText(text)
+            text = self.populate_upb_checks(self.reference_model)
+            self.reference_comboBox.set_single_click(True)
+            self.reference_comboBox.setCurrentText(text)
             text = self.populate_upb_checks(self.analysis_method_model)
             self.analysis_method_comboBox.set_single_click(True)
             self.analysis_method_comboBox.setCurrentText(text)
@@ -631,10 +637,10 @@ class SampleInformation(QtW.QDialog):
         self.set_table(sampleage_ageinterpretation_model, 'SampleAges_AgeInterpretations')
         text = self.populate_checks('SampleAges_AgeInterpretations', sampleage_ageinterpretation_model)
         self.set_comboBox_text(self.age_interpretation_comboBox, text)
-        sampleage_source_model = QtS.QSqlTableModel()
-        self.set_table(sampleage_source_model, 'SampleAges_Sources')
-        text = self.populate_checks('SampleAges_Sources', sampleage_source_model)
-        self.set_comboBox_text(self.age_source_comboBox, text)
+        sampleage_reference_model = QtS.QSqlTableModel()
+        self.set_table(sampleage_reference_model, 'SampleAges_References')
+        text = self.populate_checks('SampleAges_References', sampleage_reference_model)
+        self.set_comboBox_text(self.age_reference_comboBox, text)
 
 
     def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
@@ -686,10 +692,10 @@ class SampleInformation(QtW.QDialog):
         return text
 
     def populate_upb_checks(self, table_model):
-        if table_model.tableName() == "Sources":
+        if table_model.tableName() == '"References"':
             # Display the ShortCitation
             col = 6
-        elif "Type" or "Unit" in table_model.tableName():
+        elif "Format" or "Unit" in table_model.tableName():
             # Display the abbreviation
             col = 2
         else:
@@ -741,9 +747,10 @@ class SampleInformation(QtW.QDialog):
             self.uncheck_all_samples()
         elif action == delete_action:
             if self.delete_question():
-                TbC.delete_samples(selected_indexes, self.db)
+                TbC.delete_samples(selected_indexes)
 
     def update_field(self, field: str, text: str):
+        print(f"Update_field called with {field} and {text}")
         if text != "-":
             if len(self.checked_sample_list) > 0:
                 if text is None or text == '':
@@ -756,10 +763,11 @@ class SampleInformation(QtW.QDialog):
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update')
                         return
-                    update_modified_timestamp('Samples', sample_id)
+                update_modified_timestamp('Samples', self.checked_sample_list)
                 release_savepoint('before_update')
 
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
+        print(f'Update_id called with {id_field}, {name_field}, {text}, {table}')
         table_model = QtS.QSqlTableModel()
         table_model.setTable(table)
         table_model.select()
@@ -775,10 +783,11 @@ class SampleInformation(QtW.QDialog):
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                     rollback_savepoint('before_update')
                     return
-                update_modified_timestamp('Samples', sample_id)
+            update_modified_timestamp('Samples', self.checked_sample_list)
             release_savepoint('before_update')
 
     def update_gps(self):
+        print('Update_gps called')
         if len(self.checked_sample_list) > 0:
             create_savepoint('before_update')
             gps_format_abbreviation = self.gps_format_comboBox.currentText()
@@ -917,6 +926,7 @@ class SampleInformation(QtW.QDialog):
             release_savepoint('before_update')
 
     def update_age(self):
+        print('Update_age called')
         if len(self.checked_sample_list) > 0:
             default_age = self.default_age_checkBox.isChecked()
             direct_age = self.direct_age_lineEdit.text()
@@ -940,7 +950,7 @@ class SampleInformation(QtW.QDialog):
                 age_description = 'Null'
             age_constraint = self.age_constraint_comboBox.currentText()
             age_interpretation = self.age_interpretation_comboBox.currentText()
-            age_source = self.age_source_comboBox.currentText()
+            age_reference = self.age_reference_comboBox.currentText()
 
             row = self.edit_age_comboBox.currentIndex()
             sample_age_id = self.sample_age_model.data(self.sample_age_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
@@ -953,7 +963,7 @@ class SampleInformation(QtW.QDialog):
             if direct_age_error_type == '':
                 direct_age_error_type_id = 'Null'
             else:
-                self.direct_age_error_model.setFilter(f"ErrorTypeAbbreviation = '{direct_age_error_type}'")
+                self.direct_age_error_model.setFilter(f"ErrorFormatAbbreviation = '{direct_age_error_type}'")
                 direct_age_error_type_id = self.direct_age_error_model.data(self.direct_age_error_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
             if oldest_rel == '':
                 oldest_rel_id = 'Null'
@@ -975,11 +985,11 @@ class SampleInformation(QtW.QDialog):
             else:
                 self.age_interpretation_model.setFilter(f"AgeInterpretationName = '{age_interpretation}'")
                 age_interpretation_id = self.age_interpretation_model.data(self.age_interpretation_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if age_source == '':
-                age_source_id = 'Null'
+            if age_reference == '':
+                age_reference_id = 'Null'
             else:
-                self.source_model.setFilter(f"ShortCitation = '{age_source}'")
-                age_source_id = self.source_model.data(self.source_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+                self.reference_model.setFilter(f"ShortCitation = '{age_reference}'")
+                age_reference_id = self.reference_model.data(self.reference_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
 
             create_savepoint('before_update')
             update_age = True
@@ -992,7 +1002,7 @@ class SampleInformation(QtW.QDialog):
                         update_age = False
             query = QtS.QSqlQuery()
             if update_age:
-                if not query.exec(f'''UPDATE SampleAges SET (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) = 
+                if not query.exec(f'''UPDATE SampleAges SET (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) = 
                     ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_direct}, {youngest_direct}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}") 
                     WHERE SampleAgeID = {sample_age_id}'''):
                     errtxt = query.lastError().text()
@@ -1001,7 +1011,7 @@ class SampleInformation(QtW.QDialog):
                     return
                 update_modified_timestamp('SampleAges', sample_age_id)
             else:
-                if not query.exec(f'''INSERT INTO SampleAges (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorTypeID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) VALUES 
+                if not query.exec(f'''INSERT INTO SampleAges (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) VALUES 
                     ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_direct}, {youngest_direct}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}")'''):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
@@ -1028,12 +1038,12 @@ class SampleInformation(QtW.QDialog):
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update')
                     return
-            if age_source_id != 'Null':
-                sampleages_sources_model = QtS.QSqlTableModel()
-                set_table(sampleages_sources_model, 'SampleAges_Sources')
-                sampleages_sources_model.setFilter(f"SampleAgeID = {sample_age_id} AND SourceID = {age_source_id}")
-                if sampleages_sources_model.rowCount() == 0:
-                    if not query.exec(f'''INSERT INTO SampleAges_Sources (SampleAgeID, SourceID) VALUES ({sample_age_id}, {age_source_id})'''):
+            if age_reference_id != 'Null':
+                sampleages_references_model = QtS.QSqlTableModel()
+                set_table(sampleages_references_model, 'SampleAges_References')
+                sampleages_references_model.setFilter(f"SampleAgeID = {sample_age_id} AND ReferenceID = {age_reference_id}")
+                if sampleages_references_model.rowCount() == 0:
+                    if not query.exec(f'''INSERT INTO SampleAges_References (SampleAgeID, ReferenceID) VALUES ({sample_age_id}, {age_reference_id})'''):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update')
@@ -1054,7 +1064,7 @@ class SampleInformation(QtW.QDialog):
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                         rollback_savepoint('before_update')
                         return
-                    update_modified_timestamp('Samples', sample_id)
+                    update_modified_timestamp('Samples', [sample_id])
                     print(f"Updated DefaultSampleAgeID to {sample_age_id} for SampleID {sample_id}")
                 if old_sample_age_id != sample_age_id:
                     if not query.exec(f'''DELETE FROM Samples_SampleAges WHERE SampleID = {sample_id} AND SampleAgeID = {old_sample_age_id}'''):
@@ -1073,15 +1083,13 @@ class SampleInformation(QtW.QDialog):
             self.populate_age_dropdown()
 
     def update_subfield_id(self, model: CheckableSqlTableModel, field: str):
-        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
+        print(f"update_subfield_id called with {model.tableName()} and {field}")
+        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If nothing is fully checked, then nothing should be updated
         checked_item_id = None  # Should only be one
         if len(upb_data_ids) > 0:
-            if model.tableName() == "Sources":
-                column = 6
-            else:
-                column = 1
+            column = TbC.name_column(model.tableName())
             for row in range(model.rowCount()):
                 name_index = model.index(row, column)
                 id_index = model.index(row, 0)
@@ -1138,8 +1146,9 @@ class SampleInformation(QtW.QDialog):
             release_savepoint('before_update')
 
     def update_sub_tags(self, model: TrC.CheckableTreeModel, table: str):
+        print(f"update_tags called with {model.source_model.tableName()} and {table}")
         field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list, self.db)
+        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If nothing is fully checked, then nothing should be updated
         checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
@@ -1209,9 +1218,9 @@ class SampleInformation(QtW.QDialog):
             pass
 
     def rollback(self, savepoint_name: str):
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
-            errtxt = Er.rollback_fail("Samples")
+            errtxt = query.lastError().text()
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
             self.reject()

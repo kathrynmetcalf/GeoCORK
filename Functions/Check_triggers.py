@@ -51,9 +51,9 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
         if error:
             return error
     if table == 'SampleAges':
-        error = check_insert_pairs(pairs, 'DirectAgeError', 'DirectAgeErrorTypeID')
+        error = check_insert_pairs(pairs, 'DirectAgeError', 'DirectAgeErrorFormatID')
         if error:
-            if error != 'DirectAgeErrorTypeID missing DirectAgeError':
+            if error != 'DirectAgeErrorFormatID missing DirectAgeError':
                 return "Direct age error given without error type"
         error = check_insert_pairs(pairs, 'DirectAgeError', 'DirectAge')
         if error:
@@ -98,22 +98,22 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
             if error:
                 if error != f'{ratio_list[index]} missing {ratio_error_list[index]}':
                     return f'{ratio_error_list[index]} missing {ratio_list[index]}'
-            error = check_insert_pairs(pairs, ratio_error_list[index], 'RatioErrorTypeID')
+            error = check_insert_pairs(pairs, ratio_error_list[index], 'RatioErrorFormatID')
             if error:
-                if error != 'RatioErrorTypeID missing RatioError':
+                if error != 'RatioErrorFormatID missing RatioError':
                     return "Ratio error given without error type"
         for index in range(len(age_error_list)):
             error = check_insert_pairs(pairs, age_error_list[index], age_list[index])
             if error:
                 if error != f'{age_list[index]} missing {age_error_list[index]}':
                     return f'{age_error_list[index]} missing {age_list[index]}'
-            error = check_insert_pairs(pairs, age_error_list[index], 'AgeErrorTypeID')
+            error = check_insert_pairs(pairs, age_error_list[index], 'AgeErrorFormatID')
             if error:
-                if error != 'AgeErrorTypeID missing AgeError':
+                if error != 'AgeErrorFormatID missing AgeError':
                     return "Age error given without error type"
-        error = check_insert_pairs(pairs, 'Concordance', 'ConcordanceTypeID')
+        error = check_insert_pairs(pairs, 'Concordance', 'ConcordanceFormatID')
         if error:
-            if error != 'ConcordanceTypeID missing Concordance':
+            if error != 'ConcordanceFormatID missing Concordance':
                 return "Concordance/discordance given without type"
         error = check_insert_pairs(pairs, 'SpotSize', 'SpotSizeUnitID')
         if error:
@@ -166,9 +166,9 @@ def validate_update(table: str, columns: list, values: list, where: str):
         if error:
             return error
     if table == 'SampleAges':
-        error = check_update_units(all_records, 'DirectAgeError', 'DirectAgeErrorTypeID')
+        error = check_update_units(all_records, 'DirectAgeError', 'DirectAgeErrorFormatID')
         if error:
-            if error != 'DirectAgeErrorTypeID missing DirectAgeError':
+            if error != 'DirectAgeErrorFormatID missing DirectAgeError':
                 return "Direct age error given without error type"
         error = check_update_pairs(all_records, 'DirectAgeError', 'DirectAge')
         if error:
@@ -213,22 +213,22 @@ def validate_update(table: str, columns: list, values: list, where: str):
             if error:
                 if error != f'{ratio_list[index]} missing {ratio_error_list[index]}':
                     return f'{ratio_error_list[index]} missing {ratio_list[index]}'
-            error = check_update_pairs(all_records, ratio_error_list[index], 'RatioErrorTypeID')
+            error = check_update_pairs(all_records, ratio_error_list[index], 'RatioErrorFormatID')
             if error:
-                if error != 'RatioErrorTypeID missing RatioError':
+                if error != 'RatioErrorFormatID missing RatioError':
                     return "Ratio error given without error type"
         for index in range(len(age_error_list)):
             error = check_update_pairs(all_records, age_error_list[index], age_list[index])
             if error:
                 if error != f'{age_list[index]} missing {age_error_list[index]}':
                     return f'{age_error_list[index]} missing {age_list[index]}'
-            error = check_update_pairs(all_records, age_error_list[index], 'AgeErrorTypeID')
+            error = check_update_pairs(all_records, age_error_list[index], 'AgeErrorFormatID')
             if error:
-                if error != 'AgeErrorTypeID missing AgeError':
+                if error != 'AgeErrorFormatID missing AgeError':
                     return "Age error given without error type"
-        error = check_update_pairs(all_records, 'Concordance', 'ConcordanceTypeID')
+        error = check_update_pairs(all_records, 'Concordance', 'ConcordanceFormatID')
         if error:
-            if error != 'ConcordanceTypeID missing Concordance':
+            if error != 'ConcordanceFormatID missing Concordance':
                 return "Concordance/discordance given without type"
         error = check_update_pairs(all_records, 'SpotSize', 'SpotSizeUnitID')
         if error:

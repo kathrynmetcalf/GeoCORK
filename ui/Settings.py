@@ -10,8 +10,8 @@ def default_settings():
         settings.setValue('gps_format_id', 1)
         settings.setValue('heightdepth_unit_id', 2)
         settings.setValue('spotsize_unit_id', 5)
-        settings.setValue('age_error_type_id', 1)
-        settings.setValue('ratio_error_type_id', 3)
+        settings.setValue('age_error_format_id', 1)
+        settings.setValue('ratio_error_format_id', 3)
         settings.setValue('reference_format', '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
         settings.setValue('decimals_to_show', 2)
         set_abbreviations()
@@ -49,8 +49,8 @@ def return_abbreviations():
 
 settings_tables = ['AgeUnits', 'DistanceUnits', 'GPSFormats', 'ErrorTypes']
 settings_ids = ['age_unit_id', 'elevation_unit_id', 'gps_format_id', 'heightdepth_unit_id', 'spotsize_unit_id',
-                'age_error_type_id', 'ratio_error_type_id']
+                'age_error_format_id', 'ratio_error_format_id']
 settings_ids_tables = [['age_unit_id', 'AgeUnits'], ['elevation_unit_id', 'DistanceUnits'],
                        ['gps_format_id', 'GPSFormats'], ['heightdepth_unit_id', 'DistanceUnits'],
-                       ['spotsize_unit_id', 'DistanceUnits'], ['age_error_type_id', 'ErrorTypes'],
-                       ['ratio_error_type_id', 'ErrorTypes']]
+                       ['spotsize_unit_id', 'DistanceUnits'], ['age_error_format_id', 'ErrorTypes'],
+                       ['ratio_error_format_id', 'ErrorTypes']]

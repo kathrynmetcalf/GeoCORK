@@ -39,10 +39,10 @@ def SampleViewQuery(ids_to_show=None):
                     {SQLUtils.qspot_contexts},
                     {SQLUtils.qlab_facilities},
                     {SQLUtils.qupb_analysis_methods},
-                    {SQLUtils.qupb_ratio_error_types},
+                    {SQLUtils.qupb_ratio_error_formats},
                     {SQLUtils.qupb_age_units},
-                    {SQLUtils.qupb_age_error_types},
-                    {SQLUtils.qconcordance_types},
+                    {SQLUtils.qupb_age_error_formats},
+                    {SQLUtils.qconcordance_formats},
                     {SQLUtils.qspot_sizes},
                     {SQLUtils.qupb_rejection_reasons}
                 FROM Samples
@@ -69,10 +69,10 @@ def SampleViewQuery(ids_to_show=None):
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
                 {SQLUtils.upb_method_join}
-                {SQLUtils.upb_ratio_error_type_join}
-                {SQLUtils.upb_age_error_type_join}
+                {SQLUtils.upb_ratio_error_format_join}
+                {SQLUtils.upb_age_error_format_join}
                 {SQLUtils.upb_age_unit_join}
-                {SQLUtils.upb_concordance_type_join}
+                {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
                 {where_statement}

@@ -10,7 +10,7 @@ class NewSource(QtW.QDialog):
 
         # Define any widgets here
         self.db_file = '../geochron_samples.db'
-        sources_ui_file = "New_source.ui"
+        sources_ui_file = "New_reference.ui"
         loadUi(sources_ui_file, self)
 
         self.existing = existing
