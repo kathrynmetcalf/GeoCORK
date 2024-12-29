@@ -62,6 +62,11 @@
          </item>
          <item>
           <property name="text">
+           <string>IsoplotR - 38/06, 07/06</string>
+          </property>
+         </item>
+         <item>
+          <property name="text">
            <string>DZStats</string>
           </property>
          </item>

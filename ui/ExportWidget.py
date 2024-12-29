@@ -120,12 +120,25 @@ class ExportWidget(QWidget):
         # Create the first workbook tab using the existing tableView
         tab1 = QWidget()
         tab1_layout = QVBoxLayout()
+        tab1_layout.setContentsMargins(0, 0, 0, 0)
+        tab1_layout.setSpacing(0)
         tab1.setLayout(tab1_layout)
         tableView = QTableView()
+
+        horizontal_layout = QHBoxLayout()
+        horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        horizontal_layout.setSpacing(0)
         distinct_checkbox = QCheckBox("Distinct Rows")
         distinct_checkbox.setToolTip("Check this box to only show distinct or unique rows a single time")
         distinct_checkbox.setChecked(False)
-        tab1_layout.addWidget(distinct_checkbox)
+        distinct_checkbox.setFixedSize(150,20)
+        horizontal_layout.addWidget(distinct_checkbox)
+
+        counter_label = QLabel("Number of Rows: ")
+        counter_label.setFixedSize(200,20)
+        horizontal_layout.addWidget(counter_label)
+
+        tab1_layout.addLayout(horizontal_layout)
         tab1_layout.addWidget(tableView)
 
         # Create a data model for this tableView
@@ -136,7 +149,8 @@ class ExportWidget(QWidget):
             'model': model,
             'distinct': False,
             'selected_columns': {},
-            'ordered_columns': {}
+            'ordered_columns': {},
+            'label': counter_label
         }
 
         self.workbooktabs.blockSignals(True)
@@ -191,12 +205,28 @@ class ExportWidget(QWidget):
         # Create a new tab
         new_tab = QWidget()
         tab_layout = QVBoxLayout()
+        tab_layout.setContentsMargins(0, 0, 0, 0)
+        tab_layout.setSpacing(0)
+
         new_tab.setLayout(tab_layout)
         distinct_checkbox = QCheckBox("Distinct Rows")
         distinct_checkbox.setToolTip("Check this box to only show distinct or unique rows a single time")
         distinct_checkbox.setChecked(distinct)
-        tab_layout.addWidget(distinct_checkbox)
+
+
+        horizontal_layout = QHBoxLayout()
+        horizontal_layout.setContentsMargins(0, 0, 0, 0)
+        horizontal_layout.setSpacing(0)
+
+        horizontal_layout.addWidget(distinct_checkbox)
+
+        counter_label = QLabel("Number of Rows: ")
+        counter_label.setFixedSize(200, 20)
+        horizontal_layout.addWidget(counter_label)
+
+        tab_layout.addLayout(horizontal_layout)
         tab_layout.addWidget(new_tableView)
+
 
         # Store the tableView and model in the workbook_tabs dictionary
         self.workbook_tabs[workbook_name] = {
@@ -204,7 +234,8 @@ class ExportWidget(QWidget):
             'model': model,
             'distinct': distinct,
             'selected_columns': selected_columns,
-            'ordered_columns': ordered_columns
+            'ordered_columns': ordered_columns,
+            'label': counter_label
         }
         self.workbooktabs.blockSignals(True)
         self.workbooktabs.addTab(new_tab, workbook_name)
@@ -217,14 +248,13 @@ class ExportWidget(QWidget):
         distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
         # Update the table view
         self.update_table_view()
-        self.repaint()
+        # self.repaint()
 
     def update_distinct_checkbox(self):
         current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         distinct_checkbox = self.workbook_tabs[current_workbook_name]['distinct']
         self.workbook_tabs[current_workbook_name]['distinct'] = not distinct_checkbox
         self.update_table_view()
-        print('checkbox state  ', distinct_checkbox)
 
     def remove_current_workbook_tab(self):
         if self.workbooktabs.count() <= 1:
@@ -401,7 +431,7 @@ class ExportWidget(QWidget):
         else:
             current_workbook_name = workbook_name
         tableView = self.workbook_tabs[current_workbook_name]['tableView']
-        # self.load_checkbox_states()
+
         if deleted:
             self.workbook_tabs[current_workbook_name]['selected_columns'] = self.workbook_tabs[current_workbook_name].get('ordered_columns', {})
             ordered_columns = self.workbook_tabs[current_workbook_name].get('ordered_columns', {})
@@ -451,8 +481,8 @@ class ExportWidget(QWidget):
                 join += SQLUtils.aliquot_join + '\n'
             if SQLUtils.spot_join not in join:
                 join += SQLUtils.spot_join + '\n'
-            if SQLUtils.upb_data_join not in join:
-                join += SQLUtils.upb_data_join + '\n'
+            if SQLUtils.upb_analysis_join not in join:
+                join += SQLUtils.upb_analysis_join + '\n'
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
             query = QSqlQuery()
@@ -478,23 +508,40 @@ class ExportWidget(QWidget):
 
         # todo Maybe change to pagination
 
-        #todo add distinct checkbox, always use first column, default to false
         if len(self.checked_sample_names) > 2:
             query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
             if len(filtered_where_clause) > 0:
                 query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
         else:
             query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
-        print (query_str)
         model = QSqlQueryModel()
         model.setQuery(query_str)
         self.workbook_tabs[current_workbook_name]['model'] = model
+
+        # Remove LIMIT 250 from the original query string and build the COUNT query
+        counter_sql_query = f"SELECT COUNT(*) FROM ({query_str.replace('LIMIT 250', '')}) AS SubQuery"
+
+        # Prepare and execute the query
+        counter_query = QSqlQuery()
+        if not counter_query.exec(counter_sql_query):
+            # Handle query execution error
+            print("Failed to execute query:", counter_query.lastError().text())
+        else:
+            # Move to the first record to retrieve the count
+            if counter_query.next():
+                count = counter_query.value(0)
+                self.workbook_tabs[current_workbook_name]['label'].setText(f"Number of Rows: {count}")
+            else:
+                # Handle case where query doesn't return a result
+                print("Query executed successfully but returned no results.")
 
         for col, (table, field) in enumerate(ordered_columns):
             header = f"{table}.{field}"
             model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
+
+
     def export_button(self):
         match self.exportformat_comboBox.currentText():
             case 'detritalPy':
@@ -593,28 +640,28 @@ class ExportWidget(QWidget):
         self.remove_workbook_button.setEnabled(True)
         match self.exportformat_comboBox.currentText():
             case 'detritalPy':
-                Samples_columns= {('Samples', 'SampleName'): True,
-                                   ('Units', 'UnitName'): True,
-                                   ('Samples', 'Latitude'): True,
-                                   ('Samples', 'Longitude'): True,
-                                   ('Sources', 'ShortCitation'): True}
+                Samples_columns= {
+                    ('Samples', 'SampleName'): True,
+                    ('Units', 'UnitName'): True,
+                    ('Samples', 'Latitude'): True,
+                    ('Samples', 'Longitude'): True,
+                    ('Sources', 'ShortCitation'): True
+                }
                 self.add_workbook_tab('Samples', True, Samples_columns, Samples_columns)
 
-                ZrUPb_columns = {('Samples', 'SampleName'): True,
-                          ('Spots', 'SpotName'): True,
-                          ('UPb Data', 'Uppm'): True,
-                          ('UPb Data', 'U/Th'): True,
-                          ('UPb Data', 'BestAge'): True,
-                          ('UPb Data', 'Error'): True,
-                          ('UPb Data', 'Conc'): True}
+                ZrUPb_columns = {
+                    ('Samples', 'SampleName'): True,
+                    ('Spots', 'SpotName'): True,
+                    ('UPbAnalyses', 'Uppm'): True,
+                    ('UPbAnalyses', 'CalculatedU/Th'): True,
+                    ('UPbAnalyses', 'BestAge'): True,
+                    ('UPbAnalyses', 'CalculatedBestAgeError'): True,
+                    ('UPbAnalyses', 'Concordance'): True
+                } # todo not inputting as the correct order
 
                 self.add_workbook_tab('ZrUPb', False, ZrUPb_columns, ZrUPb_columns)
-                pass
+                return
             case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
-                UPb_columns = {
-                                 ('UPb Data', '238U/206Pb'): True
-                                 }
-
                 # modeled after UPb6.csv in IsoplotR
                 # 207/235
                 # 206/238
@@ -622,13 +669,33 @@ class ExportWidget(QWidget):
                 # 207/206
                 # 204/207
                 # 204/206
-            case 'IsoplotR - 38/06, 07/06':
                 UPb_columns = {
-                    ('UPb Data', '238U/206Pb'): True
+                    ('UPbAnalyses', 'Calculated207Pb/235U'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/235UError'): True,
+                    ('UPbAnalyses', 'Calculated206Pb/238U'): True,
+                    ('UPbAnalyses', 'Calculated206Pb/238UError'): True,
+                    ('UPbAnalyses', 'Calculated204Pb/238U'): True,
+                    ('UPbAnalyses', 'Calculated204Pb/238UError'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/206PbError'): True,
+                    ('UPbAnalyses', 'Calculated204Pb/207Pb'): True,
+                    ('UPbAnalyses', 'Calculated204Pb/207PbError'): True,
+                    ('UPbAnalyses', 'Calculated204Pb/206Pb'): True,
+                    ('UPbAnalyses', 'Calculated204Pb/206PbError'): True
                 }
+                self.add_workbook_tab('IsoplotR', False, UPb_columns, UPb_columns)
+
+            case 'IsoplotR - 38/06, 07/06':
                 # modeled after UPb2.csv in IsoplotR
                 # 238/206
                 # 207/206
+                UPb_columns = {
+                    ('UPbAnalyses', 'Calculated238U/206Pb'): True,
+                    ('UPbAnalyses', 'Calculated238U/206PbError'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/206PbError'): True
+                }
+                self.add_workbook_tab('IsoplotR', False, UPb_columns, UPb_columns)
 
             case 'DZStats':
                 pass

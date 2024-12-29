@@ -440,7 +440,7 @@ table_attributes_dict = {
         "Calculated208Pb/204Pb",
         "Calculated204Pb/208Pb",
         "RatioErrorTypeID",
-        "CalculatedCordance",
+        "Concordance",
         "Rejected",
         "UPbAnalysisCreated",
         "UPbAnalysisModified",
