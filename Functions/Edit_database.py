@@ -3,6 +3,19 @@ from pathlib import Path
 
 import sqlite3
 from PyQt6 import QtWidgets as QtW
+import ui.New_source as NS
+import ui.New_lab_facility as NLF
+import sqlite3
+
+from PyQt6 import QtWidgets as QtW
+
+import ui.New_lab_facility as NLF
+import ui.New_source as NS
+import sys
+from pathlib import Path
+
+import sqlite3
+from PyQt6 import QtWidgets as QtW
 import ui.New_reference as NS
 import ui.New_lab_facility as NLF
 

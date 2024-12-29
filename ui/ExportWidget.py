@@ -1,27 +1,24 @@
 import os
-import sqlite3
 import sys
 from collections import Counter
 
-from PyQt6 import uic, QtCore
+from PyQt6 import QtCore
 from PyQt6.QtCore import QSettings, QSortFilterProxyModel
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
-    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QStackedWidget
+    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox
 )
 from PyQt6.uic import loadUi
-
 from openpyxl import Workbook
 
 import ExportDatabase
 import FilterDatabase
-from ui import Filters
 from Functions import SQLUtils
-
 from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox
+from ui import Filters
 
 
 class ExportWidget(QWidget):

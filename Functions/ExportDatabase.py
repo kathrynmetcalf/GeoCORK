@@ -1,9 +1,7 @@
-import sqlite3
-from typing import List, Dict, Any, Set
-
-from PyQt6.QtCore import QCoreApplication
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlError
 from typing import List, Dict, Any, Set, Optional, Tuple
+
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+
 
 def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
     """

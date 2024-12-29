@@ -4,8 +4,8 @@ import typing
 
 import PyQt6
 from PyQt6 import QtGui
-from PyQt6.QtCore import QSettings, Qt, QPoint, QSize
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QDialog, QDialogButtonBox
+from PyQt6.QtCore import QSettings, QPoint, QSize
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox
 from PyQt6.uic import loadUi
 
 

@@ -1,7 +1,5 @@
-import PyQt6
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtWidgets as QtW
-import Functions.Errors as Er
+
 
 class SavepointManager:
     _instance = None

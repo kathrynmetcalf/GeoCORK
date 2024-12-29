@@ -1,11 +1,10 @@
-import sqlite3
-import PyQt6
-from PyQt6 import QtSql as QtS
 import xml.etree.ElementTree as ET  # xml reader
 import Functions.Create_triggers as CT # triggers
 import Functions.DB_views as DBV # views
 import Functions.SQLUtils as SQLUtils
 import sys, os
+
+from PyQt6 import QtSql as QtS
 
 '''
 Commands to create the database

@@ -1,4 +1,4 @@
-from PyQt6.QtCore import QSize, QPoint, Qt, QRect, QPropertyAnimation, QParallelAnimationGroup, QEasingCurve, pyqtSignal
+from PyQt6.QtCore import QSize, QPoint, Qt, QRect, pyqtSignal
 from PyQt6.QtWidgets import QLayout, QSpacerItem, QSizePolicy
 
 

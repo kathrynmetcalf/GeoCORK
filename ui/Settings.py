@@ -1,4 +1,5 @@
 from PyQt6.QtSql import QSqlTableModel
+
 from Functions.Settings_manager import settings
 
 

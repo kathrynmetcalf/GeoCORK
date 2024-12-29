@@ -1,5 +1,4 @@
 import os
-import sqlite3
 import sys
 
 from PyQt6 import QtCore as QtC
@@ -7,16 +6,15 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
 from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QHBoxLayout, QPushButton, QVBoxLayout, QComboBox
+from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox
 from PyQt6.uic import loadUi
 
 import Functions.Table_classes as TbC
 import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
-from ui.EditTable import EditTable
 from Functions import SQLUtils
-from Functions.Table_classes import AliquotTableModel
 from Functions.Tree_classes import TreeSortFilterProxyModel
+from ui.EditTable import EditTable
 
 
 class DataViewerWidget(QWidget):

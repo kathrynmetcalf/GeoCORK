@@ -1,9 +1,10 @@
 import sqlite3
-import PyQt6
+
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtWidgets as QtW
+
 import Functions.SQLUtils as SQLUtils
 from Functions.SQLUtils import gps_column_join
+
 
 
 def SampleViewQuery(ids_to_show=None):

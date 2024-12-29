@@ -1,27 +1,19 @@
 import ast
 import json
-import random
-import re
-import sqlite3
 
-import PyQt6
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import QRect, Qt, QEvent, QCoreApplication, QEventLoop, QRegularExpression
-from PyQt6.QtGui import QFontMetrics, QScrollEvent, QColor, QIcon, QAction, QRegularExpressionValidator, \
+from PyQt6.QtCore import QRect, Qt, QEventLoop, QRegularExpression
+from PyQt6.QtGui import QFontMetrics, QColor, QAction, QRegularExpressionValidator, \
     QDoubleValidator
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from PyQt6.QtSql import QSqlDatabase
-from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QCheckBox, QPushButton, QGroupBox, QLabel,
-    QStyleOptionGroupBox, QStyle, QInputDialog, QErrorMessage, QMessageBox, QScrollArea, QSizePolicy, QLayout,
-    QListView, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem, QMainWindow
+    QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QGroupBox, QLabel,
+    QInputDialog, QMessageBox, QScrollArea, QSizePolicy, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem
 )
 
 from Functions import SQLUtils
 from ui.DataViewerWidget import DataViewerWidget
-from ui.QComboBoxLabel import QComboBoxLabel
+
 
 def process_json_to_sql(json_string, scope):
     """

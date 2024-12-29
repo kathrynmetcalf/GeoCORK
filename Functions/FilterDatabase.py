@@ -1,8 +1,6 @@
-import sqlite3
 from typing import List, Dict, Any, Set, Optional, Tuple
 
-from PyQt6.QtCore import QCoreApplication
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlError
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 
 ###############################################################################
@@ -499,7 +497,6 @@ def gather_ids_for_subset(
 ###############################################################################
 
 if __name__ == "__main__":
-    import os
 
     src_db = "/Users/jarrodburges/Downloads/newschema.db"
 

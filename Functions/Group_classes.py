@@ -1,12 +1,9 @@
 import random
 import typing
+
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtGui as QtG
-from PyQt6.uic import loadUi
-from collections import namedtuple
-import Functions.Text_manipulations as TxM
+
 
 # Based on code from https://stackoverflow.com/questions/7858653/qt-pyside-qsqlmodel-qabstractitemmodel-and-qtreeview-interaction
 # Originally written for PyQt4

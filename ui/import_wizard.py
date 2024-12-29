@@ -1,21 +1,19 @@
 import sqlite3
 import sys
 import time
-from pathlib import Path
 
 import PyQt6.QtCore
 import pandas
-from PyQt6 import QtWidgets, QtGui
-from PyQt6.QtCore import QSize, QRect, Qt, QCoreApplication, QMetaObject
-from PyQt6.QtWidgets import QDialogButtonBox, QWidget, QVBoxLayout, QTableView, QComboBox, QLabel, QApplication, \
-    QDialog, QTabWidget, QTableWidgetItem, QTableWidget, QFileDialog, QGroupBox, QScrollArea, QCheckBox, QLineEdit
 import pandas as pd
+from PyQt6 import QtWidgets, QtGui
+from PyQt6.QtCore import Qt, QCoreApplication
+from PyQt6.QtWidgets import QDialogButtonBox, QWidget, QVBoxLayout, QComboBox, QLabel, QApplication, \
+    QDialog, QTabWidget, QTableWidgetItem, QTableWidget, QScrollArea, QCheckBox
+from pandas.core.interchange import dataframe
 
+from ui.FlowLayout import FlowLayout
 from ui.QComboBoxLabel import QComboBoxLabel
 from ui.QLineEditLabel import QLineEditLabel
-from ui.FlowLayout import FlowLayout
-from pandas.core.interchange import dataframe
-import Functions.Check_triggers as Ct
 
 
 # noinspection PyArgumentList

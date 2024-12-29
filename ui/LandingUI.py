@@ -1,22 +1,21 @@
+import os
 import sqlite3
 import sys
+import webbrowser
 from pathlib import Path
 
-import PyQt6
-from PyQt6 import QtWidgets, QtCore
-from PyQt6.QtCore import QSettings, QEventLoop, Qt, QPoint, QSize
-from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtSql import QSqlDatabase
-from PyQt6.uic import loadUi
 import qtawesome
-from PyQt6.QtWidgets import QApplication, QFileDialog, QMainWindow, QPushButton, QStyle, QMessageBox, QWidget, \
+from PyQt6.QtCore import QSettings, QEventLoop, Qt, QPoint, QSize
+from PyQt6.QtGui import QPixmap
+from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
     QListWidget
-import webbrowser
+from PyQt6.uic import loadUi
+
 from Functions.Create_database import create_tables
 from ui.GeoChronMain import GeoChron
-
 from ui.QPropertiesDialog import QPropertiesDialog
-import os, sys
+
 
 class LandingPage(QWidget):
     def __init__(self):

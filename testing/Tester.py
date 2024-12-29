@@ -1,11 +1,8 @@
 import sys
-from pathlib import Path
-import sqlite3
+
+from PyQt6 import QtSql as QtS
 # import pandas as pd
 from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
-from PyQt6 import QtSql as QtS
 
 
 class Window(QtW.QWidget):

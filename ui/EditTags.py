@@ -1,12 +1,11 @@
 import os
 import sys
-from pathlib import Path
-import sqlite3
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
+
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
+from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
+
 import Functions.Check_triggers as Ct
 
 

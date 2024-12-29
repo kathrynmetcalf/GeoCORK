@@ -1,11 +1,11 @@
 
+import signal
 import sys
 
 from PyQt6.QtWidgets import QApplication, QErrorMessage
 
 from ui.LandingUI import LandingPage
 
-import signal
 signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 def error_handler(type, value, traceback):
