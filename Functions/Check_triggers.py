@@ -342,6 +342,10 @@ def check_gps_format_insert(pairs: list, format_id: int):
             return 'UTM coordinates given for degrees format. Coordinates should be entered in the format originally provided.'
         if (new_latdeg != 'Null' and new_londeg == 'Null') or (new_latdeg == 'Null' and new_londeg != 'Null'):
             return 'Missing degrees lat or lon in degree format'
+        if float(new_latdeg) < -90 or float(new_latdeg) > 90:
+            return 'Latitude must be between -90 and 90'
+        if float(new_londeg) < -180 or float(new_londeg) > 180:
+            return 'Longitude must be between -180 and 180'
         if 'DD ' in gps_format_abbreviation:
             # DD
             if new_latmin != 'Null' or new_latsec != 'Null' or new_lonmin != 'Null' or new_lonsec != 'Null':
@@ -352,14 +356,18 @@ def check_gps_format_insert(pairs: list, format_id: int):
                 return 'Missing minutes lat or lon in degree format'
             if (new_latdeg == 'Null' and new_latmin != 'Null') or (new_londeg == 'Null' and new_lonmin != 'Null'):
                 return 'Minutes given without degrees in degree format'
-        elif 'DDM ' in gps_format_abbreviation:
-            if new_latsec != 'Null' or new_lonsec != 'Null':
-                return 'Seconds given in DDM format'
-        elif 'DMS' in gps_format_abbreviation:
-            if (new_latsec != 'Null' and new_lonsec == 'Null') or (new_latsec == 'Null' and new_lonsec != 'Null'):
-                return 'Missing seconds lat or lon in DMS format'
-            if (new_latmin == 'Null' and new_latsec != 'Null') or (new_lonmin == 'Null' and new_lonsec != 'Null'):
-                return 'Seconds given without minutes in DMS format'
+            if float(new_latmin) < 0 or float(new_latmin) >= 60 or float(new_lonmin) < 0 or float(new_lonmin) >= 60:
+                return 'Minutes must be between 0 and 59'
+            if 'DDM ' in gps_format_abbreviation:
+                if new_latsec != 'Null' or new_lonsec != 'Null':
+                    return 'Seconds given in DDM format'
+            elif 'DMS' in gps_format_abbreviation:
+                if (new_latsec != 'Null' and new_lonsec == 'Null') or (new_latsec == 'Null' and new_lonsec != 'Null'):
+                    return 'Missing seconds lat or lon in DMS format'
+                if (new_latmin == 'Null' and new_latsec != 'Null') or (new_lonmin == 'Null' and new_lonsec != 'Null'):
+                    return 'Seconds given without minutes in DMS format'
+                if float(new_latsec) < 0 or float(new_latsec) >= 60 or float(new_lonsec) < 0 or float(new_lonsec) >= 60:
+                    return 'Seconds must be between 0 and 59'
         if '+/-' in gps_format_abbreviation:
             if new_latdir != 'Null' or new_londir != 'Null':
                 return 'Use signs instead of directions in +/- format'

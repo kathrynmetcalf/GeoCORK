@@ -109,6 +109,9 @@ class VerifiableRelationalTableModel(QtS.QSqlRelationalTableModel):
             return True
         if self.tableName() in SQLUtils.trigger_tables:
             # get the edited row
+            if len(self.edited_indexes) == 0:
+                # no rows edited
+                return True
             current_row = self.edited_indexes[0].row()
             columns = []
             values = []
@@ -133,76 +136,6 @@ class VerifiableRelationalTableModel(QtS.QSqlRelationalTableModel):
         if error is not None:
             print(error)
             return False
-
-
-class NullDoubleSpinBox(QtW.QDoubleSpinBox):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setSpecialValueText('')
-        self.nan_placeholder = float("nan")
-        self.setDecimals(settings.value('decimals_to_show'))
-
-    def validate(self, input, pos):
-        print(f'Validate: {input}')
-        if input == '':
-            return QtG.QValidator.State.Acceptable, input, pos
-        return super().validate(input, pos)
-
-    def textFromValue(self, value):
-        if self.specialValueText() or value != value:
-            print(f'TextFromValue: {self.specialValueText()}')
-            return self.specialValueText()
-        return super().textFromValue(value)
-
-    def valueFromText(self, text):
-        if text == self.specialValueText():
-            print(f'ValueFromText: {self.nan_placeholder}')
-            return self.nan_placeholder
-        return super().valueFromText(text)
-
-    def interpretText(self):
-        value = self.valueFromText(self.text())
-        print(f'Interpret text: {value}')
-        self.setValue(value)
-
-    def focusOutEvent(self, event):
-        print(f'Focus out event: {self.value()}')
-        super().focusOutEvent(event)
-
-class NullDoubleSpinBoxDelegate(QtW.QStyledItemDelegate):
-    def createEditor(self, parent, option, index):
-        editor = NullDoubleSpinBox(parent)
-        return editor
-
-    def setEditorData(self, editor, index):
-        value = index.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
-        print(f"Set editor value: {value}")
-        if value is None or value == '' or value != value:
-            editor.setValue(editor.nan_placeholder)
-        else:
-            editor.setValue(float(value))
-
-    def setModelData(self, editor, model, index):
-        value = editor.value()
-        print(f"Set model value: {value}")
-        if value != value:
-            model.setData(index, None, QtC.Qt.ItemDataRole.EditRole)
-        else:
-            model.setData(index, value, QtC.Qt.ItemDataRole.EditRole)
-
-    def updateEditorGeometry(self, editor, option, index):
-        editor.setGeometry(option.rect)
-
-    # def eventFilter(self, object, event: QtC.QEvent):
-    #     if event.type() == QtC.QEvent.Type.KeyPress:
-    #         if event.key() == QtC.Qt.Key.Key_Return or event.key() == QtC.Qt.Key.Key_Enter:
-    #             object.clearFocus()
-    #             return True
-    #
-    #     if event.type() == QtC.QEvent.Type.FocusOut:
-    #         self.commitData.emit(object)
-    #         self.closeEditor.emit(object, QtW.QAbstractItemDelegate.EndEditHint.NoHint)
-    #     return super().eventFilter(object, event)
 
 class SampleTableModel(QtS.QSqlQueryModel):
     def __init__(self):
@@ -237,33 +170,33 @@ class SampleTableModel(QtS.QSqlQueryModel):
 def SampleIfNullQuery():
     sample_ifnull_query = f'''
     SELECT 
-        {SQLUtils.qsample_id_ifnull},
+        {SQLUtils.qsample_id},
         {SQLUtils.qigsn_ifnull},
-        {SQLUtils.qgps_id_ifnull},
+        {SQLUtils.qsample_gps_id_ifnull},
         {SQLUtils.qcolumn_name_ifnull},
         {SQLUtils.qheight_depth_ifnull},
         {SQLUtils.qheight_depth_error_ifnull},
         {SQLUtils.qheight_depth_unit_ifnull},
         {SQLUtils.qsample_description_ifnull},
-        {SQLUtils.qlat_deg_ifnull},
-        {SQLUtils.qlat_min_ifnull},
-        {SQLUtils.qlat_sec_ifnull},
-        {SQLUtils.qlat_dir_ifnull},
-        {SQLUtils.qlon_deg_ifnull},
-        {SQLUtils.qlon_min_ifnull},
-        {SQLUtils.qlon_sec_ifnull},
-        {SQLUtils.qlon_dir_ifnull},
-        {SQLUtils.qutm_zone_ifnull},
-        {SQLUtils.qutm_northing_ifnull},
-        {SQLUtils.qutm_easting_ifnull},
-        {SQLUtils.qgps_format_ifnull},
-        {SQLUtils.qgps_elev_ifnull},
-        {SQLUtils.qgps_elev_error_ifnull},
-        {SQLUtils.qgps_elev_unit_ifnull},
+        {SQLUtils.qsample_lat_deg_ifnull},
+        {SQLUtils.qsample_lat_min_ifnull},
+        {SQLUtils.qsample_lat_sec_ifnull},
+        {SQLUtils.qsample_lat_dir_ifnull},
+        {SQLUtils.qsample_lon_deg_ifnull},
+        {SQLUtils.qsample_lon_min_ifnull},
+        {SQLUtils.qsample_lon_sec_ifnull},
+        {SQLUtils.qsample_lon_dir_ifnull},
+        {SQLUtils.qsample_utm_zone_ifnull},
+        {SQLUtils.qsample_utm_northing_ifnull},
+        {SQLUtils.qsample_utm_easting_ifnull},
+        {SQLUtils.qsample_gps_format_ifnull},
+        {SQLUtils.qsample_gps_elev_ifnull},
+        {SQLUtils.qsample_gps_elev_error_ifnull},
+        {SQLUtils.qsample_gps_elev_unit_ifnull},
         {SQLUtils.qsample_default_age_id_ifnull},
         {SQLUtils.qsample_direct_age_ifnull},
         {SQLUtils.qsample_direct_age_error_ifnull},
-        {SQLUtils.qsample_direct_age_error_type_ifnull},
+        {SQLUtils.qsample_direct_age_error_format_ifnull},
         {SQLUtils.qsample_oldest_direct_age_ifnull},
         {SQLUtils.qsample_youngest_direct_age_ifnull},
         {SQLUtils.qsample_direct_age_unit_ifnull},
@@ -301,15 +234,43 @@ def SampleIfNullQuery():
     {SQLUtils.upb_labs_join}
     {SQLUtils.upb_instruments_join}
     {SQLUtils.upb_method_join}
-    {SQLUtils.upb_ratio_error_type_join}
-    {SQLUtils.upb_age_error_type_join}
+    {SQLUtils.upb_ratio_error_format_join}
+    {SQLUtils.upb_age_error_format_join}
     {SQLUtils.upb_age_unit_join}
-    {SQLUtils.upb_concordance_type_join}
+    {SQLUtils.upb_concordance_format_join}
     {SQLUtils.upb_spot_size_unit_join}
     {SQLUtils.upb_rejection_reason_join}
     '''
     # print(sample_ifnull_query)
     return sample_ifnull_query
+
+def ColumnIfNullQuery():
+    column_ifnull_query = f'''
+    SELECT 
+        {SQLUtils.qcolumn_id},
+        {SQLUtils.qcolumn_gps_id_ifnull},
+        {SQLUtils.qcolumn_gps_converted_ifnull},
+        {SQLUtils.qcolumn_lat_deg_ifnull},
+        {SQLUtils.qcolumn_lat_min_ifnull},
+        {SQLUtils.qcolumn_lat_sec_ifnull},
+        {SQLUtils.qcolumn_lat_dir_ifnull},
+        {SQLUtils.qcolumn_lon_deg_ifnull},
+        {SQLUtils.qcolumn_lon_min_ifnull},
+        {SQLUtils.qcolumn_lon_sec_ifnull},
+        {SQLUtils.qcolumn_lon_dir_ifnull},
+        {SQLUtils.qcolumn_utm_zone_ifnull},
+        {SQLUtils.qcolumn_utm_northing_ifnull},
+        {SQLUtils.qcolumn_utm_easting_ifnull},
+        {SQLUtils.qcolumn_gps_format_id_ifnull},
+        {SQLUtils.qcolumn_gps_format_ifnull},
+        {SQLUtils.qcolumn_gps_elev_ifnull},
+        {SQLUtils.qcolumn_gps_elev_error_ifnull},
+        {SQLUtils.qcolumn_gps_elev_unit_ifnull}
+    FROM Columns
+    {SQLUtils.gps_column_join}
+    {SQLUtils.gps_column_left_joins}
+    '''
+    return column_ifnull_query
 
 class AliquotTableModel(QtS.QSqlQueryModel):
     def setupQuery(self):
@@ -449,10 +410,49 @@ def name_column(table: str):
         return 2
     elif table == '"References"':
         return 6
+    elif table == 'GPSLocations':
+        return 1
     elif table in SQLUtils.user_viewable_tables or table == 'Spots' or table == 'SampleAges':
         return 1
     else:
         return None
+
+def column_type(table: str, column: str):
+    query = QtS.QSqlQuery()
+    column_type = None
+    if not query.exec(f'PRAGMA table_info("{table}")'):
+        print(f"Failed to get columns for {table}")
+        return column_type
+    while query.next():
+        if query.value(1) == column:
+            column_type = query.value(2)
+            break
+    return column_type
+
+def foreign_key_columns(table: str):
+    query = QtS.QSqlQuery()
+    foreign_keys = {}
+    if not query.exec(f'PRAGMA foreign_key_list("{table}")'):
+        print(f"Failed to get foreign keys for {table}")
+        return foreign_keys
+    while query.next():
+        foreign_table = query.value(2)
+        table_display_column = name_column(foreign_table)
+        foreign_query = QtS.QSqlQuery()
+        if not foreign_query.exec(f'PRAGMA table_info("{foreign_table}")'):
+            print(f"Failed to get columns for {foreign_table}")
+            return foreign_keys
+        while foreign_query.next():
+            if foreign_query.value(0) == table_display_column:
+                table_display_header = foreign_query.value(1)
+                break
+        try: table_display_header
+        except NameError:
+            table_display_header = None
+            print(f"Failed to get display column for {foreign_table}")
+            return {}
+        foreign_keys[query.value(3)] = {'table': query.value(2), 'id_column': query.value(4), 'display_column': table_display_header}
+    return foreign_keys
 
 class ComboList(QtW.QComboBox):
     def __init__(self, parent, model):

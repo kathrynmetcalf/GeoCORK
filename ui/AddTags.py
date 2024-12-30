@@ -10,13 +10,12 @@ import Functions.Errors as Er
 import Functions.Check_triggers as Ct
 
 class AddTags(QtW.QDialog):
-    def __init__(self, database, model, table):
+    def __init__(self, model, table):
         super().__init__()
 
         # Define any widgets here
         tags_ui_file = "ui/AddTags.ui"
         loadUi(tags_ui_file, self)
-        self.db = database
         self.model = model
         self.table = table
         self.table_name = TxM.add_spaces_camel(self.table)

@@ -24,6 +24,7 @@ import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import ui.import_wizard
 import ui.New_reference
+import ui.GPSFields
 from Functions.Alter_database import release_savepoint
 from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate
 from ui.EditSampleTable import EditSampleTable
@@ -34,6 +35,8 @@ from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTr
 from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import settings
+from ui.GPSFields import GPSFields
+
 
 # todo: Figure out why it is slowing down after checking and unchecking a bunch of stuff
 
@@ -44,18 +47,10 @@ class SampleInformation(QtW.QDialog):
         self.savepoint_manager = SavepointManager.get_instance()
         # self.loadWindowState()
 
-        self.lat_deg_lineEdit: QtW.QLineEdit
-        # widget.setProperty
-        self.lat_min_lineEdit: QtW.QLineEdit
-        self.lat_sec_lineEdit: QtW.QLineEdit
-        self.lat_combobox: QtW.QComboBox
-        self.lon_deg_lineEdit: QtW.QLineEdit
-        self.lon_min_lineEdit: QtW.QLineEdit
-        self.lon_sec_lineEdit: QtW.QLineEdit
-        self.lon_combobox: QtW.QComboBox
-
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
+        self.gps = GPSFields('Samples', sample_id_list)
+        self.gps_column_verticalLayout.insertWidget(0, self.gps)
 
         # Sample names table
         self.sample_names_model = CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
@@ -444,27 +439,27 @@ class SampleInformation(QtW.QDialog):
                 text_values.append(text)
         if len(text_values) > 0:
             self.sample_igsn_lineEdit.setText(f"{text_values[1]}")
-            self.gps_location_ids = text_values[2]
+            # self.gps_location_ids = text_values[2]
             self.set_comboBox_text(self.column_name_comboBox, text_values[3])
             self.height_depth_lineEdit.setText(f"{text_values[4]}")
             self.height_depth_error_lineEdit.setText(f"{text_values[5]}")
             self.set_comboBox_text(self.height_depth_unit_comboBox, text_values[6])
             self.sample_description_lineEdit.setText(text_values[7])
-            self.lat_deg_lineEdit.setText(f"{text_values[8]}")
-            self.lat_min_lineEdit.setText(f"{text_values[9]}")
-            self.lat_sec_lineEdit.setText(f"{text_values[10]}")
-            self.set_comboBox_text(self.lat_comboBox, text_values[11])
-            self.lon_deg_lineEdit.setText(f"{text_values[12]}")
-            self.lon_min_lineEdit.setText(f"{text_values[13]}")
-            self.lon_sec_lineEdit.setText(f"{text_values[14]}")
-            self.set_comboBox_text(self.lon_comboBox, text_values[15])
-            self.utm_zone_lineEdit.setText(f"{text_values[16]}")
-            self.utm_n_lineEdit.setText(f"{text_values[17]}")
-            self.utm_e_lineEdit.setText(f"{text_values[18]}")
-            self.set_comboBox_text(self.gps_format_comboBox, text_values[19])
-            self.elevation_lineEdit.setText(f"{text_values[20]}")
-            self.elevation_error_lineEdit.setText(f"{text_values[21]}")
-            self.set_comboBox_text(self.elevation_unit_comboBox, text_values[22])
+            # self.lat_deg_lineEdit.setText(f"{text_values[8]}")
+            # self.lat_min_lineEdit.setText(f"{text_values[9]}")
+            # self.lat_sec_lineEdit.setText(f"{text_values[10]}")
+            # self.set_comboBox_text(self.lat_comboBox, text_values[11])
+            # self.lon_deg_lineEdit.setText(f"{text_values[12]}")
+            # self.lon_min_lineEdit.setText(f"{text_values[13]}")
+            # self.lon_sec_lineEdit.setText(f"{text_values[14]}")
+            # self.set_comboBox_text(self.lon_comboBox, text_values[15])
+            # self.utm_zone_lineEdit.setText(f"{text_values[16]}")
+            # self.utm_n_lineEdit.setText(f"{text_values[17]}")
+            # self.utm_e_lineEdit.setText(f"{text_values[18]}")
+            # self.set_comboBox_text(self.gps_format_comboBox, text_values[19])
+            # self.elevation_lineEdit.setText(f"{text_values[20]}")
+            # self.elevation_error_lineEdit.setText(f"{text_values[21]}")
+            # self.set_comboBox_text(self.elevation_unit_comboBox, text_values[22])
             default_age_ids = text_values[23]
             self.default_age_ids = []
             if default_age_ids != '':
@@ -489,6 +484,8 @@ class SampleInformation(QtW.QDialog):
             self.set_comboBox_text(self.age_constraint_comboBox, text_values[33])
             self.set_comboBox_text(self.age_interpretation_comboBox, text_values[34])
             self.set_comboBox_text(self.age_reference_comboBox, text_values[35])
+
+
 
             self.display_gps()
 

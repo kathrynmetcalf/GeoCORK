@@ -32,6 +32,9 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
     else:
         differences = compare_schemas(db_schema, blank_schema)
         # all ages were in Ma, all elevations were in m, and all gps were in DD +/-
+        if differences['only_in_input_schema'] == [] and differences['only_in_current_schema'] == []:
+            # the only differences are in the data, not the schema
+            return database
         age_unit_id = 2  # Ma
         elev_unit_id = 2  # m
         gps_format_id = 1  # DD +/-
