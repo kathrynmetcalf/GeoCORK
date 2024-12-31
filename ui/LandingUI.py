@@ -80,7 +80,7 @@ class LandingPage(QWidget):
         database_path = self.get_filename()
         try:
             # Attempt to connect and perform a simple query
-            connection = sqlite3.connect(database_path, timeout=2)  # Set timeout to 1 second
+            connection = sqlite3.connect(database_path, timeout=1)  # Set timeout to 1 second
             cursor = connection.cursor()
             cursor.execute("PRAGMA schema_version")  # Simple query to test access
             connection.close()

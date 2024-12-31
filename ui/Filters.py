@@ -42,8 +42,8 @@ def process_json_to_sql(json_string, scope):
             join += SQLUtils.aliquot_join + '\n'
         if SQLUtils.spot_join not in join:
             join += SQLUtils.spot_join + '\n'
-        if SQLUtils.upb_data_join not in join:
-            join += SQLUtils.upb_data_join + '\n'
+        if SQLUtils.upb_analysis_join not in join:
+            join += SQLUtils.upb_analysis_join + '\n'
         return f"SELECT * FROM Samples {join} WHERE {where};"
 
 
@@ -411,6 +411,7 @@ class RuleWidget(QWidget):
         """
         # Hide the unit combo by default, show only for numeric/time-based fields
         self.unit_combo.hide()
+        self.value_input.clear()
 
         if 'between' in self.operator_combo.currentText():
             # Date-based fields
@@ -444,7 +445,7 @@ class RuleWidget(QWidget):
                    "Name" in self.attribute_combo.currentText() or
                    "ErrorSigma" in self.attribute_combo.currentText() or
                    "Unit" in self.attribute_combo.currentText()) or
-                  self.table_combo.currentText() == "Sources"):
+                  self.table_combo.currentText() == '"References"'):
                 # Text-based
                 self.value_input.setPlaceholderText("e.g. abc123")
                 self.value_input.setValidator(None)  # No numeric validator
@@ -465,8 +466,7 @@ class RuleWidget(QWidget):
         """
         Based on the attribute selected, populate the operator combo.
         """
-        if "Created" in self.attribute_combo.currentText() or "Mofified" in self.attribute_combo.currentText() \
-                or "Modified" in self.attribute_combo.currentText():
+        if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
             operator_items = [
                 "is on",
                 "is not on",

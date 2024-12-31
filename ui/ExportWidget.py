@@ -9,7 +9,7 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
-    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox
+    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QErrorMessage
 )
 from PyQt6.uic import loadUi
 from openpyxl import Workbook
@@ -52,7 +52,7 @@ class ExportWidget(QWidget):
         self.samplesincluded_comboBox: CheckableComboBox()
 
         # Connect buttons to methods
-        self.add_workbook_button.clicked.connect(lambda: self.add_workbook_tab(None, None, None))
+        self.add_workbook_button.clicked.connect(lambda: self.add_workbook_tab(None, False, False,None))
         self.remove_workbook_button.clicked.connect(self.remove_current_workbook_tab)
         self.export_pushbutton.clicked.connect(self.export_button)
 
@@ -70,7 +70,7 @@ class ExportWidget(QWidget):
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filterselection_comboBox.setModel(self.filter_model)
-        self.filterselection_comboBox.currentIndexChanged.connect(lambda: self.update_filter_list(self.filter_model))
+        # self.filterselection_comboBox.currentIndexChanged.connect(lambda: self.update_filter_list(self.filter_model))
 
         # Fix for updating the filter list when the filter model is updated
         self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
@@ -128,11 +128,18 @@ class ExportWidget(QWidget):
         horizontal_layout = QHBoxLayout()
         horizontal_layout.setContentsMargins(0, 0, 0, 0)
         horizontal_layout.setSpacing(0)
+
         distinct_checkbox = QCheckBox("Distinct Rows")
         distinct_checkbox.setToolTip("Check this box to only show distinct or unique rows a single time")
         distinct_checkbox.setChecked(False)
         distinct_checkbox.setFixedSize(150,20)
         horizontal_layout.addWidget(distinct_checkbox)
+
+        pivot_checkbox = QCheckBox("Pivot Table")
+        pivot_checkbox.setToolTip("Check this box to pivot the table based on first column")
+        pivot_checkbox.setChecked(False)
+        pivot_checkbox.setFixedSize(150, 20)
+        horizontal_layout.addWidget(pivot_checkbox)
 
         counter_label = QLabel("Number of Rows: ")
         counter_label.setFixedSize(200,20)
@@ -148,6 +155,7 @@ class ExportWidget(QWidget):
             'tableView': tableView,
             'model': model,
             'distinct': False,
+            'pivot': False,
             'selected_columns': {},
             'ordered_columns': {},
             'label': counter_label
@@ -160,6 +168,7 @@ class ExportWidget(QWidget):
         self.load_checkbox_states('Workbook 1')
 
         distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
+        pivot_checkbox.stateChanged.connect(self.update_pivottable_checkbox)
         self.update_table_view()
         self.repaint()
 
@@ -180,7 +189,7 @@ class ExportWidget(QWidget):
         self.previous_workbook = None
 
 
-    def add_workbook_tab(self, workbook_name=None, distinct=False, selected_columns=None, ordered_columns=None):
+    def add_workbook_tab(self, workbook_name=None, distinct=False, pivot=False, selected_columns=None, ordered_columns=None):
         # Determine the new workbook name
         if ordered_columns is None:
             ordered_columns = {}
@@ -209,16 +218,21 @@ class ExportWidget(QWidget):
         tab_layout.setSpacing(0)
 
         new_tab.setLayout(tab_layout)
-        distinct_checkbox = QCheckBox("Distinct Rows")
-        distinct_checkbox.setToolTip("Check this box to only show distinct or unique rows a single time")
-        distinct_checkbox.setChecked(distinct)
-
 
         horizontal_layout = QHBoxLayout()
         horizontal_layout.setContentsMargins(0, 0, 0, 0)
         horizontal_layout.setSpacing(0)
 
+        distinct_checkbox = QCheckBox("Distinct Rows")
+        distinct_checkbox.setToolTip("Check this box to only show distinct or unique rows a single time")
+        distinct_checkbox.setChecked(distinct)
         horizontal_layout.addWidget(distinct_checkbox)
+
+        pivot_checkbox = QCheckBox("Pivot Table")
+        pivot_checkbox.setToolTip("Check this box to pivot the table based on first column")
+        pivot_checkbox.setChecked(pivot)
+        pivot_checkbox.setFixedSize(150, 20)
+        horizontal_layout.addWidget(pivot_checkbox)
 
         counter_label = QLabel("Number of Rows: ")
         counter_label.setFixedSize(200, 20)
@@ -233,6 +247,7 @@ class ExportWidget(QWidget):
             'tableView': new_tableView,
             'model': model,
             'distinct': distinct,
+            'pivot': pivot,
             'selected_columns': selected_columns,
             'ordered_columns': ordered_columns,
             'label': counter_label
@@ -244,8 +259,8 @@ class ExportWidget(QWidget):
         self.load_checkbox_states(workbook_name)
         self.workbooktabs.setCurrentWidget(new_tab)
 
-        #todo change to method so it actually works
         distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
+        pivot_checkbox.stateChanged.connect(self.update_pivottable_checkbox)
         # Update the table view
         self.update_table_view()
         # self.repaint()
@@ -254,6 +269,12 @@ class ExportWidget(QWidget):
         current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         distinct_checkbox = self.workbook_tabs[current_workbook_name]['distinct']
         self.workbook_tabs[current_workbook_name]['distinct'] = not distinct_checkbox
+        self.update_table_view()
+
+    def update_pivottable_checkbox(self):
+        current_workbook_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        pivottable_checkbox = self.workbook_tabs[current_workbook_name]['pivot']
+        self.workbook_tabs[current_workbook_name]['pivot'] = not pivottable_checkbox
         self.update_table_view()
 
     def remove_current_workbook_tab(self):
@@ -514,32 +535,92 @@ class ExportWidget(QWidget):
                 query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
         else:
             query_str = f"SELECT {'DISTINCT' if self.workbook_tabs[current_workbook_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
+
+
+        # code to transform the query into a pivot table
+        if self.workbook_tabs[current_workbook_name]['pivot']:
+            query_str = query_str.replace('LIMIT 250', '')
+
+            db = QSqlDatabase.database()
+            db.commit()
+            db.close()
+            db.open()
+
+            drop_table_qry = QSqlQuery()
+            if not drop_table_qry.exec('DROP TABLE IF EXISTS TempPivotTable'):
+                print("Failed to execute query:", drop_table_qry.lastError().text())
+                errmsg = QErrorMessage()
+                errmsg.setWindowTitle('Error')
+                errmsg.showMessage(drop_table_qry.lastError().text())
+                errmsg.exec()
+
+            create_table_qry = QSqlQuery()
+            if not create_table_qry.exec('CREATE TEMP TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'):
+                print("Failed to execute query:", create_table_qry.lastError().text())
+
+            first_tuple = next(iter(ordered_columns))
+            pivot_col = first_tuple[1]
+
+            distinct_first_column_query = QSqlQuery()
+            first_column_list = []
+            if distinct_first_column_query.exec(f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'):
+                if distinct_first_column_query.next():
+                    while distinct_first_column_query.isValid():
+                        first_column_list.append(distinct_first_column_query.value(0))
+                        distinct_first_column_query.next()
+                else:
+                    print("No rows returned.")
+            else:
+                print("Failed to execute query:", distinct_first_column_query.lastError().text())
+            case_expressions = []
+
+            for name in first_column_list:
+                for table, field in ordered_columns:
+                    if field == pivot_col:
+                        continue
+                    case_expressions.append(f'MAX(CASE WHEN {pivot_col} = \'{name}\' THEN {field} END) AS [{name + '_' + field}]')
+
+            case_list_sql = '\n, '.join(case_expressions)
+
+            query_str = (f"""With cte AS (SELECT {columns_str}, ROW_NUMBER() OVER (
+            PARTITION BY {pivot_col}
+            ORDER BY rowid) AS RowNum
+            FROM TempPivotTable)
+            SELECT {case_list_sql}
+            FROM cte c
+            GROUP BY c.RowNum
+            ORDER BY c.RowNum""")
+
+            print(query_str)
+
         model = QSqlQueryModel()
         model.setQuery(query_str)
         self.workbook_tabs[current_workbook_name]['model'] = model
 
-        # Remove LIMIT 250 from the original query string and build the COUNT query
-        counter_sql_query = f"SELECT COUNT(*) FROM ({query_str.replace('LIMIT 250', '')}) AS SubQuery"
+        # # Remove LIMIT 250 from the original query string and build the COUNT query
+        # counter_sql_query = f"SELECT COUNT(*) FROM ({query_str.replace('LIMIT 250', '')}) AS SubQuery"
+        #
+        # # Prepare and execute the query
+        # counter_query = QSqlQuery()
+        # if not counter_query.exec(counter_sql_query):
+        #     # Handle query execution error
+        #     print("Failed to execute query:", counter_query.lastError().text())
+        # else:
+        #     # Move to the first record to retrieve the count
+        #     if counter_query.next():
+        #         count = counter_query.value(0)
+        #         self.workbook_tabs[current_workbook_name]['label'].setText(f"Number of Rows: {count}")
+        #     else:
+        #         # Handle case where query doesn't return a result
+        #         print("Query executed successfully but returned no results.")
 
-        # Prepare and execute the query
-        counter_query = QSqlQuery()
-        if not counter_query.exec(counter_sql_query):
-            # Handle query execution error
-            print("Failed to execute query:", counter_query.lastError().text())
-        else:
-            # Move to the first record to retrieve the count
-            if counter_query.next():
-                count = counter_query.value(0)
-                self.workbook_tabs[current_workbook_name]['label'].setText(f"Number of Rows: {count}")
-            else:
-                # Handle case where query doesn't return a result
-                print("Query executed successfully but returned no results.")
-
-        for col, (table, field) in enumerate(ordered_columns):
-            header = f"{table}.{field}"
-            model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
+        # for col, (table, field) in enumerate(ordered_columns):
+        #     header = f"{table}.{field}"
+        #     model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
+
+        # QSqlDatabase().commit()
 
 
     def export_button(self):
@@ -549,6 +630,12 @@ class ExportWidget(QWidget):
             case 'IsoplotR':
                 self.export_to_excel()
             case 'DZStats':
+                # todo requires csv not excel, all without headers
+                # intersample requires each sample to represented by a pair of columns
+                # for each pair of columns per sample, col 1 is grain mean age, col 2 is grain age error
+
+                # twosample compare, 2 csvs one per sample
+                # col 1 = grain mean age, col 2 = grain age error
                 self.export_to_excel()
             case 'Database':
                 self.export_to_datbase()
@@ -638,8 +725,10 @@ class ExportWidget(QWidget):
         self.editorder_pushbutton.setEnabled(True)
         self.add_workbook_button.setEnabled(True)
         self.remove_workbook_button.setEnabled(True)
+        self.fileformat_comboBox.setEnabled(True)
         match self.exportformat_comboBox.currentText():
             case 'detritalPy':
+                self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 Samples_columns= {
                     ('Samples', 'SampleName'): True,
                     ('Units', 'UnitName'): True,
@@ -647,7 +736,7 @@ class ExportWidget(QWidget):
                     ('Samples', 'Longitude'): True,
                     ('Sources', 'ShortCitation'): True
                 }
-                self.add_workbook_tab('Samples', True, Samples_columns, Samples_columns)
+                self.add_workbook_tab('Samples', True, False, Samples_columns, Samples_columns)
 
                 ZrUPb_columns = {
                     ('Samples', 'SampleName'): True,
@@ -659,7 +748,7 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Concordance'): True
                 } # todo not inputting as the correct order
 
-                self.add_workbook_tab('ZrUPb', False, ZrUPb_columns, ZrUPb_columns)
+                self.add_workbook_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns)
                 return
             case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
                 # modeled after UPb6.csv in IsoplotR
@@ -669,6 +758,7 @@ class ExportWidget(QWidget):
                 # 207/206
                 # 204/207
                 # 204/206
+                self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 UPb_columns = {
                     ('UPbAnalyses', 'Calculated207Pb/235U'): True,
                     ('UPbAnalyses', 'Calculated207Pb/235UError'): True,
@@ -683,23 +773,39 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Calculated204Pb/206Pb'): True,
                     ('UPbAnalyses', 'Calculated204Pb/206PbError'): True
                 }
-                self.add_workbook_tab('IsoplotR', False, UPb_columns, UPb_columns)
+                self.add_workbook_tab('IsoplotR', False, False, UPb_columns, UPb_columns)
 
             case 'IsoplotR - 38/06, 07/06':
                 # modeled after UPb2.csv in IsoplotR
                 # 238/206
                 # 207/206
+                self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 UPb_columns = {
                     ('UPbAnalyses', 'Calculated238U/206Pb'): True,
                     ('UPbAnalyses', 'Calculated238U/206PbError'): True,
                     ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
                     ('UPbAnalyses', 'Calculated207Pb/206PbError'): True
                 }
-                self.add_workbook_tab('IsoplotR', False, UPb_columns, UPb_columns)
+                self.add_workbook_tab('IsoplotR', False, False, UPb_columns, UPb_columns)
 
-            case 'DZStats':
-                pass
+            case 'DZStats - Intersample':
+                # todo requires csv not excel, all without headers
+                # intersample requires each sample to represented by a pair of columns
+                # for each pair of columns per sample, col 1 is grain mean age, col 2 is grain age error
+
+                # twosample compare, 2 csvs one per sample
+                # col 1 = grain mean age, col 2 = grain age error
+
+                self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
+                UPb_columns = {
+                    ('Samples', 'SampleName'): True,
+                    ('UPbAnalyses', 'BestAge'): True,
+                    ('UPbAnalyses', 'CalculatedBestAgeError'): True
+                }
+                self.add_workbook_tab('DZStats - Intersample', False, True, UPb_columns, UPb_columns)
+
             case 'Database':
+                self.fileformat_comboBox.setEnabled(False)
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').clear()
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').setParent(None)
@@ -715,9 +821,6 @@ class ExportWidget(QWidget):
                 self.remove_workbook_button.setEnabled(False)
                 if self.checked_sample_list == []:
                     return
-
-                import os
-                src_db = "/Users/jarrodburges/Downloads/newschema.db"
 
                 if os.path.isfile("temp.db"):
                     os.remove("temp.db")
@@ -751,7 +854,7 @@ class ExportWidget(QWidget):
                 table_view.setModel(table_filterproxy)
 
                 table_swtcher_combobox = QComboBox(new_tab)
-                table_swtcher_combobox.addItems(self.user_view_tables)
+                table_swtcher_combobox.addItems(SQLUtils.user_viewable_alltables)
                 table_swtcher_combobox.setObjectName('database_table_switcher')
                 table_swtcher_combobox.currentIndexChanged.connect(lambda: self.table_switcher(db_id_subset))
 
