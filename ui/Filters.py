@@ -87,11 +87,11 @@ def process_group(group):
         if unit == 'None':
             continue
         elif unit == 'Ga':
-            value = f"{int(value) * 1000000000}"
+            value = f"{float(value) * 1000000000}"
         elif unit == 'Ma':
-            value = f"{int(value) * 1000000}"
+            value = f"{float(value) * 1000000}"
         elif unit == 'ka':
-            value = f"{int(value) * 1000}"
+            value = f"{float(value) * 1000}"
         else:
             raise ValueError(f"Unknown unit: {unit}")
 
@@ -591,6 +591,7 @@ class GroupBox(QGroupBox):
         self.dummy_label.setFont(font)
 
     def add_rule(self, field, operator, value, unit):
+        #todo not populating line edit with value
         rule_widget = RuleWidget(field, operator, value, unit)
         self.layout.insertWidget(self.layout.count() - 1, rule_widget)
         self.conditions.append(rule_widget)

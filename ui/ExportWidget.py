@@ -2,6 +2,7 @@ import os
 import sys
 from collections import Counter
 
+import pandas
 from PyQt6 import QtCore
 from PyQt6.QtCore import QSettings, QSortFilterProxyModel
 from PyQt6.QtGui import QDesktopServices
@@ -70,7 +71,7 @@ class ExportWidget(QWidget):
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filterselection_comboBox.setModel(self.filter_model)
-        # self.filterselection_comboBox.currentIndexChanged.connect(lambda: self.update_filter_list(self.filter_model))
+        # todo not updating when switching tabs, such as adding a new filter, going to export, does not show
 
         # Fix for updating the filter list when the filter model is updated
         self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
@@ -85,6 +86,23 @@ class ExportWidget(QWidget):
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
 
+    def showEvent(self, a0):
+        super().showEvent(a0)
+        self.samples_model = CheckableSqlTableModel()
+        self.samples_model = self.set_table(self.samples_model, 'Samples')
+
+        self.aliquots_model = CheckableSqlTableModel()
+        self.aliquots_model = self.set_table(self.aliquots_model, 'Aliquots')
+
+        self.spots_model = CheckableSqlTableModel()
+        self.spots_model = self.set_table(self.spots_model, 'Spots')
+
+        self.filter_model = CheckableSqlTableModel()
+        self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
+        self.filterselection_comboBox.setModel(self.filter_model)
+
+        self.update_step_2_list()
+        print('focused uped')
 
     def tab_changed(self):
         if self.workbooktabs.tabText(self.workbooktabs.currentIndex()) == 'Database':
@@ -187,6 +205,8 @@ class ExportWidget(QWidget):
 
         self.workbook_tabs = {}
         self.previous_workbook = None
+
+        
 
 
     def add_workbook_tab(self, workbook_name=None, distinct=False, pivot=False, selected_columns=None, ordered_columns=None):
