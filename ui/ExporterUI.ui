@@ -331,14 +331,14 @@
        <item>
         <widget class="QPushButton" name="add_workbook_button">
          <property name="text">
-          <string>Add Workbook</string>
+          <string>Add Worksheet</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="remove_workbook_button">
          <property name="text">
-          <string>Delete Workbook</string>
+          <string>Delete Worksheet</string>
          </property>
         </widget>
        </item>
