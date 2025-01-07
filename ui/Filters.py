@@ -363,36 +363,40 @@ class RuleWidget(QWidget):
         self.table_combo.addItems(SQLUtils.user_viewable_alltables)
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
-        if field is not None:
-            self.table_combo.setCurrentText(field.split('.')[0])
         self.table_combo.currentIndexChanged.connect(self.table_switcher)
 
         # Attribute combo
         self.attribute_combo = FocusWheelComboBox()
         self.layout.addWidget(self.attribute_combo)
         self.table_switcher()
-        if field is not None:
-            self.attribute_combo.setCurrentText(field.split('.')[1][1:-1])
         self.attribute_combo.currentIndexChanged.connect(self.attribute_switcher)
 
         # Operator combo
         self.operator_combo = FocusWheelComboBox()
         self.attribute_switcher()
         self.layout.addWidget(self.operator_combo)
-        if operator is not None:
-            self.operator_combo.setCurrentText(operator)
         self.operator_combo.currentIndexChanged.connect(self.lineedit_switcher)
 
         # Value input
         self.value_input = QLineEdit()
         self.layout.addWidget(self.value_input)
-        if value is not None:
-            self.value_input.setText(value)
 
         # Unit combo (hidden unless numeric/time-based)
         self.unit_combo = FocusWheelComboBox()
         self.unit_combo.addItems(['Ga', 'Ma', 'ka', 'None'])
         self.layout.addWidget(self.unit_combo)
+
+        # Initially configure widgets based on operator/attribute
+        self.lineedit_switcher()
+
+        if field is not None:
+            self.table_combo.setCurrentText(field.split('.')[0])
+        if field is not None:
+            self.attribute_combo.setCurrentText(field.split('.')[1][1:-1])
+        if operator is not None:
+            self.operator_combo.setCurrentText(operator)
+        if value is not None:
+            self.value_input.setText(value)
         if unit is not None:
             self.unit_combo.setCurrentText(unit)
 
@@ -401,8 +405,6 @@ class RuleWidget(QWidget):
         self.delete_button.clicked.connect(lambda: self.deleteLater())
         self.layout.addWidget(self.delete_button)
 
-        # Initially configure widgets based on operator/attribute
-        self.lineedit_switcher()
 
     def lineedit_switcher(self):
         """

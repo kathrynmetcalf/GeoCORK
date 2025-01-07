@@ -71,7 +71,6 @@ class ExportWidget(QWidget):
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filterselection_comboBox.setModel(self.filter_model)
-        # todo not updating when switching tabs, such as adding a new filter, going to export, does not show
 
         # Fix for updating the filter list when the filter model is updated
         self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
@@ -85,6 +84,30 @@ class ExportWidget(QWidget):
         self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
+
+        self.filterselection_comboBox.closing.connect(lambda: self.update_checked_list(self.filter_model, 'FilterGroups'))
+
+
+        self.update_checked_list(self.filter_model, 'FilterGroups')
+        self.update_checked_list(self.samples_model, 'Samples')
+
+    def update_checked_list(self, table_model: CheckableSqlTableModel, table_name: str):
+        items = []
+        for row in range(table_model.rowCount()):
+            index = table_model.index(row, 1)
+            if table_model.data(index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                items.append(table_model.data(index, QtCore.Qt.ItemDataRole.DisplayRole))
+        if len(items) == 0:
+            if table_name == 'Samples':
+                self.samplesincluded_comboBox.set_line_edit_text('None')
+            if table_name == 'FilterGroups':
+                self.filterselection_comboBox.set_line_edit_text('None')
+        else:
+            if table_name == 'Samples':
+                self.samplesincluded_comboBox.set_line_edit_text(', '.join(items))
+            if table_name == 'FilterGroups':
+                self.filterselection_comboBox.set_line_edit_text(', '.join(items))
+
 
     def showEvent(self, a0):
         super().showEvent(a0)
@@ -102,7 +125,6 @@ class ExportWidget(QWidget):
         self.filterselection_comboBox.setModel(self.filter_model)
 
         self.update_step_2_list()
-        print('focused uped')
 
     def tab_changed(self):
         if self.workbooktabs.tabText(self.workbooktabs.currentIndex()) == 'Database':
@@ -206,7 +228,6 @@ class ExportWidget(QWidget):
         self.worksheet_tabs_dict = {}
         self.previous_worksheet = None
 
-        
 
 
     def add_worksheet_tab(self, worksheet_name=None, distinct=False, pivot=False, selected_columns=None, ordered_columns=None):
@@ -914,12 +935,18 @@ class ExportWidget(QWidget):
         if self.selectionscope_comboBox.currentText() == 'Samples':
             self.samplesincluded_comboBox.setModel(self.samples_model)
             self.samples_model.dataChanged.connect(lambda: self.update_sample_list(self.samples_model))
+            self.samplesincluded_comboBox.closing.connect(
+                lambda: self.update_checked_list(self.samples_model, 'Samples'))
         elif self.selectionscope_comboBox.currentText() == 'Aliquots':
             self.samplesincluded_comboBox.setModel(self.aliquots_model)
             self.aliquots_model.dataChanged.connect(lambda: self.update_sample_list(self.aliquots_model))
+            self.samplesincluded_comboBox.closing.connect(
+                lambda: self.update_checked_list(self.aliquots_model, 'Samples'))
         elif self.selectionscope_comboBox.currentText() == 'Spots':
             self.samplesincluded_comboBox.setModel(self.spots_model)
             self.spots_model.dataChanged.connect(lambda: self.update_sample_list(self.spots_model))
+            self.samplesincluded_comboBox.closing.connect(
+                lambda: self.update_checked_list(self.spots_model, 'Samples'))
 
     def closeEvent(self, a0):
         # self.saveWindowState()
