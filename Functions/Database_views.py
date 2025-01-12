@@ -3,6 +3,8 @@ import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
+from Functions.SQLUtils import gps_column_join
+
 
 def SampleViewQuery(ids_to_show=None):
     # Select columns
@@ -186,6 +188,46 @@ def SpotViewQuery(parent_id, id_type='sample'):
     spot_view = f'CREATE VIEW IF NOT EXISTS {parent_text}_SpotView AS {spot_query}'
     return spot_view
 
+def ColumnViewQuery():
+    # Select columns
+    columns = 'ColumnName as "Columns"'
+
+    column_query = f'''
+                SELECT
+                    {SQLUtils.qcolumn_id},
+                    {columns},
+                    {SQLUtils.qcolumn_calc_total_height_depth},
+                    {SQLUtils.qcolumn_gps},
+                    {SQLUtils.qcolumn_description},
+                    {SQLUtils.qcolumn_created},
+                    {SQLUtils.qcolumn_modified}
+                FROM Columns
+                {gps_column_join}
+                GROUP BY ColumnName
+                '''
+    return column_query
+
+def ColumnEditViewQuery():
+    # Select columns
+    columns = 'ColumnName as "Columns"'
+
+    column_query = f'''
+                    SELECT
+                        {SQLUtils.qcolumn_id},
+                        {columns},
+                        {SQLUtils.qcolumn_total_height_depth},
+                        {SQLUtils.qcolumn_total_height_depth_unit},
+                        {SQLUtils.qcolumn_gps},
+                        {SQLUtils.qcolumn_description},
+                        {SQLUtils.qcolumn_created},
+                        {SQLUtils.qcolumn_modified}
+                    FROM Columns
+                    {SQLUtils.column_units_join}
+                    {SQLUtils.gps_column_join}
+                    GROUP BY ColumnName
+                    '''
+    return column_query
+
 def create_sample_view(conditions: str = None):
     base_query = SampleViewQuery()
     if conditions:
@@ -210,15 +252,37 @@ def create_aliquot_view(sample_IDs, conditions: str = None):
         print('Aliquot view creation failed')
         return False
 
-def create_spot_view(c, parent_ID, parent_type):
-    """
-    Take database cursor and sample ID and execute the sql strings defined above to create the spot view
-    :param c: Cursor of database connection
-    :param parent_ID: ID of parent sample
-    :param parent_type: 'sample' or 'aliquot'
-    """
-    SPOT_VIEW = create_spot_view(parent_ID, parent_type)
-    c.execute(SPOT_VIEW)
+# def create_spot_view(c, parent_ID, parent_type):
+#     """
+#     Take database cursor and sample ID and execute the sql strings defined above to create the spot view
+#     :param c: Cursor of database connection
+#     :param parent_ID: ID of parent sample
+#     :param parent_type: 'sample' or 'aliquot'
+#     """
+#     SPOT_VIEW = create_spot_view(parent_ID, parent_type)
+#     c.execute(SPOT_VIEW)
+
+def create_column_view():
+    column_query = ColumnViewQuery()
+    print(column_query)
+    column_view = f'CREATE VIEW IF NOT EXISTS ColumnView AS {column_query}'
+    query = QtS.QSqlQuery()
+    if not query.exec(column_view):
+        print('Column view creation failed')
+        return False
+
+def create_column_edit_view():
+    column_query = ColumnEditViewQuery()
+    column_view = f'CREATE VIEW IF NOT EXISTS ColumnEditView AS {column_query}'
+    query = QtS.QSqlQuery()
+    if not query.exec(column_view):
+        print('Column edit view creation failed')
+        return False
+
+def create_all_views():
+    create_sample_view()
+    create_column_view()
+    create_column_edit_view()
 
 def drop_view(view: str):
     query = QtS.QSqlQuery()

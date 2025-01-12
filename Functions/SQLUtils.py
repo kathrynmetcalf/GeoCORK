@@ -22,7 +22,7 @@ qgps = f'''SampleGPS.GPSLocationConverted AS "GPS Coordinates"'''
 qsample_elev = f'SampleGPS.CalculatedGPSElev || "±" || SampleGPS.CalculatedGPSElevError AS "Elevation ({selected_elev_unit})"'
 qcolumn_name = 'GROUP_CONCAT(DISTINCT ColumnName) AS "Measured Column Name"'
 qcolumn_data = f'HeightDepth || "±" || HeightDepthError AS "Column Data ({selected_heightdepth_unit})"'
-qcolumn_gps = f'''ColumnGPS.GPSLocationConverted AS "Column base GPS"'''
+qcolumn_gps = f'''ColumnGPS.GPSLocationConverted AS "Column Base GPS"'''
 qsample_age = f'SampleAges.SampleAgeDisplay AS "Age ({selected_age_unit})"'
 qage_range = f'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ") AS "Age Range ({selected_age_unit})"'
 qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName) AS "Age Constraints"'
@@ -120,8 +120,19 @@ qspot_context_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SpotContextName,"Null")) AS
 qspot_compositions_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SpotCompositionName,"Null")) AS "Spot Compositions"'
 qaliquot_context_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(AliquotContextName,"Null")) AS "Aliquot Contexts"'
 
+#Columns, skip null values
+qcolumn_calc_total_height_depth = f'Columns.CalculatedColumnTotalHeightDepth AS "Total Height/Depth ({selected_heightdepth_unit})"'
+qcolumn_total_height_depth = f'Columns.ColumnTotalHeightDepth AS "Total Height/Depth"'
+qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation AS "Unit"'
+qcolumn_description = 'ColumnDescription'
+qcolumn_created = 'ColumnCreated'
+qcolumn_modified = 'ColumnModified'
+
 # Columns, include null values
 qcolumn_id = 'Columns.ColumnID'
+# already defined above
+qcolumn_name = 'Columns.ColumnName'
+qcolumn_total_height_depth_ifnull = f'GROUP_CONCAT( DISTINCT ifnull(Columns.CalculatedColumnTotalHeightDepth) AS "Total Height/Depth ({selected_heightdepth_unit})"'
 qcolumn_gps_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnGPS.BaseGPSLocationID,"Null")) AS "Base GPS Location IDs"'
 # already defined above
 # qcolumn_gps_converted_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnGPS.GPSLocationConverted,"Null")) AS "Column GPS"'
@@ -144,6 +155,7 @@ qcolumn_gps_elev_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnGPS.GPSElev, "Null
 qcolumn_gps_elev_error_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnGPS.GPSElevError, "Null")) AS "Elevation Errors"'
 qcolumn_gps_elev_unit_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnGPS.GPSElevUnitID, "Null")) AS "Elevation Unit IDs"'
 qcolumn_gps_elev_unit_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnElevationUnits.DistanceUnitAbbreviation, "Null")) AS "Elevation Units"'
+qcolumn_description_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnDescription,"Null")) AS "Description"'
 
 
 # Aliquot view columns
@@ -174,6 +186,9 @@ gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON Co
                         LEFT JOIN DirectionUnits AS ColumnLonDirections ON ColumnLonDirections.DirectionUnitID=ColumnGPS.GPSLonDirectionID
                         LEFT JOIN DistanceUnits AS ColumnElevationUnits ON ColumnElevationUnits.DistanceUnitID=ColumnGPS.GPSElevUnitID
                         LEFT JOIN GPSFormats AS ColumnGPSFormats ON ColumnGPSFormats.GPSFormatID=ColumnGPS.GPSFormatID'''
+
+# ColumnJoins
+column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON ColumnUnits.DistanceUnitID=Columns.ColumnTotalHeightDepthUnitID'
 
 # SampleJoins
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
@@ -258,4 +273,4 @@ conditionally_editable_trees = ['Aliquots']
 
 trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'UPbAnalyses']
 
-views = ['SampleView', 'AliquotView', 'SpotView', 'UPbView']
+views = ['SampleView', 'AliquotView', 'SpotView', 'UPbView', 'ColumnView', 'ColumnEditView']

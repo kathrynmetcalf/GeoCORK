@@ -6,20 +6,36 @@ from PyQt6 import QtSql as QtS
 def convert_dd_to_ddm(ddlat: list, ddlon: list):
     if len(ddlat) != 1 or len(ddlon) != 1:
         return "Invalid input"
-    lat_deg = int(ddlat[0])
-    lon_deg = int(ddlon[0])
-    lat_min = (abs(ddlat[0]) - abs(lat_deg)) * 60
-    lon_min = (abs(ddlon[0]) - abs(lon_deg)) * 60
+    if ddlat[0] == '':
+        lat_deg = ''
+        lat_min = ''
+    else:
+        lat_deg = int(ddlat[0])
+        lat_min = (abs(ddlat[0]) - abs(lat_deg)) * 60
+    if ddlon[0] == '':
+        lon_deg = ''
+        lon_min = ''
+    else:
+        lon_deg = int(ddlon[0])
+        lon_min = (abs(ddlon[0]) - abs(lon_deg)) * 60
     return [lat_deg, lat_min], [lon_deg, lon_min]
 
 def convert_ddm_to_dd(ddmlat: list, ddmlon: list):
     if len(ddmlat) != 2 or len(ddmlon) != 2:
         return "Invalid input"
-    if ddmlat[0] >= 0:
+    if ddmlat[0] == '':
+        lat_deg = ''
+    elif ddmlat[1] == '':
+        lat_deg = ddmlat[0]
+    elif ddmlat[0] >= 0:
         lat_deg = ddmlat[0] + ddmlat[1] / 60
     else:
         lat_deg = ddmlat[0] - ddmlat[1] / 60
-    if ddmlon[0] >= 0:
+    if ddmlon[0] == '':
+        lon_deg = ''
+    elif ddmlon[1] == '':
+        lon_deg = ddmlon[0]
+    elif ddmlon[0] >= 0:
         lon_deg = ddmlon[0] + ddmlon[1] / 60
     else:
         lon_deg = ddmlon[0] - ddmlon[1] / 60
@@ -28,27 +44,57 @@ def convert_ddm_to_dd(ddmlat: list, ddmlon: list):
 def convert_dd_to_dms(ddlat: list, ddlon: list):
     if len(ddlat) != 1 or len(ddlon) != 1:
         return "Invalid input"
-    lat_deg = int(ddlat)
-    lon_deg = int(ddlon)
-    lat_dm = (abs(ddlat) - abs(lat_deg)) * 60
-    lon_dm = (abs(ddlon) - abs(lon_deg)) * 60
-    lat_min = int(lat_dm)
-    lon_min = int(lon_dm)
-    lat_sec = (lat_dm - lat_min) * 60
-    lon_sec = (lon_dm - lon_min) * 60
+    if ddlat[0] == '':
+        lat_deg = ''
+        lat_min = ''
+        lat_sec = ''
+    else:
+        lat_deg = int(ddlat[0])
+        lat_dm = (abs(ddlat[0]) - abs(lat_deg)) * 60
+        lat_min = int(lat_dm)
+        lat_sec = (lat_dm - lat_min) * 60
+    if ddlon[0] == '':
+        lon_deg = ''
+        lon_min = ''
+        lon_sec = ''
+    else:
+        lon_deg = int(ddlon[0])
+        lon_dm = (abs(ddlon[0]) - abs(lon_deg)) * 60
+        lon_min = int(lon_dm)
+        lon_sec = (lon_dm - lon_min) * 60
     return [lat_deg, lat_min, lat_sec], [lon_deg, lon_min, lon_sec]
 
 def convert_dms_to_dd(dmslat: list, dmslon: list):
     if len(dmslat) != 3 or len(dmslon) != 3:
         return "Invalid input"
-    if dmslat[0] >= 0:
-        lat_deg = dmslat[0] + dmslat[1] / 60 + dmslat[2] / 3600
+    if dmslat[0] == '':
+        lat_deg = ''
+    elif dmslat[1] == '':
+        lat_deg = dmslat[0]
+    elif dmslat[0] >= 0:
+        if dmslat[2] == '':
+            lat_deg = dmslat[0] + dmslat[1] / 60
+        else:
+            lat_deg = dmslat[0] + dmslat[1] / 60 + dmslat[2] / 3600
     else:
-        lat_deg = dmslat[0] - dmslat[1] / 60 - dmslat[2] / 3600
-    if dmslon[0] >= 0:
-        lon_deg = dmslon[0] + dmslon[1] / 60 + dmslon[2] / 3600
+        if dmslat[2] == '':
+            lat_deg = dmslat[0] - dmslat[1] / 60
+        else:
+            lat_deg = dmslat[0] - dmslat[1] / 60 - dmslat[2] / 3600
+    if dmslon[0] == '':
+        lon_deg = ''
+    elif dmslon[1] == '':
+        lon_deg = dmslon[0]
+    elif dmslon[0] >= 0:
+        if dmslon[2] == '':
+            lon_deg = dmslon[0] + dmslon[1] / 60
+        else:
+            lon_deg = dmslon[0] + dmslon[1] / 60 + dmslon[2] / 3600
     else:
-        lon_deg = dmslon[0] - dmslon[1] / 60 - dmslon[2] / 3600
+        if dmslon[2] == '':
+            lon_deg = dmslon[0] - dmslon[1] / 60
+        else:
+            lon_deg = dmslon[0] - dmslon[1] / 60 - dmslon[2] / 3600
     return [lat_deg], [lon_deg]
 
 def convert_ddm_to_dms(ddmlat: list, ddmlon: list):
@@ -60,12 +106,30 @@ def convert_ddm_to_dms(ddmlat: list, ddmlon: list):
     """
     if len(ddmlat) != 2 or len(ddmlon) != 2:
         return "Invalid input"
-    lat_deg = ddmlat[0]
-    lon_deg = ddmlon[0]
-    lat_min = int(ddmlat[1])
-    lon_min = int(ddmlon[1])
-    lat_sec = (ddmlat[1] - lat_min) * 60
-    lon_sec = (ddmlon[1] - lon_min) * 60
+    if ddmlat[0] == '':
+        lat_deg = ''
+        lat_min = ''
+        lat_sec = ''
+    else:
+        lat_deg = ddmlat[0]
+        if ddmlat[1] == '':
+            lat_min = ''
+            lat_sec = ''
+        else:
+            lat_min = int(ddmlat[1])
+            lat_sec = (ddmlat[1] - lat_min) * 60
+    if ddmlon[0] == '':
+        lon_deg = ''
+        lon_min = ''
+        lon_sec = ''
+    else:
+        lon_deg = ddmlon[0]
+        if ddmlon[1] == '':
+            lon_min = ''
+            lon_sec = ''
+        else:
+            lon_min = int(ddmlon[1])
+            lon_sec = (ddmlon[1] - lon_min) * 60
     return [lat_deg, lat_min, lat_sec], [lon_deg, lon_min, lon_sec]
 
 def convert_dms_to_ddm(dmslat: list, dmslon: list):
@@ -77,10 +141,30 @@ def convert_dms_to_ddm(dmslat: list, dmslon: list):
     """
     if len(dmslat) != 3 or len(dmslon) != 3:
         return "Invalid input"
-    lat_deg = dmslat[0]
-    lon_deg = dmslon[0]
-    lat_min = dmslat[1] + dmslat[2] / 60
-    lon_min = dmslon[1] + dmslon[2] / 60
+    if dmslat[0] == '':
+        lat_deg = ''
+        lat_min = ''
+    else:
+        lat_deg = dmslat[0]
+        if dmslat[1] == '':
+            lat_min = ''
+        else:
+            if dmslat[2] == '':
+                lat_min = dmslat[1]
+            else:
+                lat_min = dmslat[1] + dmslat[2] / 60
+    if dmslon[0] == '':
+        lon_deg = ''
+        lon_min = ''
+    else:
+        lon_deg = dmslon[0]
+        if dmslon[1] == '':
+            lon_min = ''
+        else:
+            if dmslon[2] == '':
+                lon_min = dmslon[1]
+            else:
+                lon_min = dmslon[1] + dmslon[2] / 60
     return [lat_deg, lat_min], [lon_deg, lon_min]
 
 def convert_sign_to_direction(lat: list, lon: list):
@@ -90,10 +174,18 @@ def convert_sign_to_direction(lat: list, lon: list):
     @param lon: list of longitude values in the order [degrees, minutes, seconds]
     @return: list each of latitude and longitude values in the order [degrees, minutes, seconds, direction_abbreviation] or "Invalid input"
     """
-    lat_deg = abs(lat[0])
-    lon_deg = abs(lon[0])
-    lat_dir = 'N' if lat[0] >= 0 else 'S'
-    lon_dir = 'E' if lon[0] >= 0 else 'W'
+    if lat[0] == '':
+        lat_deg = ''
+        lat_dir = ''
+    else:
+        lat_deg = abs(lat[0])
+        lat_dir = 'N' if lat[0] >= 0 else 'S'
+    if lon[0] == '':
+        lon_deg = ''
+        lon_dir = ''
+    else:
+        lon_deg = abs(lon[0])
+        lon_dir = 'E' if lon[0] >= 0 else 'W'
     if len(lat) == 1:
         return [lat_deg, lat_dir], [lon_deg, lon_dir]
     elif len(lat) == 2:
@@ -126,11 +218,11 @@ def convert_direction_to_sign(lat: list, lon: list):
     lat_dir = direction_model.record(0).value('DirectionUnitAbbreviation')
     direction_model.setFilter(f'DirectionUnitID = "{lon[direction_index]}"')
     lon_dir = direction_model.record(0).value('DirectionUnitAbbreviation')
-    if lat_dir == 'N':
+    if lat_dir == 'N' or lat_dir == '':
         lat_deg = lat[0]
     else:
         lat_deg = -lat[0]
-    if lon_dir == 'E':
+    if lon_dir == 'E' or lon_dir == '':
         lon_deg = lon[0]
     else:
         lon_deg = -lon[0]
@@ -152,6 +244,11 @@ def convert_dd_to_utm(ddlat, ddlon):
         return "Invalid input"
     lat_deg = ddlat[0]
     lon_deg = ddlon[0]
+    if lat_deg == '' or lon_deg == '':
+        UTMN = ''
+        UTME = ''
+        zone_txt = ''
+        return UTMN, UTME, zone_txt
     if lon_deg < -180 or lon_deg >= 180:
         return f"Invalid longitude: {lon_deg}"
     if lat_deg < 56 or lat_deg >= -80:
@@ -190,6 +287,8 @@ def convert_utm_to_dd(zone_txt, UTME, UTMN):
     """
     # remove any spaces in the zone text
     zone_txt = zone_txt.replace(" ", "")
+    if zone_txt == '' or UTME == '' or UTMN == '':
+        return '', ''
     if zone_txt[-1] == 'S':
         south = True
         zone = int(zone_txt[:-1])

@@ -19,23 +19,7 @@ class EditTable(QtW.QDialog):
         tags_ui_file = "ui/EditTable.ui"
         loadUi(tags_ui_file, self)
         self.table = TxM.remove_spaces(table_name)
-        foreign_keys = TbC.foreign_key_columns(self.table)
-        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
-            pass
-        elif foreign_keys is not None:
-            self.model = TbC.VerifiableRelationalTableModel()
-            self.model.setTable(self.table)
-            self.model.select()
-            for key in foreign_keys:
-                if 'GPS' not in key:
-                    key_column = self.model.fieldIndex(key)
-                    self.model.setRelation(key_column, QtS.QSqlRelation(foreign_keys[key]['table'], foreign_keys[key]['id_column'], foreign_keys[key]['display_column']))
-        else:
-            self.model = model
-            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
-            # self.filter_proxy_model = TbC.VerifiableProxyModel()
-            # self.filter_proxy_model.setSourceModel(self.model)
-            # self.filter_proxy_model.setFilterKeyColumn(-1)  # search all columns
+        self.model = TbC.VerifiableSqlTableModel()
         self.msg = QtW.QMessageBox(self)
         self.display_table()
         self.model.submitAll()
@@ -71,8 +55,30 @@ class EditTable(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def display_table(self):
+        foreign_keys = TbC.foreign_key_columns(self.table)
+        if self.table == 'Samples' or self.table == 'Sources' or self.table == 'Aliquots' or self.table == 'UPbData':
+            pass
+        elif foreign_keys is not None:
+            self.model = TbC.VerifiableRelationalTableModel()
+            self.model.setTable(self.table)
+            # self.model.select()
+            for key in foreign_keys:
+                key_column = self.model.fieldIndex(key)
+                self.model.setRelation(key_column,
+                                       QtS.QSqlRelation(foreign_keys[key]['table'], foreign_keys[key]['id_column'],
+                                                        foreign_keys[key]['display_column']))
+                print(f'Set relation for {key_column}: {self.model.relation(key_column).tableName()}, {self.model.relation(key_column).indexColumn()}, {self.model.relation(key_column).displayColumn()}')
+                print(f'Valid relation: {self.model.relation(key_column).isValid()}')
+                print(f'Query: {self.model.query().lastQuery()}')
+            if not self.model.select():
+                print(f'Failed to select table {self.table}: {self.model.lastError().text()}')
+        else:
+            self.model = TbC.VerifiableSqlTableModel()
+            self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
         self.edit_tableView.setModel(self.model)
-        self.edit_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.edit_tableView))
+        # if self.model is a relational table model, set the delegate to allow editing of foreign key columns
+        if isinstance(self.model, TbC.VerifiableRelationalTableModel):
+            self.edit_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.edit_tableView))
         # self.edit_tableView.setModel(self.filter_proxy_model)
         self.edit_tableView.hideColumn(0)  # don't show ID column
         self.edit_tableView.resizeColumnsToContents()

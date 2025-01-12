@@ -289,11 +289,11 @@ class GPSFields(QtW.QWidget):
             query = QtS.QSqlQuery()
             gps_columns = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin',
                            'GPSLonSec', 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'GPSElev',
-                           'GPSElevError', 'GPSElevUnitID']
+                           'GPSElevError', 'GPSElevUnitID', 'GPSFormatID']
             qgps_columns = ', '.join(gps_columns)
             gps_values = [f'{lat_deg}', f'{lat_min}', f'{lat_sec}', f'{lat_dir}', f'{lon_deg}', f'{lon_min}',
                           f'{lon_sec}', f'{lon_dir}', f'{utm_zone}', f'{utm_n}', f'{utm_e}', f'{elevation}',
-                          f'{elevation_error}', f'{elevation_unit}']
+                          f'{elevation_error}', f'{elevation_unit}', f'{gps_format_id}']
             qgps_values = ', '.join(gps_values)
             gps_to_delete = []
             gps_to_update = []

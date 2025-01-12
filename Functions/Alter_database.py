@@ -7,6 +7,7 @@ from PyQt6.QtSql import QSqlDatabase
 
 import pyproj
 import Functions.Create_database as Create_db
+import Functions.Database_views as DB_views
 from Functions.Table_classes import set_table, get_columns
 from Functions.Database_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions import Database_manager
@@ -264,7 +265,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     gps_model = QtS.QSqlTableModel()
     set_table(gps_model, table)
     for row in range(gps_model.rowCount()):
-        gps_id = gps_model.record(row).value(table_id_header)
+        gps_id = gps_model.record(row).value('GPSLocationID')
         GPSLatDeg = gps_model.record(row).value('GPSLatDeg')
         GPSLatMin = gps_model.record(row).value('GPSLatMin')
         GPSLatSec = gps_model.record(row).value('GPSLatSec')
@@ -283,7 +284,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                 gps_code = conversion[1]
                 exec(gps_code, global_vars, local_vars)
                 gps_display = local_vars.get('converted')
-                if not query.exec(f'UPDATE {table} SET {column}="{gps_display}" WHERE {table_id_header}={gps_id}'):
+                if not query.exec(f'UPDATE {table} SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'):
                     print(f'Error updating GPSLocationDisplay: {query.lastError().text()}')
                     rollback_savepoint('before_populate')
                     return "error"

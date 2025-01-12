@@ -13,8 +13,9 @@ from PyQt6.QtCore import QMetaType
 
 from Functions.Settings_manager import settings
 from Functions import SQLUtils
-from Functions import DB_views
+from Functions import Database_views as DB_views
 from Functions import Check_triggers
+import Functions.Alter_database as Alter_db
 
 # from PyQt6.QtSql import rollback
 from PyQt6.sip import delete
@@ -127,6 +128,7 @@ class VerifiableRelationalTableModel(QtS.QSqlRelationalTableModel):
                 return False
         if super().submit():
             self.row_submitted.emit(self.edited_indexes[0].row())
+            # Alter_db.populate_generated_columns()
             return True
         return False
 
@@ -137,15 +139,9 @@ class VerifiableRelationalTableModel(QtS.QSqlRelationalTableModel):
             print(error)
             return False
 
-class SampleTableModel(QtS.QSqlQueryModel):
+class DisplayRoundedModel(QtS.QSqlTableModel):
     def __init__(self):
         super().__init__()
-        self.default_query = DB_views.SampleViewQuery()
-        self.setQuery(self.default_query)
-
-    def setupQuery(self, ids_to_show=None, rows_per_page=None, offset=None):
-        sample_query = DB_views.SampleViewQuery(ids_to_show)
-        return sample_query
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -153,19 +149,26 @@ class SampleTableModel(QtS.QSqlQueryModel):
         if role == QtC.Qt.ItemDataRole.DisplayRole:
             # check the header of the selected index
             header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if header == f'Age ({settings.value('age_unit_abbreviation')})':
-                string = super().data(index, role)
-                print(f'Displaying {string}')
-                return display_age(string)
+            value = super().data(index, role)
+            if f'({settings.value('age_unit_abbreviation')})' in header:
+                # print(f'Displaying {value}')
+                return display_age(value)
             elif 'GPS' in header:
-                string = super().data(index, role)
-                print(f'Displaying {string}')
-                return display_gps(string)
+                # print(f'Displaying {value}')
+                return display_gps(value)
             elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
-                string = super().data(index, role)
-                print(f'Displaying {string}')
-                return display_value_with_error(string)
+                # print(f'Displaying {value}')
+                return display_value_with_error(value)
+            # if the value is a number but not an integer
+            elif value is not None and isinstance(value, (int, float)):
+                return return_rounded(value)
         return super().data(index, role)
+
+class ColumnTableModel(QtS.QSqlQueryModel):
+    def __init__(self):
+        super().__init__()
+        self.default_query = DB_views.ColumnViewQuery()
+        self.setQuery(self.default_query)
 
 def SampleIfNullQuery():
     sample_ifnull_query = f'''

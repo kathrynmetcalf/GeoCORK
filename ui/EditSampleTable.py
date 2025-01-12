@@ -10,19 +10,20 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
-from Functions.Table_classes import SampleTableModel
+from Functions.Table_classes import DisplayRoundedModel
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
 class EditSampleTable(QtW.QDialog):
-    def __init__(self, database, sample_model: QtS.QSqlQueryModel):
+    def __init__(self, database, sample_model: TbC.DisplayRoundedModel):
         super().__init__()
 
         tags_ui_file = "ui/EditSampleTable.ui"
         loadUi(tags_ui_file, self)
         self.table = 'Samples'
+        self.view = 'SampleView'
         self.db = database
         self.sample_model = sample_model
         self.table_model = QtS.QSqlTableModel()
@@ -135,11 +136,8 @@ class EditSampleTable(QtW.QDialog):
             # self.combo_index = QtC.QModelIndex()
 
     def recreate_sample_model(self):
-        query_start_time = time.time()
-        query = SampleTableModel().setupQuery()
-        self.sample_model.setQuery(QtS.QSqlQuery(query, self.db))
-        query_end_time = time.time()
-        print(f"Query time: {query_end_time - query_start_time}")
+        self.sample_model.setTable(self.view)
+        self.sample_model.select()
         for col in range(self.sample_model.columnCount()):
             header = TxM.add_spaces_camel(
                 self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))

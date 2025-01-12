@@ -58,9 +58,10 @@ class GPSDialog(QtW.QDialog):
             print('Error updating GPS fields')
         else:
             self.accept()
-            # todo: figure out why it is jumping to the TableEdit discard question
             release_savepoint('before_edit_gps')
+            self.close_by_dialog = True
             self.close()
+            self.close_by_dialog = False
 
     def close(self):
         if not self.close_by_dialog:

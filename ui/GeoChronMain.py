@@ -15,7 +15,7 @@ from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget
 from PyQt6.uic import loadUi
 import Functions.Create_database as Create_db
 import Functions.Alter_database as Alter_db
-import Functions.DB_views as DB_views
+import Functions.Database_views as DB_views
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
@@ -25,7 +25,7 @@ from Functions import Database_converter
 from Functions.Settings_manager import settings
 import ui.import_wizard
 import ui.New_reference
-from Functions.DB_views import drop_view
+from Functions.Database_views import drop_view
 from ui.ExportWidget import ExportWidget
 from Functions.Tree_classes import TreeSortFilterProxyModel
 # from ui.EditTags import EditTags
@@ -63,7 +63,7 @@ class GeoChron(QtW.QMainWindow):
         self.msg = QtW.QMessageBox(self)
         self.switch_to_table()
 
-        self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
+        # self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
         Create_db.create_tables()
         self.drop_views()
         Alter_db.settings_reset()
@@ -74,10 +74,10 @@ class GeoChron(QtW.QMainWindow):
         else:
             user_settings()
         create_view_begin = time.time()
-        print("Creating sample view")
-        DB_views.create_sample_view()
+        print("Creating views")
+        DB_views.create_all_views()
         create_view_end = time.time()
-        print(f"Create view time: {create_view_end - create_view_begin}")
+        print(f"Create views time: {create_view_end - create_view_begin}")
         #list of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure
@@ -89,11 +89,12 @@ class GeoChron(QtW.QMainWindow):
         # Set up models
         retrieve_view_begin = time.time()
         print("Retrieving view")
-        self.sample_model = TbC.SampleTableModel()
+        # self.sample_model = TbC.SampleTableModel()
+        # self.column_model = TbC.ColumnTableModel()
         retrieve_view_end = time.time()
         print(f"Retrieve view time: {retrieve_view_end - retrieve_view_begin}")
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
-        self.model = TbC.VerifiableSqlTableModel()
+        self.model = TbC.DisplayRoundedModel()
         self.tree_model = TrC.TreeModel()
         self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
         self.table_proxy_model = QtC.QSortFilterProxyModel()
@@ -199,28 +200,27 @@ class GeoChron(QtW.QMainWindow):
             TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, settings)
         self.previous_table = table
 
-        # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
-        # self.edit_pushButton.clicked.disconnect()
-        if table == 'Samples':
-            self.switch_to_table()
-            self.edit_samples_pushButton.show()
-            # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.sample_model))
-            # for col in range(self.sample_model.columnCount()):
-            #     header = TxM.add_spaces_camel(
-            #         self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-            #     self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+        # if table == 'Samples':
+        #     self.switch_to_table()
+        #     self.edit_samples_pushButton.show()
+        #     # for col in range(self.sample_model.columnCount()):
+        #     #     header = TxM.add_spaces_camel(
+        #     #         self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+        #     #     self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+        #
+        #     self.sample_proxy_model.setSourceModel(self.sample_model)
+        #     self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
+        #     self.dbTable_tableView.setModel(self.sample_proxy_model)
+        #     self.dbTable_tableView.hideColumn(0)  # don't show ID column
+        #     self.dbTable_tableView.verticalHeader().hide()
+        #     self.dbTable_tableView.resizeColumnsToContents()
+        #     self.dbTable_tableView.setSortingEnabled(True)
+        #     self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
-            self.sample_proxy_model.setSourceModel(self.sample_model)
-            self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            self.dbTable_tableView.setModel(self.sample_proxy_model)
-            self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            self.dbTable_tableView.verticalHeader().hide()
-            self.dbTable_tableView.resizeColumnsToContents()
-            self.dbTable_tableView.setSortingEnabled(True)
-            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-        elif table in self.dbtree_list:
+        if table in self.dbtree_list:
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
+            self.model = QtS.QSqlTableModel()
             self.model.setTable(table)
             self.model.select()
 
@@ -243,12 +243,20 @@ class GeoChron(QtW.QMainWindow):
             TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, settings)
         elif table in self.dbtable_list:
             self.switch_to_table()
-            self.edit_samples_pushButton.hide()
-            self.model.setTable(table)
+            if table == 'Samples':
+                self.model.setTable('SampleView')
+                self.edit_samples_pushButton.show()
+            else:
+                self.edit_samples_pushButton.hide()
+                if table == 'Columns':
+                    self.model.setTable('ColumnView')
+                else:
+                    self.model.setTable(table)
             self.model.select()
-            # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
             for col in range(self.model.columnCount()):
                 header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+                if 'ID' in header:
+                    header = header.replace('ID', '')
                 self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             self.table_proxy_model.setSourceModel(self.model)
             # if self.case_checkBox.isChecked():
@@ -257,13 +265,12 @@ class GeoChron(QtW.QMainWindow):
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
+            if isinstance(self.model, TbC.VerifiableRelationalTableModel):
+                self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            # self.dbTable_tableView.hideColumn(3)  # don't show created column
-            # self.dbTable_tableView.hideColumn(4)  # don't show modified column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
