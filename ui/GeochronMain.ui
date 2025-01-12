@@ -39,7 +39,7 @@
        <enum>QTabWidget::North</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>1</number>
       </property>
       <property name="elideMode">
        <enum>Qt::ElideRight</enum>
@@ -329,23 +329,17 @@
              </widget>
             </item>
             <item>
-             <widget class="QTextEdit" name="textEdit">
-              <property name="sizePolicy">
-               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-                <horstretch>0</horstretch>
-                <verstretch>0</verstretch>
-               </sizepolicy>
-              </property>
+             <widget class="QLineEdit" name="filter_search_lineEdit">
               <property name="minimumSize">
                <size>
                 <width>225</width>
-                <height>30</height>
+                <height>25</height>
                </size>
               </property>
               <property name="maximumSize">
                <size>
                 <width>225</width>
-                <height>30</height>
+                <height>25</height>
                </size>
               </property>
              </widget>

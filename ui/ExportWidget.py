@@ -87,9 +87,7 @@ class ExportWidget(QWidget):
 
         self.filterselection_comboBox.closing.connect(lambda: self.update_checked_list(self.filter_model, 'FilterGroups'))
 
-
-        self.update_checked_list(self.filter_model, 'FilterGroups')
-        self.update_checked_list(self.samples_model, 'Samples')
+        self.samplesincluded_comboBox.clearEditText()
 
     def update_checked_list(self, table_model: CheckableSqlTableModel, table_name: str):
         items = []
@@ -123,6 +121,8 @@ class ExportWidget(QWidget):
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filterselection_comboBox.setModel(self.filter_model)
+
+        self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
 
         self.update_step_2_list()
 
@@ -937,16 +937,20 @@ class ExportWidget(QWidget):
             self.samples_model.dataChanged.connect(lambda: self.update_sample_list(self.samples_model))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.samples_model, 'Samples'))
+            self.update_checked_list(self.samples_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Aliquots':
             self.samplesincluded_comboBox.setModel(self.aliquots_model)
             self.aliquots_model.dataChanged.connect(lambda: self.update_sample_list(self.aliquots_model))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.aliquots_model, 'Samples'))
+            self.update_checked_list(self.aliquots_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Spots':
             self.samplesincluded_comboBox.setModel(self.spots_model)
             self.spots_model.dataChanged.connect(lambda: self.update_sample_list(self.spots_model))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.spots_model, 'Samples'))
+            self.update_checked_list(self.spots_model, 'Samples')
+        self.update_checked_list(self.filter_model, 'FilterGroups')
 
     def closeEvent(self, a0):
         # self.saveWindowState()

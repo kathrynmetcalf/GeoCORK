@@ -713,6 +713,16 @@ class QueryBuilder(QWidget):
 
         self.layout1.addLayout(buttons_layout)
 
+        self.search_bar: QLineEdit = self.parentWidget().findChild(QLineEdit, 'filter_search_lineEdit')
+        self.search_bar.textChanged.connect(self.filter_items)
+
+    def filter_items(self, text):
+        # Loop through all items in the list widget
+        for row in range(self.listWidget.count()):
+            item = self.listWidget.item(row)
+            # Show or hide items based on the search text
+            item.setHidden(text.lower() not in item.text().lower())
+
     def filter_context_menu(self, pos):
         item = self.listWidget.itemAt(pos)
         if item:
