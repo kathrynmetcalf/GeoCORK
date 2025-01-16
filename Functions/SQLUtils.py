@@ -483,6 +483,54 @@ table_attributes_dict = {
     ]
 }
 
+upb_possible_input_fields = {
+    'SpotID',
+    'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
+    'Uppm', 'Thppm',
+    'U/Th', 'Th/U',
+
+    '206Pb/204Pb', '206Pb/204PbError',
+    '204Pb/206Pb', '204Pb/206PbError',
+    '207Pb/204Pb', '207Pb/204PbError',
+    '204Pb/207Pb', '204Pb/207PbError',
+    '208Pb/204Pb', '208Pb/204PbError',
+    '204Pb/208Pb', '204Pb/208PbError',
+    '206Pb/207Pb', '206Pb/207PbError',
+    '207Pb/206Pb', '207Pb/206PbError',
+
+    '204Pb/238U', '204Pb/238UError',
+    '238U/204Pb', '238U/204PbError',
+    '206Pb/238U', '206Pb/238UError',
+    '238U/206Pb', '238U/206PbError',
+    '207Pb/235U', '207Pb/235UError',
+    '235U/207Pb', '235U/207PbUError',
+    '208Pb/232Th', '208Pb/232ThError',
+    '232Th/208Pb', '232Th/208PbError',
+
+    '238U/232Th', '238U/232ThError',
+    '232Th/238U', '232Th/238UError',
+
+    'ErrorCorr/Rho',
+    '207Pb/206PbAge', '207Pb/206PbAgeError',
+    '207Pb/235UAge', '207Pb/235UAgeError',
+    '206Pb/238UAge', '206Pb/238UAgeError',
+    '208Pb/232ThAge', '208Pb/232ThAge',
+    'BestAge', 'BestAgeError',
+
+    'AgeErrorTypeID',
+    'AgeUnitID',
+    'Concordance',
+    'ConcordanceTypeID',
+    'SpotSize',
+    'SpotSizeUnitID',
+    'Rejected',
+
+    'ReferenceID',
+    'LabFacilitiyID',
+    'InstrumentID',
+    'UPbAnalysisMethodID'
+}
+
 
 def get_join_from_table(tables: list[str]) -> str:
     join = ""

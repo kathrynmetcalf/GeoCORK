@@ -6,6 +6,7 @@ import pandas as pd
 import qtawesome
 from difflib import get_close_matches
 
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Color, PatternFill
 
@@ -17,31 +18,11 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QBrush, QColor, QFont
 
-# Updated DB schema to include lab_facilities, source, analysis_method, instrument
-DATABASE_FILE = 'upb_data.db'
+from Functions import SQLUtils, Database_manager
+from Functions.Database_manager import SavepointManager
 
-ALL_POSSIBLE_FIELDS = [
-    "Pb204cps", "Pb206cps", "Pb207cps", "Pb208cps", "Pb*cps",
-    "Th232cps", "U235cps", "U238cps", "Uppm", "Thppm",
-    "CalculatedU/Th", "CalculatedTh/U", "Calculated206Pb/207Pb",
-    "Calculated207Pb/206Pb", "Calculated207Pb/235U", "Calculated235U/207Pb",
-    "Calculated206Pb/238U", "Calculated238U/206Pb", "Calculated208Pb/232Th",
-    "Calculated232Th/208Pb", "Calculated238U/232Th", "Calculated232Th/238U",
-    "Calculated204Pb/238U", "Calculated238U/204Pb", "Calculated206Pb/204Pb",
-    "Calculated204Pb/206Pb", "Calculated207Pb/204Pb", "Calculated204Pb/207Pb",
-    "Calculated208Pb/204Pb", "Calculated204Pb/208Pb", "Concordance", "Rejected",
-    "UPbAnalysisCreated", "UPbAnalysisModified", "Calculated207Pb/206PbAge",
-    "Calculated206Pb/238UAge", "Calculated207Pb/235UAge", "Calculated208Pb/232ThAge",
-    "CalculatedSpotSize", "Calculated207Pb/206PbAgeError", "Calculated207Pb/235UAgeError",
-    "Calculated206Pb/238UAgeError", "Calculated208Pb/232ThAgeError", "BestAge",
-    "CalculatedBestAgeError", "Calculated206Pb/207PbError", "Calculated207Pb/206PbError",
-    "Calculated207Pb/235UError", "Calculated235U/207PbError", "Calculated206Pb/238UError",
-    "Calculated238U/206PbError", "Calculated208Pb/232ThError", "Calculated232Th/208PbError",
-    "Calculated238U/232ThError", "Calculated232Th/238UError", "Calculated204Pb/238UError",
-    "Calculated238U/204PbError", "Calculated206Pb/204PbError", "Calculated204Pb/206PbError",
-    "Calculated207Pb/204PbError", "Calculated204Pb/207PbError", "Calculated208Pb/204PbError",
-    "Calculated204Pb/208PbError"
-]
+# Updated DB schema to include lab_facilities, source, analysis_method, instrument
+DATABASE_FILE = 'yrrfgs.db'
 
 ALL_POSSIBLE_TYPES = [
     "Auto",
@@ -51,39 +32,9 @@ ALL_POSSIBLE_TYPES = [
     "% Disc.",
     "Ma",
     "ka",
-    "text"
 ]
 
 CONFIG_FILE = 'column_mappings.json'
-
-
-def init_db():
-    """
-    Initialize the SQLite database and create the upb_samples table if it does not exist.
-    Includes extra columns for lab_facilities, source, analysis_method, instrument.
-    """
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-
-    # If you already have an older table without these columns, you'll need to migrate.
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS upb_samples(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sample_id TEXT,
-            aliquot_id TEXT,
-            spot_id TEXT,
-            u REAL,
-            pb REAL,
-            age REAL,
-            rejected BOOLEAN DEFAULT 0,
-            lab_facilities TEXT,
-            source TEXT,
-            analysis_method TEXT,
-            instrument TEXT
-        )
-    """)
-    conn.commit()
-    return conn
 
 
 class ColumnMapDialog(QDialog):
@@ -101,15 +52,15 @@ class ColumnMapDialog(QDialog):
         layout = QFormLayout()
 
         self.combo_field = QComboBox()
-        self.combo_field.addItems(ALL_POSSIBLE_FIELDS + ["Sample ID", "Aliquot ID", "Spot ID"])
+        self.combo_field.addItems(["SampleID", "AliquotID", "SpotID"] + list(SQLUtils.upb_possible_input_fields))
         existing_items = [self.combo_field.itemText(i) for i in range(self.combo_field.count())]
         if current_field in existing_items:
             self.combo_field.setCurrentText(current_field)
         layout.addRow("Field:", self.combo_field)
 
         self.combo_dtype = QComboBox()
-        self.combo_dtype.addItems(ALL_POSSIBLE_TYPES)
-        if current_dtype in ALL_POSSIBLE_TYPES:
+        self.combo_dtype.addItem('Auto')
+        if current_dtype in SQLUtils.upb_possible_input_fields:
             self.combo_dtype.setCurrentText(current_dtype)
         layout.addRow("Data Type:", self.combo_dtype)
 
@@ -138,10 +89,18 @@ class MainWindow(QWidget):
     """
     def __init__(self):
         super().__init__()
+        db = QSqlDatabase.addDatabase("QSQLITE")
+        db.setDatabaseName("yrrfgs.db")
+        db.open()
+
+        test = QSqlQuery()
+        test.prepare(f"SELECT SampleID FROM Samples")
+        if not test.exec():
+            QMessageBox.critical(self, "Error", "Failed to connect to database.")
+            sys.exit(1)
+
         self.setWindowTitle("UPb Importer (Left & Right Tables + Context Menus)")
         self.setGeometry(100, 100, 1500, 600)
-
-        self.conn = init_db()
 
         main_layout = QVBoxLayout(self)
 
@@ -179,7 +138,7 @@ class MainWindow(QWidget):
         # Left pinned table: 3 columns for SampleID, AliquotID, SpotID
         self.left_table = QTableWidget()
         self.left_table.setColumnCount(3)
-        self.left_table.setHorizontalHeaderLabels(["Sample ID", "Aliquot ID", "Spot ID"])
+        self.left_table.setHorizontalHeaderLabels(["SampleID", "AliquotID", "SpotID"])
         self.left_table.setEditTriggers(QAbstractItemView.EditTrigger.AllEditTriggers)
         self.left_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.left_table.customContextMenuRequested.connect(self.show_left_table_context_menu)
@@ -241,11 +200,11 @@ class MainWindow(QWidget):
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
 
-        # We'll store indexes for the 4 extra columns we append to the right table
-        self.lab_col = None
-        self.source_col = None
-        self.method_col = None
-        self.instrument_col = None
+        # # We'll store indexes for the 4 extra columns we append to the right table
+        # self.lab_col = None
+        # self.source_col = None
+        # self.method_col = None
+        # self.instrument_col = None
 
     # ---------------------------
     #    Context Menu Methods
@@ -354,9 +313,9 @@ class MainWindow(QWidget):
 
         rows, cols = self.df.shape
         # We'll add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument
-        extra_cols = 4
+        # extra_cols = 4
         self.right_table.setRowCount(rows)
-        self.right_table.setColumnCount(cols + extra_cols)
+        self.right_table.setColumnCount(cols)
 
         # Set column headers for the loaded data columns
         for c in range(cols):
@@ -406,20 +365,20 @@ class MainWindow(QWidget):
                 self.rejected_rows.add(r)
 
         # Additional columns for Lab Facilities, Source, Analysis Method, Instrument
-        self.lab_col = cols
-        self.source_col = cols + 1
-        self.method_col = cols + 2
-        self.instrument_col = cols + 3
+        # self.lab_col = cols
+        # self.source_col = cols + 1
+        # self.method_col = cols + 2
+        # self.instrument_col = cols + 3
 
-        self.right_table.setHorizontalHeaderItem(self.lab_col, QTableWidgetItem("Lab Facilities"))
-        self.right_table.setHorizontalHeaderItem(self.source_col, QTableWidgetItem("Source"))
-        self.right_table.setHorizontalHeaderItem(self.method_col, QTableWidgetItem("Analysis Method"))
-        self.right_table.setHorizontalHeaderItem(self.instrument_col, QTableWidgetItem("Instrument"))
+        # self.right_table.setHorizontalHeaderItem(self.lab_col, QTableWidgetItem("Lab Facilities"))
+        # self.right_table.setHorizontalHeaderItem(self.source_col, QTableWidgetItem("Source"))
+        # self.right_table.setHorizontalHeaderItem(self.method_col, QTableWidgetItem("Analysis Method"))
+        # self.right_table.setHorizontalHeaderItem(self.instrument_col, QTableWidgetItem("Instrument"))
 
-        # Make them editable line edits by default
-        for r in range(rows):
-            for c in range(self.lab_col, self.lab_col + 4):
-                self.right_table.setItem(r, c, QTableWidgetItem(""))
+        # # # Make them editable line edits by default
+        # for r in range(rows):
+        #     for c in range(self.lab_col, self.lab_col + 4):
+        #         self.right_table.setItem(r, c, QTableWidgetItem(""))
 
         # Setup vertical header icons
         for r in range(rows):
@@ -443,7 +402,7 @@ class MainWindow(QWidget):
 
     def auto_guess_column_names(self):
         """
-        Use difflib to guess the best match from ALL_POSSIBLE_FIELDS for the right table columns
+        Use difflib to guess the best match from SQLUtils.upb_possible_input_fields for the right table columns
         (excluding the 4 appended columns).
         """
         import difflib
@@ -451,11 +410,11 @@ class MainWindow(QWidget):
 
         total_cols = self.right_table.columnCount()
         # Exclude appended columns for Lab, Source, Method, Instrument
-        main_cols = total_cols - 4 if (total_cols > 4 and self.lab_col is not None) else total_cols
-
+        # main_cols = total_cols - 4 if (total_cols > 4 and self.lab_col is not None) else total_cols
+        main_cols = total_cols
         for col_idx in range(main_cols):
             original_header = self.right_table.horizontalHeaderItem(col_idx).text()
-            best = difflib.get_close_matches(original_header, ALL_POSSIBLE_FIELDS, n=1, cutoff=cutoff)
+            best = difflib.get_close_matches(original_header, SQLUtils.upb_possible_input_fields, n=1, cutoff=cutoff)
             if best:
                 field = best[0]
                 self.column_mappings[col_idx] = (field, "Auto")
@@ -549,7 +508,7 @@ class MainWindow(QWidget):
                 item.setBackground(QBrush(Qt.GlobalColor.green))
 
                 # If it’s Sample ID / Aliquot ID / Spot ID, auto-populate left table
-                if new_field == "Spot ID":
+                if new_field == "SpotID":
                     self.auto_split_sample_spot(logical_index)
 
     def update_left_table_on_delimiter_change(self):
@@ -559,7 +518,7 @@ class MainWindow(QWidget):
         # Find the right table column mapped to "Spot ID"
         spot_id_column = None
         for col_idx, (field_name, _) in self.column_mappings.items():
-            if field_name == "Spot ID":
+            if field_name == "SpotID":
                 spot_id_column = col_idx
                 break
 
@@ -666,99 +625,177 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "No Data", "There are no rows to import.")
             return
 
-        cursor = self.conn.cursor()
+        # savepoint_manager = SavepointManager.get_instance()
+        # Database_manager.create_savepoint('before_upb_import')
+
         inserted_count = 0
+
+        # Prepare the SQL statement from that list:
+        # e.g.: INSERT INTO upb_samples (sample_id, aliquot_id, spot_id, pb204cps, ...)
+        #       VALUES (:sample_id, :aliquot_id, :spot_id, :pb204cps, ...)
+
+        field_names = ", ".join(SQLUtils.upb_possible_input_fields)
+        placeholders = {', '.join([f':[{field}]' for field in SQLUtils.upb_possible_input_fields])}
+        insert_sql = f"""
+            INSERT INTO UPbAnalyses (
+                {field_names}
+            )
+            VALUES (
+                {placeholders}
+            )
+        """
+        print(insert_sql)
 
         try:
             for row_idx in range(row_count):
-                # Left table: Sample ID, Aliquot ID, Spot ID
+                # Build a record dict with every key initialized to None
+                record = {field: "NULL" for field in SQLUtils.upb_possible_input_fields}
+
+                # Populate the left-table items (sample_id, aliquot_id, spot_id)
                 sample_id_item = self.left_table.item(row_idx, 0)
                 aliquot_id_item = self.left_table.item(row_idx, 1)
                 spot_id_item = self.left_table.item(row_idx, 2)
 
-                record = {
-                    "sample_id": sample_id_item.text().strip() if sample_id_item else None,
-                    "aliquot_id": aliquot_id_item.text().strip() if aliquot_id_item else None,
-                    "spot_id": spot_id_item.text().strip() if spot_id_item else None,
-                    "u": None,
-                    "pb": None,
-                    "age": None,
-                    "rejected": 1 if (row_idx in self.rejected_rows) else 0,
-                    "lab_facilities": None,
-                    "source": None,
-                    "analysis_method": None,
-                    "instrument": None
-                }
 
-                # If the user typed into the 4 appended columns
-                # (lab_facilities, source, analysis_method, instrument)
-                if self.lab_col is not None:
-                    lab_item = self.right_table.item(row_idx, self.lab_col)
-                    if lab_item:
-                        record["lab_facilities"] = lab_item.text().strip()
-                if self.source_col is not None:
-                    source_item = self.right_table.item(row_idx, self.source_col)
-                    if source_item:
-                        record["source"] = source_item.text().strip()
-                if self.method_col is not None:
-                    method_item = self.right_table.item(row_idx, self.method_col)
-                    if method_item:
-                        record["analysis_method"] = method_item.text().strip()
-                if self.instrument_col is not None:
-                    instrument_item = self.right_table.item(row_idx, self.instrument_col)
-                    if instrument_item:
-                        record["instrument"] = instrument_item.text().strip()
+                record["sample_id"] = sample_id_item.text().strip() if sample_id_item else None
+                record["aliquot_id"] = aliquot_id_item.text().strip() if aliquot_id_item else None
+                record["spot_id"] = spot_id_item.text().strip() if spot_id_item else None
 
-                # Mapped columns from the original area
-                main_cols = self.right_table.columnCount() - 4 if self.lab_col is not None else self.right_table.columnCount()
+                ###
+                # todo add error if they are none, for instance if the user doesn;t care what the aliquot \
+                #  name is but cares about sample and spot names, should default autofill to a value (think this will be done \
+                #  prior to getting to this step
+
+                # Find matching SampleID or create new
+                sample_query = QSqlQuery()
+                sample_query.prepare(f"SELECT SampleID FROM Samples WHERE SampleName=:name")
+                sample_query.bindValue(":name", record["sample_id"])
+
+                if sample_query.exec():
+                    print("Executed query:", sample_query.lastQuery())
+                    if sample_query.next():
+                        # found matching samplename in database, will use that sample ID
+                        record["sample_id"] = sample_query.value(0)
+                        print(record["sample_id"])
+                    else:
+                        # no matching samplename in database, will create new one.
+                        create_sample = QSqlQuery()
+                        create_sample.prepare('INSERT INTO Samples (SampleName) VALUES (:name)')
+                        create_sample.bindValue(":name", record["sample_id"])
+
+                        if not create_sample.exec():
+                            print("Failed to execute query:", create_sample.lastError().text())
+                        else:
+                            record["sample_id"] = create_sample.lastInsertId()
+                else:
+                    print("Failed to execute query:", sample_query.lastError().text())
+
+
+                # Find matching AliquotID or create new
+                # todo erroring when AliquotID/Name not set
+                aliquot_query = QSqlQuery()
+                aliquot_query.prepare('SELECT AliquotID FROM Aliquots WHERE AliquotName=:name AND SampleID=:sample_id')
+                aliquot_query.bindValue(":name", record["aliquot_id"])
+                aliquot_query.bindValue(":sample_id", record["sample_id"])
+
+                if aliquot_query.exec():
+                    if aliquot_query.next():
+                        # found matching samplename in database, will use that sample ID
+                        record["aliquot_id"] = aliquot_query.value(0)
+                    else:
+                        # no matching samplename in database, will create new one.
+                        create_aliquot = QSqlQuery()
+                        create_aliquot.prepare('INSERT INTO Aliquots (AliquotName, SampleID) VALUES (:name, :sample_id)')
+                        create_aliquot.bindValue(":name", record["aliquot_id"])
+                        create_aliquot.bindValue(":sample_id", record["sample_id"])
+
+                        if not create_aliquot.exec():
+                            print("Failed to execute query:", create_aliquot.lastError().text())
+                        else:
+                            record["aliquot_id"] = create_aliquot.lastInsertId()
+                else:
+                    print("Failed to execute query:", aliquot_query.lastError().text())
+
+                # Find matching SpotID or create new
+                spot_query = QSqlQuery()
+                spot_query.prepare(
+                    'SELECT SpotID FROM Spots WHERE SpotName=:name AND AliquotID=:aliquot_id')
+                spot_query.bindValue(":name", record["spot_id"])
+                # todo this aliquot_id is blank when importing
+                spot_query.bindValue(":aliquot_id", record["aliquot_id"])
+
+                if spot_query.exec():
+                    if spot_query.next():
+                        # found matching samplename in database, will use that sample ID
+                        record["spot_id"] = spot_query.value(0)
+                    else:
+                        # no matching samplename in database, will create new one.
+                        create_spot = QSqlQuery()
+
+                        create_spot.prepare(
+                            'INSERT INTO Spots (SpotName, AliquotID) VALUES (:name, :aliquot_id)')
+                        create_spot.bindValue(":name", record["spot_id"])
+                        create_spot.bindValue(":aliquot_id", record["aliquot_id"])
+
+                        if not create_spot.exec():
+                            print("Failed to execute query:", create_spot.lastError().text())
+                        else:
+                            record["spot_id"] = create_spot.lastInsertId()
+                else:
+                    print("Failed to execute query:", spot_query.lastError().text())
+
+                # by this point a valid Sample, Aliquot, and Spot should be created.
+
+                # Process the main columns from the mapping.
+                # In your code, you might reduce main_cols by 4 if these appended columns
+                # are always the last 4 columns. Adjust logic as needed.
+                main_cols = self.right_table.columnCount()
+
                 for col_idx in range(main_cols):
                     if col_idx not in self.column_mappings:
                         continue
+
                     field_name, data_type = self.column_mappings[col_idx]
                     if field_name == "None":
                         continue
-                    db_field = field_name.lower().replace(' ', '_')
 
                     cell_item = self.right_table.item(row_idx, col_idx)
                     if not cell_item:
                         continue
+
                     cell_text = cell_item.text().strip()
                     if cell_text.upper() == "NULL":
-                        record[db_field] = None
+                        record[field_name] = None
                     else:
-                        if data_type in ("ppm", "% Conc.", "% Disc.", "Ma", "ka", "ppb"):
-                            try:
-                                record[db_field] = float(cell_text)
-                            except ValueError:
-                                record[db_field] = None
-                        elif data_type == "Auto":
-                            try:
-                                record[db_field] = float(cell_text)
-                            except ValueError:
-                                record[db_field] = cell_text
-                        else:
-                            record[db_field] = cell_text
+                        # todo decide if types will be given in column or new drop downs.
+                        record[field_name] = cell_text
 
-                cursor.execute("""
-                    INSERT INTO upb_samples (
-                        sample_id, aliquot_id, spot_id, u, pb, age, rejected,
-                        lab_facilities, source, analysis_method, instrument
-                    )
-                    VALUES (
-                        :sample_id, :aliquot_id, :spot_id, :u, :pb, :age, :rejected,
-                        :lab_facilities, :source, :analysis_method, :instrument
-                    )
-                """, record)
+                # Finally insert the row
+                insert_query = QSqlQuery()
+                insert_query.prepare(insert_sql)
+                for key, value in record.items():
+                    if key == "SampleID" or key == "AliquotID":
+                        continue
+                    insert_query.bindValue(f"[{key}]", value)
+
+                if not insert_query.exec():
+                    # todo this is not fetching data, probably related to spot not being created
+                    print(f"Error executing query: {insert_query.lastError().text()}")
+
                 inserted_count += 1
 
-            self.conn.commit()
             QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
+            # Database_manager.release_savepoint('before_upb_import')
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to import data:\n{e}")
+            # Database_manager.rollback_savepoint('before_upb_import')
+        QSqlDatabase().commit()
 
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
     window = MainWindow()
     window.show()
     sys.exit(app.exec())
