@@ -17,10 +17,9 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QBrush, QColor, QFont
 
-# Name of the local SQLite database file
+# Updated DB schema to include lab_facilities, source, analysis_method, instrument
 DATABASE_FILE = 'upb_data.db'
 
-# Fields the user can map columns to (some can be blank/None)
 ALL_POSSIBLE_FIELDS = [
     "Pb204cps", "Pb206cps", "Pb207cps", "Pb208cps", "Pb*cps",
     "Th232cps", "U235cps", "U238cps", "Uppm", "Thppm",
@@ -44,7 +43,6 @@ ALL_POSSIBLE_FIELDS = [
     "Calculated204Pb/208PbError"
 ]
 
-# Some typical data types we might assign (ppm, %, Ma, etc.)
 ALL_POSSIBLE_TYPES = [
     "Auto",
     "ppm",
@@ -56,16 +54,18 @@ ALL_POSSIBLE_TYPES = [
     "text"
 ]
 
-# Configuration file to store column mappings
 CONFIG_FILE = 'column_mappings.json'
+
 
 def init_db():
     """
     Initialize the SQLite database and create the upb_samples table if it does not exist.
-    Returns a sqlite3.Connection object.
+    Includes extra columns for lab_facilities, source, analysis_method, instrument.
     """
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
+
+    # If you already have an older table without these columns, you'll need to migrate.
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS upb_samples(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,7 +75,11 @@ def init_db():
             u REAL,
             pb REAL,
             age REAL,
-            rejected BOOLEAN DEFAULT 0
+            rejected BOOLEAN DEFAULT 0,
+            lab_facilities TEXT,
+            source TEXT,
+            analysis_method TEXT,
+            instrument TEXT
         )
     """)
     conn.commit()
@@ -98,7 +102,8 @@ class ColumnMapDialog(QDialog):
 
         self.combo_field = QComboBox()
         self.combo_field.addItems(ALL_POSSIBLE_FIELDS + ["Sample ID", "Aliquot ID", "Spot ID"])
-        if current_field in [self.combo_field.itemText(i) for i in range(self.combo_field.count())]:
+        existing_items = [self.combo_field.itemText(i) for i in range(self.combo_field.count())]
+        if current_field in existing_items:
             self.combo_field.setCurrentText(current_field)
         layout.addRow("Field:", self.combo_field)
 
@@ -125,14 +130,15 @@ class ColumnMapDialog(QDialog):
 
 class MainWindow(QWidget):
     """
-    Main window of the application with:
-      - Left pinned table: 3 columns for Sample ID, Aliquot ID, Spot ID
-      - Right table: actual data from Excel
-      - Delimiter handling for "Sample ID" mapping (auto-split into Sample ID + Spot ID)
+    Main window of the application:
+      - Left table (pinned): Sample ID, Aliquot ID, Spot ID (editable).
+      - Right table (main): Excel data + 4 optional columns appended
+        for Lab Facilities, Source, Analysis Method, Instrument (all editable).
+      - Context menus in both tables to set selected cells to a user-defined value.
     """
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("UPb Importer (Pinned Left Table + Auto ID Sync)")
+        self.setWindowTitle("UPb Importer (Left & Right Tables + Context Menus)")
         self.setGeometry(100, 100, 1500, 600)
 
         self.conn = init_db()
@@ -175,12 +181,15 @@ class MainWindow(QWidget):
         self.left_table.setColumnCount(3)
         self.left_table.setHorizontalHeaderLabels(["Sample ID", "Aliquot ID", "Spot ID"])
         self.left_table.setEditTriggers(QAbstractItemView.EditTrigger.AllEditTriggers)
+        self.left_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.left_table.customContextMenuRequested.connect(self.show_left_table_context_menu)
 
         # Right table for the actual Excel data
         self.right_table = QTableWidget()
         self.right_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.right_table.customContextMenuRequested.connect(self.show_table_context_menu)
+        self.right_table.customContextMenuRequested.connect(self.show_right_table_context_menu)
 
+        # Connect the header double-click signal to the handler
         header = self.right_table.horizontalHeader()
         header.sectionDoubleClicked.connect(self.handle_header_double_clicked)
 
@@ -198,7 +207,6 @@ class MainWindow(QWidget):
         splitter.setStretchFactor(1, 1)  # right expands
 
         main_layout.addWidget(splitter)
-
 
         # Bottom bar: mapping + import
         bottom_layout = QHBoxLayout()
@@ -233,10 +241,63 @@ class MainWindow(QWidget):
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
 
+        # We'll store indexes for the 4 extra columns we append to the right table
+        self.lab_col = None
+        self.source_col = None
+        self.method_col = None
+        self.instrument_col = None
+
+    # ---------------------------
+    #    Context Menu Methods
+    # ---------------------------
+
+    def show_left_table_context_menu(self, pos: QPoint):
+        """
+        Context menu for the left table (Sample ID, Aliquot ID, Spot ID).
+        Allows setting all selected cells to a user-defined value.
+        """
+        menu = QMenu(self)
+        set_value_action = menu.addAction("Set Selected Cells to Value...")
+
+        action = menu.exec(self.left_table.mapToGlobal(pos))
+        if action == set_value_action:
+            new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
+            if ok:
+                for item in self.left_table.selectedItems():
+                    item.setText(new_value)
+
+    def show_right_table_context_menu(self, pos: QPoint):
+        """
+        Context menu for the right table.
+        Includes remove rows, mark rows rejected, unmark,
+        and set selected cells to a user-defined value.
+        """
+        menu = QMenu(self)
+        remove_action = menu.addAction("Remove Selected Rows")
+        reject_action = menu.addAction("Mark Selected Rows as Rejected")
+        accept_action = menu.addAction("Mark Selected Rows as Accepted")
+        set_value_action = menu.addAction("Set Selected Cells to Value...")
+
+        action = menu.exec(self.right_table.mapToGlobal(pos))
+        if action == remove_action:
+            self.remove_selected_rows()
+        elif action == reject_action:
+            self.mark_selected_rows_rejected(True)
+        elif action == accept_action:
+            self.mark_selected_rows_rejected(False)
+        elif action == set_value_action:
+            new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
+            if ok:
+                for item in self.right_table.selectedItems():
+                    item.setText(new_value)
+
+        self.repaint()
+
+    # ---------------------------
+    #     File & Sheet Loading
+    # ---------------------------
+
     def select_file(self):
-        """
-        Open file dialog, load workbook
-        """
         dlg = QFileDialog(self)
         path, _ = dlg.getOpenFileName(self, "Select Excel File", "", "Excel Files (*.xlsx *.xls)")
         if path:
@@ -250,10 +311,6 @@ class MainWindow(QWidget):
                 QMessageBox.critical(self, "Error", f"Failed to read Excel file:\n{e}")
 
     def load_sheet(self):
-        """
-        Load the chosen sheet into a DataFrame, skip blank rows,
-        display in right_table with styles, create matching rows in left_table.
-        """
         if not hasattr(self, 'selected_file_path') or not self.selected_file_path:
             QMessageBox.warning(self, "No File", "Please select an Excel file first.")
             return
@@ -283,12 +340,12 @@ class MainWindow(QWidget):
         self.sync_left_table_rows()
 
         # Auto-guess column names
-        self.auto_guess_column_names()
+        # self.auto_guess_column_names()
 
     def display_right_table_with_styles(self, sheet_name):
         """
         Display the right table with openpyxl-based formatting
-        and auto-detect if row is rejected.
+        + add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument (editable).
         """
         sheet = self.wb[sheet_name]
         self.right_table.clear()
@@ -296,16 +353,18 @@ class MainWindow(QWidget):
         self.right_table.setColumnCount(0)
 
         rows, cols = self.df.shape
+        # We'll add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument
+        extra_cols = 4
         self.right_table.setRowCount(rows)
-        self.right_table.setColumnCount(cols)
+        self.right_table.setColumnCount(cols + extra_cols)
 
-        # Set column headers
+        # Set column headers for the loaded data columns
         for c in range(cols):
             col_name = str(self.df.columns[c])
             hdr_item = QTableWidgetItem(col_name)
             self.right_table.setHorizontalHeaderItem(c, hdr_item)
 
-        # Populate cells
+        # Populate cells for the loaded data
         for r in range(rows):
             row_rejected = False
             for c in range(cols):
@@ -314,8 +373,6 @@ class MainWindow(QWidget):
                 disp_val = "NULL" if pd.isna(value) or value == "" else str(value)
 
                 item = QTableWidgetItem(disp_val)
-
-                # Font/color
                 font = cell.font
                 fill = cell.fill
 
@@ -323,7 +380,6 @@ class MainWindow(QWidget):
                 if font.color and hasattr(font.color, "rgb") and isinstance(font.color.rgb, str):
                     hex_col = "#" + font.color.rgb[-6:]
                     item.setForeground(QBrush(QColor(hex_col)))
-                    # If pure red, mark row rejected
                     if hex_col.lower() == "#ff0000":
                         row_rejected = True
                 else:
@@ -349,6 +405,22 @@ class MainWindow(QWidget):
             if row_rejected:
                 self.rejected_rows.add(r)
 
+        # Additional columns for Lab Facilities, Source, Analysis Method, Instrument
+        self.lab_col = cols
+        self.source_col = cols + 1
+        self.method_col = cols + 2
+        self.instrument_col = cols + 3
+
+        self.right_table.setHorizontalHeaderItem(self.lab_col, QTableWidgetItem("Lab Facilities"))
+        self.right_table.setHorizontalHeaderItem(self.source_col, QTableWidgetItem("Source"))
+        self.right_table.setHorizontalHeaderItem(self.method_col, QTableWidgetItem("Analysis Method"))
+        self.right_table.setHorizontalHeaderItem(self.instrument_col, QTableWidgetItem("Instrument"))
+
+        # Make them editable line edits by default
+        for r in range(rows):
+            for c in range(self.lab_col, self.lab_col + 4):
+                self.right_table.setItem(r, c, QTableWidgetItem(""))
+
         # Setup vertical header icons
         for r in range(rows):
             self.update_row_icon(r, (r in self.rejected_rows))
@@ -363,7 +435,6 @@ class MainWindow(QWidget):
         row_count = self.right_table.rowCount()
         self.left_table.setRowCount(row_count)
         for r in range(row_count):
-            # If there's already an item, keep it, otherwise create new
             for c in range(3):
                 if not self.left_table.item(r, c):
                     self.left_table.setItem(r, c, QTableWidgetItem(""))
@@ -372,27 +443,33 @@ class MainWindow(QWidget):
 
     def auto_guess_column_names(self):
         """
-        Use difflib to guess the best match from ALL_POSSIBLE_FIELDS for the right table columns.
+        Use difflib to guess the best match from ALL_POSSIBLE_FIELDS for the right table columns
+        (excluding the 4 appended columns).
         """
         import difflib
         cutoff = 0.5
-        for col_idx in range(self.right_table.columnCount()):
+
+        total_cols = self.right_table.columnCount()
+        # Exclude appended columns for Lab, Source, Method, Instrument
+        main_cols = total_cols - 4 if (total_cols > 4 and self.lab_col is not None) else total_cols
+
+        for col_idx in range(main_cols):
             original_header = self.right_table.horizontalHeaderItem(col_idx).text()
             best = difflib.get_close_matches(original_header, ALL_POSSIBLE_FIELDS, n=1, cutoff=cutoff)
             if best:
                 field = best[0]
                 self.column_mappings[col_idx] = (field, "Auto")
-                # Update the header
                 item = self.right_table.horizontalHeaderItem(col_idx)
                 item.setText(f"{field} (Auto)")
                 item.setBackground(QBrush(QColor("#ffffcc")))
             else:
                 self.column_mappings[col_idx] = ("None", "Auto")
 
+    # ---------------------------
+    #     Context Menu Logic
+    # ---------------------------
+
     def update_row_icon(self, row_idx, rejected):
-        """
-        Update the vertical header icon for the right table to show accepted/rejected.
-        """
         header_item = QTableWidgetItem()
         header_item.setText(str(row_idx + 1))
         if rejected:
@@ -401,27 +478,9 @@ class MainWindow(QWidget):
             header_item.setIcon(self.accepted_icon)
         self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
-    def show_table_context_menu(self, pos: QPoint):
-        """
-        Context menu for removing rows or marking them Rejected/Accepted.
-        """
-        menu = QMenu(self)
-        remove_action = menu.addAction("Remove Selected Rows")
-        reject_action = menu.addAction("Mark Selected Rows as Rejected")
-        accept_action = menu.addAction("Unmark Selected Rows as Rejected")
-
-        action = menu.exec(self.right_table.mapToGlobal(pos))
-        if action == remove_action:
-            self.remove_selected_rows()
-        elif action == reject_action:
-            self.mark_selected_rows_rejected(True)
-        elif action == accept_action:
-            self.mark_selected_rows_rejected(False)
+    # Existing logic for removing rows, marking them rejected, etc.
 
     def remove_selected_rows(self):
-        """
-        Remove selected rows from both tables and from df.
-        """
         selected_rows = {i.row() for i in self.right_table.selectedItems()}
         if not selected_rows:
             return
@@ -434,14 +493,24 @@ class MainWindow(QWidget):
         for r in sr:
             self.right_table.removeRow(r)
             self.left_table.removeRow(r)
-
-        for r in sr:
             self.rejected_rows.discard(r)
+        self.update_vertical_headers()
+
+    def update_vertical_headers(self):
+        """
+        Update the vertical headers to ensure they match the current row indices.
+        """
+        row_count = self.right_table.rowCount()
+        for row_idx in range(row_count):
+            header_item = QTableWidgetItem(str(row_idx + 1))  # Update row numbers
+            # Check if the row is rejected and set the appropriate icon
+            if row_idx in self.rejected_rows:
+                header_item.setIcon(self.rejected_icon)
+            else:
+                header_item.setIcon(self.accepted_icon)
+            self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
     def mark_selected_rows_rejected(self, rejected: bool):
-        """
-        Mark or unmark selected rows as Rejected in the right table.
-        """
         selected_rows = {i.row() for i in self.right_table.selectedItems()}
         if not selected_rows:
             return
@@ -453,11 +522,13 @@ class MainWindow(QWidget):
                 self.rejected_rows.discard(r)
             self.update_row_icon(r, rejected)
 
+    # ---------------------------
+    #     Header Double Click
+    # ---------------------------
+
     def handle_header_double_clicked(self, logical_index):
         """
         Double-click on a right table header => open mapping dialog.
-        If user sets "Sample ID", "Aliquot ID", or "Spot ID",
-        auto-fill the left table from that column.
         """
         item = self.right_table.horizontalHeaderItem(logical_index)
         if not item:
@@ -475,7 +546,7 @@ class MainWindow(QWidget):
             else:
                 self.column_mappings[logical_index] = (new_field, new_dtype)
                 item.setText(f"{new_field} ({new_dtype})")
-                item.setBackground(QBrush(QColor("#ffffcc")))
+                item.setBackground(QBrush(Qt.GlobalColor.green))
 
                 # If it’s Sample ID / Aliquot ID / Spot ID, auto-populate left table
                 if new_field == "Spot ID":
@@ -527,9 +598,6 @@ class MainWindow(QWidget):
             self.left_table.setItem(r, 2, QTableWidgetItem(spot_id))  # Spot ID
 
     def save_mapping(self):
-        """
-        Save the column mappings to a JSON file.
-        """
         if not self.column_mappings:
             QMessageBox.warning(self, "No Mapping", "No columns have been mapped yet.")
             return
@@ -552,10 +620,6 @@ class MainWindow(QWidget):
                 QMessageBox.critical(self, "Error", f"Failed to save mapping:\n{e}")
 
     def load_mapping(self):
-        """
-        Load a column mapping from JSON and apply to the right table.
-        Then also auto-fill the pinned columns if they're mapped to Sample/Aliquot/Spot.
-        """
         if not os.path.exists(CONFIG_FILE):
             QMessageBox.warning(self, "No Config", "No configuration file found.")
             return
@@ -576,8 +640,8 @@ class MainWindow(QWidget):
                     idx = int(k_str)
                     self.column_mappings[idx] = (v["field"], v["type"])
 
-                # Apply to header
-                for col_idx in range(self.right_table.columnCount()):
+                total_cols = self.right_table.columnCount()
+                for col_idx in range(total_cols):
                     hdr_item = self.right_table.horizontalHeaderItem(col_idx)
                     if not hdr_item:
                         continue
@@ -588,28 +652,18 @@ class MainWindow(QWidget):
                     else:
                         hdr_item.setBackground(QBrush(Qt.GlobalColor.White))
 
-                # Also auto-fill pinned columns for Sample/Aliquot/Spot
-                for col_idx, (f_name, f_type) in self.column_mappings.items():
-                    if f_name in ("Sample ID", "Aliquot ID", "Spot ID"):
-                        self.auto_fill_pinned_ids(f_name, col_idx)
-
                 QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load mapping:\n{e}")
 
+    # ---------------------------
+    #      Import to DB
+    # ---------------------------
+
     def import_to_db(self):
-        """
-        Insert rows into the DB:
-         - We read "Sample ID", "Aliquot ID", "Spot ID" from left_table
-         - We read mapped columns from right_table
-         - 'rejected' from self.rejected_rows
-        """
         row_count = self.right_table.rowCount()
         if row_count == 0:
             QMessageBox.warning(self, "No Data", "There are no rows to import.")
-            return
-        if not self.column_mappings:
-            QMessageBox.warning(self, "No Mapping", "Please map columns before importing.")
             return
 
         cursor = self.conn.cursor()
@@ -629,11 +683,35 @@ class MainWindow(QWidget):
                     "u": None,
                     "pb": None,
                     "age": None,
-                    "rejected": 1 if (row_idx in self.rejected_rows) else 0
+                    "rejected": 1 if (row_idx in self.rejected_rows) else 0,
+                    "lab_facilities": None,
+                    "source": None,
+                    "analysis_method": None,
+                    "instrument": None
                 }
 
-                # Populate from right table columns
-                for col_idx in range(self.right_table.columnCount()):
+                # If the user typed into the 4 appended columns
+                # (lab_facilities, source, analysis_method, instrument)
+                if self.lab_col is not None:
+                    lab_item = self.right_table.item(row_idx, self.lab_col)
+                    if lab_item:
+                        record["lab_facilities"] = lab_item.text().strip()
+                if self.source_col is not None:
+                    source_item = self.right_table.item(row_idx, self.source_col)
+                    if source_item:
+                        record["source"] = source_item.text().strip()
+                if self.method_col is not None:
+                    method_item = self.right_table.item(row_idx, self.method_col)
+                    if method_item:
+                        record["analysis_method"] = method_item.text().strip()
+                if self.instrument_col is not None:
+                    instrument_item = self.right_table.item(row_idx, self.instrument_col)
+                    if instrument_item:
+                        record["instrument"] = instrument_item.text().strip()
+
+                # Mapped columns from the original area
+                main_cols = self.right_table.columnCount() - 4 if self.lab_col is not None else self.right_table.columnCount()
+                for col_idx in range(main_cols):
                     if col_idx not in self.column_mappings:
                         continue
                     field_name, data_type = self.column_mappings[col_idx]
@@ -641,7 +719,10 @@ class MainWindow(QWidget):
                         continue
                     db_field = field_name.lower().replace(' ', '_')
 
-                    cell_text = self.right_table.item(row_idx, col_idx).text().strip()
+                    cell_item = self.right_table.item(row_idx, col_idx)
+                    if not cell_item:
+                        continue
+                    cell_text = cell_item.text().strip()
                     if cell_text.upper() == "NULL":
                         record[db_field] = None
                     else:
@@ -660,9 +741,13 @@ class MainWindow(QWidget):
 
                 cursor.execute("""
                     INSERT INTO upb_samples (
-                        sample_id, aliquot_id, spot_id, u, pb, age, rejected
+                        sample_id, aliquot_id, spot_id, u, pb, age, rejected,
+                        lab_facilities, source, analysis_method, instrument
                     )
-                    VALUES (:sample_id, :aliquot_id, :spot_id, :u, :pb, :age, :rejected)
+                    VALUES (
+                        :sample_id, :aliquot_id, :spot_id, :u, :pb, :age, :rejected,
+                        :lab_facilities, :source, :analysis_method, :instrument
+                    )
                 """, record)
                 inserted_count += 1
 
