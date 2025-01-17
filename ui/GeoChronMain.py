@@ -56,7 +56,10 @@ class GeoChron(QtW.QMainWindow):
         self.loadWindowState()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file = os.path.join(base_path, "GeochronMain.ui")
+        base_path = os.path.normpath(base_path)
+        sources_ui_file = fr'{os.path.join(base_path, "GeochronMain.ui")}'
+        sources_ui_file = os.path.normpath(sources_ui_file)
+
         loadUi(sources_ui_file, self)
 
         savepoint_manager = Database_manager.SavepointManager()

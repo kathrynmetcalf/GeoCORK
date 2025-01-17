@@ -503,7 +503,7 @@ upb_possible_input_fields = {
     '206Pb/238U', '206Pb/238UError',
     '238U/206Pb', '238U/206PbError',
     '207Pb/235U', '207Pb/235UError',
-    '235U/207Pb', '235U/207PbUError',
+    '235U/207Pb', '235U/207PbError',
     '208Pb/232Th', '208Pb/232ThError',
     '232Th/208Pb', '232Th/208PbError',
 
@@ -511,6 +511,7 @@ upb_possible_input_fields = {
     '232Th/238U', '232Th/238UError',
 
     'ErrorCorr/Rho',
+    'RatioErrorTypeID',
     '207Pb/206PbAge', '207Pb/206PbAgeError',
     '207Pb/235UAge', '207Pb/235UAgeError',
     '206Pb/238UAge', '206Pb/238UAgeError',
@@ -519,14 +520,12 @@ upb_possible_input_fields = {
 
     'AgeErrorTypeID',
     'AgeUnitID',
-    'Concordance',
-    'ConcordanceTypeID',
-    'SpotSize',
-    'SpotSizeUnitID',
+    'Concordance', 'ConcordanceTypeID',
+    'SpotSize', 'SpotSizeUnitID',
     'Rejected',
 
     'ReferenceID',
-    'LabFacilitiyID',
+    'LabFacilityID',
     'InstrumentID',
     'UPbAnalysisMethodID'
 }
