@@ -483,7 +483,7 @@ table_attributes_dict = {
     ]
 }
 
-upb_possible_input_fields = {
+upb_possible_input_fields = [
     'SpotID',
     'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
     'Uppm', 'Thppm',
@@ -528,7 +528,7 @@ upb_possible_input_fields = {
     'LabFacilityID',
     'InstrumentID',
     'UPbAnalysisMethodID'
-}
+]
 
 
 def get_join_from_table(tables: list[str]) -> str:

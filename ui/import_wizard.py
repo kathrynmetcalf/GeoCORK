@@ -52,7 +52,7 @@ class ColumnMapDialog(QDialog):
         layout = QFormLayout()
 
         self.combo_field = QComboBox()
-        self.combo_field.addItems(["SampleID", "AliquotID", "SpotID"] + list(SQLUtils.upb_possible_input_fields))
+        self.combo_field.addItems(["SampleID", "AliquotID"] + SQLUtils.upb_possible_input_fields)
         existing_items = [self.combo_field.itemText(i) for i in range(self.combo_field.count())]
         if current_field in existing_items:
             self.combo_field.setCurrentText(current_field)
@@ -202,6 +202,10 @@ class MainWindow(QWidget):
         self.btn_import.clicked.connect(self.check_and_import)
         bottom_layout.addWidget(self.btn_import)
 
+        self.btn_add_column = QPushButton("Add Column")
+        self.btn_add_column.clicked.connect(self.add_column)
+        bottom_layout.addWidget(self.btn_add_column)
+
         main_layout.addLayout(bottom_layout)
 
         self.setLayout(main_layout)
@@ -231,6 +235,46 @@ class MainWindow(QWidget):
     #    Context Menu Methods
     # ---------------------------
 
+    def add_column(self):
+        """
+        Add a new column to the table based on user input from the Column Map Dialog.
+        """
+        # Open the Column Map Dialog to let the user select a column name and data type
+        dialog = ColumnMapDialog("New Column", "None", "Auto", self)
+        if dialog.exec():
+            selected_field, selected_dtype = dialog.get_field_and_type()
+
+            # Ensure the user selected a valid field
+            if selected_field == "None":
+                QMessageBox.warning(self, "Invalid Selection", "Please select a valid column field.")
+                return
+
+            for col_idx in range(self.right_table.columnCount()):
+                header = self.right_table.horizontalHeaderItem(col_idx)
+                if header and header.text().startswith(selected_field):
+                    QMessageBox.warning(self, "Duplicate Column", f"Column '{selected_field}' already exists.")
+                    return
+
+            # Insert the new column at the end of the table
+            col_index = self.right_table.columnCount()
+            self.right_table.insertColumn(col_index)
+
+            # Set the column header
+            header_text = f"{selected_field} ({selected_dtype})"
+            header_item = QTableWidgetItem(header_text)
+            header_item.setBackground(QBrush(QColor("#ffffcc")))  # Light yellow background for new column
+            self.right_table.setHorizontalHeaderItem(col_index, header_item)
+
+            # Add the new column to the column mappings
+            self.column_mappings[col_index] = (selected_field, selected_dtype)
+
+            # Initialize the column cells with empty values
+            for row in range(self.right_table.rowCount()):
+                self.right_table.setItem(row, col_index, QTableWidgetItem(""))
+
+            # Notify the user
+            QMessageBox.information(self, "Column Added", f"Column '{header_text}' added successfully.")
+
     def show_left_table_context_menu(self, pos: QPoint):
         """
         Context menu for the left table (Sample ID, Aliquot ID, Spot ID).
@@ -257,6 +301,7 @@ class MainWindow(QWidget):
         reject_action = menu.addAction("Mark Selected Rows as Rejected")
         accept_action = menu.addAction("Mark Selected Rows as Accepted")
         set_value_action = menu.addAction("Set Selected Cells to Value...")
+        remove_column = menu.addAction('Remove Selected Column')
 
         action = menu.exec(self.right_table.mapToGlobal(pos))
         if action == remove_action:
@@ -270,6 +315,8 @@ class MainWindow(QWidget):
             if ok:
                 for item in self.right_table.selectedItems():
                     item.setText(new_value)
+        elif action == remove_column:
+            self.remove_selected_columns()
 
         self.repaint()
 
@@ -362,8 +409,8 @@ class MainWindow(QWidget):
                     item.setForeground(QBrush(QColor(hex_col)))
                     if hex_col.lower() == "#ff0000":
                         row_rejected = True
-                else:
-                    item.setForeground(QBrush(Qt.GlobalColor.black))
+                # else:
+                #     item.setForeground(QBrush(Qt.GlobalColor.black))
 
                 qfont = QFont()
                 qfont.setBold(font.bold if font.bold else False)
@@ -384,22 +431,6 @@ class MainWindow(QWidget):
 
             if row_rejected:
                 self.rejected_rows.add(r)
-
-        # Additional columns for Lab Facilities, Source, Analysis Method, Instrument
-        # self.lab_col = cols
-        # self.source_col = cols + 1
-        # self.method_col = cols + 2
-        # self.instrument_col = cols + 3
-
-        # self.right_table.setHorizontalHeaderItem(self.lab_col, QTableWidgetItem("Lab Facilities"))
-        # self.right_table.setHorizontalHeaderItem(self.source_col, QTableWidgetItem("Source"))
-        # self.right_table.setHorizontalHeaderItem(self.method_col, QTableWidgetItem("Analysis Method"))
-        # self.right_table.setHorizontalHeaderItem(self.instrument_col, QTableWidgetItem("Instrument"))
-
-        # # # Make them editable line edits by default
-        # for r in range(rows):
-        #     for c in range(self.lab_col, self.lab_col + 4):
-        #         self.right_table.setItem(r, c, QTableWidgetItem(""))
 
         # Setup vertical header icons
         for r in range(rows):
@@ -475,6 +506,35 @@ class MainWindow(QWidget):
             self.left_table.removeRow(r)
             self.rejected_rows.discard(r)
         self.update_vertical_headers()
+
+    def remove_selected_columns(self):
+        """
+        Remove selected columns from the right table, the column mappings,
+        and associated data structures.
+        """
+        selected_columns = {i.column() for i in self.right_table.selectedItems()}
+        if not selected_columns:
+            return
+
+        # Sort selected columns in descending order to remove from the rightmost column
+        sc = sorted(selected_columns, reverse=True)
+
+        for col in sc:
+            # Remove the column from the right table
+            self.right_table.removeColumn(col)
+
+            # Update column mappings to reflect the removed column
+            if col in self.column_mappings:
+                del self.column_mappings[col]
+
+            # Shift column mappings for columns after the removed one
+            self.column_mappings = {
+                (idx - 1 if idx > col else idx): value
+                for idx, value in self.column_mappings.items()
+            }
+
+        # Notify the user
+        QMessageBox.information(self, "Columns Removed", "Selected columns have been successfully removed.")
 
     def update_vertical_headers(self):
         """
@@ -711,6 +771,8 @@ class MainWindow(QWidget):
             for row_idx in range(row_count):
                 # Build a record dict with every key initialized to None
                 record = {field: None for field in SQLUtils.upb_possible_input_fields}
+                if row_idx in self.rejected_rows:
+                    record['Rejected'] = True
 
                 # Populate the left-table items (sample_id, aliquot_id, spot_id)
                 sample_id_item = self.left_table.item(row_idx, 0)
@@ -857,13 +919,11 @@ class MainWindow(QWidget):
                     print(insert_query.executedQuery())
                     for value in insert_query.boundValues():
                         print(value)
-                else:
-                    QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
 
                 inserted_count += 1
 
             # Database_manager.release_savepoint('before_upb_import')
-
+            QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to import data:\n{e}")
             # Database_manager.rollback_savepoint('before_upb_import')
