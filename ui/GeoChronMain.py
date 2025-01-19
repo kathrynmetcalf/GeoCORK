@@ -66,13 +66,13 @@ class GeoChron(QtW.QMainWindow):
         # self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
         Create_db.create_tables()
         self.drop_views()
-        Alter_db.settings_reset()
         if not settings.contains("default_settings"):
             settings.setValue("default_settings", True)
         if settings.value("default_settings") is True:
             default_settings()
         else:
             user_settings()
+        Alter_db.settings_reset()
         create_view_begin = time.time()
         print("Creating views")
         DB_views.create_all_views()
@@ -253,20 +253,20 @@ class GeoChron(QtW.QMainWindow):
                 else:
                     self.model.setTable(table)
             self.model.select()
-            for col in range(self.model.columnCount()):
-                header = TxM.add_spaces_camel(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-                if 'ID' in header:
-                    header = header.replace('ID', '')
-                self.model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             self.table_proxy_model.setSourceModel(self.model)
+            for col in range(self.table_proxy_model.columnCount()):
+                header = self.table_proxy_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if 'ID' in header and col != 0:
+                    # Leave ID in the first column but remove it for foreign key references
+                    header = header.replace('ID', '')
+                header = TxM.add_spaces_camel(header)
+                self.table_proxy_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             # if self.case_checkBox.isChecked():
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
             # else:
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
-            if isinstance(self.model, TbC.VerifiableRelationalTableModel):
-                self.dbTable_tableView.setItemDelegate(QtS.QSqlRelationalDelegate(self.dbTable_tableView))
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)

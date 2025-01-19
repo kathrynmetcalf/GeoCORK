@@ -123,7 +123,8 @@ qaliquot_context_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(AliquotContextName,"Null
 #Columns, skip null values
 qcolumn_calc_total_height_depth = f'Columns.CalculatedColumnTotalHeightDepth AS "Total Height/Depth ({selected_heightdepth_unit})"'
 qcolumn_total_height_depth = f'Columns.ColumnTotalHeightDepth AS "Total Height/Depth"'
-qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation AS "Unit"'
+qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation AS "Height/Depth Unit"'
+qcolumn_gps_display = 'ColumnGPS.GPSLocationDisplay AS "Column Base GPS"'
 qcolumn_description = 'ColumnDescription'
 qcolumn_created = 'ColumnCreated'
 qcolumn_modified = 'ColumnModified'
@@ -271,6 +272,44 @@ user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'UPbAnalyses']
+trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'SampleView', 'ColumnEditView', 'UPbAnalyses']
 
 views = ['SampleView', 'AliquotView', 'SpotView', 'UPbView', 'ColumnView', 'ColumnEditView']
+
+age_units = [('Billion years', 'Ga', '1000000000'),
+                 ('Million years', 'Ma', '1000000'),
+                 ('Thousand years', 'ka', '1000'),
+                 ('Years', 'a', '1')]
+
+concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
+                         ('Concordance percent', 'Con%', 'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
+                         ('Discordance ratio', 'Dis', 'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
+                         ('Discordance percent', 'Dis%', 'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
+
+direction_units = [('North', 'N','positive north'),
+                       ('South', 'S','positive south'),
+                       ('East', 'E','positive east'),
+                       ('West', 'W','positive west')]
+
+distance_units = [('Kilometers', 'km', '1000'),
+                 ('Meters', 'm', '1'),
+                 ('Centimeters', 'cm', '0.01'),
+                 ('Millimeter', 'mm', '0.001'),
+                 ('Micrometer', 'µm', '0.000001'),
+                 ('Miles', 'mi', '5280'),
+                 ('Yards', 'yd', '3'),
+                 ('Feet', 'ft', '1'),
+                 ('Inches', 'in', f'(1/12)')]
+
+error_formats = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
+                         ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
+                         ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
+                         ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
+
+gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
+                   ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
+                   ('Degrees minutes positive/negative', 'DDM +/-', 'Degrees and decimal minutes with positive N and E and negative S and W'),
+                   ('Degrees minutes cardinal', 'DDM NSEW', 'Degrees and decimal minutes with cardinal directions'),
+                   ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
+                   ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
+                   ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]

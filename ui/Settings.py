@@ -7,7 +7,7 @@ def default_settings():
     if settings.value('default_settings') is True:
         settings.setValue('age_unit_id', 2)
         settings.setValue('elevation_unit_id', 8)
-        settings.setValue('gps_format_id', 1)
+        settings.setValue('gps_format_id', 7)
         settings.setValue('heightdepth_unit_id', 2)
         settings.setValue('spotsize_unit_id', 5)
         settings.setValue('age_error_format_id', 1)

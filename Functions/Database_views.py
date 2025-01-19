@@ -190,7 +190,7 @@ def SpotViewQuery(parent_id, id_type='sample'):
 
 def ColumnViewQuery():
     # Select columns
-    columns = 'ColumnName as "Columns"'
+    columns = 'ColumnName'
 
     column_query = f'''
                 SELECT
@@ -209,7 +209,7 @@ def ColumnViewQuery():
 
 def ColumnEditViewQuery():
     # Select columns
-    columns = 'ColumnName as "Columns"'
+    columns = 'ColumnName'
 
     column_query = f'''
                     SELECT
@@ -217,7 +217,7 @@ def ColumnEditViewQuery():
                         {columns},
                         {SQLUtils.qcolumn_total_height_depth},
                         {SQLUtils.qcolumn_total_height_depth_unit},
-                        {SQLUtils.qcolumn_gps},
+                        {SQLUtils.qcolumn_gps_display},
                         {SQLUtils.qcolumn_description},
                         {SQLUtils.qcolumn_created},
                         {SQLUtils.qcolumn_modified}

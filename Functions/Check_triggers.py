@@ -135,7 +135,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
         return "Number of columns to set does not match number of values given"
     query = QtS.QSqlQuery()
     column_str = ", ".join(columns)
-    value_str = ", ".join(values)
+    value_str = ", ".join([str(value) for value in values])
     pairs = []
     for index in range(len(columns)):
         pairs.append([columns[index], values[index]])
@@ -144,12 +144,13 @@ def validate_update(table: str, columns: list, values: list, where: str):
     table_model.select()
     table_model.setFilter(where)
     all_records = []
-    for col in range(table_model.columnCount()):
+    for col in range(1, table_model.columnCount()):
         column_name = table_model.record().fieldName(col)
         new_value = ''
         for index in range(len(columns)):
             if columns[index] == column_name:
                 new_value = values[index]
+                break
         old_values = []
         for row in range(table_model.rowCount()):
             old_value = table_model.data(table_model.index(row, col, QtC.QModelIndex()))
@@ -158,7 +159,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
             old_values.append(old_value)
         all_records.append([column_name, new_value, old_values])
     if table == 'Columns':
-        error = check_update_units(all_records, ['ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitID'])
+        error = check_update_units(all_records, 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitID')
         if error:
             return f'Column total height/depth {error}'
     if table == 'GPSLocations':
@@ -244,6 +245,9 @@ def check_update_units(all_records: list, value_col: str, unit_id_col: str):
     @return: Nothing if successful, error message if not
     """
 
+    new_value = ''
+    new_unit_id = ''
+    old_unit_ids = []
     for record in all_records:
         if record[0] == value_col:
             new_value = record[1]

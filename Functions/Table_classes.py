@@ -13,6 +13,7 @@ from PyQt6.QtCore import QMetaType
 
 from Functions.Settings_manager import settings
 from Functions import SQLUtils
+import Functions.Text_manipulations as TxM
 from Functions import Database_views as DB_views
 from Functions import Check_triggers
 import Functions.Alter_database as Alter_db
@@ -43,102 +44,6 @@ class DecimalDelegate(QtW.QStyledItemDelegate):
 
             return f'{value:.{self.decimal_places}f}'
 
-class VerifiableSqlTableModel(QtS.QSqlTableModel):
-    row_submitted = QtC.pyqtSignal(int)
-    def __init__(self):
-        super().__init__()
-        self.edited_indexes = []
-        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
-
-    def setData(self, index, value, role = ...):
-        field_type = self.record().field(index.column()).typeID()
-        print(f"Field type: {field_type}, Value: {value}")
-        if role == QtC.Qt.ItemDataRole.EditRole:
-            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
-                # Set the value to NULL
-                return super().setData(index, None, role)
-        return super().setData(index, value, role)
-
-    def submit(self):
-        if not self.isDirty():
-            return True
-        if self.tableName() in SQLUtils.trigger_tables:
-            # get the edited row
-            current_row = self.edited_indexes[0].row()
-            columns = []
-            values = []
-            id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            for column in range(1, self.columnCount()):
-                columns.append(self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-                values.append(self.data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole))
-            where = f'{id_header}={id}'
-            error = Check_triggers.validate_update(self.tableName(), columns, values, where)
-            if error is not None:
-                print(error)
-                return False
-        if super().submit():
-            self.row_submitted.emit(current_row)
-            return True
-        return False
-
-    def on_row_submitted(self, row):
-        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        error = Check_triggers.update_modified_timestamp(self.tableName(), [record_id])
-        if error is not None:
-            print(error)
-            return False
-
-class VerifiableRelationalTableModel(QtS.QSqlRelationalTableModel):
-    row_submitted = QtC.pyqtSignal(int)
-    def __init__(self):
-        super().__init__()
-        self.edited_indexes = []
-        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
-
-    def setData(self, index, value, role = ...):
-        field_type = self.record().field(index.column()).typeID()
-        print(f"Field type: {field_type}, Value: {value}")
-        if role == QtC.Qt.ItemDataRole.EditRole:
-            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
-                # Set the value to NULL
-                return super().setData(index, None, role)
-        return super().setData(index, value, role)
-
-    def submit(self):
-        if not self.isDirty():
-            return True
-        if self.tableName() in SQLUtils.trigger_tables:
-            # get the edited row
-            if len(self.edited_indexes) == 0:
-                # no rows edited
-                return True
-            current_row = self.edited_indexes[0].row()
-            columns = []
-            values = []
-            id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            for column in range(1, self.columnCount()):
-                columns.append(self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-                values.append(self.data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole))
-            where = f'{id_header}={id}'
-            error = Check_triggers.validate_update(self.tableName(), columns, values, where)
-            if error is not None:
-                print(error)
-                return False
-        if super().submit():
-            self.row_submitted.emit(self.edited_indexes[0].row())
-            # Alter_db.populate_generated_columns()
-            return True
-        return False
-
-    def on_row_submitted(self, row):
-        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        error = Check_triggers.update_modified_timestamp(self.tableName(), [record_id])
-        if error is not None:
-            print(error)
-            return False
-
 class DisplayRoundedModel(QtS.QSqlTableModel):
     def __init__(self):
         super().__init__()
@@ -150,25 +55,184 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
             # check the header of the selected index
             header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             value = super().data(index, role)
-            if f'({settings.value('age_unit_abbreviation')})' in header:
-                # print(f'Displaying {value}')
-                return display_age(value)
-            elif 'GPS' in header:
-                # print(f'Displaying {value}')
-                return display_gps(value)
-            elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
-                # print(f'Displaying {value}')
-                return display_value_with_error(value)
+            if isinstance(value, str):
+                if f'({settings.value('age_unit_abbreviation')})' in header:
+                    # print(f'Displaying {value}')
+                    return display_age(value)
+                elif 'GPS' in header:
+                    # print(f'Displaying {value}')
+                    return display_gps(value)
+                elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
+                    # print(f'Displaying {value}')
+                    return display_value_with_error(value)
             # if the value is a number but not an integer
             elif value is not None and isinstance(value, (int, float)):
                 return return_rounded(value)
+            else:
+                return value
         return super().data(index, role)
 
-class ColumnTableModel(QtS.QSqlQueryModel):
+    def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        return super().data(index, role)
+
+class VerifiableSqlTableModel(DisplayRoundedModel):
+    row_submitted = QtC.pyqtSignal(int)
     def __init__(self):
         super().__init__()
-        self.default_query = DB_views.ColumnViewQuery()
-        self.setQuery(self.default_query)
+        self.edited_indexes = []
+        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
+
+    def setData(self, index, value, role = ...):
+        field_type = self.record().field(index.column()).typeID()
+        print(f"Field type: {field_type}, Value: {value}")
+        if role == QtC.Qt.ItemDataRole.EditRole:
+            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
+                # Set the value to NULL
+                return super().setData(index, None, role)
+        self.edited_indexes.append(index)
+        if '.' not in str(value):
+            # Make sure integers don't have decimals added on
+            try: value = int(value)
+            except ValueError:
+                pass
+        return super().setData(index, value, role)
+
+    def submit(self):
+        if not self.isDirty():
+            return True
+        # get the edited row
+        current_row = self.edited_indexes[0].row()
+        if self.tableName() in SQLUtils.trigger_tables:
+            if not self.verify_row(current_row):
+                return False
+        if super().submit():
+            self.row_submitted.emit(current_row)
+            return True
+        else:
+            return False
+
+    def on_row_submitted(self, row):
+        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        error = Check_triggers.update_modified_timestamp(self.tableName(), [record_id])
+        if error is not None:
+            print(error)
+            return False
+
+    def verify_row(self, current_row):
+        columns = []
+        values = []
+        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        foreign_table = QtS.QSqlTableModel()
+        for column in range(1, self.columnCount()):
+            header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            value = self.data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
+            if 'ID' in header and type(value) is not int:
+                # get the ID from the display value
+                set_value = self.get_foreign_id(self.tableName(), header, value)
+            else:
+                set_value = value
+            columns.append(header)
+            values.append(set_value)
+        where = f'{id_header}={id}'
+        error = Check_triggers.validate_update(self.tableName(), columns, values, where)
+        if error is not None:
+            print(error)
+            return False
+        return True
+
+class VerifiableSqlViewModel(VerifiableSqlTableModel):
+    row_submitted = QtC.pyqtSignal(int)
+    def __init__(self):
+        super().__init__()
+        self.table = ''
+        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
+
+    def setTable(self, tableName):
+        if 'View' in tableName:
+            if 'Column' in tableName:
+                self.table = 'Columns'
+            elif 'Sample' in tableName:
+                self.table = 'Samples'
+            super().setTable(tableName)
+        else:
+            print('Table name is not a view')
+
+    def submit(self):
+        if not self.isDirty():
+            return True
+        # get the edited row
+        current_row = self.edited_indexes[0].row()
+        columns = []
+        values = []
+        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        foreign_table = QtS.QSqlTableModel()
+        # Need to map the joined columns to the actual table columns
+        for column in range(1, self.columnCount()):
+            header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            value = self.unrounded_data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
+            if header == 'Total Height/Depth':
+                set_header = 'ColumnTotalHeightDepth'
+                set_value = value
+            elif 'Unit' in header:
+                set_header = 'ColumnTotalHeightDepthUnitID'
+                set_table(foreign_table, 'DistanceUnits')
+                foreign_table.setFilter(f'DistanceUnitAbbreviation="{value}"')
+                set_value = foreign_table.record(0).value('DistanceUnitID')
+            elif header == 'Column Base GPS':
+                set_header = 'ColumnBaseGPSID'
+                query = QtS.QSqlQuery()
+                query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"')
+                query.next()
+                set_value = query.value(0)
+                # set_value = foreign_table.record(0).value('GPSLocationID')
+            else:
+                set_header = header
+                set_value = value
+            columns.append(set_header)
+            values.append(set_value)
+
+        error = Check_triggers.validate_update(self.table, columns, values, f'{id_header}={id}')
+        if error is not None:
+            print(error)
+            return False
+        column_str = ", ".join(columns)
+        # create a string of question marks separated by commas for the values
+        value_str = ", ".join('?' * len(values))
+        query = QtS.QSqlQuery()
+        query.prepare(f'UPDATE {self.table} SET ({column_str}) = ({value_str}) WHERE {id_header}={id}')
+        for i, value in enumerate(values):
+            query.bindValue(i, value)
+        if not query.exec():
+            print(f'Failed to update {self.table} with {column_str}={value_str}')
+            return False
+        self.row_submitted.emit(current_row)
+        return True
+
+    def on_row_submitted(self, row):
+        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        error = Check_triggers.update_modified_timestamp(self.table, [record_id])
+        if error is not None:
+            print(error)
+            return False
+
+class ReadableProxyModel(QtC.QSortFilterProxyModel):
+    def __init__(self):
+        super().__init__()
+
+    def setSourceModel(self, model):
+        super().setSourceModel(model)
+        self.readable_headers(model)
+
+    def readable_headers(self, model):
+        headers = []
+        for col in range(model.columnCount()):
+            header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            if 'ID' in header:
+                header.replace('ID', '')
+            headers.append(TxM.add_spaces_camel(header))
+        return headers
 
 def SampleIfNullQuery():
     sample_ifnull_query = f'''
@@ -420,17 +484,15 @@ def name_column(table: str):
     else:
         return None
 
-def column_type(table: str, column: str):
+def get_column_types(table: str):
     query = QtS.QSqlQuery()
-    column_type = None
+    column_types = []
     if not query.exec(f'PRAGMA table_info("{table}")'):
         print(f"Failed to get columns for {table}")
-        return column_type
+        return column_types
     while query.next():
-        if query.value(1) == column:
-            column_type = query.value(2)
-            break
-    return column_type
+        column_types.append(query.value(2))
+    return column_types
 
 def foreign_key_columns(table: str):
     query = QtS.QSqlQuery()
@@ -456,6 +518,23 @@ def foreign_key_columns(table: str):
             return {}
         foreign_keys[query.value(3)] = {'table': query.value(2), 'id_column': query.value(4), 'display_column': table_display_header}
     return foreign_keys
+
+
+def get_foreign_id_table(table: str, header: str, value):
+    if 'ID' not in header:
+        print(f"Header {header} does not contain ID")
+        return value
+    foreign_keys = foreign_key_columns(table)
+    if header in foreign_keys.keys():
+        foreign_table = foreign_keys[header]['table']
+        id_column = foreign_keys[header]['id_column']
+        display_column = foreign_keys[header]['display_column']
+        query = QtS.QSqlQuery()
+        if not query.exec(f'SELECT {id_column} FROM {foreign_table} WHERE {display_column}="{value}"'):
+            print(f"Failed to get ID for {value} in {foreign_table}")
+            return value
+        query.next()
+        return query.value(0), foreign_table
 
 class ComboList(QtW.QComboBox):
     def __init__(self, parent, model):
@@ -541,8 +620,11 @@ class CheckableComboBox(QtW.QComboBox):
 
         self.tableView.viewport().installEventFilter(self)
 
-    def set_single_click(self, single_click):
+    def set_single_click(self, single_click: bool):
         self.single_click = single_click
+
+    def set_closed_on_line_edit_click(self, closedOnLineEditClick: bool):
+        self.closedOnLineEditClick = closedOnLineEditClick
 
     def set_line_edit_text(self, text):
         self.lineEdit().setText(text)
@@ -565,17 +647,25 @@ class CheckableComboBox(QtW.QComboBox):
         self.tableView.resizeColumnsToContents()
         columns = self.model().columnCount()
         width_hint = 0
+        show_cols_indices = []
+        if self.model().tableName() == '"References"':
+            show_cols = ["ReferenceDisplay", "ReferenceDescription"]
+        elif 'Units' in self.model().tableName() or 'Formats' in self.model().tableName():
+            show_cols = ["Abbreviation"]
+        else:
+            show_cols = ["Name", "Description"]
         for col in range(0, columns):
             # hide all but name and description
             col_name = self.model().headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if "Name" in col_name or "Description" in col_name or "ShortCitation" in col_name:
+            if any(s in col_name for s in show_cols):
                 self.tableView.showColumn(col)
+                show_cols_indices.append(col)
                 # Add up the size hints for all the visible columns
                 width_hint += self.tableView.columnWidth(col)
             else:
                 self.tableView.hideColumn(col)
         self.tableView.setSortingEnabled(False)
-        width_c1 = self.tableView.sizeHintForColumn(1)
+        width_c1 = self.tableView.sizeHintForColumn(show_cols_indices[0])
         if width_hint < 2 * width_c1:
             size_hint = width_hint
         else:
@@ -605,16 +695,31 @@ class CheckableComboBox(QtW.QComboBox):
             return super().eventFilter(obj, event)
 
         if obj == self.tableView.viewport():
+            print(f"Object: viewport, Event type: {event.type()}")
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 if self.single_click:
                     print(f"Clicked text: {self.tableView.currentIndex().data()}")
                     print("Single click mode enabled")
                     self.clear_all_checks()
                     self.set_line_edit_text(self.tableView.currentIndex().data())
-                self.tableView.toggle_check_state(self.tableView.currentIndex())
-                self.showPopup()
-                return True
+                    self.hidePopup()
+                    return True
+                else:
+                    self.tableView.toggle_check_state(self.tableView.currentIndex())
+                    self.showPopup()
+                    return True
             return super().eventFilter(obj, event)
+
+        return super().eventFilter(obj, event)
+
+class TemporaryComboBox(QtW.QComboBox):
+    closing = QtC.pyqtSignal()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def hidePopup(self):
+        super().hidePopup()
+        self.closing.emit()
 
 class SampleAgeTableModel(QtS.QSqlQueryModel):
     def __init__(self):
@@ -731,11 +836,13 @@ def display_gps(string: str):
     elif ',' in string:
         # UTM format, (UTMZone, UTMEasting, UTMNorthing)
         utm_easting = string.split(',')[1]
+        utm_e_m = utm_easting.split('m')[0]
         utm_northing = string.split(',')[2]
-        rounded_northing = return_rounded(utm_northing)
-        rounded_easting = return_rounded(utm_easting)
-        string = string.replace(utm_northing, rounded_northing)
-        string = string.replace(utm_easting, rounded_easting)
+        utm_n_m = utm_northing.split('m')[0]
+        rounded_northing = ' ' + return_rounded(utm_n_m)
+        rounded_easting = ' ' + return_rounded(utm_e_m)
+        string = string.replace(utm_n_m, rounded_northing)
+        string = string.replace(utm_e_m, rounded_easting)
     else:
         # No GPS given, return ''
         string = ''

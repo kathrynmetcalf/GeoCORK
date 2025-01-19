@@ -233,7 +233,7 @@ def convert_direction_to_sign(lat: list, lon: list):
     elif len(lat) == 4:
         return [lat_deg, lat[1], lat[2]], [lon_deg, lon[1], lon[2]]
 
-def convert_dd_to_utm(ddlat, ddlon):
+def convert_dd_to_utm(ddlat: list, ddlon: list):
     """
     Convert latitude and longitude in decimal degrees to UTM coordinates using WGS84 datum
     @param ddlat: latitude in decimal degrees as real number
@@ -273,8 +273,8 @@ def convert_dd_to_utm(ddlat, ddlon):
         south = False
         zone_txt = f"{zone}N"
 
-    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84", south=south)
-    UTMN, UTME = proj_utm(lat_deg, lon_deg)
+    proj_utm = pyproj.Proj(proj="utm", zone=zone, ellps='WGS84', datum="WGS84", south=south, preserve_units=False)
+    UTME, UTMN = proj_utm(lon_deg, lat_deg)
     return UTMN, UTME, zone_txt
 
 def convert_utm_to_dd(zone_txt, UTME, UTMN):
@@ -298,6 +298,6 @@ def convert_utm_to_dd(zone_txt, UTME, UTMN):
     else:
         south = False
         zone = int(zone_txt)
-    proj_utm = pyproj.Proj(proj="utm", zone=zone, datum="WGS84", south=south)
-    lat, lon = proj_utm(UTME, UTMN, inverse=True)
+    proj_utm = pyproj.Proj(proj="utm", zone=zone, ellps='WGS84', datum="WGS84", south=south, preserve_units=False)
+    lon, lat = proj_utm(UTME, UTMN, inverse=True)
     return [lat], [lon]

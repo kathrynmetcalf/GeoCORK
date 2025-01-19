@@ -2,6 +2,7 @@ import sqlite3
 import PyQt6
 from PyQt6 import QtSql as QtS
 import xml.etree.ElementTree as ET  # xml reader
+import Functions.SQLUtils as SQLUtils
 
 '''
 Commands to create the database
@@ -279,6 +280,15 @@ CREATE_GPS_FORMATS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSFormats(
 CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                     GPSLocationID INTEGER PRIMARY KEY,
                     GPSLocationConverted TEXT,
+                    GPSLocationDisplay AS (CASE
+                        WHEN GPSFormatID = 1 THEN GPSLatDeg || "°, " ||  GPSLonDeg || "° "
+                        WHEN GPSFormatID = 2 THEN GPSLatDeg || "° " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonDirectionID
+                        WHEN GPSFormatID = 3 THEN GPSLatDeg || "° " || GPSLatMin || "', " || GPSLonDeg || "° " || GPSLonMin || "'"
+                        WHEN GPSFormatID = 4 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonDirectionID
+                        WHEN GPSFormatID = 5 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'', " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "''"
+                        WHEN GPSFormatID = 6 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "'' " || GPSLonDirectionID
+                        WHEN GPSFormatID = 7 THEN GPSUTMZone || ", " || GPSUTME || "m E, " || GPSUTMN || "m N"
+                        END) STORED,
                     GPSLatDeg REAL,
                     GPSLatMin REAL,
                     GPSLatSec REAL,
@@ -1043,6 +1053,7 @@ def populate_tables():
     while query.next(): out.append(query.value(1))
     if not out:  # if there is no output, the table is empty
         populate_age_units()  # populate it
+    populate_age_conversions()
 
     # Populate the concordance type table during initiation
     sql = '''SELECT * FROM ConcordanceFormats'''
@@ -1053,7 +1064,8 @@ def populate_tables():
     out = []
     while query.next(): out.append(query.value(1))
     if not out: # if there is no output, the table is empty
-        populate_concordance_types() # populate it
+        populate_concordance_formats() # populate it
+    populate_concordance_conversions()
 
     # Populate the direction unit table during initiation
     sql = '''SELECT * FROM DirectionUnits'''
@@ -1076,6 +1088,7 @@ def populate_tables():
     while query.next(): out.append(query.value(1))
     if not out:  # if there is no output, the table is empty
         populate_distance_units()  # populate it
+    populate_distance_conversions()
 
     # Populate the error type table during initiation
     sql = '''SELECT * FROM ErrorFormats'''
@@ -1086,7 +1099,8 @@ def populate_tables():
     out = []
     while query.next(): out.append(query.value(1))
     if not out:
-        populate_error_types()
+        populate_error_formats()
+    populate_error_conversions()
 
     # Populate the gps format table during initiation
     sql = '''SELECT * FROM GPSFormats'''
@@ -1095,9 +1109,10 @@ def populate_tables():
         print(f'GPSFormats query failed')
         return
     out = []
-    while query.next(): out.append(query.value(1))
+    while query.next(): out.append(query.value(2))
     if not out:
         populate_gps_formats()
+    populate_gps_conversions()
 
     # Populate the age table during initiation
     sql = '''SELECT * FROM Ages'''
@@ -1119,81 +1134,121 @@ def populate_age_units():
 
     query = QtS.QSqlQuery()
     # Begin by deleting all rows in the table to allow for a reset if things get changed
-    age_units = [('Billion years', 'Ga', '1000000000'),
-                 ('Million years', 'Ma', '1000000'),
-                 ('Thousand years', 'ka', '1000'),
-                 ('Years', 'a', '1')]
+    age_units = SQLUtils.age_units
     for unit in age_units:
         sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES("{unit[0]}","{unit[1]}")'''
         if not query.exec(sql):
             print(f'failed to add {unit[0]}')
 
+def populate_age_conversions():
+    query = QtS.QSqlQuery()
+    age_units = SQLUtils.age_units
+    age_conversion_model = QtS.QSqlTableModel()
+    age_conversion_model.setTable('AgeUnitConversions')
+    age_conversion_model.select()
     for unit1 in range(len(age_units)):
         for unit2 in range(len(age_units)):
             if unit2 > unit1:
                 conversion1to2 = f'x*{age_units[unit1][2]}/{age_units[unit2][2]}'
                 conversion2to1 = f'x*{age_units[unit2][2]}/{age_units[unit1][2]}'
-                sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
+                age_conversion_model.setFilter(f'FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}")')
+                if age_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                     VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
-                sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
+                else:
+                    current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
+                    if current_conversion != conversion1to2:
+                        sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion1to2}"
+                                    WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
+                age_conversion_model.setFilter(f'FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")')
+                if age_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                     VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
+                else:
+                    current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
+                    if current_conversion != conversion2to1:
+                        sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion2to1}"
+                                    WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
 
-def populate_concordance_types():
+def populate_concordance_formats():
     """
         Connect to the database and add the default concordance types
         """
 
     query = QtS.QSqlQuery()
-    concordance_types = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
-                         ('Concordance percent', 'Con%', 'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
-                         ('Discordance ratio', 'Dis', 'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
-                         ('Discordance percent', 'Dis%', 'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
-    for concordance_type in concordance_types:
+    concordance_formats = SQLUtils.concordance_formats
+    for concordance_format in concordance_formats:
         sql = f'''INSERT INTO ConcordanceFormats(ConcordanceFormatName, ConcordanceFormatAbbreviation, ConcordanceFormatDescription)
-                                VALUES("{concordance_type[0]}","{concordance_type[1]}","{concordance_type[2]}")'''
+                                VALUES("{concordance_format[0]}","{concordance_format[1]}","{concordance_format[2]}")'''
         if not query.exec(sql):
-            print(f'failed to add {concordance_type[0]}')
-    for type1 in range(len(concordance_types)):
-        for type2 in range(len(concordance_types)):
-            if type2 > type1:
-                if concordance_types[type1][1][-1] == '%' and concordance_types[type2][1][-1] == '%':
+            print(f'failed to add {concordance_format[0]}')
+
+def populate_concordance_conversions():
+    query = QtS.QSqlQuery()
+    concordance_formats = SQLUtils.concordance_formats
+    concordance_conversion_model = QtS.QSqlTableModel()
+    concordance_conversion_model.setTable('ConcordanceFormatConversions')
+    concordance_conversion_model.select()
+    for format1 in range(len(concordance_formats)):
+        for format2 in range(len(concordance_formats)):
+            if format2 > format1:
+                if concordance_formats[format1][1][-1] == '%' and concordance_formats[format2][1][-1] == '%':
                     # Both types are percent
                     conversion1to2 = '100-x'
                     conversion2to1 = '100-x'
-                elif concordance_types[type1][1][-1] != '%' and concordance_types[type2][1][-1] != '%':
+                elif concordance_formats[format1][1][-1] != '%' and concordance_formats[format2][1][-1] != '%':
                     # Both types are ratio
                     conversion1to2 = '1-x'
                     conversion2to1 = '1-x'
-                elif concordance_types[type1][1][-1] != '%':
+                elif concordance_formats[format1][1][-1] != '%':
                     # First type is ratio and second type is percent
-                    if (concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Con%') or (concordance_types[type1][1] == 'Dis' and concordance_types[type2][1] == 'Dis%'):
+                    if (concordance_formats[format1][1] == 'Con' and concordance_formats[format2][1] == 'Con%') or (concordance_formats[format1][1] == 'Dis' and concordance_formats[format2][1] == 'Dis%'):
                         # Both types are concordance or discordance
                         conversion1to2 = 'x*100'
                         conversion2to1 = 'x/100'
-                    elif concordance_types[type1][1] == 'Con' and concordance_types[type2][1] == 'Dis%':
+                    elif concordance_formats[format1][1] == 'Con' and concordance_formats[format2][1] == 'Dis%':
                         # First type is concordance ratio and second type is discordance percent
                         conversion1to2 = '100*(1-x)'
                         conversion2to1 = '1-(x/100)'
-                sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
-                                                        VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type1][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type2][1]}"),"{conversion1to2}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {concordance_types[type1][1]} to {concordance_types[type2][1]}')
-                sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
-                                                        VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type2][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_types[type1][1]}"),"{conversion2to1}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {concordance_types[type2][1]} to {concordance_types[type1][1]}')
+                concordance_conversion_model.setFilter(f'FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}")')
+                if concordance_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
+                                                            VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}"),"{conversion1to2}")'''
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {concordance_formats[format1][1]} to {concordance_formats[format2][1]}')
+                else:
+                    current_conversion = concordance_conversion_model.record(0).value('ConcordanceFormatConversionCalculation')
+                    if current_conversion != conversion1to2:
+                        sql = f'''UPDATE ConcordanceFormatConversions SET ConcordanceFormatConversionCalculation = "{conversion1to2}"
+                                                            WHERE FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {concordance_formats[format1][1]} to {concordance_formats[format2][1]}')
+                concordance_conversion_model.setFilter(f'FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}")')
+                if concordance_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
+                                                            VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}"),"{conversion2to1}")'''
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {concordance_formats[format2][1]} to {concordance_formats[format1][1]}')
+                else:
+                    current_conversion = concordance_conversion_model.record(0).value('ConcordanceFormatConversionCalculation')
+                    if current_conversion != conversion2to1:
+                        sql = f'''UPDATE ConcordanceFormatConversions SET ConcordanceFormatConversionCalculation = "{conversion2to1}"
+                                                            WHERE FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {concordance_formats[format2][1]} to {concordance_formats[format1][1]}')
 
 def populate_direction_units():
     query = QtS.QSqlQuery()
     # Begin by deleting all rows in the table to allow for a reset if things get changed
-    direction_units = [('North', 'N','positive north'),
-                       ('South', 'S','positive south'),
-                       ('East', 'E','positive east'),
-                       ('West', 'W','positive west')]
+    direction_units = SQLUtils.direction_units
     for unit in direction_units:
         sql = f'''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitAbbreviation)
                                 VALUES("{unit[0]}", "{unit[1]}", "{unit[2]}")'''
@@ -1207,21 +1262,20 @@ def populate_distance_units():
 
     query = QtS.QSqlQuery()
     # International standard foot is 0.3048 meters exactly
-    m_per_ft = 0.3048
-    distance_units = [('Kilometers', 'km', '1000'),
-                 ('Meters', 'm', '1'),
-                 ('Centimeters', 'cm', '0.01'),
-                 ('Millimeter', 'mm', '0.001'),
-                 ('Micrometer', 'µm', '0.000001'),
-                 ('Miles', 'mi', '5280'),
-                 ('Yards', 'yd', '3'),
-                 ('Feet', 'ft', '1'),
-                 ('Inches', 'in', f'(1/12)')]
+    distance_units = SQLUtils.distance_units
     for unit in distance_units:
         sql = f'''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
                                     VALUES("{unit[0]}","{unit[1]}")'''
         if not query.exec(sql):
             print(f'failed to add {unit[0]}')
+
+def populate_distance_conversions():
+    query = QtS.QSqlQuery()
+    distance_units = SQLUtils.distance_units
+    distance_conversion_model = QtS.QSqlTableModel()
+    distance_conversion_model.setTable('DistanceUnitConversions')
+    distance_conversion_model.select()
+    m_per_ft = 0.3048
     for unit1 in range(len(distance_units)):
         for unit2 in range(len(distance_units)):
             if unit2 > unit1:
@@ -1237,41 +1291,63 @@ def populate_distance_units():
                     # Unit 1 is imperial and unit 2 is metric
                     conversion1to2 = f'x*({distance_units[unit1][2]}*{m_per_ft})/{distance_units[unit2][2]}'
                     conversion2to1 = f'x*{distance_units[unit2][2]}/({m_per_ft}*{distance_units[unit1][2]})'
-                sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
-                                        VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
-                sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
-                                        VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
+                distance_conversion_model.setFilter(f'FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}")')
+                if distance_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
+                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
+                else:
+                    current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
+                    if current_conversion != conversion1to2:
+                        sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion1to2}"
+                                            WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
+                distance_conversion_model.setFilter(f'FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")')
+                if distance_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
+                                            VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
+                else:
+                    current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
+                    if current_conversion != conversion2to1:
+                        sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion2to1}"
+                                            WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
 
-def populate_error_types():
+def populate_error_formats():
     """
-            Connect to the database and add the default error types
-            """
+    Connect to the database and add the default error types
+    """
 
     query = QtS.QSqlQuery()
-    error_types = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
-                         ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
-                         ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
-                         ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
-    for error_type in error_types:
+    error_formats = SQLUtils.error_formats
+    for error_format in error_formats:
         sql = f'''INSERT INTO ErrorFormats(ErrorFormatName, ErrorFormatAbbreviation, ErrorFormatDescription)
-                                    VALUES("{error_type[0]}","{error_type[1]}","{error_type[2]}")'''
+                                    VALUES("{error_format[0]}","{error_format[1]}","{error_format[2]}")'''
         if not query.exec(sql):
-            print(f'failed to add {error_type[0]}')
-    for type1 in range(len(error_types)):
-        for type2 in range(len(error_types)):
-            if type2 > type1:
-                if (error_types[type1][1][-1] == '%' and error_types[type2][1][-1] == '%') or (error_types[type1][1][-1] != '%' and error_types[type2][1][-1] != '%'):
+            print(f'failed to add {error_format[0]}')
+
+def populate_error_conversions():
+    query = QtS.QSqlQuery()
+    error_formats = SQLUtils.error_formats
+    error_conversion_model = QtS.QSqlTableModel()
+    error_conversion_model.setTable('ErrorFormatConversions')
+    error_conversion_model.select()
+    for format1 in range(len(error_formats)):
+        for format2 in range(len(error_formats)):
+            if format2 > format1:
+                if (error_formats[format1][1][-1] == '%' and error_formats[format2][1][-1] == '%') or (error_formats[format1][1][-1] != '%' and error_formats[format2][1][-1] != '%'):
                     # Both are the same type, percent or absolute
                     conversion1to2 = 'x*2'
                     conversion2to1 = 'x/2'
-                elif error_types[type1][1][-1] != '%':
+                elif error_formats[format1][1][-1] != '%':
                     # First type is absolute and second type is percent
-                    if (error_types[type1][1][0] == '2' and error_types[type2][1][0] == '2') or (
-                            error_types[type1][1][0] == '1' and error_types[type2][1][0] == '1'):
+                    if (error_formats[format1][1][0] == '2' and error_formats[format2][1][0] == '2') or (
+                            error_formats[format1][1][0] == '1' and error_formats[format2][1][0] == '1'):
                         # Both types are 1 sigma or 2 sigma, x is the databased error and y is the value it is an error of
                         conversion1to2 = '(x/y)*100'
                         conversion2to1 = '(x/100)*y'
@@ -1280,14 +1356,32 @@ def populate_error_types():
                         conversion1to2 = '(x/y)*200'
                         # 2 sigma percent to 1 sigma absolute, x is the databased error and y is the value it is an error of
                         conversion2to1 = '(x/200)*y'
-                sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
-                                    VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type1][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type2][1]}"),"{conversion1to2}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
-                sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
-                                    VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type2][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_types[type1][1]}"),"{conversion2to1}")'''
-                if not query.exec(sql):
-                    print(f'failed to add conversion for {error_types[type1][1]} to {error_types[type2][1]}')
+                error_conversion_model.setFilter(f'FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}")')
+                if error_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
+                                        VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),"{conversion1to2}")'''
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {error_formats[format1][1]} to {error_formats[format2][1]}')
+                else:
+                    current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
+                    if current_conversion != conversion1to2:
+                        sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion1to2}"
+                                        WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {error_formats[format1][1]} to {error_formats[format2][1]}')
+                error_conversion_model.setFilter(f'FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")')
+                if error_conversion_model.rowCount() == 0:
+                    sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
+                                        VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),"{conversion2to1}")'''
+                    if not query.exec(sql):
+                        print(f'failed to add conversion for {error_formats[format1][1]} to {error_formats[format2][1]}')
+                else:
+                    current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
+                    if current_conversion != conversion2to1:
+                        sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion2to1}"
+                                        WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")'''
+                        if not query.exec(sql):
+                            print(f'failed to update conversion for {error_formats[format2][1]} to {error_formats[format1][1]}')
 
 def populate_gps_formats():
     """
@@ -1296,26 +1390,33 @@ def populate_gps_formats():
     """
 
     query = QtS.QSqlQuery()
-    gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
-                   ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
-                   ('Degrees minutes positive/negative', 'DDM +/-', 'Degrees and decimal minutes with positive N and E and negative S and W'),
-                   ('Degrees minutes cardinal', 'DDM NSEW', 'Degrees and decimal minutes with cardinal directions'),
-                   ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
-                   ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
-                   ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+    gps_formats = SQLUtils.gps_formats
     for gps_format in gps_formats:
         sql = f'''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
                     VALUES("{gps_format[0]}","{gps_format[1]}","{gps_format[2]}")'''
         if not query.exec(sql):
             print(f'failed to add {gps_format[0]}')
+            return False
+    return True
+
+def populate_gps_conversions():
+    """
+    Populate the GPSFormatConversions table with the conversions between GPS formats
+    @return:
+    """
+    query = QtS.QSqlQuery()
+    gps_formats = SQLUtils.gps_formats
     gps_format_model = QtS.QSqlTableModel()
     gps_format_model.setTable('GPSFormats')
     gps_format_model.select()
+    gps_conversion_model = QtS.QSqlTableModel()
+    gps_conversion_model.setTable('GPSFormatConversions')
+    gps_conversion_model.select()
     for format1 in range(len(gps_formats)):
         for format2 in range(len(gps_formats)):
             if format1 == format2:
                 if gps_formats[format1][1] == 'UTM':
-                    conversion1to1 = '''converted = f"{GPSZone} {GPSUTME}m E {GPSUTMN}m N"'''
+                    conversion1to1 = '''converted = f"{GPSUTMZone}, {GPSUTME}m E, {GPSUTMN}m N"'''
                 elif gps_formats[format1][1] == 'DD +/-':
                     conversion1to1 = '''converted = f"{GPSLatDeg}°, {GPSLonDeg}°"'''
                 elif gps_formats[format1][1] == 'DD NSEW':
@@ -1330,15 +1431,29 @@ def populate_gps_formats():
                     conversion1to1 = '''converted = f"{GPSLatDeg}°{GPSLatMin}'{GPSLatSec}\" {GPSLatDirection}, {GPSLonDeg}°{GPSLonMin}'{GPSLonSec}\" {GPSLonDirection}"'''
                 gps_format_model.setFilter(f'GPSFormatAbbreviation = "{gps_formats[format1][1]}"')
                 id_1 = gps_format_model.record(0).value('GPSFormatID')
-                query.prepare(
-                    f'INSERT INTO GPSFormatConversions(FromGPSFormatID, ToGPSFormatID, GPSFormatConversionCalculation) '
-                    'VALUES (?, ? ,?)')
-                query.bindValue(0, id_1)
-                query.bindValue(1, id_1)
-                query.bindValue(2, f'''{conversion1to1}''')
-                if not query.exec():
-                    print(
-                        f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
+                gps_conversion_model.setFilter(f'FromGPSFormatID = {id_1} AND ToGPSFormatID = {id_1}')
+                if gps_conversion_model.rowCount() == 0:
+                    query.prepare(
+                        f'INSERT INTO GPSFormatConversions(FromGPSFormatID, ToGPSFormatID, GPSFormatConversionCalculation) '
+                        'VALUES (?, ? ,?)')
+                    query.bindValue(0, id_1)
+                    query.bindValue(1, id_1)
+                    query.bindValue(2, f'''{conversion1to1}''')
+                    if not query.exec():
+                        print(
+                            f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
+                else:
+                    current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
+                    if current_conversion != conversion1to1:
+                        query.prepare(
+                            f'UPDATE GPSFormatConversions SET GPSFormatConversionCalculation = ? '
+                            'WHERE FromGPSFormatID = ? AND ToGPSFormatID = ?')
+                        query.bindValue(0, f'''{conversion1to1}''')
+                        query.bindValue(1, id_1)
+                        query.bindValue(2, id_1)
+                        if not query.exec():
+                            print(
+                                f'failed to update conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
             if format2 > format1:
                 if '+/-' in gps_formats[format1][1] and '+/-' in gps_formats[format2][1]:
                     # Both formats are positive/negative
@@ -1348,7 +1463,7 @@ def populate_gps_formats():
                     elif gps_formats[format1][1] == 'DD +/-' and gps_formats[format2][1] == 'DMS +/-':
                         conversion1to2 = '''lat, lon = GPS.convert_dd_to_dms([GPSLatDeg], [GPSLonDeg])\nconverted = f"{lat[0]}°{lat[1]}'{lat[2]}\", {lon[0]}°{lon[1]}'{lon[2]}\""'''
                         conversion2to1 = '''lat, lon = GPS.convert_dms_to_dd([GPSLatDeg, GPSLatMin, GPSLatSec], [GPSLonDeg, GPSLonMin, GPSLonSec])\nconverted = f"{lat[0]}°, {lon[0]}°"'''
-                    elif gps_format[format1][1] == 'DDM +/-' and gps_format[format2][1] == 'DMS +/-':
+                    elif gps_formats[format1][1] == 'DDM +/-' and gps_formats[format2][1] == 'DMS +/-':
                         conversion1to2 = '''lat, lon = GPS.convert_ddm_to_dms([GPSLatDeg, GPSLatMin], [GPSLonDeg, GPSLonMin])\nconverted = f"{lat[0]}°{lat[1]}'{lat[2]}\", {lon[0]}°{lon[1]}'{lon[2]}\""'''
                         conversion2to1 = '''lat, lon = GPS.convert_dms_to_ddm([GPSLatDeg, GPSLatMin, GPSLatSec], [GPSLonDeg, GPSLonMin, GPSLonSec])\nconverted = f"{lat[0]}°{lat[1]}', {lon[0]}°{lon[1]}'"'''
                 elif 'NSEW' in gps_formats[format1][1] and 'NSEW' in gps_formats[format2][1]:
@@ -1423,45 +1538,69 @@ def populate_gps_formats():
                 elif '+/-' in gps_formats[format1][1] and 'UTM' in gps_formats[format2][1]:
                     # First format is positive/negative and second format is UTM
                     if gps_formats[format1][1] == 'DD +/-' and gps_formats[format2][1] == 'UTM':
-                        conversion1to2 = '''UTMN, UTME, zone_txt = GPS.convert_dd_to_utm([GPSLatDeg], [GPSLonDeg])\nconverted = f"{zone_txt} {UTME}m E {UTMN}m N"'''
+                        conversion1to2 = '''UTMN, UTME, zone_txt = GPS.convert_dd_to_utm([GPSLatDeg], [GPSLonDeg])\nconverted = f"{zone_txt}, {UTME}m E, {UTMN}m N"'''
                         conversion2to1 = '''lat, lon = GPS.convert_utm_to_dd(GPSUTMZone, GPSUTME, GPSUTMN)\nconverted = f"{lat[0]}°, {lon[0]}°"'''
                     elif gps_formats[format1][1] == 'DDM +/-' and gps_formats[format2][1] == 'UTM':
-                        conversion1to2 = '''UTMN, UTME, zone_txt = GPS.convert_ddm_to_utm([GPSLatDeg, GPSLatMin], [GPSLonDeg, GPSLonMin])\nconverted = f"{zone_txt} {UTME}m E {UTMN}m N"'''
-                        conversion2to1 = '''lat, lon = GPS.convert_utm_to_ddm(GPSUTMZone, GPSUTME, GPSUTMN)\nconverted = f"{lat[0]}°{lat[1]}' {lon[0]}°{lon[1]}'"'''
+                        conversion1to2 = '''lat, lon = GPS.convert_ddm_to_dd([GPSLatDeg, GPSLatMin], [GPSLonDeg, GPSLonMin])\nlat, lon = GPS.convert_dd_to_utm(lat, lon)\nUTMN, UTME, zone_txt = GPS.convert_dd_to_utm(lat, lon)\nconverted = f"{zone_txt}, {UTME}m E, {UTMN}m N"'''
+                        conversion2to1 = '''lat, lon = GPS.convert_utm_to_dd(GPSUTMZone, GPSUTME, GPSUTMN)\nlat, lon = GPS.convert_dd_to_ddm(lat, lon)\nconverted = f"{lat[0]}°{lat[1]}' {lon[0]}°{lon[1]}'"'''
                     elif gps_formats[format1][1] == 'DMS +/-' and gps_formats[format2][1] == 'UTM':
-                        conversion1to2 = '''UTMN, UTME, zone_txt = GPS.convert_dms_to_utm([GPSLatDeg, GPSLatMin, GPSLatSec], [GPSLonDeg, GPSLonMin, GPSLonSec])\nconverted = f"{zone_txt} {UTME}m E {UTMN}m N"'''
-                        conversion2to1 = '''lat, lon = GPS.convert_utm_to_dms(GPSUTMZone, GPSUTME, GPSUTMN)\nconverted = f"{lat[0]}°{lat[1]}'{lat[2]}\", {lon[0]}°{lon[1]}'{lon[2]}\""'''
+                        conversion1to2 = '''lat, lon = GPS.convert_dms_to_dd([GPSLatDeg, GPSLatMin, GPSLatSec], [GPSLonDeg, GPSLonMin, GPSLonSec])\nUTMN, UTME, zone_txt = GPS.convert_dd_to_utm(lat, lon)\nconverted = f"{zone_txt}, {UTME}m E, {UTMN}m N"'''
+                        conversion2to1 = '''lat, lon = GPS.convert_utm_to_dd(GPSUTMZone, GPSUTME, GPSUTMN)\nlat, lon = GPS.convert_dd_to_dms(lat, lon)\nconverted = f"{lat[0]}°{lat[1]}'{lat[2]}\", {lon[0]}°{lon[1]}'{lon[2]}\""'''
                 elif 'NSEW' in gps_formats[format1][1] and 'UTM' in gps_formats[format2][1]:
                     # First format is directional and second format is UTM
                     if gps_formats[format1][1] == 'DD NSEW' and gps_formats[format2][1] == 'UTM':
-                        conversion1to2 = '''lat, lon = GPS.convert_direction_to_sign([GPSLatDeg, GPSLatDirectionID], [GPSLonDeg, GPSLonDirectionID])\nUTMN, UTME, zone_txt = GPS.convert_dd_to_utm(lat, lon)\nconverted = f"{zone_txt} {UTME}m E {UTMN}m N"'''
+                        conversion1to2 = '''lat, lon = GPS.convert_direction_to_sign([GPSLatDeg, GPSLatDirectionID], [GPSLonDeg, GPSLonDirectionID])\nUTMN, UTME, zone_txt = GPS.convert_dd_to_utm(lat, lon)\nconverted = f"{zone_txt}, {UTME}m E, {UTMN}m N"'''
                         conversion2to1 = '''lat, lon = GPS.convert_utm_to_dd(GPSUTMZone, GPSUTME, GPSUTMN)\nlat, lon = GPS.convert_sign_to_direction(lat, lon)\nconverted = f"{lat[0]}° {lat[1]}, {lon[0]}° {lon[1]}"'''
                     elif gps_formats[format1][1] == 'DDM NSEW' and gps_formats[format2][1] == 'UTM':
-                        conversion1to2 = '''lat, lon = GPS.convert_direction_to_sign([GPSLatDeg, GPSLatMin, GPSLatDirectionID], [GPSLonDeg, GPSLonMin, GPSLonDirectionID])\nUTMN, UTME, zone_txt = GPS.convert_ddm_to_utm(lat, lon)\nconverted = f"{zone_txt} {UTME}m E {UTMN}m N"'''
+                        conversion1to2 = '''lat, lon = GPS.convert_direction_to_sign([GPSLatDeg, GPSLatMin, GPSLatDirectionID], [GPSLonDeg, GPSLonMin, GPSLonDirectionID])\nlat, lon = GPS.convert_ddm_to_dd(lat, lon)\nUTMN, UTME, zone_txt = GPS.convert_dd_to_utm(lat, lon)\nconverted = f"{zone_txt}, {UTME}m E, {UTMN}m N"'''
                         conversion2to1 = '''lat, lon = GPS.convert_utm_to_dd(GPSUTMZone, GPSUTME, GPSUTMN)\nlat, lon = GPS.convert_dd_to_ddm(lat, lon)\nlat, lon = GPS.convert_sign_to_direction(lat, lon)\nconverted = f"{lat[0]}°{lat[1]}' {lat[2]}, {lon[0]}°{lon[1]}' {lon[2]}'"'''
                     elif gps_formats[format1][1] == 'DMS NSEW' and gps_formats[format2][1] == 'UTM':
-                        conversion1to2 = '''lat, lon = GPS.convert_direction_to_sign([GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID], [GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID])\nlat, lon = GPS.convert_dms_to_dd(lat, lon)\nUTMN, UTME, zone_txt = GPS.convert_dd_to_utm(lat, lon)\nconverted = f"{zone_txt} {UTME}m E {UTMN}m N"'''
+                        conversion1to2 = '''lat, lon = GPS.convert_direction_to_sign([GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID], [GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID])\nlat, lon = GPS.convert_dms_to_dd(lat, lon)\nUTMN, UTME, zone_txt = GPS.convert_dd_to_utm(lat, lon)\nconverted = f"{zone_txt}, {UTME}m E, {UTMN}m N"'''
                         conversion2to1 = '''lat, lon = GPS.convert_utm_to_dd(GPSUTMZone, GPSUTME, GPSUTMN)\nlat, lon = GPS.convert_dd_to_dms(lat, lon)\nlat, lon = GPS.convert_sign_to_direction(lat, lon)\nconverted = f"{lat[0]}°{lat[1]}'{lat[2]}\" {lat[3]}, {lon[0]}°{lon[1]}'{lon[2]}\" {lon[3]}"'''
                 gps_format_model.setFilter(f'GPSFormatAbbreviation = "{gps_formats[format1][1]}"')
                 id_1 = gps_format_model.record(0).value('GPSFormatID')
                 gps_format_model.setFilter(f'GPSFormatAbbreviation = "{gps_formats[format2][1]}"')
                 id_2 = gps_format_model.record(0).value('GPSFormatID')
-                query.prepare(f'INSERT INTO GPSFormatConversions(FromGPSFormatID, ToGPSFormatID, GPSFormatConversionCalculation) '
-                              'VALUES (?, ? ,?)')
-                query.bindValue(0, id_1)
-                query.bindValue(1, id_2)
-                query.bindValue(2, f'''{conversion1to2}''')
-                if not query.exec():
-                    print(f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
-                # print(f'Inserted conversion {gps_formats[format1][1]} to {gps_formats[format2][1]}')
-                query.prepare(f'INSERT INTO GPSFormatConversions(FromGPSFormatID, ToGPSFormatID, GPSFormatConversionCalculation) '
-                                'VALUES (?, ? ,?)')
-                query.bindValue(0, id_2)
-                query.bindValue(1, id_1)
-                query.bindValue(2, f'''{conversion2to1}''')
-                if not query.exec():
-                    print(f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}: {query.lastError().text()}')
-                # print(f'Inserted conversion {gps_formats[format2][1]} to {gps_formats[format1][1]}')
+                gps_conversion_model.setFilter(f'FromGPSFormatID = {id_1} AND ToGPSFormatID = {id_2}')
+                if gps_conversion_model.rowCount() == 0:
+                    query.prepare(f'INSERT INTO GPSFormatConversions(FromGPSFormatID, ToGPSFormatID, GPSFormatConversionCalculation) '
+                                  'VALUES (?, ? ,?)')
+                    query.bindValue(0, id_1)
+                    query.bindValue(1, id_2)
+                    query.bindValue(2, f'''{conversion1to2}''')
+                    if not query.exec():
+                        print(f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
+                    # print(f'Inserted conversion {gps_formats[format1][1]} to {gps_formats[format2][1]}')
+                else:
+                    current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
+                    if current_conversion != conversion1to2:
+                        query.prepare(f'UPDATE GPSFormatConversions SET GPSFormatConversionCalculation = ? '
+                                      'WHERE FromGPSFormatID = ? AND ToGPSFormatID = ?')
+                        query.bindValue(0, f'''{conversion1to2}''')
+                        query.bindValue(1, id_1)
+                        query.bindValue(2, id_2)
+                        if not query.exec():
+                            print(f'failed to update conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
+                gps_conversion_model.setFilter(f'FromGPSFormatID = {id_2} AND ToGPSFormatID = {id_1}')
+                if gps_conversion_model.rowCount() == 0:
+                    query.prepare(f'INSERT INTO GPSFormatConversions(FromGPSFormatID, ToGPSFormatID, GPSFormatConversionCalculation) '
+                                    'VALUES (?, ? ,?)')
+                    query.bindValue(0, id_2)
+                    query.bindValue(1, id_1)
+                    query.bindValue(2, f'''{conversion2to1}''')
+                    if not query.exec():
+                        print(f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}: {query.lastError().text()}')
+                    # print(f'Inserted conversion {gps_formats[format2][1]} to {gps_formats[format1][1]}')
+                else:
+                    current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
+                    if current_conversion != conversion2to1:
+                        query.prepare(f'UPDATE GPSFormatConversions SET GPSFormatConversionCalculation = ? '
+                                      'WHERE FromGPSFormatID = ? AND ToGPSFormatID = ?')
+                        query.bindValue(0, f'''{conversion2to1}''')
+                        query.bindValue(1, id_2)
+                        query.bindValue(2, id_1)
+                        if not query.exec():
+                            print(f'failed to update conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}: {query.lastError().text()}')
 
 def populate_ages():
     """
@@ -1531,11 +1670,10 @@ def populate_ages():
         era_row = 0
 
 
-def add_age(age):
+def add_age(age: tuple):
     """
     Called by populate_ages
     Adds each age item to the table with its parent ID
-    :param c: database connection cursor
     :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma)
     """
     query = QtS.QSqlQuery()

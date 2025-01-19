@@ -174,9 +174,11 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
         if 'Calculation' in unit_conversion_model.headerData(col, QtC.Qt.Orientation.Horizontal,
                                                              QtC.Qt.ItemDataRole.DisplayRole):
             calculation_col = col
-        if 'From' in unit_conversion_model.headerData(col, QtC.Qt.Orientation.Horizontal,
+        elif 'From' in unit_conversion_model.headerData(col, QtC.Qt.Orientation.Horizontal,
                                                       QtC.Qt.ItemDataRole.DisplayRole):
             from_id_col = col
+        if calculation_col != 'None' and from_id_col != 'None':
+            break
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
         print('Calculation and from columns not found')
@@ -266,6 +268,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     set_table(gps_model, table)
     for row in range(gps_model.rowCount()):
         gps_id = gps_model.record(row).value('GPSLocationID')
+        gps_format_id = gps_model.record(row).value('GPSFormatID')
         GPSLatDeg = gps_model.record(row).value('GPSLatDeg')
         GPSLatMin = gps_model.record(row).value('GPSLatMin')
         GPSLatSec = gps_model.record(row).value('GPSLatSec')
@@ -280,7 +283,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         local_vars = {name: locals()[name] for name in variables}
 
         for conversion in conversions:
-            if conversion[0] == gps_id:
+            if conversion[0] == gps_format_id:
                 gps_code = conversion[1]
                 exec(gps_code, global_vars, local_vars)
                 gps_display = local_vars.get('converted')

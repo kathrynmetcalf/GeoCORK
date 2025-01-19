@@ -49,8 +49,8 @@ class SampleInformation(QtW.QDialog):
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
-        self.gps = GPSFields('Samples', sample_id_list)
-        self.gps_column_verticalLayout.insertWidget(0, self.gps)
+        # self.gps = GPSFields('Samples', sample_id_list)
+        # self.gps_column_verticalLayout.insertWidget(0, self.gps)
 
         # Sample names table
         self.sample_names_model = CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
@@ -428,7 +428,7 @@ class SampleInformation(QtW.QDialog):
         for col in range(self.samples_table.columnCount()):
             # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
             text = self.samples_table.index(0, col).data()
-            if ',' in text:
+            if type(text) == str and ',' in text:
                 if len(text_values) == 23:
                     text_values.append(text)
                 else:
