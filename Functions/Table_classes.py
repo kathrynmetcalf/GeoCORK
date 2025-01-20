@@ -81,24 +81,29 @@ class VerifiableSqlTableModel(DisplayRoundedModel):
         super().__init__()
         self.edited_indexes = []
         self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
+        self.submitError = ''
+        self.headerToFix = ''
 
     def setData(self, index, value, role = ...):
         field_type = self.record().field(index.column()).typeID()
         print(f"Field type: {field_type}, Value: {value}")
         if role == QtC.Qt.ItemDataRole.EditRole:
-            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value):
+            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value, QMetaType.Type.UInt.value):
                 # Set the value to NULL
-                return super().setData(index, None, role)
-        self.edited_indexes.append(index)
-        if '.' not in str(value):
-            # Make sure integers don't have decimals added on
-            try: value = int(value)
-            except ValueError:
-                pass
+                value = None
+            elif '.' not in str(value):
+                # Make sure integers don't have decimals added on
+                try:
+                    value = int(value)
+                except ValueError:
+                    pass
+            self.edited_indexes.append(index)
+            # return super().setData(index, value, role)
         return super().setData(index, value, role)
 
     def submit(self):
-        if not self.isDirty():
+        if not self.edited_indexes:
+            # no changes to submit
             return True
         # get the edited row
         current_row = self.edited_indexes[0].row()
@@ -107,16 +112,19 @@ class VerifiableSqlTableModel(DisplayRoundedModel):
                 return False
         if super().submit():
             self.row_submitted.emit(current_row)
+            self.edited_indexes = []
+            self.submitError = ''
+            self.headerToFix = ''
             return True
         else:
             return False
 
-    def on_row_submitted(self, row):
-        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        error = Check_triggers.update_modified_timestamp(self.tableName(), [record_id])
-        if error is not None:
-            print(error)
-            return False
+    # def on_row_submitted(self, row):
+    #     record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+    #     error, header = Check_triggers.update_modified_timestamp(self.tableName(), [record_id])
+    #     if error is not None:
+    #         print(error)
+    #         return False
 
     def verify_row(self, current_row):
         columns = []
@@ -135,9 +143,10 @@ class VerifiableSqlTableModel(DisplayRoundedModel):
             columns.append(header)
             values.append(set_value)
         where = f'{id_header}={id}'
-        error = Check_triggers.validate_update(self.tableName(), columns, values, where)
+        error, header = Check_triggers.validate_update(self.tableName(), columns, values, where)
         if error is not None:
-            print(error)
+            self.submitError = error
+            self.headerToFix = header
             return False
         return True
 
@@ -193,9 +202,10 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
             columns.append(set_header)
             values.append(set_value)
 
-        error = Check_triggers.validate_update(self.table, columns, values, f'{id_header}={id}')
+        error, header = Check_triggers.validate_update(self.table, columns, values, f'{id_header}={id}')
         if error is not None:
-            print(error)
+            self.submitError = error
+            self.headerToFix = header
             return False
         column_str = ", ".join(columns)
         # create a string of question marks separated by commas for the values
@@ -208,14 +218,26 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
             print(f'Failed to update {self.table} with {column_str}={value_str}')
             return False
         self.row_submitted.emit(current_row)
+        self.edited_indexes = []
+        self.submitError = ''
+        self.headerToFix = ''
         return True
 
-    def on_row_submitted(self, row):
-        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        error = Check_triggers.update_modified_timestamp(self.table, [record_id])
-        if error is not None:
-            print(error)
+    # def on_row_submitted(self, row):
+    #     record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+    #     error = Check_triggers.update_modified_timestamp(self.table, [record_id])
+    #     if error is not None:
+    #         print(error)
+    #         return False
+
+    def deleteRowFromTable(self, row):
+        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        query = QtS.QSqlQuery()
+        if not query.exec(f'DELETE FROM {self.table} WHERE {id_header}={id}'):
+            print(f'Failed to delete {id} from {self.table}')
             return False
+        return True
 
 class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self):
@@ -872,7 +894,10 @@ def return_rounded(value: str | float | int):
         else:
             rounded_value = value
     elif isinstance(value, float):
-        rounded_value = f'{value:.{decimal_places}f}'
+        if value - int(value) != 0:
+            rounded_value = f'{value:.{decimal_places}f}'
+        else:
+            rounded_value = int(value)
     else:
         rounded_value = value
     return rounded_value
