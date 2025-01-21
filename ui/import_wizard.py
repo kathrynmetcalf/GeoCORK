@@ -21,6 +21,8 @@ from PyQt6.QtGui import QBrush, QColor, QFont
 from Functions import SQLUtils, Database_manager
 from Functions.Database_manager import SavepointManager
 
+from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel
+
 # Updated DB schema to include lab_facilities, source, analysis_method, instrument
 DATABASE_FILE = 'yrrfgs.db'
 
@@ -146,13 +148,69 @@ class MainWindow(QWidget):
         delimiter_label = QLabel("Delimiter:")
         delimiter_label.setFixedWidth(80)
         self.delimiter_edit = QLineEdit()
-        self.delimiter_edit.setPlaceholderText("(e.g., '-')")
-        self.delimiter_edit.setFixedSize(QSize(50, 20))
+        self.delimiter_edit.setPlaceholderText("e.g., -, etc.")
+        self.delimiter_edit.setFixedSize(QSize(100, 25))
         self.delimiter_edit.textChanged.connect(self.update_left_table_on_delimiter_change)  # Connect signal
         top_layout.addWidget(delimiter_label)
         top_layout.addWidget(self.delimiter_edit)
 
         main_layout.addLayout(top_layout)
+
+        self.combo_box_layout = QHBoxLayout()
+        self.combo_box_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        self.combo_box_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables."), 1, Qt.AlignmentFlag.AlignLeft)
+
+        # ComboBox for setting Reference
+        self.combo_reference_comboBox = CheckableComboBox()
+        self.combo_reference_comboBox.setFixedWidth(150)
+        self.combo_reference_comboBox.set_single_click(True)
+
+        self.combo_reference = CheckableSqlTableModel()
+        self.combo_reference = self.set_table(self.combo_reference, "References")
+        self.combo_reference_comboBox.setModel(self.combo_reference)
+        self.combo_reference.dataChanged.connect(
+            lambda: self.set_all_rows("ReferenceID", self.combo_instrument.record().value(0)))
+        self.combo_box_layout.addWidget(QLabel("Reference"))
+        self.combo_box_layout.addWidget(self.combo_reference_comboBox)
+
+        # ComboBox for setting Instrument
+        self.combo_instrument_comboBox = CheckableComboBox()
+        self.combo_instrument_comboBox.setFixedWidth(150)
+        self.combo_instrument = CheckableSqlTableModel()
+        self.combo_instrument = self.set_table(self.combo_instrument, "Instruments")
+        self.combo_instrument_comboBox.set_single_click(True)
+        self.combo_instrument.dataChanged.connect(
+            lambda: self.set_all_rows("InstrumentID", self.combo_instrument.checked_data[0]))
+        self.combo_instrument_comboBox.setModel(self.combo_instrument)
+        self.combo_box_layout.addWidget(QLabel("Instrument"))
+        self.combo_box_layout.addWidget(self.combo_instrument_comboBox)
+
+        # ComboBox for setting LabFacility
+        self.combo_lab_facility_comboBox = CheckableComboBox()
+        self.combo_lab_facility_comboBox.setFixedWidth(150)
+        self.combo_lab_facility = CheckableSqlTableModel()
+        self.combo_lab_facility = self.set_table(self.combo_lab_facility, "LabFacilities")
+        self.combo_lab_facility_comboBox.set_single_click(True)
+        self.combo_lab_facility.dataChanged.connect(
+            lambda: self.set_all_rows("LabFacilityID", self.combo_lab_facility_comboBox.currentText()))
+        self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
+        self.combo_box_layout.addWidget(QLabel("Lab Facility"))
+        self.combo_box_layout.addWidget(self.combo_lab_facility_comboBox)
+
+        # ComboBox for setting UPbAnalysisMethod
+        self.combo_upb_analysis_method_comboBox = CheckableComboBox()
+        self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
+        self.combo_upb_analysis_method = CheckableSqlTableModel()
+        self.combo_upb_analysis_method = self.set_table(self.combo_upb_analysis_method, "UPbAnalysisMethods")
+        self.combo_upb_analysis_method_comboBox.set_single_click(True)
+        self.combo_upb_analysis_method.dataChanged.connect(
+            lambda: self.set_all_rows("UPbAnalysisMethodID", self.combo_upb_analysis_method_comboBox.currentText()))
+        self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
+        self.combo_box_layout.addWidget(QLabel("UPb Analysis Method"))
+        self.combo_box_layout.addWidget(self.combo_upb_analysis_method_comboBox)
+
+        main_layout.addLayout(self.combo_box_layout)
 
         # Splitter for left (pinned) vs right (main) tables
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -229,6 +287,13 @@ class MainWindow(QWidget):
         # Flash fill connections
         self.left_table.cellChanged.connect(self.handle_cell_change)
         self.right_table.cellChanged.connect(self.handle_cell_change)
+
+
+    def set_table(self, model, table: str):
+        model.setTable(table)
+        model.select()
+        return model
+
 
     # ---------------------------
     #    Context Menu Methods
@@ -539,6 +604,51 @@ class MainWindow(QWidget):
     # ---------------------------
     #     Context Menu Logic
     # ---------------------------
+
+    def set_all_rows(self, field, value):
+        """
+        Set all rows in the specified column to the given value.
+        Args:
+            field (str): The field name (e.g., 'Reference', 'Instrument').
+            value (str): The value to set.
+        """
+        # Determine the column index for the field
+        print(value)
+        field_to_column = {
+            "ReferenceID": self.get_column_index("ReferenceID"),
+            "InstrumentID": self.get_column_index("InstrumentOD"),
+            "LabFacilityID": self.get_column_index("LabFacilityID"),
+            "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
+        }
+
+        column = field_to_column.get(field)
+        if column is None:
+            QMessageBox.warning(self, "Error", f"Column for '{field}' not found.")
+            return
+
+        # Update all rows in the column
+        for row in range(self.right_table.rowCount()):
+            item = self.right_table.item(row, column)
+            if item is None:
+                item = QTableWidgetItem()
+                self.right_table.setItem(row, column, item)
+            item.setText(value)
+
+        QMessageBox.information(self, "Success", f"All rows updated with '{value}' for {field}.")
+
+    def get_column_index(self, header_name):
+        """
+        Get the column index of a header by its name.
+        Args:
+            header_name (str): The name of the header.
+        Returns:
+            int: The column index, or None if not found.
+        """
+        for col in range(self.right_table.columnCount()):
+            header_item = self.right_table.horizontalHeaderItem(col)
+            if header_item and header_item.text().startswith(header_name):
+                return col
+        return None
 
     def update_row_icon(self, row_idx, rejected):
         header_item = QTableWidgetItem()
