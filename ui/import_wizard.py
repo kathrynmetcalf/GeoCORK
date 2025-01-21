@@ -6,14 +6,14 @@ import pandas as pd
 import qtawesome
 from difflib import get_close_matches
 
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlRecord
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlRecord, QSqlTableModel
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Color, PatternFill
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
-    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView
+    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView
 )
 from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QBrush, QColor, QFont
@@ -21,7 +21,7 @@ from PyQt6.QtGui import QBrush, QColor, QFont
 from Functions import SQLUtils, Database_manager
 from Functions.Database_manager import SavepointManager
 
-from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel
+from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView
 
 # Updated DB schema to include lab_facilities, source, analysis_method, instrument
 DATABASE_FILE = 'yrrfgs.db'
@@ -291,6 +291,8 @@ class MainWindow(QWidget):
         self.left_table.cellChanged.connect(self.handle_cell_change)
         self.right_table.cellChanged.connect(self.handle_cell_change)
 
+        self.right_table.cellClicked.connect(self.handle_cell_click)
+
 
     def set_table(self, model, table: str):
         model.setTable(table)
@@ -301,6 +303,55 @@ class MainWindow(QWidget):
     # ---------------------------
     #    Context Menu Methods
     # ---------------------------
+
+    def handle_cell_click(self, row, column):
+        """
+        Handle cell clicks for specific columns and show a popup with a QSqlTableModel.
+        Args:
+            row (int): Row index of the clicked cell.
+            column (int): Column index of the clicked cell.
+        """
+        # Determine the clicked column's header
+        header_item = self.right_table.horizontalHeaderItem(column)
+        if not header_item:
+            return
+
+        column_name = header_item.text()
+
+        # Map column names to database tables
+        column_to_table = {
+            "ReferenceID": "References",
+            "InstrumentID": "Instruments",
+            "LabFacilityID": "LabFacilities",
+            "UPbAnalysisMethodID": "UPbAnalysisMethods",
+        }
+
+        if column_name in column_to_table:
+            table_name = column_to_table[column_name]
+            self.show_table_popup(table_name, row, column)
+
+    def show_table_popup(self, table_name, row, column):
+        """
+        Show a popup with a QSqlTableModel for the specified table.
+        Args:
+            table_name (str): Name of the database table to display.
+        """
+
+        # Create a QSqlTableModel and set the table
+        model = CheckableSqlTableModel()
+        model = self.set_table(model, table_name)
+
+        # Create a QTableView to display the model
+        combobox = CheckableComboBox()
+        combobox.setModel(model)
+
+        combobox.setGeometry(self.right_table.visualItemRect(self.right_table.item(row, column)))
+
+        combobox.show()
+        combobox.setFocus()
+
+        # Close the ComboBox when it loses focus
+        combobox.focusOutEvent = lambda event: self.cleanup_combobox(combobox, event)
 
     def add_column(self):
         """
@@ -327,7 +378,7 @@ class MainWindow(QWidget):
             self.right_table.insertColumn(col_index)
 
             # Set the column header
-            header_text = f"{selected_field} ({selected_dtype})"
+            header_text = f"{selected_field}"
             header_item = QTableWidgetItem(header_text)
             header_item.setBackground(QBrush(QColor("#ffffcc")))  # Light yellow background for new column
             self.right_table.setHorizontalHeaderItem(col_index, header_item)
@@ -623,9 +674,11 @@ class MainWindow(QWidget):
         for row in range(model.rowCount()):
             name_index = model.index(row, name_col)
             id_index = model.index(row, 0)
+
             if model.data(name_index, Qt.ItemDataRole.CheckStateRole == Qt.CheckState.Checked):
                 checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
                 checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
+                print(checked_item_name)
 
 
         field_to_column = {
