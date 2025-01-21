@@ -103,9 +103,6 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
-       <property name="focusPolicy">
-        <enum>Qt::NoFocus</enum>
-       </property>
        <property name="text">
         <string>Cancel</string>
        </property>
@@ -118,9 +115,6 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
-       </property>
-       <property name="focusPolicy">
-        <enum>Qt::NoFocus</enum>
        </property>
        <property name="text">
         <string>Ok</string>
@@ -183,6 +177,8 @@
   <tabstop>newDescription_lineEdit</tabstop>
   <tabstop>cancel_pushButton</tabstop>
   <tabstop>ok_pushButton</tabstop>
+  <tabstop>tags_treeView</tabstop>
+  <tabstop>finish_pushButton</tabstop>
  </tabstops>
  <resources/>
  <connections/>

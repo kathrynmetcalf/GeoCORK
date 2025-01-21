@@ -7,7 +7,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtSql import QSqlTableModel, QSqlDatabase
 from PyQt6 import QtTest as QtT
 from numpy import integer
-
+from Functions.Settings_manager import settings
 import Functions.Errors as Er
 import Functions.Text_manipulations as TxM
 import Functions.Check_triggers as Ct
@@ -795,30 +795,45 @@ class TreeModel(QtC.QAbstractProxyModel):
         (top_parent_id, top_parent_row) = walk_tree(parent_id, item_ids)
         return top_parent_id, top_parent_row
 
-def save_expanded_state(table: str, filter_model: QtC.QSortFilterProxyModel, treeView: QtW.QTreeView, settings: QtC.QSettings):
+def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
+    '''
+    Save the expanded state of the tree view to the settings
+    @param table: Name of table with parent-child relationships
+    @param model: The model to save the state from, some kind of QSqlTableModel or QSortFilterProxyModel
+    @param treeView: The view displaying the model
+    @return:
+    '''
+
     expanded_ids = []
 
     def save_state(index):
         if index.isValid() and treeView.isExpanded(index):
-            item_id = filter_model.data(index.siblingAtColumn(1))
+            item_id = model.data(index.siblingAtColumn(1))
             expanded_ids.append(item_id)
-        for i in range(filter_model.rowCount(index)):
-            save_state(filter_model.index(i, 0, index))
+        for i in range(model.rowCount(index)):
+            save_state(model.index(i, 0, index))
 
     root_index = QtC.QModelIndex()
-    for i in range(filter_model.rowCount(root_index)):
-        save_state(filter_model.index(i, 0, root_index))
+    for i in range(model.rowCount(root_index)):
+        save_state(model.index(i, 0, root_index))
     settings.setValue(f'expanded_ids_{table}', expanded_ids)
 
-def restore_expanded_state(table: str, filter_model: QtC.QSortFilterProxyModel, treeView: QtW.QTreeView, settings: QtC.QSettings):
+def restore_expanded_state(table: str, model, treeView: QtW.QTreeView):
+    '''
+    Restore the expanded state of the tree view from the settings
+    @param table: Name of table with parent-child relationships
+    @param model: The model to restore the state to, some kind of QSqlTableModel or QSortFilterProxyModel
+    @param treeView: The view to display the model
+    @return:
+    '''
     expanded_ids = settings.value(f'expanded_ids_{table}', [])
 
     def restore_state(index):
-        item_id = filter_model.data(index.siblingAtColumn(1))
+        item_id = model.data(index.siblingAtColumn(1))
         if item_id in expanded_ids:
             treeView.setExpanded(index, True)
-        for i in range(filter_model.rowCount(index)):
-            restore_state(filter_model.index(i, 0, index))
+        for i in range(model.rowCount(index)):
+            restore_state(model.index(i, 0, index))
 
     restore_state(QtC.QModelIndex())
 
@@ -1153,6 +1168,109 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
 
         # If no column matches, reject this row
         return False
+
+class TreeContextMenu(QtW.QMenu):
+    def __init__(self, parent = None):
+        super().__init__(parent)
+        self.tree_view = None
+        self.model = None
+        self.indexes = None
+
+    def set_view(self, tree_view: QtW.QTreeView, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
+        self.tree_view = tree_view
+        self.model = self.tree_view.model()
+        self.indexes = self.tree_view.selectedIndexes()
+        item_ids, parent_ids, parent_rows = get_selected_ids(self.model, self.indexes)
+        if len(item_ids) == 1:  # only one item selected
+            self.add_single_tree_actions(delete_active, add_active, edit_active)
+        else:
+            self.add_multi_tree_actions(delete_active, add_active, edit_active)
+        self.add_expand_collapse_actions()
+
+    def add_single_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
+        if edit_active:
+            edit_action = self.addAction('Edit')
+        if delete_active:
+            delete_action = self.addAction('Delete')
+        if add_active:
+            add_menu = self.addMenu('Add')
+            insert_above_action = add_menu.addAction('Insert above')
+            insert_below_action = add_menu.addAction('Insert below')
+            add_child_action = add_menu.addAction('Add child')
+            add_parent_action = add_menu.addAction('Add parent')
+            add_end_action = add_menu.addAction('Add to end')
+
+    def add_multi_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
+        if edit_active:
+            edit_action = self.addAction('Edit')
+        if delete_active:
+            delete_action = self.addAction('Delete')
+        if add_active:
+            add_action = self.addAction('Add to end')
+
+    def add_expand_collapse_actions(self):
+        expand_menu = self.addMenu('Expand')
+        expand_children_action = expand_menu.addAction('Expand children')
+        expand_all_children_action = expand_menu.addAction('Expand all children')
+        expand_all_action = expand_menu.addAction('Expand all')
+        collapse_menu = self.addMenu('Collapse')
+        collapse_children_action = collapse_menu.addAction('Collapse children')
+        collapse_all_children_action = collapse_menu.addAction('Collapse all children')
+        collapse_all_action = collapse_menu.addAction('Collapse all')
+
+def expand_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):
+    model = tree_view.model()
+    # make sure the parent_index has column 0
+    if not parent_index.isValid():
+        parent_index = QtC.QModelIndex()  # parent is root
+    if parent_index.column() != 0:
+        parent_index = parent_index.siblingAtColumn(0)
+    tree_view.expand(parent_index)
+    for row in range(model.rowCount(parent_index)):
+        child_index = model.index(row, 0, parent_index)
+        expand_all_children(tree_view, child_index)
+
+def collapse_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):
+    # make sure the parent_index has column 0
+    if not parent_index.isValid():
+        parent_index = QtC.QModelIndex()  # parent is root
+    if parent_index.column() != 0:
+        parent_index = parent_index.siblingAtColumn(0)
+
+    model = tree_view.model()
+    for row in range(model.rowCount(parent_index)):
+        child_index = model.index(row, 0, parent_index)
+        collapse_all_children(tree_view, child_index)
+
+def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
+    if action.text() == 'Expand children':
+        tree_view.expand(tree_view.selectedIndexes()[0])
+    elif action.text() == 'Expand all children':
+        for index in tree_view.selectedIndexes():
+            expand_all_children(tree_view, index)
+    elif action.text() == 'Expand all':
+        tree_view.expandAll()
+    elif action.text() == 'Collapse children':
+        tree_view.collapse(tree_view.selectedIndexes()[0])
+    elif action.text() == 'Collapse all children':
+        for index in tree_view.selectedIndexes():
+            collapse_all_children(tree_view, index)
+    elif action.text() == 'Collapse all':
+        tree_view.collapseAll()
+
+def get_selected_ids(selected_model: QtC.QAbstractItemModel | QtC.QAbstractProxyModel, indexes: list):
+    item_ids = []
+    parent_ids = []
+    parent_rows = []
+    for index in indexes:
+        if index.column() == 0:
+            item_id = selected_model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
+            parent_id = selected_model.data(index.siblingAtColumn(2), QtC.Qt.ItemDataRole.DisplayRole)
+            parent_row = selected_model.data(index.siblingAtColumn(3), QtC.Qt.ItemDataRole.DisplayRole)
+            item_ids.append(item_id)
+            parent_ids.append(parent_id)
+            parent_rows.append(parent_row)
+    return item_ids, parent_ids, parent_rows
 
 if __name__ == '__main__':
     # only run these commands if this script is run

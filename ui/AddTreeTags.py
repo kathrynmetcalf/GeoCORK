@@ -6,6 +6,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
+from Functions.Settings_manager import settings
 from Functions.Tree_classes import TreeModel
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
@@ -54,19 +55,23 @@ class AddTreeTags(QtW.QDialog):
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
-        self.finish_pushButton.clicked.connect(self.commit_question)
+        self.finish_pushButton.clicked.connect(self.commit)
 
     def createSavepoint(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('SAVEPOINT before_add') is False:
             errtxt = Er.savepoint_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            return False
+        return True
 
     def releaseSavepoint(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('RELEASE SAVEPOINT before_add') is False:
             errtxt = Er.savepoint_release_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            return False
+        return True
 
     def add_label(self):
         if self.add_item == 'child':
@@ -102,7 +107,16 @@ class AddTreeTags(QtW.QDialog):
         self.tags_treeView.hideColumn(1)  # Don't show ID column
         self.tags_treeView.hideColumn(2)  # Don't show parent ID column
         self.tags_treeView.hideColumn(3)  # Don't show parent row column
+        TrC.restore_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
         self.add_label()
+
+    def show_context_menu(self, pos):
+        menu = TrC.TreeContextMenu()
+        # Only allow expanding and collapsing, no delete, add, or edit
+        menu.set_view(self.tags_treeView, False, False, False)
+        action = menu.exec(self.tags_treeView.viewport().mapToGlobal(pos))
+        if action and ('Expand' in action.text() or 'Collapse' in action.text()):
+            TrC.expand_collapse(self.tags_treeView, action)
 
     def clear_warning(self):
         self.warning_label.hide()
@@ -143,6 +157,7 @@ class AddTreeTags(QtW.QDialog):
         return True
 
     def update_proxy(self):
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TrC.TreeModel(self.source_model)
@@ -162,18 +177,6 @@ class AddTreeTags(QtW.QDialog):
         else:
             pass
 
-    def commit_question(self):
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to commit all changes to the database?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            self.commit()
-        else:
-            pass
-
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('ROLLBACK TO SAVEPOINT before_add') is False:
@@ -187,7 +190,12 @@ class AddTreeTags(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
-        self.releaseSavepoint()
+        if self.newName_lineEdit.text():
+            if not self.add_tree_tag():
+                return False
+        if not self.releaseSavepoint():
+            return False
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

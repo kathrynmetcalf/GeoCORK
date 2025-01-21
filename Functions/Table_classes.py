@@ -17,6 +17,7 @@ import Functions.Text_manipulations as TxM
 from Functions import Database_views as DB_views
 from Functions import Check_triggers
 import Functions.Alter_database as Alter_db
+from ui.AddTags import AddTags
 
 # from PyQt6.QtSql import rollback
 from PyQt6.sip import delete
@@ -1020,4 +1021,3 @@ def find_sub_items(sample_ids):
                     upb_data_id = UPb_data_table.record(row).value('UPbAnalysisID')
                     upb_data_ids.append(upb_data_id)
     return aliquot_ids, spot_ids, upb_data_ids
-

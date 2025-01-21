@@ -4,6 +4,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
+from Functions.Settings_manager import settings
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Tree_classes as TrC
@@ -27,7 +28,6 @@ class EditTree(QtW.QDialog):
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
-        self.settings = QtC.QSettings('CSUF', 'Geochron')
         self.edit_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
@@ -39,7 +39,7 @@ class EditTree(QtW.QDialog):
         self.search_lineEdit.textChanged.connect(self.search)
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit_question)
+        self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.discard_question)
 
     def createSavepoint(self):
@@ -47,12 +47,16 @@ class EditTree(QtW.QDialog):
         if query.exec('SAVEPOINT before_edit') is False:
             errtxt = Er.savepoint_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            return False
+        return True
 
     def releaseSavepoint(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('RELEASE SAVEPOINT before_edit') is False:
             errtxt = Er.savepoint_release_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            return False
+        return True
 
     def display_tree(self):
         self.edit_treeView.setModel(self.tree_proxy_model)
@@ -67,7 +71,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
-        TrC.restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        TrC.restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
 
     def search(self):
         self.search_lineEdit: QtW.QLineEdit
@@ -80,43 +84,24 @@ class EditTree(QtW.QDialog):
         indexes = self.edit_treeView.selectedIndexes()
         if not indexes:
             return
-        item_ids = []
-        parent_ids = []
-        parent_rows = []
-        for index in indexes:
-            if index.column() == 0:
-                item_id = self.tree_proxy_model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
-                parent_id = self.tree_proxy_model.data(index.siblingAtColumn(2), QtC.Qt.ItemDataRole.DisplayRole)
-                parent_row = self.tree_proxy_model.data(index.siblingAtColumn(3), QtC.Qt.ItemDataRole.DisplayRole)
-                item_ids.append(item_id)
-                parent_ids.append(parent_id)
-                parent_rows.append(parent_row)
-        menu = QtW.QMenu()
-        if len(item_ids) == 1:  # only one item selected
-            insert_above_action = menu.addAction('Insert above')
-            insert_below_action = menu.addAction('Insert below')
-            add_child_action = menu.addAction('Add child')
-        else:
-            insert_above_action = None
-            insert_below_action = None
-            add_child_action = None
-        add_parent_action = menu.addAction('Add parent')
-        delete_action = menu.addAction('Delete')
+        item_ids, parent_ids, parent_rows = TrC.get_selected_ids(self.tree_proxy_model, indexes)
+        menu = TrC.TreeContextMenu()
+        menu.set_view(self.edit_treeView)
         action = menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
-        if action == insert_above_action:
+        if action and action.text() == 'Insert above':
             row = parent_rows[0]
             parent_id = parent_ids[0]
             self.add_popup(None, parent_id, row)
-        elif action == insert_below_action:
+        elif action and action.text() == 'Insert below':
             row = parent_rows[0]+1
             parent_id = parent_ids[0]
             self.add_popup(None, parent_id, row)
-        elif action == add_child_action:
+        elif action and action.text() == 'Add child':
             parent_id = item_ids[0]
             self.add_popup(None, parent_id)
-        elif action == add_parent_action:
+        elif action and action.text() == 'Add parent':
             self.add_parent(item_ids, parent_ids, parent_rows)
-        elif action == delete_action:
+        elif action and action.text() == 'Delete':
             if self.delete_question() is True:
                 n_item = 0
                 for item_id in item_ids:
@@ -124,6 +109,8 @@ class EditTree(QtW.QDialog):
                     parent_row = parent_rows[n_item]
                     self.tree_model.removeItem(item_id, parent_row, parent_id)
                     n_item += 1
+        elif action and ('Expand' in action.text() or 'Collapse' in action.text()):
+            TrC.expand_collapse(self.edit_treeView, action)
 
     def update_proxy(self):
         if self.tree_proxy_model.sourceModel() == self.tree_model:
@@ -134,7 +121,7 @@ class EditTree(QtW.QDialog):
         self.display_tree()
 
     def add_popup(self, item_ID = None, parent_id = None, parent_row = None, add_item: str = 'child', *argv):
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         if add_item == 'parent':
             new_child_ids = argv[0]
             new_parent_rows = argv[1]
@@ -145,6 +132,7 @@ class EditTree(QtW.QDialog):
         self.update_proxy()
 
     def add_parent(self, item_ids: list, parent_ids: list, parent_rows: list):
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         n_item = 0
         new_child_ids = []
         new_parent_rows = []
@@ -163,6 +151,7 @@ class EditTree(QtW.QDialog):
         self.add_popup(None, parent_id, row, 'parent', new_child_ids, new_parent_rows)
 
     def delete_question(self):
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
         msg_box.setText('Are you sure you want to delete these items and all children?')
@@ -186,18 +175,6 @@ class EditTree(QtW.QDialog):
         else:
             pass
 
-    def commit_question(self):
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to commit all changes to the database?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            self.commit()
-        else:
-            pass
-
     def rollback(self):
         query = QtS.QSqlQuery(self.db)
         if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
@@ -205,14 +182,15 @@ class EditTree(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         else:
             self.reject()
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
 
     def commit(self):
-        self.releaseSavepoint()
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        if not self.releaseSavepoint():
+            return False
+        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

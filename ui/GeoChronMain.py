@@ -98,6 +98,7 @@ class GeoChron(QtW.QMainWindow):
         self.tree_model = TrC.TreeModel()
         self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
         self.table_proxy_model = QtC.QSortFilterProxyModel()
+        self.table = ''
         self.display_table_list()
 
         # Display the selected table
@@ -111,7 +112,11 @@ class GeoChron(QtW.QMainWindow):
         self.edit_pushButton.clicked.connect(self.edit_popup)
         # Signal for clicked edit samples button
         self.edit_samples_pushButton.clicked.connect(self.edit_samples_popup)
-        # End widgets here # show the window when done, used for making a top-level window
+        # Context menu for table and tree views
+        self.dbTable_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.dbTable_tableView.customContextMenuRequested.connect(self.show_context_menu)
+        self.dbTable_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.dbTable_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
         self.tabWidget: QTabWidget
         self.querybuilder = QueryBuilder(self)
@@ -195,12 +200,13 @@ class GeoChron(QtW.QMainWindow):
         self.add_pushButton: QtW.QPushButton
         self.case_checkBox: QtW.QCheckBox
         table = self.dbTable_comboBox.currentText()
+        self.table = TxM.remove_spaces(table)
         # If moving from a tree table, save the expanded state first
-        if self.previous_table in self.dbtree_list and self.previous_table != table:
-            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView, settings)
-        self.previous_table = table
+        if self.previous_table in self.dbtree_list and self.previous_table != self.table:
+            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
+        self.previous_table = self.table
 
-        # if table == 'Samples':
+        # if self.table == 'Samples':
         #     self.switch_to_table()
         #     self.edit_samples_pushButton.show()
         #     # for col in range(self.sample_model.columnCount()):
@@ -217,7 +223,7 @@ class GeoChron(QtW.QMainWindow):
         #     self.dbTable_tableView.setSortingEnabled(True)
         #     self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
-        if table in self.dbtree_list:
+        if self.table in self.dbtree_list:
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
             self.model = QtS.QSqlTableModel()
@@ -235,20 +241,20 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_treeView.hideColumn(3)  # don't show parent row column
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
-            # if table == 'Ages':
+            # if self.table == 'Ages':
                 # self.dbTable_treeView.hideColumn(6)  # don't show created column
                 # self.dbTable_treeView.hideColumn(7)  # don't show modified column
                 # self.dbTable_treeView.sortByColumn(4, Qt.SortOrder(0))
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView, settings)
-        elif table in self.dbtable_list:
+            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
+        elif self.table in self.dbtable_list:
             self.switch_to_table()
-            if table == 'Samples':
+            if self.table == 'Samples':
                 self.model.setTable('SampleView')
                 self.edit_samples_pushButton.show()
             else:
                 self.edit_samples_pushButton.hide()
-                if table == 'Columns':
+                if self.table == 'Columns':
                     self.model.setTable('ColumnView')
                 else:
                     self.model.setTable(table)
@@ -271,6 +277,7 @@ class GeoChron(QtW.QMainWindow):
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.dbTable_tableView.verticalHeader().hide()
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
@@ -295,29 +302,63 @@ class GeoChron(QtW.QMainWindow):
         # self.tree_proxy_model.setRecursiveFilteringEnabled(True)
         # self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
-        table_name = self.dbTable_comboBox.currentText()
-        # Remove spaces from display names
-        table = table_name.replace(" ", "")
-        if table == 'Samples':
+        if self.table == 'Samples':
             self.sample_proxy_model.setFilterRegularExpression(search_expression)
-        elif table in self.dbtree_list:
+        elif self.table in self.dbtree_list:
             self.tree_proxy_model.setFilterRegularExpression(search_expression)
             if search_expression != "":
                 self.dbTable_treeView.expandAll()
         else:
             self.table_proxy_model.setFilterRegularExpression(search_expression)
 
-    def edit_popup(self):
-        table_name = self.dbTable_comboBox.currentText()
-        table = TxM.remove_spaces(table_name)
-        if table_name == 'Samples':
-            dlg = EditSampleTable(self.db, self.sample_model)
-        elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Data':
-            return
-        elif table in self.dbtree_list:
-            dlg = EditTree(self.db, self.model, table_name)
+    def show_context_menu(self, pos):
+        """
+        Show a context menu when right-clicking on a table or tree view
+        :param pos: The position of the mouse click
+        :return:
+        """
+        self.dbTable_tableView: QtW.QTableView
+        self.dbTable_treeView: QtW.QTreeView
+        tree_menu = TrC.TreeContextMenu()
+        table_menu = QtW.QMenu()
+        edit_action = table_menu.addAction('Edit')
+        add_action = table_menu.addAction('Add')
+        if self.table in self.dbtree_list:
+            if self.table == 'Ages':
+                tree_menu.set_view(self.dbTable_treeView, False, False, False)
+            else:
+                tree_menu.set_view(self.dbTable_treeView, False)
+            action = tree_menu.exec(self.dbTable_tableView.viewport().mapToGlobal(pos))
+            if action:
+                self.tree_context_menu(action)
         else:
-            dlg = EditTable(self.model, table_name)
+            action = table_menu.exec(self.dbTable_tableView.viewport().mapToGlobal(pos))
+            if action:
+                self.table_context_menu(action)
+
+    def tree_context_menu(self, action: QtG.QAction):
+        """
+        Context menu for tree views
+        :param action: The action selected from the context menu
+        :return:
+        """
+        if action.text() == 'Edit':
+            self.edit_popup()
+        elif 'Add' in action.text() or 'Insert' in action.text():
+            self.add_popup(action)
+        elif 'Expand' in action.text() or 'Collapse' in action.text():
+            TrC.expand_collapse(self.dbTable_treeView, action)
+
+    def edit_popup(self):
+        if self.table == 'Samples':
+            dlg = EditSampleTable(self.db, self.model)
+        elif self.table == 'Aliquots' or self.table == 'Spots' or self.table == 'UPbData':
+            return
+        elif self.table in self.dbtree_list:
+            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            dlg = EditTree(self.db, self.model, self.table)
+        else:
+            dlg = EditTable(self.model, self.table)
         dlg.exec()
         self.display_table()
 
@@ -331,6 +372,42 @@ class GeoChron(QtW.QMainWindow):
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
+        self.display_table()
+
+    def add_popup(self, action: QtG.QAction | None = None):
+        dlg = None
+        dlg_args = None
+        if self.table in self.dbtree_list:
+            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            indexes = self.dbTable_treeView.selectedIndexes()
+            item_ids, parent_ids, parent_rows = TrC.get_selected_ids(self.tree_proxy_model, indexes)
+            if action:
+                if action.text() == 'Insert above':
+                    row = parent_rows[0]
+                    parent_id = parent_ids[0]
+                    dlg_args = (None, parent_id, row)
+                    # dlg = EditTree.add_popup(EditTree(self.db, self.tree_model.source_model, self.dbTable_comboBox.currentText()), None, parent_id, row)
+                elif action.text() == 'Insert below':
+                    row = parent_rows[0] + 1
+                    parent_id = parent_ids[0]
+                    dlg_args = (None, parent_id, row)
+                    # dlg = EditTree.add_popup(EditTree(self.db, self.tree_model.source_model, self.dbTable_comboBox.currentText()), None, parent_id, row)
+                elif action.text() == 'Add child':
+                    parent_id = item_ids[0]
+                    dlg_args = (None, parent_id)
+                    # dlg = EditTree.add_popup(EditTree(self.db, self.tree_model.source_model, self.dbTable_comboBox.currentText()), None, parent_id)
+                elif action.text() == 'Add parent':
+                    dlg_args = (item_ids, parent_ids, parent_rows)
+                    # dlg = EditTree.add_parent(item_ids, parent_ids, parent_rows)
+                elif action.text() == 'Add to end':
+                    dlg_args = (None, None)
+            if dlg_args:
+                dlg = EditTree(self.db, self.tree_model.source_model, self.dbTable_comboBox.currentText())
+        else:
+            dlg = EditTable(self.model, self.table)
+        if not dlg:
+            return
+        dlg.add_popup(*dlg_args)
         self.display_table()
 
     def drop_views(self):
@@ -353,6 +430,8 @@ class GeoChron(QtW.QMainWindow):
         self.resize(settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
 
     def closeEvent(self, event):
+        if self.table in self.dbtree_list:
+            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
         self.saveWindowState()
         # print(f"Closing with active savepoints: {self.savepoint_manager.active_savepoints()}")
         self.savepoint_manager.reset()
