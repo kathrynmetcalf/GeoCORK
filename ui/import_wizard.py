@@ -6,7 +6,7 @@ import pandas as pd
 import qtawesome
 from difflib import get_close_matches
 
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlRecord
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Color, PatternFill
 
@@ -167,46 +167,49 @@ class MainWindow(QWidget):
         self.combo_reference_comboBox.set_single_click(True)
 
         self.combo_reference = CheckableSqlTableModel()
-        self.combo_reference = self.set_table(self.combo_reference, "References")
+        self.combo_reference = self.set_table(self.combo_reference, '"References"')
         self.combo_reference_comboBox.setModel(self.combo_reference)
-        self.combo_reference.dataChanged.connect(
-            lambda: self.set_all_rows("ReferenceID", self.combo_instrument.record().value(0)))
+        self.combo_reference_comboBox.closing.connect(
+            lambda: self.set_all_rows("ReferenceID", self.combo_reference))
         self.combo_box_layout.addWidget(QLabel("Reference"))
         self.combo_box_layout.addWidget(self.combo_reference_comboBox)
 
         # ComboBox for setting Instrument
         self.combo_instrument_comboBox = CheckableComboBox()
         self.combo_instrument_comboBox.setFixedWidth(150)
+        self.combo_instrument_comboBox.set_single_click(True)
+
         self.combo_instrument = CheckableSqlTableModel()
         self.combo_instrument = self.set_table(self.combo_instrument, "Instruments")
-        self.combo_instrument_comboBox.set_single_click(True)
-        self.combo_instrument.dataChanged.connect(
-            lambda: self.set_all_rows("InstrumentID", self.combo_instrument.checked_data[0]))
         self.combo_instrument_comboBox.setModel(self.combo_instrument)
+        self.combo_instrument_comboBox.closing.connect(
+            lambda: self.set_all_rows("InstrumentID", self.combo_instrument))
         self.combo_box_layout.addWidget(QLabel("Instrument"))
         self.combo_box_layout.addWidget(self.combo_instrument_comboBox)
 
         # ComboBox for setting LabFacility
         self.combo_lab_facility_comboBox = CheckableComboBox()
         self.combo_lab_facility_comboBox.setFixedWidth(150)
+        self.combo_lab_facility_comboBox.set_single_click(True)
+
         self.combo_lab_facility = CheckableSqlTableModel()
         self.combo_lab_facility = self.set_table(self.combo_lab_facility, "LabFacilities")
-        self.combo_lab_facility_comboBox.set_single_click(True)
-        self.combo_lab_facility.dataChanged.connect(
-            lambda: self.set_all_rows("LabFacilityID", self.combo_lab_facility_comboBox.currentText()))
         self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
+        self.combo_lab_facility_comboBox.closing.connect(
+            lambda: self.set_all_rows("LabFacilityID", self.combo_lab_facility))
         self.combo_box_layout.addWidget(QLabel("Lab Facility"))
         self.combo_box_layout.addWidget(self.combo_lab_facility_comboBox)
 
         # ComboBox for setting UPbAnalysisMethod
         self.combo_upb_analysis_method_comboBox = CheckableComboBox()
         self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
+        self.combo_upb_analysis_method_comboBox.set_single_click(True)
+
         self.combo_upb_analysis_method = CheckableSqlTableModel()
         self.combo_upb_analysis_method = self.set_table(self.combo_upb_analysis_method, "UPbAnalysisMethods")
-        self.combo_upb_analysis_method_comboBox.set_single_click(True)
-        self.combo_upb_analysis_method.dataChanged.connect(
-            lambda: self.set_all_rows("UPbAnalysisMethodID", self.combo_upb_analysis_method_comboBox.currentText()))
         self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
+        self.combo_upb_analysis_method.dataChanged.connect(
+            lambda: self.set_all_rows("UPbAnalysisMethodID", self.combo_upb_analysis_method))
         self.combo_box_layout.addWidget(QLabel("UPb Analysis Method"))
         self.combo_box_layout.addWidget(self.combo_upb_analysis_method_comboBox)
 
@@ -605,15 +608,26 @@ class MainWindow(QWidget):
     #     Context Menu Logic
     # ---------------------------
 
-    def set_all_rows(self, field, value):
+    def set_all_rows(self, field, model):
         """
         Set all rows in the specified column to the given value.
         Args:
             field (str): The field name (e.g., 'Reference', 'Instrument').
             value (str): The value to set.
         """
+        if model.tableName() == '"Reference"':
+            name_col = 6
+        else:
+            name_col = 1
         # Determine the column index for the field
-        print(value)
+        for row in range(model.rowCount()):
+            name_index = model.index(row, name_col)
+            id_index = model.index(row, 0)
+            if model.data(name_index, Qt.ItemDataRole.CheckStateRole == Qt.CheckState.Checked):
+                checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
+                checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
+
+
         field_to_column = {
             "ReferenceID": self.get_column_index("ReferenceID"),
             "InstrumentID": self.get_column_index("InstrumentOD"),
@@ -627,14 +641,16 @@ class MainWindow(QWidget):
             return
 
         # Update all rows in the column
+        self.right_table.blockSignals(True)
         for row in range(self.right_table.rowCount()):
             item = self.right_table.item(row, column)
             if item is None:
                 item = QTableWidgetItem()
                 self.right_table.setItem(row, column, item)
-            item.setText(value)
+            item.setText(str(checked_item_name + " (" + str(checked_item_id) + ")"))
+        self.right_table.blockSignals(False)
 
-        QMessageBox.information(self, "Success", f"All rows updated with '{value}' for {field}.")
+        QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name + " (" + str(checked_item_id) + ")")}' for {field}.")
 
     def get_column_index(self, header_name):
         """
