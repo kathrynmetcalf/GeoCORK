@@ -462,7 +462,8 @@ class RuleWidget(QWidget):
                 self.value_input.setPlaceholderText("e.g. 0.0")
                 self.value_input.setValidator(float_validator)
                 # Show units if it's numeric
-                self.unit_combo.show()
+                if "Age" in self.attribute_combo.currentText():
+                    self.unit_combo.show()
 
     def attribute_switcher(self):
         """

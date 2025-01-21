@@ -58,11 +58,12 @@ class ColumnMapDialog(QDialog):
             self.combo_field.setCurrentText(current_field)
         layout.addRow("Field:", self.combo_field)
 
-        self.combo_dtype = QComboBox()
-        self.combo_dtype.addItem('Auto')
-        if current_dtype in SQLUtils.upb_possible_input_fields:
-            self.combo_dtype.setCurrentText(current_dtype)
-        layout.addRow("Data Type:", self.combo_dtype)
+        # self.combo_dtype = QComboBox()
+        # self.combo_dtype.addItem('Auto')
+        # if current_dtype in SQLUtils.upb_possible_input_fields:
+        #     self.combo_dtype.setCurrentText(current_dtype)
+        # layout.addRow("Data Type:", self.combo_dtype)
+        # # self.combo_dtype.hide()
 
         self.btn_ok = QPushButton("OK")
         self.btn_ok.clicked.connect(self.handle_ok)
@@ -72,7 +73,7 @@ class ColumnMapDialog(QDialog):
 
     def handle_ok(self):
         self.selected_field = self.combo_field.currentText()
-        self.selected_dtype = self.combo_dtype.currentText()
+        # self.selected_dtype = self.combo_dtype.currentText()
         self.accept()
 
     def get_field_and_type(self):
@@ -471,7 +472,7 @@ class MainWindow(QWidget):
                 field = best[0]
                 self.column_mappings[col_idx] = (field, "Auto")
                 item = self.right_table.horizontalHeaderItem(col_idx)
-                item.setText(f"{field} (Auto)")
+                item.setText(f"{field}")
                 item.setBackground(QBrush(QColor("#ffffcc")))
             else:
                 self.column_mappings[col_idx] = ("None", "Auto")
