@@ -226,11 +226,9 @@ class MainWindow(QWidget):
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
 
-        # # We'll store indexes for the 4 extra columns we append to the right table
-        # self.lab_col = None
-        # self.source_col = None
-        # self.method_col = None
-        # self.instrument_col = None
+        # Flash fill connections
+        self.left_table.cellChanged.connect(self.handle_cell_change)
+        self.right_table.cellChanged.connect(self.handle_cell_change)
 
     # ---------------------------
     #    Context Menu Methods
@@ -325,6 +323,63 @@ class MainWindow(QWidget):
     #     File & Sheet Loading
     # ---------------------------
 
+    def handle_cell_change(self, row, column):
+        """
+        Handle cell value changes. Ask the user if they want to flash fill downward.
+        """
+
+        if self.sender() == self.left_table:
+            target_table = self.left_table
+        elif self.sender() == self.right_table:
+            target_table = self.right_table
+        else:
+            return
+
+        # Get the current value of the cell
+        current_value = target_table.item(row, column).text().strip()
+
+        # If the value is empty or invalid, ignore
+        if not current_value:
+            return
+
+        # Check if the user wants to flash fill
+        reply = QMessageBox.question(
+            self, "Flash Fill Downward",
+            "Do you want to auto-fill downward with this value for blank cells?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.flash_fill_downward(target_table, row, column, current_value)
+
+    def flash_fill_downward(self, target_table, start_row, column, value):
+        """
+        Flash fill a column downward starting from a given row.
+        """
+
+        self.left_table.blockSignals(True)
+        self.right_table.blockSignals(True)
+        # Start from the next row and go downward
+        for row in range(start_row + 1, target_table.rowCount()):
+            item = target_table.item(row, column)
+
+            # If the cell is blank, fill it with the given value
+            if item is None or not item.text().strip():
+                # If the cell doesn't exist, create it
+                if item is None:
+                    item = QTableWidgetItem()
+                    target_table.setItem(row, column, item)
+
+                # Set the value
+                item.setText(value)
+            else:
+                # Stop when a non-blank value is encountered
+                break
+        self.left_table.blockSignals(False)
+        self.right_table.blockSignals(False)
+        # Inform the user about the completion
+        QMessageBox.information(self, "Flash Fill Complete", "Flash fill completed.")
+
     def select_file(self):
         dlg = QFileDialog(self)
         path, _ = dlg.getOpenFileName(self, "Select Excel File", "", "Excel Files (*.xlsx *.xls)")
@@ -393,6 +448,8 @@ class MainWindow(QWidget):
             self.right_table.setHorizontalHeaderItem(c, hdr_item)
 
         # Populate cells for the loaded data
+        self.left_table.blockSignals(True)
+        self.right_table.blockSignals(True)
         for r in range(rows):
             row_rejected = False
             for c in range(cols):
@@ -433,6 +490,8 @@ class MainWindow(QWidget):
             if row_rejected:
                 self.rejected_rows.add(r)
 
+        self.left_table.blockSignals(False)
+        self.right_table.blockSignals(False)
         # Setup vertical header icons
         for r in range(rows):
             self.update_row_icon(r, (r in self.rejected_rows))
