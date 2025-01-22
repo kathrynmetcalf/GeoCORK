@@ -263,7 +263,6 @@ class MainWindow(QWidget):
         self.left_table = QTableWidget()
         self.left_table.setColumnCount(3)
         self.left_table.setHorizontalHeaderLabels(["SampleID", "AliquotID", "SpotID"])
-        self.left_table.setEditTriggers(QAbstractItemView.EditTrigger.AllEditTriggers)
         self.left_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.left_table.customContextMenuRequested.connect(self.show_left_table_context_menu)
 
@@ -545,8 +544,6 @@ class MainWindow(QWidget):
                 break
         self.left_table.blockSignals(False)
         self.right_table.blockSignals(False)
-        # Inform the user about the completion
-        QMessageBox.information(self, "Flash Fill Complete", "Flash fill completed.")
 
     def select_file(self):
         dlg = QFileDialog(self)
@@ -1106,14 +1103,38 @@ class MainWindow(QWidget):
         Fill the empty cells in the left table with default values.
         """
         self.left_table.blockSignals(True)
+
+        # Initialize variables for tracking SampleID and counter
+        current_sample_id = None
+        aliquot_counter = 0
+
         for row, col in empty_cells:
             if col == 0:  # Sample ID
-                self.left_table.setItem(row, col, QTableWidgetItem("DefaultSample"))
+                # If Sample ID is missing, set a default value
+                if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
+                    self.left_table.setItem(row, col, QTableWidgetItem("DefaultSample"))
+                current_sample_id = self.left_table.item(row, col).text().strip()  # Update current SampleID
+                aliquot_counter = 0  # Reset counter for new SampleID
+
             elif col == 1:  # Aliquot ID
-                self.left_table.setItem(row, col, QTableWidgetItem("DefaultAliquot"))
+                # If SampleID exists, create AliquotID with the counter
+                sample_id_item = self.left_table.item(row, col - 1)
+                if sample_id_item and sample_id_item.text().strip():
+                    sample_id = sample_id_item.text().strip()
+                    if sample_id != current_sample_id:
+                        current_sample_id = sample_id
+                        aliquot_counter = 0  # Reset counter for new SampleID
+                    aliquot_counter += 1
+                    self.left_table.setItem(row, col, QTableWidgetItem(f"{sample_id}-{aliquot_counter}"))
+
             elif col == 2:  # Spot ID
-                self.left_table.setItem(row, col, QTableWidgetItem("DefaultSpot"))
+                # Set a default value for Spot ID
+                if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
+                    self.left_table.setItem(row, col, QTableWidgetItem("DefaultSpot"))
+
+            # Highlight the updated cell
             self.left_table.item(row, col).setBackground(Qt.GlobalColor.yellow)
+
         self.left_table.blockSignals(False)
 
     def check_and_import(self):
