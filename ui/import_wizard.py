@@ -6,6 +6,7 @@ import pandas as pd
 import qtawesome
 from difflib import get_close_matches
 
+from PyQt6 import QtCore
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlRecord, QSqlTableModel
 from openpyxl import load_workbook
 from openpyxl.styles import Font, Color, PatternFill
@@ -156,10 +157,22 @@ class MainWindow(QWidget):
 
         main_layout.addLayout(top_layout)
 
-        self.combo_box_layout = QHBoxLayout()
-        self.combo_box_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        combo_box_layout = QHBoxLayout()
+        combo_box_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        self.combo_box_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables."), 1, Qt.AlignmentFlag.AlignLeft)
+        # Delimiter label + line edit
+        delimiter_label = QLabel("Delimiter:")
+        delimiter_label.setFixedWidth(50)
+        self.delimiter_edit = QLineEdit()
+        self.delimiter_edit.setPlaceholderText("e.g., -, etc.")
+        self.delimiter_edit.setFixedSize(QSize(100, 25))
+        self.delimiter_edit.textChanged.connect(self.update_left_table_on_delimiter_change)  # Connect signal
+        combo_box_layout.addWidget(delimiter_label)
+        combo_box_layout.addWidget(self.delimiter_edit)
+
+        combo_box_layout.addStretch(1)
+
+        combo_box_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables.   "), 1, Qt.AlignmentFlag.AlignLeft)
 
         # ComboBox for setting Reference
         self.combo_reference_comboBox = CheckableComboBox()
@@ -171,8 +184,9 @@ class MainWindow(QWidget):
         self.combo_reference_comboBox.setModel(self.combo_reference)
         self.combo_reference_comboBox.closing.connect(
             lambda: self.set_all_rows("ReferenceID", self.combo_reference))
-        self.combo_box_layout.addWidget(QLabel("Reference"))
-        self.combo_box_layout.addWidget(self.combo_reference_comboBox)
+        combo_box_layout.addWidget(QLabel("Reference"))
+        combo_box_layout.addWidget(self.combo_reference_comboBox)
+        self.combo_reference_comboBox.set_line_edit_text(None)
 
         # ComboBox for setting Instrument
         self.combo_instrument_comboBox = CheckableComboBox()
@@ -184,8 +198,9 @@ class MainWindow(QWidget):
         self.combo_instrument_comboBox.setModel(self.combo_instrument)
         self.combo_instrument_comboBox.closing.connect(
             lambda: self.set_all_rows("InstrumentID", self.combo_instrument))
-        self.combo_box_layout.addWidget(QLabel("Instrument"))
-        self.combo_box_layout.addWidget(self.combo_instrument_comboBox)
+        combo_box_layout.addWidget(QLabel("Instrument"))
+        combo_box_layout.addWidget(self.combo_instrument_comboBox)
+        self.combo_instrument_comboBox.set_line_edit_text(None)
 
         # ComboBox for setting LabFacility
         self.combo_lab_facility_comboBox = CheckableComboBox()
@@ -197,8 +212,9 @@ class MainWindow(QWidget):
         self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
         self.combo_lab_facility_comboBox.closing.connect(
             lambda: self.set_all_rows("LabFacilityID", self.combo_lab_facility))
-        self.combo_box_layout.addWidget(QLabel("Lab Facility"))
-        self.combo_box_layout.addWidget(self.combo_lab_facility_comboBox)
+        combo_box_layout.addWidget(QLabel("Lab Facility"))
+        combo_box_layout.addWidget(self.combo_lab_facility_comboBox)
+        self.combo_lab_facility_comboBox.set_line_edit_text(None)
 
         # ComboBox for setting UPbAnalysisMethod
         self.combo_upb_analysis_method_comboBox = CheckableComboBox()
@@ -208,12 +224,37 @@ class MainWindow(QWidget):
         self.combo_upb_analysis_method = CheckableSqlTableModel()
         self.combo_upb_analysis_method = self.set_table(self.combo_upb_analysis_method, "UPbAnalysisMethods")
         self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
-        self.combo_upb_analysis_method.dataChanged.connect(
+        self.combo_upb_analysis_method_comboBox.closing.connect(
             lambda: self.set_all_rows("UPbAnalysisMethodID", self.combo_upb_analysis_method))
-        self.combo_box_layout.addWidget(QLabel("UPb Analysis Method"))
-        self.combo_box_layout.addWidget(self.combo_upb_analysis_method_comboBox)
+        combo_box_layout.addWidget(QLabel("UPb Analysis Method"))
+        combo_box_layout.addWidget(self.combo_upb_analysis_method_comboBox)
+        self.combo_upb_analysis_method_comboBox.set_line_edit_text(None)
 
-        main_layout.addLayout(self.combo_box_layout)
+        main_layout.addLayout(combo_box_layout)
+
+        formats_layout = QHBoxLayout()
+        formats_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        self.ratio_error_combobox = QComboBox()
+        self.ratio_error_combobox.setFixedWidth(100)
+        self.ratio_error_combobox.addItems(['1σ Absolute', '2σ Absolute', '1σ Percent', '1σ Percent'])
+        formats_layout.addWidget(QLabel("Ratio Error"))
+        formats_layout.addWidget(self.ratio_error_combobox)
+
+        self.age_error_combobox = QComboBox()
+        self.age_error_combobox.setFixedWidth(100)
+        self.age_error_combobox.addItems(['1σ Absolute', '2σ Absolute', '1σ Percent', '1σ Percent'])
+        formats_layout.addWidget(QLabel("Age Error"))
+        formats_layout.addWidget(self.age_error_combobox)
+
+        self.conc_error_combobox = QComboBox()
+        self.conc_error_combobox.setFixedWidth(150)
+        self.conc_error_combobox.addItems(['Concordance Ratio', 'Concordance Percent', 'Discordance Ratio', 'Discordance Percent'])
+        formats_layout.addWidget(QLabel("Ratio Error"))
+        formats_layout.addWidget(self.conc_error_combobox)
+
+        main_layout.addLayout(formats_layout)
+
 
         # Splitter for left (pinned) vs right (main) tables
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -293,6 +334,12 @@ class MainWindow(QWidget):
 
         self.right_table.cellClicked.connect(self.handle_cell_click)
 
+    def closeEvent(self, a0):
+        self.combo_reference_comboBox.disconnect()
+        self.combo_instrument_comboBox.disconnect()
+        self.combo_lab_facility_comboBox.disconnect()
+        self.combo_upb_analysis_method_comboBox.disconnect()
+        super().closeEvent(a0)
 
     def set_table(self, model, table: str):
         model.setTable(table)
@@ -386,9 +433,11 @@ class MainWindow(QWidget):
             # Add the new column to the column mappings
             self.column_mappings[col_index] = (selected_field, selected_dtype)
 
+            self.right_table.blockSignals(True)
             # Initialize the column cells with empty values
             for row in range(self.right_table.rowCount()):
                 self.right_table.setItem(row, col_index, QTableWidgetItem(""))
+            self.right_table.blockSignals(False)
 
             # Notify the user
             QMessageBox.information(self, "Column Added", f"Column '{header_text}' added successfully.")
@@ -622,12 +671,14 @@ class MainWindow(QWidget):
         Make the left table have the same row count as the right table
         and add editable cells for Sample ID, Aliquot ID, Spot ID.
         """
+        self.left_table.blockSignals(True)
         row_count = self.right_table.rowCount()
         self.left_table.setRowCount(row_count)
         for r in range(row_count):
             for c in range(3):
                 if not self.left_table.item(r, c):
                     self.left_table.setItem(r, c, QTableWidgetItem(""))
+        self.left_table.blockSignals(False)
 
         self.left_table.resizeColumnsToContents()
 
@@ -666,44 +717,133 @@ class MainWindow(QWidget):
             field (str): The field name (e.g., 'Reference', 'Instrument').
             value (str): The value to set.
         """
-        if model.tableName() == '"Reference"':
+        if model.tableName() == '"References"':
             name_col = 6
         else:
             name_col = 1
         # Determine the column index for the field
+
         for row in range(model.rowCount()):
             name_index = model.index(row, name_col)
             id_index = model.index(row, 0)
 
-            if model.data(name_index, Qt.ItemDataRole.CheckStateRole == Qt.CheckState.Checked):
-                checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
+            if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
                 checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
-                print(checked_item_name)
+                checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
 
 
         field_to_column = {
             "ReferenceID": self.get_column_index("ReferenceID"),
-            "InstrumentID": self.get_column_index("InstrumentOD"),
+            "Reference Display": self.get_column_index("Reference Display"),
+            "InstrumentID": self.get_column_index("InstrumentID"),
+            "Instrument Name": self.get_column_index("Instrument Name"),
             "LabFacilityID": self.get_column_index("LabFacilityID"),
+            "Lab Facility Name": self.get_column_index("Lab Facility Name"),
             "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
+            "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name"),
         }
 
         column = field_to_column.get(field)
         if column is None:
-            QMessageBox.warning(self, "Error", f"Column for '{field}' not found.")
-            return
+            # msg = f"Column for '{field}' not found. Add missing columns to the import?"
+            # reply = QMessageBox.question(self, 'Missing Columns', msg,
+            #                              QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            #                              QMessageBox.StandardButton.Yes)
+            #
+            # if reply == QMessageBox.StandardButton.No:
+            #     return
 
-        # Update all rows in the column
-        self.right_table.blockSignals(True)
-        for row in range(self.right_table.rowCount()):
-            item = self.right_table.item(row, column)
-            if item is None:
-                item = QTableWidgetItem()
-                self.right_table.setItem(row, column, item)
-            item.setText(str(checked_item_name + " (" + str(checked_item_id) + ")"))
-        self.right_table.blockSignals(False)
+            # ADD ID Column to the tablewidget
+            # Insert the new column at the end of the table
+            col_index = self.right_table.columnCount()
+            self.right_table.insertColumn(col_index)
 
-        QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name + " (" + str(checked_item_id) + ")")}' for {field}.")
+            # Set the column header
+            header_text = f"{field}"
+            header_item = QTableWidgetItem(header_text)
+            header_item.setBackground(QBrush(QColor("#ffffcc")))  # Light yellow background for new column
+            self.right_table.setHorizontalHeaderItem(col_index, header_item)
+
+            # Add the new column to the column mappings
+            self.column_mappings[col_index] = (field, "Auto")
+
+            self.right_table.blockSignals(True)
+            # Initialize the column cells with empty values
+            for row in range(self.right_table.rowCount()):
+                self.right_table.setItem(row, col_index, QTableWidgetItem(str(checked_item_id)))
+            self.right_table.blockSignals(False)
+            self.right_table.hideColumn(col_index)
+
+            # ADD Display Column to the tablewidget
+            # Insert the new column at the end of the table
+            col_index = self.right_table.columnCount()
+            self.right_table.insertColumn(col_index)
+
+            if field == "ReferenceID":
+                display_column_name = "Reference Display"
+            elif field == "InstrumentID":
+                display_column_name = "Instrument Name"
+            elif field == "LabFacilityID":
+                display_column_name = "Lab Facility Name"
+            elif field == "UPbAnalysisMethodID":
+                display_column_name = "UPb Analysis Method Name"
+
+            # Set the column header
+            header_text = f"{display_column_name}"
+            header_item = QTableWidgetItem(header_text)
+            header_item.setBackground(QBrush(QColor("#ffffcc")))  # Light yellow background for new column
+            self.right_table.setHorizontalHeaderItem(col_index, header_item)
+
+            # Add the new column to the column mappings
+            self.column_mappings[col_index] = (field, "Auto")
+
+            self.right_table.blockSignals(True)
+            # Initialize the column cells with empty values
+            for row in range(self.right_table.rowCount()):
+                self.right_table.setItem(row, col_index, QTableWidgetItem(checked_item_name))
+            self.right_table.blockSignals(False)
+        else:
+
+            # Update all rows in the column
+            self.right_table.blockSignals(True)
+
+            field_to_column = {
+                "ReferenceID": self.get_column_index("ReferenceID"),
+                "Reference Display": self.get_column_index("Reference Display"),
+                "InstrumentID": self.get_column_index("InstrumentID"),
+                "Instrument Name": self.get_column_index("Instrument Name"),
+                "LabFacilityID": self.get_column_index("LabFacilityID"),
+                "Lab Facility Name": self.get_column_index("Lab Facility Name"),
+                "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
+                "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name"),
+            }
+
+            if field == "ReferenceID":
+                display_column_name = "Reference Display"
+            elif field == "InstrumentID":
+                display_column_name = "Instrument Name"
+            elif field == "LabFacilityID":
+                display_column_name = "Lab Facility Name"
+            elif field == "UPbAnalysisMethodID":
+                display_column_name = "UPb Analysis Method Name"
+            id_column = field_to_column.get(field)
+            name_column = field_to_column.get(display_column_name)
+            self.right_table.blockSignals(True)
+            for row in range(self.right_table.rowCount()):
+                item = self.right_table.item(row, id_column)
+                if item is None:
+                    item = QTableWidgetItem()
+                    self.right_table.setItem(row, id_column, item)
+                item.setText(str(checked_item_id))
+
+                item = self.right_table.item(row, name_column)
+                if item is None:
+                    item = QTableWidgetItem()
+                    self.right_table.setItem(row, name_column, item)
+                item.setText(str(checked_item_name))
+            self.right_table.blockSignals(False)
+
+        QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name)}' for {field}.")
 
     def get_column_index(self, header_name):
         """
@@ -873,8 +1013,10 @@ class MainWindow(QWidget):
                 spot_id = spot_id_value
 
             # Update the left table
+            self.left_table.blockSignals(True)
             self.left_table.setItem(r, 0, QTableWidgetItem(sample_id))  # Sample ID
             self.left_table.setItem(r, 2, QTableWidgetItem(spot_id))  # Spot ID
+            self.left_table.blockSignals(False)
 
     def save_mapping(self):
         if not self.column_mappings:
@@ -963,6 +1105,7 @@ class MainWindow(QWidget):
         """
         Fill the empty cells in the left table with default values.
         """
+        self.left_table.blockSignals(True)
         for row, col in empty_cells:
             if col == 0:  # Sample ID
                 self.left_table.setItem(row, col, QTableWidgetItem("DefaultSample"))
@@ -971,6 +1114,7 @@ class MainWindow(QWidget):
             elif col == 2:  # Spot ID
                 self.left_table.setItem(row, col, QTableWidgetItem("DefaultSpot"))
             self.left_table.item(row, col).setBackground(Qt.GlobalColor.yellow)
+        self.left_table.blockSignals(False)
 
     def check_and_import(self):
         # Step 1: Check for empty cells in the left table
@@ -1012,6 +1156,13 @@ class MainWindow(QWidget):
                 record = {field: None for field in SQLUtils.upb_possible_input_fields}
                 if row_idx in self.rejected_rows:
                     record['Rejected'] = True
+                else:
+                    record['Rejected'] = False
+
+                record['RatioErrorTypeID'] = self.ratio_error_combobox.currentIndex()
+                record['AgeErrorTypeID'] = self.age_error_combobox.currentIndex()
+                record['ConcordanceTypeID'] = self.conc_error_combobox.currentIndex()
+
 
                 # Populate the left-table items (sample_id, aliquot_id, spot_id)
                 sample_id_item = self.left_table.item(row_idx, 0)
@@ -1075,7 +1226,6 @@ class MainWindow(QWidget):
                 spot_query.prepare(
                     'SELECT SpotID FROM Spots WHERE SpotName=:name COLLATE NOCASE AND AliquotID=:aliquot_id')
                 spot_query.bindValue(":name", record["SpotID"])
-                # todo this aliquot_id is blank when importing
                 spot_query.bindValue(":aliquot_id", record["AliquotID"])
 
                 if spot_query.exec():
@@ -1120,7 +1270,6 @@ class MainWindow(QWidget):
                     if cell_text.upper() == "NULL":
                         record[field_name] = None
                     else:
-                        # todo decide if types will be given in column or new drop downs.
                         record[field_name] = cell_text
 
                 field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_input_fields])
@@ -1144,7 +1293,6 @@ class MainWindow(QWidget):
                     sys.exit(1)
                 record_count = 0
                 print("Keys in Record:", list(record.keys()))
-                # todo fix not fetching rejected rows and setting as 1 or 0
                 for key, value in record.items():
                     if key == "SampleID" or key == "AliquotID":
                         continue #.replace('/', '_').replace('*', '_')
