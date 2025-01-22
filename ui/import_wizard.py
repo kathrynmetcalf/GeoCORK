@@ -145,16 +145,6 @@ class MainWindow(QWidget):
         self.btn_load_sheet.clicked.connect(self.load_sheet)
         top_layout.addWidget(self.btn_load_sheet)
 
-        # Delimiter label + line edit
-        delimiter_label = QLabel("Delimiter:")
-        delimiter_label.setFixedWidth(80)
-        self.delimiter_edit = QLineEdit()
-        self.delimiter_edit.setPlaceholderText("e.g., -, etc.")
-        self.delimiter_edit.setFixedSize(QSize(100, 25))
-        self.delimiter_edit.textChanged.connect(self.update_left_table_on_delimiter_change)  # Connect signal
-        top_layout.addWidget(delimiter_label)
-        top_layout.addWidget(self.delimiter_edit)
-
         main_layout.addLayout(top_layout)
 
         combo_box_layout = QHBoxLayout()
@@ -333,12 +323,50 @@ class MainWindow(QWidget):
 
         self.right_table.cellClicked.connect(self.handle_cell_click)
 
+        self.right_table.verticalHeader().sectionDoubleClicked.connect(self.handle_vertical_header_double_click)
+
     def closeEvent(self, a0):
         self.combo_reference_comboBox.disconnect()
         self.combo_instrument_comboBox.disconnect()
         self.combo_lab_facility_comboBox.disconnect()
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
+
+    def handle_vertical_header_double_click(self, logical_index):
+        """
+        Handle double-clicks on vertical headers to mark rows as rejected.
+        Args:
+            logical_index (int): The row index corresponding to the double-clicked header.
+        """
+        item = self.right_table.item(logical_index, 0)
+        if logical_index in self.rejected_rows:
+            self.mark_selected_rows_rejected([item], False)
+        else:
+            self.mark_selected_rows_rejected([item], True)
+
+    # def mark_selected_rows_rejected(self, rows, rejected=True):
+    #     """
+    #     Mark the specified rows as rejected or unrejected.
+    #     Args:
+    #         rows (list): List of row indices to mark.
+    #         rejected (bool): True to mark as rejected, False to unmark.
+    #     """
+    #     for row_idx in rows:
+    #         for col_idx in range(self.right_table.columnCount()):
+    #             item = self.right_table.item(row_idx, col_idx)
+    #             if item is None:
+    #                 item = QTableWidgetItem()
+    #                 self.right_table.setItem(row_idx, col_idx, item)
+    #
+    #             # Apply strikethrough and red color if rejected
+    #             font = item.font()
+    #             font.setStrikeOut(rejected)
+    #             item.setFont(font)
+    #             item.setForeground(QBrush(QColor("red" if rejected else "black")))
+    #
+    #         # Optionally, update the row header with an icon or visual marker
+    #         header_item = QTableWidgetItem(f"Rejected" if rejected else f"{row_idx + 1}")
+    #         self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
     def set_table(self, model, table: str):
         model.setTable(table)
@@ -473,9 +501,9 @@ class MainWindow(QWidget):
         if action == remove_action:
             self.remove_selected_rows()
         elif action == reject_action:
-            self.mark_selected_rows_rejected(True)
+            self.mark_selected_rows_rejected(self.right_table.selectedItems(), True)
         elif action == accept_action:
-            self.mark_selected_rows_rejected(False)
+            self.mark_selected_rows_rejected(self.right_table.selectedItems(), False)
         elif action == set_value_action:
             new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
             if ok:
@@ -926,8 +954,8 @@ class MainWindow(QWidget):
                 header_item.setIcon(self.accepted_icon)
             self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
-    def mark_selected_rows_rejected(self, rejected: bool):
-        selected_rows = {i.row() for i in self.right_table.selectedItems()}
+    def mark_selected_rows_rejected(self, rows: list[QTableWidgetItem],  rejected: bool):
+        selected_rows = {i.row() for i in rows}
         if not selected_rows:
             return
 
