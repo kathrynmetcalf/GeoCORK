@@ -14,7 +14,7 @@ from openpyxl.styles import Font, Color, PatternFill
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
-    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView
+    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox
 )
 from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QBrush, QColor, QFont
@@ -157,6 +157,7 @@ class MainWindow(QWidget):
         self.delimiter_edit.setPlaceholderText("e.g., -, etc.")
         self.delimiter_edit.setFixedSize(QSize(100, 25))
         self.delimiter_edit.textChanged.connect(self.update_left_table_on_delimiter_change)  # Connect signal
+
         combo_box_layout.addWidget(delimiter_label)
         combo_box_layout.addWidget(self.delimiter_edit)
 
@@ -225,6 +226,11 @@ class MainWindow(QWidget):
         formats_layout = QHBoxLayout()
         formats_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
+        self.delimiter_checkbox = QCheckBox('Enable Delimiter?')
+        self.delimiter_checkbox.checkStateChanged.connect(self.update_left_table_on_delimiter_change)
+        formats_layout.addWidget(self.delimiter_checkbox, Qt.AlignmentFlag.AlignLeft)
+        formats_layout.addStretch(1)
+
         self.ratio_error_combobox = QComboBox()
         self.ratio_error_combobox.setFixedWidth(100)
         self.ratio_error_combobox.addItems(['1σ Absolute', '2σ Absolute', '1σ Percent', '1σ Percent'])
@@ -240,7 +246,7 @@ class MainWindow(QWidget):
         self.conc_error_combobox = QComboBox()
         self.conc_error_combobox.setFixedWidth(150)
         self.conc_error_combobox.addItems(['Concordance Ratio', 'Concordance Percent', 'Discordance Ratio', 'Discordance Percent'])
-        formats_layout.addWidget(QLabel("Ratio Error"))
+        formats_layout.addWidget(QLabel("Concordance Error"))
         formats_layout.addWidget(self.conc_error_combobox)
 
         main_layout.addLayout(formats_layout)
@@ -1001,14 +1007,36 @@ class MainWindow(QWidget):
         Update the left table's Sample ID and Spot ID columns whenever the delimiter value changes.
         """
         # Find the right table column mapped to "Spot ID"
-        spot_id_column = None
-        for col_idx, (field_name, _) in self.column_mappings.items():
-            if field_name == "SpotID":
-                spot_id_column = col_idx
-                break
+        if self.delimiter_checkbox.isChecked():
+            spot_id_column = None
+            for col_idx, (field_name, _) in self.column_mappings.items():
+                if field_name == "SpotID":
+                    spot_id_column = col_idx
+                    break
 
-        if spot_id_column is not None:
-            self.auto_split_sample_spot(spot_id_column)
+            if spot_id_column is not None:
+                self.auto_split_sample_spot(spot_id_column)
+        else:
+            spot_id_column = None
+            for col_idx, (field_name, _) in self.column_mappings.items():
+                if field_name == "SpotID":
+                    spot_id_column = col_idx
+                    break
+
+            if spot_id_column is not None:
+                row_count = self.right_table.rowCount()
+                for r in range(row_count):
+                    cell_item = self.right_table.item(r, col_idx)
+                    if not cell_item:
+                        continue
+
+                    spot_id_value = cell_item.text().strip()
+
+                    # Update the left table
+                    self.left_table.blockSignals(True)
+                    self.left_table.setItem(r, 0, QTableWidgetItem(""))
+                    self.left_table.setItem(r, 2, QTableWidgetItem(spot_id_value))  # Spot ID
+                    self.left_table.blockSignals(False)
 
     def auto_split_sample_spot(self, col_idx):
         """
@@ -1016,10 +1044,6 @@ class MainWindow(QWidget):
         using the delimiter, and populate the left table accordingly.
         """
         delimiter = self.delimiter_edit.text().strip()
-        # if not delimiter:
-        #     # QMessageBox.warning(self, "No Delimiter", "Please specify a delimiter to split Spot IDs.")
-        #     return
-
         row_count = self.right_table.rowCount()
 
         for r in range(row_count):
