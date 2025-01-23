@@ -484,7 +484,7 @@ table_attributes_dict = {
 }
 
 upb_possible_input_fields = [
-    'SpotID',
+    'Spot Name',
     'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
     'Uppm', 'Thppm',
     'U/Th', 'Th/U',
@@ -524,10 +524,10 @@ upb_possible_input_fields = [
     'SpotSize', 'SpotSizeUnitID',
     'Rejected',
 
-    'ReferenceID',
-    'LabFacilityID',
-    'InstrumentID',
-    'UPbAnalysisMethodID'
+    'Reference Display',
+    'Lab Facility Name',
+    'Instrument Name',
+    'UPb Analysis Method Name'
 ]
 
 
