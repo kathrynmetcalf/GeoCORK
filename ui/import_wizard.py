@@ -1062,6 +1062,8 @@ class MainWindow(QWidget):
             name_col = 1
         # Determine the column index for the field
         source_checked_row = None
+        checked_item_name = None
+        checked_item_id = None
         for row in range(model.rowCount()):
             name_index = model.index(row, name_col)
             id_index = model.index(row, 0)
@@ -1070,6 +1072,8 @@ class MainWindow(QWidget):
                 checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
                 checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
                 source_checked_row = row
+        if checked_item_name is None or checked_item_id is None:
+            return
 
 
         field_to_column = {
