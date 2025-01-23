@@ -3,12 +3,16 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
-from Functions.Table_classes import set_table, SampleAgeTableModel, CheckableSqlTableModel, FontDelegate, name_column, set_comboBox_text, show_column
+from Functions.Table_classes import set_table, SampleAgeTableModel, CheckableSqlTableModel, FontDelegate, name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Settings_manager import settings
 from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 import Functions.Database_views as DB_views
+from ui.EditTree import EditTree
+from ui.EditTable import EditTable
+
+
 
 class AgeFields(QtW.QWidget):
     def __init__(self, table: str, item_ids: list):
@@ -20,7 +24,8 @@ class AgeFields(QtW.QWidget):
         self.msg = QtW.QMessageBox(self)
 
         self.item_model = QtS.QSqlTableModel()
-        self.sample_age_model = SampleAgeTableModel()
+        # self.sample_age_model = SampleAgeTableModel()
+        self.sample_age_model = CheckableSqlQueryModel()
         self.age_tree_view = QtW.QTreeView()
         self.age_model = QtS.QSqlTableModel()
         self.oldest_age_tree = TreeModel()
@@ -32,7 +37,8 @@ class AgeFields(QtW.QWidget):
         self.age_constraint_tree = CheckableTreeModel()
         self.age_interpretation_model = QtS.QSqlTableModel()
         self.age_interpretation_tree = CheckableTreeModel()
-        self.age_reference_model = CheckableSqlTableModel()
+        # self.age_reference_model = CheckableSqlTableModel()
+        self.age_reference_model = CheckableSqlQueryModel()
 
         self.default_age_ids = []
         self.item_id_header = None
@@ -44,6 +50,7 @@ class AgeFields(QtW.QWidget):
         self.populate_dropdowns()
         self.populate_fields()
         self.connect_signals()
+        self.add_age_pushButton.clicked.connect(self.add_age)
 
     def update_list(self, item_ids):
         self.item_ids = item_ids
@@ -55,6 +62,7 @@ class AgeFields(QtW.QWidget):
     def populate_dropdowns(self):
         set_table(self.item_model, self.table)
         self.item_id_header = self.item_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        self.sample_age_model.setQuery('SELECT * FROM SampleAges')
         set_table(self.age_model, 'Ages')
         set_table(self.direct_age_unit_model, 'AgeUnits')
         set_table(self.direct_age_error_model, 'ErrorFormats')
@@ -64,10 +72,13 @@ class AgeFields(QtW.QWidget):
         self.age_constraint_tree.setSourceModel(self.age_constraint_model)
         set_table(self.age_interpretation_model, 'AgeInterpretations')
         self.age_interpretation_tree.setSourceModel(self.age_interpretation_model)
-        set_table(self.age_reference_model, '"References"')
+        self.age_reference_model.setQuery('SELECT * FROM "References"')
 
+        self.edit_age_comboBox: CheckableComboBox
         self.edit_age_comboBox.setModel(self.sample_age_model)
         show_column(self.edit_age_comboBox, 'SampleAgeDisplay')
+        self.enable_context(self.edit_age_comboBox)
+
         self.direct_unit_comboBox.setModel(self.direct_age_unit_model)
         show_column(self.direct_unit_comboBox, 'AgeUnitAbbreviation')
         self.direct_age_unit_comboBox.setModel(self.direct_age_unit_model)
@@ -79,10 +90,10 @@ class AgeFields(QtW.QWidget):
         self.age_constraint_comboBox.setModel(self.age_constraint_tree)
         self.age_interpretation_comboBox.setModel(self.age_interpretation_tree)
         self.age_reference_comboBox.setModel(self.age_reference_model)
-        show_column(self.age_reference_comboBox, 'ReferenceDisplay')
+        self.age_reference_comboBox.setModelColumn(name_column('"References"'))
 
     def populate_age_dropdown(self):
-        self.edit_age_comboBox.setItemDelegate(FontDelegate(self.edit_age_comboBox))
+        self.sample_age_model.setItemDelegate(FontDelegate(self.sample_age_model))
         samples_sampleage_model = QtS.QSqlTableModel()
         set_table(samples_sampleage_model, 'Samples_SampleAges')
         if len(self.checked_sample_list) > 1:
@@ -281,7 +292,7 @@ class AgeFields(QtW.QWidget):
         text = self.populate_checks('SampleAges_References', sampleage_reference_model)
         set_comboBox_text(self.age_reference_comboBox, text)
 
-    def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
+    def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel | QtS.QSqlQueryModel, tree: CheckableTreeModel = None):
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(many_to_many_table)
         many_to_many_model.select()
@@ -509,6 +520,23 @@ class AgeFields(QtW.QWidget):
             release_savepoint('before_update')
             self.populate_age_dropdown()
 
+    def add_age(self):
+        query = QtS.QSqlQuery()
+        if not query.exec(f'''INSERT INTO SampleAges (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) 
+                            VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)'''):
+            errtxt = query.lastError().text()
+            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            return
+        sample_age_id = query.lastInsertId()
+        for sample_id in self.item_ids:
+            if not query.exec(f'''INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES ({sample_id}, {sample_age_id})'''):
+                errtxt = query.lastError().text()
+                self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                return
+        self.clear_fields()
+        self.populate_age_dropdown()
+        self.edit_age_comboBox.setCurrentIndex(self.sample_age_model.rowCount() - 1)
+
     def clear_fields(self):
         self.disconnect_text_signals()
         self.default_age_checkBox.setChecked(False)
@@ -526,3 +554,32 @@ class AgeFields(QtW.QWidget):
         self.age_interpretation_comboBox.setCurrentIndex(-1)
         self.age_reference_comboBox.setCurrentIndex(-1)
         self.connect_signals()
+
+    def enable_context(self, combo_box: CheckableComboBox | CheckableTreeCombobox):
+        combo_box.enable_context_menu(True)
+        combo_box.set_single_click(True)
+        combo_box.edit_triggered.connect(self.handle_edit_triggered)
+
+    def disable_context(self, combo_box: CheckableComboBox | CheckableTreeCombobox):
+        combo_box.enable_context_menu(False)
+        try:
+            combo_box.edit_triggered.disconnect(self.handle_edit_triggered)
+        except TypeError:
+            pass
+
+    def handle_edit_triggered(self, combo_box: CheckableComboBox):
+        model = combo_box.model()
+        table = model.tableName()
+        if table == 'SampleAges':
+            self.add_age()
+        if isinstance(model, TreeModel):
+            table_model = QtS.QSqlTableModel()
+            set_table(table_model, table)
+            dlg = EditTree(table_model, table)
+        elif isinstance(model, QtS.QSqlTableModel | QtS.QSqlQueryModel):
+            dlg = EditTable(model, table)
+        else:
+            print(f'Unknown model type: {type(model)}')
+            return
+        dlg.exec()
+        self.populate_dropdowns()

@@ -45,7 +45,45 @@ class DecimalDelegate(QtW.QStyledItemDelegate):
 
             return f'{value:.{self.decimal_places}f}'
 
+class FontDelegate(QtW.QStyledItemDelegate):
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        font = index.data(QtC.Qt.ItemDataRole.FontRole)
+        if font:
+            option.font = font
+
 class DisplayRoundedModel(QtS.QSqlTableModel):
+    def __init__(self):
+        super().__init__()
+
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        if role == QtC.Qt.ItemDataRole.DisplayRole:
+            # check the header of the selected index
+            header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            value = super().data(index, role)
+            if isinstance(value, str):
+                if f'({settings.value('age_unit_abbreviation')})' in header:
+                    # print(f'Displaying {value}')
+                    return display_age(value)
+                elif 'GPS' in header:
+                    # print(f'Displaying {value}')
+                    return display_gps(value)
+                elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
+                    # print(f'Displaying {value}')
+                    return display_value_with_error(value)
+            # if the value is a number but not an integer
+            elif value is not None and isinstance(value, (int, float)):
+                return return_rounded(value)
+            else:
+                return value
+        return super().data(index, role)
+
+    def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        return super().data(index, role)
+
+class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
     def __init__(self):
         super().__init__()
 
@@ -484,7 +522,7 @@ class CheckableSampleTableView(QtW.QTableView):
                 new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
                 self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
 
-class CheckableSqlTableModel(QtS.QSqlTableModel):
+class CheckableSqlTableModel(DisplayRoundedModel):
     def __init__(self):
         super().__init__()
         self.checked_data = {}
@@ -526,8 +564,93 @@ class CheckableSqlTableModel(QtS.QSqlTableModel):
             return True
         return super().setData(index, value, role)
 
+class CheckableSqlQueryModel(DisplayRoundedQueryModel):
+    def __init__(self):
+        super().__init__()
+        self.checked_data = {}
+        self.partially_checked_data = {}
+
+    def setQuery(self, query):
+        super().setQuery(query)
+        self.table = query.split('FROM ')[1].split(' ')[0]
+
+    def tableName(self):
+        return self.table
+
+    def flags(self, index):
+        flags = super().flags(index)
+        col = name_column(self.table)
+        if index.column() == col:
+            flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
+        return flags
+
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        col = name_column(self.table)
+        if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
+            if index.row() in self.checked_data.keys():
+                return QtC.Qt.CheckState.Checked
+            elif index.row() in self.partially_checked_data.keys():
+                return QtC.Qt.CheckState.PartiallyChecked
+            else:
+                return QtC.Qt.CheckState.Unchecked
+        return super().data(index, role)
+
+    def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
+        col = name_column(self.table)
+        if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
+            if value == QtC.Qt.CheckState.Checked:
+                self.checked_data[index.row()] = value
+            elif value == QtC.Qt.CheckState.PartiallyChecked:
+                self.partially_checked_data[index.row()] = value
+            else:
+                if index.row() in self.checked_data.keys():
+                    self.checked_data.pop(index.row())
+                if index.row() in self.partially_checked_data.keys():
+                    self.partially_checked_data.pop(index.row())
+            self.dataChanged.emit(index, index, [role])
+            return True
+        return super().setData(index, value, role)
+
+class SampleAgeTableModel(QtS.QSqlQueryModel):
+    def __init__(self):
+        super().__init__()
+        self.bolded_rows = []
+        self.default_query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
+                        OldestAgeID, YoungestAgeID, SampleAgeDescription, SampleAgeCreated, SampleAgeModified FROM SampleAges'''
+        self.setQuery(self.default_query)
+
+    def tableName(self):
+        return 'SampleAges'
+
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        if index.row in self.bolded_rows and role == QtC.Qt.ItemDataRole.FontRole:
+            font = QtG.QFont()
+            font.setBold(True)
+            return font
+        if index.column() == 1 and role == QtC.Qt.ItemDataRole.DisplayRole:
+            string = super().data(index, role)
+            return display_age(string)
+        return super().data(index, role)
+
+    def make_bold(self, index):
+        row = index.row()
+        if row not in self.bolded_rows:
+            self.bolded_rows.append(row)
+            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
+
+    def make_not_bold(self, index):
+        row = index.row()
+        if row in self.bolded_rows:
+            self.bolded_rows.remove(row)
+            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
+
 class CheckableComboBox(QtW.QComboBox):
     closing = QtC.pyqtSignal()
+    edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
@@ -537,8 +660,20 @@ class CheckableComboBox(QtW.QComboBox):
         self.tableView = CheckableSampleTableView()
         self.setView(self.tableView)
         self.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContentsOnFirstShow)
+        self.context_menu = False
 
         self.tableView.viewport().installEventFilter(self)
+
+    def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel):
+        super().setModel(model)
+
+    def enable_context_menu(self, show_context_menu: bool):
+        self.context_menu = show_context_menu
+        if self.context_menu:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+            self.customContextMenuRequested.connect(self.show_context_menu)
+        else:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
 
     def set_single_click(self, single_click: bool):
         self.single_click = single_click
@@ -549,15 +684,25 @@ class CheckableComboBox(QtW.QComboBox):
     def set_line_edit_text(self, text):
         self.lineEdit().setText(text)
 
+    def show_context_menu(self, pos):
+        menu = QtW.QMenu()
+        edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.model().tableName())}")
+        clear_all_action = menu.addAction("Clear All Checks")
+        action = menu.exec(self.mapToGlobal(pos))
+        if action == edit_action:
+            self.edit_triggered.emit(self)
+        elif action == clear_all_action:
+            self.clear_all_checks()
+
     def clear_all_checks(self):
-        col = name_column(self.model().tableName())
-        for row in range(self.model().rowCount()):
-            index = self.model().index(row, col)
+        col = name_column(self.model.tableName())
+        for row in range(self.model.rowCount()):
+            index = self.model.index(row, col)
             if row == self.tableView.currentIndex().row():
-                self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                self.model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
             else:
-                self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-            print(f"Changed state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
+                self.model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            print(f"Changed state to {self.model.data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
 
 
     def showPopup(self):
@@ -637,41 +782,6 @@ class TemporaryComboBox(QtW.QComboBox):
     def hidePopup(self):
         super().hidePopup()
         self.closing.emit()
-
-class SampleAgeTableModel(QtS.QSqlQueryModel):
-    def __init__(self):
-        super().__init__()
-        self.bolded_rows = []
-        self.default_query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
-                        OldestAgeID, YoungestAgeID, SampleAgeDescription, SampleAgeCreated, SampleAgeModified FROM SampleAges'''
-        self.setQuery(self.default_query)
-
-    def tableName(self):
-        return 'SampleAges'
-
-    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
-        if not index.isValid():
-            return False
-        if index.row in self.bolded_rows and role == QtC.Qt.ItemDataRole.FontRole:
-            font = QtG.QFont()
-            font.setBold(True)
-            return font
-        if index.column() == 1 and role == QtC.Qt.ItemDataRole.DisplayRole:
-            string = super().data(index, role)
-            return display_age(string)
-        return super().data(index, role)
-
-    def make_bold(self, index):
-        row = index.row()
-        if row not in self.bolded_rows:
-            self.bolded_rows.append(row)
-            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
-
-    def make_not_bold(self, index):
-        row = index.row()
-        if row in self.bolded_rows:
-            self.bolded_rows.remove(row)
-            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
 
 def display_age(string: str):
     # split string on commas
@@ -796,13 +906,6 @@ def return_rounded(value: str | float | int):
     else:
         rounded_value = value
     return rounded_value
-
-class FontDelegate(QtW.QStyledItemDelegate):
-    def initStyleOption(self, option, index):
-        super().initStyleOption(option, index)
-        font = index.data(QtC.Qt.ItemDataRole.FontRole)
-        if font:
-            option.font = font
 
 def comboBox_display_table(comboBox):
     comboBox.tableView.resizeColumnsToContents()

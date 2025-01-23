@@ -4,7 +4,9 @@ import sqlite3
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
+from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Check_triggers as Ct
@@ -34,10 +36,12 @@ class AddTags(QtW.QDialog):
         self.description_column = ''
         self.existing_names = []
 
+        self.close_by_dialog = False
         self.display_tags()
+        create_savepoint('before_add')
         self.ok_pushButton.clicked.connect(self.add_tag)
-        self.finish_pushButton.clicked.connect(self.accept)
-        self.cancel_pushButton.clicked.connect(self.reject)
+        self.cancel_pushButton.clicked.connect(self.discard_question)
+        self.finish_pushButton.clicked.connect(self.commit)
 
     def display_tags(self):
         self.tags_tableView.setModel(self.filter_proxy_model)
@@ -97,3 +101,39 @@ class AddTags(QtW.QDialog):
                                      QtW.QMessageBox.StandardButton.Ok)
             else:
                 self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+            rollback_savepoint('before_add')
+
+    def discard_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to discard all changes?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.rollback()
+        else:
+            pass
+
+    def rollback(self):
+        rollback_savepoint('before_add')
+        # self.model.revertAll()
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
+
+    def commit(self):
+        if self.newName_lineEdit.text():
+            if not self.add_tag():
+                return False
+        release_savepoint('before_add')
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
+
+    def closeEvent(self, event: QtG.QCloseEvent):
+        if not self.close_by_dialog:
+            self.discard_question()
+            event.ignore()
+        else:
+            event.accept()

@@ -138,6 +138,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         super().__init__(parent)
 
         self.source_model = source_model
+        self.tableName = ""
         self.base_filter = ""
         self.base_filter_sql = ""
         self.db = QSqlDatabase()
@@ -159,6 +160,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.source_model = source_model
         self.db = self.source_model.database()
         self.table = self.source_model.tableName()
+        self.tableName = self.source_model.tableName()
         self.base_filter = f"{self.source_model.filter()}"
         if len(self.base_filter) > 0:
             self.base_filter_sql = f"{self.base_filter} AND "

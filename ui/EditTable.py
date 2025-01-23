@@ -6,7 +6,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QModelIndex
 from PyQt6.uic import loadUi
 from pandas.plotting import table
-
+from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Table_classes as TbC
@@ -46,7 +46,7 @@ class EditTable(QtW.QDialog):
         self.get_headers()
         self.display_table()
         self.model.submitAll()
-        self.createSavepoint()
+        create_savepoint('before_edit')
 
         self.close_by_dialog = False
         self.lineEdit = None
@@ -56,22 +56,10 @@ class EditTable(QtW.QDialog):
         self.tabbed_from_editor = False
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
-        self.cancel_pushButton.clicked.connect(self.rollback)
+        self.cancel_pushButton.clicked.connect(self.rollback())
         self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
-
-    def createSavepoint(self):
-        query = QtS.QSqlQuery()
-        if query.exec('SAVEPOINT before_edit') is False:
-            errtxt = f'Failed to create savepoint for {self.table}: {query.lastError().text()}'
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-
-    def releaseSavepoint(self):
-        query = QtS.QSqlQuery()
-        if query.exec('RELEASE SAVEPOINT before_edit') is False:
-            errtxt = f'Failed to release savepoint for {self.table}: {query.lastError().text()}'
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def eventFilter(self, object, event):
         if self.combo:
@@ -393,19 +381,15 @@ class EditTable(QtW.QDialog):
             self.display_table()
 
     def rollback(self):
-        query = QtS.QSqlQuery()
-        if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
-            errtxt = f'Failed to rollback changes to {self.table}: {query.lastError().text()}'
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-        else:
-            self.close_by_dialog = True
-            self.close()
-            self.close_by_dialog = False
-            self.reject()
+        rollback_savepoint('before_edit')
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
+        self.reject()
 
     def commit(self):
         if self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            self.releaseSavepoint()
+            release_savepoint('before_edit')
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True
             self.close()

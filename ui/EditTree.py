@@ -5,6 +5,7 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
+from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Tree_classes as TrC
@@ -12,13 +13,12 @@ from ui.AddTreeTags import AddTreeTags
 
 
 class EditTree(QtW.QDialog):
-    def __init__(self, database: QtS.QSqlDatabase, model: QtS.QSqlTableModel, table_name):
+    def __init__(self, model: QtS.QSqlTableModel, table_name):
         super().__init__()
 
         # Define any widgets here
         tags_ui_file = "ui/EditTree.ui"
         loadUi(tags_ui_file, self)
-        self.db = database
         self.model = model
         # print(model)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
@@ -33,7 +33,7 @@ class EditTree(QtW.QDialog):
 
         self.msg = QtW.QMessageBox(self)
         self.display_tree()
-        self.createSavepoint()
+        create_savepoint('before_edit')
 
         self.close_by_dialog = False
         self.search_lineEdit.textChanged.connect(self.search)
@@ -41,22 +41,6 @@ class EditTree(QtW.QDialog):
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.discard_question)
-
-    def createSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('SAVEPOINT before_edit') is False:
-            errtxt = Er.savepoint_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-            return False
-        return True
-
-    def releaseSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('RELEASE SAVEPOINT before_edit') is False:
-            errtxt = Er.savepoint_release_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-            return False
-        return True
 
     def display_tree(self):
         self.edit_treeView.setModel(self.tree_proxy_model)
@@ -125,9 +109,9 @@ class EditTree(QtW.QDialog):
         if add_item == 'parent':
             new_child_ids = argv[0]
             new_parent_rows = argv[1]
-            dlg = AddTreeTags(self.db, self.table, add_item, item_ID, parent_id, parent_row, new_child_ids, new_parent_rows)
+            dlg = AddTreeTags(self.table, add_item, item_ID, parent_id, parent_row, new_child_ids, new_parent_rows)
         else:
-            dlg = AddTreeTags(self.db, self.table, add_item, item_ID, parent_id, parent_row)
+            dlg = AddTreeTags(self.table, add_item, item_ID, parent_id, parent_row)
         dlg.exec()
         self.update_proxy()
 
@@ -176,20 +160,14 @@ class EditTree(QtW.QDialog):
             pass
 
     def rollback(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
-            errtxt = Er.rollback_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-        else:
-            self.reject()
+        rollback_savepoint('before_edit')
         TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
 
     def commit(self):
-        if not self.releaseSavepoint():
-            return False
+        release_savepoint('before_edit')
         TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         self.close_by_dialog = True
         self.close()

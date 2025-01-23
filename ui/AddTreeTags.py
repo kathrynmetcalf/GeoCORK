@@ -7,6 +7,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
+from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Tree_classes import TreeModel
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
@@ -14,13 +15,12 @@ import Functions.Tree_classes as TrC
 import Functions.Check_triggers as Ct
 
 class AddTreeTags(QtW.QDialog):
-    def __init__(self, database: QtS.QSqlDatabase, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
+    def __init__(self, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
         super().__init__()
 
         # Define any widgets here
         tags_ui_file = "ui/AddTreeTags.ui"
         loadUi(tags_ui_file, self)
-        self.db = database
         self.table = table
         self.source_model = QtS.QSqlTableModel()
         self.source_model.setTable(self.table)
@@ -51,31 +51,15 @@ class AddTreeTags(QtW.QDialog):
         self.close_by_dialog = False
         self.clear_warning()
         self.display_tags()
-        self.createSavepoint()
+        create_savepoint('before_add')
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
 
-    def createSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('SAVEPOINT before_add') is False:
-            errtxt = Er.savepoint_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-            return False
-        return True
-
-    def releaseSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('RELEASE SAVEPOINT before_add') is False:
-            errtxt = Er.savepoint_release_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-            return False
-        return True
-
     def add_label(self):
         if self.add_item == 'child':
-            query = QtS.QSqlQuery(self.db)
+            query = QtS.QSqlQuery()
             if self.parentID:
                 query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parentID}')
@@ -138,7 +122,7 @@ class AddTreeTags(QtW.QDialog):
             if not self.tree_model.insertItem(name, description, self.parentID, self.parentRow):
                 return False
         if self.add_item == 'parent': # Need to update the parent of all new child ids to the newly-added item
-            query = QtS.QSqlQuery(self.db)
+            query = QtS.QSqlQuery()
             query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.item_name_header} = "{name}"')
             query.exec()
@@ -178,12 +162,7 @@ class AddTreeTags(QtW.QDialog):
             pass
 
     def rollback(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('ROLLBACK TO SAVEPOINT before_add') is False:
-            errtxt = Er.rollback_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-        else:
-            self.reject()
+        rollback_savepoint('before_add')
         # self.model.revertAll()
         self.close_by_dialog = True
         self.close()
@@ -193,8 +172,7 @@ class AddTreeTags(QtW.QDialog):
         if self.newName_lineEdit.text():
             if not self.add_tree_tag():
                 return False
-        if not self.releaseSavepoint():
-            return False
+        release_savepoint('before_add')
         TrC.save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
         self.close_by_dialog = True
         self.close()
