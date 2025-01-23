@@ -2,23 +2,37 @@ import sys
 import sqlite3
 from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
+from PyQt6.QtSql import QSqlQuery
 
 
-class NewSource(QtW.QDialog):
-    def __init__(self, existing):
+class NewReference(QtW.QDialog):
+    def __init__(self):
         super().__init__()
 
-        # Define any widgets here
-        self.db_file = '../geochron_samples.db'
         sources_ui_file = "New_reference.ui"
         loadUi(sources_ui_file, self)
 
-        self.existing = existing
-        completer = QtW.QCompleter(self.existing)
-        self.short_lineEdit.setCompleter(completer)
-
-        self.ok_buttonBox.clicked()
+        self.ok_buttonBox.clicked(self.add_reference)
         self.ok_buttonBox.rejected(self.rejected)
+
+    def add_reference(self):
+        authors = self.authors_lineEdit.text()
+        year = self.year_lineEdit.text()
+        title = self.title_lineEdit.text()
+        source = self.source_lineEdit.text()
+        doi = self.doi_lineEdit.text()
+
+        query = QSqlQuery()
+        query.prepare('INSERT INTO References (Authors, Year, Title, Source, DOI) VALUES (?, ?, ?, ?, ?)')
+        query.addBindValue(authors)
+        query.addBindValue(year)
+        query.addBindValue(title)
+        query.addBindValue(source)
+        query.addBindValue(doi)
+        if not query.exec():
+            print('Error inserting reference:', query.lastError().text())
+            return
+        self.accept()
 
 
 # if __name__ == '__main__':

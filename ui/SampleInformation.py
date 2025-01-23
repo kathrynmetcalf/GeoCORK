@@ -1,9 +1,4 @@
 import sys
-from pathlib import Path
-import sqlite3
-import re
-import decimal
-from random import sample
 import time
 
 # import pandas as pd
@@ -11,8 +6,6 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize
-from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton
 
 from PyQt6.uic import loadUi
 from pandas.plotting import table
@@ -22,9 +15,9 @@ import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
+import Functions.Database_views as DB_views
 import ui.import_wizard
 import ui.New_reference
-import ui.GPSFields
 from Functions.Alter_database import release_savepoint
 from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate
 from ui.EditSampleTable import EditSampleTable
@@ -36,6 +29,7 @@ from Functions.Database_manager import SavepointManager, create_savepoint, relea
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import settings
 from ui.GPSFields import GPSFields
+from ui.AgeFields import AgeFields
 
 
 # todo: Figure out why it is slowing down after checking and unchecking a bunch of stuff
@@ -49,8 +43,12 @@ class SampleInformation(QtW.QDialog):
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
-        # self.gps = GPSFields('Samples', sample_id_list)
-        # self.gps_column_verticalLayout.insertWidget(0, self.gps)
+        self.gps = GPSFields('Samples', sample_id_list)
+        self.selected_gps_column_verticalLayout: QtW.QVBoxLayout
+        self.selected_gps_column_verticalLayout.insertWidget(2, self.gps)
+        self.age = AgeFields('Samples', sample_id_list)
+        # self.name_igsn_age_verticalLayout = QtW.QVBoxLayout()
+        self.gridLayout_2.addWidget(self.age, 2, 0, 2, 4)
 
         # Sample names table
         self.sample_names_model = CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
@@ -69,28 +67,10 @@ class SampleInformation(QtW.QDialog):
 
         # Sample information models
         self.samples_table = QtS.QSqlQueryModel()
-        self.gps_format_model = QtS.QSqlTableModel()
-        self.gps_location_model = QtS.QSqlTableModel()
-        self.direction_unit_model = QtS.QSqlTableModel()
-        self.lat_direction_model = QtS.QSqlTableModel()
-        self.lon_direction_model = QtS.QSqlTableModel()
         self.distance_unit_model = QtS.QSqlTableModel()
         self.elevation_unit_model = QtS.QSqlTableModel()
         self.column_model = QtS.QSqlTableModel()
         self.column_unit_model = QtS.QSqlTableModel()
-        self.sample_age_model = SampleAgeTableModel()
-        self.age_tree_view = QtW.QTreeView()
-        self.age_model = QtS.QSqlTableModel()
-        self.oldest_age_tree = TreeModel()
-        self.youngest_age_tree = TreeModel()
-        self.direct_age_unit_model = QtS.QSqlTableModel()
-        self.error_type_model = QtS.QSqlTableModel()
-        self.direct_age_error_model = QtS.QSqlTableModel()
-        self.age_constraint_model = QtS.QSqlTableModel()
-        self.age_constraint_tree = CheckableTreeModel()
-        self.age_interpretation_model = QtS.QSqlTableModel()
-        self.age_interpretation_tree = CheckableTreeModel()
-        self.age_reference_model = CheckableSqlTableModel()
         self.sample_context_model = QtS.QSqlTableModel()
         self.sample_context_tree = CheckableTreeModel()
         self.sampling_method_model = QtS.QSqlTableModel()
@@ -162,30 +142,13 @@ class SampleInformation(QtW.QDialog):
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
         self.disconnect_text_signals()
-        self.populate_age_dropdown()
+        # self.populate_age_dropdown()
         self.populate_fields()
         self.connect_signals()
 
     def populate_dropdowns(self):
-        self.gps_format_model = self.set_table(self.gps_format_model, 'GPSFormats')
-        self.gps_location_model = self.set_table(self.gps_location_model, 'GPSLocations')
-        self.lat_direction_model = self.set_table(self.lat_direction_model, 'DirectionUnits')
-        self.lat_direction_model.setFilter('DirectionUnitAbbreviation = "N" OR DirectionUnitAbbreviation = "S"')
-        self.lon_direction_model = self.set_table(self.lon_direction_model, 'DirectionUnits')
-        self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
-        self.elevation_unit_model = self.set_table(self.elevation_unit_model, 'DistanceUnits')
         self.column_model = self.set_table(self.column_model, 'Columns')
         self.column_unit_model = self.set_table(self.column_unit_model, 'DistanceUnits')
-        self.age_model = self.set_table(self.age_model, 'Ages')
-        self.direct_age_unit_model = self.set_table(self.direct_age_unit_model, 'AgeUnits')
-        self.direct_age_error_model = self.set_table(self.direct_age_error_model, 'ErrorFormats')
-        self.oldest_age_tree.setSourceModel(self.age_model)
-        self.youngest_age_tree.setSourceModel(self.age_model)
-        self.age_constraint_model = self.set_table(self.age_constraint_model, 'AgeConstraints')
-        self.age_constraint_tree.setSourceModel(self.age_constraint_model)
-        self.age_interpretation_model = self.set_table(self.age_interpretation_model, 'AgeInterpretations')
-        self.age_interpretation_tree.setSourceModel(self.age_interpretation_model)
-        self.age_reference_model = self.set_table(self.reference_model, '"References"')
         self.sample_context_model = self.set_table(self.sample_context_model, 'SampleContexts')
         self.sample_context_tree.setSourceModel(self.sample_context_model)
         self.sampling_method_model = self.set_table(self.sampling_method_model, 'SamplingMethods')
@@ -207,31 +170,10 @@ class SampleInformation(QtW.QDialog):
         self.instrument_model = self.set_table(self.instrument_model, 'Instruments')
 
 
-        self.gps_format_comboBox.setModel(self.gps_format_model)
-        self.show_column(self.gps_format_comboBox, 'GPSFormatAbbreviation')
-        self.lat_comboBox.setModel(self.lat_direction_model)
-        self.show_column(self.lat_comboBox, 'DirectionUnitAbbreviation')
-        self.lon_comboBox.setModel(self.lon_direction_model)
-        self.show_column(self.lon_comboBox, 'DirectionUnitAbbreviation')
-        self.elevation_unit_comboBox.setModel(self.elevation_unit_model)
-        self.show_column(self.elevation_unit_comboBox, 'DistanceUnitAbbreviation')
         self.column_name_comboBox.setModel(self.column_model)
-        self.show_column(self.column_name_comboBox, 'ColumnName')
+        TbC.show_column(self.column_name_comboBox, 'ColumnName')
         self.height_depth_unit_comboBox.setModel(self.column_unit_model)
-        self.show_column(self.height_depth_unit_comboBox, 'DistanceUnitAbbreviation')
-        self.edit_age_comboBox.setModel(self.sample_age_model)
-        self.show_column(self.edit_age_comboBox, 'SampleAgeDisplay')
-        self.direct_unit_comboBox.setModel(self.direct_age_unit_model)
-        self.show_column(self.direct_unit_comboBox, 'AgeUnitAbbreviation')
-        self.direct_age_unit_comboBox.setModel(self.direct_age_unit_model)
-        self.show_column(self.direct_age_unit_comboBox, 'AgeUnitAbbreviation')
-        self.direct_age_error_type_comboBox.setModel(self.direct_age_error_model)
-        self.show_column(self.direct_age_error_type_comboBox, 'ErrorFormatAbbreviation')
-        self.oldest_rel_comboBox.setModel(self.oldest_age_tree)
-        self.youngest_rel_comboBox.setModel(self.youngest_age_tree)
-        self.age_constraint_comboBox.setModel(self.age_constraint_tree)
-        self.age_interpretation_comboBox.setModel(self.age_interpretation_tree)
-        self.age_reference_comboBox.setModel(self.age_reference_model)
+        TbC.show_column(self.height_depth_unit_comboBox, 'DistanceUnitAbbreviation')
         self.sample_context_comboBox.setModel(self.sample_context_tree)
         self.sampling_method_comboBox.setModel(self.sampling_method_tree)
         self.unit_comboBox.setModel(self.unit_tree)
@@ -240,6 +182,7 @@ class SampleInformation(QtW.QDialog):
         self.setting_comboBox.setModel(self.setting_tree)
         self.age_signature_comboBox.setModel(self.age_signature_tree)
         self.reference_comboBox.setModel(self.reference_model)
+        TbC.show_column(self.reference_comboBox, 'ReferenceDisplay')
         self.analysis_method_comboBox.setModel(self.analysis_method_tree)
         self.lab_facility_comboBox.setModel(self.lab_facility_model)
         self.instrument_comboBox.setModel(self.instrument_model)
@@ -248,51 +191,10 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
 
-        # self.location_groupBox.install_children_event_filter()
-        self.latlon_groupBox.install_children_event_filter()
-        self.utm_groupBox.install_children_event_filter()
-        self.elev_groupBox.install_children_event_filter()
-        # self.age_groupBox.install_children_event_filter()
-        self.direct_age_groupBox.install_children_event_filter()
-        self.relative_age_groupBox.install_children_event_filter()
-        self.age_information_groupBox.install_children_event_filter()
-
-
-    def populate_age_dropdown(self):
-        self.edit_age_comboBox.setItemDelegate(FontDelegate(self.edit_age_comboBox))
-        samples_sampleage_model = QtS.QSqlTableModel()
-        set_table(samples_sampleage_model, 'Samples_SampleAges')
-        if len(self.checked_sample_list) > 1:
-            samples_sampleage_model.setFilter(f'SampleID in {tuple(self.checked_sample_list)}')
-        elif len(self.checked_sample_list) == 1:
-            samples_sampleage_model.setFilter(f'SampleID = {self.checked_sample_list[0]}')
-        else:
-            samples_sampleage_model.setFilter('')
-        sample_ages = []
-        for row in range(samples_sampleage_model.rowCount()):
-            sample_ages.append(samples_sampleage_model.index(row, 1).data())
-        if len(sample_ages) > 1:
-            self.sample_age_model.setQuery(f'{self.sample_age_model.default_query} WHERE SampleAgeID in {tuple(sample_ages)}')
-        elif len(sample_ages) == 1:
-            self.sample_age_model.setQuery(f'{self.sample_age_model.default_query} WHERE SampleAgeID = {sample_ages[0]}')
-        for row in range(self.sample_age_model.rowCount()):
-            if self.sample_age_model.index(row, 0).data() in self.default_age_ids:
-                # Make the text at that row bold
-                self.sample_age_model.make_bold(self.sample_age_model.index(row, 0))
-            else:
-                self.sample_age_model.make_not_bold(self.sample_age_model.index(row, 0))
-
     def set_table(self, model: QtS.QSqlTableModel, table: str):
         model.setTable(table)
         model.select()
         return model
-
-    def show_column(self, comboBox: QtW.QComboBox, column: str):
-        model = comboBox.model()
-        for col in range(model.columnCount()):
-            header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if header == column:
-                comboBox.setModelColumn(col)
 
     def connect_signals(self):
         # Connect signals and slots
@@ -300,13 +202,6 @@ class SampleInformation(QtW.QDialog):
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.sample_names_model.dataChanged.connect(self.update_sample_list)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'"{self.sample_igsn_lineEdit.text()}"'))
-        self.gps_format_comboBox.currentTextChanged.connect(self.display_gps)
-        self.latlon_groupBox.connect_child_signals()
-        self.latlon_groupBox.focusLost.connect(self.update_gps)
-        self.utm_groupBox.connect_child_signals()
-        self.utm_groupBox.focusLost.connect(self.update_gps)
-        self.elev_groupBox.connect_child_signals()
-        self.elev_groupBox.focusLost.connect(self.update_gps)
         # self.location_groupBox.focusLost.connect(self.update_gps)
         self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('ColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
         self.height_depth_lineEdit.editingFinished.connect(
@@ -314,14 +209,6 @@ class SampleInformation(QtW.QDialog):
         self.height_depth_error_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepthError', self.height_depth_error_lineEdit.text()))
         self.height_depth_unit_comboBox.currentTextChanged.connect(lambda: self.update_id('HeightDepthUnitID', 'DistanceUnitAbbreviation', self.height_depth_unit_comboBox.currentText(), 'DistanceUnits'))
-        self.edit_age_comboBox.currentTextChanged.connect(self.display_age)
-        self.default_age_checkBox.clicked.connect(self.update_age)
-        self.direct_age_groupBox.connect_child_signals()
-        self.direct_age_groupBox.focusLost.connect(self.update_age)
-        self.relative_age_groupBox.connect_child_signals()
-        self.relative_age_groupBox.focusLost.connect(self.update_age)
-        self.age_information_groupBox.connect_child_signals()
-        self.age_information_groupBox.focusLost.connect(self.update_age)
         self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_tree, 'SampleContexts'))
         self.sampling_method_comboBox.closing.connect(lambda: self.update_sample_tags(self.sampling_method_tree, 'SamplingMethods'))
         self.unit_comboBox.closing.connect(lambda: self.update_sample_tags(self.unit_tree, 'Units'))
@@ -329,23 +216,9 @@ class SampleInformation(QtW.QDialog):
         self.region_comboBox.closing.connect(lambda: self.update_sample_tags(self.region_tree, 'Regions'))
         self.setting_comboBox.closing.connect(lambda: self.update_sample_tags(self.setting_tree, 'Settings'))
         self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_tree, 'AgeSignatures'))
-        # self.reference_comboBox.closing.connect(lambda: self.update_subfield_id(self.reference_model, 'ReferenceID'))
-        # self.analysis_method_comboBox.closing.connect(lambda: self.update_subfield_id(self.analysis_method_model, 'UPbAnalysisMethodID'))
-        # self.lab_facility_comboBox.closing.connect(lambda: self.update_subfield_id(self.lab_facility_model, 'LabFacilityID'))
-        # self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id(self.instrument_model, 'InstrumentID'))
         self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'"{self.sample_description_lineEdit.text()}"'))
 
     def disconnect_text_signals(self):
-        self.latlon_groupBox.disconnect_child_signals()
-        self.utm_groupBox.disconnect_child_signals()
-        self.elev_groupBox.disconnect_child_signals()
-        self.direct_age_groupBox.disconnect_child_signals()
-        self.relative_age_groupBox.disconnect_child_signals()
-        self.age_information_groupBox.disconnect_child_signals()
-        try:
-            self.gps_format_comboBox.currentTextChanged.disconnect(self.display_gps)
-        except TypeError:
-            pass
         try:
             self.column_name_comboBox.currentTextChanged.disconnect()
         except TypeError:
@@ -363,56 +236,12 @@ class SampleInformation(QtW.QDialog):
         except TypeError:
             pass
         try:
-            self.edit_age_comboBox.currentTextChanged.disconnect(self.display_age)
-        except TypeError:
-            pass
-        try:
-            self.default_age_checkBox.clicked.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.oldest_direct_lineEdit.editingFinished.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.youngest_direct_lineEdit.editingFinished.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.direct_unit_comboBox.currentTextChanged.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.direct_age_lineEdit.editingFinished.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.direct_age_error_lineEdit.editingFinished.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.direct_age_unit_comboBox.currentTextChanged.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.oldest_rel_comboBox.currentTextChanged.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.youngest_rel_comboBox.currentTextChanged.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.direct_age_error_type_comboBox.currentTextChanged.disconnect()
-        except TypeError:
-            pass
-        try:
             self.sample_description_lineEdit.editingFinished.disconnect()
         except TypeError:
             pass
 
     def populate_fields(self):
-        sample_ifnull_query = TbC.SampleIfNullQuery()
+        sample_ifnull_query = DB_views.SampleIfNullQuery()
         sample_query_table = QtS.QSqlTableModel()
         self.set_table(sample_query_table, 'Samples')
         if len(self.checked_sample_list) > 1:
@@ -439,67 +268,13 @@ class SampleInformation(QtW.QDialog):
                 text_values.append(text)
         if len(text_values) > 0:
             self.sample_igsn_lineEdit.setText(f"{text_values[1]}")
-            # self.gps_location_ids = text_values[2]
-            self.set_comboBox_text(self.column_name_comboBox, text_values[3])
+            TbC.set_comboBox_text(self.column_name_comboBox, text_values[3])
             self.height_depth_lineEdit.setText(f"{text_values[4]}")
             self.height_depth_error_lineEdit.setText(f"{text_values[5]}")
-            self.set_comboBox_text(self.height_depth_unit_comboBox, text_values[6])
+            TbC.set_comboBox_text(self.height_depth_unit_comboBox, text_values[6])
             self.sample_description_lineEdit.setText(text_values[7])
-            # self.lat_deg_lineEdit.setText(f"{text_values[8]}")
-            # self.lat_min_lineEdit.setText(f"{text_values[9]}")
-            # self.lat_sec_lineEdit.setText(f"{text_values[10]}")
-            # self.set_comboBox_text(self.lat_comboBox, text_values[11])
-            # self.lon_deg_lineEdit.setText(f"{text_values[12]}")
-            # self.lon_min_lineEdit.setText(f"{text_values[13]}")
-            # self.lon_sec_lineEdit.setText(f"{text_values[14]}")
-            # self.set_comboBox_text(self.lon_comboBox, text_values[15])
-            # self.utm_zone_lineEdit.setText(f"{text_values[16]}")
-            # self.utm_n_lineEdit.setText(f"{text_values[17]}")
-            # self.utm_e_lineEdit.setText(f"{text_values[18]}")
-            # self.set_comboBox_text(self.gps_format_comboBox, text_values[19])
-            # self.elevation_lineEdit.setText(f"{text_values[20]}")
-            # self.elevation_error_lineEdit.setText(f"{text_values[21]}")
-            # self.set_comboBox_text(self.elevation_unit_comboBox, text_values[22])
-            default_age_ids = text_values[23]
-            self.default_age_ids = []
-            if default_age_ids != '':
-                if ',' in default_age_ids:
-                    self.default_age_ids = [int(x) for x in default_age_ids.split(',')]
-                else:
-                    self.default_age_ids = [int(default_age_ids)]
-                for row in range(self.sample_age_model.rowCount()):
-                    if self.sample_age_model.index(row, 0).data() == self.default_age_ids[0]:
-                        self.edit_age_comboBox.setCurrentIndex(row)
-                        break
-            self.default_age_checkBox.setChecked(self.default_age_ids != '')
-            self.direct_age_lineEdit.setText(f"{text_values[24]}")
-            self.direct_age_error_lineEdit.setText(f"{text_values[25]}")
-            self.set_comboBox_text(self.direct_age_error_type_comboBox, text_values[26])
-            self.oldest_direct_lineEdit.setText(f"{text_values[27]}")
-            self.youngest_direct_lineEdit.setText(f"{text_values[28]}")
-            self.set_comboBox_text(self.direct_age_unit_comboBox, text_values[29])
-            self.set_comboBox_text(self.oldest_rel_comboBox, text_values[30])
-            self.set_comboBox_text(self.youngest_rel_comboBox, text_values[31])
-            self.age_description_lineEdit.setText(text_values[32])
-            self.set_comboBox_text(self.age_constraint_comboBox, text_values[33])
-            self.set_comboBox_text(self.age_interpretation_comboBox, text_values[34])
-            self.set_comboBox_text(self.age_reference_comboBox, text_values[35])
-
-
-
-            self.display_gps()
-
-            # Age tags
-            text = self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_model, self.age_constraint_tree)
-            self.age_constraint_comboBox.setCurrentText(text)
-            text = self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_model, self.age_interpretation_tree)
-            self.age_interpretation_comboBox.setCurrentText(text)
-            text = self.populate_checks('SampleAges_References', self.age_reference_model)
-            self.age_reference_comboBox.setCurrentText(text)
 
             # Sample tags
-            text = self.populate_checks('Samples_SampleAges', self.sample_age_model)
-            self.edit_age_comboBox.setCurrentText(text)
             text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_tree)
             self.sample_context_comboBox.setCurrentText(text)
             text = self.populate_checks('Samples_SamplingMethods', self.sampling_method_model, self.sampling_method_tree)
@@ -527,118 +302,8 @@ class SampleInformation(QtW.QDialog):
             self.instrument_comboBox.set_single_click(True)
             self.instrument_comboBox.setCurrentText(text)
 
-    def set_comboBox_text(self, comboBox: QtW.QComboBox, text: str):
-        if text == '' or text == '-':
-            comboBox.setCurrentIndex(-1)
-        else:
-            comboBox.setCurrentText(text)
-
-    def display_gps(self):
-        current_gps_format = self.gps_format_comboBox.currentText()
-        if current_gps_format == '':
-            # Show all gps fields
-            self.utm_groupBox.show()
-            self.latlon_groupBox.show()
-            self.lat_min_lineEdit.show()
-            self.lon_min_lineEdit.show()
-            self.lat_min_label.show()
-            self.lon_min_label.show()
-            self.lat_sec_lineEdit.show()
-            self.lon_sec_lineEdit.show()
-            self.lat_sec_label.show()
-            self.lon_sec_label.show()
-            self.lat_comboBox.show()
-            self.lon_comboBox.show()
-        elif current_gps_format == 'UTM':
-            self.utm_groupBox.show()
-            self.latlon_groupBox.hide()
-        else:
-            self.utm_groupBox.hide()
-            self.latlon_groupBox.show()
-            self.lat_deg_lineEdit.show()
-            self.lon_deg_lineEdit.show()
-            self.lat_deg_label.show()
-            self.lon_deg_label.show()
-            if 'M' in current_gps_format:
-                self.lat_min_lineEdit.show()
-                self.lon_min_lineEdit.show()
-                self.lat_min_label.show()
-                self.lon_min_label.show()
-                if 'S' in current_gps_format:
-                    self.lat_sec_lineEdit.show()
-                    self.lon_sec_lineEdit.show()
-                    self.lat_sec_label.show()
-                    self.lon_sec_label.show()
-                else:
-                    self.lat_sec_lineEdit.hide()
-                    self.lon_sec_lineEdit.hide()
-                    self.lat_sec_label.hide()
-                    self.lon_sec_label.hide()
-            else:
-                self.lat_min_lineEdit.hide()
-                self.lon_min_lineEdit.hide()
-                self.lat_min_label.hide()
-                self.lon_min_label.hide()
-                self.lat_sec_lineEdit.hide()
-                self.lon_sec_lineEdit.hide()
-                self.lat_sec_label.hide()
-                self.lon_sec_label.hide()
-            if '+/-' in current_gps_format:
-                self.lat_comboBox.hide()
-                self.lon_comboBox.hide()
-            elif 'NSEW' in current_gps_format:
-                self.lat_comboBox.show()
-                self.lon_comboBox.show()
-
-    def display_age(self):
-        sample_age_row = self.edit_age_comboBox.currentIndex()
-        sample_age_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        if sample_age_id in self.default_age_ids:
-            self.default_age_checkBox.setChecked(True)
-        else:
-            self.default_age_checkBox.setChecked(False)
-        self.direct_age_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 2), QtC.Qt.ItemDataRole.DisplayRole)}")
-        self.direct_age_error_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 3), QtC.Qt.ItemDataRole.DisplayRole)}")
-        age_error_type_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 4), QtC.Qt.ItemDataRole.DisplayRole)
-        for row in range(self.direct_age_error_model.rowCount()):
-            if self.direct_age_error_model.index(row, 0).data() == age_error_type_id:
-                age_error_abbreviation = self.direct_age_error_model.index(row, 2).data()
-                self.set_comboBox_text(self.direct_age_error_type_comboBox, age_error_abbreviation)
-                break
-        self.oldest_direct_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 5), QtC.Qt.ItemDataRole.DisplayRole)}")
-        self.youngest_direct_lineEdit.setText(f"{self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 6), QtC.Qt.ItemDataRole.DisplayRole)}")
-        direct_age_unit_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 7), QtC.Qt.ItemDataRole.DisplayRole)
-        for row in range(self.direct_age_unit_model.rowCount()):
-            if self.direct_age_unit_model.index(row, 0).data() == direct_age_unit_id:
-                direct_age_unit_abbreviation = self.direct_age_unit_model.index(row, 2).data()
-                self.set_comboBox_text(self.direct_age_unit_comboBox, direct_age_unit_abbreviation)
-                break
-        oldest_age_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 8), QtC.Qt.ItemDataRole.DisplayRole)
-        for row in range(self.age_model.rowCount()):
-            if self.age_model.index(row, 0).data() == oldest_age_id:
-                oldest_age = self.age_model.index(row, 3).data()
-                self.set_comboBox_text(self.oldest_rel_comboBox, oldest_age)
-                break
-        youngest_age_id = self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 9), QtC.Qt.ItemDataRole.DisplayRole)
-        for row in range(self.age_model.rowCount()):
-            if self.age_model.index(row, 0).data() == youngest_age_id:
-                youngest_age = self.age_model.index(row, 3).data()
-                self.set_comboBox_text(self.youngest_rel_comboBox, youngest_age)
-                break
-        self.age_description_lineEdit.setText(self.sample_age_model.data(self.sample_age_model.index(sample_age_row, 10), QtC.Qt.ItemDataRole.DisplayRole))
-        sampleage_ageconstraint_model = QtS.QSqlTableModel()
-        self.set_table(sampleage_ageconstraint_model, 'SampleAges_AgeConstraints')
-        text = self.populate_checks('SampleAges_AgeConstraints', sampleage_ageconstraint_model)
-        self.set_comboBox_text(self.age_constraint_comboBox, text)
-        sampleage_ageinterpretation_model = QtS.QSqlTableModel()
-        self.set_table(sampleage_ageinterpretation_model, 'SampleAges_AgeInterpretations')
-        text = self.populate_checks('SampleAges_AgeInterpretations', sampleage_ageinterpretation_model)
-        self.set_comboBox_text(self.age_interpretation_comboBox, text)
-        sampleage_reference_model = QtS.QSqlTableModel()
-        self.set_table(sampleage_reference_model, 'SampleAges_References')
-        text = self.populate_checks('SampleAges_References', sampleage_reference_model)
-        self.set_comboBox_text(self.age_reference_comboBox, text)
-
+            self.gps.update_list(self.checked_sample_list)
+            self.age.update_list(self.checked_sample_list)
 
     def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
         many_to_many_model = QtS.QSqlTableModel()
@@ -731,7 +396,7 @@ class SampleInformation(QtW.QDialog):
             return text
         return text
 
-    def show_context_menu(self, pos: QPoint):
+    def show_context_menu(self, pos: QtC.QPoint):
         menu = QtW.QMenu()
         selected_indexes = self.sample_name_comboBox.view().selectedIndexes()
         select_action = menu.addAction("Select all")
@@ -750,17 +415,23 @@ class SampleInformation(QtW.QDialog):
         print(f"Update_field called with {field} and {text}")
         if text != "-":
             if len(self.checked_sample_list) > 0:
-                if text is None or text == '':
-                    text = 'Null'
                 query = QtS.QSqlQuery()
                 create_savepoint('before_update')
                 for sample_id in self.checked_sample_list:
-                    if not query.exec(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}"):
+                    if not query.exec(f"SELECT {field} FROM Samples WHERE SampleID = {sample_id}"):
                         errtxt = query.lastError().text()
                         self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
                         return
-                update_modified_timestamp('Samples', self.checked_sample_list)
+                    query.next()
+                    if query.value(0) != text:
+                        if text is None or text == '':
+                            text = 'Null'
+                        if not query.exec(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}"):
+                            errtxt = query.lastError().text()
+                            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                            rollback_savepoint('before_update')
+                            return
+                        update_modified_timestamp('Samples', [sample_id])
                 release_savepoint('before_update')
 
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
@@ -775,309 +446,19 @@ class SampleInformation(QtW.QDialog):
             query = QtS.QSqlQuery()
             create_savepoint('before_update')
             for sample_id in self.checked_sample_list:
-                if not query.exec(f"UPDATE Samples SET {id_field} = {item_id} WHERE SampleID = {sample_id}"):
+                if not query.exec(f"SELECT {id_field} FROM Samples WHERE SampleID = {sample_id}"):
                     errtxt = query.lastError().text()
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    rollback_savepoint('before_update')
                     return
+                query.next()
+                if query.value(0) != item_id:
+                    if not query.exec(f"UPDATE Samples SET {id_field} = {item_id} WHERE SampleID = {sample_id}"):
+                        errtxt = query.lastError().text()
+                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        rollback_savepoint('before_update')
+                        return
             update_modified_timestamp('Samples', self.checked_sample_list)
             release_savepoint('before_update')
-
-    def update_gps(self):
-        print('Update_gps called')
-        if len(self.checked_sample_list) > 0:
-            create_savepoint('before_update')
-            gps_format_abbreviation = self.gps_format_comboBox.currentText()
-            self.gps_format_model.setFilter(f"GPSFormatAbbreviation = '{gps_format_abbreviation}'")
-            gps_format_id = self.gps_format_model.data(self.gps_format_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            self.gps_format_model.setFilter('')  # Clear the filter
-            if 'D' in gps_format_abbreviation:
-                lat_deg = self.lat_deg_lineEdit.text()
-                lon_deg = self.lon_deg_lineEdit.text()
-                if 'M' in gps_format_abbreviation:
-                    lat_min = self.lat_min_lineEdit.text()
-                    lon_min = self.lon_min_lineEdit.text()
-                    if 'S' in gps_format_abbreviation:
-                        lat_sec = self.lat_sec_lineEdit.text()
-                        lon_sec = self.lon_sec_lineEdit.text()
-                    else:
-                        lat_sec = 'Null'
-                        lon_sec = 'Null'
-                else:
-                    lat_min = 'Null'
-                    lon_min = 'Null'
-                    lat_sec = 'Null'
-                    lon_sec = 'Null'
-                if '+/-' in gps_format_abbreviation:
-                    lat_dir = 'Null'
-                    lon_dir = 'Null'
-                elif ' NSEW' in gps_format_abbreviation:
-                    lat_dir = self.lat_comboBox.currentText()
-                    lon_dir = self.lon_comboBox.currentText()
-                    self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
-                    lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-                    self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
-                    lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-                utm_zone = 'Null'
-                utm_n = 'Null'
-                utm_e = 'Null'
-            elif gps_format_abbreviation == 'UTM':
-                lat_deg = 'Null'
-                lat_min = 'Null'
-                lat_sec = 'Null'
-                lat_dir = 'Null'
-                lon_deg = 'Null'
-                lon_min = 'Null'
-                lon_sec = 'Null'
-                lon_dir = 'Null'
-                utm_zone = self.utm_zone_lineEdit.text()
-                utm_n = self.utm_n_lineEdit.text()
-                utm_e = self.utm_e_lineEdit.text()
-            elevation = self.elevation_lineEdit.text()
-            elevation_error = self.elevation_error_lineEdit.text()
-            elevation_unit = self.elevation_unit_comboBox.currentText()
-            if not elevation:
-                elevation = 'Null'
-            if not elevation_error:
-                elevation_error = 'Null'
-            if not elevation_unit:
-                elevation_unit = 'Null'
-            else:
-                self.elevation_unit_model.setFilter(f"DistanceUnitAbbreviation = '{elevation_unit}'")
-                elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-
-            if len(self.checked_sample_list) > 1:
-                self.sample_names_model.setFilter(f"SampleID in {tuple(self.checked_sample_list)}")
-            elif len(self.checked_sample_list) == 1:
-                self.sample_names_model.setFilter(f"SampleID = {self.checked_sample_list[0]}")
-            gps_ids = []
-            for row in range(self.sample_names_model.rowCount()):
-                if self.sample_names_model.index(row, 3).data() != 'Null':
-                    gps_ids.append(self.sample_names_model.index(row, 3).data())
-            query = QtS.QSqlQuery()
-            gps_columns = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin',
-                           'GPSLonSec', 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'GPSElev',
-                           'GPSElevError', 'GPSElevUnitID']
-            qgps_columns = ', '.join(gps_columns)
-            gps_values = [lat_deg, lat_min, lat_sec, lat_dir, lon_deg, lon_min, lon_sec, lon_dir, utm_zone, utm_n,
-                          utm_e, elevation, elevation_error, elevation_unit]
-            qgps_values = ', '.join(gps_values)
-            gps_to_delete = []
-            gps_to_update = []
-            if len(gps_ids) > 0:
-                for gps in gps_ids:
-                    self.sample_names_model.setFilter(f"SampleGPSLocationID = {gps}")
-                    self.column_model.setFilter(f"ColumnBaseGPSLocationID = {gps}")
-                    samples_with_gps = []
-                    for row in range(self.sample_names_model.rowCount()):
-                        if self.sample_names_model.index(row, 0).data() not in self.checked_sample_list:
-                            samples_with_gps.append(self.sample_names_model.index(row, 0).data())
-                    if len(samples_with_gps) == 0 and self.column_model.rowCount() == 0:
-                        # There are no other samples or columns with this GPS location
-                        if len(gps_to_update) == 0:
-                            # Choose the first GPS location to update and delete the rest that will be unused
-                            gps_to_update.append(gps)
-                        else:
-                            gps_to_delete.append(gps)
-                if len(gps_to_update) == 0:
-                    # All gps are associated with other samples or columns, so create a new one
-                    error = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
-                    if error:
-                        errtxt = error
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                        return
-                    if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) = (qgps_values)'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                        return
-                    gps_id = query.lastInsertId()
-                else:
-                    error = validate_update('GPSLocations', gps_columns, gps_values, gps_format_id)
-                    if error:
-                        errtxt = error
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                        return
-                    if not query.exec(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({qgps_values}) WHERE GPSLocationID = {gps_to_update[0]}'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                        return
-                    update_modified_timestamp('GPSLocations', gps_to_update)
-                    gps_id = gps_to_update[0]
-                    if len(gps_to_delete) > 0:
-                        if not query.exec(f'DELETE FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
-                            errtxt = query.lastError().text()
-                            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                            rollback_savepoint('before_update')
-                        return
-            for sample_id in self.checked_sample_list:
-                if not query.exec(f'''UPDATE Samples SET SampleGPSLocationID = {gps_id} WHERE SampleID = {sample_id}'''):
-                    errtxt = query.lastError().text()
-                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    rollback_savepoint('before_update')
-                    return
-                update_modified_timestamp('Samples', sample_id)
-            release_savepoint('before_update')
-
-    def update_age(self):
-        print('Update_age called')
-        if len(self.checked_sample_list) > 0:
-            default_age = self.default_age_checkBox.isChecked()
-            direct_age = self.direct_age_lineEdit.text()
-            if not direct_age or direct_age == '':
-                direct_age = 'Null'
-            direct_age_error = self.direct_age_error_lineEdit.text()
-            if not direct_age_error or direct_age_error == '':
-                direct_age_error = 'Null'
-            direct_age_unit = self.direct_age_unit_comboBox.currentText()
-            direct_age_error_type = self.direct_age_error_type_comboBox.currentText()
-            oldest_direct = self.oldest_direct_lineEdit.text()
-            if not oldest_direct or oldest_direct == '':
-                oldest_direct = 'Null'
-            youngest_direct = self.youngest_direct_lineEdit.text()
-            if not youngest_direct or youngest_direct == '':
-                youngest_direct = 'Null'
-            oldest_rel = self.oldest_rel_comboBox.currentText()
-            youngest_rel = self.youngest_rel_comboBox.currentText()
-            age_description = self.age_description_lineEdit.text()
-            if not age_description or age_description == '':
-                age_description = 'Null'
-            age_constraint = self.age_constraint_comboBox.currentText()
-            age_interpretation = self.age_interpretation_comboBox.currentText()
-            age_reference = self.age_reference_comboBox.currentText()
-
-            row = self.edit_age_comboBox.currentIndex()
-            sample_age_id = self.sample_age_model.data(self.sample_age_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            old_sample_age_id = sample_age_id
-            if direct_age_unit == '':
-                direct_age_unit_id = 'Null'
-            else:
-                self.direct_age_unit_model.setFilter(f"AgeUnitAbbreviation = '{direct_age_unit}'")
-                direct_age_unit_id = self.direct_age_unit_model.data(self.direct_age_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if direct_age_error_type == '':
-                direct_age_error_type_id = 'Null'
-            else:
-                self.direct_age_error_model.setFilter(f"ErrorFormatAbbreviation = '{direct_age_error_type}'")
-                direct_age_error_type_id = self.direct_age_error_model.data(self.direct_age_error_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if oldest_rel == '':
-                oldest_rel_id = 'Null'
-            else:
-                self.age_model.setFilter(f"AgeName = '{oldest_rel}'")
-                oldest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if youngest_rel == '':
-                youngest_rel_id = 'Null'
-            else:
-                self.age_model.setFilter(f"AgeName = '{youngest_rel}'")
-                youngest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if age_constraint == '':
-                age_constraint_id = 'Null'
-            else:
-                self.age_constraint_model.setFilter(f"AgeConstraintName = '{age_constraint}'")
-                age_constraint_id = self.age_constraint_model.data(self.age_constraint_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if age_interpretation == '':
-                age_interpretation_id = 'Null'
-            else:
-                self.age_interpretation_model.setFilter(f"AgeInterpretationName = '{age_interpretation}'")
-                age_interpretation_id = self.age_interpretation_model.data(self.age_interpretation_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if age_reference == '':
-                age_reference_id = 'Null'
-            else:
-                self.reference_model.setFilter(f"ShortCitation = '{age_reference}'")
-                age_reference_id = self.reference_model.data(self.reference_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-
-            create_savepoint('before_update')
-            update_age = True
-            samples_sampleages_model = QtS.QSqlTableModel()
-            set_table(samples_sampleages_model, 'Samples_SampleAges')
-            samples_sampleages_model.setFilter(f"SampleAgeID = {sample_age_id}")
-            if samples_sampleages_model.rowCount() > 0:
-                for row in range(samples_sampleages_model.rowCount()):
-                    if samples_sampleages_model.index(row, 0).data() not in self.checked_sample_list:
-                        update_age = False
-            query = QtS.QSqlQuery()
-            if update_age:
-                if not query.exec(f'''UPDATE SampleAges SET (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) = 
-                    ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_direct}, {youngest_direct}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}") 
-                    WHERE SampleAgeID = {sample_age_id}'''):
-                    errtxt = query.lastError().text()
-                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    rollback_savepoint('before_update')
-                    return
-                update_modified_timestamp('SampleAges', sample_age_id)
-            else:
-                if not query.exec(f'''INSERT INTO SampleAges (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) VALUES 
-                    ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_type_id}, {oldest_direct}, {youngest_direct}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}")'''):
-                    errtxt = query.lastError().text()
-                    self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                    rollback_savepoint('before_update')
-                    return
-                sample_age_id = query.lastInsertId()
-            if age_constraint_id != 'Null':
-                sampleages_ageconstraints_model = QtS.QSqlTableModel()
-                set_table(sampleages_ageconstraints_model, 'SampleAges_AgeConstraints')
-                sampleages_ageconstraints_model.setFilter(f"SampleAgeID = {sample_age_id} AND AgeConstraintID = {age_constraint_id}")
-                if sampleages_ageconstraints_model.rowCount() == 0:
-                    if not query.exec(f'''INSERT INTO SampleAges_AgeConstraints (SampleAgeID, AgeConstraintID) VALUES ({sample_age_id}, {age_constraint_id})'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                    return
-            if age_interpretation_id != 'Null':
-                sampleages_ageinterpretations_model = QtS.QSqlTableModel()
-                set_table(sampleages_ageinterpretations_model, 'SampleAges_AgeInterpretations')
-                sampleages_ageinterpretations_model.setFilter(f"SampleAgeID = {sample_age_id} AND AgeInterpretationID = {age_interpretation_id}")
-                if sampleages_ageinterpretations_model.rowCount() == 0:
-                    if not query.exec(f'''INSERT INTO SampleAges_AgeInterpretations (SampleAgeID, AgeInterpretationID) VALUES ({sample_age_id}, {age_interpretation_id})'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                    return
-            if age_reference_id != 'Null':
-                sampleages_references_model = QtS.QSqlTableModel()
-                set_table(sampleages_references_model, 'SampleAges_References')
-                sampleages_references_model.setFilter(f"SampleAgeID = {sample_age_id} AND ReferenceID = {age_reference_id}")
-                if sampleages_references_model.rowCount() == 0:
-                    if not query.exec(f'''INSERT INTO SampleAges_References (SampleAgeID, ReferenceID) VALUES ({sample_age_id}, {age_reference_id})'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                    return
-            for sample_id in self.checked_sample_list:
-                samples_sampleages_model = QtS.QSqlTableModel()
-                set_table(samples_sampleages_model, 'Samples_SampleAges')
-                samples_sampleages_model.setFilter(f"SampleID = {sample_id} AND SampleAgeID = {sample_age_id}")
-                if samples_sampleages_model.rowCount() == 0:
-                    if not query.exec(f'''INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES ({sample_id}, {sample_age_id})'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                        return
-                if default_age:
-                    if not query.exec(f'''UPDATE Samples SET DefaultSampleAgeID = {sample_age_id} WHERE SampleID = {sample_id}'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                        return
-                    update_modified_timestamp('Samples', [sample_id])
-                    print(f"Updated DefaultSampleAgeID to {sample_age_id} for SampleID {sample_id}")
-                if old_sample_age_id != sample_age_id:
-                    if not query.exec(f'''DELETE FROM Samples_SampleAges WHERE SampleID = {sample_id} AND SampleAgeID = {old_sample_age_id}'''):
-                        errtxt = query.lastError().text()
-                        self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-                        rollback_savepoint('before_update')
-                        return
-            self.default_age_ids = []
-            self.sample_names_model.select()
-            for row in range(self.sample_names_model.rowCount()):
-                if self.sample_names_model.index(row, 0).data() in self.checked_sample_list:
-                    default_age_id = self.sample_names_model.index(row, 8).data()
-                    if default_age_id not in self.default_age_ids:
-                        self.default_age_ids.append(default_age_id)
-            release_savepoint('before_update')
-            self.populate_age_dropdown()
 
     def update_subfield_id(self, model: CheckableSqlTableModel, field: str):
         print(f"update_subfield_id called with {model.tableName()} and {field}")
@@ -1168,16 +549,6 @@ class SampleInformation(QtW.QDialog):
             print(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
             release_savepoint('before_update')
 
-    def eventFilter(self, object, event):
-        if event.type() == QtC.QEvent.Type.MouseButtonRelease:
-            focus_widget = self.focusWidget()
-            if focus_widget is not None:
-                if object != focus_widget:
-                    focus_widget.clearFocus()
-                    return True
-        return super().eventFilter(object, event)
-
-
     def delete_question(self):
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
@@ -1199,6 +570,10 @@ class SampleInformation(QtW.QDialog):
         response = msg_box.exec()
         if response == QtW.QMessageBox.StandardButton.Yes:
             rollback_savepoint('before_edit')
+            self.reject()
+            self.close_by_dialog = True
+            self.close()
+            self.close_by_dialog = False
         else:
             pass
 

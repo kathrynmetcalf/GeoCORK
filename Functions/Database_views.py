@@ -18,6 +18,7 @@ def SampleViewQuery(ids_to_show=None):
                     {SQLUtils.qsample_id},
                     {SQLUtils.qigsn},
                     {SQLUtils.qsample_name},
+                    {SQLUtils.qsample_description},
                     {SQLUtils.qgps},
                     {SQLUtils.qsample_elev},
                     {SQLUtils.qsample_age},
@@ -46,7 +47,9 @@ def SampleViewQuery(ids_to_show=None):
                     {SQLUtils.qupb_age_error_formats},
                     {SQLUtils.qconcordance_formats},
                     {SQLUtils.qspot_sizes},
-                    {SQLUtils.qupb_rejection_reasons}
+                    {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qsample_created},
+                    {SQLUtils.qsample_modified}
                 FROM Samples
                 {SQLUtils.age_signature_join}
                 {SQLUtils.column_join}
@@ -84,6 +87,112 @@ def SampleViewQuery(ids_to_show=None):
 
     # print(sample_query)
     return sample_query
+
+
+def SampleIfNullQuery():
+    sample_ifnull_query = f'''
+    SELECT 
+        {SQLUtils.qsample_name_ifnull},
+        {SQLUtils.qigsn_ifnull},
+        {SQLUtils.qsample_gps_id_ifnull},
+        {SQLUtils.qcolumn_name_ifnull},
+        {SQLUtils.qheight_depth_ifnull},
+        {SQLUtils.qheight_depth_error_ifnull},
+        {SQLUtils.qheight_depth_unit_ifnull},
+        {SQLUtils.qsample_description_ifnull},
+        {SQLUtils.qsample_lat_deg_ifnull},
+        {SQLUtils.qsample_lat_min_ifnull},
+        {SQLUtils.qsample_lat_sec_ifnull},
+        {SQLUtils.qsample_lat_dir_ifnull},
+        {SQLUtils.qsample_lon_deg_ifnull},
+        {SQLUtils.qsample_lon_min_ifnull},
+        {SQLUtils.qsample_lon_sec_ifnull},
+        {SQLUtils.qsample_lon_dir_ifnull},
+        {SQLUtils.qsample_utm_zone_ifnull},
+        {SQLUtils.qsample_utm_northing_ifnull},
+        {SQLUtils.qsample_utm_easting_ifnull},
+        {SQLUtils.qsample_gps_format_ifnull},
+        {SQLUtils.qsample_gps_elev_ifnull},
+        {SQLUtils.qsample_gps_elev_error_ifnull},
+        {SQLUtils.qsample_gps_elev_unit_ifnull},
+        {SQLUtils.qsample_default_age_id_ifnull},
+        {SQLUtils.qsample_direct_age_ifnull},
+        {SQLUtils.qsample_direct_age_error_ifnull},
+        {SQLUtils.qsample_direct_age_error_format_ifnull},
+        {SQLUtils.qsample_oldest_direct_age_ifnull},
+        {SQLUtils.qsample_youngest_direct_age_ifnull},
+        {SQLUtils.qsample_direct_age_unit_ifnull},
+        {SQLUtils.qsample_oldest_rel_age_ifnull},
+        {SQLUtils.qsample_youngest_rel_age_ifnull},
+        {SQLUtils.qsample_age_description_ifnull},
+        {SQLUtils.qsample_age_constraint_ifnull},
+        {SQLUtils.qsample_age_interpretation_ifnull},
+        {SQLUtils.qsample_age_reference_ifnull}
+
+    FROM Samples
+    {SQLUtils.age_signature_join}
+    {SQLUtils.column_join}
+    {SQLUtils.column_unit_join}
+    {SQLUtils.region_join}
+    {SQLUtils.rock_type_join}
+    {SQLUtils.sample_context_join}
+    {SQLUtils.sample_sampleage_join}
+    {SQLUtils.sampling_method_join}
+    {SQLUtils.setting_join}
+    {SQLUtils.unit_join}
+    {SQLUtils.sample_age_join}
+    {SQLUtils.sample_age_left_joins}
+    {SQLUtils.gps_sample_join}
+    {SQLUtils.gps_sample_left_joins}
+    {SQLUtils.gps_column_join}
+    {SQLUtils.gps_column_left_joins}
+    {SQLUtils.aliquot_join}
+    {SQLUtils.aliquot_context_join}
+    {SQLUtils.spot_join}
+    {SQLUtils.spot_composition_join}
+    {SQLUtils.spot_context_join}
+    {SQLUtils.upb_analysis_join}
+    {SQLUtils.upb_reference_join}
+    {SQLUtils.upb_labs_join}
+    {SQLUtils.upb_instruments_join}
+    {SQLUtils.upb_method_join}
+    {SQLUtils.upb_ratio_error_format_join}
+    {SQLUtils.upb_age_error_format_join}
+    {SQLUtils.upb_age_unit_join}
+    {SQLUtils.upb_concordance_format_join}
+    {SQLUtils.upb_spot_size_unit_join}
+    {SQLUtils.upb_rejection_reason_join}
+    '''
+    # print(sample_ifnull_query)
+    return sample_ifnull_query
+
+def ColumnIfNullQuery():
+    column_ifnull_query = f'''
+    SELECT 
+        {SQLUtils.qcolumn_id},
+        {SQLUtils.qcolumn_gps_id_ifnull},
+        {SQLUtils.qcolumn_gps_converted_ifnull},
+        {SQLUtils.qcolumn_lat_deg_ifnull},
+        {SQLUtils.qcolumn_lat_min_ifnull},
+        {SQLUtils.qcolumn_lat_sec_ifnull},
+        {SQLUtils.qcolumn_lat_dir_ifnull},
+        {SQLUtils.qcolumn_lon_deg_ifnull},
+        {SQLUtils.qcolumn_lon_min_ifnull},
+        {SQLUtils.qcolumn_lon_sec_ifnull},
+        {SQLUtils.qcolumn_lon_dir_ifnull},
+        {SQLUtils.qcolumn_utm_zone_ifnull},
+        {SQLUtils.qcolumn_utm_northing_ifnull},
+        {SQLUtils.qcolumn_utm_easting_ifnull},
+        {SQLUtils.qcolumn_gps_format_id_ifnull},
+        {SQLUtils.qcolumn_gps_format_ifnull},
+        {SQLUtils.qcolumn_gps_elev_ifnull},
+        {SQLUtils.qcolumn_gps_elev_error_ifnull},
+        {SQLUtils.qcolumn_gps_elev_unit_ifnull}
+    FROM Columns
+    {SQLUtils.gps_column_join}
+    {SQLUtils.gps_column_left_joins}
+    '''
+    return column_ifnull_query
 
 def AliquotViewQuery(sample_ids: list):
     if len(sample_ids) == 1:

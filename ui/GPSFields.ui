@@ -6,9 +6,15 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>607</width>
-    <height>314</height>
+    <width>745</width>
+    <height>316</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
   </property>
   <property name="windowTitle">
    <string>Form</string>
@@ -17,15 +23,15 @@
    <item>
     <widget class="QGroupBox" name="location_groupBox">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="MinimumExpanding">
+      <sizepolicy hsizetype="MinimumExpanding" vsizetype="MinimumExpanding">
        <horstretch>0</horstretch>
-       <verstretch>4</verstretch>
+       <verstretch>0</verstretch>
       </sizepolicy>
      </property>
      <property name="title">
       <string>Location</string>
      </property>
-     <layout class="QVBoxLayout" name="verticalLayout_14">
+     <layout class="QVBoxLayout" name="verticalLayout_3">
       <item>
        <layout class="QHBoxLayout" name="horizontalLayout_14" stretch="0,0,0">
         <item>
@@ -71,7 +77,7 @@
       <item>
        <widget class="FocusGroupBox" name="latlon_groupBox">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>3</verstretch>
          </sizepolicy>
@@ -131,7 +137,7 @@
            <item>
             <widget class="QComboBox" name="lat_comboBox">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
@@ -200,7 +206,7 @@
            <item>
             <widget class="QComboBox" name="lon_comboBox">
              <property name="sizePolicy">
-              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                <horstretch>0</horstretch>
                <verstretch>0</verstretch>
               </sizepolicy>
@@ -224,7 +230,7 @@
       <item>
        <widget class="FocusGroupBox" name="utm_groupBox">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>2</verstretch>
          </sizepolicy>
@@ -305,7 +311,7 @@
       <item>
        <widget class="FocusGroupBox" name="elev_groupBox">
         <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Minimum">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
           <horstretch>0</horstretch>
           <verstretch>2</verstretch>
          </sizepolicy>

@@ -13,6 +13,7 @@ import Functions.Table_classes as TbC
 from ui.AddTags import AddTags
 from ui.GPSDialog import GPSDialog
 import Functions.SQLUtils as SQLUtils
+from ui.New_reference import NewReference
 
 
 class EditTable(QtW.QDialog):
@@ -25,7 +26,7 @@ class EditTable(QtW.QDialog):
         self.table = TxM.remove_spaces(table_name)
         self.model = TbC.VerifiableSqlTableModel()
         self.msg = QtW.QMessageBox(self)
-        if self.table == 'Samples' or self.table == '"References"' or self.table == 'Aliquots' or self.table == 'UPbData':
+        if self.table == 'Samples' or self.table == 'Aliquots' or self.table == 'UPbData':
             pass
         elif self.table in SQLUtils.trigger_tables:
             if self.table == 'Columns':
@@ -376,13 +377,16 @@ class EditTable(QtW.QDialog):
                 return True
 
     def add_popup(self):
-        if not self.add_pushButton.hasFocus():
-            return
+        # if not self.add_pushButton.hasFocus():
+        #     return
         if not self.model.submit():
             errtxt = f'Failed to save changes to {self.table}: {self.model.lastError().text()}'
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         # if self.table == 'Samples' or self.table == '"References"' or self.table == 'Aliquots' or self.table == 'UPbData':
         #     pass
+        if self.table == '"References"':
+            dlg = NewReference()
+            dlg.exec()
         else:
             dlg = AddTags(self.model, self.table)
             dlg.exec()

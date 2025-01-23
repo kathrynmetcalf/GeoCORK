@@ -52,8 +52,12 @@ qupb_age_interpretations = 'GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInter
 qconcordance_formats = 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation) AS "Concordance Formats"'
 qspot_sizes = f'GROUP_CONCAT(DISTINCT SpotSize) AS "Spot Sizes ({selected_spotsize_unit})"'
 qupb_rejection_reasons = 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName) AS "UPb Rejection Reasons"'
+qsample_created = 'Samples.SampleCreated'
+qsample_modified = 'Samples.SampleModified'
 
 # Samples, include null values
+qsample_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleID,"Null")) AS "Sample IDs"'
+qsample_name_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleName,"Null")) AS "Sample Names"'
 qigsn_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleIGSN,"Null")) AS "Sample IGSNs"'
 qsample_gps_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPSLocationID,"Null")) AS "GPS Location IDs"'
 qsample_column_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleColumnID,"Null")) AS "Column IDs"'

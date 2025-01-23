@@ -257,110 +257,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             headers.append(TxM.add_spaces_camel(header))
         return headers
 
-def SampleIfNullQuery():
-    sample_ifnull_query = f'''
-    SELECT 
-        {SQLUtils.qsample_id},
-        {SQLUtils.qigsn_ifnull},
-        {SQLUtils.qsample_gps_id_ifnull},
-        {SQLUtils.qcolumn_name_ifnull},
-        {SQLUtils.qheight_depth_ifnull},
-        {SQLUtils.qheight_depth_error_ifnull},
-        {SQLUtils.qheight_depth_unit_ifnull},
-        {SQLUtils.qsample_description_ifnull},
-        {SQLUtils.qsample_lat_deg_ifnull},
-        {SQLUtils.qsample_lat_min_ifnull},
-        {SQLUtils.qsample_lat_sec_ifnull},
-        {SQLUtils.qsample_lat_dir_ifnull},
-        {SQLUtils.qsample_lon_deg_ifnull},
-        {SQLUtils.qsample_lon_min_ifnull},
-        {SQLUtils.qsample_lon_sec_ifnull},
-        {SQLUtils.qsample_lon_dir_ifnull},
-        {SQLUtils.qsample_utm_zone_ifnull},
-        {SQLUtils.qsample_utm_northing_ifnull},
-        {SQLUtils.qsample_utm_easting_ifnull},
-        {SQLUtils.qsample_gps_format_ifnull},
-        {SQLUtils.qsample_gps_elev_ifnull},
-        {SQLUtils.qsample_gps_elev_error_ifnull},
-        {SQLUtils.qsample_gps_elev_unit_ifnull},
-        {SQLUtils.qsample_default_age_id_ifnull},
-        {SQLUtils.qsample_direct_age_ifnull},
-        {SQLUtils.qsample_direct_age_error_ifnull},
-        {SQLUtils.qsample_direct_age_error_format_ifnull},
-        {SQLUtils.qsample_oldest_direct_age_ifnull},
-        {SQLUtils.qsample_youngest_direct_age_ifnull},
-        {SQLUtils.qsample_direct_age_unit_ifnull},
-        {SQLUtils.qsample_oldest_rel_age_ifnull},
-        {SQLUtils.qsample_youngest_rel_age_ifnull},
-        {SQLUtils.qsample_age_description_ifnull},
-        {SQLUtils.qsample_age_constraint_ifnull},
-        {SQLUtils.qsample_age_interpretation_ifnull},
-        {SQLUtils.qsample_age_reference_ifnull}
-        
-    FROM Samples
-    {SQLUtils.age_signature_join}
-    {SQLUtils.column_join}
-    {SQLUtils.column_unit_join}
-    {SQLUtils.region_join}
-    {SQLUtils.rock_type_join}
-    {SQLUtils.sample_context_join}
-    {SQLUtils.sample_sampleage_join}
-    {SQLUtils.sampling_method_join}
-    {SQLUtils.setting_join}
-    {SQLUtils.unit_join}
-    {SQLUtils.sample_age_join}
-    {SQLUtils.sample_age_left_joins}
-    {SQLUtils.gps_sample_join}
-    {SQLUtils.gps_sample_left_joins}
-    {SQLUtils.gps_column_join}
-    {SQLUtils.gps_column_left_joins}
-    {SQLUtils.aliquot_join}
-    {SQLUtils.aliquot_context_join}
-    {SQLUtils.spot_join}
-    {SQLUtils.spot_composition_join}
-    {SQLUtils.spot_context_join}
-    {SQLUtils.upb_analysis_join}
-    {SQLUtils.upb_reference_join}
-    {SQLUtils.upb_labs_join}
-    {SQLUtils.upb_instruments_join}
-    {SQLUtils.upb_method_join}
-    {SQLUtils.upb_ratio_error_format_join}
-    {SQLUtils.upb_age_error_format_join}
-    {SQLUtils.upb_age_unit_join}
-    {SQLUtils.upb_concordance_format_join}
-    {SQLUtils.upb_spot_size_unit_join}
-    {SQLUtils.upb_rejection_reason_join}
-    '''
-    # print(sample_ifnull_query)
-    return sample_ifnull_query
 
-def ColumnIfNullQuery():
-    column_ifnull_query = f'''
-    SELECT 
-        {SQLUtils.qcolumn_id},
-        {SQLUtils.qcolumn_gps_id_ifnull},
-        {SQLUtils.qcolumn_gps_converted_ifnull},
-        {SQLUtils.qcolumn_lat_deg_ifnull},
-        {SQLUtils.qcolumn_lat_min_ifnull},
-        {SQLUtils.qcolumn_lat_sec_ifnull},
-        {SQLUtils.qcolumn_lat_dir_ifnull},
-        {SQLUtils.qcolumn_lon_deg_ifnull},
-        {SQLUtils.qcolumn_lon_min_ifnull},
-        {SQLUtils.qcolumn_lon_sec_ifnull},
-        {SQLUtils.qcolumn_lon_dir_ifnull},
-        {SQLUtils.qcolumn_utm_zone_ifnull},
-        {SQLUtils.qcolumn_utm_northing_ifnull},
-        {SQLUtils.qcolumn_utm_easting_ifnull},
-        {SQLUtils.qcolumn_gps_format_id_ifnull},
-        {SQLUtils.qcolumn_gps_format_ifnull},
-        {SQLUtils.qcolumn_gps_elev_ifnull},
-        {SQLUtils.qcolumn_gps_elev_error_ifnull},
-        {SQLUtils.qcolumn_gps_elev_unit_ifnull}
-    FROM Columns
-    {SQLUtils.gps_column_join}
-    {SQLUtils.gps_column_left_joins}
-    '''
-    return column_ifnull_query
 
 class AliquotTableModel(QtS.QSqlQueryModel):
     def setupQuery(self):
@@ -499,7 +396,7 @@ def name_column(table: str):
         # return the column for the abbreviation
         return 2
     elif table == '"References"':
-        return 6
+        return 9
     elif table == 'GPSLocations':
         return 1
     elif table in SQLUtils.user_viewable_tables or table == 'Spots' or table == 'SampleAges':
@@ -653,10 +550,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setText(text)
 
     def clear_all_checks(self):
-        if self.model().tableName() == '"References"':
-            col = 6
-        else:
-            col = 1
+        col = name_column(self.model().tableName())
         for row in range(self.model().rowCount()):
             index = self.model().index(row, col)
             if row == self.tableView.currentIndex().row():
@@ -718,7 +612,7 @@ class CheckableComboBox(QtW.QComboBox):
             return super().eventFilter(obj, event)
 
         if obj == self.tableView.viewport():
-            print(f"Object: viewport, Event type: {event.type()}")
+            # print(f"Object: viewport, Event type: {event.type()}")
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 if self.single_click:
                     print(f"Clicked text: {self.tableView.currentIndex().data()}")
@@ -1021,3 +915,16 @@ def find_sub_items(sample_ids):
                     upb_data_id = UPb_data_table.record(row).value('UPbAnalysisID')
                     upb_data_ids.append(upb_data_id)
     return aliquot_ids, spot_ids, upb_data_ids
+
+def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
+    if text == '' or text == '-':
+        comboBox.setCurrentIndex(-1)
+    else:
+        comboBox.setCurrentText(text)
+
+def show_column(comboBox: QtW.QComboBox, column: str):
+    model = comboBox.model()
+    for col in range(model.columnCount()):
+        header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        if header == column:
+            comboBox.setModelColumn(col)
