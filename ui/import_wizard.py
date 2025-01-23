@@ -331,12 +331,110 @@ class MainWindow(QWidget):
 
         self.right_table.verticalHeader().sectionDoubleClicked.connect(self.handle_vertical_header_double_click)
 
+        self.right_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.right_table.horizontalHeader().customContextMenuRequested.connect(self.show_right_header_context_menu)
+
+        self.left_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.left_table.horizontalHeader().customContextMenuRequested.connect(self.show_left_header_context_menu)
+
     def closeEvent(self, a0):
         self.combo_reference_comboBox.disconnect()
         self.combo_instrument_comboBox.disconnect()
         self.combo_lab_facility_comboBox.disconnect()
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
+
+
+    def show_left_header_context_menu(self, pos):
+        """
+        Show a context menu on the horizontal header to set column values or insert columns.
+        Args:
+            pos (QPoint): Position of the context menu request.
+        """
+        # Determine the column index under the cursor
+        column = self.left_table.horizontalHeader().logicalIndexAt(pos)
+        if column < 0:
+            return
+
+        menu = QMenu(self)
+
+        # Add options to the menu
+        set_value_action = menu.addAction("Set Entire Column to Value")
+        set_blank_action = menu.addAction("Set Entire Column to Blank")
+
+        # Execute the menu and get the selected action
+        action = menu.exec(self.left_table.horizontalHeader().mapToGlobal(pos))
+        if action == set_value_action:
+            self.set_column_to_value(column, self.left_table)
+        elif action == set_blank_action:
+            self.set_column_to_blank(column, self.left_table)
+
+
+    def show_right_header_context_menu(self, pos):
+        """
+        Show a context menu on the horizontal header to set column values or insert columns.
+        Args:
+            pos (QPoint): Position of the context menu request.
+        """
+        # Determine the column index under the cursor
+        column = self.right_table.horizontalHeader().logicalIndexAt(pos)
+        if column < 0:
+            return
+
+        menu = QMenu(self)
+
+        # Add options to the menu
+        set_value_action = menu.addAction("Set Entire Column to Value")
+        set_blank_action = menu.addAction("Set Entire Column to Blank")
+        insert_before_action = menu.addAction("Insert Column Before")
+        insert_after_action = menu.addAction("Insert Column After")
+
+        # Execute the menu and get the selected action
+        action = menu.exec(self.right_table.horizontalHeader().mapToGlobal(pos))
+        if action == set_value_action:
+            self.set_column_to_value(column, self.right_table)
+        elif action == set_blank_action:
+            self.set_column_to_blank(column, self.right_table)
+        elif action == insert_before_action:
+            self.add_column(column, before=True)
+        elif action == insert_after_action:
+            self.add_column(column, before=False)
+
+    def set_column_to_value(self, column, table: QTableWidget):
+        """
+        Set all cells in the specified column to a user-provided value.
+        Args:
+            column (int): The column index to update.
+        """
+        # Prompt the user for a value
+        value, ok = QInputDialog.getText(self, "Set Column Value", f"Enter value for column {column + 1}:")
+        if not ok or value is None:
+            return  # User canceled
+
+        # Update all rows in the column
+        table.blockSignals(True)
+        for row in range(table.rowCount()):
+            item = table.item(row, column)
+            if item is None:
+                item = QTableWidgetItem()
+                table.setItem(row, column, item)
+            item.setText(value)
+        table.blockSignals(False)
+
+    def set_column_to_blank(self, column, table: QTableWidget):
+        """
+        Set all cells in the specified column to blank.
+        Args:
+            column (int): The column index to update.
+        """
+        # Update all rows in the column
+        for row in range(table.rowCount()):
+            item = table.item(row, column)
+            if item is None:
+                item = QTableWidgetItem()
+                table.setItem(row, column, item)
+            item.setText("")
+
 
     def handle_vertical_header_double_click(self, logical_index):
         """
@@ -350,29 +448,6 @@ class MainWindow(QWidget):
         else:
             self.mark_selected_rows_rejected([item], True)
 
-    # def mark_selected_rows_rejected(self, rows, rejected=True):
-    #     """
-    #     Mark the specified rows as rejected or unrejected.
-    #     Args:
-    #         rows (list): List of row indices to mark.
-    #         rejected (bool): True to mark as rejected, False to unmark.
-    #     """
-    #     for row_idx in rows:
-    #         for col_idx in range(self.right_table.columnCount()):
-    #             item = self.right_table.item(row_idx, col_idx)
-    #             if item is None:
-    #                 item = QTableWidgetItem()
-    #                 self.right_table.setItem(row_idx, col_idx, item)
-    #
-    #             # Apply strikethrough and red color if rejected
-    #             font = item.font()
-    #             font.setStrikeOut(rejected)
-    #             item.setFont(font)
-    #             item.setForeground(QBrush(QColor("red" if rejected else "black")))
-    #
-    #         # Optionally, update the row header with an icon or visual marker
-    #         header_item = QTableWidgetItem(f"Rejected" if rejected else f"{row_idx + 1}")
-    #         self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
     def set_table(self, model, table: str):
         model.setTable(table)
@@ -433,7 +508,7 @@ class MainWindow(QWidget):
         # Close the ComboBox when it loses focus
         combobox.focusOutEvent = lambda event: self.cleanup_combobox(combobox, event)
 
-    def add_column(self):
+    def add_column(self, col_index=None, before=False):
         """
         Add a new column to the table based on user input from the Column Map Dialog.
         """
@@ -453,8 +528,13 @@ class MainWindow(QWidget):
                     QMessageBox.warning(self, "Duplicate Column", f"Column '{selected_field}' already exists.")
                     return
 
-            # Insert the new column at the end of the table
-            col_index = self.right_table.columnCount()
+            if col_index is None:
+                # Insert the new column at the end of the table
+                col_index = self.right_table.columnCount()
+            else:
+                if not before:
+                    col_index += 1
+
             self.right_table.insertColumn(col_index)
 
             # Set the column header
