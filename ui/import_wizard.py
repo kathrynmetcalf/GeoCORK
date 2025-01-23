@@ -103,26 +103,26 @@ class MainWindow(QWidget):
             QMessageBox.critical(self, "Error", "Failed to connect to database.")
             sys.exit(1)
 
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM Samples")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM Aliquots")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM Spots")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM UPbAnalyses")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM Samples")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM Aliquots")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM Spots")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM UPbAnalyses")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
 
         self.setWindowTitle("UPb Importer (Left & Right Tables + Context Menus)")
         self.setGeometry(100, 100, 1500, 600)
@@ -132,6 +132,7 @@ class MainWindow(QWidget):
         # Top bar: file selection, sheet, etc.
         top_layout = QHBoxLayout()
         self.btn_select = QPushButton("Select Excel File")
+        self.btn_select.setFixedWidth(150)
         self.btn_select.clicked.connect(self.select_file)
         top_layout.addWidget(self.btn_select)
 
@@ -139,9 +140,11 @@ class MainWindow(QWidget):
         top_layout.addWidget(self.label_file)
 
         self.combo_sheets = QComboBox()
+        self.combo_sheets.setFixedWidth(150)
         top_layout.addWidget(self.combo_sheets)
 
         self.btn_load_sheet = QPushButton("Load Sheet")
+        self.btn_load_sheet.setFixedWidth(100)
         self.btn_load_sheet.clicked.connect(self.load_sheet)
         top_layout.addWidget(self.btn_load_sheet)
 
@@ -229,7 +232,13 @@ class MainWindow(QWidget):
         self.delimiter_checkbox = QCheckBox('Enable Delimiter?')
         self.delimiter_checkbox.checkStateChanged.connect(self.update_left_table_on_delimiter_change)
         formats_layout.addWidget(self.delimiter_checkbox, Qt.AlignmentFlag.AlignLeft)
-        formats_layout.addStretch(1)
+
+        formats_layout.addStretch(4)
+
+        self.btn_add_column = QPushButton("Add Column")
+        self.btn_add_column.setFixedWidth(150)
+        self.btn_add_column.clicked.connect(self.add_column)
+        formats_layout.addWidget(self.btn_add_column)
 
         self.ratio_error_combobox = QComboBox()
         self.ratio_error_combobox.setFixedWidth(100)
@@ -281,8 +290,8 @@ class MainWindow(QWidget):
 
         splitter.addWidget(self.left_table)
         splitter.addWidget(self.right_table)
-        splitter.setStretchFactor(0, 0)  # left narrower
-        splitter.setStretchFactor(1, 1)  # right expands
+        splitter.setStretchFactor(0, 1)  # left narrower
+        splitter.setStretchFactor(1, 3)  # right expands
 
         main_layout.addWidget(splitter)
 
@@ -296,13 +305,13 @@ class MainWindow(QWidget):
         self.btn_load_mapping.clicked.connect(self.load_mapping)
         bottom_layout.addWidget(self.btn_load_mapping)
 
+        self.validate_button = QPushButton("Validate Sample Names")
+        self.validate_button.clicked.connect(self.validate_ids)
+        bottom_layout.addWidget(self.validate_button)
+
         self.btn_import = QPushButton("Import to Database")
         self.btn_import.clicked.connect(self.check_and_import)
         bottom_layout.addWidget(self.btn_import)
-
-        self.btn_add_column = QPushButton("Add Column")
-        self.btn_add_column.clicked.connect(self.add_column)
-        bottom_layout.addWidget(self.btn_add_column)
 
         main_layout.addLayout(bottom_layout)
 
@@ -331,6 +340,9 @@ class MainWindow(QWidget):
 
         self.right_table.verticalHeader().sectionDoubleClicked.connect(self.handle_vertical_header_double_click)
 
+
+        # todo fix these context menus and methods to allow for multi-column set values
+
         self.right_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.right_table.horizontalHeader().customContextMenuRequested.connect(self.show_right_header_context_menu)
 
@@ -344,6 +356,101 @@ class MainWindow(QWidget):
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
 
+    def validate_ids(self):
+        """
+        Validate SampleID, AliquotID, and SpotID in the left_table against the database.
+        Flag rows that have matching entries in the database.
+        """
+
+        # Step 1: Check for empty cells in the left table
+        empty_cells = self.check_empty_cells_in_left_table()
+
+        if empty_cells:
+            # Step 2: Show dialog to ask if the user wants to use default values
+            use_defaults = self.ask_to_use_default_values(empty_cells)
+
+            if use_defaults:
+                # Step 3: Fill empty cells with default values
+                self.fill_empty_cells_with_defaults(empty_cells)
+
+                # Optional: Give user a chance to review and adjust the values
+                QMessageBox.information(self, "Review",
+                                        "The empty cells have been filled with default values. Please review before clicking import again.")
+
+        # Prepare SQL queries for validation
+        # find values where SampleName in the database matches listed value
+        sample_query = QSqlQuery()
+        sample_query.prepare("SELECT SampleID FROM Samples WHERE SampleName = :sample_name COLLATE NOCASE")
+
+        # find values where AliquotName and SampleID match in the database.
+        aliquot_query = QSqlQuery()
+        aliquot_query.prepare("SELECT AliquotID FROM Aliquots WHERE AliquotName = :aliquot_name COLLATE NOCASE AND SampleID = :sample_id")
+
+        # find values where SpotName and AliquotID match in the database.
+        spot_query = QSqlQuery()
+        spot_query.prepare("SELECT SpotID FROM Spots WHERE SpotName = :spot_name COLLATE NOCASE AND AliquotID = :aliquot_id COLLATE NOCASE")
+
+        # Iterate through rows in the left_table
+        for row in range(self.left_table.rowCount()):
+            sample_name = self.left_table.item(row, 0).text() if self.left_table.item(row, 0) else None
+            aliquot_name = self.left_table.item(row, 1).text() if self.left_table.item(row, 1) else None
+            spot_name = self.left_table.item(row, 2).text() if self.left_table.item(row, 2) else None
+
+            # Check SampleID
+            sample_match = False
+            if sample_name:
+                sample_query.bindValue(":sample_name", sample_name)
+                sample_match = sample_query.exec() and sample_query.next()
+                sample_id = sample_query.value(0) if sample_match else None
+
+            # Check AliquotID
+            aliquot_match = False
+            if aliquot_name:
+                aliquot_query.bindValue(":aliquot_name", aliquot_name)
+                aliquot_query.bindValue(":sample_id", sample_id)
+                aliquot_match = aliquot_query.exec() and aliquot_query.next()
+                aliquot_id = aliquot_query.value(0) if aliquot_match else None
+
+            # Check SpotID
+            spot_match = False
+            if spot_name:
+                spot_query.bindValue(":spot_name", spot_name)
+                spot_query.bindValue(":aliquot_id", aliquot_id)
+                spot_match = spot_query.exec() and spot_query.next()
+
+            self.left_table.blockSignals(True)
+            # Highlight the row if any match is found
+            # Highlight matching cells
+            if sample_match:
+                item = self.left_table.item(row, 0)
+                if item:
+                    item.setBackground(QColor('#FCAE1E'))
+            else:
+                item = self.left_table.item(row, 0)
+                if item:
+                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            if aliquot_match:
+                item = self.left_table.item(row, 1)
+                if item:
+                    item.setBackground(QColor('#FCAE1E'))
+            else:
+                item = self.left_table.item(row, 1)
+                if item:
+                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            if spot_match:
+                item = self.left_table.item(row, 2)
+                if item:
+                    item.setBackground(QColor('#FCAE1E'))
+            else:
+                item = self.left_table.item(row, 2)
+                if item:
+                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            self.left_table.blockSignals(False)
+
+        QMessageBox.information(self, "Validation Complete", "Validation of IDs is complete.")
 
     def show_left_header_context_menu(self, pos):
         """
@@ -618,15 +725,19 @@ class MainWindow(QWidget):
 
         # Get the current value of the cell
         current_value = target_table.item(row, column).text().strip()
+        if target_table.item(row + 1, column) is None:
+            return
 
+        next_value = target_table.item(row + 1, column).text().strip()
         # If the value is empty or invalid, ignore
-        if not current_value:
+        if not current_value or next_value == current_value or len(next_value) > 0:
             return
 
         # Check if the user wants to flash fill
         reply = QMessageBox.question(
             self, "Flash Fill Downward",
             "Do you want to auto-fill downward with this value for blank cells?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
 
@@ -1079,7 +1190,32 @@ class MainWindow(QWidget):
                 item.setBackground(QBrush(Qt.GlobalColor.green))
 
                 # If it’s Sample ID / Aliquot ID / Spot ID, auto-populate left table
-                if new_field == "SpotID":
+                if new_field == "SampleID":
+                    for r in range(self.right_table.rowCount()):
+                        cell_item = self.right_table.item(r, logical_index)
+                        if not cell_item:
+                            continue
+                        sample_id_value = cell_item.text().strip()
+
+                        # Update the left table
+                        self.left_table.blockSignals(True)
+                        self.left_table.setItem(r, 0, QTableWidgetItem(sample_id_value))  # Sample ID
+                        self.left_table.blockSignals(False)
+                    self.left_table.resizeColumnsToContents()
+                elif new_field == "AliquotID":
+                    for r in range(self.right_table.rowCount()):
+                        cell_item = self.right_table.item(r, logical_index)
+                        if not cell_item:
+                            continue
+                        aliquot_id_value = cell_item.text().strip()
+
+                        # Update the left table
+                        self.left_table.blockSignals(True)
+                        self.left_table.setItem(r, 1, QTableWidgetItem(aliquot_id_value))  # Aliquot ID
+                        self.left_table.blockSignals(False)
+                    self.left_table.resizeColumnsToContents()
+
+                elif new_field == "SpotID":
                     self.auto_split_sample_spot(logical_index)
 
     def update_left_table_on_delimiter_change(self):
@@ -1117,6 +1253,7 @@ class MainWindow(QWidget):
                     self.left_table.setItem(r, 0, QTableWidgetItem(""))
                     self.left_table.setItem(r, 2, QTableWidgetItem(spot_id_value))  # Spot ID
                     self.left_table.blockSignals(False)
+        self.left_table.resizeColumnsToContents()
 
     def auto_split_sample_spot(self, col_idx):
         """
@@ -1146,6 +1283,7 @@ class MainWindow(QWidget):
             self.left_table.setItem(r, 0, QTableWidgetItem(sample_id))  # Sample ID
             self.left_table.setItem(r, 2, QTableWidgetItem(spot_id))  # Spot ID
             self.left_table.blockSignals(False)
+        self.left_table.resizeColumnsToContents()
 
     def save_mapping(self):
         if not self.column_mappings:
@@ -1237,37 +1375,40 @@ class MainWindow(QWidget):
         self.left_table.blockSignals(True)
 
         # Initialize variables for tracking SampleID and counter
-        current_sample_id = None
-        aliquot_counter = 0
-
+        current_aliquot_id = None
+        spot_counter = 0
         for row, col in empty_cells:
             if col == 0:  # Sample ID
                 # If Sample ID is missing, set a default value
                 if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
                     self.left_table.setItem(row, col, QTableWidgetItem("DefaultSample"))
-                current_sample_id = self.left_table.item(row, col).text().strip()  # Update current SampleID
-                aliquot_counter = 0  # Reset counter for new SampleID
 
             elif col == 1:  # Aliquot ID
                 # If SampleID exists, create AliquotID with the counter
-                sample_id_item = self.left_table.item(row, col - 1)
-                if sample_id_item and sample_id_item.text().strip():
-                    sample_id = sample_id_item.text().strip()
-                    if sample_id != current_sample_id:
-                        current_sample_id = sample_id
-                        aliquot_counter = 0  # Reset counter for new SampleID
-                    aliquot_counter += 1
-                    self.left_table.setItem(row, col, QTableWidgetItem(f"{sample_id}-{aliquot_counter}"))
+                # If AliquotID is missing, set equal to SampleID value
+                if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
+                    self.left_table.setItem(row, col, QTableWidgetItem(self.left_table.item(row, col - 1).text().strip()))
+
+                # current_aliquot_id = self.left_table.item(row, col).text().strip()
+                # spot_counter = 0  # Reset counter for new AliquotID
 
             elif col == 2:  # Spot ID
-                # Set a default value for Spot ID
-                if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
-                    self.left_table.setItem(row, col, QTableWidgetItem("DefaultSpot"))
+                # If AliquotID exists, create SpotID with the counter
+                aliquot_id_item = self.left_table.item(row, col - 1)
+                if aliquot_id_item and aliquot_id_item.text().strip():
+                    aliquot_id = aliquot_id_item.text().strip()
+                    if aliquot_id != current_aliquot_id:
+                        current_aliquot_id = aliquot_id
+                        spot_counter = 0  # Reset counter for new AliquotID
+                    spot_counter += 1
+                    print(f"Spot counter: {spot_counter}")
+                    self.left_table.setItem(row, col, QTableWidgetItem(f"{aliquot_id}-{spot_counter}"))
 
             # Highlight the updated cell
             self.left_table.item(row, col).setBackground(Qt.GlobalColor.yellow)
 
         self.left_table.blockSignals(False)
+        self.left_table.resizeColumnsToContents()
 
     def check_and_import(self):
         # Step 1: Check for empty cells in the left table
