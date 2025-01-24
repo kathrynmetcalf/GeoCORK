@@ -27,60 +27,94 @@ from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, C
 # Updated DB schema to include lab_facilities, source, analysis_method, instrument
 DATABASE_FILE = 'yrrfgs.db'
 
-ALL_POSSIBLE_TYPES = [
-    "Auto",
-    "ppm",
-    "ppb",
-    "% Conc.",
-    "% Disc.",
-    "Ma",
-    "ka",
-]
-
 CONFIG_FILE = 'column_mappings.json'
-
 
 class ColumnMapDialog(QDialog):
     """
-    Dialog that lets the user choose both a field name
-    and a data type for a given column.
+    Dialog that creates one ComboBox per dictionary key, ensuring only
+    one ComboBox can be non-'None' at a time.
     """
-    def __init__(self, original_header, current_field, current_dtype, parent=None):
+    def __init__(self, original_header, current_field, parent=None):
+        """
+        :param fields_dict: Dict[str, List[str]] of possible values for each field.
+                            e.g. {"Sample Name": ["opt1","opt2"], "Aliquot Name": ["optA","optB"]}
+        """
         super().__init__(parent)
-        self.setWindowTitle(f"Map Column: {original_header}")
+        self.setWindowTitle(f"Column Mapper {original_header}")
 
-        self.selected_field = current_field
-        self.selected_dtype = current_dtype
+        # Keep track of combo boxes so we can manipulate them easily
+        self.combos = []
+        self._is_updating = False
 
-        layout = QFormLayout()
+        form_layout = QFormLayout()
 
-        self.combo_field = QComboBox()
-        self.combo_field.addItems(["Sample Name", "Aliquot Name"] + SQLUtils.upb_possible_input_fields)
-        existing_items = [self.combo_field.itemText(i) for i in range(self.combo_field.count())]
-        if current_field in existing_items:
-            self.combo_field.setCurrentText(current_field)
-        layout.addRow("Field:", self.combo_field)
+        # Create a combo box for each dictionary entry
+        for field_label, possible_values in SQLUtils.upb_possible_user_input_fields.items():
+            combo = QComboBox()
+            # We'll prepend a 'None' option. You could also use an empty string, etc.
+            combo.addItem("None")
+            combo.addItems(possible_values)
 
-        # self.combo_dtype = QComboBox()
-        # self.combo_dtype.addItem('Auto')
-        # if current_dtype in SQLUtils.upb_possible_input_fields:
-        #     self.combo_dtype.setCurrentText(current_dtype)
-        # layout.addRow("Data Type:", self.combo_dtype)
-        # # self.combo_dtype.hide()
+            # Connect signal so that if this combo changes,
+            # we reset all others back to 'None'.
+            combo.currentIndexChanged.connect(self.on_combo_changed)
 
+            if current_field is not None and current_field in possible_values:
+                combo.setCurrentText(current_field)
+
+            form_layout.addRow(field_label + ":", combo)
+            self.combos.append(combo)
+
+        if current_field is not None:
+            self.on_combo_changed()
+
+        # Add an OK button for closing
         self.btn_ok = QPushButton("OK")
-        self.btn_ok.clicked.connect(self.handle_ok)
-        layout.addRow(self.btn_ok)
+        self.btn_ok.clicked.connect(self.accept)
 
-        self.setLayout(layout)
+        # Wrap everything in a layout
+        main_layout = QVBoxLayout()
+        main_layout.addLayout(form_layout)
+        main_layout.addWidget(self.btn_ok)
+        self.setLayout(main_layout)
 
-    def handle_ok(self):
-        self.selected_field = self.combo_field.currentText()
-        # self.selected_dtype = self.combo_dtype.currentText()
-        self.accept()
+    def on_combo_changed(self):
+        """
+        Triggered whenever the current index of any combo changes.
+        Ensures only one combo has a non-'None' value at a time.
+        """
+        if self._is_updating:
+            return
 
-    def get_field_and_type(self):
-        return self.selected_field, self.selected_dtype
+        # Avoid recursion / repeated signals while we're updating
+        self._is_updating = True
+
+        # Figure out which combo box triggered
+        triggered_combo = self.sender()
+        if not isinstance(triggered_combo, QComboBox):
+            # Should never happen in this example, but just a guard
+            self._is_updating = False
+            return
+
+        # If the user selected something other than 'None',
+        # reset all other combos to 'None'
+        if triggered_combo.currentIndex() != 0:  # i.e., not the "None" entry
+            for combo in self.combos:
+                if combo is not triggered_combo:
+                    combo.setCurrentIndex(0)
+
+        self._is_updating = False
+
+    def get_selected_value(self):
+        """
+        Returns which combo was selected (if any), or 'None' if all are 'None'.
+        You can customize how you want this data returned.
+        """
+        for combo in self.combos:
+            if combo.currentIndex() != 0:  # i.e., not "None"
+                return combo.currentText()
+        return "None"
+
 
 
 class MainWindow(QWidget):
@@ -252,6 +286,19 @@ class MainWindow(QWidget):
         formats_layout.addWidget(QLabel("Age Error"))
         formats_layout.addWidget(self.age_error_combobox)
 
+        self.age_unit_combobox = QComboBox()
+        self.age_unit_combobox.setFixedWidth(100)
+        self.age_unit_combobox.addItems(['1σ Absolute', '2σ Absolute', '1σ Percent', '1σ Percent'])
+        formats_layout.addWidget(QLabel("Age Unit"))
+        formats_layout.addWidget(self.age_unit_combobox)
+
+        self.spot_size_combobox = QComboBox()
+        self.spot_size_combobox.setFixedWidth(100)
+        self.spot_size_combobox.addItems(
+            ['Concordance Ratio', 'Concordance Percent', 'Discordance Ratio', 'Discordance Percent'])
+        formats_layout.addWidget(QLabel("Spot Size"))
+        formats_layout.addWidget(self.spot_size_combobox)
+
         self.conc_error_combobox = QComboBox()
         self.conc_error_combobox.setFixedWidth(150)
         self.conc_error_combobox.addItems(['Concordance Ratio', 'Concordance Percent', 'Discordance Ratio', 'Discordance Percent'])
@@ -345,6 +392,9 @@ class MainWindow(QWidget):
 
         self.right_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.right_table.horizontalHeader().customContextMenuRequested.connect(self.show_right_header_context_menu)
+
+        self.right_table.verticalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.right_table.verticalHeader().customContextMenuRequested.connect(self.show_right_table_vertical_header_context_menu)
 
         self.left_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.left_table.horizontalHeader().customContextMenuRequested.connect(self.show_left_header_context_menu)
@@ -695,12 +745,11 @@ class MainWindow(QWidget):
         # Open the Column Map Dialog to let the user select a column name and data type
 
         if field is None:
-            dialog = ColumnMapDialog("New Column", "None", "Auto", self)
+            dialog = ColumnMapDialog("New Column", "None", self)
             if dialog.exec():
-                selected_field, selected_dtype = dialog.get_field_and_type()
+                selected_field = dialog.get_selected_value()
 
         selected_field = field
-        selected_dtype = "(Auto)"
 
         # Ensure the user selected a valid field
         if selected_field == "None":
@@ -711,6 +760,7 @@ class MainWindow(QWidget):
             header = self.right_table.horizontalHeaderItem(test_idx)
             if header and header.text().startswith(selected_field):
                 QMessageBox.warning(self, "Duplicate Column", f"Column '{selected_field}' already exists.")
+                # todo this duplicate is not working
                 return
 
         if column_index is None:
@@ -729,7 +779,7 @@ class MainWindow(QWidget):
         self.right_table.setHorizontalHeaderItem(column_index, header_item)
 
         # Add the new column to the column mappings
-        self.column_mappings[column_index] = (selected_field, selected_dtype)
+        self.column_mappings[column_index] = (selected_field)
 
         self.right_table.blockSignals(True)
         # Initialize the column cells with empty values
@@ -766,7 +816,7 @@ class MainWindow(QWidget):
 
             # Add the new column to the column mappings
             # Add the new column to the column mappings
-            self.column_mappings[column_index] = (field, "Auto")
+            self.column_mappings[column_index] = (field)
 
             self.right_table.blockSignals(True)
             # Initialize the column cells with empty values
@@ -824,6 +874,31 @@ class MainWindow(QWidget):
 
         self.repaint()
 
+    def show_right_table_vertical_header_context_menu(self, pos: QPoint):
+        """
+        Context menu for the right table.
+        Includes remove rows, mark rows rejected, unmark,
+        and set selected cells to a user-defined value.
+        """
+        row = self.right_table.verticalHeader().logicalIndexAt(pos)
+        if row == -1:  # Ensure a valid header was clicked
+            return
+
+        menu = QMenu(self)
+        remove_action = menu.addAction("Remove Selected Rows")
+        reject_action = menu.addAction("Mark Selected Rows as Rejected")
+        accept_action = menu.addAction("Mark Selected Rows as Accepted")
+
+        action = menu.exec(self.right_table.mapToGlobal(pos))
+        if action == remove_action:
+            self.remove_selected_rows(row)
+        elif action == reject_action:
+            self.mark_selected_rows_rejected([item], True)
+        elif action == accept_action:
+            self.mark_selected_rows_rejected([item], False)
+
+        self.repaint()
+
     # ---------------------------
     #     File & Sheet Loading
     # ---------------------------
@@ -847,7 +922,10 @@ class MainWindow(QWidget):
 
         next_value = target_table.item(row + 1, column).text().strip()
         # If the value is empty or invalid, ignore
-        if not current_value or next_value == current_value or len(next_value) > 0:
+        if (not current_value or
+                next_value == current_value or
+                len(next_value) > 0 or
+                len(target_table.selectionModel().selectedIndexes()) > 1):
             return
 
         # Check if the user wants to flash fill
@@ -866,8 +944,8 @@ class MainWindow(QWidget):
         Flash fill a column downward starting from a given row.
         """
 
-        self.left_table.blockSignals(True)
-        self.right_table.blockSignals(True)
+        target_table.blockSignals(True)
+
         # Start from the next row and go downward
         for row in range(start_row + 1, target_table.rowCount()):
             item = target_table.item(row, column)
@@ -884,8 +962,7 @@ class MainWindow(QWidget):
             else:
                 # Stop when a non-blank value is encountered
                 break
-        self.left_table.blockSignals(False)
-        self.right_table.blockSignals(False)
+        target_table.blockSignals(False)
 
     def select_file(self):
         dlg = QFileDialog(self)
@@ -897,6 +974,7 @@ class MainWindow(QWidget):
                 self.wb = load_workbook(path, data_only=True)
                 self.combo_sheets.clear()
                 self.combo_sheets.addItems(self.wb.sheetnames)
+                self.load_sheet()
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to read Excel file:\n{e}")
 
@@ -1021,29 +1099,29 @@ class MainWindow(QWidget):
 
         self.left_table.resizeColumnsToContents()
 
-    def auto_guess_column_names(self):
-        """
-        Use difflib to guess the best match from SQLUtils.upb_possible_input_fields for the right table columns
-        (excluding the 4 appended columns).
-        """
-        import difflib
-        cutoff = 0.5
-
-        total_cols = self.right_table.columnCount()
-        # Exclude appended columns for Lab, Source, Method, Instrument
-        # main_cols = total_cols - 4 if (total_cols > 4 and self.lab_col is not None) else total_cols
-        main_cols = total_cols
-        for col_idx in range(main_cols):
-            original_header = self.right_table.horizontalHeaderItem(col_idx).text()
-            best = difflib.get_close_matches(original_header, SQLUtils.upb_possible_input_fields, n=1, cutoff=cutoff)
-            if best:
-                field = best[0]
-                self.column_mappings[col_idx] = (field, "Auto")
-                item = self.right_table.horizontalHeaderItem(col_idx)
-                item.setText(f"{field}")
-                item.setBackground(QBrush(QColor("#ffffcc")))
-            else:
-                self.column_mappings[col_idx] = ("None", "Auto")
+    # def auto_guess_column_names(self):
+    #     """
+    #     Use difflib to guess the best match from SQLUtils.upb_possible_input_fields for the right table columns
+    #     (excluding the 4 appended columns).
+    #     """
+    #     import difflib
+    #     cutoff = 0.5
+    #
+    #     total_cols = self.right_table.columnCount()
+    #     # Exclude appended columns for Lab, Source, Method, Instrument
+    #     # main_cols = total_cols - 4 if (total_cols > 4 and self.lab_col is not None) else total_cols
+    #     main_cols = total_cols
+    #     for col_idx in range(main_cols):
+    #         original_header = self.right_table.horizontalHeaderItem(col_idx).text()
+    #         best = difflib.get_close_matches(original_header, SQLUtils.upb_possible_user_input_fields, n=1, cutoff=cutoff)
+    #         if best:
+    #             field = best[0]
+    #             self.column_mappings[col_idx] = (field)
+    #             item = self.right_table.horizontalHeaderItem(col_idx)
+    #             item.setText(f"{field}")
+    #             item.setBackground(QBrush(QColor("#ffffcc")))
+    #         else:
+    #             self.column_mappings[col_idx] = ("None")
 
     # ---------------------------
     #     Context Menu Logic
@@ -1171,10 +1249,13 @@ class MainWindow(QWidget):
 
     # Existing logic for removing rows, marking them rejected, etc.
 
-    def remove_selected_rows(self):
-        selected_rows = {i.row() for i in self.right_table.selectedItems()}
-        if not selected_rows:
-            return
+    def remove_selected_rows(self, row=None):
+        if row is None:
+            selected_rows = {i.row() for i in self.right_table.selectedItems()}
+            if not selected_rows:
+                return
+        else:
+            selected_rows = {row}
 
         sr = sorted(selected_rows, reverse=True)
         if self.df is not None and len(self.df) > 0:
@@ -1231,6 +1312,7 @@ class MainWindow(QWidget):
             self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
     def mark_selected_rows_rejected(self, rows: list[QTableWidgetItem],  rejected: bool):
+
         selected_rows = {i.row() for i in rows}
         if not selected_rows:
             return
@@ -1254,18 +1336,18 @@ class MainWindow(QWidget):
         if not item:
             return
         original_header_text = item.text()
-        curr_map = self.column_mappings.get(logical_index, ("None", "Auto"))
-        dialog = ColumnMapDialog(original_header_text, curr_map[0], curr_map[1], self)
+        curr_map = self.column_mappings.get(logical_index, ("None"))
+        dialog = ColumnMapDialog(original_header_text, curr_map[0], self)
         if dialog.exec():
-            new_field, new_dtype = dialog.get_field_and_type()
+            new_field = dialog.get_selected_value()
             if new_field == "None":
                 if logical_index in self.column_mappings:
                     del self.column_mappings[logical_index]
                 item.setText(original_header_text)
                 item.setBackground(QBrush(Qt.GlobalColor.White))
             else:
-                self.column_mappings[logical_index] = (new_field, new_dtype)
-                item.setText(f"{new_field} ({new_dtype})")
+                self.column_mappings[logical_index] = (new_field)
+                item.setText(f"{new_field}")
                 item.setBackground(QBrush(Qt.GlobalColor.green))
 
                 # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
@@ -1378,7 +1460,7 @@ class MainWindow(QWidget):
                 else:
                     configs = {}
 
-                jmap = {str(k): {"field": v[0], "type": v[1]} for k, v in self.column_mappings.items()}
+                jmap = {str(k): {"field": v[0]} for k, v in self.column_mappings.items()}
                 configs[name] = jmap
                 with open(CONFIG_FILE, 'w') as f:
                     json.dump(configs, f, indent=4)
@@ -1405,7 +1487,7 @@ class MainWindow(QWidget):
                 self.column_mappings.clear()
                 for k_str, v in loaded.items():
                     idx = int(k_str)
-                    self.column_mappings[idx] = (v["field"], v["type"])
+                    self.column_mappings[idx] = (v["field"])
 
                 total_cols = self.right_table.columnCount()
                 for col_idx in range(total_cols):
@@ -1413,11 +1495,11 @@ class MainWindow(QWidget):
                     if not hdr_item:
                         continue
                     if col_idx in self.column_mappings:
-                        f_name, f_type = self.column_mappings[col_idx]
-                        hdr_item.setText(f"{f_name} ({f_type})")
+                        f_name = self.column_mappings[col_idx]
+                        hdr_item.setText(f"{f_name}")
                         hdr_item.setBackground(QBrush(QColor("#ffffcc")))
                     else:
-                        hdr_item.setBackground(QBrush(Qt.GlobalColor.White))
+                        hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
 
                 QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
         except Exception as e:
@@ -1521,7 +1603,7 @@ class MainWindow(QWidget):
         try:
             for row_idx in range(row_count):
                 # Build a record dict with every key initialized to None
-                record = {field: None for field in SQLUtils.upb_possible_input_fields}
+                record = {field: None for field in SQLUtils.upb_possible_database_input_fields}
                 if row_idx in self.rejected_rows:
                     record['Rejected'] = True
                 else:
@@ -1626,7 +1708,7 @@ class MainWindow(QWidget):
                     if col_idx not in self.column_mappings:
                         continue
 
-                    field_name, data_type = self.column_mappings[col_idx]
+                    field_name = self.column_mappings[col_idx]
                     if field_name == "None" or field_name in ('Sample Name', 'Aliquot Name', 'Spot Name'):
                         continue
 
@@ -1640,10 +1722,10 @@ class MainWindow(QWidget):
                     else:
                         record[field_name] = cell_text
 
-                field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_input_fields])
+                field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
 
                 placeholders = ', '.join(
-                    [f':{field.replace('/', '').replace('*', '').replace(' ', '_')}' for field in SQLUtils.upb_possible_input_fields])
+                    [f':{field.replace('/', '').replace('*', '').replace(' ', '_')}' for field in SQLUtils.upb_possible_database_input_fields])
                 insert_sql = f"""
                             INSERT INTO UPbAnalyses (
                                 {field_names}
@@ -1652,17 +1734,6 @@ class MainWindow(QWidget):
                                 {placeholders}
                             )
                         """
-
-                insert_sql = insert_sql.replace('Spot Name', 'SpotID')
-                insert_sql = insert_sql.replace('Instrument Name', 'InstrumentID')
-                insert_sql = insert_sql.replace('Reference Display', 'ReferenceID')
-                insert_sql = insert_sql.replace('Lab Facility Name', 'LabFacilityID')
-                insert_sql = insert_sql.replace('UPb Analysis Method Name', 'UPbAnalysisMethodID')
-                insert_sql = insert_sql.replace('Spot_Name', 'SpotID')
-                insert_sql = insert_sql.replace('Instrument_Name', 'InstrumentID')
-                insert_sql = insert_sql.replace('Reference_Display', 'ReferenceID')
-                insert_sql = insert_sql.replace('Lab_Facility_Name', 'LabFacilityID')
-                insert_sql = insert_sql.replace('UPb_Analysis_Method_wName', 'UPbAnalysisMethodID')
 
                 print(insert_sql)
 
