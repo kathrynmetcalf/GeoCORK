@@ -537,7 +537,8 @@ upb_possible_user_input_fields = {
         'Lab Facility Name',
         'Instrument Name',
         'UPb Analysis Method Name',
-        'Rejection Reason'
+        'Rejection Reason',
+        'Spot Size'
     ],
     'Ratios': [
         'U/Th', 'Th/U',

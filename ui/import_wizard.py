@@ -78,6 +78,8 @@ class ColumnMapDialog(QDialog):
         main_layout.addWidget(self.btn_ok)
         self.setLayout(main_layout)
 
+
+
     def on_combo_changed(self):
         """
         Triggered whenever the current index of any combo changes.
@@ -274,34 +276,41 @@ class MainWindow(QWidget):
         self.btn_add_column.clicked.connect(lambda: self.add_column(None, False))
         formats_layout.addWidget(self.btn_add_column)
 
+
+        self.get_valid_unit_formats()
+
         self.ratio_error_combobox = QComboBox()
-        self.ratio_error_combobox.setFixedWidth(100)
-        self.ratio_error_combobox.addItems(['1σ Absolute', '2σ Absolute', '1σ Percent', '1σ Percent'])
+        # self.ratio_error_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.error_formats:
+            self.ratio_error_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Ratio Error"))
         formats_layout.addWidget(self.ratio_error_combobox)
 
         self.age_error_combobox = QComboBox()
-        self.age_error_combobox.setFixedWidth(100)
-        self.age_error_combobox.addItems(['1σ Absolute', '2σ Absolute', '1σ Percent', '1σ Percent'])
+        # self.age_error_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.error_formats:
+            self.age_error_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Age Error"))
         formats_layout.addWidget(self.age_error_combobox)
 
         self.age_unit_combobox = QComboBox()
-        self.age_unit_combobox.setFixedWidth(100)
-        self.age_unit_combobox.addItems(['1σ Absolute', '2σ Absolute', '1σ Percent', '1σ Percent'])
+        # self.age_unit_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.age_formats:
+            self.age_unit_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Age Unit"))
         formats_layout.addWidget(self.age_unit_combobox)
 
-        self.spot_size_combobox = QComboBox()
-        self.spot_size_combobox.setFixedWidth(100)
-        self.spot_size_combobox.addItems(
-            ['Concordance Ratio', 'Concordance Percent', 'Discordance Ratio', 'Discordance Percent'])
-        formats_layout.addWidget(QLabel("Spot Size"))
-        formats_layout.addWidget(self.spot_size_combobox)
+        self.spot_size_unit_combobox = QComboBox()
+        # self.spot_size_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.distance_units:
+            self.spot_size_unit_combobox.addItem(display_text, backend_id)
+        formats_layout.addWidget(QLabel("Spot Size Unit"))
+        formats_layout.addWidget(self.spot_size_unit_combobox)
 
         self.conc_error_combobox = QComboBox()
-        self.conc_error_combobox.setFixedWidth(150)
-        self.conc_error_combobox.addItems(['Concordance Ratio', 'Concordance Percent', 'Discordance Ratio', 'Discordance Percent'])
+        # self.conc_error_combobox.setFixedWidth(150)
+        for display_text, backend_id in self.concordance_formats:
+            self.conc_error_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Concordance Error"))
         formats_layout.addWidget(self.conc_error_combobox)
 
@@ -405,6 +414,57 @@ class MainWindow(QWidget):
         self.combo_lab_facility_comboBox.disconnect()
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
+
+    def get_valid_unit_formats(self):
+        age_unit_query = QSqlQuery()
+        age_unit_query.prepare(
+            'SELECT AgeUnitAbbreviation, AgeUnitID From AgeUnits')
+        self.age_formats = []
+
+        if age_unit_query.exec():
+            while age_unit_query.next():
+                self.age_formats.append((age_unit_query.value(0), age_unit_query.value(1)))
+        else:
+            print("Failed to execute query:", age_unit_query.lastError().text())
+
+
+
+        distance_units_query = QSqlQuery()
+        distance_units_query.prepare(
+            'SELECT DistanceUnitAbbreviation, DistanceUnitID From DistanceUnits')
+        self.distance_units = []
+
+        if distance_units_query.exec():
+            while distance_units_query.next():
+                self.distance_units.append((distance_units_query.value(0), distance_units_query.value(1)))
+        else:
+            print("Failed to execute query:", distance_units_query.lastError().text())
+
+
+
+        concordance_units_query = QSqlQuery()
+        concordance_units_query.prepare(
+            'SELECT ConcordanceTypeAbbreviation, ConcordanceTypeID From ConcordanceTypes')
+        self.concordance_formats = []
+
+        if concordance_units_query.exec():
+            while concordance_units_query.next():
+                self.concordance_formats.append((concordance_units_query.value(0), concordance_units_query.value(1)))
+        else:
+            print("Failed to execute query:", concordance_units_query.lastError().text())
+
+
+
+        error_type_format_query = QSqlQuery()
+        error_type_format_query.prepare(
+            'SELECT ErrorTypeAbbreviation, ErrorTypeID From ErrorTypes')
+        self.error_formats = []
+
+        if error_type_format_query.exec():
+            while error_type_format_query.next():
+                self.error_formats.append((error_type_format_query.value(0), error_type_format_query.value(1)))
+        else:
+            print("Failed to execute query:", error_type_format_query.lastError().text())
 
     def validate_ids(self):
         """
@@ -1386,7 +1446,7 @@ class MainWindow(QWidget):
         # Find the right table column mapped to "Spot ID"
         if self.delimiter_checkbox.isChecked():
             spot_id_column = None
-            for col_idx, (field_name, _) in self.column_mappings.items():
+            for col_idx, (field_name) in self.column_mappings.items():
                 if field_name == "Spot Name":
                     spot_id_column = col_idx
                     break
@@ -1395,7 +1455,7 @@ class MainWindow(QWidget):
                 self.auto_split_sample_spot(spot_id_column)
         else:
             spot_id_column = None
-            for col_idx, (field_name, _) in self.column_mappings.items():
+            for col_idx, (field_name) in self.column_mappings.items():
                 if field_name == "Spot Name":
                     spot_id_column = col_idx
                     break
@@ -1609,9 +1669,11 @@ class MainWindow(QWidget):
                 else:
                     record['Rejected'] = False
 
-                record['RatioErrorTypeID'] = self.ratio_error_combobox.currentIndex()
-                record['AgeErrorTypeID'] = self.age_error_combobox.currentIndex()
-                record['ConcordanceTypeID'] = self.conc_error_combobox.currentIndex()
+                record['RatioErrorTypeID'] = self.ratio_error_combobox.itemData(self.ratio_error_combobox.currentIndex())
+                record['AgeErrorTypeID'] = self.age_error_combobox.itemData(self.age_error_combobox.currentIndex())
+                record['ConcordanceTypeID'] = self.conc_error_combobox.itemData(self.conc_error_combobox.currentIndex())
+                record['AgeUnitID'] = self.age_unit_combobox.itemData(self.age_unit_combobox.currentIndex())
+                record['SpotSizeUnitID'] = self.spot_size_unit_combobox.itemData(self.spot_size_unit_combobox.currentIndex())
 
 
                 # Populate the left-table items (sample_id, aliquot_id, spot_id)
@@ -1698,7 +1760,26 @@ class MainWindow(QWidget):
                 else:
                     print("Failed to execute query:", spot_query.lastError().text())
 
+
+
+
                 # by this point a valid Sample, Aliquot, and Spot should be created.
+
+                field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
+
+                placeholders = ', '.join(
+                    [f':{field.replace('/', '').replace('*', '').replace(' ', '_')}' for field in
+                     SQLUtils.upb_possible_database_input_fields])
+                insert_sql = f"""
+                                            INSERT INTO UPbAnalyses (
+                                                {field_names}
+                                            )
+                                            VALUES (
+                                                {placeholders}
+                                            )
+                                        """
+
+                print(insert_sql)
 
                 # Process the main columns from the mapping.
                 # In your code, you might reduce main_cols by 4 if these appended columns
@@ -1722,45 +1803,69 @@ class MainWindow(QWidget):
                     else:
                         record[field_name] = cell_text
 
-                field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
-
-                placeholders = ', '.join(
-                    [f':{field.replace('/', '').replace('*', '').replace(' ', '_')}' for field in SQLUtils.upb_possible_database_input_fields])
-                insert_sql = f"""
-                            INSERT INTO UPbAnalyses (
-                                {field_names}
-                            )
-                            VALUES (
-                                {placeholders}
-                            )
-                        """
-
-                print(insert_sql)
-
                 # Finally insert the row
                 insert_query = QSqlQuery()
 
                 if not insert_query.prepare(insert_sql):
                     print("Failed to execute prepare:", insert_query.lastError().text())
-                    sys.exit(1)
                 record_count = 0
-                print("Keys in Record:", list(record.keys()))
                 for key, value in record.items():
                     if key == "Sample Name" or key == "SampleID" or key == "Aliquot Name" or key == "AliquotID" or key == "Spot Name":
                         continue
-                    # todo spot ID is being inputted iwht Spot Name
-                    print(f"Binding: {key} | :{key.replace('/', '').replace('*', '').replace(' ', '_')}  -> {value}")
                     insert_query.bindValue(f":{key.replace('/', '').replace('*', '').replace(' ', '_')}", value)
                     record_count += 1
-                print('binded record count:', record_count)
                 if not insert_query.exec():
-
                     print(f"Error executing query: {insert_query.lastError().text()}")
                     print(insert_query.executedQuery())
                     for value in insert_query.boundValues():
                         print(value)
 
+                # Find matching Rejection Reasons, unique collate no case rejection reasons table
+                # if found utilize that ID, else create one, then create association in many-to-many table
+
+                record['UPbAnalysisID'] = insert_query.lastInsertId()
+                if 'Rejection Reason' in record:
+                    if record['Rejection Reason'] is not None:
+                        # Find matching Rejection Reasons, unique collate no case rejection reasons table
+                        # if found utilize that ID, else create one, then create assoication in many-to-many table
+                        # Find matching SpotID or create new
+                        rejection_query = QSqlQuery()
+                        rejection_query.prepare(
+                            'SELECT RejectionReasonID FROM RejectionReasons WHERE RejectionReasonName=:name COLLATE NOCASE')
+                        rejection_query.bindValue(":name", record["Rejection Reason"])
+
+                        if rejection_query.exec():
+                            if rejection_query.next():
+                                # found matching spot name in database, will use that spot ID
+                                record["RejectionReasonID"] = rejection_query.value(---0)
+                            else:
+                                # no matching samplename in database, will create new one.
+                                create_rejection = QSqlQuery()
+                                create_rejection.prepare(
+                                    'INSERT INTO RejectionReasons (RejectionReasonName) VALUES (:name)')
+                                create_rejection.bindValue(":name", record["Rejection Reason"])
+
+                                if not create_rejection.exec():
+                                    print("Failed to execute query:", create_rejection.lastError().text())
+                                else:
+                                    record["RejectionReasonID"] = create_rejection.lastInsertId()
+
+                                # no matching samplename in database, will create new one.
+                                create_upb_rejection_assoc = QSqlQuery()
+                                create_upb_rejection_assoc.prepare(
+                                    'INSERT INTO UPbAnalyses_RejectionReasons (UPbAnalysisID, RejectionReasonID) VALUES (:upb_analysis_id, :rejection_reason_id)')
+                                create_upb_rejection_assoc.bindValue(":upb_analysis_id", record["UPbAnalysisID"])
+                                create_upb_rejection_assoc.bindValue(":rejection_reason_id", record["RejectionReasonID"])
+
+                                if not create_upb_rejection_assoc.exec():
+                                    print("Failed to execute query:", create_upb_rejection_assoc.lastError().text())
+
+                        else:
+                            print("Failed to execute query:", rejection_query.lastError().text())
+
                 inserted_count += 1
+
+
 
             # Database_manager.release_savepoint('before_upb_import')
             QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
