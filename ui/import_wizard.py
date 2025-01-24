@@ -14,7 +14,8 @@ from openpyxl.styles import Font, Color, PatternFill
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
-    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox
+    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
+    QProgressDialog
 )
 from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QBrush, QColor, QFont
@@ -227,7 +228,7 @@ class MainWindow(QWidget):
         self.combo_instrument = self.set_table(self.combo_instrument, "Instruments")
         self.combo_instrument_comboBox.setModel(self.combo_instrument)
         self.combo_instrument_comboBox.closing.connect(
-            lambda: self.set_all_rows("Instument Name", self.combo_instrument))
+            lambda: self.set_all_rows("Instrument Name", self.combo_instrument))
         combo_box_layout.addWidget(QLabel("Instrument"))
         combo_box_layout.addWidget(self.combo_instrument_comboBox)
         self.combo_instrument_comboBox.set_line_edit_text(None)
@@ -1257,7 +1258,6 @@ class MainWindow(QWidget):
         id_column = field_to_column.get(id_name)
         name_column = field_to_column.get(field)
 
-        # todo change this to set Checked data in the source model.
         self.right_table.blockSignals(True)
         for row in range(self.right_table.rowCount()):
             id_item = self.right_table.item(row, id_column)
@@ -1267,6 +1267,25 @@ class MainWindow(QWidget):
                 id_item.setText(str(checked_item_id))
 
             name_item: CheckableComboBox = self.right_table.cellWidget(row, name_column)
+
+            def get_deep_size(obj, seen=None):
+                """Recursively calculates the memory size of an object."""
+                if seen is None:
+                    seen = set()
+
+                obj_id = id(obj)
+                if obj_id in seen:
+                    return 0  # Avoid double-counting
+                seen.add(obj_id)
+
+                size = sys.getsizeof(obj)
+                if isinstance(obj, dict):
+                    size += sum(get_deep_size(k, seen) + get_deep_size(v, seen) for k, v in obj.items())
+                elif isinstance(obj, (list, tuple, set, frozenset)):
+                    size += sum(get_deep_size(i, seen) for i in obj)
+
+                return size
+            print('name_item size is', get_deep_size(name_item))
             #set all rows in each combobox to unchecked
             for modelrow in range(name_item.model().rowCount()):
                 modelindex = name_item.model().index(modelrow, name_col)
@@ -1444,6 +1463,8 @@ class MainWindow(QWidget):
         Update the left table's Sample ID and Spot ID columns whenever the delimiter value changes.
         """
         # Find the right table column mapped to "Spot ID"
+        # todo this is breaking when sample name and spot name are both set
+
         if self.delimiter_checkbox.isChecked():
             spot_id_column = None
             for col_idx, (field_name) in self.column_mappings.items():
@@ -1654,14 +1675,25 @@ class MainWindow(QWidget):
         if row_count == 0:
             QMessageBox.warning(self, "No Data", "There are no rows to import.")
             return
+        else:
+            # Create a modal progress dialog
+            progress_dialog = QProgressDialog(
+                "Importing data...", "Cancel", 0, row_count, self
+            )
 
         # savepoint_manager = SavepointManager.get_instance()
         # Database_manager.create_savepoint('before_upb_import')
 
         inserted_count = 0
-
         try:
             for row_idx in range(row_count):
+                progress_dialog.setValue(row_idx + 1)
+                # Let the event loop process the dialog's updates
+                QApplication.processEvents()
+                # If the user clicked "Cancel", we can break out
+                if progress_dialog.wasCanceled():
+                    break
+
                 # Build a record dict with every key initialized to None
                 record = {field: None for field in SQLUtils.upb_possible_database_input_fields}
                 if row_idx in self.rejected_rows:

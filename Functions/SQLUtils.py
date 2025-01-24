@@ -532,6 +532,8 @@ upb_possible_database_input_fields = [
 
 upb_possible_user_input_fields = {
     'Base Info': [
+        'Sample Name',
+        'Aliquot Name',
         'Spot Name',
         'Reference Display',
         'Lab Facility Name',
