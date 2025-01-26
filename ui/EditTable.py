@@ -17,7 +17,7 @@ from ui.New_reference import NewReference
 
 
 class EditTable(QtW.QDialog):
-    def __init__(self, model, table_name):
+    def __init__(self, table_name):
         super().__init__()
 
         self.edit_tableView: QtW.QTableView

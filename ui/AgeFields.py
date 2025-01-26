@@ -577,7 +577,7 @@ class AgeFields(QtW.QWidget):
             set_table(table_model, table)
             dlg = EditTree(table_model, table)
         elif isinstance(model, QtS.QSqlTableModel | QtS.QSqlQueryModel):
-            dlg = EditTable(model, table)
+            dlg = EditTable(table)
         else:
             print(f'Unknown model type: {type(model)}')
             return

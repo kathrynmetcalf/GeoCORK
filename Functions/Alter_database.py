@@ -82,7 +82,7 @@ def populate_generated_columns():
     # Affected list format: [table, unit/type ID header, column1, column2, ...]
     # Save age errors to handle both age unit and age error type
     age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge'],
-                         ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge']]
+                         ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge', 'BestAge']]
     elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
     gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
     heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'], ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]

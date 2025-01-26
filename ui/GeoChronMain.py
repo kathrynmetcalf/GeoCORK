@@ -35,7 +35,7 @@ from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.Filters import QueryBuilder
 from ui.SampleInformation import  SampleInformation
-from ui.Settings import default_settings, update_settings, user_settings
+from ui.Settings import default_settings, update_setting
 import Functions.Check_triggers as Ct
 import time
 
@@ -95,9 +95,10 @@ class GeoChron(QtW.QMainWindow):
         print(f"Retrieve view time: {retrieve_view_end - retrieve_view_begin}")
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = TbC.DisplayRoundedModel()
+        self.query_model = TbC.DisplayRoundedQueryModel()
         self.tree_model = TrC.TreeModel()
         self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
-        self.table_proxy_model = QtC.QSortFilterProxyModel()
+        self.table_proxy_model = TbC.ReadableProxyModel()
         self.table = ''
         self.display_table_list()
 
@@ -206,23 +207,6 @@ class GeoChron(QtW.QMainWindow):
             TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
         self.previous_table = self.table
 
-        # if self.table == 'Samples':
-        #     self.switch_to_table()
-        #     self.edit_samples_pushButton.show()
-        #     # for col in range(self.sample_model.columnCount()):
-        #     #     header = TxM.add_spaces_camel(
-        #     #         self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-        #     #     self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
-        #
-        #     self.sample_proxy_model.setSourceModel(self.sample_model)
-        #     self.sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
-        #     self.dbTable_tableView.setModel(self.sample_proxy_model)
-        #     self.dbTable_tableView.hideColumn(0)  # don't show ID column
-        #     self.dbTable_tableView.verticalHeader().hide()
-        #     self.dbTable_tableView.resizeColumnsToContents()
-        #     self.dbTable_tableView.setSortingEnabled(True)
-        #     self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-
         if self.table in self.dbtree_list:
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
@@ -250,23 +234,25 @@ class GeoChron(QtW.QMainWindow):
         elif self.table in self.dbtable_list:
             self.switch_to_table()
             if self.table == 'Samples':
-                self.model.setTable('SampleView')
+                self.query_model.setQuery('SELECT * FROM SampleView')
+                self.table_proxy_model.setSourceModel(self.query_model)
                 self.edit_samples_pushButton.show()
             else:
                 self.edit_samples_pushButton.hide()
                 if self.table == 'Columns':
-                    self.model.setTable('ColumnView')
+                    self.query_model.setQuery('SELECT * FROM ColumnView')
+                    self.table_proxy_model.setSourceModel(self.query_model)
                 else:
                     self.model.setTable(table)
-            self.model.select()
-            self.table_proxy_model.setSourceModel(self.model)
-            for col in range(self.table_proxy_model.columnCount()):
-                header = self.table_proxy_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-                if 'ID' in header and col != 0:
-                    # Leave ID in the first column but remove it for foreign key references
-                    header = header.replace('ID', '')
-                header = TxM.add_spaces_camel(header)
-                self.table_proxy_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+                    self.model.select()
+                    self.table_proxy_model.setSourceModel(self.model)
+            # for col in range(self.table_proxy_model.columnCount()):
+            #     header = self.table_proxy_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            #     if 'ID' in header and col != 0:
+            #         # Leave ID in the first column but remove it for foreign key references
+            #         header = header.replace('ID', '')
+            #     header = TxM.add_spaces_camel(header)
+            #     self.table_proxy_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
             # if self.case_checkBox.isChecked():
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
             # else:
@@ -298,7 +284,7 @@ class GeoChron(QtW.QMainWindow):
         # else:
 
         # self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        # self.treWe_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        # self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         # self.tree_proxy_model.setRecursiveFilteringEnabled(True)
         # self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
@@ -358,7 +344,7 @@ class GeoChron(QtW.QMainWindow):
             TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
             dlg = EditTree(self.db, self.model, self.table)
         else:
-            dlg = EditTable(self.model, self.table)
+            dlg = EditTable(self.table)
         dlg.exec()
         self.display_table()
 
@@ -404,7 +390,7 @@ class GeoChron(QtW.QMainWindow):
             if dlg_args:
                 dlg = EditTree(self.db, self.tree_model.source_model, self.dbTable_comboBox.currentText())
         else:
-            dlg = EditTable(self.model, self.table)
+            dlg = EditTable(self.table)
         if not dlg:
             return
         dlg.add_popup(*dlg_args)
