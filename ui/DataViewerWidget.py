@@ -15,6 +15,7 @@ import Functions.Tree_classes as TrC
 from Functions import SQLUtils
 from Functions.Tree_classes import TreeSortFilterProxyModel
 from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 
 
 class DataViewerWidget(QWidget):
@@ -66,11 +67,11 @@ class DataViewerWidget(QWidget):
 
         # Pagination variables
         self.current_page_1 = 0
-        self.rows_per_page_1 = 50
+        self.rows_per_page_1 = 255
         self.total_records_1 = self.get_total_records_1()
 
         self.current_page_2 = 0
-        self.rows_per_page_2 = 250
+        self.rows_per_page_2 = 255
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
 
         # display sample table information first time
@@ -99,14 +100,20 @@ class DataViewerWidget(QWidget):
                                       self.dbTable_comboBox_2,
                                       self.edit_pushButton_2, self.dbTable_tableView, table_type)))
         # Signal for clicked add button in main window
-        self.edit_pushButton.clicked.connect(
-            lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
-                                       self.dbTable_comboBox, self.edit_pushButton))
-        self.edit_pushButton_2.clicked.connect(
-            lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                                       self.dbTable_comboBox_2, self.edit_pushButton_2))
+        self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.dbTable_comboBox_2.currentText()))
+        self.edit_pushButton_2.clicked.connect(lambda: self.edit_popup(self.dbTable_comboBox_2.currentText()))
 
         self.show()
+    # def edit_popup(self, table):
+    #     if table == 'Aliquots' or table == 'Spots' or table == 'UPbAnalyses':
+    #         return
+    #     elif table in SQLUtils.user_viewable_trees:
+    #         TrC.save_expanded_state(table, self.dbTable_tableView_2.model(), self.dbTable_tableView_2)
+    #         dlg = EditTree(self.dbTable_tableView_2.model().sourceModel(), table)
+    #     else:
+    #         dlg = EditTable(table)
+    #     dlg.exec()
+    #     # self.display_table()
 
     def closeEvent(self, a0):
         self.saveWindowState()
@@ -437,13 +444,10 @@ class DataViewerWidget(QWidget):
                         table_condition = f" WHERE Samples.SampleID IN ({', '.join(condition_ids)})"
                     elif table_type == 'aliquot':
                         table_condition = f" WHERE Aliquots.AliquotID IN ({', '.join(condition_ids)})"
-                        sql += SQLUtils.get_join_from_table(['Aliquots'])
                     elif table_type == 'spot':
                         table_condition = f" WHERE Spots.SpotID IN ({', '.join(condition_ids)})"
-                        sql += SQLUtils.get_join_from_table(['Spots'])
                     elif table_type == 'upbdata':
                         table_condition = f" WHERE UPbAnalyses.UPbAnalysisID IN ({', '.join(condition_ids)})"
-                        sql += SQLUtils.get_join_from_table(['UPbAnalyses'])
                     # "(19,39,58)"
 
                 sql += table_condition
@@ -456,6 +460,9 @@ class DataViewerWidget(QWidget):
                         row_id = query.value(0)
                         if row_id is not None and row_id is not '':
                             ids_to_show.append(str(row_id))
+                else:
+                    print(sql)
+                    print("Failed to execute query:", query.lastError().text())
 
                 # Update the id_condition attribute
 
@@ -498,6 +505,7 @@ class DataViewerWidget(QWidget):
             model = QtS.QSqlQueryModel()
             table_proxy_model = QSortFilterProxyModel()
 
+            # todo would be nice to switch these table[0:-1] entries and LabFac UPbAnalys to be a dict lookup from SQLUtils
             if table == "LabFacilities":
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE LabFacilityID IN {self.id_condition} ORDER BY LabFacilityID LIMIT {self.rows_per_page_2} OFFSET {offset}")
@@ -523,17 +531,16 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, table_proxy_model))
-            print('Final Table With Sample Filter Query:', model.query().lastQuery())
 
         else:
             print(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 
-        self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
-        # Update page info label
-        start_record = offset + 1
-        end_record = min(offset + self.rows_per_page_2, self.total_records_2)
-        self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
-        edit_pushButton.setText(f"Edit {table_name}")
+        # self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+        # # Update page info label
+        # start_record = offset + 1
+        # end_record = min(offset + self.rows_per_page_2, self.total_records_2)
+        # self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
+        # edit_pushButton.setText(f"Edit {table_name}")
 
 
     def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):
