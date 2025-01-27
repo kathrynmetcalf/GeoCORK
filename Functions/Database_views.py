@@ -586,11 +586,3 @@ def drop_view(view: str):
     if not query.exec(f'DROP VIEW IF EXISTS {view}'):
         print(f'Failed to drop {view}: {query.lastError().text()}')
         return False
-
-
-if __name__ == '__main__':
-    db_file = '../TestSchema.db'
-    conn = sqlite3.connect(db_file)
-    with conn:
-        c = conn.cursor()
-        create_sample_view(c)

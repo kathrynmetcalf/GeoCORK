@@ -21,7 +21,6 @@ class AddTags(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "AddTags.ui")
         loadUi(sources_ui_file, self)
 
-        self.db = database
         self.model = model
         self.table = table
         self.table_name = TxM.add_spaces_camel(self.table)

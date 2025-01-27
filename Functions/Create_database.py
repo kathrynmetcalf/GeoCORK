@@ -1,6 +1,5 @@
 import xml.etree.ElementTree as ET  # xml reader
-import Functions.Create_triggers as CT # triggers
-import Functions.DB_views as DBV # views
+
 import Functions.SQLUtils as SQLUtils
 import sys, os
 
@@ -493,7 +492,8 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleDescription TEXT,
                     SampleCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SampleName COLLATE NOCASE, SampleIGSN COLLATE NOCASE), 
+                    UNIQUE (SampleName COLLATE NOCASE),
+                    UNIQUE (SampleIGSN COLLATE NOCASE), 
                     FOREIGN KEY(SampleGPSLocationID) REFERENCES GPSLocations(GPSLocationID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 

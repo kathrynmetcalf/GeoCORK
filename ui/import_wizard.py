@@ -120,7 +120,7 @@ class ColumnMapDialog(QDialog):
 
 
 
-class MainWindow(QWidget):
+class ImportWizardDialog(QWidget):
     """
     Main window of the application:
       - Left table (pinned): Sample ID, Aliquot ID, Spot ID (editable).
@@ -130,38 +130,35 @@ class MainWindow(QWidget):
     """
     def __init__(self):
         super().__init__()
-        db = QSqlDatabase.addDatabase("QSQLITE")
-        db.setDatabaseName("yrrfgs.db")
-        db.open()
 
-        test = QSqlQuery()
-        test.prepare(f"pragma foreign_keys = OFF")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"pragma foreign_keys = OFF")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
+        #
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM Samples")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM Aliquots")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM Spots")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
+        # test = QSqlQuery()
+        # test.prepare(f"DELETE FROM UPbAnalyses")
+        # if not test.exec():
+        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
+        #     sys.exit(1)
 
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM Samples")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM Aliquots")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM Spots")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
-        test = QSqlQuery()
-        test.prepare(f"DELETE FROM UPbAnalyses")
-        if not test.exec():
-            QMessageBox.critical(self, "Error", "Failed to connect to database.")
-            sys.exit(1)
-
-        self.setWindowTitle("UPb Importer (Left & Right Tables + Context Menus)")
+        self.setWindowTitle("UPb Import Wizard")
         self.setGeometry(100, 100, 1500, 600)
 
         main_layout = QVBoxLayout(self)
@@ -1910,6 +1907,6 @@ class MainWindow(QWidget):
 if __name__ == "__main__":
 
     app = QApplication(sys.argv)
-    window = MainWindow()
+    window = ImportWizardDialog()
     window.show()
     sys.exit(app.exec())
