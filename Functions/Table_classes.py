@@ -11,13 +11,13 @@ from collections import namedtuple
 
 from PyQt6.QtCore import QMetaType
 
+from Functions.SQLUtils import abbreviations
 from Functions.Settings_manager import settings
 from Functions import SQLUtils
 import Functions.Text_manipulations as TxM
-from Functions import Database_views as DB_views
 from Functions import Check_triggers
 import Functions.Alter_database as Alter_db
-from ui.AddTags import AddTags
+from ui.Settings import return_abbreviations
 
 # from PyQt6.QtSql import rollback
 from PyQt6.sip import delete
@@ -151,6 +151,7 @@ class VerifiableSqlTableModel(DisplayRoundedModel):
                 return False
         if super().submit():
             self.row_submitted.emit(current_row)
+            Alter_db.update_generated_columns(self.tableName())
             self.edited_indexes = []
             self.submitError = ''
             self.headerToFix = ''
@@ -220,15 +221,15 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
         for column in range(1, self.columnCount()):
             header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             value = self.unrounded_data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
-            if header == 'Total Height/Depth':
-                set_header = 'ColumnTotalHeightDepth'
-                set_value = value
-            elif 'Unit' in header:
+            # if header == 'Total Height/Depth':
+            #     set_header = 'ColumnTotalHeightDepth'
+            #     set_value = value
+            if 'Unit' in header:
                 set_header = 'ColumnTotalHeightDepthUnitID'
                 set_table(foreign_table, 'DistanceUnits')
                 foreign_table.setFilter(f'DistanceUnitAbbreviation="{value}"')
                 set_value = foreign_table.record(0).value('DistanceUnitID')
-            elif header == 'Column Base GPS':
+            elif 'GPS' in header:
                 set_header = 'ColumnBaseGPSID'
                 query = QtS.QSqlQuery()
                 query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"')
@@ -256,6 +257,7 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
         if not query.exec():
             print(f'Failed to update {self.table} with {column_str}={value_str}')
             return False
+        Alter_db.update_generated_columns(self.table)
         self.row_submitted.emit(current_row)
         self.edited_indexes = []
         self.submitError = ''
@@ -282,128 +284,82 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self):
         super().__init__()
 
-    def setSourceModel(self, model):
-        super().setSourceModel(model)
-        self.readable_headers(model)
-
-    def readable_headers(self, model):
-        headers = []
-        for col in range(model.columnCount()):
-            header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
+        if role == QtC.Qt.ItemDataRole.DisplayRole and orientation == QtC.Qt.Orientation.Horizontal:
+            header = super().headerData(section, orientation, role)
+            abbreviations = return_abbreviations()
             if 'ID' in header:
-                header.replace('ID', '')
-            headers.append(TxM.add_spaces_camel(header))
-        return headers
+                if 'Elev' in header:
+                    header.replace('ID', f'({abbreviations['elevation_unit']})')
+                elif 'AgeUnit' in header:
+                    header.replace('ID', f'({abbreviations['age_unit']})')
+                elif 'RatioErrorFormat' in header:
+                    header.replace('ID', f'({abbreviations['ratio_error_format']})')
+                elif 'AgeErrorFormat' in header:
+                    header.replace('ID', f'({abbreviations['age_error_format']})')
+                elif 'Height' in header:
+                    header.replace('ID', f'({abbreviations['heightdepth_unit']})')
+                elif 'GPSFormat' in header:
+                    header.replace('ID', f'({abbreviations['gps_format']})')
+                elif 'SpotSize' in header:
+                    header.replace('ID', f'({abbreviations['spotsize_unit']})')
+                elif 'ConcordanceFormat' in header:
+                    header.replace('ID', f'({abbreviations['concordance_format']})')
+            if 'GPSLocationConverted' in header:
+                header = 'GPS Location'
+            elif 'GPSElev || ' in header:
+                header = f'Elevation ({abbreviations['elevation_unit']})'
+            elif 'TotalHeightDepth' in header:
+                header = f'Total Height/Depth ({abbreviations['heightdepth_unit']})'
+            elif 'HeightDepth' in header:
+                header = f'Height/Depth ({abbreviations['heightdepth_unit']})'
+            elif 'AgeDisplay' in header:
+                header = f'Age ({abbreviations['age_unit']})'
+            elif 'AgeReferences' in header:
+                header = 'Age References'
+            elif 'SUM' in header:
+                header = 'Accepted/TotalUPbAnalayses'
+            elif 'COUNT' in header and 'SpotID' in header:
+                header = 'Number of Spots'
+            elif 'SpotSize' in header:
+                header = f'Spot Size ({abbreviations['spotsize_unit']})'
+            elif 'DISTINCT' in header:
+                # Form is 'GROUP_CONCAT(DISTINCT table.column)' or 'GROUP_CONCAT(DISTINCT column)', get column
+                if '.' in header:
+                    header = header.split('(')[1].split(')')[0].split('.')[-1]
+                else:
+                    header = header.split('(')[1].split(')')[0].split(' ')[-1]
+            if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
+                header = header.replace('Name', '')
+                if header.endswith('y'):
+                    header = header[:-1] + 'ies'
+                elif header.endswith('is'):
+                    header = header[:-2] + 'es'
+                else:
+                    header += 's'
+            if 'Abbreviation' in header:
+                header = header.replace('Abbreviation', '')
+            if 'Display' in header:
+                header = header.replace('Display', '')
+            if 'Calculated' in header:
+                header = header.replace('Calculated', '')
+            if 'ppm' in header:
+                header = header.replace('ppm', '(ppm)')
+            if 'cps' in header:
+                header = header.replace('cps', '(cps)')
+            header = TxM.add_spaces_camel(header)
+            return header
+        super().headerData(section, orientation, role)
 
-
-
-class AliquotTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self):
-        # Select lines
-        aliquots = 'AliquotName as "Aliquots"'
-        aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Contexts"'
-        spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
-        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
-        spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) as "References"'
-        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
-        labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-
-        aliquot_query = f'''
-                    SELECT
-                        Aliquots.AliquotID,
-                        {aliquots},
-                        {aliquot_context},
-                        {spots},
-                        {spot_context},
-                        {spot_compositions},
-                        {references},
-                        {upb_methods},
-                        {labs}
-                    FROM Aliquots
-                    {SQLUtils.aliquot_context_join}
-                    {SQLUtils.spot_join}
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.upb_data_join}
-                    {SQLUtils.reference_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.labs_join}
-                    GROUP BY AliquotName
-                    ORDER BY Aliquots.AliquotID
-                    '''
-        return aliquot_query
-
-
-class SpotTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self, ids_to_show):
-        # Select lines
-        spots = 'SpotName as "Spots"'
-        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
-        spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) as "References"'
-        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
-        labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-
-        spot_query = f'''
-                    SELECT
-                        Spots.SpotID,
-                        {spots},
-                        {spot_context},
-                        {spot_compositions},
-                        {references},
-                        {upb_methods},
-                        {labs}
-                    FROM Spots
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.upb_analysis_join}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_labs_join}
-                    GROUP BY SpotName
-                    ORDER BY Spots.SpotID
-                    '''
-
-        return spot_query
-
-def GPSIfNullQuery():
-    gps_ifnull_query = f'''
-    SELECT 
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatDeg, "Null")) as "Latitude Degrees",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatMin, "Null")) as "Latitude Minutes",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatSec, "Null")) as "Latitude Seconds",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLatDirectionID, "Null")) as "Latitude Direction",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonDeg, "Null")) as "Longitude Degrees",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonMin, "Null")) as "Longitude Minutes",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonSec, "Null")) as "Longitude Seconds",
-    GROUP_CONCAT(DISTINCT ifnull(GPSLonDirectionID, "Null")) as "Longitude Direction",
-    GROUP_CONCAT(DISTINCT ifnull(GPSUTMZone, "Null")) as "UTM Zone",
-    GROUP_CONCAT(DISTINCT ifnull(GPSUTMN, "Null")) as "UTM Northing",
-    GROUP_CONCAT(DISTINCT ifnull(GPSUTME, "Null")) as "UTM Easting",
-    GROUP_CONCAT(DISTINCT ifnull(GPSFormatID, "Null")) as "GPS Format",
-    GROUP_CONCAT(DISTINCT ifnull(GPSElev, "Null")) as "Elevation",
-    GROUP_CONCAT(DISTINCT ifnull(GPSElevError, "Null")) as "Elevation Error",
-    GROUP_CONCAT(DISTINCT ifnull(GPSElevUnitID, "Null")) as "Elevation Unit"
-    FROM GPSLocations
-    '''
-    return gps_ifnull_query
-
-def SampleAgeIfNullQuery():
-    sample_age_ifnull_query = f'''
-    SELECT 
-    GROUP_CONCAT(DISTINCT ifnull(DirectAge, "Null")) as "Direct Ages",
-    GROUP_CONCAT(DISTINCT ifnull(DirectAgeError, "Null")) as "Direct Age Errors",
-    GROUP_CONCAT(DISTINCT ifnull(DirectAgeErrorFormatID, "Null")) as "Direct Age Error Formats",
-    GROUP_CONCAT(DISTINCT ifnull(OldestDirectAge, "Null")) as "Oldest Direct Ages",
-    GROUP_CONCAT(DISTINCT ifnull(YoungestDirectAge, "Null")) as "Youngest Direct Ages",
-    GROUP_CONCAT(DISTINCT ifnull(DirectAgeUnitID, "Null")) as "Direct Age Units",
-    GROUP_CONCAT(DISTINCT ifnull(OldestAgeID, "Null")) as "Oldest Age IDs",
-    GROUP_CONCAT(DISTINCT ifnull(YoungestAgeID, "Null")) as "Youngest Age IDs",
-    GROUP_CONCAT(DISTINCT ifnull(SampleAgeDescription, "Null")) as "Sample Age Descriptions"
-    FROM SampleAges
-    '''
-    return sample_age_ifnull_query
+def get_headers(table: str):
+    query = QtS.QSqlQuery()
+    if not query.exec(f'PRAGMA table_info("{table}")'):
+        print(f"Failed to get headers for {table}")
+        return []
+    headers = []
+    while query.next():
+        headers.append(query.value(1))
+    return headers
 
 def get_columns(table: str):
     query = QtS.QSqlQuery()
@@ -441,6 +397,24 @@ def name_column(table: str):
         return 1
     else:
         return None
+
+def get_name_from_id(table: str, id: int):
+    query = QtS.QSqlQuery()
+    headers = get_headers(table)
+    if not query.exec(f'SELECT {headers[name_column(table)]} FROM {table} WHERE {headers[0]}={id}'):
+        print(f"Failed to get name for {id} in {table}")
+        return None
+    query.next()
+    return query.value(0)
+
+def get_id_from_name(table: str, name: str):
+    query = QtS.QSqlQuery()
+    headers = get_headers(table)
+    if not query.exec(f'SELECT {headers[0]} FROM {table} WHERE {headers[name_column(table)]}="{name}"'):
+        print(f"Failed to get ID for {name} in {table}")
+        return None
+    query.next()
+    return query.value(0)
 
 def get_column_types(table: str):
     query = QtS.QSqlQuery()

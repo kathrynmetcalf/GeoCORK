@@ -313,7 +313,7 @@ def check_update_pairs(all_records: list, column1, column2):
     return None, None
 
 def check_gps_format_insert(pairs: list, format_id: int):
-    if not pairs or format_id:
+    if not pairs or not format_id:
         return 'Incomplete data given for GPS location'
     gps_format_model = QtS.QSqlTableModel()
     gps_format_model.setTable('GPSFormats')

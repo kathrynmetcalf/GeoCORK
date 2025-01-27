@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QGroupBox, QLabel,
     QInputDialog, QMessageBox, QScrollArea, QSizePolicy, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem
 )
+from PyQt6.uic import loadUi
 
 from Functions import SQLUtils
 from ui.DataViewerWidget import DataViewerWidget
@@ -231,6 +232,13 @@ def parse_sql_to_structure(sql):
 
     return parse_expression(sql)
 
+class Filters(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        sources_ui_file = "ui/Filters.ui"
+        loadUi(sources_ui_file, self)
+        self.querybuilder = QueryBuilder(self)
+        self.horizontalLayout_2.addWidget(self.querybuilder)
 
 class InsertFilterGroupDialog(QDialog):
     def __init__(self, sql_structure, db_file, parent=None):

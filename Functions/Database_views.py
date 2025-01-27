@@ -1,9 +1,11 @@
 import sqlite3
 
 from PyQt6 import QtSql as QtS
-
+from PyQt6 import QtCore as QtC
+from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
 from Functions.SQLUtils import gps_column_join
+from Functions.Table_classes import set_table, get_headers
 
 
 
@@ -28,7 +30,6 @@ def SampleViewQuery(ids_to_show=None):
                     {SQLUtils.qsample_age_references},
                     {SQLUtils.qcolumn_name},
                     {SQLUtils.qcolumn_data},
-                    {SQLUtils.qreferences},
                     {SQLUtils.qage_signature},
                     {SQLUtils.qregions},
                     {SQLUtils.qrock_types},
@@ -38,10 +39,11 @@ def SampleViewQuery(ids_to_show=None):
                     {SQLUtils.qunits},
                     {SQLUtils.qaliquots},
                     {SQLUtils.qaliquot_contexts},
-                    {SQLUtils.qspots},
+                    {SQLUtils.qspot_count},
                     {SQLUtils.qspot_compositions},
                     {SQLUtils.qspot_contexts},
-                    {SQLUtils.qlab_facilities},
+                    {SQLUtils.qupb_count},
+                    {SQLUtils.qupb_lab_facilities},
                     {SQLUtils.qupb_analysis_methods},
                     {SQLUtils.qupb_ratio_error_formats},
                     {SQLUtils.qupb_age_units},
@@ -49,6 +51,7 @@ def SampleViewQuery(ids_to_show=None):
                     {SQLUtils.qconcordance_formats},
                     {SQLUtils.qspot_sizes},
                     {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_references},
                     {SQLUtils.qsample_created},
                     {SQLUtils.qsample_modified}
                 FROM Samples
@@ -65,12 +68,12 @@ def SampleViewQuery(ids_to_show=None):
                 {SQLUtils.sample_age_left_joins}
                 {SQLUtils.gps_sample_join}
                 {SQLUtils.gps_column_join}
-                {SQLUtils.aliquot_join}
+                {SQLUtils.sample_aliquot_join}
                 {SQLUtils.aliquot_context_join}
-                {SQLUtils.spot_join}
+                {SQLUtils.aliquot_spot_join}
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
-                {SQLUtils.upb_analysis_join}
+                {SQLUtils.spot_upb_analysis_join}
                 {SQLUtils.upb_reference_join}
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
@@ -96,7 +99,7 @@ def SampleIfNullQuery():
         {SQLUtils.qsample_name_ifnull},
         {SQLUtils.qigsn_ifnull},
         {SQLUtils.qsample_gps_id_ifnull},
-        {SQLUtils.qcolumn_name_ifnull},
+        {SQLUtils.qcolumn_names_ifnull},
         {SQLUtils.qheight_depth_ifnull},
         {SQLUtils.qheight_depth_error_ifnull},
         {SQLUtils.qheight_depth_unit_ifnull},
@@ -147,12 +150,12 @@ def SampleIfNullQuery():
     {SQLUtils.gps_sample_left_joins}
     {SQLUtils.gps_column_join}
     {SQLUtils.gps_column_left_joins}
-    {SQLUtils.aliquot_join}
+    {SQLUtils.sample_aliquot_join}
     {SQLUtils.aliquot_context_join}
-    {SQLUtils.spot_join}
+    {SQLUtils.aliquot_spot_join}
     {SQLUtils.spot_composition_join}
     {SQLUtils.spot_context_join}
-    {SQLUtils.upb_analysis_join}
+    {SQLUtils.spot_upb_analysis_join}
     {SQLUtils.upb_reference_join}
     {SQLUtils.upb_labs_join}
     {SQLUtils.upb_instruments_join}
@@ -167,136 +170,280 @@ def SampleIfNullQuery():
     # print(sample_ifnull_query)
     return sample_ifnull_query
 
-def ColumnIfNullQuery():
-    column_ifnull_query = f'''
-    SELECT 
-        {SQLUtils.qcolumn_id},
-        {SQLUtils.qcolumn_gps_id_ifnull},
-        {SQLUtils.qcolumn_gps_converted_ifnull},
-        {SQLUtils.qcolumn_lat_deg_ifnull},
-        {SQLUtils.qcolumn_lat_min_ifnull},
-        {SQLUtils.qcolumn_lat_sec_ifnull},
-        {SQLUtils.qcolumn_lat_dir_ifnull},
-        {SQLUtils.qcolumn_lon_deg_ifnull},
-        {SQLUtils.qcolumn_lon_min_ifnull},
-        {SQLUtils.qcolumn_lon_sec_ifnull},
-        {SQLUtils.qcolumn_lon_dir_ifnull},
-        {SQLUtils.qcolumn_utm_zone_ifnull},
-        {SQLUtils.qcolumn_utm_northing_ifnull},
-        {SQLUtils.qcolumn_utm_easting_ifnull},
-        {SQLUtils.qcolumn_gps_format_id_ifnull},
-        {SQLUtils.qcolumn_gps_format_ifnull},
-        {SQLUtils.qcolumn_gps_elev_ifnull},
-        {SQLUtils.qcolumn_gps_elev_error_ifnull},
-        {SQLUtils.qcolumn_gps_elev_unit_ifnull}
-    FROM Columns
-    {SQLUtils.gps_column_join}
-    {SQLUtils.gps_column_left_joins}
-    '''
-    return column_ifnull_query
-
 def AliquotViewQuery(sample_ids: list):
     if len(sample_ids) == 1:
-        where_statement = f'WHERE SampleID = {sample_ids[0]}'
+        where_statement = f'WHERE Samples.SampleID = {sample_ids[0]}'
     else:
-        where_statement = f'WHERE SampleID IN {tuple(sample_ids)}'
-    # Select columns
-    aliquots = 'AliquotName as "Aliquots"'
-    aliquot_context = 'GROUP_CONCAT(DISTINCT AliquotContextName) as "Aliquot Context"'
-    spots = 'GROUP_CONCAT(DISTINCT SpotName) as "Spots"'
-    spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
-    spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-    references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-    upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
-    labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-
-    # Join columns
-    aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts as AQ_AQCX ON AQ.AliquotID=AQ_AQCX.AliquotID
-                        LEFT JOIN AliquotContexts as AQCX ON AQCX.AliquotContextID=AQ_AQCX.AliquotContextID'''
-    spot_join = 'LEFT JOIN Spots as SP ON SP.AliquotID=AQ.AliquotID'
-    spot_context_join = '''LEFT JOIN Spots_SpotContexts as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
-                        LEFT JOIN SpotContexts as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
-    spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
-    upb_data_join = 'LEFT JOIN UPbData as UPB ON UPB.SpotID=SP.SpotID'
-    reference_join = 'LEFT JOIN "References" as SO ON SO.ReferenceID=UPB.ReferenceID'
-    upb_method_join = 'LEFT JOIN UPbAnalysisMethods as UAM ON UAM.UPbAnalysisMethodID=UPB.UPbAnalysisMethodID'
-    labs_join = 'LEFT JOIN LabFacilities as LF ON LF.LabFacilityID=UPB.LabFacilityID'
+        where_statement = f'WHERE Samples.SampleID IN {tuple(sample_ids)}'
 
     aliquot_query = f'''
                 SELECT
-                    {aliquots},
-                    {aliquot_context},
-                    {spots},
-                    {spot_context},
-                    {spot_compositions},
-                    {references},
-                    {upb_methods},
-                    {labs}
-                FROM Aliquots as AQ
-                {aliquot_context_join}
-                {spot_join}
-                {spot_context_join}
-                {spot_composition_join}
-                {upb_data_join}
-                {reference_join}
-                {upb_method_join}
-                {labs_join}
+                    {SQLUtils.qaliquot_id},
+                    {SQLUtils.qaliquot_parent_id},
+                    {SQLUtils.qaliquot_parent_row},
+                    {SQLUtils.qaliquot},
+                    {SQLUtils.qaliquot_sample},
+                    {SQLUtils.qaliquot_contexts},
+                    {SQLUtils.qspot_count},
+                    {SQLUtils.qspot_compositions},
+                    {SQLUtils.qspot_contexts},
+                    {SQLUtils.qupb_count},
+                    {SQLUtils.qupb_lab_facilities},
+                    {SQLUtils.qupb_analysis_methods},
+                    {SQLUtils.qupb_ratio_error_formats},
+                    {SQLUtils.qupb_age_units},
+                    {SQLUtils.qupb_age_error_formats},
+                    {SQLUtils.qconcordance_formats},
+                    {SQLUtils.qspot_sizes},
+                    {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_references},
+                    {SQLUtils.qaliquot_created},
+                    {SQLUtils.qaliquot_modified}
+                FROM Aliquots
+                {SQLUtils.aliquot_sample_join}
+                {SQLUtils.aliquot_context_join}
+                {SQLUtils.aliquot_spot_join}
+                {SQLUtils.spot_composition_join}
+                {SQLUtils.spot_context_join}
+                {SQLUtils.spot_upb_analysis_join}
+                {SQLUtils.upb_reference_join}
+                {SQLUtils.upb_labs_join}
+                {SQLUtils.upb_instruments_join}
+                {SQLUtils.upb_method_join}
+                {SQLUtils.upb_ratio_error_format_join}
+                {SQLUtils.upb_age_error_format_join}
+                {SQLUtils.upb_age_unit_join}
+                {SQLUtils.upb_concordance_format_join}
+                {SQLUtils.upb_spot_size_unit_join}
+                {SQLUtils.upb_rejection_reason_join}
                 {where_statement}
                 GROUP BY AliquotName
                 '''
 
-    aliquot_view = f'CREATE VIEW IF NOT EXISTS Sample{sample_ids}_AliquotView AS {aliquot_query}'
-    return aliquot_view
+    return aliquot_query
 
-def SpotViewQuery(parent_id, id_type='sample'):
-    # Select columns
-    spots = 'SpotName as "Spots"'
-    spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Context"'
-    spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-    references = 'GROUP_CONCAT(DISTINCT ShortCitation) as "References"'
-    upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
-    labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
+def AliquotEditViewQuery(sample_ids: list):
+    if len(sample_ids) == 1:
+        where_statement = f'WHERE Samples.SampleID = {sample_ids[0]}'
+    else:
+        where_statement = f'WHERE Samples.SampleID IN {tuple(sample_ids)}'
 
-    # Join columns
-    spot_context_join = '''LEFT JOIN Spots_SpotContexts as SP_SPCX ON SP.SpotID=SP_SPCX.SpotID
-                        LEFT JOIN SpotContexts as SPCX ON SPCX.SpotContextID=SP_SPCX.SpotContextID'''
-    spot_composition_join = '''LEFT JOIN SpotCompositions as SPC ON SPC.SpotCompositionID=SP.SpotCompositionID'''
-    upb_data_join = 'LEFT JOIN UPbData as UPB ON UPB.SpotID=SP.SpotID'
-    reference_join = 'LEFT JOIN "References" as SO ON SO.ReferenceID=UPB.ReferenceID'
-    upb_method_join = 'LEFT JOIN UPbAnalysisMethods as UAM ON UAM.UPbAnalysisMethodID=UPB.UPbAnalysisMethodID'
-    labs_join = 'LEFT JOIN LabFacilities as LF ON LF.LabFacilityID=UPB.LabFacilityID'
+    aliquot_query = f'''
+                SELECT
+                    {SQLUtils.qaliquot_id},
+                    {SQLUtils.qaliquot_parent_id},
+                    {SQLUtils.qaliquot_parent_row},
+                    {SQLUtils.qaliquot},
+                    {SQLUtils.qaliquot_sample},
+                    {SQLUtils.qaliquot_contexts},
+                    {SQLUtils.qaliquot_created},
+                    {SQLUtils.qaliquot_modified}
+                FROM Aliquots
+                {SQLUtils.aliquot_sample_join}
+                {SQLUtils.aliquot_context_join}
+                {where_statement}
+                GROUP BY AliquotName
+                '''
 
+    return aliquot_query
+
+def SpotViewQuery(parent_id, id_type='Sample'):
     # Where statement
-    if id_type == 'sample':
-        where = f'WHERE SampleID = {parent_id}'
-        parent_text = f'Sample{parent_id}'
-    elif id_type == 'aliquot':
-        where = f'WHERE AliquotID = {parent_id}'
-        parent_text = f'Aliquot{parent_id}'
+    if id_type == 'Sample':
+        where_statement = f'WHERE Samples.SampleID = {parent_id}'
+    elif id_type == 'Aliquot':
+        where_statement = f'WHERE Aliquots.AliquotID = {parent_id}'
     else:
         return 'Error - must select a parent ID'
 
     spot_query = f'''
                 SELECT
-                    {spots},
-                    {spot_context},
-                    {spot_compositions},
-                    {references},
-                    {upb_methods},
-                    {labs}
-                FROM Spots as SP
-                {spot_context_join}
-                {spot_composition_join}
-                {upb_data_join}
-                {reference_join}
-                {upb_method_join}
-                {labs_join}
-                {where}
+                    {SQLUtils.qspot_id},
+                    {SQLUtils.qspots},
+                    {SQLUtils.qsample_name},
+                    {SQLUtils.qaliquot},
+                    {SQLUtils.qspot_compositions},
+                    {SQLUtils.qspot_contexts},
+                    {SQLUtils.qupb_count},
+                    {SQLUtils.qupb_lab_facilities},
+                    {SQLUtils.qupb_analysis_methods},
+                    {SQLUtils.qupb_ratio_error_formats},
+                    {SQLUtils.qupb_age_units},
+                    {SQLUtils.qupb_age_error_formats},
+                    {SQLUtils.qconcordance_formats},
+                    {SQLUtils.qspot_sizes},
+                    {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_references},
+                    {SQLUtils.qspot_created},
+                    {SQLUtils.qspot_modified}
+                FROM Spots
+                {SQLUtils.spot_aliquot_join}
+                {SQLUtils.aliquot_sample_join}
+                {SQLUtils.spot_composition_join}
+                {SQLUtils.spot_context_join}
+                {SQLUtils.spot_upb_analysis_join}
+                {SQLUtils.upb_reference_join}
+                {SQLUtils.upb_labs_join}
+                {SQLUtils.upb_instruments_join}
+                {SQLUtils.upb_method_join}
+                {SQLUtils.upb_ratio_error_format_join}
+                {SQLUtils.upb_age_error_format_join}
+                {SQLUtils.upb_age_unit_join}
+                {SQLUtils.upb_concordance_format_join}
+                {SQLUtils.upb_spot_size_unit_join}
+                {SQLUtils.upb_rejection_reason_join}
+                {where_statement}
                 GROUP BY SpotName
                 '''
 
-    spot_view = f'CREATE VIEW IF NOT EXISTS {parent_text}_SpotView AS {spot_query}'
-    return spot_view
+    return spot_query
+
+def SpotEditViewQuery(parent_id, id_type='Sample'):
+    # Where statement
+    if id_type == 'Sample':
+        where_statement = f'WHERE Samples.SampleID = {parent_id}'
+    elif id_type == 'Aliquot':
+        where_statement = f'WHERE Aliquots.AliquotID = {parent_id}'
+    else:
+        return 'Error - must select a parent ID'
+
+    spot_query = f'''
+                SELECT
+                    {SQLUtils.qspot_id},
+                    {SQLUtils.qspots},
+                    {SQLUtils.qsample_name},
+                    {SQLUtils.qaliquot},
+                    {SQLUtils.qspot_compositions},
+                    {SQLUtils.qspot_contexts},
+                    {SQLUtils.qspot_created},
+                    {SQLUtils.qspot_modified}
+                FROM Spots
+                {SQLUtils.spot_aliquot_join}
+                {SQLUtils.aliquot_sample_join}
+                {SQLUtils.spot_composition_join}
+                {SQLUtils.spot_context_join}
+                {where_statement}
+                GROUP BY SpotName
+                '''
+
+    return spot_query
+
+def UPbViewQuery(parent_id, id_type='Sample'):
+    headers = get_headers('UPbAnalyses')
+    columns = []
+    for header in headers:
+        if header in columns:
+            continue
+        if 'Calculated' in header:
+            columns.append(f'UPbAnalyses."{header}"')
+            if f'{header}Error' in headers:
+                columns.append(f'UPbAnalyses."{header}Error"')
+        elif f'Calculated{header}' in headers:
+            pass
+        elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
+            pass
+        else:
+            columns.append(f'UPbAnalyses."{header}"')
+    query_columns = ',\n'.join(columns)
+
+    if id_type == 'Sample':
+        where_statement = f'WHERE Samples.SampleID = {parent_id}'
+    elif id_type == 'Aliquot':
+        where_statement = f'WHERE Aliquots.AliquotID = {parent_id}'
+    elif id_type == 'Spot':
+        where_statement = f'WHERE Spots.SpotID = {parent_id}'
+    else:
+        return 'Error - must select a parent ID'
+    upb_query = f'''
+                SELECT 
+                    {SQLUtils.qupb_id},
+                    {SQLUtils.qspot},
+                    {SQLUtils.qaliquot},
+                    {SQLUtils.qsample_name},
+                    {SQLUtils.qupb_references},
+                    {SQLUtils.qupb_lab_facilities},
+                    {SQLUtils.qupb_instruments},
+                    {SQLUtils.qupb_analysis_methods},
+                    {query_columns},
+                    {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_created},
+                    {SQLUtils.qupb_modified}
+                FROM UPbAnalyses 
+                {SQLUtils.upb_spot_join}
+                {SQLUtils.spot_aliquot_join}
+                {SQLUtils.aliquot_sample_join}
+                {SQLUtils.upb_reference_join}
+                {SQLUtils.upb_labs_join}
+                {SQLUtils.upb_instruments_join}
+                {SQLUtils.upb_method_join}
+                {SQLUtils.upb_ratio_error_format_join}
+                {SQLUtils.upb_age_error_format_join}
+                {SQLUtils.upb_age_unit_join}
+                {SQLUtils.upb_concordance_format_join}
+                {SQLUtils.upb_spot_size_unit_join}
+                {SQLUtils.upb_rejection_reason_join}
+                {where_statement}
+                GROUP BY UPbAnalyses.UPbAnalysisID
+                '''
+    return upb_query
+
+def UPbEditViewQuery(parent_id, id_type='Sample'):
+    headers = get_headers('UPbAnalyses')
+    columns = []
+    for header in headers:
+        if header in columns:
+            continue
+        if 'Calculated' not in header:
+            columns.append(f'UPbAnalyses."{header}"')
+            if f'{header}Error' in headers:
+                columns.append(f'UPbAnalyses."{header}Error"')
+        elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
+            pass
+        else:
+            columns.append(f'UPbAnalyses."{header}"')
+    query_columns = ',\n'.join(columns)
+
+    if id_type == 'Sample':
+        where_statement = f'WHERE Samples.SampleID = {parent_id}'
+    elif id_type == 'Aliquot':
+        where_statement = f'WHERE Aliquots.AliquotID = {parent_id}'
+    elif id_type == 'Spot':
+        where_statement = f'WHERE Spots.SpotID = {parent_id}'
+    else:
+        return 'Error - must select a parent ID'
+    upb_query = f'''
+                SELECT 
+                    SELECT 
+                    {SQLUtils.qupb_id},
+                    {SQLUtils.qspot},
+                    {SQLUtils.qaliquot},
+                    {SQLUtils.qsample_name},
+                    {SQLUtils.qupb_references},
+                    {SQLUtils.qupb_lab_facilities},
+                    {SQLUtils.qupb_instruments},
+                    {SQLUtils.qupb_analysis_methods},
+                    {query_columns},
+                    {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_created},
+                    {SQLUtils.qupb_modified}
+                FROM UPbAnalyses 
+                {SQLUtils.upb_spot_join}
+                {SQLUtils.spot_aliquot_join}
+                {SQLUtils.aliquot_sample_join}
+                {SQLUtils.upb_reference_join}
+                {SQLUtils.upb_labs_join}
+                {SQLUtils.upb_instruments_join}
+                {SQLUtils.upb_method_join}
+                {SQLUtils.upb_ratio_error_format_join}
+                {SQLUtils.upb_age_error_format_join}
+                {SQLUtils.upb_age_unit_join}
+                {SQLUtils.upb_concordance_format_join}
+                {SQLUtils.upb_spot_size_unit_join}
+                {SQLUtils.upb_rejection_reason_join}
+                {where_statement}
+                GROUP BY UPbAnalyses.UPbAnalysisID
+                '''
+    return upb_query
 
 def ColumnViewQuery():
     # Select columns
@@ -338,6 +485,34 @@ def ColumnEditViewQuery():
                     '''
     return column_query
 
+def ColumnIfNullQuery():
+    column_ifnull_query = f'''
+    SELECT 
+        {SQLUtils.qcolumn_id},
+        {SQLUtils.qcolumn_gps_id_ifnull},
+        {SQLUtils.qcolumn_gps_converted_ifnull},
+        {SQLUtils.qcolumn_lat_deg_ifnull},
+        {SQLUtils.qcolumn_lat_min_ifnull},
+        {SQLUtils.qcolumn_lat_sec_ifnull},
+        {SQLUtils.qcolumn_lat_dir_ifnull},
+        {SQLUtils.qcolumn_lon_deg_ifnull},
+        {SQLUtils.qcolumn_lon_min_ifnull},
+        {SQLUtils.qcolumn_lon_sec_ifnull},
+        {SQLUtils.qcolumn_lon_dir_ifnull},
+        {SQLUtils.qcolumn_utm_zone_ifnull},
+        {SQLUtils.qcolumn_utm_northing_ifnull},
+        {SQLUtils.qcolumn_utm_easting_ifnull},
+        {SQLUtils.qcolumn_gps_format_id_ifnull},
+        {SQLUtils.qcolumn_gps_format_ifnull},
+        {SQLUtils.qcolumn_gps_elev_ifnull},
+        {SQLUtils.qcolumn_gps_elev_error_ifnull},
+        {SQLUtils.qcolumn_gps_elev_unit_ifnull}
+    FROM Columns
+    {SQLUtils.gps_column_join}
+    {SQLUtils.gps_column_left_joins}
+    '''
+    return column_ifnull_query
+
 def create_sample_view(conditions: str = None):
     base_query = SampleViewQuery()
     if conditions:
@@ -347,34 +522,46 @@ def create_sample_view(conditions: str = None):
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
     # print(sample_view)
     query = QtS.QSqlQuery()
+    if not query.exec(sample_query):
+        print('Sample view creation failed')
+        return False
     if not query.exec(sample_view):
         print('Sample view creation failed')
         return False
 
-def create_aliquot_view(sample_IDs, conditions: str = None):
-    base_query = create_aliquot_view(sample_IDs)
-    if conditions:
-        aliquot_query = f'{base_query} {conditions}'
-    else:
-        aliquot_query = base_query
-    query = QtS.QSqlQuery()
-    if not query.exec(aliquot_query):
-        print('Aliquot view creation failed')
-        return False
-
-# def create_spot_view(c, parent_ID, parent_type):
-#     """
-#     Take database cursor and sample ID and execute the sql strings defined above to create the spot view
-#     :param c: Cursor of database connection
-#     :param parent_ID: ID of parent sample
-#     :param parent_type: 'sample' or 'aliquot'
-#     """
-#     SPOT_VIEW = create_spot_view(parent_ID, parent_type)
-#     c.execute(SPOT_VIEW)
+# def create_aliquot_view(sample_IDs, conditions: str = None):
+#     base_query = create_aliquot_view(sample_IDs)
+#     if conditions:
+#         aliquot_query = f'{base_query} AND {conditions}'
+#     else:
+#         aliquot_query = base_query
+#     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotView AS {aliquot_query}'
+#     query = QtS.QSqlQuery()
+#     if not query.exec(aliquot_query):
+#         print('Aliquot view creation failed')
+#         return False
+#     if not query.exec(aliquot_view):
+#         print('Aliquot view creation failed')
+#         return False
+#
+# def create_spot_view(parent_ids, id_type='sample', conditions: str = None):
+#     base_query = SpotViewQuery(parent_ids, id_type)
+#     if conditions:
+#         spot_query = f'{base_query} AND {conditions}'
+#     else:
+#         spot_query = base_query
+#     spot_view = f'CREATE VIEW IF NOT EXISTS SpotView AS {spot_query}'
+#     query = QtS.QSqlQuery()
+#     if not query.exec(spot_query):
+#         print('Spot view creation failed')
+#         return False
+#     if not query.exec(spot_view):
+#         print('Spot view creation failed')
+#         return False
 
 def create_column_view():
     column_query = ColumnViewQuery()
-    print(column_query)
+    # print(column_query)
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnView AS {column_query}'
     query = QtS.QSqlQuery()
     if not query.exec(column_view):

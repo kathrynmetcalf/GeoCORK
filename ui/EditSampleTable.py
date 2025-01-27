@@ -18,7 +18,7 @@ from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
 class EditSampleTable(QtW.QDialog):
-    def __init__(self, database, sample_model: TbC.DisplayRoundedModel):
+    def __init__(self, sample_model: TbC.DisplayRoundedModel):
         super().__init__()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -27,7 +27,6 @@ class EditSampleTable(QtW.QDialog):
 
         self.table = 'Samples'
         self.view = 'SampleView'
-        self.db = database
         self.sample_model = sample_model
         self.table_model = QtS.QSqlTableModel()
         self.combo = CheckableTreeCombobox()
@@ -51,13 +50,13 @@ class EditSampleTable(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def createSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         if query.exec('SAVEPOINT before_edit') is False:
             errtxt = Er.savepoint_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def releaseSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         if query.exec('RELEASE SAVEPOINT before_edit') is False:
             errtxt = Er.savepoint_release_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
@@ -65,7 +64,7 @@ class EditSampleTable(QtW.QDialog):
     def get_items(self, table):
         headers = []
         items = []
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         if query.exec(f"SELECT name from pragma_table_info('{table}')"):
             while query.next():
                 headers.append(query.value(0))
@@ -151,7 +150,7 @@ class EditSampleTable(QtW.QDialog):
     # todo: update the row in the sample table with the new values
 
     def rollback(self):
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
             errtxt = Er.rollback_fail(self.table)
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)

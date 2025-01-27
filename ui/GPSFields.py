@@ -323,7 +323,7 @@ class GPSFields(QtW.QWidget):
                             gps_to_delete.append(gps)
                 if len(gps_to_update) == 0:
                     # All gps are associated with other samples or columns, so create a new one
-                    error = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
+                    error, header = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
                     if error:
                         errtxt = error
                         print(errtxt)
@@ -343,7 +343,7 @@ class GPSFields(QtW.QWidget):
                     query.next()
                     existing_values = [query.value(i) for i in range(query.record().count())]
                     if existing_values != gps_values:
-                        error = validate_update('GPSLocations', gps_columns, gps_values, gps_format_id)
+                        error, header = validate_update('GPSLocations', gps_columns, gps_values, gps_format_id)
                         if error:
                             errtxt = error
                             print(errtxt)
@@ -366,7 +366,7 @@ class GPSFields(QtW.QWidget):
                         return
             else:
                 # There are no GPS locations associated with the samples or columns
-                error = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
+                error, header = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
                 if error:
                     errtxt = error
                     print(errtxt)

@@ -7,10 +7,8 @@ from PyQt6.QtSql import QSqlDatabase
 
 import pyproj
 import Functions.Create_database as Create_db
-import Functions.Database_views as DB_views
 from Functions.Table_classes import set_table, get_columns
 from Functions.Database_manager import create_savepoint, release_savepoint, rollback_savepoint
-from Functions import Database_manager
 import Functions.GPS_conversions as GPS # gps conversions
 
 def settings_reset():
@@ -20,10 +18,12 @@ def settings_reset():
     drop_virtual_columns(tables_affected)
     populate_generated_columns()
 
-def drop_virtual_columns(tables_affected: list):
+def drop_virtual_columns(tables_affected: list, edit_table: str = None):
     create_savepoint('before_drop')
     for table_info in tables_affected:
         table = table_info[0]
+        if edit_table is not None and table != edit_table:
+            continue
         create_sql = table_info[1]
         table_model = QtS.QSqlTableModel()
         set_table(table_model, table)
@@ -75,18 +75,20 @@ def populate_generated_columns():
     gps_format_id = settings.value('gps_format_id')
     heightdepth_unit_id = settings.value('heightdepth_unit_id')
     spotsize_unit_id = settings.value('spotsize_unit_id')
-    age_error_type_id = settings.value('age_error_type_id')
-    ratio_error_type_id = settings.value('ratio_error_type_id')
+    age_error_format_id = settings.value('age_error_format_id')
+    ratio_error_format_id = settings.value('ratio_error_format_id')
+    concordance_format_id = settings.value('concordance_format_id')
     reference_format = settings.value('reference_format')
 
     # Affected list format: [table, unit/type ID header, column1, column2, ...]
     # Save age errors to handle both age unit and age error type
     age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge'],
-                         ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge']]
+                         ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge', 'BestAge']]
     elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
     gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
     heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'], ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
     spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
+    concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance']]
     upb_analyses_model = QtS.QSqlTableModel()
     set_table(upb_analyses_model, 'UPbAnalyses')
     affected_upb_ratio = ['UPbAnalyses', 'RatioErrorFormatID']
@@ -100,8 +102,8 @@ def populate_generated_columns():
                                              QtC.Qt.ItemDataRole.DisplayRole).endswith('Error'):
             affected_upb_ratio.append(
                 upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-    age_error_type_affected = [['SampleAges', ['DirectAgeErrorFormatID','DirectAgeUnitID'], 'DirectAgeError'], affected_upb_age]
-    ratio_error_type_affected = [affected_upb_ratio]
+    age_error_format_affected = [['SampleAges', ['DirectAgeErrorFormatID','DirectAgeUnitID'], 'DirectAgeError'], affected_upb_age]
+    ratio_error_format_affected = [affected_upb_ratio]
 
     # Convert the columns and catch any errors
     output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
@@ -119,10 +121,13 @@ def populate_generated_columns():
     output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id])
     if output == "error":
         return
-    output = convert_columns(age_error_type_affected, ['ErrorFormatConversions', 'AgeUnitConversions'], ['ErrorFormat','AgeUnit'], [age_error_type_id, age_unit_id])
+    output = convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'], [concordance_format_id])
     if output == "error":
         return
-    output = convert_columns(ratio_error_type_affected, ['ErrorFormatConversions'], ['ErrorFormat'], [ratio_error_type_id])
+    output = convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'], ['ErrorFormat','AgeUnit'], [age_error_format_id, age_unit_id])
+    if output == "error":
+        return
+    output = convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'], [ratio_error_format_id])
     if output == "error":
         return
     output = generate_reference_column('References', 'ReferenceID', reference_format)
@@ -134,7 +139,7 @@ def populate_generated_columns():
     release_savepoint('before_populate')
 
 def convert_columns(affected: list, conversion_table: list, id_header_base: list, selected_id: list):
-    if id_header_base[0] in ['AgeUnit', 'DistanceUnit', 'ErrorFormat', 'GPSFormat']:
+    if id_header_base[0] in ['AgeUnit', 'DistanceUnit', 'ErrorFormat', 'GPSFormat', 'ConcordanceFormat']:
         for table_list in affected:
             table = table_list.pop(0)
             if len(conversion_table) > 1:
@@ -302,3 +307,151 @@ def generate_reference_column(table: str, table_id_header: str, constructor: str
         print(f'Error updating ReferenceDisplay: {query.lastError().text()}')
         rollback_savepoint('before_populate')
         return "error"
+
+def update_generated_columns(table: str):
+    if table == 'GPSLocations':
+        # Drop the virtual columns
+        tables_affected = [[['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE]]]
+        drop_virtual_columns(tables_affected, table)
+        create_savepoint('before_populate')
+        # Retrieve the settings
+        elevation_unit_id = settings.value('elevation_unit_id')
+        gps_format_id = settings.value('gps_format_id')
+        # Convert the columns and catch any errors
+        elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
+        gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
+        output = convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                                 [elevation_unit_id])
+        if output == "error":
+            return
+        output = convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id])
+        if output == "error":
+            return
+        release_savepoint('before_populate')
+        return True
+    elif table == 'SampleAges':
+        # Drop the virtual columns
+        tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE]]
+        drop_virtual_columns(tables_affected, table)
+        create_savepoint('before_populate')
+        # Retrieve the settings
+        age_unit_id = settings.value('age_unit_id')
+        age_error_type_id = settings.value('age_error_type_id')
+        # Convert the columns and catch any errors
+        age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge']]
+        age_error_type_affected = [['SampleAges', ['DirectAgeErrorFormatID','DirectAgeUnitID'], 'DirectAgeError']]
+        output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
+        if output == "error":
+            return
+        output = convert_columns(age_error_type_affected, ['ErrorFormatConversions', 'AgeUnitConversions'], ['ErrorFormat','AgeUnit'],
+                                 [age_error_type_id, age_unit_id])
+        if output == "error":
+            return
+        release_savepoint('before_populate')
+        return True
+    elif table == 'UPbAnalyses':
+        # Drop the virtual columns
+        tables_affected = [['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE]]
+        drop_virtual_columns(tables_affected, table)
+        create_savepoint('before_populate')
+        # Retrieve the settings
+        age_unit_id = settings.value('age_unit_id')
+        spotsize_unit_id = settings.value('spotsize_unit_id')
+        ratio_error_format_id = settings.value('ratio_error_type_id')
+        age_error_format_id = settings.value('age_error_type_id')
+        concordance_format_id = settings.value('concordance_format_id')
+
+        # Collect the tables and columns to be converted
+        age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge'],
+                             ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge',
+                              '208Pb/232ThAge', 'BestAge']]
+        spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
+        concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance']]
+        upb_analyses_model = QtS.QSqlTableModel()
+        set_table(upb_analyses_model, 'UPbAnalyses')
+        affected_upb_ratio = ['UPbAnalyses', 'RatioErrorFormatID']
+        affected_upb_age = ['UPbAnalyses', ['AgeErrorFormatID', 'AgeUnitID']]
+        for col in range(upb_analyses_model.columnCount()):
+            if upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal,
+                                             QtC.Qt.ItemDataRole.DisplayRole).endswith(
+                    'AgeError'):
+                affected_upb_age.append(
+                    upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            elif upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal,
+                                               QtC.Qt.ItemDataRole.DisplayRole).endswith('Error'):
+                affected_upb_ratio.append(
+                    upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+        age_error_format_affected = [['SampleAges', ['DirectAgeErrorFormatID', 'DirectAgeUnitID'], 'DirectAgeError'],
+                                     affected_upb_age]
+        ratio_error_format_affected = [affected_upb_ratio]
+
+        # Convert the columns and catch any errors
+        output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
+        if output == "error":
+            return
+        output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                                 [spotsize_unit_id])
+        if output == "error":
+            return
+        output = convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'],
+                                 [concordance_format_id])
+        if output == "error":
+            return
+        output = convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
+                                 ['ErrorFormat', 'AgeUnit'], [age_error_format_id, age_unit_id])
+        if output == "error":
+            return
+        output = convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'],
+                                 [ratio_error_format_id])
+        if output == "error":
+            return
+        release_savepoint('before_populate')
+        return True
+    elif table == 'References':
+        # Drop the virtual columns
+        tables_affected = [['References', Create_db.CREATE_REFERENCES_TABLE]]
+        drop_virtual_columns(tables_affected, table)
+        create_savepoint('before_populate')
+        # Retrieve the settings
+        reference_format = settings.value('reference_format')
+        # Convert the columns and catch any errors
+        output = generate_reference_column(table, 'ReferenceID', reference_format)
+        if output == "error":
+            return
+        release_savepoint('before_populate')
+        return True
+    elif table == 'Samples':
+        # Drop the virtual columns
+        tables_affected = [['Samples', Create_db.CREATE_SAMPLES_TABLE]]
+        drop_virtual_columns(tables_affected, table)
+        create_savepoint('before_populate')
+        # Retrieve the settings
+        heightdepth_unit_id = settings.value('heightdepth_unit_id')
+        # Convert the columns and catch any errors
+        heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError']]
+        output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
+        if output == "error":
+            return
+        release_savepoint('before_populate')
+        return True
+    elif table == 'Columns':
+        # Drop the virtual columns
+        tables_affected = [['Columns', Create_db.CREATE_COLUMNS_TABLE]]
+        drop_virtual_columns(tables_affected, table)
+        create_savepoint('before_populate')
+        # Retrieve the settings
+        heightdepth_unit_id = settings.value('heightdepth_unit_id')
+        column_total_heightdepth_unit_id = settings.value('column_total_heightdepth_unit_id')
+        # Convert the columns and catch any errors
+        heightdepth_unit_affected = [['Columns', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError']]
+        column_total_heightdepth_unit_affected = [['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
+        output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
+        if output == "error":
+            return
+        output = convert_columns(column_total_heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [column_total_heightdepth_unit_id])
+        if output == "error":
+            return
+        release_savepoint('before_populate')
+        return True
+    else:
+        return

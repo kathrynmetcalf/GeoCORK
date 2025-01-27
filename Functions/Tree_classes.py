@@ -134,6 +134,7 @@ class TreeItem:
 class TreeModel(QtC.QAbstractProxyModel):
     dataEdited = QtC.pyqtSignal()
     def __init__(self, source_model=QSqlTableModel(), parent=None):
+        # todo: change sqltablemodel to sqlquerymodel and table name passed in as a parameter
         # database table
         super().__init__(parent)
 
