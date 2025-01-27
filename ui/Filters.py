@@ -29,23 +29,14 @@ def process_json_to_sql(json_string, scope):
     if scope == 'Samples':
         return f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'Aliquots':
-        if SQLUtils.aliquot_join not in join:
-            join += SQLUtils.aliquot_join + '\n'
-        return f"SELECT * FROM Samples {join} WHERE {where};"
+        join = SQLUtils.get_join_from_table(['Aliquots'])
+        return f"SELECT * FROM Aliquots {join} WHERE {where};"
     elif scope == 'Spots':
-        if SQLUtils.aliquot_join not in join:
-            join += SQLUtils.aliquot_join + '\n'
-        if SQLUtils.spot_join not in join:
-            join += SQLUtils.spot_join + '\n'
-        return f"SELECT * FROM Samples {join} WHERE {where};"
+        join = SQLUtils.get_join_from_table(['Spots'])
+        return f"SELECT * FROM Spots {join} WHERE {where};"
     elif scope == 'UPbData':
-        if SQLUtils.aliquot_join not in join:
-            join += SQLUtils.aliquot_join + '\n'
-        if SQLUtils.spot_join not in join:
-            join += SQLUtils.spot_join + '\n'
-        if SQLUtils.upb_analysis_join not in join:
-            join += SQLUtils.upb_analysis_join + '\n'
-        return f"SELECT * FROM Samples {join} WHERE {where};"
+        join = SQLUtils.get_join_from_table(['UPbAnalyses'])
+        return f"SELECT * FROM UPbAnalyses {join} WHERE {where};"
 
 
 def process_table_names(data):
@@ -86,7 +77,7 @@ def process_group(group):
     for condition in group.get('conditions', []):
         field, operator, value, unit = condition['field'].replace(' ', ''), condition['operator'], condition['value'], condition['unit']
         if unit == 'None':
-            continue
+            pass
         elif unit == 'Ga':
             value = f"{float(value) * 1000000000}"
         elif unit == 'Ma':
@@ -261,6 +252,7 @@ class InsertFilterGroupDialog(QDialog):
         self.color_display = QLabel(" ")
         self.color_display.setStyleSheet("background-color: white;")
         self.color_picker_button = QPushButton("Pick Color")
+        # todo set default color to be transparent so it shows regardless of user dark/light mode
         self.color_picker_button.clicked.connect(self.pick_color)
         color_layout = QHBoxLayout()
         color_layout.addWidget(self.color_display)
@@ -391,7 +383,7 @@ class RuleWidget(QWidget):
 
         # Unit combo (hidden unless numeric/time-based)
         self.unit_combo = FocusWheelComboBox()
-        self.unit_combo.addItems(['Ga', 'Ma', 'ka', 'None'])
+        self.unit_combo.addItems(['None', 'Ga', 'Ma', 'ka'])
         self.layout.addWidget(self.unit_combo)
 
         # Initially configure widgets based on operator/attribute
@@ -857,106 +849,9 @@ class QueryBuilder(QWidget):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
         join = ""
+        join += SQLUtils.get_join_from_table(self.main_group_box.get_tables())
+        print('join is, ', join)
 
-        for table in self.main_group_box.get_tables():
-            match (table):
-                case 'Ages':
-                    if SQLUtils.sample_age_join not in join:
-                        join += SQLUtils.sample_age_join + '\n'
-                case 'Age Signatures':
-                    if SQLUtils.age_signature_join not in join:
-                        join += SQLUtils.age_signature_join + '\n'
-                case 'Aliquots':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                case 'Aliquot Contexts':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.aliquot_context_join not in join:
-                        join += SQLUtils.aliquot_context_join + '\n'
-                case 'Columns':
-                    if SQLUtils.column_join not in join:
-                        join += SQLUtils.column_join + '\n'
-                case 'Lab Facilities':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                    if SQLUtils.upb_labs_join not in join:
-                        join += SQLUtils.upb_labs_join + '\n'
-                case 'Instruments':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                    if SQLUtils.upb_instruments_join not in join:
-                        join += SQLUtils.upb_instruments_join + '\n'
-                case 'Regions':
-                    if SQLUtils.region_join not in join:
-                        join += SQLUtils.region_join + '\n'
-                case 'RockTypes':
-                    if SQLUtils.rock_type_join not in join:
-                        join += SQLUtils.rock_type_join + '\n'
-                case 'Sample Contexts':
-                    if SQLUtils.sample_context_join not in join:
-                        join += SQLUtils.sample_context_join + '\n'
-                case 'Samples':
-                    pass
-                case 'Sampling Methods':
-                    if SQLUtils.sampling_method_join not in join:
-                        join += SQLUtils.sampling_method_join + '\n'
-                case 'Settings':
-                    if SQLUtils.setting_join not in join:
-                        join += SQLUtils.setting_join + '\n'
-                case 'Sources':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                    if SQLUtils.upb_reference_join not in join:
-                        join += SQLUtils.upb_reference_join + '\n'
-                case 'Spot Compositions':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.spot_composition_join not in join:
-                        join += SQLUtils.spot_composition_join + '\n'
-                case 'Spots':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                case 'Spot Contexts':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                case 'UPb Data':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                case 'UPb Analysis Methods':
-                    if SQLUtils.aliquot_join not in join:
-                        join += SQLUtils.aliquot_join + '\n'
-                    if SQLUtils.spot_join not in join:
-                        join += SQLUtils.spot_join + '\n'
-                    if SQLUtils.upb_analysis_join not in join:
-                        join += SQLUtils.upb_analysis_join + '\n'
-                    if SQLUtils.upb_method_join not in join:
-                        join += SQLUtils.upb_method_join + '\n'
-                case 'Units':
-                    if SQLUtils.unit_join not in join:
-                        join += SQLUtils.unit_join + '\n'
 
         if type == 'sample':
             sql_query = (
@@ -966,8 +861,7 @@ class QueryBuilder(QWidget):
                 f"WHERE {where_clause});"
             )
         elif type == 'aliquot':
-            if SQLUtils.aliquot_join not in join:
-                join += SQLUtils.aliquot_join + '\n'
+            join += SQLUtils.get_join_from_table(['Aliquots'])
             sql_query = (
                 f"SELECT DISTINCT AliquotID FROM ("
                 f"SELECT Aliquots.AliquotID, {self.main_group_box.get_selects()} "
@@ -976,10 +870,7 @@ class QueryBuilder(QWidget):
                 f"WHERE AliquotID IS NOT NULL;"
             )
         elif type == 'spot':
-            if SQLUtils.aliquot_join not in join:
-                join += SQLUtils.aliquot_join + '\n'
-            if SQLUtils.spot_join not in join:
-                join += SQLUtils.spot_join + '\n'
+            join += SQLUtils.get_join_from_table(['Spots'])
             sql_query = (
                 f"SELECT DISTINCT SpotID FROM ("
                 f"SELECT Spots.SpotID, {self.main_group_box.get_selects()} "
@@ -988,12 +879,7 @@ class QueryBuilder(QWidget):
                 f"WHERE SpotID IS NOT NULL;"
             )
         elif type == 'upbdata':
-            if SQLUtils.aliquot_join not in join:
-                join += SQLUtils.aliquot_join + '\n'
-            if SQLUtils.spot_join not in join:
-                join += SQLUtils.spot_join + '\n'
-            if SQLUtils.upb_analysis_join not in join:
-                join += SQLUtils.upb_analysis_join + '\n'
+            join += SQLUtils.get_join_from_table(['UPbAnalyses'])
             sql_query = (
                 f"SELECT DISTINCT UPbAnalysisID FROM ("
                 f"SELECT UPbAnalyses.UPbAnalysisID, {self.main_group_box.get_selects()} "

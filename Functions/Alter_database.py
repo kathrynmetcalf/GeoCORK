@@ -70,15 +70,15 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
 def populate_generated_columns():
     create_savepoint('before_populate')
     # Retrieve the settings
-    age_unit_id = settings.value('age_unit_id')
-    elevation_unit_id = settings.value('elevation_unit_id')
-    gps_format_id = settings.value('gps_format_id')
-    heightdepth_unit_id = settings.value('heightdepth_unit_id')
-    spotsize_unit_id = settings.value('spotsize_unit_id')
-    age_error_format_id = settings.value('age_error_format_id')
-    ratio_error_format_id = settings.value('ratio_error_format_id')
-    concordance_format_id = settings.value('concordance_format_id')
-    reference_format = settings.value('reference_format')
+    age_unit_id = settings.value('age_unit_id', 2) #default to Ma
+    elevation_unit_id = settings.value('elevation_unit_id', 2) # default to m
+    gps_format_id = settings.value('gps_format_id', 1) # default to DD +/-
+    heightdepth_unit_id = settings.value('heightdepth_unit_id', 2) # default to m
+    spotsize_unit_id = settings.value('spotsize_unit_id', 5) # default to um
+    age_error_format_id = settings.value('age_error_format_id', 1) # default to 1 sigma abs
+    ratio_error_format_id = settings.value('ratio_error_format_id', 1) # default to 1 sigma abs
+    concordance_format_id = settings.value('concordance_format_id', 1) # default conc ratio
+    reference_format = settings.value('reference_format', 1)
 
     # Affected list format: [table, unit/type ID header, column1, column2, ...]
     # Save age errors to handle both age unit and age error type

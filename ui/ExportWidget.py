@@ -538,13 +538,7 @@ class ExportWidget(QWidget):
                 filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = ''
-
-            if SQLUtils.aliquot_join not in join:
-                join += SQLUtils.aliquot_join + '\n'
-            if SQLUtils.spot_join not in join:
-                join += SQLUtils.spot_join + '\n'
-            if SQLUtils.upb_analysis_join not in join:
-                join += SQLUtils.upb_analysis_join + '\n'
+            join += SQLUtils.get_join_from_table(['UPbAnalyses'])
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
             query = QSqlQuery()
@@ -632,7 +626,7 @@ class ExportWidget(QWidget):
             GROUP BY c.RowNum
             ORDER BY c.RowNum""")
 
-            print(query_str)
+        print(query_str)
 
         model = QSqlQueryModel()
         model.setQuery(query_str)
@@ -785,7 +779,7 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Uppm'): True,
                     ('UPbAnalyses', 'CalculatedU/Th'): True,
                     ('UPbAnalyses', 'BestAge'): True,
-                    ('UPbAnalyses', 'CalculatedBestAgeError'): True,
+                    # ('UPbAnalyses', 'CalculatedBestAgeError'): True,
                     ('UPbAnalyses', 'Concordance'): True
                 } # todo not inputting as the correct order
 

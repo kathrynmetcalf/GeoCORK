@@ -52,8 +52,7 @@ class DataViewerWidget(QWidget):
         self.switch_to_table(self.db_stackedWidget)
         self.switch_to_table(self.db_stackedWidget_2)
 
-        self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_alltables)
-        self.dbTable_comboBox_2.removeItem(10)  # remove sample table index
+        self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
 
         if self.table_type == 'sample':
             self.dbTable_comboBox.addItem('Samples')
@@ -313,7 +312,8 @@ class DataViewerWidget(QWidget):
             self.switch_to_table(db_stackedWidget)
 
             # todo very slow because of the sample view
-            sample_model = TbC.SampleTableModel()
+            # todo sample tables across entire db is broken.
+            sample_model = TbC.SampleAgeTableModel()
             query = TbC.SampleTableModel().setupQuery(self.ids_to_show, self.rows_per_page_1, offset)
             sample_model.setQuery(QtS.QSqlQuery(query))
 
@@ -437,22 +437,13 @@ class DataViewerWidget(QWidget):
                         table_condition = f" WHERE Samples.SampleID IN ({', '.join(condition_ids)})"
                     elif table_type == 'aliquot':
                         table_condition = f" WHERE Aliquots.AliquotID IN ({', '.join(condition_ids)})"
-                        if SQLUtils.aliquot_join not in sql:
-                            sql += SQLUtils.aliquot_join + '\n'
+                        sql += SQLUtils.get_join_from_table(['Aliquots'])
                     elif table_type == 'spot':
                         table_condition = f" WHERE Spots.SpotID IN ({', '.join(condition_ids)})"
-                        if SQLUtils.aliquot_join not in sql:
-                            sql += SQLUtils.aliquot_join + '\n'
-                        if SQLUtils.spot_join not in sql:
-                            sql += SQLUtils.spot_join + '\n'
+                        sql += SQLUtils.get_join_from_table(['Spots'])
                     elif table_type == 'upbdata':
                         table_condition = f" WHERE UPbAnalyses.UPbAnalysisID IN ({', '.join(condition_ids)})"
-                        if SQLUtils.aliquot_join not in sql:
-                            sql += SQLUtils.aliquot_join + '\n'
-                        if SQLUtils.spot_join not in sql:
-                            sql += SQLUtils.spot_join + '\n'
-                        if SQLUtils.upb_analysis_join not in sql:
-                            sql += SQLUtils.upb_analysis_join + '\n'
+                        sql += SQLUtils.get_join_from_table(['UPbAnalyses'])
                     # "(19,39,58)"
 
                 sql += table_condition
