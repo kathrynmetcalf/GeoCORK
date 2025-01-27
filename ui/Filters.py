@@ -360,7 +360,7 @@ class RuleWidget(QWidget):
 
         # Table combo
         self.table_combo = FocusWheelComboBox()
-        self.table_combo.addItems(SQLUtils.user_viewable_alltables)
+        self.table_combo.addItems(SQLUtils.user_viewable_tables)
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
         self.table_combo.currentIndexChanged.connect(self.table_switcher)

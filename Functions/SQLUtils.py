@@ -196,15 +196,10 @@ gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON Co
 column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON ColumnUnits.DistanceUnitID=Columns.ColumnTotalHeightDepthUnitID'
 
 # SampleJoins
-age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON Samples.SampleID=SampleAges_AgeConstraints.SampleAgeID
-                        LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID'''
-age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON Samples.SampleID=SampleAges_AgeInterpretations.SampleAgeID
-                            LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
                                     LEFT JOIN AgeSignatures ON AgeSignatures.AgeSignatureID=Samples_AgeSignatures.AgeSignatureID'''
 column_join = 'LEFT JOIN Columns ON Samples.SampleColumnID=Columns.ColumnID'
 column_unit_join = '''LEFT JOIN DistanceUnits AS ColumnHeightDepthUnits ON ColumnHeightDepthUnits.DistanceUnitID=Samples.HeightDepthUnitID'''
-
 region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID=Samples_Regions.SampleID
                                 LEFT JOIN Regions ON Regions.RegionID=Samples_Regions.RegionID'''
 rock_type_join = '''LEFT JOIN Samples_RockTypes ON Samples.SampleID=Samples_RockTypes.SampleID
@@ -213,7 +208,7 @@ sample_context_join = '''LEFT JOIN Samples_SampleContexts ON Samples.SampleID=Sa
                                 LEFT JOIN SampleContexts ON SampleContexts.SampleContextID=Samples_SampleContexts.SampleContextID'''
 sample_sampleage_join = '''LEFT JOIN Samples_SampleAges ON Samples.DefaultSampleAgeID=Samples_SampleAges.SampleAgeID
                                     LEFT JOIN SampleAges ON SampleAges.SampleAgeID=Samples_SampleAges.SampleAgeID'''
-default_sample_age_join = '''LEFT JOIN SampleAges ON SampleAges.SampleAgeID=Samples.DefaultSampleAgeID'''
+default_sample_age_join = '''LEFT JOIN SampleAges as DefaultSampleAges ON SampleAges.SampleAgeID=Samples.DefaultSampleAgeID'''
 sampling_method_join = '''LEFT JOIN Samples_SamplingMethods ON Samples.SampleID=Samples_SamplingMethods.SampleID
                                 LEFT JOIN SamplingMethods ON SamplingMethods.SamplingMethodID=Samples_SamplingMethods.SamplingMethodID'''
 setting_join = '''LEFT JOIN Samples_Settings ON Samples.SampleID=Samples_Settings.SampleID
@@ -260,27 +255,24 @@ sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcol
                        qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons]
 
 # Many-to-many tables related to table at the beginning of each list, populate multiple selection dropdowns
-many_editable = [
-    ['Samples', 'AgeSignatures', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'Units'],
-    ['Aliquots', 'AliquotContexts'], ['Spots', 'SpotCompositions', 'SpotContexts'], ['UPbAnalyses', 'RejectionReasons']]
+many_editable = [['Samples', 'AgeSignatures', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'Units'],
+             ['Aliquots', 'AliquotContexts'], ['Spots', 'SpotCompositions', 'SpotContexts'], ['UPbAnalyses', 'RejectionReasons']]
 # One-to-many columns related to table at the beginning of each list, populate single selection dropdowns
 one_editable = [['Samples', 'SampleAges', 'Columns', 'DistanceUnits'],
             ['Columns', 'DistanceUnits'], ['Aliquots', 'Samples'], ['Spots', 'Aliquots', 'SpotCompositions'],
             ['UPbAnalyses', 'Spots', 'References', 'LabFacilities', 'Instruments', 'UPbAnalysisMethods', 'ErrorFormats', 'AgeUnits', 'AgeInterpretations', 'ConcordanceFormats', 'DistanceUnits']]
 
 
-user_viewable_alltables = ['AgeConstraints', 'AgeInterpretations', 'Ages', 'AgeSignatures', 'Aliquots', 'AliquotContexts',
+
+user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                         'Columns', 'Instruments', 'LabFacilities',
-                        '"References"', 'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
-                        'SamplingMethods', 'Settings',
-                        'Spots', 'SpotCompositions', 'SpotContexts', 'UPbAnalyses', 'UPbAnalysisMethods', 'Units']
+                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
+                        'SamplingMethods', 'Settings', '"References"',
+                        'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts',
                        'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods',
                        'Units']
-user_viewable_tables = ['Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbAnalyses', 'Spots',
-                        'UPbAnalysisMethods']
-
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 

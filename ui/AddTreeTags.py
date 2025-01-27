@@ -24,7 +24,6 @@ class AddTreeTags(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "AddTreeTags.ui")
         loadUi(sources_ui_file, self)
 
-        self.db = database
         self.table = table
         self.source_model = QtS.QSqlTableModel()
         self.source_model.setTable(self.table)

@@ -22,7 +22,6 @@ class EditTree(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "EditTree.ui")
         loadUi(sources_ui_file, self)
 
-        self.db = database
         self.model = model
         # print(model)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)

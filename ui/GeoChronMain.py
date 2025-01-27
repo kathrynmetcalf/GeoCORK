@@ -55,6 +55,7 @@ class GeoChron(QtW.QMainWindow):
         print("Database is open: " + str(ok))
         self.loadWindowState()
 
+        blank_schema_file = "Reference/GeoCORK_v1-0.db"
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         base_path = os.path.normpath(base_path)
         sources_ui_file = fr'{os.path.join(base_path, "GeochronMain.ui")}'
@@ -83,7 +84,7 @@ class GeoChron(QtW.QMainWindow):
         create_view_end = time.time()
         print(f"Create views time: {create_view_end - create_view_begin}")
         #list of all user-viewable tables in the database
-        self.user_view_tables = SQLUtils.user_viewable_alltables
+        self.user_view_tables = SQLUtils.user_viewable_tables
         #list of tables to display as a tree structure
         self.dbtree_list = SQLUtils.user_viewable_trees
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
