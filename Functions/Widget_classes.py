@@ -103,3 +103,70 @@ class FocusGroupBox(QtW.QGroupBox):
             if child.hasFocus():
                 return True
         return False
+
+class CustomDragTabBar(QtW.QTabBar):
+    def __init__(self, permanent_tabs: list, parent=None):
+        super().__init__(parent)
+        self.permanent_tabs = permanent_tabs
+
+    def update_permanent_tabs(self, names: list):
+        self.permanent_tabs = names
+
+    def mouseMoveEvent(self, event):
+        index = self.tabAt(event.pos())
+        if self.tabText(index) in self.permanent_tabs:
+            return
+        super().mouseMoveEvent(event)
+
+class PartiallyCloseableTabWidget(QtW.QTabWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.permanent_tabs = []
+        self.tabBar = CustomDragTabBar(self.permanent_tabs)
+        self.setTabBar(self.tabBar)
+        self.setTabsClosable(True)
+        self.setMovable(True)
+
+    def set_permanent_tabs(self, names: list):
+        # todo: try tracking by name instead of index
+        self.permanent_tabs = names
+        self.tabBar.update_permanent_tabs(self.permanent_tabs)
+        self.update_close_buttons()
+
+    def update_close_buttons(self):
+        for index in range(self.count()):
+            if self.tabText(index) in self.permanent_tabs:
+                self.tabBar.setTabButton(index, QtW.QTabBar.ButtonPosition.LeftSide, None)
+                self.tabBar.setTabButton(index, QtW.QTabBar.ButtonPosition.RightSide, None)
+        # self.setTabsClosable(True)
+        # self.setMovable(True)
+
+    def addTab(self, widget, name):
+        for index in range(self.count()):
+            if self.tabText(index) == name:
+                self.setCurrentIndex(index)
+                return
+        super().addTab(widget, name)
+        self.update_close_buttons()
+        self.setCurrentIndex(self.count() - 1)
+
+    def insertTab(self, index, widget, name):
+        for i in range(self.count()):
+            if self.tabText(i) == name:
+                self.setCurrentIndex(i)
+                return
+        super().insertTab(index, widget, name)
+        self.update_close_buttons()
+        self.setCurrentIndex(index)
+
+    def removeTab(self, index):
+        super().removeTab(index)
+        self.update_close_buttons()
+        if self.tabText(index) in self.permanent_tabs and self.tabText(index-1) in self.permanent_tabs:
+            self.setCurrentIndex(index-1)
+        elif self.tabText(index) in self.permanent_tabs:
+            self.setCurrentIndex(index-1)
+        elif self.tabText(index-1) in self.permanent_tabs:
+            self.setCurrentIndex(index)
+        else:
+            self.setCurrentIndex(index)

@@ -2,6 +2,7 @@ import sqlite3
 import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
+from Functions import Table_classes as TbC
 
 def add_data(db_file):
     """
@@ -97,8 +98,51 @@ def add_data(db_file):
     query.exec('''INSERT INTO UPbAnalyses (SpotID, ReferenceID, "206Pb/238UAge", "206Pb/238UAgeError", "207Pb/235UAge", "207Pb/235UAgeError", "207Pb/206PbAge", "207Pb/206PbAgeError", "AgeErrorTypeID", "AgeUnitID")
                 VALUES(1, 1, 18, 1.5, 17, 2, 25, 5, 2, 3)''')
 
+import sqlite3
+from random import randint, randrange
+
+from PyQt6 import QtSql as QtS
+import Functions.Table_classes as TbC
+
+def add_upb_data(db_file):
+    db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+    db.setDatabaseName(db_file)
+    if db.open():
+        query = QtS.QSqlQuery()
+        headers = TbC.get_headers('UPbAnalyses')
+        header_types = TbC.get_column_types('UPbAnalyses')
+        headers.pop(0)
+        header_types.pop(0)
+        quoted_headers = [f'"{header}"' for header in headers]
+        query_placeholders = ", ".join(['?' for _ in headers])
+        query_headers = ", ".join(quoted_headers)
+        for entry in range(100):
+            values = []
+            for header, header_type in zip(headers, header_types):
+                if 'ID' in header:
+                    values.append(1)
+                elif 'Rejected' in header:
+                    values.append(0)
+                elif header_type == 'INTEGER':
+                    values.append(randint(0, 100))
+                elif header_type == 'REAL':
+                    values.append(randrange(0, 100, 1))
+                elif header_type == 'DATETIME':
+                    current_datetime = QtC.QDateTime.currentDateTime()
+                    values.append(current_datetime)
+                else:
+                    values.append(''.join(chr(randint(0, 100)) for _ in range(10)))
+            query.prepare(f'INSERT INTO UPbAnalyses ({query_headers}) VALUES ({query_placeholders})')
+            for i, value in enumerate(values):
+                query.bindValue(i, value)
+            if not query.exec():
+                print('Error inserting data:', query.lastError().text())
+                return
+    db.close()
+
 
 if __name__ == '__main__':
     db_file = '../dec_schema.db'
     app = QtC.QCoreApplication([])
     add_data(db_file)
+    add_upb_data(db_file)

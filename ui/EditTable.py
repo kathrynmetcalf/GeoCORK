@@ -10,6 +10,7 @@ from Functions.Database_manager import SavepointManager, create_savepoint, relea
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Table_classes as TbC
+import Functions.Alter_database as Alter_db
 from ui.AddTags import AddTags
 from ui.GPSDialog import GPSDialog
 import Functions.SQLUtils as SQLUtils
@@ -17,7 +18,7 @@ from ui.New_reference import NewReference
 
 
 class EditTable(QtW.QDialog):
-    def __init__(self, table_name):
+    def __init__(self, table_name, parent_id: int=None, parent_type: str=None):
         super().__init__()
 
         self.edit_tableView: QtW.QTableView
@@ -26,8 +27,11 @@ class EditTable(QtW.QDialog):
         self.table = TxM.remove_spaces(table_name)
         self.model = TbC.VerifiableSqlTableModel()
         self.msg = QtW.QMessageBox(self)
-        if self.table == 'Samples' or self.table == 'Aliquots' or self.table == 'UPbData':
-            pass
+        if self.table == 'Spots' or self.table == 'UPbAnalyses':
+            self.parent_id = parent_id
+            self.parent_type = parent_type
+            self.model = TbC.VerifiableSqlViewModel()
+
         elif self.table in SQLUtils.trigger_tables:
             if self.table == 'Columns':
                 self.model = TbC.VerifiableSqlViewModel()
@@ -56,7 +60,7 @@ class EditTable(QtW.QDialog):
         self.tabbed_from_editor = False
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
-        self.cancel_pushButton.clicked.connect(self.rollback())
+        self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
@@ -337,13 +341,14 @@ class EditTable(QtW.QDialog):
             self.edit_tableView.scrollTo(self.model.edited_indexes[0])
             self.edit_tableView.setFocus()
 
+        # Check if the row has changed and if the model has been edited
         if selected.row() != deselected.row():
             if isinstance(self.model, TbC.VerifiableSqlTableModel | TbC.VerifiableSqlViewModel):
                 if not self.model.edited_indexes:
-                    return
-                elif self.model.edited_indexes[0].row() == selected.row():
-                    return
+                    # No uncommitted changes, so nothing to do
+                    return True
             if not self.model.submit():
+                # There was an error submitting the changes
                 if isinstance(self.model, TbC.VerifiableSqlTableModel | TbC.VerifiableSqlViewModel):
                     if self.model.submitError != '':
                         errtxt = f'Failed to save changes to {self.table}: {self.model.submitError}'
@@ -389,6 +394,17 @@ class EditTable(QtW.QDialog):
 
     def commit(self):
         if self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
+            if self.table == 'Columns':
+                Alter_db.update_generated_columns('Columns')
+                Alter_db.update_generated_columns('GPSLocations')
+            if self.table == 'Samples':
+                Alter_db.update_generated_columns('SampleAges')
+                Alter_db.update_generated_columns('GPSLocations')
+                Alter_db.update_generated_columns('Samples')
+            if self.table == '"References"':
+                Alter_db.update_generated_columns('"References"')
+            if self.table == 'UPbAnalyses':
+                Alter_db.update_generated_columns('UPbAnalyses')
             release_savepoint('before_edit')
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True

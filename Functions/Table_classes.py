@@ -15,10 +15,8 @@ from Functions.SQLUtils import abbreviations
 from Functions.Settings_manager import settings
 from Functions import SQLUtils
 import Functions.Text_manipulations as TxM
-from Functions import Database_views as DB_views
 from Functions import Check_triggers
 import Functions.Alter_database as Alter_db
-from ui.AddTags import AddTags
 from ui.Settings import return_abbreviations
 
 # from PyQt6.QtSql import rollback
@@ -153,6 +151,7 @@ class VerifiableSqlTableModel(DisplayRoundedModel):
                 return False
         if super().submit():
             self.row_submitted.emit(current_row)
+            Alter_db.update_generated_columns(self.tableName())
             self.edited_indexes = []
             self.submitError = ''
             self.headerToFix = ''
@@ -222,15 +221,15 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
         for column in range(1, self.columnCount()):
             header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             value = self.unrounded_data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
-            if header == 'Total Height/Depth':
-                set_header = 'ColumnTotalHeightDepth'
-                set_value = value
-            elif 'Unit' in header:
+            # if header == 'Total Height/Depth':
+            #     set_header = 'ColumnTotalHeightDepth'
+            #     set_value = value
+            if 'Unit' in header:
                 set_header = 'ColumnTotalHeightDepthUnitID'
                 set_table(foreign_table, 'DistanceUnits')
                 foreign_table.setFilter(f'DistanceUnitAbbreviation="{value}"')
                 set_value = foreign_table.record(0).value('DistanceUnitID')
-            elif header == 'Column Base GPS':
+            elif 'GPS' in header:
                 set_header = 'ColumnBaseGPSID'
                 query = QtS.QSqlQuery()
                 query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"')
@@ -258,6 +257,7 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
         if not query.exec():
             print(f'Failed to update {self.table} with {column_str}={value_str}')
             return False
+        Alter_db.update_generated_columns(self.table)
         self.row_submitted.emit(current_row)
         self.edited_indexes = []
         self.submitError = ''
@@ -351,71 +351,6 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             return header
         super().headerData(section, orientation, role)
 
-
-
-class AliquotTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self):
-        # Select lines
-
-
-        aliquot_query = f'''
-                    SELECT
-                        Aliquots.AliquotID,
-                        {aliquots},
-                        {aliquot_context},
-                        {spots},
-                        {spot_context},
-                        {spot_compositions},
-                        {references},
-                        {upb_methods},
-                        {labs}
-                    FROM Aliquots
-                    {SQLUtils.aliquot_context_join}
-                    {SQLUtils.spot_join}
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.upb_data_join}
-                    {SQLUtils.reference_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.labs_join}
-                    GROUP BY AliquotName
-                    ORDER BY Aliquots.AliquotID
-                    '''
-        return aliquot_query
-
-
-class SpotTableModel(QtS.QSqlQueryModel):
-    def setupQuery(self, ids_to_show):
-        # Select lines
-        spots = 'SpotName as "Spots"'
-        spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) as "Spot Contexts"'
-        spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) as "Spot Compositions"'
-        references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) as "References"'
-        upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) as "UPb Analysis Methods"'
-        labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) as "Lab Facilities"'
-
-        spot_query = f'''
-                    SELECT
-                        Spots.SpotID,
-                        {spots},
-                        {spot_context},
-                        {spot_compositions},
-                        {references},
-                        {upb_methods},
-                        {labs}
-                    FROM Spots
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.upb_analysis_join}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_labs_join}
-                    GROUP BY SpotName
-                    ORDER BY Spots.SpotID
-                    '''
-
-        return spot_query
-
 def get_headers(table: str):
     query = QtS.QSqlQuery()
     if not query.exec(f'PRAGMA table_info("{table}")'):
@@ -462,6 +397,24 @@ def name_column(table: str):
         return 1
     else:
         return None
+
+def get_name_from_id(table: str, id: int):
+    query = QtS.QSqlQuery()
+    headers = get_headers(table)
+    if not query.exec(f'SELECT {headers[name_column(table)]} FROM {table} WHERE {headers[0]}={id}'):
+        print(f"Failed to get name for {id} in {table}")
+        return None
+    query.next()
+    return query.value(0)
+
+def get_id_from_name(table: str, name: str):
+    query = QtS.QSqlQuery()
+    headers = get_headers(table)
+    if not query.exec(f'SELECT {headers[0]} FROM {table} WHERE {headers[name_column(table)]}="{name}"'):
+        print(f"Failed to get ID for {name} in {table}")
+        return None
+    query.next()
+    return query.value(0)
 
 def get_column_types(table: str):
     query = QtS.QSqlQuery()

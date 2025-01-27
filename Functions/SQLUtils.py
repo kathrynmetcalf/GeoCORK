@@ -9,6 +9,7 @@ selected_spotsize_unit = abbreviations['spotsize_unit']
 selected_gps_format = abbreviations['gps_format']
 selected_age_error_format = abbreviations['age_error_format']
 selected_ratio_error_format = abbreviations['ratio_error_format']
+selected_concordance_format = abbreviations['concordance_format']
 
 # ID columns
 qsample_id = 'Samples.SampleID'
@@ -299,8 +300,8 @@ qspot_sizes = f'GROUP_CONCAT(DISTINCT CalculatedSpotSize)'
 qspot_size_unit = 'GROUP_CONCAT(DISTINCT SpotSizeUnit.DistanceUnitAbbreviation)'
 qupb_rejected = 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END'
 qupb_rejection_reasons = 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)'
-qupb_created = 'UPbCreated'
-qupb_modified = 'UPbModified'
+qupb_created = 'UPbAnalysisCreated'
+qupb_modified = 'UPbAnalysisModified'
 
 # UPb, include null values
 qupb_references_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(UPbReferences.ReferenceDisplay,"Null")) AS "References"'
@@ -415,13 +416,12 @@ user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures',
                         'SamplingMethods', 'Settings', '"References"',
                         'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
-                       'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts',
-                       'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods',
-                       'Units']
+                       'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
+                       'SpotContexts', 'UPbAnalysisMethods', 'Units']
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'SampleView', 'ColumnEditView', 'UPbAnalyses']
+trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'SampleView', 'ColumnEditView', 'UPbAnalysesView', 'UPbAnalysesEditView']
 
 views = ['SampleView', 'AliquotView', 'SpotView', 'UPbView', 'ColumnView', 'ColumnEditView']
 

@@ -12,7 +12,6 @@ import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
 from ui.EditTable import EditTable
 from Functions import SQLUtils
-from Functions.Table_classes import AliquotTableModel
 from Functions.Tree_classes import TreeSortFilterProxyModel
 
 
