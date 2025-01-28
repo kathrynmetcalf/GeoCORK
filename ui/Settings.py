@@ -6,7 +6,7 @@ from Functions.Settings_manager import settings
 
 def default_settings():
     # get the default settings from the QSettings object
-    if settings.value('default_settings') is True:
+    if bool(settings.value('default_settings')) is True:
         # Database settings
         settings.setValue('db_name', 'untitled')
         settings.setValue('db_author', 'unknown')
@@ -79,6 +79,7 @@ class SettingsDialog(QtW.QDialog):
         super().__init__()
         settings_ui_file = "ui/Settings.ui"
         loadUi(settings_ui_file, self)
+        self.setWindowTitle('Settings')
 
         self.gps_format_model = QSqlQueryModel()
         self.elevation_unit_model = QSqlQueryModel()

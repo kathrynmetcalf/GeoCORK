@@ -78,6 +78,16 @@ class LandingPage(QWidget):
         else:
             self.show()
 
+        self.listWidget: QListWidget
+
+        # Clear all items in the QListWidget
+        while self.listWidget.count() > 0:
+            self.listWidget.takeItem(0)
+
+        # Repopulate the QListWidget with new items
+        for item in self.list_recents:
+            self.listWidget.addItem(str(item))
+
     def test_database_lock(self):
         database_path = self.get_filename()
         try:
@@ -153,7 +163,7 @@ class LandingPage(QWidget):
         settings_dialog = SettingsDialog()
 
         if settings_dialog.exec():
-            self.hide()
+            return
 
     def recents_context_menu(self, pos):
         item = self.listWidget.itemAt(pos)
@@ -178,7 +188,6 @@ class LandingPage(QWidget):
         )
 
         if msg == QMessageBox.StandardButton.Yes:
-            print(str(item.text()))
             for x in self.list_recents:
                 print(x == str(item.text()))
             self.list_recents.remove(str(item.text()))

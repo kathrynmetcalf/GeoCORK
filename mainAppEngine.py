@@ -19,7 +19,7 @@ if __name__ == "__main__":
 
     if not settings.contains("default_settings"):
         settings.setValue("default_settings", True)
-    if settings.value("default_settings") is True:
+    if bool(settings.value("default_settings")) is True:
         default_settings()
 
     landing_page = LandingPage()
