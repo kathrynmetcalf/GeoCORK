@@ -8,6 +8,12 @@
 venv
 venv/
 
+#pyinstaller
+dist
+/dist
+build
+/build
+
 #MacOs
 .DS_Store
 

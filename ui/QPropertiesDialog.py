@@ -1,17 +1,20 @@
+import os
 import sys
 import typing
 
 import PyQt6
 from PyQt6 import QtGui
-from PyQt6.QtCore import QSettings, Qt, QPoint, QSize
-from PyQt6.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout, QWidget, QDialog, QDialogButtonBox
+from PyQt6.QtCore import QSettings, QPoint, QSize
+from PyQt6.QtWidgets import QDialog, QDialogButtonBox
 from PyQt6.uic import loadUi
 
 
 class QPropertiesDialog(QDialog):
     def __init__(self):
         super().__init__()
-        loadUi("ui_Settings.ui", self)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "ui_Settings.ui")
+        loadUi(sources_ui_file, self)
 
         self.settings = QSettings("CSUF", "GeoChron")
         self.loadWindowState()

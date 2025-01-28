@@ -1,6 +1,6 @@
-import PyQt6
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtCore as QtC
+from PyQt6 import QtSql as QtS
+
 
 def update_modified_timestamp(table: str, record_ids: list):
     """

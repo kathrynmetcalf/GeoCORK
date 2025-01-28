@@ -1,3 +1,4 @@
+import os
 import sys
 from pathlib import Path
 import sqlite3
@@ -58,7 +59,11 @@ class GeoChron(QtW.QMainWindow):
         self.loadWindowState()
 
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
-        sources_ui_file = "ui/GeochronMain.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        base_path = os.path.normpath(base_path)
+        sources_ui_file = fr'{os.path.join(base_path, "GeochronMain.ui")}'
+        sources_ui_file = os.path.normpath(sources_ui_file)
+
         loadUi(sources_ui_file, self)
 
         savepoint_manager = Database_manager.SavepointManager()
@@ -100,7 +105,7 @@ class GeoChron(QtW.QMainWindow):
         # Signal for search bar
         # self.search_lineEdit.textChanged.connect(self.search)
         # Signal for clicked add button in main window
-        # self.actionImport.triggered.connect(self.show_import_wizard_dialog)
+        self.actionImport.triggered.connect(self.show_import_wizard_dialog)
         # Signal for clicked edit button
         # self.edit_pushButton.clicked.connect(self.edit_popup)
         # Signal for clicked edit samples button
@@ -171,13 +176,10 @@ class GeoChron(QtW.QMainWindow):
         Executes the import wizard with that file
         :return:
         """
-        try:
-            home_dir = str(Path.home()) + r'\Downloads'
-            fname = QFileDialog.getOpenFileName(self, 'Open file', home_dir)
-            import_wizard = ui.import_wizard.ImportWizardDialog(fname[0], self.db_file)
-            import_wizard.exec()
-        except FileNotFoundError:
-            print("No file selected")
+
+        import_wizard = ui.import_wizard.ImportWizardDialog()
+        import_wizard.show()
+
 
     # def display_table_list(self):
     #     """

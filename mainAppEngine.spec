@@ -1,0 +1,51 @@
+# -*- mode: python ; coding: utf-8 -*-
+
+
+a = Analysis(
+    ['mainAppEngine.py'],
+    pathex=['.venv/lib/python3.11/site-packages'],
+    binaries=[],
+    datas=[('ui/*.ui', '.'),
+            ('Reference/GeologicTime_Ages.xml', 'Reference')],
+    hiddenimports=['PyQt6', 'PyQt6-Qt6', 'PyQt6_sip', 'platformdirs'],
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=0,
+)
+pyz = PYZ(a.pure)
+
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name='mainAppEngine',
+    debug=True,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=True,
+    console=True,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+)
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='mainAppEngine',
+)
+app = BUNDLE(
+    coll,
+    name='mainAppEngine.app',
+    icon=None,
+    bundle_identifier=None,
+)

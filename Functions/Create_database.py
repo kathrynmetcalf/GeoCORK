@@ -1,8 +1,9 @@
-import sqlite3
-import PyQt6
-from PyQt6 import QtSql as QtS
 import xml.etree.ElementTree as ET  # xml reader
+
 import Functions.SQLUtils as SQLUtils
+import sys, os
+
+from PyQt6 import QtSql as QtS
 
 '''
 Commands to create the database
@@ -491,8 +492,8 @@ CREATE_SAMPLES_TABLE = '''CREATE TABLE IF NOT EXISTS Samples(
                     SampleDescription TEXT,
                     SampleCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SampleModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (SampleName COLLATE NOCASE), 
-                    UNIQUE (SampleIGSN COLLATE NOCASE),
+                    UNIQUE (SampleName COLLATE NOCASE),
+                    UNIQUE (SampleIGSN COLLATE NOCASE), 
                     FOREIGN KEY(SampleGPSLocationID) REFERENCES GPSLocations(GPSLocationID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL, 
@@ -958,7 +959,7 @@ def create_tables():
     Populates the units, types, and conversion tables
     Uses the default database connection
     """
-    
+
     query = QtS.QSqlQuery()
 
     # Create the tables

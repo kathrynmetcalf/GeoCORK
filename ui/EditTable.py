@@ -1,3 +1,4 @@
+import os
 import sys
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -21,9 +22,11 @@ class EditTable(QtW.QDialog):
     def __init__(self, table_name, parent_id: int=None, parent_type: str=None):
         super().__init__()
 
-        self.edit_tableView: QtW.QTableView
-        tags_ui_file = "ui/EditTable.ui"
-        loadUi(tags_ui_file, self)
+        # Define any widgets here
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "EditTable.ui")
+        loadUi(sources_ui_file, self)
+
         self.table = TxM.remove_spaces(table_name)
         self.model = TbC.VerifiableSqlTableModel()
         self.msg = QtW.QMessageBox(self)

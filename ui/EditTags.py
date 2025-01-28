@@ -1,11 +1,11 @@
+import os
 import sys
-from pathlib import Path
-import sqlite3
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
+
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
+from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
+
 import Functions.Check_triggers as Ct
 
 
@@ -14,8 +14,10 @@ class EditTags(QtW.QDialog):
         super().__init__()
 
         # Define any widgets here
-        tags_ui_file = "EditTags.ui"
-        loadUi(tags_ui_file, self)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "EditTags.ui")
+        loadUi(sources_ui_file, self)
+
         self.db = database
         self.model = model
         self.table = table_name.replace(" ", "")

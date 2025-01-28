@@ -1,11 +1,12 @@
 import sqlite3
-import PyQt6
+
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
 from Functions.SQLUtils import gps_column_join
 from Functions.Table_classes import set_table, get_headers
+
 
 
 def SampleViewQuery(ids_to_show=None):
@@ -585,11 +586,3 @@ def drop_view(view: str):
     if not query.exec(f'DROP VIEW IF EXISTS {view}'):
         print(f'Failed to drop {view}: {query.lastError().text()}')
         return False
-
-
-if __name__ == '__main__':
-    db_file = '../TestSchema.db'
-    conn = sqlite3.connect(db_file)
-    with conn:
-        c = conn.cursor()
-        create_sample_view(c)

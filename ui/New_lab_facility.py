@@ -1,3 +1,4 @@
+import os
 import sys
 
 from PyQt6 import QtWidgets as QtW
@@ -10,7 +11,8 @@ class NewLabFacility(QtW.QDialog):
 
         # Define any widgets here
         self.db_file = db_file
-        sources_ui_file = "New_lab_facility.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "New_lab_facility.ui")
         loadUi(sources_ui_file, self)
 
         self.ok_buttonBox.accepted(self.accepted())

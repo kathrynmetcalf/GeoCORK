@@ -21,8 +21,8 @@ qupb_id = 'UPbAnalyses.UPbAnalysisID'
 # Sample view columns
 qsample_name = 'Samples.SampleName'
 qigsn = 'Samples.SampleIGSN'
-qgps = f'''SampleGPS.GPSLocationConverted'''
-qsample_elev = f'SampleGPS.CalculatedGPSElev || "±" || SampleGPS.CalculatedGPSElevError'
+qgps = f'''GPSLocations.GPSLocationConverted'''
+qsample_elev = f'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError'
 qsample_age = f'SampleAges.SampleAgeDisplay'
 qage_range = f'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ")'
 qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName)'
@@ -51,25 +51,25 @@ qheight_depth_unit_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(HeightDepthUnitID,"
 qheight_depth_unit_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnHeightDepthUnits.DistanceUnitName,"Null"))'
 qsample_description_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleDescription,"Null"))'
 qsample_reference_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ReferenceDisplay,"Null"))'
-qsample_gps_converted_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLocationConverted,"Null"))'
-qsample_lat_deg_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLatDeg, "Null"))'
-qsample_lat_min_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLatMin, "Null"))'
-qsample_lat_sec_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLatSec, "Null"))'
-qsample_lat_dir_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLatDirectionID, "Null"))'
+qsample_gps_converted_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLocationConverted,"Null"))'
+qsample_lat_deg_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLatDeg, "Null"))'
+qsample_lat_min_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLatMin, "Null"))'
+qsample_lat_sec_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLatSec, "Null"))'
+qsample_lat_dir_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLatDirectionID, "Null"))'
 qsample_lat_dir_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleLatDirections.DirectionUnitName, "Null"))'
-qsample_lon_deg_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLonDeg, "Null"))'
-qsample_lon_min_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLonMin, "Null"))'
-qsample_lon_sec_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLonSec, "Null"))'
-qsample_lon_dir_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSLonDirectionID, "Null"))'
+qsample_lon_deg_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLonDeg, "Null"))'
+qsample_lon_min_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLonMin, "Null"))'
+qsample_lon_sec_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLonSec, "Null"))'
+qsample_lon_dir_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSLonDirectionID, "Null"))'
 qsample_lon_dir_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleLonDirections.DirectionUnitName, "Null"))'
-qsample_utm_zone_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSUTMZone, "Null"))'
-qsample_utm_northing_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSUTMN, "Null"))'
-qsample_utm_easting_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSUTME, "Null"))'
-qsample_gps_format_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSFormatID, "Null"))'
-qsample_gps_format_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPSFormats.GPSFormatAbbreviation, "Null"))'
-qsample_gps_elev_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSElev, "Null"))'
-qsample_gps_elev_error_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSElevError, "Null"))'
-qsample_gps_elev_unit_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleGPS.GPSElevUnitID, "Null"))'
+qsample_utm_zone_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSUTMZone, "Null"))'
+qsample_utm_northing_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSUTMN, "Null"))'
+qsample_utm_easting_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSUTME, "Null"))'
+qsample_gps_format_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSFormatID, "Null"))'
+qsample_gps_format_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSFormatAbbreviation, "Null"))'
+qsample_gps_elev_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSElev, "Null"))'
+qsample_gps_elev_error_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSElevError, "Null"))'
+qsample_gps_elev_unit_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(GPSLocations.GPSElevUnitID, "Null"))'
 qsample_gps_elev_unit_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleElevationUnits.DistanceUnitAbbreviation, "Null"))'
 qsample_default_age_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(DefaultSampleAgeID,"Null"))'
 qsample_direct_age_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SampleAges.DirectAge,"Null"))'
@@ -324,11 +324,11 @@ sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON Di
                         LEFT JOIN "References" AS AgeReferences ON AgeReferences.ReferenceID=SampleAges_References.ReferenceID'''
 
 # GPSLocation joins
-gps_sample_join = '''LEFT JOIN GPSLocations AS SampleGPS ON Samples.SampleGPSLocationID=SampleGPS.GPSLocationID'''
-gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON SampleLatDirections.DirectionUnitID=SampleGPS.GPSLatDirectionID
-                        LEFT JOIN DirectionUnits AS SampleLonDirections ON SampleLonDirections.DirectionUnitID=SampleGPS.GPSLonDirectionID
-                        LEFT JOIN DistanceUnits AS SampleElevationUnits ON SampleElevationUnits.DistanceUnitID=SampleGPS.GPSElevUnitID
-                        LEFT JOIN GPSFormats AS SampleGPSFormats ON SampleGPSFormats.GPSFormatID=SampleGPS.GPSFormatID'''
+gps_sample_join = '''LEFT JOIN GPSLocations AS GPSLocations ON Samples.SampleGPSLocationID=GPSLocations.GPSLocationID'''
+gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON SampleLatDirections.DirectionUnitID=GPSLocations.GPSLatDirectionID
+                        LEFT JOIN DirectionUnits AS SampleLonDirections ON SampleLonDirections.DirectionUnitID=GPSLocations.GPSLonDirectionID
+                        LEFT JOIN DistanceUnits AS SampleElevationUnits ON SampleElevationUnits.DistanceUnitID=GPSLocations.GPSElevUnitID
+                        LEFT JOIN GPSFormats AS GPSFormats ON GPSFormats.GPSFormatID=GPSLocations.GPSFormatID'''
 gps_column_join = '''LEFT JOIN GPSLocations AS ColumnGPS ON Columns.ColumnBaseGPSID=ColumnGPS.GPSLocationID'''
 gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON ColumnLatDirections.DirectionUnitID=ColumnGPS.GPSLatDirectionID
                         LEFT JOIN DirectionUnits AS ColumnLonDirections ON ColumnLonDirections.DirectionUnitID=ColumnGPS.GPSLonDirectionID
@@ -415,6 +415,7 @@ user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures',
                         'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
                         'SamplingMethods', 'Settings', '"References"',
                         'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
+
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                        'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
                        'SpotContexts', 'UPbAnalysisMethods', 'Units']
@@ -462,3 +463,394 @@ gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees 
                    ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
                    ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
                    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+
+
+table_attributes_dict = {
+    'AgeConstraints': [
+        "AgeConstraintName", "AgeConstraintDescription",
+        "AgeConstraintCreated", "AgeConstraintModified"],
+    'AgeInterpretations': [
+        "AgeInterpretationName", "AgeInterpretationDescription",
+        "AgeInterpretationCreated", "AgeInterpretationModified"],
+    'Ages': [
+        "AgeName", "MaxMa", "MinMa",
+        "AgeCreated", "AgeModified"
+    ],
+    'AgeSignatures': [
+        "AgeSignatureName", "AgeSignatureDescription",
+        "AgeSignatureCreated", "AgeSignatureModified"
+    ],
+    'AliquotContexts': [
+        "AliquotContextName", "AliquotContextDescription",
+        "AliquotContextCreated", "AliquotContextModified"
+    ],
+    'Aliquots': [
+        "AliquotName", "AliquotCreated", "AliquotModified"
+    ],
+    'Columns': [
+        "ColumnName", "ColumnDescription",
+        "ColumnCreated", "ColumnModified"
+    ],
+    'Instruments': [
+        "InstrumentName", "InstrumentDescription",
+        "InstrumentCreated", "InstrumentModified"
+    ],
+    'LabFacilities': [
+        "LabFacilityName", "LabFacilityDescription",
+        "LabFacilityCreated", "LabFacilityModified"
+    ],
+    '"References"': [
+        "Authors", "Year", "Title", "Source", "doi", "ShortCitation", "ReferenceDescription",
+        "ReferenceCreated", "ReferenceModified"
+    ],
+    'Regions': [
+        "RegionName", "RegionDescription",
+        "RegionCreated", "RegionModified"
+    ],
+    'RejectionReasons': [
+        "RejectionReasonName", "RejectionReasonDescription",
+        "RejectionReasonCreated", "RejectionReasonModified"
+    ],
+    'RockTypes': [
+        "RockTypeName", "RockTypeDescription",
+        "RockTypeCreated", "RockTypeModified"
+    ],
+    'SampleAges': [
+        "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge",
+        "SampleAgeDescription", "SampleAgeCreated", "SampleAgeModified"
+    ],
+    'SampleContexts': [
+        "SampleContextName", "SampleContextDescription",
+        "SampleContextCreated", "SampleContextModified"
+    ],
+    'Samples': [
+        "SampleName", "SampleIGSN", "CalculatedHeightDepth", "CalculatedHeightDepthError", "SampleDescription",
+        "SampleCreated", "SampleModified"
+    ],
+    'SamplingMethods': [
+        "SamplingMethodName", "SamplingMethodDescription",
+        "SamplingMethodCreated", "SamplingMethodModified"
+    ],
+    'Settings': [
+        "SettingName", "SettingDescription",
+        "SettingCreated", "SettingModified"
+    ],
+    'Spots': [
+        "SpotName", "SpotCreated", "SpotModified"
+    ],
+    'SpotCompositions': [
+        "SpotCompositionName", "SpotCompositionDescription",
+        "SpotCompositionCreated", "SpotCompositionModified"
+    ],
+    'SpotContexts': [
+        "SpotContextName", "SpotContextDescription",
+        "SpotContextCreated", "SpotContextModified"
+    ],
+    'UPbAnalyses': [
+        "Pb204cps",
+        "Pb206cps",
+        "Pb207cps",
+        "Pb208cps",
+        "Pb*cps",
+        "Th232cps",
+        "U235cps",
+        "U238cps",
+        "Uppm",
+        "Thppm",
+        "CalculatedU/Th",
+        "CalculatedTh/U",
+        "Calculated206Pb/207Pb",
+        "Calculated207Pb/206Pb",
+        "Calculated207Pb/235U",
+        "Calculated235U/207Pb",
+        "Calculated206Pb/238U",
+        "Calculated238U/206Pb",
+        "Calculated208Pb/232Th",
+        "Calculated232Th/208Pb",
+        "Calculated238U/232Th",
+        "Calculated232Th/238U",
+        "Calculated204Pb/238U",
+        "Calculated238U/204Pb",
+        "Calculated206Pb/204Pb",
+        "Calculated204Pb/206Pb",
+        "Calculated207Pb/204Pb",
+        "Calculated204Pb/207Pb",
+        "Calculated208Pb/204Pb",
+        "Calculated204Pb/208Pb",
+        "Concordance",
+        "Rejected",
+        "UPbAnalysisCreated",
+        "UPbAnalysisModified",
+        "Calculated207Pb/206PbAge",
+        "Calculated206Pb/238UAge",
+        "Calculated207Pb/235UAge",
+        "Calculated208Pb/232ThAge",
+        "CalculatedSpotSize",
+        "Calculated207Pb/206PbAgeError",
+        "Calculated207Pb/235UAgeError",
+        "Calculated206Pb/238UAgeError",
+        "Calculated208Pb/232ThAgeError",
+        "BestAge",
+        "CalculatedBestAgeError",
+        "Calculated206Pb/207PbError",
+        "Calculated207Pb/206PbError",
+        "Calculated207Pb/235UError",
+        "Calculated235U/207PbError",
+        "Calculated206Pb/238UError",
+        "Calculated238U/206PbError",
+        "Calculated208Pb/232ThError",
+        "Calculated232Th/208PbError",
+        "Calculated238U/232ThError",
+        "Calculated232Th/238UError",
+        "Calculated204Pb/238UError",
+        "Calculated238U/204PbError",
+        "Calculated206Pb/204PbError",
+        "Calculated204Pb/206PbError",
+        "Calculated207Pb/204PbError",
+        "Calculated204Pb/207PbError",
+        "Calculated208Pb/204PbError",
+        "Calculated204Pb/208PbError"
+    ],
+    'UPbAnalysisMethods': [
+        "UPbAnalysisMethodName", "UPbAnalysisMethodDescription",
+        "UPbAnalysisMethodCreated", "UPbAnalysisMethodModified"
+    ],
+    'Units': [
+        "UnitName", "UnitDescription",
+        "UnitCreated", "UnitModified"
+    ]
+}
+
+upb_possible_database_input_fields = [
+    'SpotID',
+    'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
+    'Uppm', 'Thppm',
+    'U/Th', 'Th/U',
+
+    '206Pb/204Pb', '206Pb/204PbError',
+    '204Pb/206Pb', '204Pb/206PbError',
+    '207Pb/204Pb', '207Pb/204PbError',
+    '204Pb/207Pb', '204Pb/207PbError',
+    '208Pb/204Pb', '208Pb/204PbError',
+    '204Pb/208Pb', '204Pb/208PbError',
+    '206Pb/207Pb', '206Pb/207PbError',
+    '207Pb/206Pb', '207Pb/206PbError',
+
+    '204Pb/238U', '204Pb/238UError',
+    '238U/204Pb', '238U/204PbError',
+    '206Pb/238U', '206Pb/238UError',
+    '238U/206Pb', '238U/206PbError',
+    '207Pb/235U', '207Pb/235UError',
+    '235U/207Pb', '235U/207PbError',
+    '208Pb/232Th', '208Pb/232ThError',
+    '232Th/208Pb', '232Th/208PbError',
+
+    '238U/232Th', '238U/232ThError',
+    '232Th/238U', '232Th/238UError',
+
+    'ErrorCorr/Rho',
+    'RatioErrorTypeID',
+    '207Pb/206PbAge', '207Pb/206PbAgeError',
+    '207Pb/235UAge', '207Pb/235UAgeError',
+    '206Pb/238UAge', '206Pb/238UAgeError',
+    '208Pb/232ThAge', '208Pb/232ThAgeError',
+    'BestAge', 'BestAgeError',
+
+    'AgeErrorTypeID',
+    'AgeUnitID',
+    'Concordance', 'ConcordanceTypeID',
+    'SpotSize', 'SpotSizeUnitID',
+    'Rejected',
+
+    'ReferenceID',
+    'LabFacilityID',
+    'InstrumentID',
+    'UPbAnalysisMethodID'
+]
+
+upb_possible_user_input_fields = {
+    'Base Info': [
+        'Sample Name',
+        'Aliquot Name',
+        'Spot Name',
+        'Reference Display',
+        'Lab Facility Name',
+        'Instrument Name',
+        'UPb Analysis Method Name',
+        'Rejection Reason',
+        'Spot Size'
+    ],
+    'Ratios': [
+        'U/Th', 'Th/U',
+
+        '206Pb/204Pb', '206Pb/204PbError',
+        '204Pb/206Pb', '204Pb/206PbError',
+        '207Pb/204Pb', '207Pb/204PbError',
+        '204Pb/207Pb', '204Pb/207PbError',
+        '208Pb/204Pb', '208Pb/204PbError',
+        '204Pb/208Pb', '204Pb/208PbError',
+        '206Pb/207Pb', '206Pb/207PbError',
+        '207Pb/206Pb', '207Pb/206PbError',
+
+        '204Pb/238U', '204Pb/238UError',
+        '238U/204Pb', '238U/204PbError',
+        '206Pb/238U', '206Pb/238UError',
+        '238U/206Pb', '238U/206PbError',
+        '207Pb/235U', '207Pb/235UError',
+        '235U/207Pb', '235U/207PbError',
+        '208Pb/232Th', '208Pb/232ThError',
+        '232Th/208Pb', '232Th/208PbError',
+
+        '238U/232Th', '238U/232ThError',
+        '232Th/238U', '232Th/238UError',
+
+        'ErrorCorr/Rho'
+
+    ],
+    'Age Ratios': [
+        '207Pb/206PbAge', '207Pb/206PbAgeError',
+        '207Pb/235UAge', '207Pb/235UAgeError',
+        '206Pb/238UAge', '206Pb/238UAgeError',
+        '208Pb/232ThAge', '208Pb/232ThAgeError',
+        'BestAge', 'BestAgeError',
+        'Concordance'
+    ],
+    'Isotope Counts': [
+        'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
+        'Uppm', 'Thppm'
+    ]
+}
+
+
+def get_join_from_table(tables: list[str]) -> str:
+    join = ""
+
+    for table in tables:
+        match table:
+            case 'AgeConstraints':
+                continue
+                if default_sample_age_join not in join:
+                    join += default_sample_age_join + '\n'
+                if age_constraint_join not in join:
+                    join += age_constraint_join + '\n'
+            case 'AgeInterpretations':
+                continue
+                if default_sample_age_join not in join:
+                    join += default_sample_age_join + '\n'
+                if age_interpretation_join not in join:
+                    join += age_interpretation_join + '\n'
+            case 'AgeSignatures':
+                if age_signature_join not in join:
+                    join += age_signature_join + '\n'
+            case 'Ages':
+                if sample_age_join not in join:
+                    join += sample_age_join + '\n'
+            case 'AgeSignatures':
+                if age_signature_join not in join:
+                    join += age_signature_join + '\n'
+            case 'Aliquots':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+            case 'AliquotContexts':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_context_join not in join:
+                    join += aliquot_context_join + '\n'
+            case 'Columns':
+                if column_join not in join:
+                    join += column_join + '\n'
+            case 'LabFacilities':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_labs_join not in join:
+                    join += upb_labs_join + '\n'
+            case 'Instruments':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_instruments_join not in join:
+                    join += upb_instruments_join + '\n'
+            case 'References':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_reference_join not in join:
+                    join += upb_reference_join + '\n'
+            case 'Regions':
+                if region_join not in join:
+                    join += region_join + '\n'
+            case 'RejectionReasons':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_rejection_reason_join not in join:
+                    join += upb_rejection_reason_join + '\n'
+            case 'RockTypes':
+                if rock_type_join not in join:
+                    join += rock_type_join + '\n'
+            case 'SampleAges':
+                if default_sample_age_join not in join:
+                    join += default_sample_age_join + '\n'
+            case 'SampleContexts':
+                if sample_context_join not in join:
+                    join += sample_context_join + '\n'
+            case 'SamplingMethods':
+                if sampling_method_join not in join:
+                    join += sampling_method_join + '\n'
+            case 'Settings':
+                if setting_join not in join:
+                    join += setting_join + '\n'
+            case 'Spots':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+            case 'SpotCompositions':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_composition_join not in join:
+                    join += spot_composition_join + '\n'
+            case 'SpotContexts':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_context_join not in join:
+                    join += spot_context_join + '\n'
+            case 'UPbAnalyses':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+            case 'UPbAnalysisMethods':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_method_join not in join:
+                    join += upb_method_join + '\n'
+            case 'Units':
+                if unit_join not in join:
+                    join += unit_join + '\n'
+            case 'Samples':
+                pass
+    return join

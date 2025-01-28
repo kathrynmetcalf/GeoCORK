@@ -1,24 +1,26 @@
-import sqlite3
+import os
+import sys
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
-from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QHBoxLayout, QPushButton, QVBoxLayout, QComboBox
+from PyQt6.QtSql import QSqlQuery
+from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox
 from PyQt6.uic import loadUi
 
 import Functions.Table_classes as TbC
 import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
-from ui.EditTable import EditTable
 from Functions import SQLUtils
 from Functions.Tree_classes import TreeSortFilterProxyModel
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 
 
 class DataViewerWidget(QWidget):
-    def __init__(self, db_file, ids_to_show, table_type):
+    def __init__(self, ids_to_show, table_type):
         super().__init__()
-        self.db_file = db_file
         self.table_type = table_type
         self.ids_to_show = '('
 
@@ -31,18 +33,19 @@ class DataViewerWidget(QWidget):
             self.ids_to_show = self.ids_to_show[0:-2]
             self.ids_to_show += ")"
 
-        self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-        self.db.setDatabaseName(self.db_file)
+        # self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+        # self.db.setDatabaseName(self.db_file)
         self.settings = QSettings("CSUF", "GeoChron")
 
-        self.db.open()
+        # self.db.open()
 
         self.loadWindowState()
 
-        sources_ui_file = "ui/DataViewerWidget.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
         loadUi(sources_ui_file, self)
 
-        self.id_condition = "()"
+        self.id_condition = '()'
 
         self.current_selection = []
         self.current_table = ""
@@ -50,24 +53,7 @@ class DataViewerWidget(QWidget):
         self.switch_to_table(self.db_stackedWidget)
         self.switch_to_table(self.db_stackedWidget_2)
 
-        # list of all user-viewable tables in the database
-        self.user_view_tables = ['Ages',
-                                 'Age Signatures', 'Aliquots', 'Aliquot Contexts', 'Columns', 'Lab Facilities',
-                                 'Instruments',
-                                 'Regions', 'Rock Types', 'Sample Contexts', 'Samples', 'Sampling Methods', 'Settings',
-                                 'Sources', 'Spots',
-                                 'Spot Compositions', 'Spot Contexts', 'UPb Data', 'Analysis Methods', 'Units',
-                                 'UPb Analysis Methods']
-
-        # list of tables to display as a tree structure
-        self.dbtree_list = ['Ages', 'AgeSignatures', 'AliquotContexts', 'Regions', 'RockTypes', 'SampleContexts',
-                            'SamplingMethods', 'Settings', 'SpotCompositions', 'SpotContexts', 'Units']
-       # list of tables to display as a table structure
-        self.dbtable_list = ['Aliquots', 'Columns', 'LabFacilities', 'Instruments', 'Sources', 'UPbData', 'Spots',
-                             'UPbAnalysisMethods']
-
-        self.dbTable_comboBox_2.addItems(self.user_view_tables)
-        self.dbTable_comboBox_2.removeItem(10)  # remove sample table index
+        self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
 
         if self.table_type == 'sample':
             self.dbTable_comboBox.addItem('Samples')
@@ -76,16 +62,16 @@ class DataViewerWidget(QWidget):
         elif self.table_type == 'spot':
             self.dbTable_comboBox.addItem('Spots')
         elif self.table_type == 'upbdata':
-            self.dbTable_comboBox.addItem('UPbData')
+            self.dbTable_comboBox.addItem('UPbAnalyses')
         # todo future implementation for dynamically switching between these tables
 
         # Pagination variables
         self.current_page_1 = 0
-        self.rows_per_page_1 = 5
+        self.rows_per_page_1 = 255
         self.total_records_1 = self.get_total_records_1()
 
         self.current_page_2 = 0
-        self.rows_per_page_2 = 250
+        self.rows_per_page_2 = 255
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
 
         # display sample table information first time
@@ -114,14 +100,20 @@ class DataViewerWidget(QWidget):
                                       self.dbTable_comboBox_2,
                                       self.edit_pushButton_2, self.dbTable_tableView, table_type)))
         # Signal for clicked add button in main window
-        self.edit_pushButton.clicked.connect(
-            lambda: self.display_table(self.db_stackedWidget, self.dbTable_tableView, self.dbTable_treeView,
-                                       self.dbTable_comboBox, self.edit_pushButton))
-        self.edit_pushButton_2.clicked.connect(
-            lambda: self.display_table(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                                       self.dbTable_comboBox_2, self.edit_pushButton_2))
+        self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.dbTable_comboBox_2.currentText()))
+        self.edit_pushButton_2.clicked.connect(lambda: self.edit_popup(self.dbTable_comboBox_2.currentText()))
 
         self.show()
+    # def edit_popup(self, table):
+    #     if table == 'Aliquots' or table == 'Spots' or table == 'UPbAnalyses':
+    #         return
+    #     elif table in SQLUtils.user_viewable_trees:
+    #         TrC.save_expanded_state(table, self.dbTable_tableView_2.model(), self.dbTable_tableView_2)
+    #         dlg = EditTree(self.dbTable_tableView_2.model().sourceModel(), table)
+    #     else:
+    #         dlg = EditTable(table)
+    #     dlg.exec()
+    #     # self.display_table()
 
     def closeEvent(self, a0):
         self.saveWindowState()
@@ -209,16 +201,28 @@ class DataViewerWidget(QWidget):
         """
         table_name = self.dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            if table == "LabFacilities":
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.ids_to_show}")
-            elif table == "UPbData":
-                c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.ids_to_show}")
-            else:
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.ids_to_show}")
-            return c.fetchone()[0]
+        query = QSqlQuery()
+        sql_query = ""
+
+        # Construct the query based on the table
+        if table == "LabFacilities":
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.ids_to_show}"
+        elif table == "UPbAnalyses":
+            sql_query = f"SELECT COUNT(*) FROM UPbAnalyses WHERE UPbAnalysisID IN {self.ids_to_show}"
+        else:
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.ids_to_show}"
+
+        # Execute the query
+        if not query.exec(sql_query):
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+            return 0
+
+        # Fetch the count
+        if query.next():
+            return query.value(0)
+
+        return 0
 
     def get_total_records_2(self, dbTable_comboBox):
         """
@@ -226,18 +230,28 @@ class DataViewerWidget(QWidget):
         """
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            if table == "LabFacilities":
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.id_condition}")
-            elif table == "UPbData":
-                c.execute(f"SELECT COUNT(*) FROM UPbData WHERE UPbAnalysisID IN {self.id_condition}")
-            else:
-                c.execute(f"SELECT COUNT(*) FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition}")
-            test = c.fetchone()[0]
-            print(f"{table} : {test}")
-            return test
+        query = QSqlQuery()
+        sql_query = ""
+
+        # Construct the query based on the table
+        if table == "LabFacilities":
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.id_condition}"
+        elif table == "UPbAnalyses":
+            sql_query = f"SELECT COUNT(*) FROM UPbAnalyses WHERE UPbAnalysisID IN {self.id_condition}"
+        else:
+            sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.id_condition}"
+
+        # Execute the query
+        if not query.exec(sql_query):
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+            return 0
+
+        # Fetch the count
+        if query.next():
+            return query.value(0)
+
+        return 0
 
     def get_record_index(self, record_id, dbTable_comboBox):
         """
@@ -245,14 +259,35 @@ class DataViewerWidget(QWidget):
         """
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            c.execute(
-                f"SELECT row_number FROM (SELECT ROW_NUMBER() OVER (ORDER BY {table[0:-1]}ID) AS row_number, {table[0:-1]}ID FROM {table} WHERE {table[0:-1]}ID IN {self.ids_to_show}) WHERE {table[0:-1]}ID = ?",
-                (record_id,))
-            result = c.fetchone()
-            return result[0] - 1 if result else -1
+        query = QSqlQuery()
+
+        # Construct the SQL query
+        base_id_column = f"{table[:-1]}ID"
+        sql_query = f"""
+                SELECT row_number 
+                FROM (
+                    SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} 
+                    FROM {table} 
+                    WHERE {base_id_column} IN {self.ids_to_show}
+                ) 
+                WHERE {base_id_column} = :record_id
+            """
+
+        # Prepare and bind parameters
+        query.prepare(sql_query)
+        query.bindValue(":record_id", record_id)
+
+        # Execute the query
+        if not query.exec():
+            # Handle query execution error
+            print("Failed to execute query:", query.lastError().text())
+            return -1
+
+        # Fetch the result
+        if query.next():
+            return query.value(0) - 1  # Convert to zero-based index
+
+        return -1
 
     def switch_to_table(self, db_stackedWidget):
         """
@@ -284,9 +319,10 @@ class DataViewerWidget(QWidget):
             self.switch_to_table(db_stackedWidget)
 
             # todo very slow because of the sample view
-            sample_model = TbC.SampleTableModel()
+            # todo sample tables across entire db is broken.
+            sample_model = TbC.SampleAgeTableModel()
             query = TbC.SampleTableModel().setupQuery(self.ids_to_show, self.rows_per_page_1, offset)
-            sample_model.setQuery(QtS.QSqlQuery(query, self.db))
+            sample_model.setQuery(QtS.QSqlQuery(query))
 
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_proxy_model.setSourceModel(sample_model)
@@ -304,7 +340,7 @@ class DataViewerWidget(QWidget):
 
             aliquot_model = TbC.AliquotTableModel()
             query = TbC.AliquotTableModel().setupQuery()
-            aliquot_model.setQuery(QtS.QSqlQuery(query, self.db))
+            aliquot_model.setQuery(QtS.QSqlQuery(query))
 
             aliquot_proxy_model = QtC.QSortFilterProxyModel()
             aliquot_proxy_model.setSourceModel(aliquot_model)
@@ -320,7 +356,7 @@ class DataViewerWidget(QWidget):
             self.switch_to_table(db_stackedWidget)
             spot_model = TbC.SpotTableModel()
             query = TbC.AliquotTableModel().setupQuery()
-            spot_model.setQuery(QtS.QSqlQuery(query, self.db))
+            spot_model.setQuery(QtS.QSqlQuery(query))
 
             spot_proxy_model = QtC.QSortFilterProxyModel()
             spot_proxy_model.setSourceModel(spot_model)
@@ -332,12 +368,12 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
-        elif table == 'UPbData':
+        elif table == 'UPbAnalyses':
             self.switch_to_table(db_stackedWidget)
             sample_model = QtS.QSqlQueryModel()
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_model.setQuery(
-                f"SELECT * FROM UPbData WHERE UPbAnalysisID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}")
+                f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}")
             sample_proxy_model.setSourceModel(sample_model)
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
@@ -347,7 +383,7 @@ class DataViewerWidget(QWidget):
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         else:
-            print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
+            print(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 
         # Update page info label
         start_record = offset + 1
@@ -362,10 +398,7 @@ class DataViewerWidget(QWidget):
 
         # Connect the selectionChanged signal to the onSelectionChanged method
         self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
-        # Update page info label
-        start_record = offset + 1
-        end_record = min(offset + self.rows_per_page_2, self.total_records_2)
-        self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
+
         edit_pushButton.setText(f"Edit {table_name}")
 
     def on_select_changed(self):
@@ -404,48 +437,53 @@ class DataViewerWidget(QWidget):
                     condition_ids.append(str(condition_id))
 
                 table_condition = ''
-                sql = self.get_query_from_table(table)
+                sql = f'SELECT DISTINCT {table}.* FROM Samples '
+                sql += SQLUtils.get_join_from_table({table})
                 if condition_ids:
                     if table_type == 'sample':
                         table_condition = f" WHERE Samples.SampleID IN ({', '.join(condition_ids)})"
                     elif table_type == 'aliquot':
                         table_condition = f" WHERE Aliquots.AliquotID IN ({', '.join(condition_ids)})"
-                        if SQLUtils.aliquot_join not in sql:
-                            sql += SQLUtils.aliquot_join + '\n'
                     elif table_type == 'spot':
                         table_condition = f" WHERE Spots.SpotID IN ({', '.join(condition_ids)})"
-                        if SQLUtils.aliquot_join not in sql:
-                            sql += SQLUtils.aliquot_join + '\n'
-                        if SQLUtils.spot_join not in sql:
-                            sql += SQLUtils.spot_join + '\n'
+                    elif table_type == 'upbdata':
+                        table_condition = f" WHERE UPbAnalyses.UPbAnalysisID IN ({', '.join(condition_ids)})"
                     # "(19,39,58)"
 
                 sql += table_condition
-                print(sql)
-                conn = sqlite3.connect(self.db_file)
-                with conn:
-                    c = conn.cursor()
-                    if c.execute(sql):
-                        existing = c.fetchall()
-                        for row in existing:
-                            if row[0] is not None:
-                                ids_to_show.append(str(row[0]))
-                    self.id_condition = f'({", ".join(ids_to_show)})'
+                query = QSqlQuery()
+                ids_to_show = []
 
-        if table in self.dbtree_list:
+                # Execute the query
+                if query.exec(sql):
+                    while query.next():  # Iterate through all results
+                        row_id = query.value(0)
+                        if row_id is not None and row_id is not '':
+                            ids_to_show.append(str(row_id))
+                else:
+                    print(sql)
+                    print("Failed to execute query:", query.lastError().text())
+
+                # Update the id_condition attribute
+
+                self.id_condition = f'({", ".join(ids_to_show)}'
+                self.id_condition = self.id_condition + ')'
+                print(f'id condition: {self.id_condition}')
+
+        if table in SQLUtils.user_viewable_trees:
             self.switch_to_tree(db_stackedWidget)
-            model = QtS.QSqlTableModel(db=self.db)
+            model = QtS.QSqlTableModel()
             model.setTable(table)
             model.select()
-            if table not in ["UPbData", "LabFacilities"]:
-                model.setFilter(f'{table[0:-1]}ID  IN ( '
-                                f'WITH RECURSIVE ParentTree AS '
-                                f'(SELECT * FROM {table} '
-                                f'WHERE {table[0:-1]}ID IN {self.id_condition} '
-                                f'UNION ALL '
-                                f'SELECT {table}.* FROM {table} '
-                                f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
-                                f'SELECT {table[0:-1]}ID FROM ParentTree) ')
+
+            model.setFilter(f'{table[0:-1]}ID  IN ( '
+                            f'WITH RECURSIVE ParentTree AS '
+                            f'(SELECT * FROM {table} '
+                            f'WHERE {table[0:-1]}ID IN {self.id_condition} '
+                            f'UNION ALL '
+                            f'SELECT {table}.* FROM {table} '
+                            f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
+                            f'SELECT {table[0:-1]}ID FROM ParentTree) ')
             tree_model = TrC.TreeModel(model, None)
 
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
@@ -461,22 +499,23 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit_2.textChanged.connect(
                 lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
 
-        elif table in self.dbtable_list:
+        elif table in SQLUtils.user_viewable_tables:
             self.switch_to_table(db_stackedWidget)
 
             model = QtS.QSqlQueryModel()
             table_proxy_model = QSortFilterProxyModel()
 
+            # todo would be nice to switch these table[0:-1] entries and LabFac UPbAnalys to be a dict lookup from SQLUtils
             if table == "LabFacilities":
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE LabFacilityID IN {self.id_condition} ORDER BY LabFacilityID LIMIT {self.rows_per_page_2} OFFSET {offset}")
-            elif table == "UPbData":
+            elif table == "UPbAnalyses":
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE UPbAnalysisID IN {self.id_condition} ORDER BY UPbAnalysisID LIMIT {self.rows_per_page_2} OFFSET {offset}")
             else:
+                print(f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
-
             for col in range(model.columnCount()):
                 header = TxM.add_spaces_camel(
                     model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
@@ -494,120 +533,15 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, table_proxy_model))
 
         else:
-            print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
+            print(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 
-        self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
-        # Update page info label
-        start_record = offset + 1
-        end_record = min(offset + self.rows_per_page_2, self.total_records_2)
-        self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
-        edit_pushButton.setText(f"Edit {table_name}")
+        # self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+        # # Update page info label
+        # start_record = offset + 1
+        # end_record = min(offset + self.rows_per_page_2, self.total_records_2)
+        # self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
+        # edit_pushButton.setText(f"Edit {table_name}")
 
-    def get_query_from_table(self, table):
-
-        # gets the joins for the SQL query for the filtered table
-        join = f'SELECT DISTINCT {table}.* FROM Samples '
-        match (table):
-            case 'Ages':
-                if SQLUtils.age_join not in join:
-                    join += SQLUtils.age_join + '\n'
-            case 'AgeSignatures':
-                if SQLUtils.age_signature_join not in join:
-                    join += SQLUtils.age_signature_join + '\n'
-            case 'Aliquots':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-            case 'AliquotContexts':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.aliquot_context_join not in join:
-                    join += SQLUtils.aliquot_context_join + '\n'
-            case 'Columns':
-                if SQLUtils.column_join not in join:
-                    join += SQLUtils.column_join + '\n'
-            case 'LabFacilities':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.upb_data_join not in join:
-                    join += SQLUtils.upb_data_join + '\n'
-                if SQLUtils.labs_join not in join:
-                    join += SQLUtils.labs_join + '\n'
-            case 'Instruments':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.upb_data_join not in join:
-                    join += SQLUtils.upb_data_join + '\n'
-                if SQLUtils.instruments_join not in join:
-                    join += SQLUtils.instruments_join + '\n'
-            case 'Regions':
-                if SQLUtils.region_join not in join:
-                    join += SQLUtils.region_join + '\n'
-            case 'RockTypes':
-                if SQLUtils.rock_type_join not in join:
-                    join += SQLUtils.rock_type_join + '\n'
-            case 'Sample Contexts':
-                if SQLUtils.sample_context_join not in join:
-                    join += SQLUtils.sample_context_join + '\n'
-            case 'Samples':
-                pass
-            case 'SamplingMethods':
-                if SQLUtils.sampling_method_join not in join:
-                    join += SQLUtils.sampling_method_join + '\n'
-            case 'Settings':
-                if SQLUtils.setting_join not in join:
-                    join += SQLUtils.setting_join + '\n'
-            case 'Sources':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.upb_data_join not in join:
-                    join += SQLUtils.upb_data_join + '\n'
-                if SQLUtils.source_join not in join:
-                    join += SQLUtils.source_join + '\n'
-            case 'Spots':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-            case 'SpotCompositions':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.spot_composition_join not in join:
-                    join += SQLUtils.spot_composition_join + '\n'
-            case 'SpotContexts':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.spot_context_join not in join:
-                    join += SQLUtils.spot_context_join + '\n'
-            case 'UPbData':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.upb_data_join not in join:
-                    join += SQLUtils.upb_data_join + '\n'
-            case 'UPbAnalysisMethods':
-                if SQLUtils.aliquot_join not in join:
-                    join += SQLUtils.aliquot_join + '\n'
-                if SQLUtils.spot_join not in join:
-                    join += SQLUtils.spot_join + '\n'
-                if SQLUtils.upb_data_join not in join:
-                    join += SQLUtils.upb_data_join + '\n'
-                if SQLUtils.upb_method_join not in join:
-                    join += SQLUtils.upb_method_join + '\n'
-            case 'Units':
-                if SQLUtils.unit_join not in join:
-                    join += SQLUtils.unit_join + '\n'
-        return join
 
     def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):
         """
@@ -620,15 +554,6 @@ class DataViewerWidget(QWidget):
         proxy_model.setFilterRegularExpression(search_expression)
         if dbTable_treeView is not None:
             dbTable_treeView.expandAll()
-
-    def get_existing(self, field, table):
-        conn = sqlite3.connect(self.db_file)
-        with conn:
-            c = conn.cursor()
-            sql = f'''SELECT {field} FROM {table}'''
-            if c.execute(sql):
-                existing = c.fetchall()
-                return existing
 
     def edit_popup(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton):
         dbTable_comboBox: QComboBox

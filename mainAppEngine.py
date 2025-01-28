@@ -1,14 +1,18 @@
 
+import signal
 import sys
 
+from PyQt6.QtWidgets import QApplication, QErrorMessage
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtGui import QAction
 from Functions.Settings_manager import settings
 from ui.Settings import default_settings, SettingsDialog
 from ui.LandingUI import LandingPage
 
-import signal
+from ui.LandingUI import LandingPage
+
 signal.signal(signal.SIGINT, signal.SIG_DFL)
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

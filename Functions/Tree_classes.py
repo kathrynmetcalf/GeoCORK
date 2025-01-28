@@ -1275,13 +1275,3 @@ def get_selected_ids(selected_model: QtC.QAbstractItemModel | QtC.QAbstractProxy
             parent_rows.append(parent_row)
     return item_ids, parent_ids, parent_rows
 
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    db_file = '../TestSchema.db'
-    db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-    db.setDatabaseName(db_file)
-    model = QtS.QSqlTableModel()
-    model.setTable('Units')
-    model.select()
-    tree_model = TreeModel(model, None)

@@ -1,6 +1,4 @@
-import typing
-
-from PyQt6 import QtCore, QtGui
+from PyQt6 import QtCore
 from PyQt6.QtWidgets import QWidget, QComboBox, QLabel, QVBoxLayout, QCheckBox
 
 

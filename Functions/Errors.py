@@ -1,8 +1,3 @@
-import sys
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
-from PyQt6 import QtCore as QtC
-
 def duplicate_entry(header, duplicates):
     strlst = ', '.join(duplicates)
     text = f'''Each entry in {header} must be unique (case insensitive)
