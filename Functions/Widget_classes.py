@@ -108,14 +108,34 @@ class CustomDragTabBar(QtW.QTabBar):
         super().__init__(parent)
         self.permanent_tabs = permanent_tabs
 
+    def add_vertical_line(self):
+        # self.setStyleSheet("""
+        #     QTabBar::tab {padding: 10px;}
+        #     QTabBar::tab:nth-child(3) {{border-right: 5px solid red;}}
+        #     """)
+        self.setStyleSheet("""
+            QTabBar::tab {padding: 10px;}
+            """)
+
     def update_permanent_tabs(self, names: list):
         self.permanent_tabs = names
 
-    def mouseMoveEvent(self, event):
-        index = self.tabAt(event.pos())
-        if self.tabText(index) in self.permanent_tabs:
-            return
-        super().mouseMoveEvent(event)
+    def mouseReleaseEvent(self, event):
+        # Move the permanent tabs to the left side of the tab bar
+        super().mouseReleaseEvent(event)
+        if self.permanent_tabs:
+            self.correct_tab_order()
+
+    def correct_tab_order(self):
+        for index in range(self.count()):
+            if self.tabText(index) in self.permanent_tabs:
+                for i in range(len(self.permanent_tabs)):
+                    if self.tabText(index) == self.permanent_tabs[i]:
+                        if index != i:
+                            # Permanent tab is not in the correct position
+                            self.moveTab(index, i)
+                        else:  # Permanent tab is in the correct position
+                            break
 
 class PartiallyCloseableTabWidget(QtW.QTabWidget):
     def __init__(self, parent=None):
@@ -142,10 +162,13 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
 
     def addTab(self, widget, name):
         for index in range(self.count()):
+            # Check all tabs to see if the name already exists, set focus to that tab if it does
             if self.tabText(index) == name:
                 self.setCurrentIndex(index)
                 return
         super().addTab(widget, name)
+        # if self.count() >= 3:
+        #     self.tabBar.add_vertical_line()
         self.update_close_buttons()
         self.setCurrentIndex(self.count() - 1)
 
@@ -169,3 +192,5 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
             self.setCurrentIndex(index)
         else:
             self.setCurrentIndex(index)
+        # if self.count() >= 3:
+            # self.tabBar.add_vertical_line()

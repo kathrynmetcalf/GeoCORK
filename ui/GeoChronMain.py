@@ -121,6 +121,8 @@ class GeoChron(QtW.QMainWindow):
         self.tabWidget.addTab(DisplayTables(self), 'Data Tables')
         self.tabWidget.addTab(Filters(self), 'Filters')
         self.tabWidget.addTab(ExportWidget(self), 'Export')
+        # todo: figure out how to add a divider between the permanent tabs and the user-added tabs
+        # todo: make the permanent tabs unmovable, current workaround is reordering everything after a mouse release event
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
 
@@ -459,8 +461,7 @@ class GeoChron(QtW.QMainWindow):
         else:
             print("Error: Invalid child type")
             return
-        insert_index = self.tabWidget.count() - 2
-        self.tabWidget.insertTab(insert_index, ViewDataTab(parent_id, parent_type, child_type), f'{parent_type} {parent_name}: {child_label}')
+        self.tabWidget.addTab(ViewDataTab(parent_id, parent_type, child_type), f'{parent_type} {parent_name}: {child_label}')
 
     def close_tab(self, index):
         self.tabWidget: PartiallyCloseableTabWidget

@@ -13,9 +13,10 @@ from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
     QListWidget, QListWidgetItem
 from PyQt6.uic import loadUi
 
+from Functions.Settings_manager import settings
 from Functions.Create_database import create_tables
 from ui.GeoChronMain import GeoChron
-from ui.QPropertiesDialog import QPropertiesDialog
+from ui.Settings import SettingsDialog, settings_ids
 
 
 class LandingPage(QWidget):
@@ -26,10 +27,9 @@ class LandingPage(QWidget):
         sources_ui_file =os.path.join(base_path,  "landingpage.ui")
         loadUi(sources_ui_file, self)
 
-        self.settings = QSettings("CSUF", "GeoChron")
         self.loadWindowState()
 
-        self.list_recents = self.settings.value("ui/LandingPage/recentlist", defaultValue=[])
+        self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[])
 
         print(self.list_recents)
 
@@ -53,7 +53,9 @@ class LandingPage(QWidget):
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.listWidget.customContextMenuRequested.connect(self.recents_context_menu)
 
-        pixmap = QPixmap(os.path.join(base_path, './geocork.png'))
+        # pixmap = QPixmap(os.path.join(base_path, './geocork.png'))
+        pixmap = QPixmap(os.path.join(base_path, './Logo_draft.svg'))
+        # pixmap = QPixmap(os.path.join(base_path, './Logo_draft.png'))
         scaled_pixmap = pixmap.scaled(500, 100, Qt.AspectRatioMode.KeepAspectRatio,
                                       Qt.TransformationMode.SmoothTransformation)
         self.label.setPixmap(scaled_pixmap)
@@ -126,7 +128,7 @@ class LandingPage(QWidget):
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
                 self.list_recents.append(self.selected_files)
-                self.settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+                settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.open_geo_chron()
             self.setVisible(False)
 
@@ -143,14 +145,14 @@ class LandingPage(QWidget):
             self.selected_files = file_dialog.selectedFiles()[0]
             if self.selected_files not in self.list_recents:
                 self.list_recents.append(self.selected_files)
-                self.settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+                settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.hide()
             self.open_geo_chron()
 
     def showSettings(self):
-        properties_dialog = QPropertiesDialog()
+        settings_dialog = SettingsDialog()
 
-        if properties_dialog.exec():
+        if settings_dialog.exec():
             self.hide()
 
     def recents_context_menu(self, pos):
@@ -180,7 +182,7 @@ class LandingPage(QWidget):
             for x in self.list_recents:
                 print(x == str(item.text()))
             self.list_recents.remove(str(item.text()))
-            self.settings.setValue('ui/LandingPage/recentlist', self.list_recents)
+            settings.setValue('ui/LandingPage/recentlist', self.list_recents)
 
         row = self.listWidget.row(item)
         self.listWidget.takeItem(row)
@@ -190,9 +192,9 @@ class LandingPage(QWidget):
         return self.selected_files
 
     def saveWindowState(self):
-        self.settings.setValue("ui/LandingPage/pos", self.pos())
-        self.settings.setValue("ui/LandingPage/size", self.size())
+        settings.setValue("ui/LandingPage/pos", self.pos())
+        settings.setValue("ui/LandingPage/size", self.size())
 
     def loadWindowState(self):
-        self.move(self.settings.value("ui/LandingPage/pos", defaultValue=QPoint(410, 241)))
-        self.resize(self.settings.value("ui/LandingPage/size", defaultValue=QSize(750, 701)))
+        self.move(settings.value("ui/LandingPage/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/LandingPage/size", defaultValue=QSize(750, 701)))

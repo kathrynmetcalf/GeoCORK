@@ -98,32 +98,32 @@ class SettingsDialog(QtW.QDialog):
 
         self.gps_format_model.setQuery('SELECT GPSFormatAbbreviation FROM GPSFormats')
         self.gps_format_comboBox.setModel(self.gps_format_model)
-        self.gps_format_comboBox.setText(abbreviations['gps_format'])
+        self.gps_format_comboBox.setCurrentText(abbreviations['gps_format'])
 
         self.elevation_unit_model.setQuery('SELECT DistanceUnitAbbreviation FROM DistanceUnits')
-        self.elevation_unit_comboBox.setModel(self.elevation_unit_model)
-        self.elevation_unit_comboBox.setText(abbreviations['elevation_unit'])
+        self.elev_unit_comboBox.setModel(self.elevation_unit_model)
+        self.elev_unit_comboBox.setCurrentText(abbreviations['elevation_unit'])
 
         self.column_unit_model.setQuery('SELECT DistanceUnitAbbreviation FROM DistanceUnits')
         self.column_unit_comboBox.setModel(self.column_unit_model)
-        self.column_unit_comboBox.setText(abbreviations['heightdepth_unit'])
+        self.column_unit_comboBox.setCurrentText(abbreviations['heightdepth_unit'])
 
         self.spot_size_unit_model.setQuery('SELECT DistanceUnitAbbreviation FROM DistanceUnits')
         self.spot_size_unit_comboBox.setModel(self.spot_size_unit_model)
-        self.spot_size_unit_comboBox.setText(abbreviations['spotsize_unit'])
+        self.spot_size_unit_comboBox.setCurrentText(abbreviations['spotsize_unit'])
 
         self.age_unit_model.setQuery('SELECT AgeUnitAbbreviation FROM AgeUnits')
         self.age_unit_comboBox.setModel(self.age_unit_model)
-        self.age_unit_comboBox.setText(abbreviations['age_unit'])
+        self.age_unit_comboBox.setCurrentText(abbreviations['age_unit'])
 
         self.age_error_format_model.setQuery('SELECT ErrorFormatAbbreviation FROM ErrorFormats')
         self.age_error_format_comboBox.setModel(self.age_error_format_model)
-        self.age_error_format_comboBox.setText(abbreviations['age_error_format'])
+        self.age_error_format_comboBox.setCurrentText(abbreviations['age_error_format'])
 
         self.ratio_error_format_model.setQuery('SELECT ErrorFormatAbbreviation FROM ErrorFormats')
-        self.ratio_error_format_comboBox.setModel(self.ratio_error_format_model)
-        self.ratio_error_format_comboBox.setText(abbreviations['ratio_error_format'])
+        self.upb_ratio_error_format_comboBox.setModel(self.ratio_error_format_model)
+        self.upb_ratio_error_format_comboBox.setCurrentText(abbreviations['ratio_error_format'])
 
         self.concordance_format_model.setQuery('SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats')
-        self.concordance_format_comboBox.setModel(self.concordance_format_model)
-        self.concordance_format_comboBox.setText(abbreviations['concordance_format'])
+        self.upb_concordance_format_comboBox.setModel(self.concordance_format_model)
+        self.upb_concordance_format_comboBox.setCurrentText(abbreviations['concordance_format'])

@@ -86,12 +86,12 @@
             <item row="0" column="0">
              <widget class="QLabel" name="age_units_label">
               <property name="text">
-               <string>Age units:</string>
+               <string>Age unit:</string>
               </property>
              </widget>
             </item>
             <item row="0" column="1">
-             <widget class="QComboBox" name="age_units_comboBox"/>
+             <widget class="QComboBox" name="age_unit_comboBox"/>
             </item>
             <item row="1" column="0">
              <widget class="QLabel" name="age_error_format_label">
