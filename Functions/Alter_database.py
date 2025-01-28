@@ -80,7 +80,7 @@ def populate_generated_columns():
     concordance_format_id = settings.value('concordance_format_id')
     reference_format = settings.value('reference_format')
 
-    # Affected list format: [table, unit/type ID header, column1, column2, ...]
+    # Affected list format: [[table1, [unit/type ID headers], column1, column2, ...], [table2, [unit/type ID headers], column1, column2, ...], ...]
     # Save age errors to handle both age unit and age error type
     age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge'],
                          ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge', 'BestAge']]
@@ -233,6 +233,8 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
     table_age_id_header = table_id_headers[1]
     selected_error_type_id = selected_id[0]
     selected_age_unit_id = selected_id[1]
+    err_conversions.append((selected_error_type_id, 'x'))
+    age_conversions.append((selected_age_unit_id, 'x'))
     query = QtS.QSqlQuery()
     for err_column in affected_column_names:
         if '/' in err_column:
@@ -241,7 +243,7 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
         else:
             calc_column_name = f'Calculated{err_column}'
         sql_alter = f'ALTER TABLE {table} ADD COLUMN {calc_column_name} REAL AS (CASE'
-        sql_alter += f' WHEN {table_age_id_header}={selected_age_unit_id} AND {table_error_id_header}={selected_error_type_id} THEN {err_column}'
+        # sql_alter += f' WHEN {table_age_id_header}={selected_age_unit_id} AND {table_error_id_header}={selected_error_type_id} THEN {err_column}'
         for err_conversion in err_conversions:
             err_calculation = err_conversion[1].replace('x', err_column)
             age_column = err_column.replace('Error', '')

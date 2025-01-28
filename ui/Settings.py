@@ -19,7 +19,7 @@ def default_settings():
         # settings.setValue('table_font_size')
 
         # Unit and Format settings
-        settings.setValue('age_unit_id', 2)
+        settings.setValue('age_unit_id', 4)
         settings.setValue('elevation_unit_id', 8)
         settings.setValue('gps_format_id', 7)
         settings.setValue('heightdepth_unit_id', 2)
