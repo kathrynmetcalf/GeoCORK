@@ -68,15 +68,15 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
 def populate_generated_columns():
     create_savepoint('before_populate')
     # Retrieve the settings
-    age_unit_id = settings.value('age_unit_id', 2) #default to Ma
-    elevation_unit_id = settings.value('elevation_unit_id', 2) # default to m
-    gps_format_id = settings.value('gps_format_id', 1) # default to DD +/-
-    heightdepth_unit_id = settings.value('heightdepth_unit_id', 2) # default to m
-    spotsize_unit_id = settings.value('spotsize_unit_id', 5) # default to um
-    age_error_format_id = settings.value('age_error_format_id', 1) # default to 1 sigma abs
-    ratio_error_format_id = settings.value('ratio_error_format_id', 1) # default to 1 sigma abs
-    concordance_format_id = settings.value('concordance_format_id', 1) # default conc ratio
-    reference_format = settings.value('reference_format', 1)
+    age_unit_id = settings.value('age_unit_id') #default to Ma
+    elevation_unit_id = settings.value('elevation_unit_id') # default to m
+    gps_format_id = settings.value('gps_format_id') # default to DD +/-
+    heightdepth_unit_id = settings.value('heightdepth_unit_id') # default to m
+    spotsize_unit_id = settings.value('spotsize_unit_id') # default to um
+    age_error_format_id = settings.value('age_error_format_id') # default to 1 sigma abs
+    ratio_error_format_id = settings.value('ratio_error_format_id') # default to 1 sigma abs
+    concordance_format_id = settings.value('concordance_format_id') # default conc ratio
+    reference_format = settings.value('reference_format')
 
     # Affected list format: [[table1, [unit/type ID headers], column1, column2, ...], [table2, [unit/type ID headers], column1, column2, ...], ...]
     # Save age errors to handle both age unit and age error type
@@ -266,7 +266,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     query = QtS.QSqlQuery()
     column = 'GPSLocationConverted'
     variables = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
-                 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME']
+                 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'deg_symbol']
     modules = ['GPS', 'pyproj']
     global_vars = {name: globals()[name] for name in modules}
     gps_model = QtS.QSqlTableModel()
@@ -285,6 +285,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         GPSUTMZone = gps_model.record(row).value('GPSUTMZone')
         GPSUTMN = gps_model.record(row).value('GPSUTMN')
         GPSUTME = gps_model.record(row).value('GPSUTME')
+        deg_symbol = u'\N{DEGREE SIGN}'
         local_vars = {name: locals()[name] for name in variables}
 
         for conversion in conversions:

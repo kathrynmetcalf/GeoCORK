@@ -1113,6 +1113,10 @@ def populate_tables():
     while query.next(): out.append(query.value(2))
     if not out:
         populate_gps_formats()
+    try: query.exec('DELETE FROM GPSConversions')
+    except:
+        print(f'GPSConversions delete failed')
+        return
     populate_gps_conversions()
 
     # Populate the age table during initiation
@@ -1421,15 +1425,15 @@ def populate_gps_conversions():
                 elif gps_formats[format1][1] == 'DD +/-':
                     conversion1to1 = '''converted = f"{GPSLatDeg}°, {GPSLonDeg}°"'''
                 elif gps_formats[format1][1] == 'DD NSEW':
-                    conversion1to1 = '''converted = f"{GPSLatDeg}° {GPSLatDirection}, {GPSLonDeg}° {GPSLonDirection}"'''
+                    conversion1to1 = '''GPSLatDirection = GPS.convert_direction_id_to_abbreviation(GPSLatDirectionID)\nGPSLonDirection = GPS.convert_direction_id_to_abbreviation(GPSLonDirectionID)\nconverted = f"{GPSLatDeg}° {GPSLatDirection}, {GPSLonDeg}° {GPSLonDirection}"'''
                 elif gps_formats[format1][1] == 'DDM +/-':
                     conversion1to1 = '''converted = f"{GPSLatDeg}°{GPSLatMin}', {GPSLonDeg}°{GPSLonMin}'"'''
                 elif gps_formats[format1][1] == 'DDM NSEW':
-                    conversion1to1 = '''converted = f"{GPSLatDeg}°{GPSLatMin}' {GPSLatDirection}, {GPSLonDeg}°{GPSLonMin}' {GPSLonDirection}"'''
+                    conversion1to1 = '''GPSLatDirection = GPS.convert_direction_id_to_abbreviation(GPSLatDirectionID)\nGPSLonDirection = GPS.convert_direction_id_to_abbreviation(GPSLonDirectionID)\nconverted = f"{GPSLatDeg}°{GPSLatMin}' {GPSLatDirection}, {GPSLonDeg}°{GPSLonMin}' {GPSLonDirection}"'''
                 elif gps_formats[format1][1] == 'DMS +/-':
-                    conversion1to1 = '''converted = f"{GPSLatDeg}°{GPSLatMin}'{GPSLatSec}\", {GPSLonDeg}°{GPSLonMin}'{GPSLonSec}\""'''
+                    conversion1to1 = '''converted = f"{GPSLatDeg}{deg_symbol}{GPSLatMin}\'{GPSLatSec}\", {GPSLonDeg}{deg_symbol}{GPSLonMin}\'{GPSLonSec}\""'''
                 elif gps_formats[format1][1] == 'DMS NSEW':
-                    conversion1to1 = '''converted = f"{GPSLatDeg}°{GPSLatMin}'{GPSLatSec}\" {GPSLatDirection}, {GPSLonDeg}°{GPSLonMin}'{GPSLonSec}\" {GPSLonDirection}"'''
+                    conversion1to1 = '''GPSLatDirection = GPS.convert_direction_id_to_abbreviation(GPSLatDirectionID)\nGPSLonDirection = GPS.convert_direction_id_to_abbreviation(GPSLonDirectionID)\nconverted = f"{GPSLatDeg}{deg_symbol}{GPSLatMin}\'{GPSLatSec}\" {GPSLatDirection}, {GPSLonDeg}{deg_symbol}{GPSLonMin}\'{GPSLonSec}\" {GPSLonDirection}"'''
                 gps_format_model.setFilter(f'GPSFormatAbbreviation = "{gps_formats[format1][1]}"')
                 id_1 = gps_format_model.record(0).value('GPSFormatID')
                 gps_conversion_model.setFilter(f'FromGPSFormatID = {id_1} AND ToGPSFormatID = {id_1}')
@@ -1477,7 +1481,7 @@ def populate_gps_conversions():
                         conversion1to2 = f'''{convert_dd_to_sign}\nlat, lon = GPS.convert_dd_to_ddm(lat, lon)\n{convert_to_direction}'''
                         conversion1to2 += '''\nconverted = f"{lat[0]}°{lat[1]}' {lat[2]}, {lon[0]}°{lon[1]}' {lon[2]}"'''
                         conversion2to1 = f'''{convert_ddm_to_sign}\nlat, lon = GPS.convert_ddm_to_dd(lat, lon)\n{convert_to_direction}'''
-                        conversion2to1 += '''\nconverted = f"{lat[0]}°, {lon[0]}°"'''
+                        conversion2to1 += '''\nconverted = f"{lat[0]}° {lat[1]}, {lon[0]}° {lon[1]}"'''
                     elif gps_formats[format1][1] == 'DD NSEW' and gps_formats[format2][1] == 'DMS NSEW':
                         conversion1to2 = f'''{convert_dd_to_sign}\nlat, lon = GPS.convert_dd_to_dms(lat, lon)\n{convert_to_direction}'''
                         conversion1to2 += '''\nconverted = f"{lat[0]}°{lat[1]}'{lat[2]}\" {lat[3]}, {lon[0]}°{lon[1]}'{lon[2]}\" {lon[3]}"'''
@@ -1485,7 +1489,7 @@ def populate_gps_conversions():
                         conversion2to1 += '''\nconverted = f"{lat[0]}° {lat[1]}, {lon[0]}° {lon[1]}"'''
                     elif gps_formats[format1][1] == 'DDM NSEW' and gps_formats[format2][1] == 'DMS NSEW':
                         conversion1to2 = f'''{convert_ddm_to_sign}\nlat, lon = GPS.convert_ddm_to_dms(lat, lon)\n{convert_to_direction}'''
-                        conversion1to2 += '''\nconverted = f"{lat[0]}°{lat[1]}'{lat[2]}\" {lat[3]}, {lon[0]}°{lon[1]}'{lon[2]}\" {lon[3]}"'''
+                        conversion1to2 += '''\nconverted = f"{lat[0]}°{lat[1]}' {lat[2]}\" {lat[3]}, {lon[0]}° {lon[1]}'{lon[2]}\" {lon[3]}"'''
                         conversion2to1 = f'''{convert_dms_to_sign}\nlat, lon = GPS.convert_dms_to_ddm(lat, lon)\n{convert_to_direction}'''
                         conversion2to1 += '''\nconverted = f"{lat[0]}°{lat[1]}' {lat[2], {lon[0]}°{lon[1]}' {lon[2]}"'''
                 elif '+/-' in gps_formats[format1][1] and 'NSEW' in gps_formats[format2][1]:

@@ -79,6 +79,9 @@ class GeoChron(QtW.QMainWindow):
         dlg = SettingsDialog()
         dlg.exec()
         update_database()
+        # If the active tab is a data table, refresh it
+        if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':
+            self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
 
     def show_import_wizard_dialog(self):
         """

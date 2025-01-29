@@ -10,4 +10,5 @@ def update_database():
     if bool(settings.value('default_settings')) is True:
         default_settings()
     Alter_db.settings_reset()
+    DB_views.create_all_views()
 

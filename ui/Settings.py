@@ -1,23 +1,33 @@
+import sys
+
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
 from PyQt6 import QtWidgets as QtW
+from PyQt6.QtGui import QFont
 
 from Functions.Settings_manager import settings
+
+def populate_app_defaults():
+    app = QtW.QApplication.instance()
+    settings.setValue('default_font_family', app.font().family())
+    settings.setValue('default_font_size', app.font().pointSize())
+    settings.setValue('default_table_font_size', app.font().pointSize())
+
+    # If other settings have been set, update the font and stylesheet
+    if bool(settings.value('default_settings')) is False:
+        app.setFont(QFont(f'{settings.value('font_family')}, {settings.value('font_size')}'))
+        app.setStyleSheet(f'''
+                QTableView {{
+                    font-size: {settings.value('table_font_size')}pt;
+                }}
+                QTreeView {{
+                    font-size: {settings.value('table_font_size')}pt;
+                }}
+                ''')
 
 def default_settings():
     # get the default settings from the QSettings object
     if bool(settings.value('default_settings')) is True:
-        # Database settings
-        settings.setValue('db_name', 'untitled')
-        settings.setValue('db_author', 'unknown')
-        settings.setValue('db_description', '')
-        settings.setValue('db_source_link', '')
-
-        # Display settings, figure out how to get the default QApplication font
-        # settings.setValue('font_family',)
-        # settings.setValue('font_size')
-        # settings.setValue('table_font_size')
-
         # Unit and Format settings
         settings.setValue('age_unit_id', 1)
         settings.setValue('elevation_unit_id', 8)
@@ -29,7 +39,6 @@ def default_settings():
         settings.setValue('concordance_format_id', 2)
         settings.setValue('reference_format', '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
         settings.setValue('decimals_to_show', 2)
-        set_abbreviations()
 
         # Column display settings
         settings.setValue('column_view_columns', [])
@@ -40,31 +49,23 @@ def default_settings():
         settings.setValue('upb_analysis_columns', [])
         settings.setValue('upb_analysis_edit_columns', [])
 
+        # Apply the stylesheet to the active QApplication object
+        app = QtW.QApplication.instance()
+        app.setFont(QFont(settings.value('default_font_family'), settings.value('default_font_size')))
+        app.setStyleSheet(f'''
+            QTableView {{
+                font-size: {settings.value('default_table_font_size')}pt;
+            }}
+            QTreeView {{
+                font-size: {settings.value('default_table_font_size')}pt;
+            }}
+            ''')
+
 def update_setting(key, value):
     # pass the key to update and user input, then change the value in settings
     settings.setValue(key, value)
     if bool(settings.value('default_settings')) is True:
         settings.setValue('default_settings', False)
-
-def set_abbreviations():
-    # get the abbreviations based on ids in the QSettings object
-    for pair in settings_ids_tables:
-        id = settings.value(pair[0])
-        setting_base = pair[0][:-3]
-        table = pair[1]
-        id_header = table[:-1] + 'ID'
-        model = QSqlTableModel()
-        model.setTable(table)
-        model.setFilter(f'{id_header} = {id}')
-        model.select()
-        settings.setValue(f'{setting_base}_abbreviation', model.record(0).value(f'{table[:-1]}Abbreviation'))
-
-def return_abbreviations():
-    abbreviations = {}
-    for setting in settings_ids:
-        setting_base = setting[:-3]
-        abbreviations[setting_base] = settings.value(f'{setting_base}_abbreviation')
-    return abbreviations
 
 settings_tables = ['AgeUnits', 'DistanceUnits', 'GPSFormats', 'ErrorFormats', 'ConcordanceFormats']
 settings_ids = ['age_unit_id', 'elevation_unit_id', 'gps_format_id', 'heightdepth_unit_id', 'spotsize_unit_id',
@@ -100,77 +101,76 @@ class SettingsDialog(QtW.QDialog):
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.restore_defaults)
 
     def populate_fields(self):
-        abbreviations = return_abbreviations()
 
-        self.gps_format_model.setQuery('SELECT GPSFormatAbbreviation FROM GPSFormats')
-        self.gps_format_comboBox.setModel(self.gps_format_model)
-        self.gps_format_comboBox.setCurrentText(abbreviations['gps_format'])
+        self.set_combobox(self.gps_format_comboBox, self.gps_format_model)
+        self.set_combobox(self.elev_unit_comboBox, self.elevation_unit_model)
+        self.set_combobox(self.column_unit_comboBox, self.column_unit_model)
+        self.set_combobox(self.spot_size_unit_comboBox, self.spot_size_unit_model)
+        self.set_combobox(self.age_unit_comboBox, self.age_unit_model)
+        self.set_combobox(self.age_error_format_comboBox, self.age_error_format_model)
+        self.set_combobox(self.upb_ratio_error_format_comboBox, self.ratio_error_format_model)
+        self.set_combobox(self.upb_concordance_format_comboBox, self.concordance_format_model)
 
-        self.elevation_unit_model.setQuery('SELECT DistanceUnitAbbreviation FROM DistanceUnits')
-        self.elev_unit_comboBox.setModel(self.elevation_unit_model)
-        self.elev_unit_comboBox.setCurrentText(abbreviations['elevation_unit'])
+        self.about_db_model.setQuery('SELECT * FROM About')
+        self.db_name_lineEdit.setText(self.about_db_model.record(0).value('Name'))
+        self.db_authors_lineEdit.setText(self.about_db_model.record(0).value('Authors'))
+        self.db_description_lineEdit.setText(self.about_db_model.record(0).value('Description'))
+        self.db_reference_link_lineEdit.setText(self.about_db_model.record(0).value('ReferenceLink'))
+        self.db_created_by_lineEdit.setText(self.about_db_model.record(0).value('CreatedBy'))
+        self.db_reference_lineEdit.setText(self.about_db_model.record(0).value('Citation'))
 
-        self.column_unit_model.setQuery('SELECT DistanceUnitAbbreviation FROM DistanceUnits')
-        self.column_unit_comboBox.setModel(self.column_unit_model)
-        self.column_unit_comboBox.setCurrentText(abbreviations['heightdepth_unit'])
-
-        self.spot_size_unit_model.setQuery('SELECT DistanceUnitAbbreviation FROM DistanceUnits')
-        self.spot_size_unit_comboBox.setModel(self.spot_size_unit_model)
-        self.spot_size_unit_comboBox.setCurrentText(abbreviations['spotsize_unit'])
-
-        self.age_unit_model.setQuery('SELECT AgeUnitAbbreviation FROM AgeUnits')
-        self.age_unit_comboBox.setModel(self.age_unit_model)
-        self.age_unit_comboBox.setCurrentText(abbreviations['age_unit'])
-
-        self.age_error_format_model.setQuery('SELECT ErrorFormatAbbreviation FROM ErrorFormats')
-        self.age_error_format_comboBox.setModel(self.age_error_format_model)
-        self.age_error_format_comboBox.setCurrentText(abbreviations['age_error_format'])
-
-        self.ratio_error_format_model.setQuery('SELECT ErrorFormatAbbreviation FROM ErrorFormats')
-        self.upb_ratio_error_format_comboBox.setModel(self.ratio_error_format_model)
-        self.upb_ratio_error_format_comboBox.setCurrentText(abbreviations['ratio_error_format'])
-
-        self.concordance_format_model.setQuery('SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats')
-        self.upb_concordance_format_comboBox.setModel(self.concordance_format_model)
-        self.upb_concordance_format_comboBox.setCurrentText(abbreviations['concordance_format'])
+        # List of font sizes to populate the font size comboboxes
+        font_sizes = []
+        font_sizes = [str(i) for i in range(6, 21)]
+        self.font_size_comboBox.addItems(font_sizes)
+        self.font_size_comboBox.setCurrentText(str(settings.value('font_size')))
+        self.table_font_size_comboBox.addItems(font_sizes)
+        self.table_font_size_comboBox.setCurrentText(str(settings.value('table_font_size')))
+        self.fontComboBox.setCurrentFont(self.fontComboBox.font())
 
     def update_settings(self):
+        # No longer using default settings
+        settings.setValue('default_settings', False)
+
         # Save the settings to the QSettings object
         # Do not assume that the index is the same as the ID
-        selected_gps_text = self.gps_format_comboBox.currentText()
-        self.gps_format_model.setQuery(f'SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{selected_gps_text}"')
-        update_setting('gps_format_id', self.gps_format_model.record(0).value('GPSFormatID'))
+        self.update_from_combobox(self.gps_format_comboBox, self.gps_format_model)
+        self.update_from_combobox(self.elev_unit_comboBox, self.elevation_unit_model)
+        self.update_from_combobox(self.column_unit_comboBox, self.column_unit_model)
+        self.update_from_combobox(self.spot_size_unit_comboBox, self.spot_size_unit_model)
+        self.update_from_combobox(self.age_unit_comboBox, self.age_unit_model)
+        self.update_from_combobox(self.age_error_format_comboBox, self.age_error_format_model)
+        self.update_from_combobox(self.upb_ratio_error_format_comboBox, self.ratio_error_format_model)
+        self.update_from_combobox(self.upb_concordance_format_comboBox, self.concordance_format_model)
 
-        selected_elev_text = self.elev_unit_comboBox.currentText()
-        self.elevation_unit_model.setQuery(f'SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{selected_elev_text}"')
-        update_setting('gps_format_id', self.elevation_unit_model.record(0).value('DistanceUnitID'))
+        query = QSqlQuery()
+        query.prepare('''UPDATE About SET (Name, Authors, Description, Citation, CreatedBy, Citation) = (?, ?, ?, ?, ?, ?)
+                            WHERE AboutID = 1''' )
+        query.bindValue(0, self.db_name_lineEdit.text())
+        query.bindValue(1, self.db_authors_lineEdit.text())
+        query.bindValue(2, self.db_description_lineEdit.text())
+        query.bindValue(3, self.db_reference_link_lineEdit.text())
+        query.bindValue(4, self.db_created_by_lineEdit.text())
+        query.bindValue(5, self.db_reference_lineEdit.text())
+        if not query.exec():
+            print(query.lastError().text())
 
-        selected_column_text = self.column_unit_comboBox.currentText()
-        self.column_unit_model.setQuery(f'SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{selected_column_text}"')
-        update_setting('heightdepth_unit_id', self.column_unit_model.record(0).value('DistanceUnitID'))
+        update_setting('font_size', self.font_size_comboBox.currentText())
+        update_setting('table_font_size', self.table_font_size_comboBox.currentText())
+        update_setting('font_family', self.fontComboBox.currentFont().family())
 
-        selected_spot_text = self.spot_size_unit_comboBox.currentText()
-        self.spot_size_unit_model.setQuery(f'SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{selected_spot_text}"')
-        update_setting('spotsize_unit_id', self.spot_size_unit_model.record(0).value('DistanceUnitID'))
+        app = QtW.QApplication.instance()
+        new_font = QFont(self.fontComboBox.currentFont().family(), int(self.font_size_comboBox.currentText()))
+        app.setFont(new_font)
+        app.setStyleSheet(f'''
+            QTableView {{
+                font-size: {self.table_font_size_comboBox.currentText()}pt;
+            }}
+            QTreeView {{
+                font-size: {self.table_font_size_comboBox.currentText()}pt;
+            }}
+            ''')
 
-        selected_age_text = self.age_unit_comboBox.currentText()
-        self.age_unit_model.setQuery(f'SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{selected_age_text}"')
-        update_setting('age_unit_id', self.age_unit_model.record(0).value('AgeUnitID'))
-
-        selected_age_error_text = self.age_error_format_comboBox.currentText()
-        self.age_error_format_model.setQuery(f'SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{selected_age_error_text}"')
-        update_setting('age_error_format_id', self.age_error_format_model.record(0).value('ErrorFormatID'))
-
-        selected_ratio_error_text = self.upb_ratio_error_format_comboBox.currentText()
-        self.ratio_error_format_model.setQuery(f'SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{selected_ratio_error_text}"')
-        update_setting('ratio_error_format_id', self.ratio_error_format_model.record(0).value('ErrorFormatID'))
-
-        selected_concordance_text = self.upb_concordance_format_comboBox.currentText()
-        self.concordance_format_model.setQuery(f'SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{selected_concordance_text}"')
-        update_setting('concordance_format_id', self.concordance_format_model.record(0).value('ConcordanceFormatID'))
-
-        set_abbreviations()
-        update_database()
         self.populate_fields()
 
     def update_settings_close(self):
@@ -181,3 +181,61 @@ class SettingsDialog(QtW.QDialog):
         settings.setValue('default_settings', True)
         default_settings()
         self.populate_fields()
+
+    def set_combobox(self, comboBox: QtW.QComboBox, model: QSqlQueryModel):
+        table, column, id_header, setting_key = self.variables_from_combobox(comboBox)
+
+        model.setQuery(f'SELECT {column} FROM {table} WHERE {id_header} = {settings.value(setting_key)}')
+        if model.rowCount() == 0:
+            comboBox.setCurrentIndex(0)
+        else:
+            current_value = model.record(0).value(column)
+            model.setQuery(f'SELECT {column} FROM {table} ORDER BY {id_header}')
+            comboBox.setModel(model)
+            comboBox.setCurrentText(current_value)
+
+    def update_from_combobox(self, comboBox: QtW.QComboBox, model: QSqlQueryModel):
+        table, column, id_header, setting_key = self.variables_from_combobox(comboBox)
+
+        selected_text = comboBox.currentText()
+        model.setQuery(f'SELECT {id_header} FROM {table} WHERE {column} = "{selected_text}"')
+        if model.rowCount() == 1:
+            update_setting(setting_key, model.record(0).value(id_header))
+
+    def variables_from_combobox(self, comboBox: QtW.QComboBox):
+        if comboBox.objectName() == 'gps_format_comboBox':
+            table = 'GPSFormats'
+            column = 'GPSFormatAbbreviation'
+            id_header = 'GPSFormatID'
+            setting_key = 'gps_format_id'
+        elif comboBox.objectName() in ['elev_unit_comboBox', 'column_unit_comboBox', 'spot_size_unit_comboBox']:
+            table = 'DistanceUnits'
+            column = 'DistanceUnitAbbreviation'
+            id_header = 'DistanceUnitID'
+            if comboBox.objectName() == 'elev_unit_comboBox':
+                setting_key = 'elevation_unit_id'
+            elif comboBox.objectName() == 'column_unit_comboBox':
+                setting_key = 'heightdepth_unit_id'
+            elif comboBox.objectName() == 'spot_size_unit_comboBox':
+                setting_key = 'spotsize_unit_id'
+        elif comboBox.objectName() == 'age_unit_comboBox':
+            table = 'AgeUnits'
+            column = 'AgeUnitAbbreviation'
+            id_header = 'AgeUnitID'
+            setting_key = 'age_unit_id'
+        elif comboBox.objectName() in ['age_error_format_comboBox', 'upb_ratio_error_format_comboBox']:
+            table = 'ErrorFormats'
+            column = 'ErrorFormatAbbreviation'
+            id_header = 'ErrorFormatID'
+            if comboBox.objectName() == 'age_error_format_comboBox':
+                setting_key = 'age_error_format_id'
+            elif comboBox.objectName() == 'upb_ratio_error_format_comboBox':
+                setting_key = 'ratio_error_format_id'
+        elif comboBox.objectName() == 'upb_concordance_format_comboBox':
+            table = 'ConcordanceFormats'
+            column = 'ConcordanceFormatAbbreviation'
+            id_header = 'ConcordanceFormatID'
+            setting_key = 'concordance_format_id'
+        else:
+            return
+        return table, column, id_header, setting_key

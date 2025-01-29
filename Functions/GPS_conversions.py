@@ -210,13 +210,8 @@ def convert_direction_to_sign(lat: list, lon: list):
         direction_index = 3
     else:
         return "Invalid input"
-    direction_model = QtS.QSqlTableModel()
-    direction_model.setTable('DirectionUnits')
-    direction_model.select()
-    direction_model.setFilter(f'DirectionUnitID = "{lat[direction_index]}"')
-    lat_dir = direction_model.record(0).value('DirectionUnitAbbreviation')
-    direction_model.setFilter(f'DirectionUnitID = "{lon[direction_index]}"')
-    lon_dir = direction_model.record(0).value('DirectionUnitAbbreviation')
+    lat_dir = convert_direction_id_to_abbreviation(lat[direction_index])
+    lon_dir = convert_direction_id_to_abbreviation(lon[direction_index])
     if lat_dir == 'N' or lat_dir == '':
         lat_deg = lat[0]
     else:
@@ -231,6 +226,20 @@ def convert_direction_to_sign(lat: list, lon: list):
         return [lat_deg, lat[1]], [lon_deg, lon[1]]
     elif len(lat) == 4:
         return [lat_deg, lat[1], lat[2]], [lon_deg, lon[1], lon[2]]
+
+def convert_direction_id_to_abbreviation(direction_id: str):
+    """
+    Convert direction unit ID to abbreviation
+    @param direction_id: DirectionUnitID as string
+    @return: DirectionUnitAbbreviation as string or None
+    """
+    direction_model = QtS.QSqlTableModel()
+    direction_model.setTable('DirectionUnits')
+    direction_model.select()
+    direction_model.setFilter(f'DirectionUnitID = "{direction_id}"')
+    if direction_model.rowCount() == 0:
+        return None
+    return direction_model.record(0).value('DirectionUnitAbbreviation')
 
 def convert_dd_to_utm(ddlat: list, ddlon: list):
     """
