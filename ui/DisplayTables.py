@@ -10,7 +10,7 @@ import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
-from Functions import Database_manager
+from Functions import Savepoint_manager
 from Functions.Settings_manager import settings
 import ui.New_reference
 from Functions.Tree_classes import TreeSortFilterProxyModel
@@ -36,7 +36,7 @@ class DisplayTables(QtW.QWidget):
                 self.main_window = widget
 
         # Retrieve the savepoint manager
-        savepoint_manager = Database_manager.SavepointManager()
+        savepoint_manager = Savepoint_manager.SavepointManager()
         self.savepoint_manager = savepoint_manager.get_instance()
 
         # Message box for any popup messages

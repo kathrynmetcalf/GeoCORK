@@ -75,6 +75,8 @@
     <addaction name="actionRecent"/>
     <addaction name="actionImport"/>
     <addaction name="separator"/>
+    <addaction name="actionSettings"/>
+    <addaction name="separator"/>
     <addaction name="actionSave"/>
     <addaction name="actionSave_as"/>
     <addaction name="actionCreate_backup"/>
@@ -89,7 +91,6 @@
     </property>
     <addaction name="actionSources"/>
     <addaction name="actionRegions"/>
-    <addaction name="actionSettings"/>
     <addaction name="actionRock_types"/>
     <addaction name="actionUnits"/>
     <addaction name="actionAge_signatures"/>
@@ -98,7 +99,7 @@
     <property name="title">
      <string>Help</string>
     </property>
-    <addaction name="actionHelo"/>
+    <addaction name="actionHelp"/>
     <addaction name="actionCurrent_window_help"/>
    </widget>
    <addaction name="menuFile"/>
@@ -168,11 +169,6 @@
     <string>Regions</string>
    </property>
   </action>
-  <action name="actionSettings">
-   <property name="text">
-    <string>Settings</string>
-   </property>
-  </action>
   <action name="actionUnits">
    <property name="text">
     <string>Units</string>
@@ -188,7 +184,7 @@
     <string>Rock types</string>
    </property>
   </action>
-  <action name="actionHelo">
+  <action name="actionHelp">
    <property name="text">
     <string>Help</string>
    </property>
@@ -196,6 +192,17 @@
   <action name="actionCurrent_window_help">
    <property name="text">
     <string>Current window help</string>
+   </property>
+  </action>
+  <action name="actionSettings">
+   <property name="text">
+    <string>Settings</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+,</string>
+   </property>
+   <property name="menuRole">
+    <enum>QAction::PreferencesRole</enum>
    </property>
   </action>
  </widget>

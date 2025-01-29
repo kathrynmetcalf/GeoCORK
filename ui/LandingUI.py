@@ -6,17 +6,16 @@ from pathlib import Path
 
 import qtawesome
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import QSettings, QEventLoop, Qt, QPoint, QSize
+from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize
 from PyQt6.QtGui import QPixmap, QAction
-from PyQt6.QtSql import QSqlDatabase
+# from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
     QListWidget, QListWidgetItem
 from PyQt6.uic import loadUi
 
 from Functions.Settings_manager import settings
-from Functions.Create_database import create_tables
-from ui.GeoChronMain import GeoChron
-from ui.Settings import SettingsDialog, settings_ids
+# from Functions.Create_database import create_tables
+# from ui.Settings import SettingsDialog, settings_ids
 
 
 class LandingPage(QWidget):
@@ -41,8 +40,6 @@ class LandingPage(QWidget):
 
         self.opendatabase_button.clicked.connect(self.showFileDialog)
 
-        self.settings_button.clicked.connect(self.showSettings)
-
         self.github_button: QPushButton
         self.github_button.setIcon(qtawesome.icon('fa.github', color='white', scale_factor=1.5))
         self.github_button.clicked.connect(self.open_github)
@@ -54,7 +51,7 @@ class LandingPage(QWidget):
         self.listWidget.customContextMenuRequested.connect(self.recents_context_menu)
 
         # pixmap = QPixmap(os.path.join(base_path, './geocork.png'))
-        pixmap = QPixmap(os.path.join(base_path, './Logo_draft.svg'))
+        pixmap = QPixmap(os.path.join(base_path, 'Logo_draft.png'))
         # pixmap = QPixmap(os.path.join(base_path, './Logo_draft.png'))
         scaled_pixmap = pixmap.scaled(500, 100, Qt.AspectRatioMode.KeepAspectRatio,
                                       Qt.TransformationMode.SmoothTransformation)
@@ -67,6 +64,7 @@ class LandingPage(QWidget):
 
     def open_geo_chron(self):
         if not self.test_database_lock():
+            from ui.GeoChronMain import GeoChron
             self.hide()
             geo_chron = GeoChron(self)
             geo_chron.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -132,9 +130,9 @@ class LandingPage(QWidget):
             file_name += ".db"
 
         if file_name:
-            QSqlDatabase.addDatabase("QSQLITE")
-            QSqlDatabase.database().setDatabaseName(file_name)
-            create_tables()
+            # QSqlDatabase.addDatabase("QSQLITE")
+            # QSqlDatabase.database().setDatabaseName(file_name)
+            # create_tables()
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
                 self.list_recents.append(self.selected_files)
@@ -158,12 +156,6 @@ class LandingPage(QWidget):
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.hide()
             self.open_geo_chron()
-
-    def showSettings(self):
-        settings_dialog = SettingsDialog()
-
-        if settings_dialog.exec():
-            return
 
     def recents_context_menu(self, pos):
         item = self.listWidget.itemAt(pos)

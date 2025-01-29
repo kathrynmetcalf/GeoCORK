@@ -6,7 +6,7 @@ from PyQt6.uic import loadUi
 from Functions.Table_classes import set_table, SampleAgeTableModel, CheckableSqlTableModel, FontDelegate, name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Settings_manager import settings
-from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 import Functions.Database_views as DB_views
 from ui.EditTree import EditTree

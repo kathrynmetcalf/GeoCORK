@@ -1,15 +1,24 @@
-from ui.Settings import return_abbreviations
+from Functions.Settings_manager import settings
+from PyQt6.QtSql import QSqlQueryModel
 
 # Query columns with text dependent on settings
-abbreviations = return_abbreviations()
-selected_age_unit = abbreviations['age_unit']
-selected_elev_unit = abbreviations['elevation_unit']
-selected_heightdepth_unit = abbreviations['heightdepth_unit']
-selected_spotsize_unit = abbreviations['spotsize_unit']
-selected_gps_format = abbreviations['gps_format']
-selected_age_error_format = abbreviations['age_error_format']
-selected_ratio_error_format = abbreviations['ratio_error_format']
-selected_concordance_format = abbreviations['concordance_format']
+abbreviation_model = QSqlQueryModel()
+abbreviation_model.setQuery(f'SELECT AgeUnitAbbreviation FROM AgeUnits WHERE AgeUnitID = {settings.value('age_unit_id')}')
+selected_age_unit = abbreviation_model.record(0).value('AgeUnitAbbreviation')
+abbreviation_model.setQuery(f'SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value('elevation_unit_id')}')
+selected_elev_unit = abbreviation_model.record(0).value('DistanceUnitAbbreviation')
+abbreviation_model.setQuery(f'SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value('heightdepth_unit_id')}')
+selected_heightdepth_unit = abbreviation_model.record(0).value('DistanceUnitAbbreviation')
+abbreviation_model.setQuery(f'SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value('spotsize_unit_id')}')
+selected_spotsize_unit = abbreviation_model.record(0).value('DistanceUnitAbbreviation')
+abbreviation_model.setQuery(f'SELECT GPSFormatAbbreviation FROM GPSFormats WHERE GPSFormatID = {settings.value('gps_format_id')}')
+selected_gps_format = abbreviation_model.record(0).value('GPSFormatAbbreviation')
+abbreviation_model.setQuery(f'SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value('age_error_format_id')}')
+selected_age_error_format = abbreviation_model.record(0).value('ErrorFormatAbbreviation')
+abbreviation_model.setQuery(f'SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value('ratio_error_format_id')}')
+selected_ratio_error_format = abbreviation_model.record(0).value('ErrorFormatAbbreviation')
+abbreviation_model.setQuery(f'SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats WHERE ConcordanceFormatID = {settings.value('concordance_format_id')}')
+selected_concordance_format = abbreviation_model.record(0).value('ConcordanceFormatAbbreviation')
 
 # ID columns
 qsample_id = 'Samples.SampleID'

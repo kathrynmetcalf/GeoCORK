@@ -1,8 +1,8 @@
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
 from PyQt6 import QtWidgets as QtW
-from Functions.Settings_manager import settings
 
+from Functions.Settings_manager import settings
 
 def default_settings():
     # get the default settings from the QSettings object
@@ -19,7 +19,7 @@ def default_settings():
         # settings.setValue('table_font_size')
 
         # Unit and Format settings
-        settings.setValue('age_unit_id', 4)
+        settings.setValue('age_unit_id', 1)
         settings.setValue('elevation_unit_id', 8)
         settings.setValue('gps_format_id', 7)
         settings.setValue('heightdepth_unit_id', 2)
@@ -43,7 +43,7 @@ def default_settings():
 def update_setting(key, value):
     # pass the key to update and user input, then change the value in settings
     settings.setValue(key, value)
-    if settings.default_settings is True:
+    if bool(settings.value('default_settings')) is True:
         settings.setValue('default_settings', False)
 
 def set_abbreviations():
@@ -94,6 +94,11 @@ class SettingsDialog(QtW.QDialog):
 
         self.populate_fields()
 
+        self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Ok).clicked.connect(self.update_settings_close)
+        self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Cancel).clicked.connect(self.close)
+        self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Apply).clicked.connect(self.update_settings)
+        self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.restore_defaults)
+
     def populate_fields(self):
         abbreviations = return_abbreviations()
 
@@ -128,3 +133,51 @@ class SettingsDialog(QtW.QDialog):
         self.concordance_format_model.setQuery('SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats')
         self.upb_concordance_format_comboBox.setModel(self.concordance_format_model)
         self.upb_concordance_format_comboBox.setCurrentText(abbreviations['concordance_format'])
+
+    def update_settings(self):
+        # Save the settings to the QSettings object
+        # Do not assume that the index is the same as the ID
+        selected_gps_text = self.gps_format_comboBox.currentText()
+        self.gps_format_model.setQuery(f'SELECT GPSFormatID FROM GPSFormats WHERE GPSFormatAbbreviation = "{selected_gps_text}"')
+        update_setting('gps_format_id', self.gps_format_model.record(0).value('GPSFormatID'))
+
+        selected_elev_text = self.elev_unit_comboBox.currentText()
+        self.elevation_unit_model.setQuery(f'SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{selected_elev_text}"')
+        update_setting('gps_format_id', self.elevation_unit_model.record(0).value('DistanceUnitID'))
+
+        selected_column_text = self.column_unit_comboBox.currentText()
+        self.column_unit_model.setQuery(f'SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{selected_column_text}"')
+        update_setting('heightdepth_unit_id', self.column_unit_model.record(0).value('DistanceUnitID'))
+
+        selected_spot_text = self.spot_size_unit_comboBox.currentText()
+        self.spot_size_unit_model.setQuery(f'SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{selected_spot_text}"')
+        update_setting('spotsize_unit_id', self.spot_size_unit_model.record(0).value('DistanceUnitID'))
+
+        selected_age_text = self.age_unit_comboBox.currentText()
+        self.age_unit_model.setQuery(f'SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{selected_age_text}"')
+        update_setting('age_unit_id', self.age_unit_model.record(0).value('AgeUnitID'))
+
+        selected_age_error_text = self.age_error_format_comboBox.currentText()
+        self.age_error_format_model.setQuery(f'SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{selected_age_error_text}"')
+        update_setting('age_error_format_id', self.age_error_format_model.record(0).value('ErrorFormatID'))
+
+        selected_ratio_error_text = self.upb_ratio_error_format_comboBox.currentText()
+        self.ratio_error_format_model.setQuery(f'SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{selected_ratio_error_text}"')
+        update_setting('ratio_error_format_id', self.ratio_error_format_model.record(0).value('ErrorFormatID'))
+
+        selected_concordance_text = self.upb_concordance_format_comboBox.currentText()
+        self.concordance_format_model.setQuery(f'SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{selected_concordance_text}"')
+        update_setting('concordance_format_id', self.concordance_format_model.record(0).value('ConcordanceFormatID'))
+
+        set_abbreviations()
+        update_database()
+        self.populate_fields()
+
+    def update_settings_close(self):
+        self.update_settings()
+        self.close()
+
+    def restore_defaults(self):
+        settings.setValue('default_settings', True)
+        default_settings()
+        self.populate_fields()

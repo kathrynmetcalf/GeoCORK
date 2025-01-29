@@ -1,7 +1,6 @@
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 
-
 class FocusGroupBox(QtW.QGroupBox):
     focusLost = QtC.pyqtSignal()
     def __init__(self, parent=None):

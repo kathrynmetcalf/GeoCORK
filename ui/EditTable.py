@@ -7,7 +7,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QModelIndex
 from PyQt6.uic import loadUi
 from pandas.plotting import table
-from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Table_classes as TbC
@@ -65,6 +65,7 @@ class EditTable(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
+        self.model.row_submitted.connect(Alter_db.settings_reset())
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
 

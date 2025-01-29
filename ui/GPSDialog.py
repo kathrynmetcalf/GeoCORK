@@ -2,7 +2,7 @@ import PyQt6
 from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 import ui.GPSFields
-from Functions.Database_manager import create_savepoint, rollback_savepoint, release_savepoint
+from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 
 class GPSDialog(QtW.QDialog):
     def __init__(self, table: str, item_ids: list, parent=None):

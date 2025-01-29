@@ -8,7 +8,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
-from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Tree_classes import TreeModel
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er

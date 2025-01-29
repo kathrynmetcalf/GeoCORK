@@ -1,14 +1,12 @@
 import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtWidgets as QtW
 from Functions.Settings_manager import settings
-from PyQt6.QtSql import QSqlDatabase
 
 import pyproj
 import Functions.Create_database as Create_db
 from Functions.Table_classes import set_table, get_columns
-from Functions.Database_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 import Functions.GPS_conversions as GPS # gps conversions
 
 def settings_reset():

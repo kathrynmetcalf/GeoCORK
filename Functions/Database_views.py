@@ -586,3 +586,12 @@ def drop_view(view: str):
     if not query.exec(f'DROP VIEW IF EXISTS {view}'):
         print(f'Failed to drop {view}: {query.lastError().text()}')
         return False
+
+def drop_all_views():
+    query = QtS.QSqlQuery()
+    query.exec('SELECT name FROM sqlite_master WHERE type="view"')
+    views = []
+    while query.next():
+        views.append(query.value(0))
+    for view in views:
+        drop_view(view)

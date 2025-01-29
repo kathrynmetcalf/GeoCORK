@@ -25,7 +25,7 @@ from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.Filters import QueryBuilder
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
-from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import settings
 from ui.GPSFields import GPSFields

@@ -1,7 +1,7 @@
 import PyQt6
 from PyQt6 import QtSql as QtS
 import Functions.Create_database as Create_db
-from Functions.Database_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 
 def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
     # create a temporary database with Create_database, then compare its schema with the loaded file

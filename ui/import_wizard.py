@@ -20,8 +20,8 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QBrush, QColor, QFont
 
-from Functions import SQLUtils, Database_manager
-from Functions.Database_manager import SavepointManager
+from Functions import SQLUtils, Savepoint_manager
+from Functions.Savepoint_manager import SavepointManager
 
 from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView
 
