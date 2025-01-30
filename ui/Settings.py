@@ -1,5 +1,6 @@
 import sys
 
+from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
 from PyQt6 import QtWidgets as QtW
@@ -156,6 +157,9 @@ def default_settings():
             'ColumnGPS.GPSLocationDisplay', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
         ])
 
+        settings.setValue('checkable_combobox_height_scaler', 1.0)
+        settings.setValue('checkable_combobox_width_scaler', 1.0)
+
         # Apply the stylesheet to the active QApplication object
         app = QtW.QApplication.instance()
         app.setFont(QFont(settings.value('default_font_family'), settings.value('default_font_size')))
@@ -256,6 +260,10 @@ class SettingsDialog(QtW.QDialog):
         self.db_created_by_lineEdit.setText(self.about_db_model.record(0).value('CreatedBy'))
         self.db_reference_lineEdit.setText(self.about_db_model.record(0).value('Citation'))
 
+        self.combobox_height_scaler_spinbox.setValue(float(settings.value('checkable_combobox_height_scaler')))
+        print(float(settings.value('checkable_combobox_height_scaler')))
+        self.combobox_width_scaler_spinbox.setValue(float(settings.value('checkable_combobox_width_scaler')))
+
         # List of font sizes to populate the font size comboboxes
         font_sizes = []
         font_sizes = [str(i) for i in range(6, 21)]
@@ -291,6 +299,11 @@ class SettingsDialog(QtW.QDialog):
         query.bindValue(5, self.db_reference_lineEdit.text())
         if not query.exec():
             print(query.lastError().text())
+
+        self.combobox_height_scaler_spinbox: QDoubleSpinBox
+        update_setting('checkable_combobox_height_scaler', self.combobox_height_scaler_spinbox.value())
+        update_setting('checkable_combobox_width_scaler', self.combobox_width_scaler_spinbox.value())
+
 
         update_setting('font_size', self.font_size_comboBox.currentText())
         update_setting('table_font_size', self.table_font_size_comboBox.currentText())
