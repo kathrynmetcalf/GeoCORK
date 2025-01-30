@@ -13,6 +13,7 @@ import Functions.Table_classes as TbC
 import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
 from Functions import SQLUtils
+from Functions.Table_classes import SQLiteTableModel
 from Functions.Tree_classes import TreeSortFilterProxyModel
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -320,12 +321,12 @@ class DataViewerWidget(QWidget):
 
             # todo very slow because of the sample view
             # todo sample tables across entire db is broken.
-            sample_model = TbC.SampleAgeTableModel()
-            query = TbC.SampleTableModel().setupQuery(self.ids_to_show, self.rows_per_page_1, offset)
-            sample_model.setQuery(QtS.QSqlQuery(query))
+
+            query = SQLiteTableModel(
+                f'SELECT * FROM SampleView WHERE SampleID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_proxy_model.setSourceModel(sample_model)
+            sample_proxy_model.setSourceModel(query)
 
             sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(sample_proxy_model)
@@ -338,12 +339,11 @@ class DataViewerWidget(QWidget):
         elif table == 'Aliquots':
             self.switch_to_table(db_stackedWidget)
 
-            aliquot_model = TbC.AliquotTableModel()
-            query = TbC.AliquotTableModel().setupQuery()
-            aliquot_model.setQuery(QtS.QSqlQuery(query))
+            query = SQLiteTableModel(
+                f'SELECT * FROM AliquotView WHERE AliquotID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             aliquot_proxy_model = QtC.QSortFilterProxyModel()
-            aliquot_proxy_model.setSourceModel(aliquot_model)
+            aliquot_proxy_model.setSourceModel(query)
 
             aliquot_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(aliquot_proxy_model)
@@ -354,12 +354,12 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Spots':
             self.switch_to_table(db_stackedWidget)
-            spot_model = TbC.SpotTableModel()
-            query = TbC.AliquotTableModel().setupQuery()
-            spot_model.setQuery(QtS.QSqlQuery(query))
+
+            query = SQLiteTableModel(
+                f'SELECT * FROM SpotView WHERE SpotID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             spot_proxy_model = QtC.QSortFilterProxyModel()
-            spot_proxy_model.setSourceModel(spot_model)
+            spot_proxy_model.setSourceModel(query)
 
             spot_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(spot_proxy_model)
@@ -370,13 +370,14 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'UPbAnalyses':
             self.switch_to_table(db_stackedWidget)
-            sample_model = QtS.QSqlQueryModel()
-            sample_proxy_model = QtC.QSortFilterProxyModel()
-            sample_model.setQuery(
-                f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}")
-            sample_proxy_model.setSourceModel(sample_model)
-            sample_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            dbTable_tableView.setModel(sample_proxy_model)
+
+            query = SQLiteTableModel(
+                f'SELECT * FROM UPbView WHERE SpotID IN {self.ids_to_show} LIMIT {self.rows_per_page_1} OFFSET {offset}')
+
+            upb_proxy_model = QtC.QSortFilterProxyModel()
+            upb_proxy_model.setSourceModel(query)
+            upb_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            dbTable_tableView.setModel(upb_proxy_model)
             dbTable_tableView.hideColumn(0)  # don't show ID column
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)

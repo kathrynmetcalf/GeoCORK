@@ -9,9 +9,9 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from collections import namedtuple
 
-from PyQt6.QtCore import QMetaType
+from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt
 
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import settings, SettingsManager
 from Functions import SQLUtils
 import Functions.Text_manipulations as TxM
 from Functions import Check_triggers
@@ -48,6 +48,65 @@ class FontDelegate(QtW.QStyledItemDelegate):
         font = index.data(QtC.Qt.ItemDataRole.FontRole)
         if font:
             option.font = font
+
+
+class SQLiteTableModel(QAbstractTableModel):
+    def __init__(self, query: str):
+        from Functions.Settings_manager import settings
+
+        db_file = settings.value('db_file')
+        uri = f'file:{db_file}?mode=ro&immutable=1'
+        self._data = []
+        self._headers = []
+        try:
+            conn = sqlite3.connect(uri, uri=True)
+            with conn:
+                cursor = conn.cursor()
+
+                cursor.execute(query)
+                _records = cursor.fetchall()
+                self._data = _records
+                self._headers = [desc[0] for desc in cursor.description]  # Get column names
+            conn.close()
+
+        except sqlite3.Error as e:
+            print(f"Error opening database: {e}")
+        super().__init__()
+
+
+    def rowCount(self, parent=None):
+        return len(self._data)
+
+    def columnCount(self, parent=None):
+        return len(self._headers)
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None  # Return None instead of False to avoid type errors
+
+        if role == Qt.ItemDataRole.DisplayRole:
+            # Fetch value directly from `_data`
+            value = self._data[index.row()][index.column()]
+            header = self._headers[index.column()]  # Get column header
+
+            # Apply formatting based on header names
+            if isinstance(value, str):
+                if f'({settings.value("age_unit_abbreviation")})' in header:
+                    return display_age(value)
+                elif 'GPS' in header:
+                    return display_gps(value)
+                elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
+                    return display_value_with_error(value)
+            elif isinstance(value, (int, float)):  # Format numerical values
+                return return_rounded(value)
+            return value  # Return raw value if no formatting is applied
+
+        return None  # Return None for roles that are not DisplayRole
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
+            return self._headers[section] if section < len(self._headers) else None
+        return None
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
     def __init__(self):

@@ -523,7 +523,6 @@ def create_sample_view(conditions: str = None):
     else:
         sample_query = base_query
     query = QtS.QSqlQuery()
-    query.exec('SELECT name FROM sqlite_master WHERE name = "SampleView"')
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
     # print(sample_view)
     create_view_begin = time.time()

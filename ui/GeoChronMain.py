@@ -33,6 +33,7 @@ class GeoChron(QtW.QMainWindow):
         self.landingpage = landingpage
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db_file = self.landingpage.get_filename()
+        settings.setValue('db_file', self.db_file)
         self.db.setDatabaseName(self.db_file)
         ok = self.db.open()
         print("Database is open: " + str(ok))

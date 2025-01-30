@@ -1,6 +1,6 @@
 from ui.Settings import default_settings
 import Functions.Database_views as DB_views
-from Functions import Create_database as Create_db
+from Functions import Create_database as Create_db, Create_indexes
 from Functions import Alter_database as Alter_db
 from Functions.Settings_manager import settings
 import time
@@ -15,6 +15,7 @@ def update_database():
 
     # Check if the database exists and all tables are present
     Create_db.create_tables()
+    Create_indexes.create_indexes()
     # Need to drop views before dropping and regenerating generated columns
     DB_views.drop_all_views()
     # Get the current application settings for the generated columns
