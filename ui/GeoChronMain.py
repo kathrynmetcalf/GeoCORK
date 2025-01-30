@@ -106,7 +106,7 @@ class GeoChron(QtW.QMainWindow):
                 errtxt = output
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
-    def open_tab(self, parent_id: int, parent_type: str, child_type: str):
+    def open_tab(self, parent_id: list[int], parent_type: str, child_type: str):
         """
         Opens a tab with the given parent ID and parent type
         :param parent_id: The ID of the parent
@@ -117,25 +117,26 @@ class GeoChron(QtW.QMainWindow):
         if not parent_id:
             return
         self.tabWidget: PartiallyCloseableTabWidget
-        if parent_type == 'Sample':
-            parent_name = TbC.get_name_from_id('Samples', parent_id)
-        elif parent_type == 'Aliquot':
-            parent_name = TbC.get_name_from_id('Aliquots', parent_id)
-        elif parent_type == 'Spot':
-            parent_name = TbC.get_name_from_id('Spots', parent_id)
-        else:
-            print("Error: Invalid parent type")
-            return
-        if child_type == 'Aliquot':
-            child_label = 'Aliquots'
-        elif child_type == 'Spot':
-            child_label = 'Spots'
-        elif child_type == 'UPbAnalysis':
-            child_label = 'U-Pb Analyses'
-        else:
-            print("Error: Invalid child type")
-            return
-        self.tabWidget.addTab(ViewDataTab(parent_id, parent_type, child_type), f'{parent_type} {parent_name}: {child_label}')
+        for p_id in parent_id:
+            if parent_type == 'Sample':
+                parent_name = TbC.get_name_from_id('Samples', p_id)
+            elif parent_type == 'Aliquot':
+                parent_name = TbC.get_name_from_id('Aliquots', p_id)
+            elif parent_type == 'Spot':
+                parent_name = TbC.get_name_from_id('Spots', p_id)
+            else:
+                print("Error: Invalid parent type")
+                return
+            if child_type == 'Aliquot':
+                child_label = 'Aliquots'
+            elif child_type == 'Spot':
+                child_label = 'Spots'
+            elif child_type == 'UPbAnalysis':
+                child_label = 'U-Pb Analyses'
+            else:
+                print("Error: Invalid child type")
+                return
+            self.tabWidget.addTab(ViewDataTab(p_id, parent_type, child_type), f'{parent_type} {parent_name}: {child_label}')
 
     def close_tab(self, index):
         self.tabWidget: PartiallyCloseableTabWidget

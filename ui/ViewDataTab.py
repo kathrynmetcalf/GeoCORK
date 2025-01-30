@@ -1,3 +1,5 @@
+import time
+
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -5,6 +7,7 @@ from PyQt6 import QtSql as QtS
 from Functions.Settings_manager import settings
 from Functions.Database_views import AliquotViewQuery, SpotViewQuery, UPbViewQuery
 import Functions.Table_classes as TbC
+from Functions.Table_classes import SQLiteTableModel
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 
@@ -36,9 +39,11 @@ class ViewDataTab(QtW.QWidget):
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             # Columns to select from the view
             self.show_cols = settings.value('aliquot_columns')
+            self.show_cols = ['*']
             table_query = f'SELECT {", ".join(self.show_cols)} FROM AliquotView WHERE SampleID = {self.parent_id}'
         elif self.child_type == 'Spot':
             self.show_cols = settings.value('spot_columns')
+            self.show_cols = ['*']
             if self.parent_type == 'Aliquot':
                 table_query = f'SELECT {", ".join(self.show_cols)} FROM SpotView WHERE AliquotID = {self.parent_id}'
             elif self.parent_type == 'Sample':
@@ -48,6 +53,7 @@ class ViewDataTab(QtW.QWidget):
                 table_query = None
         elif self.child_type == 'UPbAnalysis':
             self.show_cols = settings.value('upb_analysis_columns')
+            self.show_cols = ['*']
             if self.parent_type == 'Sample':
                 table_query = f'SELECT {", ".join(self.show_cols)} FROM UPbView WHERE SampleID = {self.parent_id}'
             elif self.parent_type == 'Aliquot':
@@ -60,10 +66,12 @@ class ViewDataTab(QtW.QWidget):
         else:
             print(f'Error: Invalid child type {self.child_type}')
             table_query = None
-        self.model = QtS.QSqlQueryModel()
         if table_query is not None:
             # print(table_query)
-            self.model.setQuery(table_query)
+            start = time.time()
+            self.model = SQLiteTableModel(table_query)
+            end = time.time()
+            print(f'Time to create SQLiteTableModel: {end - start}')
             self.proxy_model = TbC.ReadableProxyModel()
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)

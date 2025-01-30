@@ -251,14 +251,21 @@ class DisplayTables(QtW.QWidget):
             action = table_menu.exec(self.dbTable_tableView.viewport().mapToGlobal(pos))
             if action:
                 # get the row that was right-clicked
-                index = self.dbTable_tableView.indexAt(pos)
-                parent_id = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
+                parent_ids = []
+                if self.dbTable_tableView.selectionModel().hasSelection():
+                        for index in self.dbTable_tableView.selectionModel().selectedIndexes():
+                            parent_id = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
+                            parent_ids.append(str(parent_id))
+
+
+                # index = self.dbTable_tableView.indexAt(pos)
+                # parent_id = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
                 if action == view_aliquot_action:
-                    self.main_window.open_tab(parent_id, 'Sample', 'Aliquot')
+                    self.main_window.open_tab(parent_ids, 'Sample', 'Aliquot')
                 elif action == view_spot_action:
-                    self.main_window.open_tab(parent_id, 'Sample', 'Spot')
+                    self.main_window.open_tab(parent_ids, 'Sample', 'Spot')
                 elif action == view_upb_analyses_action:
-                    self.main_window.open_tab(parent_id, 'Sample', 'UPbAnalysis')
+                    self.main_window.open_tab(parent_ids, 'Sample', 'UPbAnalysis')
                 else:
                     self.table_context_menu(action)
         else:
