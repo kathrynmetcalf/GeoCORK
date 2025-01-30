@@ -43,11 +43,11 @@ class SampleInformation(QtW.QDialog):
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
-        # self.gps = GPSFields('Samples', sample_id_list)
-        # self.selected_gps_column_verticalLayout: QtW.QVBoxLayout
-        # self.selected_gps_column_verticalLayout.insertWidget(2, self.gps)
+        self.gps = GPSFields('Samples', sample_id_list)
+        self.selected_gps_column_verticalLayout: QtW.QVBoxLayout
+        self.selected_gps_column_verticalLayout.insertWidget(2, self.gps)
         self.age = AgeFields('Samples', sample_id_list)
-        # self.name_igsn_age_verticalLayout = QtW.QVBoxLayout()
+        self.name_igsn_age_verticalLayout = QtW.QVBoxLayout()
         self.gridLayout_2.addWidget(self.age, 2, 0, 2, 4)
 
         # Sample names table
@@ -302,7 +302,7 @@ class SampleInformation(QtW.QDialog):
             self.instrument_comboBox.set_single_click(True)
             self.instrument_comboBox.setCurrentText(text)
 
-            # self.gps.update_list(self.checked_sample_list)
+            self.gps.update_list(self.checked_sample_list)
             self.age.update_list(self.checked_sample_list)
 
     def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
