@@ -23,7 +23,8 @@ from PyQt6.QtGui import QBrush, QColor, QFont
 from Functions import SQLUtils, Savepoint_manager
 from Functions.Savepoint_manager import SavepointManager
 
-from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView
+from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox
+import Functions.Table_classes as TbC
 
 # Updated DB schema to include lab_facilities, source, analysis_method, instrument
 DATABASE_FILE = 'yrrfgs.db'
@@ -51,17 +52,18 @@ class ColumnMapDialog(QDialog):
 
         # Create a combo box for each dictionary entry
         for field_label, possible_values in SQLUtils.upb_possible_user_input_fields.items():
-            combo = QComboBox()
+            # combo = QComboBox()
+            combo = SearchableComboBox()
             # We'll prepend a 'None' option. You could also use an empty string, etc.
             combo.addItem("None")
             combo.addItems(possible_values)
 
             # Connect signal so that if this combo changes,
             # we reset all others back to 'None'.
-            combo.currentIndexChanged.connect(self.on_combo_changed)
+            combo.selection_changed.connect(self.on_combo_changed)
 
-            if current_field is not None and current_field in possible_values:
-                combo.setCurrentText(current_field)
+            # if current_field is not None and current_field in possible_values:
+            #     combo.setCurrentText(current_field)
 
             form_layout.addRow(field_label + ":", combo)
             self.combos.append(combo)
@@ -442,7 +444,7 @@ class ImportWizardDialog(QWidget):
 
         concordance_units_query = QSqlQuery()
         concordance_units_query.prepare(
-            'SELECT ConcordanceTypeAbbreviation, ConcordanceTypeID From ConcordanceTypes')
+            'SELECT ConcordanceFormatAbbreviation, ConcordanceFormatID From ConcordanceFormats')
         self.concordance_formats = []
 
         if concordance_units_query.exec():
@@ -455,7 +457,7 @@ class ImportWizardDialog(QWidget):
 
         error_type_format_query = QSqlQuery()
         error_type_format_query.prepare(
-            'SELECT ErrorTypeAbbreviation, ErrorTypeID From ErrorTypes')
+            'SELECT ErrorFormatAbbreviation, ErrorFormatID From ErrorFormats')
         self.error_formats = []
 
         if error_type_format_query.exec():
@@ -738,10 +740,7 @@ class ImportWizardDialog(QWidget):
         self.right_table.setColumnWidth(column_index, 200)
 
     def set_cell_combobox(self, model, row, column_index):
-        if model.tableName() == '"References"':
-            name_col = 6
-        else:
-            name_col = 1
+        name_col = TbC.name_column(model.tableName())
 
         field = self.right_table.horizontalHeaderItem(column_index).text().strip()
 
@@ -1698,9 +1697,9 @@ class ImportWizardDialog(QWidget):
                 else:
                     record['Rejected'] = False
 
-                record['RatioErrorTypeID'] = self.ratio_error_combobox.itemData(self.ratio_error_combobox.currentIndex())
-                record['AgeErrorTypeID'] = self.age_error_combobox.itemData(self.age_error_combobox.currentIndex())
-                record['ConcordanceTypeID'] = self.conc_error_combobox.itemData(self.conc_error_combobox.currentIndex())
+                record['RatioErrorFormatID'] = self.ratio_error_combobox.itemData(self.ratio_error_combobox.currentIndex())
+                record['AgeErrorFormatID'] = self.age_error_combobox.itemData(self.age_error_combobox.currentIndex())
+                record['ConcordanceFormatID'] = self.conc_error_combobox.itemData(self.conc_error_combobox.currentIndex())
                 record['AgeUnitID'] = self.age_unit_combobox.itemData(self.age_unit_combobox.currentIndex())
                 record['SpotSizeUnitID'] = self.spot_size_unit_combobox.itemData(self.spot_size_unit_combobox.currentIndex())
 

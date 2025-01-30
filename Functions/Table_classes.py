@@ -745,6 +745,58 @@ class CheckableComboBox(QtW.QComboBox):
 
         return super().eventFilter(obj, event)
 
+class SearchableSQLComboBox(QtW.QComboBox):
+    closing = QtC.pyqtSignal()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setEditable(True)
+        self.proxy_model = QtC.QSortFilterProxyModel()
+        self.lineEdit().textChanged.connect(self.search_items)
+
+    def setModel(self, model: QtS.QSqlTableModel | VerifiableSqlViewModel):
+        self.proxy_model.setSourceModel(model)
+        super().setModel(self.proxy_model)
+        self.setModelColumn(name_column(model.tableName()))
+
+    def search_items(self, text):
+        self.proxy_model.setFilterFixedString(text)
+        self.showPopup()
+        if self.proxy_model.rowCount() > 0:
+            self.setCurrentIndex(0)
+        else:
+            self.setCurrentIndex(-1)
+
+class SearchableComboBox(QtW.QComboBox):
+    selection_changed = QtC.pyqtSignal(QtW.QComboBox)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setEditable(True)
+        self.list_view = QtW.QListView()
+        self.setView(self.list_view)
+        self.previous_index = -1
+        # self.all_items = []
+        self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchStartsWith)
+        self.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.lineEdit().setCompleter(self.completer())
+
+        self.lineEdit().editingFinished.connect(self.validate_input)
+
+    def addItem(self, text):
+        super().addItem(text)
+        # self.all_items.append(text)
+        # Set the default text to blank
+        self.lineEdit().setText(None)
+
+    def addItems(self, texts):
+        super().addItems(texts)
+        # self.all_items.extend(texts)
+        self.lineEdit().setText(None)
+
+    def validate_input(self):
+        if self.findText(self.lineEdit().text()) == -1 or self.lineEdit().text() == 'None':
+            self.lineEdit().setText(None)
+            self.setCurrentIndex(-1)
+
 class TemporaryComboBox(QtW.QComboBox):
     closing = QtC.pyqtSignal()
     def __init__(self, parent=None):
