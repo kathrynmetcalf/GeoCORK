@@ -1,9 +1,12 @@
+import sqlite3
+
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize
-from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget
+from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel
+from PyQt6.QtSql import QSqlQuery
+from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget
 
 from PyQt6.uic import loadUi
 import Functions.Table_classes as TbC
@@ -101,7 +104,7 @@ class DisplayTables(QtW.QWidget):
         self.dbTable_comboBox: QtW.QComboBox
         self.dbTable_comboBox.addItems(self.user_view_tables)
         self.previous_table = ''
-        self.dbTable_comboBox.setCurrentText('"References"')
+        self.dbTable_comboBox.setCurrentText('References')
         self.display_table()
 
     def display_table(self):
@@ -109,6 +112,7 @@ class DisplayTables(QtW.QWidget):
         Displays the selected table
         :return:
         """
+        start = time.time()
         self.edit_pushButton: QPushButton
         self.dbTable_tableView: QtW.QTableView
         self.dbTable_treeView: QtW.QTreeView
@@ -145,16 +149,70 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
         elif self.table in self.dbtable_list:
+
+            class SQLiteTableModel(QAbstractTableModel):
+                def __init__(self, data=None, headers=None):
+                    super().__init__()
+                    self._data = data if data else []
+                    self._headers = headers if headers else []
+
+                def rowCount(self, parent=None):
+                    return len(self._data)
+
+                def columnCount(self, parent=None):
+                    return len(self._headers)
+
+                def data(self, index, role=Qt.DisplayRole):
+                    if not index.isValid():
+                        return None
+                    if role == Qt.DisplayRole:
+                        return str(self._data[index.row()][index.column()])
+                    return None
+
+                def headerData(self, section, orientation, role=Qt.DisplayRole):
+                    if role == Qt.DisplayRole:
+                        if orientation == Qt.Horizontal and section < len(self._headers):
+                            return self._headers[section]
+                        elif orientation == Qt.Vertical:
+                            return section + 1  # Row numbers
+                    return None
+
+
             self.switch_to_table()
             if self.table == 'Samples':
-                select_sample_view_begin = time.time()
-                self.query_model.setQuery('SELECT * FROM SampleView')
-                select_sample_view_end = time.time()
-                print(f"Select sample view time: {select_sample_view_end - select_sample_view_begin}")
-                proxy_set_model_begin = time.time()
-                self.table_proxy_model.setSourceModel(self.query_model)
-                proxy_set_model_end = time.time()
-                print(f"Set proxy model time: {proxy_set_model_end - proxy_set_model_begin}")
+                # select_sample_view_begin = time.time()
+                # self.query_model.setQuery('SELECT * FROM SampleView')
+
+                print('samples')
+                db_path =r'C:\Users\jburges\Downloads\GeoChron DB\GeoChron v.0.db'
+                uri = f'file:{db_path}?mode=ro&immutable=1'
+                try:
+                    conn = sqlite3.connect(uri, uri=True)
+                    print("Database opened in read-only and immutable mode successfully.")
+                    with conn:
+                        table_widget = SQLiteTableModel()
+                        print('trying to select sampleview')
+                        cursor = conn.cursor()
+
+                        cursor.execute("SELECT * FROM SampleView")
+                        records = cursor.fetchall()
+                        headers = [desc[0] for desc in cursor.description]  # Get column names
+                        conn.close()
+
+                        model = SQLiteTableModel(records, headers)
+
+
+                except sqlite3.Error as e:
+                    print(f"Error opening database: {e}")
+
+
+
+                # select_sample_view_end = time.time()
+                # print(f"Select sample view time: {select_sample_view_end - select_sample_view_begin}")
+                # proxy_set_model_begin = time.time()
+                self.table_proxy_model.setSourceModel(model)
+                # proxy_set_model_end = time.time()
+                # print(f"Set proxy model time: {proxy_set_model_end - proxy_set_model_begin}")
                 self.edit_samples_pushButton.show()
                 # # Signal for double-clicked on table-view
                 # self.dbTable_tableView.doubleClicked.connect(self.edit_samples_popup('double-clicked'))
@@ -185,6 +243,9 @@ class DisplayTables(QtW.QWidget):
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
         self.edit_pushButton.setText(f"Edit {table}")
+
+        end = time.time()
+        print('display_table connection time: ', end - start)
 
     def search(self):
         """
