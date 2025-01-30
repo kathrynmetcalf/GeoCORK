@@ -1,25 +1,6 @@
 from Functions.Settings_manager import settings
 from PyQt6.QtSql import QSqlQueryModel
 
-# Query columns with text dependent on settings
-abbreviation_model = QSqlQueryModel()
-abbreviation_model.setQuery(f'SELECT AgeUnitAbbreviation FROM AgeUnits WHERE AgeUnitID = {settings.value('age_unit_id')}')
-selected_age_unit = abbreviation_model.record(0).value('AgeUnitAbbreviation')
-abbreviation_model.setQuery(f'SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value('elevation_unit_id')}')
-selected_elev_unit = abbreviation_model.record(0).value('DistanceUnitAbbreviation')
-abbreviation_model.setQuery(f'SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value('heightdepth_unit_id')}')
-selected_heightdepth_unit = abbreviation_model.record(0).value('DistanceUnitAbbreviation')
-abbreviation_model.setQuery(f'SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value('spotsize_unit_id')}')
-selected_spotsize_unit = abbreviation_model.record(0).value('DistanceUnitAbbreviation')
-abbreviation_model.setQuery(f'SELECT GPSFormatAbbreviation FROM GPSFormats WHERE GPSFormatID = {settings.value('gps_format_id')}')
-selected_gps_format = abbreviation_model.record(0).value('GPSFormatAbbreviation')
-abbreviation_model.setQuery(f'SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value('age_error_format_id')}')
-selected_age_error_format = abbreviation_model.record(0).value('ErrorFormatAbbreviation')
-abbreviation_model.setQuery(f'SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value('ratio_error_format_id')}')
-selected_ratio_error_format = abbreviation_model.record(0).value('ErrorFormatAbbreviation')
-abbreviation_model.setQuery(f'SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats WHERE ConcordanceFormatID = {settings.value('concordance_format_id')}')
-selected_concordance_format = abbreviation_model.record(0).value('ConcordanceFormatAbbreviation')
-
 # ID columns
 qsample_id = 'Samples.SampleID'
 qaliquot_id = 'Aliquots.AliquotID'
@@ -420,10 +401,9 @@ one_editable = [['Samples', 'SampleAges', 'Columns', 'DistanceUnits'],
 
 
 user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
-                        'Columns', 'Instruments', 'LabFacilities',
-                        'Regions', 'RejectionReasons', 'RockTypes', 'SampleContexts', 'Samples',
-                        'SamplingMethods', 'Settings', '"References"',
-                        'SpotCompositions', 'SpotContexts', 'UPbAnalysisMethods', 'Units']
+                        'Columns', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
+                        'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'SpotCompositions',
+                        'SpotContexts', 'UPbAnalysisMethods', 'Units']
 
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                        'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
@@ -431,7 +411,7 @@ user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'SampleView', 'ColumnEditView', 'UPbAnalysesView', 'UPbAnalysesEditView']
+trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'SampleView', 'ColumnEditView', 'UPbAnalyses', 'UPbAnalysesView', 'UPbAnalysesEditView']
 
 views = ['SampleView', 'AliquotView', 'SpotView', 'UPbView', 'ColumnView', 'ColumnEditView']
 
@@ -629,6 +609,71 @@ table_attributes_dict = {
         "UnitCreated", "UnitModified"
     ]
 }
+
+view_attributes_dict = {
+    'SampleView': [
+        f"{qsample_id}", f"{qigsn}", f"{qsample_name}", f"{qsample_description}", f"{qgps}", f"{qsample_elev}", f"{qsample_age}",
+        f"{qsample_age_constraint}", f"{qsample_age_interpretation}", f"{qsample_age_references}", f"{qcolumn_name}", f"{qcolumn_data}",
+        f"{qage_signature}", f"{qregions}", f"{qrock_types}", f"{qsample_context}", f"{qsampling_methods}", f"{qsettings}",
+        f"{qunits}", f"{qaliquots}", f"{qaliquot_contexts}", f"{qspot_count}", f"{qspot_compositions}", f"{qspot_contexts}",
+        f"{qupb_count}", f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
+        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}", f"{qupb_references}",
+        f"{qsample_created}", f"{qsample_modified}"
+        ],
+    'ColumnView': [
+        f"{qcolumn_id}", f"{qcolumn_name}", f"{qcolumn_calc_total_height_depth}", f"{qcolumn_gps}",
+        f"{qcolumn_description}", f"{qcolumn_created}", f"{qcolumn_modified}"
+    ],
+    'ColumnEditView': [
+        f"{qcolumn_id}", f"{qcolumn_name}", f"{qcolumn_total_height_depth}", f"{qcolumn_total_height_depth_unit}",
+        f"{qcolumn_gps_display}", f"{qcolumn_description}", f"{qcolumn_created}", f"{qcolumn_modified}"
+    ],
+    'AliquotView': [
+        f"{qaliquot_id}", f"{qaliquot_parent_id}", f"{qaliquot_parent_row}", f"{qaliquot}", f"{qaliquot_sample}",
+        f"{qaliquot_contexts}", f"{qspot_count}", f"{qspot_compositions}", f"{qspot_contexts}", f"{qupb_count}",
+        f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
+        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}",
+        f"{qupb_references}", f"{qaliquot_created}", f"{qaliquot_modified}"
+    ],
+    'SpotView': [
+        f"{qspot_id}", f"{qspots}", f"{qsample_name}", f"{qaliquot}", f"{qspot_compositions}", f"{qspot_contexts}",
+        f"{qupb_count}", f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}",
+        f"{qupb_age_units}", f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}",
+        f"{qupb_references}", f"{qspot_created}", f"{qspot_modified}"
+    ],
+    'UPbAnalysisView': [
+        f"{qupb_id}", f"{qspot}", f"{qaliquot}", f"{qsample_name}", f"{qupb_references}", f"{qupb_lab_facilities}",
+        f"{qupb_instruments}", f"{qupb_analysis_methods}", 'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"',
+        'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"', 'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"',
+        'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"', 'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"',
+        'UPbAnalyses."CalculatedU/Th"', 'UPbAnalyses."CalculatedTh/U"',
+        'UPbAnalyses."Calculated206Pb/207Pb"', 'UPbAnalyses."Calculated206Pb/207PbError"',
+        'UPbAnalyses."Calculated207Pb/206Pb"', 'UPbAnalyses."Calculated207Pb/206PbError"',
+        'UPbAnalyses."Calculated207Pb/235U"', 'UPbAnalyses."Calculated207Pb/235UError"',
+        'UPbAnalyses."Calculated235U/207Pb"', 'UPbAnalyses."Calculated235U/207PbError"',
+        'UPbAnalyses."Calculated206Pb/238U"', 'UPbAnalyses."Calculated206Pb/238UError"',
+        'UPbAnalyses."Calculated238U/206Pb"', 'UPbAnalyses."Calculated238U/206PbError"',
+        'UPbAnalyses."Calculated208Pb/232Th"', 'UPbAnalyses."Calculated208Pb/232ThError"',
+        'UPbAnalyses."Calculated232Th/208Pb"', 'UPbAnalyses."Calculated232Th/208PbError"',
+        'UPbAnalyses."Calculated238U/232Th"', 'UPbAnalyses."Calculated238U/232ThError"',
+        'UPbAnalyses."Calculated232Th/238U"', 'UPbAnalyses."Calculated232Th/238UError"',
+        'UPbAnalyses."Calculated204Pb/238U"', 'UPbAnalyses."Calculated204Pb/238UError"',
+        'UPbAnalyses."Calculated238U/204Pb"', 'UPbAnalyses."Calculated238U/204PbError"',
+        'UPbAnalyses."Calculated206Pb/204Pb"', 'UPbAnalyses."Calculated206Pb/204PbError"',
+        'UPbAnalyses."Calculated204Pb/206Pb"', 'UPbAnalyses."Calculated204Pb/206PbError"',
+        'UPbAnalyses."Calculated207Pb/204Pb"', 'UPbAnalyses."Calculated207Pb/204PbError"',
+        'UPbAnalyses."Calculated204Pb/207Pb"', 'UPbAnalyses."Calculated204Pb/207PbError"',
+        'UPbAnalyses."Calculated208Pb/204Pb"', 'UPbAnalyses."Calculated208Pb/204PbError"',
+        'UPbAnalyses."Calculated204Pb/208Pb"', 'UPbAnalyses."Calculated204Pb/208PbError"', 'UPbAnalyses."ErrorCorr/Rho"',
+        'UPbAnalyses."Calculated207Pb/206PbAge"', 'UPbAnalyses."Calculated207Pb/206PbAgeError"',
+        'UPbAnalyses."Calculated206Pb/238UAge"', 'UPbAnalyses."Calculated206Pb/238UAgeError"',
+        'UPbAnalyses."Calculated207Pb/235UAge"', 'UPbAnalyses."Calculated207Pb/235UAgeError"',
+        'UPbAnalyses."Calculated208Pb/232ThAge"', 'UPbAnalyses."Calculated208Pb/232ThAgeError"',
+        'UPbAnalyses."CalculatedBestAge"', 'UPbAnalyses."CalculatedBestAgeError"', 'UPbAnalyses."CalculatedSpotSize"',
+        'UPbAnalyses."CalculatedConcordance"', f"{qupb_rejection_reasons}", f"{qupb_created}", f"{qupb_modified}"
+    ]
+}
+
 
 upb_possible_database_input_fields = [
     'SpotID',

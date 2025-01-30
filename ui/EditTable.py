@@ -7,6 +7,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QModelIndex
 from PyQt6.uic import loadUi
 from pandas.plotting import table
+from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
@@ -33,8 +34,10 @@ class EditTable(QtW.QDialog):
         if self.table == 'Spots' or self.table == 'UPbAnalyses':
             self.parent_id = parent_id
             self.parent_type = parent_type
-            self.model = TbC.VerifiableSqlViewModel()
-
+            self.model = TbC.VerifiableSqlTableModel()
+            if self.table == 'Spots':
+                self.show_cols = settings.value('spot_edit_columns')
+            self.model.setQuery()
         elif self.table in SQLUtils.trigger_tables:
             if self.table == 'Columns':
                 self.model = TbC.VerifiableSqlViewModel()

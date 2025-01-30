@@ -34,6 +34,7 @@ class DisplayTables(QtW.QWidget):
         for widget in QtW.QApplication.topLevelWidgets():
             if widget.inherits("QMainWindow"):
                 self.main_window = widget
+                break
 
         # Retrieve the savepoint manager
         savepoint_manager = Savepoint_manager.SavepointManager()
@@ -58,20 +59,17 @@ class DisplayTables(QtW.QWidget):
         self.switch_to_table()
         self.display_table_list()
 
-        # Display the selected table
+        self.connect_signals()
+
+    def connect_signals(self):
+        # Signal for table combo box
         self.dbTable_comboBox.currentIndexChanged.connect(self.display_table)
-
-        try:
-            self.dbTable_tableView.doubleClicked.disconnect()
-        except:
-            pass
-
         # Signal for search bar
         self.search_lineEdit.textChanged.connect(self.search)
         # Signal for clicked edit button
         self.edit_pushButton.clicked.connect(self.edit_popup)
         # Signal for clicked edit samples button
-        # self.edit_samples_pushButton.clicked.connect(self.edit_samples_popup('edit_pushButton'))
+        self.edit_samples_pushButton.clicked.connect(lambda: self.edit_samples_popup('edit_pushButton'))
         # Context menu for table and tree views
         self.dbTable_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.dbTable_tableView.customContextMenuRequested.connect(self.show_context_menu)
@@ -103,7 +101,7 @@ class DisplayTables(QtW.QWidget):
         self.dbTable_comboBox: QtW.QComboBox
         self.dbTable_comboBox.addItems(self.user_view_tables)
         self.previous_table = ''
-        self.dbTable_comboBox.setCurrentText('Samples')
+        self.dbTable_comboBox.setCurrentText('"References"')
         self.display_table()
 
     def display_table(self):
@@ -119,6 +117,8 @@ class DisplayTables(QtW.QWidget):
         self.case_checkBox: QtW.QCheckBox
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
+        if self.table == 'References':
+            self.table == '"References"'
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
             TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
@@ -147,8 +147,14 @@ class DisplayTables(QtW.QWidget):
         elif self.table in self.dbtable_list:
             self.switch_to_table()
             if self.table == 'Samples':
+                select_sample_view_begin = time.time()
                 self.query_model.setQuery('SELECT * FROM SampleView')
+                select_sample_view_end = time.time()
+                print(f"Select sample view time: {select_sample_view_end - select_sample_view_begin}")
+                proxy_set_model_begin = time.time()
                 self.table_proxy_model.setSourceModel(self.query_model)
+                proxy_set_model_end = time.time()
+                print(f"Set proxy model time: {proxy_set_model_end - proxy_set_model_begin}")
                 self.edit_samples_pushButton.show()
                 # # Signal for double-clicked on table-view
                 # self.dbTable_tableView.doubleClicked.connect(self.edit_samples_popup('double-clicked'))
@@ -166,7 +172,10 @@ class DisplayTables(QtW.QWidget):
             # else:
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            set_tableview_model_begin = time.time()
             self.dbTable_tableView.setModel(self.table_proxy_model)
+            set_tableview_model_end = time.time()
+            print(f"Set table view model time: {set_tableview_model_end - set_tableview_model_begin}")
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
@@ -289,6 +298,7 @@ class DisplayTables(QtW.QWidget):
         self.display_table()
 
     def edit_samples_popup(self, text=None):
+        print(f'edit_samples_popup called with {text}')
         if self.table != 'Samples':
             return
         selected_samples = []

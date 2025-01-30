@@ -254,17 +254,19 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
             print(f'Failed to update {self.table} with {column_str}={value_str}')
             return False
         self.row_submitted.emit(current_row)
+        if not self.on_row_submitted(current_row):
+            return False
         self.edited_indexes = []
         self.submitError = ''
         self.headerToFix = ''
         return True
 
-    # def on_row_submitted(self, row):
-    #     record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-    #     error = Check_triggers.update_modified_timestamp(self.table, [record_id])
-    #     if error is not None:
-    #         print(error)
-    #         return False
+    def on_row_submitted(self, row):
+        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        error = Check_triggers.update_modified_timestamp(self.table, [record_id])
+        if error is not None:
+            print(error)
+            return False
 
     def deleteRowFromTable(self, row):
         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -284,31 +286,31 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             header = super().headerData(section, orientation, role)
             if 'ID' in header:
                 if 'Elev' in header:
-                    header.replace('ID', f'({SQLUtils.selected_elev_unit})')
+                    header.replace('ID', f'({settings.value('elevation_unit_abbreviation')})')
                 elif 'AgeUnit' in header:
-                    header.replace('ID', f'({SQLUtils.selected_age_unit})')
+                    header.replace('ID', f'({settings.value('age_unit_abbreviation')})')
                 elif 'RatioErrorFormat' in header:
-                    header.replace('ID', f'({SQLUtils.selected_ratio_error_format})')
+                    header.replace('ID', f'({settings.value('ratio_error_format_abbreviation')})')
                 elif 'AgeErrorFormat' in header:
-                    header.replace('ID', f'({SQLUtils.selected_age_error_format})')
+                    header.replace('ID', f'({settings.value('age_error_format_abbreviation')})')
                 elif 'Height' in header:
-                    header.replace('ID', f'({SQLUtils.selected_heightdepth_unit})')
+                    header.replace('ID', f'({settings.value('heightdepth_unit_abbreviation')})')
                 elif 'GPSFormat' in header:
-                    header.replace('ID', f'({SQLUtils.selected_gps_format})')
+                    header.replace('ID', f'({settings.value('gps_format_abbreviation')})')
                 elif 'SpotSize' in header:
-                    header.replace('ID', f'({SQLUtils.selected_spotsize_unit})')
+                    header.replace('ID', f'({settings.value('spotsize_unit_abbreviation')})')
                 elif 'ConcordanceFormat' in header:
-                    header.replace('ID', f'({SQLUtils.selected_concordance_format})')
+                    header.replace('ID', f'({settings.value('concordance_format_abbreviation')})')
             if 'GPSLocationConverted' in header:
                 header = 'GPS Location'
             elif 'GPSElev || ' in header:
-                header = f'Elevation ({SQLUtils.selected_elev_unit})'
+                header = f'Elevation ({settings.value('elevation_unit_abbreviation')})'
             elif 'TotalHeightDepth' in header:
-                header = f'Total Height/Depth ({SQLUtils.selected_heightdepth_unit})'
+                header = f'Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
             elif 'HeightDepth' in header:
-                header = f'Height/Depth ({SQLUtils.selected_heightdepth_unit})'
+                header = f'Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
             elif 'AgeDisplay' in header:
-                header = f'Age ({SQLUtils.selected_age_unit})'
+                header = f'Age ({settings.value('age_unit_abbreviation')})'
             elif 'AgeReferences' in header:
                 header = 'Age References'
             elif 'SUM' in header:
@@ -316,7 +318,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             elif 'COUNT' in header and 'SpotID' in header:
                 header = 'Number of Spots'
             elif 'SpotSize' in header:
-                header = f'Spot Size ({SQLUtils.selected_spotsize_unit})'
+                header = f'Spot Size ({settings.value('spotsize_unit_abbreviation')})'
             elif 'DISTINCT' in header:
                 # Form is 'GROUP_CONCAT(DISTINCT table.column)' or 'GROUP_CONCAT(DISTINCT column)', get column
                 if '.' in header:
@@ -347,7 +349,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
 
 def get_headers(table: str):
     query = QtS.QSqlQuery()
-    if not query.exec(f'PRAGMA table_info("{table}")'):
+    if not query.exec(f'PRAGMA table_xinfo("{table}")'):
         print(f"Failed to get headers for {table}")
         return []
     headers = []
