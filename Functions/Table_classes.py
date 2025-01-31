@@ -766,7 +766,7 @@ class CheckableComboBox(QtW.QComboBox):
         # row height * number of rows plus header height
         total_height = self.tableView.rowHeight(0)*self.tableView.model().rowCount() + self.tableView.horizontalHeader().height()
         if total_height > self.tableView.sizeHint().height():
-            self.tableView.setFixedHeight(self.tableView.sizeHint().height())
+            self.tableView.setFixedHeight(self.tableView.sizeHint().height() * int(float(settings.value('checkable_combobox_height_scaler'))))
         else:
             self.tableView.setFixedHeight(total_height)
         super().showPopup()

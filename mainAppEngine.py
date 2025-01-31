@@ -12,8 +12,8 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    settings.setValue('default_settings', True)
-    populate_app_defaults()
+    # settings.setValue('default_settings', True)
+    # populate_app_defaults()
     landing_page = LandingPage()
 
     sys.exit(app.exec())
