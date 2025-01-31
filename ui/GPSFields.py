@@ -5,7 +5,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
-from Functions.Table_classes import set_table, set_comboBox_text
+from Functions.Table_classes import set_table, set_comboBox_text, SQLiteTableModel
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -37,6 +37,7 @@ class GPSFields(QtW.QWidget):
         else:
             raise ValueError('Table must be either "Columns" or "Samples"')
         self.item_ids = item_ids
+        self.updated = False
         self.errmsg = QtW.QMessageBox(self)
 
         self.item_model = QtS.QSqlTableModel()
@@ -104,25 +105,26 @@ class GPSFields(QtW.QWidget):
             pass
 
     def populate_fields(self):
-        item_ifnull_model = QtS.QSqlQueryModel()
-        # column_query_table = QtS.QSqlTableModel()
-        # set_table(column_query_table, self.table)
         if len(self.item_ids) > 1:
-            item_ifnull_model.setQuery(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} in {self.item_ids}')
+            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} in {tuple(self.item_ids)}')
         elif len(self.item_ids) == 1:
-            item_ifnull_model.setQuery(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} = {self.item_ids[0]}')
+            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} = {self.item_ids[0]}')
         else:
-            item_ifnull_model.setQuery(f'{self.item_ifnull_query}')
-        if item_ifnull_model.lastError().text() != '':
-            self.errmsg.setText(self.item_model.lastError().text())
+            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query}')
+        if item_ifnull_model.rowCount() == 0:
+            self.errmsg.setText(f'Error: No GPS location found for the selected {self.table.lower()}')
             self.errmsg.exec()
             return
         text_values = []
+        headers = []
         for col in range(item_ifnull_model.columnCount()):
             # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
-            text = item_ifnull_model.index(0, col).data()
+            text = item_ifnull_model._data[0][col]
+            header = item_ifnull_model._headers[col]
+            header = header.split('ifnull(')[1].split(',"Null')[0]
+            headers.append(header)
             if ',' in text:
-                if len(text_values) == 23:
+                if 'Description' in header:
                     text_values.append(text)
                 else:
                     text_values.append('-')
@@ -131,39 +133,73 @@ class GPSFields(QtW.QWidget):
             else:
                 text_values.append(text)
         if len(text_values) > 0 and self.table == 'Columns':
-            self.gps_location_ids = text_values[1]
-            self.lat_deg_lineEdit.setText(f"{text_values[3]}")
-            self.lat_min_lineEdit.setText(f"{text_values[4]}")
-            self.lat_sec_lineEdit.setText(f"{text_values[5]}")
-            set_comboBox_text(self.lat_comboBox, text_values[6])
-            self.lon_deg_lineEdit.setText(f"{text_values[7]}")
-            self.lon_min_lineEdit.setText(f"{text_values[8]}")
-            self.lon_sec_lineEdit.setText(f"{text_values[9]}")
-            set_comboBox_text(self.lon_comboBox, text_values[10])
-            self.utm_zone_lineEdit.setText(f"{text_values[11]}")
-            self.utm_n_lineEdit.setText(f"{text_values[12]}")
-            self.utm_e_lineEdit.setText(f"{text_values[13]}")
-            set_comboBox_text(self.gps_format_comboBox, text_values[15])
-            self.elevation_lineEdit.setText(f"{text_values[16]}")
-            self.elevation_error_lineEdit.setText(f"{text_values[17]}")
-            set_comboBox_text(self.elevation_unit_comboBox, text_values[18])
+            for header in headers:
+                if 'GPSLocationID' in header:
+                    self.gps_location_ids = text_values[headers.index(header)]
+                elif 'LatDeg' in header:
+                    self.lat_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LatMin' in header:
+                    self.lat_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LatSec' in header:
+                    self.lat_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LatDir' in header:
+                    set_comboBox_text(self.lat_comboBox, text_values[headers.index(header)])
+                elif 'LonDeg' in header:
+                    self.lon_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LonMin' in header:
+                    self.lon_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LonSec' in header:
+                    self.lon_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LonDir' in header:
+                    set_comboBox_text(self.lon_comboBox, text_values[headers.index(header)])
+                elif 'UTMZone' in header:
+                    self.utm_zone_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'UTMN' in header:
+                    self.utm_n_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'UTME' in header:
+                    self.utm_e_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'ElevError' in header:
+                    self.elevation_error_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'ElevationUnit' in header:
+                    set_comboBox_text(self.elevation_unit_comboBox, text_values[headers.index(header)])
+                elif 'Elev' in header:
+                    self.elevation_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'GPSFormat' in header:
+                    set_comboBox_text(self.gps_format_comboBox, text_values[headers.index(header)])
         elif len(text_values) > 0 and self.table == 'Samples':
-            self.gps_location_ids = text_values[2]
-            self.lat_deg_lineEdit.setText(f"{text_values[8]}")
-            self.lat_min_lineEdit.setText(f"{text_values[9]}")
-            self.lat_sec_lineEdit.setText(f"{text_values[10]}")
-            set_comboBox_text(self.lat_comboBox, text_values[11])
-            self.lon_deg_lineEdit.setText(f"{text_values[12]}")
-            self.lon_min_lineEdit.setText(f"{text_values[13]}")
-            self.lon_sec_lineEdit.setText(f"{text_values[14]}")
-            set_comboBox_text(self.lon_comboBox, text_values[15])
-            self.utm_zone_lineEdit.setText(f"{text_values[16]}")
-            self.utm_n_lineEdit.setText(f"{text_values[17]}")
-            self.utm_e_lineEdit.setText(f"{text_values[18]}")
-            set_comboBox_text(self.gps_format_comboBox, text_values[19])
-            self.elevation_lineEdit.setText(f"{text_values[20]}")
-            self.elevation_error_lineEdit.setText(f"{text_values[21]}")
-            set_comboBox_text(self.elevation_unit_comboBox, text_values[22])
+            for header in headers:
+                if 'GPSLocationID' in header:
+                    self.gps_location_ids = text_values[headers.index(header)]
+                elif 'LatDeg' in header:
+                    self.lat_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LatMin' in header:
+                    self.lat_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LatSec' in header:
+                    self.lat_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LatDir' in header:
+                    set_comboBox_text(self.lat_comboBox, text_values[headers.index(header)])
+                elif 'LonDeg' in header:
+                    self.lon_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LonMin' in header:
+                    self.lon_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LonSec' in header:
+                    self.lon_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'LonDir' in header:
+                    set_comboBox_text(self.lon_comboBox, text_values[headers.index(header)])
+                elif 'UTMZone' in header:
+                    self.utm_zone_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'UTMN' in header:
+                    self.utm_n_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'UTME' in header:
+                    self.utm_e_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'ElevError' in header:
+                    self.elevation_error_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'Elev' in header:
+                    self.elevation_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'ElevationUnit' in header:
+                    set_comboBox_text(self.elevation_unit_comboBox, text_values[headers.index(header)])
+                elif 'GPSFormat' in header:
+                    set_comboBox_text(self.gps_format_comboBox, text_values[headers.index(header)])
         self.display_gps()
 
     def display_gps(self):
@@ -385,6 +421,7 @@ class GPSFields(QtW.QWidget):
                     rollback_savepoint('before_update')
                     return
                 update_modified_timestamp(self.table, [item_id])
+            self.updated = True
             release_savepoint('before_update')
             return True
 

@@ -7,6 +7,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Database_manager import update_database
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Tree_classes as TrC
@@ -171,6 +172,7 @@ class EditTree(QtW.QDialog):
 
     def commit(self):
         release_savepoint('before_edit')
+        update_database()
         TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         self.close_by_dialog = True
         self.close()

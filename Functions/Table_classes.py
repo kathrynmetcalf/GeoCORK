@@ -684,8 +684,11 @@ class CheckableComboBox(QtW.QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
-        self.lineEdit().setReadOnly(True)
-        self.closedOnLineEditClick = True
+        self.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.lineEdit().setPlaceholderText("Search")
+        self.lineEdit().setCompleter(self.completer())
+        # self.closedOnLineEditClick = True
         self.single_click = False
         self.tableView = CheckableSampleTableView()
         self.setView(self.tableView)

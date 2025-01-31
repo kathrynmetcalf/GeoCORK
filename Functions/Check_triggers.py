@@ -16,7 +16,7 @@ def update_modified_timestamp(table: str, record_ids: list):
     record_id_header = table_model.record().fieldName(0)
     query = QtS.QSqlQuery()
     if len(record_ids) > 1:
-        record_ids = ', '.join(record_ids)
+        record_ids = ', '.join(str(id) for id in record_ids)
         if not query.exec(f'UPDATE {table} SET ModifiedTimestamp = CURRENT_TIMESTAMP WHERE {record_id_header} IN ({record_ids})'):
             return f'Unable to update modified timestamps for {table}: {query.lastError().text()}'
     if len(record_ids) == 1:

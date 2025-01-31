@@ -3,7 +3,8 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
-from Functions.Table_classes import set_table, SampleAgeTableModel, CheckableSqlTableModel, FontDelegate, name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel
+from Functions.Table_classes import (set_table, SampleAgeTableModel, CheckableSqlTableModel, FontDelegate, name_column,
+                                     set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel, SQLiteTableModel)
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
@@ -21,6 +22,7 @@ class AgeFields(QtW.QWidget):
         loadUi(age_ui_file, self)
         self.table = table
         self.item_ids = item_ids
+        self.updated = False
         self.msg = QtW.QMessageBox(self)
 
         self.item_model = QtS.QSqlTableModel()
@@ -93,7 +95,6 @@ class AgeFields(QtW.QWidget):
         self.age_reference_comboBox.setModelColumn(name_column('"References"'))
 
     def populate_age_dropdown(self):
-        self.sample_age_model.setItemDelegate(FontDelegate(self.sample_age_model))
         samples_sampleage_model = QtS.QSqlTableModel()
         set_table(samples_sampleage_model, 'Samples_SampleAges')
         if len(self.checked_sample_list) > 1:
@@ -177,23 +178,26 @@ class AgeFields(QtW.QWidget):
             pass
 
     def populate_fields(self):
-        item_ifnull_model = QtS.QSqlQueryModel()
         if len(self.item_ids) > 1:
-            item_ifnull_model.setQuery(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} in {self.item_ids}')
+            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} in {tuple(self.item_ids)}')
         elif len(self.item_ids) == 1:
-            item_ifnull_model.setQuery(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} = {self.item_ids[0]}')
+            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} = {self.item_ids[0]}')
         else:
-            item_ifnull_model.setQuery(f'{self.item_ifnull_query}')
-        if self.item_model.lastError().text() != '':
-            self.msg.setText(self.item_model.lastError().text())
+            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query}')
+        if self.item_model.rowCount() == 0:
+            self.msg.setText(f'Error: No ages found for the selected {self.table.lower()}')
             self.msg.exec()
             return
         text_values = []
+        headers = []
         for col in range(item_ifnull_model.columnCount()):
             # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
-            text = item_ifnull_model.index(0, col).data()
+            text = item_ifnull_model._data[0][col]
+            header = item_ifnull_model._headers[col]
+            header = header.split('ifnull(')[1].split(',"Null')[0]
+            headers.append(header)
             if ',' in text:
-                if len(text_values) == 23:
+                if 'Description' in header or 'Default' in header:
                     text_values.append(text)
                 else:
                     text_values.append('-')
@@ -202,30 +206,46 @@ class AgeFields(QtW.QWidget):
             else:
                 text_values.append(text)
         if len(text_values) > 0 and self.table == 'Samples':
-            default_age_ids = text_values[23]
-            self.default_age_ids = []
-            if default_age_ids != '':
-                if ',' in default_age_ids:
-                    self.default_age_ids = [int(x) for x in default_age_ids.split(',')]
-                else:
-                    self.default_age_ids = [int(default_age_ids)]
-                for row in range(self.sample_age_model.rowCount()):
-                    if self.sample_age_model.index(row, 0).data() == self.default_age_ids[0]:
-                        self.edit_age_comboBox.setCurrentIndex(row)
-                        break
-            self.default_age_checkBox.setChecked(self.default_age_ids != '')
-            self.direct_age_lineEdit.setText(f"{text_values[24]}")
-            self.direct_age_error_lineEdit.setText(f"{text_values[25]}")
-            set_comboBox_text(self.direct_age_error_type_comboBox, text_values[26])
-            self.oldest_direct_lineEdit.setText(f"{text_values[27]}")
-            self.youngest_direct_lineEdit.setText(f"{text_values[28]}")
-            set_comboBox_text(self.direct_age_unit_comboBox, text_values[29])
-            set_comboBox_text(self.oldest_rel_comboBox, text_values[30])
-            set_comboBox_text(self.youngest_rel_comboBox, text_values[31])
-            self.age_description_lineEdit.setText(text_values[32])
-            set_comboBox_text(self.age_constraint_comboBox, text_values[33])
-            set_comboBox_text(self.age_interpretation_comboBox, text_values[34])
-            set_comboBox_text(self.age_reference_comboBox, text_values[35])
+            for header in headers:
+                if 'Default' in header:
+                    default_age_ids = text_values[headers.index(header)]
+                    self.default_age_ids = []
+                    if default_age_ids != '':
+                        if ',' in default_age_ids:
+                            self.default_age_ids = [int(x) for x in default_age_ids.split(',')]
+                        else:
+                            self.default_age_ids = [int(default_age_ids)]
+                        for row in range(self.sample_age_model.rowCount()):
+                            if self.sample_age_model.index(row, 0).data() == self.default_age_ids[0]:
+                                self.edit_age_comboBox.setCurrentIndex(row)
+                                break
+                    self.default_age_checkBox.setChecked(self.default_age_ids != '')
+                elif 'Ages.DirectAgeError' in header:
+                    self.direct_age_error_lineEdit.setText(text_values[headers.index(header)])
+                elif 'Ages.DirectAge' in header:
+                    self.direct_age_lineEdit.setText(text_values[headers.index(header)])
+                elif 'AgeUnitAbbreviation' in header:
+                    self.direct_age_unit_comboBox.setCurrentText(text_values[headers.index(header)])
+                elif 'ErrorFormatAbbreviation' in header:
+                    self.direct_age_error_type_comboBox.setCurrentText(text_values[headers.index(header)])
+                elif 'OldestDirectAge' in header:
+                    self.oldest_direct_lineEdit.setText(text_values[headers.index(header)])
+                elif 'YoungestDirectAge' in header:
+                    self.youngest_direct_lineEdit.setText(text_values[headers.index(header)])
+                elif 'OldAge' in header:
+                    self.oldest_rel_comboBox.setCurrentText(text_values[headers.index(header)])
+                elif 'YoungAge' in header:
+                    self.youngest_rel_comboBox.setCurrentText(text_values[headers.index(header)])
+                elif 'SampleAgeDescription' in header:
+                    self.age_description_lineEdit.setText(text_values[headers.index(header)])
+                elif 'AgeConstraintName' in header:
+                    self.age_constraint_comboBox.setCurrentText(text_values[headers.index(header)])
+                elif 'AgeInterpretationName' in header:
+                    self.age_interpretation_comboBox.setCurrentText(text_values[headers.index(header)])
+                elif 'ReferenceDisplay' in header:
+                    self.age_reference_comboBox.setCurrentText(text_values[headers.index(header)])
+
+            self.edit_age_comboBox.setItemDelegate(FontDelegate(self.edit_age_comboBox))
 
             # Age tags
             text = self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_model,
@@ -236,12 +256,6 @@ class AgeFields(QtW.QWidget):
             self.age_interpretation_comboBox.setCurrentText(text)
             text = self.populate_checks('SampleAges_References', self.age_reference_model)
             self.age_reference_comboBox.setCurrentText(text)
-
-    def set_comboBox_text(self, comboBox: QtW.QComboBox, text: str):
-        if text == '' or text == '-':
-            comboBox.setCurrentIndex(-1)
-        else:
-            comboBox.setCurrentText(text)
 
     def display_age(self):
         sample_age_row = self.edit_age_comboBox.currentIndex()
@@ -517,10 +531,12 @@ class AgeFields(QtW.QWidget):
                     default_age_id = self.item_model.index(0, column).data()
                     if default_age_id not in self.default_age_ids:
                         self.default_age_ids.append(default_age_id)
+            self.updated = True
             release_savepoint('before_update')
             self.populate_age_dropdown()
 
     def add_age(self):
+        create_savepoint('before_add')
         query = QtS.QSqlQuery()
         if not query.exec(f'''INSERT INTO SampleAges (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) 
                             VALUES (NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)'''):
@@ -533,6 +549,8 @@ class AgeFields(QtW.QWidget):
                 errtxt = query.lastError().text()
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                 return
+        self.updated = True
+        release_savepoint('before_add')
         self.clear_fields()
         self.populate_age_dropdown()
         self.edit_age_comboBox.setCurrentIndex(self.sample_age_model.rowCount() - 1)

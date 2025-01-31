@@ -1065,9 +1065,12 @@ class CheckableTreeCombobox(TreeCombobox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
+        self.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.lineEdit().setPlaceholderText("Search")
+        self.lineEdit().setCompleter(self.completer())
         self.single_click = False
-        self.lineEdit().setReadOnly(True)
-        self.closedOnLineEditClick = False
+        # self.closedOnLineEditClick = False
         self.treeView = CheckableTreeView()
         # show the empty root item in the combo box
         self.treeView.setRootIsDecorated(True)

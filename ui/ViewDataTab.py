@@ -75,6 +75,15 @@ class ViewDataTab(QtW.QWidget):
             self.proxy_model = TbC.ReadableProxyModel()
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)
+            self.view.setSortingEnabled(True)
+            # Hide the ID columns
+            self.view.hideColumn(0)
+            self.view.hideColumn(2)
+            if self.child_type == 'Spot':
+                self.view.hideColumn(4)
+            if self.child_type == 'UPbAnalysis':
+                self.view.hideColumn(4)
+                self.view.hideColumn(6)
 
     def edit_popup(self):
         if self.child_type == 'Aliquot':

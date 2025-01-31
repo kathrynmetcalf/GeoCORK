@@ -143,7 +143,14 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="direct_age_error_lineEdit"/>
+            <widget class="QLineEdit" name="direct_age_error_lineEdit">
+             <property name="sizePolicy">
+              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+               <horstretch>0</horstretch>
+               <verstretch>0</verstretch>
+              </sizepolicy>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QComboBox" name="direct_age_unit_comboBox">
@@ -155,7 +162,7 @@
              </property>
              <property name="maximumSize">
               <size>
-               <width>61</width>
+               <width>80</width>
                <height>16777215</height>
               </size>
              </property>
@@ -249,7 +256,7 @@
              </property>
              <property name="maximumSize">
               <size>
-               <width>61</width>
+               <width>80</width>
                <height>16777215</height>
               </size>
              </property>
@@ -422,9 +429,10 @@
  </widget>
  <customwidgets>
   <customwidget>
-   <class>TreeCombobox</class>
-   <extends>QComboBox</extends>
-   <header>Functions/Tree_classes.h</header>
+   <class>FocusGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>Functions/Widget_classes.h</header>
+   <container>1</container>
   </customwidget>
   <customwidget>
    <class>CheckableTreeCombobox</class>
@@ -437,10 +445,9 @@
    <header location="global">Functions/Table_classes.h</header>
   </customwidget>
   <customwidget>
-   <class>FocusGroupBox</class>
-   <extends>QGroupBox</extends>
-   <header>Functions/Widget_classes.h</header>
-   <container>1</container>
+   <class>TreeCombobox</class>
+   <extends>QComboBox</extends>
+   <header>Functions/Tree_classes.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

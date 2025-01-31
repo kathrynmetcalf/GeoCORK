@@ -35,7 +35,7 @@
       <property name="orientation">
        <enum>Qt::Horizontal</enum>
       </property>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QVBoxLayout" name="selected_gps_column_verticalLayout">
         <item>
          <widget class="QLabel" name="bold_label">
@@ -133,7 +133,7 @@
                </property>
                <property name="maximumSize">
                 <size>
-                 <width>61</width>
+                 <width>80</width>
                  <height>16777215</height>
                 </size>
                </property>
@@ -149,7 +149,7 @@
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="">
+      <widget class="QWidget" name="layoutWidget">
        <layout class="QGridLayout" name="gridLayout_2">
         <item row="0" column="3">
          <widget class="QLabel" name="sample_igsn_label">
@@ -524,6 +524,12 @@
  </widget>
  <customwidgets>
   <customwidget>
+   <class>FocusGroupBox</class>
+   <extends>QGroupBox</extends>
+   <header>Functions/Widget_classes.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
    <class>CheckableTreeCombobox</class>
    <extends>QComboBox</extends>
    <header>Functions/Tree_classes.h</header>
@@ -532,12 +538,6 @@
    <class>CheckableComboBox</class>
    <extends>QComboBox</extends>
    <header location="global">Functions/Table_classes.h</header>
-  </customwidget>
-  <customwidget>
-   <class>FocusGroupBox</class>
-   <extends>QGroupBox</extends>
-   <header>Functions/Widget_classes.h</header>
-   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>

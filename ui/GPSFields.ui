@@ -54,7 +54,11 @@
          </widget>
         </item>
         <item>
-         <widget class="QComboBox" name="gps_format_comboBox"/>
+         <widget class="QComboBox" name="gps_format_comboBox">
+          <property name="placeholderText">
+           <string/>
+          </property>
+         </widget>
         </item>
         <item>
          <spacer name="horizontalSpacer_7">
@@ -96,7 +100,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="lat_deg_lineEdit"/>
+            <widget class="QLineEdit" name="lat_deg_lineEdit">
+             <property name="placeholderText">
+              <string>Degrees</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="lat_deg_label">
@@ -109,7 +117,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="lat_min_lineEdit"/>
+            <widget class="QLineEdit" name="lat_min_lineEdit">
+             <property name="placeholderText">
+              <string>Minutes</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="lat_min_label">
@@ -122,7 +134,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="lat_sec_lineEdit"/>
+            <widget class="QLineEdit" name="lat_sec_lineEdit">
+             <property name="placeholderText">
+              <string>Seconds</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="lat_sec_label">
@@ -144,7 +160,7 @@
              </property>
              <property name="maximumSize">
               <size>
-               <width>61</width>
+               <width>80</width>
                <height>16777215</height>
               </size>
              </property>
@@ -165,7 +181,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="lon_deg_lineEdit"/>
+            <widget class="QLineEdit" name="lon_deg_lineEdit">
+             <property name="placeholderText">
+              <string>Degrees</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="lon_deg_label">
@@ -178,7 +198,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="lon_min_lineEdit"/>
+            <widget class="QLineEdit" name="lon_min_lineEdit">
+             <property name="placeholderText">
+              <string>Minutes</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="lon_min_label">
@@ -191,7 +215,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="lon_sec_lineEdit"/>
+            <widget class="QLineEdit" name="lon_sec_lineEdit">
+             <property name="placeholderText">
+              <string>Seconds</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="lon_sec_label">
@@ -213,7 +241,7 @@
              </property>
              <property name="maximumSize">
               <size>
-               <width>61</width>
+               <width>80</width>
                <height>16777215</height>
               </size>
              </property>
@@ -249,7 +277,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="utm_zone_lineEdit"/>
+            <widget class="QLineEdit" name="utm_zone_lineEdit">
+             <property name="placeholderText">
+              <string>Zone</string>
+             </property>
+            </widget>
            </item>
            <item>
             <spacer name="horizontalSpacer_3">
@@ -275,7 +307,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="utm_e_lineEdit"/>
+            <widget class="QLineEdit" name="utm_e_lineEdit">
+             <property name="placeholderText">
+              <string>Easting</string>
+             </property>
+            </widget>
            </item>
            <item>
             <spacer name="horizontalSpacer_2">
@@ -301,7 +337,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="utm_n_lineEdit"/>
+            <widget class="QLineEdit" name="utm_n_lineEdit">
+             <property name="placeholderText">
+              <string>Northing</string>
+             </property>
+            </widget>
            </item>
           </layout>
          </item>
@@ -330,7 +370,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="elevation_lineEdit"/>
+            <widget class="QLineEdit" name="elevation_lineEdit">
+             <property name="placeholderText">
+              <string>Elevation</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QLabel" name="elevation_error_label">
@@ -343,7 +387,11 @@
             </widget>
            </item>
            <item>
-            <widget class="QLineEdit" name="elevation_error_lineEdit"/>
+            <widget class="QLineEdit" name="elevation_error_lineEdit">
+             <property name="placeholderText">
+              <string>Error</string>
+             </property>
+            </widget>
            </item>
            <item>
             <widget class="QComboBox" name="elevation_unit_comboBox">
@@ -355,7 +403,7 @@
              </property>
              <property name="maximumSize">
               <size>
-               <width>61</width>
+               <width>80</width>
                <height>16777215</height>
               </size>
              </property>

@@ -145,6 +145,7 @@ def SampleViewQuery(ids_to_show=None):
 def SampleIfNullQuery():
     sample_ifnull_query = f'''
     SELECT 
+        {SQLUtils.qsample_id_ifnull},
         {SQLUtils.qsample_name_ifnull},
         {SQLUtils.qigsn_ifnull},
         {SQLUtils.qsample_gps_id_ifnull},

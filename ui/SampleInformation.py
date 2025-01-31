@@ -18,8 +18,7 @@ import Functions.Errors as Er
 import Functions.Database_views as DB_views
 import ui.import_wizard
 import ui.New_reference
-from Functions.Alter_database import release_savepoint
-from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate
+from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -28,6 +27,7 @@ from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTr
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import settings
+from Functions.Database_manager import update_database
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
 
@@ -64,9 +64,10 @@ class SampleInformation(QtW.QDialog):
         self.checked_sample_list = []
         self.checked_sample_names = ""
         self.default_age_ids = []
+        self.updated = False
 
         # Sample information models
-        self.samples_table = QtS.QSqlQueryModel()
+        self.samples_table = None
         self.distance_unit_model = QtS.QSqlTableModel()
         self.elevation_unit_model = QtS.QSqlTableModel()
         self.column_model = QtS.QSqlTableModel()
@@ -203,7 +204,7 @@ class SampleInformation(QtW.QDialog):
         self.sample_names_model.dataChanged.connect(self.update_sample_list)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'"{self.sample_igsn_lineEdit.text()}"'))
         # self.location_groupBox.focusLost.connect(self.update_gps)
-        self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('ColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
+        self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('SampleColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
         self.height_depth_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepth', self.height_depth_lineEdit.text()))
         self.height_depth_error_lineEdit.editingFinished.connect(
@@ -242,23 +243,28 @@ class SampleInformation(QtW.QDialog):
 
     def populate_fields(self):
         sample_ifnull_query = DB_views.SampleIfNullQuery()
-        sample_query_table = QtS.QSqlTableModel()
-        self.set_table(sample_query_table, 'Samples')
         if len(self.checked_sample_list) > 1:
-            self.samples_table.setQuery(f'{sample_ifnull_query} WHERE Samples.SampleID in {tuple(self.checked_sample_list)}')
+            self.samples_table = SQLiteTableModel(f'{sample_ifnull_query} WHERE Samples.SampleID in {tuple(self.checked_sample_list)}')
         elif len(self.checked_sample_list) == 1:
-            self.samples_table.setQuery(f'{sample_ifnull_query} WHERE Samples.SampleID = {self.checked_sample_list[0]}')
+            self.samples_table = SQLiteTableModel(f'{sample_ifnull_query} WHERE Samples.SampleID = {self.checked_sample_list[0]}')
         else:
-            self.samples_table.setQuery(f'{sample_ifnull_query}')
-        if self.samples_table.lastError().text() != '':
-            self.msg.critical(self, 'Error', self.samples_table.lastError().text(), QtW.QMessageBox.StandardButton.Ok)
+            self.samples_table = SQLiteTableModel(f'{sample_ifnull_query}')
+        if self.samples_table.rowCount() == 0:
+            if len(self.checked_sample_names) > 5:
+                self.msg.critical(self, 'Error', f'Unable to retrieve sample information for {len(self.checked_sample_names)} samples: {', '.join(self.checked_sample_names[0:5])}...', QtW.QMessageBox.StandardButton.Ok)
+            else:
+                self.msg.critical(self, 'Error', f'Unable to retrieve sample information for {', '.join(self.checked_sample_names)}', QtW.QMessageBox.StandardButton.Ok)
             return
         text_values = []
+        headers = []
         for col in range(self.samples_table.columnCount()):
             # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
-            text = self.samples_table.index(0, col).data()
-            if type(text) == str and ',' in text:
-                if len(text_values) == 23:
+            text = self.samples_table._data[0][col]
+            header = self.samples_table._headers[col]
+            header = header.split('ifnull(')[1].split(',"Null')[0]
+            headers.append(header)
+            if ',' in text:
+                if 'Description' in header:
                     text_values.append(text)
                 else:
                     text_values.append('-')
@@ -267,12 +273,21 @@ class SampleInformation(QtW.QDialog):
             else:
                 text_values.append(text)
         if len(text_values) > 0:
-            self.sample_igsn_lineEdit.setText(f"{text_values[1]}")
-            TbC.set_comboBox_text(self.column_name_comboBox, text_values[3])
-            self.height_depth_lineEdit.setText(f"{text_values[4]}")
-            self.height_depth_error_lineEdit.setText(f"{text_values[5]}")
-            TbC.set_comboBox_text(self.height_depth_unit_comboBox, text_values[6])
-            self.sample_description_lineEdit.setText(text_values[7])
+            for header in headers:
+                if 'SampleName' in header:
+                    self.sample_name_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'IGSN' in header:
+                    self.sample_igsn_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'ColumnName' in header:
+                    TbC.set_comboBox_text(self.column_name_comboBox, text_values[headers.index(header)])
+                elif 'HeightDepthError' in header:
+                    self.height_depth_error_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'HeightDepth' in header:
+                    self.height_depth_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                elif 'HeightDepthUnit' in header:
+                    TbC.set_comboBox_text(self.height_depth_unit_comboBox, text_values[headers.index(header)])
+                elif 'SampleDescription' in header:
+                    self.sample_description_lineEdit.setText(f"{text_values[headers.index(header)]}")
 
             # Sample tags
             text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_tree)
@@ -412,7 +427,6 @@ class SampleInformation(QtW.QDialog):
                 TbC.delete_samples(selected_indexes)
 
     def update_field(self, field: str, text: str):
-        print(f"Update_field called with {field} and {text}")
         if text != "-":
             if len(self.checked_sample_list) > 0:
                 query = QtS.QSqlQuery()
@@ -424,6 +438,7 @@ class SampleInformation(QtW.QDialog):
                         return
                     query.next()
                     if query.value(0) != text:
+                        print(f"Updating {field} to {text} for SampleID {sample_id}")
                         if text is None or text == '':
                             text = 'Null'
                         if not query.exec(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}"):
@@ -432,6 +447,7 @@ class SampleInformation(QtW.QDialog):
                             rollback_savepoint('before_update')
                             return
                         update_modified_timestamp('Samples', [sample_id])
+                self.updated = True
                 release_savepoint('before_update')
 
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
@@ -458,6 +474,7 @@ class SampleInformation(QtW.QDialog):
                         rollback_savepoint('before_update')
                         return
             update_modified_timestamp('Samples', self.checked_sample_list)
+            self.updated = True
             release_savepoint('before_update')
 
     def update_subfield_id(self, model: CheckableSqlTableModel, field: str):
@@ -503,6 +520,7 @@ class SampleInformation(QtW.QDialog):
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
             query_end_time = time.time()
             print(f"Query time: {query_end_time - query_start_time}")
+            self.updated = True
             release_savepoint('before_update')
 
     def update_sample_tags(self, model: TrC.CheckableTreeModel, table: str):
@@ -521,6 +539,7 @@ class SampleInformation(QtW.QDialog):
                     errtxt = update
                     self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                     return
+            self.updated = True
             release_savepoint('before_update')
 
     def update_sub_tags(self, model: TrC.CheckableTreeModel, table: str):
@@ -547,6 +566,7 @@ class SampleInformation(QtW.QDialog):
                 return
             update_modified_timestamp('UPbData', upb_data_ids)
             print(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
+            self.updated = True
             release_savepoint('before_update')
 
     def delete_question(self):
@@ -562,32 +582,44 @@ class SampleInformation(QtW.QDialog):
             return False
 
     def discard_question(self):
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to discard all changes?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            rollback_savepoint('before_edit')
+        if self.updated or self.gps.updated or self.age.updated:
+            msg_box = QtW.QMessageBox()
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setText('Are you sure you want to discard all changes?')
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                rollback_savepoint('before_edit')
+                self.reject()
+                self.close_by_dialog = True
+                self.close()
+                self.close_by_dialog = False
+            else:
+                pass
+        else:
             self.reject()
             self.close_by_dialog = True
             self.close()
             self.close_by_dialog = False
-        else:
-            pass
 
     def commit_question(self):
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to commit all changes to the database?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            self.commit()
+        if self.updated or self.gps.updated or self.age.updated:
+            msg_box = QtW.QMessageBox()
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setText('Are you sure you want to commit all changes to the database?')
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                self.commit()
+            else:
+                pass
         else:
-            pass
+            self.reject()
+            self.close_by_dialog = True
+            self.close()
+            self.close_by_dialog = False
 
     def rollback(self, savepoint_name: str):
         query = QtS.QSqlQuery()
@@ -602,6 +634,8 @@ class SampleInformation(QtW.QDialog):
 
     def commit(self):
         release_savepoint('before_edit')
+        # Edit occurred in the dialog, so update the database
+        update_database()
         # TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         self.close_by_dialog = True
         self.close()
@@ -609,7 +643,10 @@ class SampleInformation(QtW.QDialog):
 
     def closeEvent(self, event: QtG.QCloseEvent):
         if not self.close_by_dialog:
-            self.discard_question()
-            event.ignore()
+            if self.updated or self.gps.updated or self.age.updated:
+                self.discard_question()
+                event.ignore()
+            else:
+                event.accept()
         else:
             event.accept()

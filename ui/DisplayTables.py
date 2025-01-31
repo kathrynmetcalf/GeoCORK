@@ -14,6 +14,7 @@ import Functions.Tree_classes as TrC
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions import Savepoint_manager
+from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 import ui.New_reference
 from Functions.Tree_classes import TreeSortFilterProxyModel
@@ -311,6 +312,7 @@ class DisplayTables(QtW.QWidget):
         else:
             dlg = EditTable(self.table)
         dlg.exec()
+        update_database()
         self.display_table()
 
     def edit_samples_popup(self, text=None):
@@ -326,6 +328,7 @@ class DisplayTables(QtW.QWidget):
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
+        update_database()
         self.display_table()
 
     def add_popup(self, action: QtG.QAction | None = None):

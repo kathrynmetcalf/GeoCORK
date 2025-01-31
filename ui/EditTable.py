@@ -7,6 +7,8 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QModelIndex
 from PyQt6.uic import loadUi
 from pandas.plotting import table
+
+from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
@@ -401,17 +403,7 @@ class EditTable(QtW.QDialog):
 
     def commit(self):
         if self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            if self.table == 'Columns':
-                Alter_db.update_generated_columns('Columns')
-                Alter_db.update_generated_columns('GPSLocations')
-            if self.table == 'Samples':
-                Alter_db.update_generated_columns('SampleAges')
-                Alter_db.update_generated_columns('GPSLocations')
-                Alter_db.update_generated_columns('Samples')
-            if self.table == '"References"':
-                Alter_db.update_generated_columns('"References"')
-            if self.table == 'UPbAnalyses':
-                Alter_db.update_generated_columns('UPbAnalyses')
+            update_database()
             release_savepoint('before_edit')
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True

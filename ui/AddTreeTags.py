@@ -7,6 +7,8 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
+
+from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Tree_classes import TreeModel
@@ -177,6 +179,7 @@ class AddTreeTags(QtW.QDialog):
                 return False
         release_savepoint('before_add')
         TrC.save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
+        update_database()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

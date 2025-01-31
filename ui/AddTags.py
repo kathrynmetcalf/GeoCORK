@@ -7,6 +7,8 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
+
+from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
@@ -130,6 +132,7 @@ class AddTags(QtW.QDialog):
             if not self.add_tag():
                 return False
         release_savepoint('before_add')
+        update_database()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
