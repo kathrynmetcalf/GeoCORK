@@ -25,6 +25,7 @@ from Functions.Savepoint_manager import SavepointManager
 
 from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox
 import Functions.Table_classes as TbC
+from Settings_manager import settings
 
 # Updated DB schema to include lab_facilities, source, analysis_method, instrument
 DATABASE_FILE = 'yrrfgs.db'
@@ -161,7 +162,7 @@ class ImportWizardDialog(QWidget):
         #     sys.exit(1)
 
         self.setWindowTitle("UPb Import Wizard")
-        self.setGeometry(100, 100, 1500, 600)
+        self.loadWindowState()
 
         main_layout = QVBoxLayout(self)
 
@@ -1901,6 +1902,18 @@ class ImportWizardDialog(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to import data:\n{e}")
             # Database_manager.rollback_savepoint('before_upb_import')
         QSqlDatabase().commit()
+
+    def close(self):
+        self.saveWindowState()
+        return super().close()
+
+    def saveWindowState(self):
+        settings.setValue("ui/ImportWizard/pos", self.pos())
+        settings.setValue("ui/ImportWizard/size", self.size())
+
+    def loadWindowState(self):
+        self.move(settings.value("ui/ImportWizard/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/ImportWizard/size", defaultValue=QSize(810, 569)))
 
 
 if __name__ == "__main__":

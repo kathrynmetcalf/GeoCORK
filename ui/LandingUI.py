@@ -28,7 +28,7 @@ class LandingPage(QWidget):
 
         self.loadWindowState()
 
-        self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[])
+        self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
 
         print(self.list_recents)
 
@@ -197,5 +197,5 @@ class LandingPage(QWidget):
         settings.setValue("ui/LandingPage/size", self.size())
 
     def loadWindowState(self):
-        self.move(settings.value("ui/LandingPage/pos", defaultValue=QPoint(410, 241)))
-        self.resize(settings.value("ui/LandingPage/size", defaultValue=QSize(750, 701)))
+        self.move(settings.value("ui/LandingPage/pos", defaultValue=QPoint(410, 241), type=QPoint))
+        self.resize(settings.value("ui/LandingPage/size", defaultValue=QSize(750, 701), type=QSize))

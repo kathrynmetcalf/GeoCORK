@@ -1,5 +1,6 @@
 import sys
 
+from PyQt6.QtCore import QSettings, QPoint, QSize
 from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
@@ -222,6 +223,7 @@ class SettingsDialog(QtW.QDialog):
         settings_ui_file = "ui/Settings.ui"
         loadUi(settings_ui_file, self)
         self.setWindowTitle('Settings')
+        self.loadWindowState()
 
         self.gps_format_model = QSqlQueryModel()
         self.elevation_unit_model = QSqlQueryModel()
@@ -390,3 +392,15 @@ class SettingsDialog(QtW.QDialog):
         else:
             return
         return table, column, id_header, setting_key
+
+    def close(self):
+        self.saveWindowState()
+        return super().close()
+
+    def saveWindowState(self):
+        settings.setValue("ui/SettingDialog/pos", self.pos())
+        # settings.setValue("ui/SettingDialog/size", self.size())
+
+    def loadWindowState(self):
+        self.move(settings.value("ui/SettingDialog/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/SettingDialog/size", defaultValue=QSize(810, 569)))

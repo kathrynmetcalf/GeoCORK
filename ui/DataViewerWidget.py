@@ -15,6 +15,7 @@ import Functions.Tree_classes as TrC
 from Functions import SQLUtils
 from Functions.Table_classes import SQLiteTableModel
 from Functions.Tree_classes import TreeSortFilterProxyModel
+from Settings_manager import settings
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 
@@ -573,9 +574,9 @@ class DataViewerWidget(QWidget):
         self.display_table(db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton)
 
     def saveWindowState(self):
-        self.settings.setValue("ui/GeoChronMain/pos", self.pos())
-        self.settings.setValue("ui/GeoChronMain/size", self.size())
+        settings.setValue("ui/DataviewWidget/pos", self.pos())
+        settings.setValue("ui/DataviewWidget/size", self.size())
 
     def loadWindowState(self):
-        self.move(self.settings.value("ui/GeoChronMain/pos", defaultValue=QPoint(410, 241)))
-        self.resize(self.settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
+        self.move(settings.value("ui/DataviewWidget/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/DataviewWidget/size", defaultValue=QSize(810, 569)))

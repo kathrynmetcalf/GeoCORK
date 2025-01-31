@@ -1,12 +1,16 @@
 import PyQt6
 from PyQt6 import QtWidgets as QtW
+from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 import ui.GPSFields
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
+from Settings_manager import settings
+
 
 class GPSDialog(QtW.QDialog):
     def __init__(self, table: str, item_ids: list, parent=None):
         super().__init__(parent)
+        self.loadWindowState()
 
         self.gps_fields = ui.GPSFields.GPSFields(table, item_ids)
         self.setLayout(QtW.QVBoxLayout())
@@ -64,7 +68,16 @@ class GPSDialog(QtW.QDialog):
             self.close_by_dialog = False
 
     def close(self):
+        self.saveWindowState()
         if not self.close_by_dialog:
             self.discard_question()
         else:
             super().close()
+
+    def saveWindowState(self):
+        settings.setValue("ui/GPSDialog/pos", self.pos())
+        settings.setValue("ui/GPSDialog/size", self.size())
+
+    def loadWindowState(self):
+        self.move(settings.value("ui/GPSDialog/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/GPSDialog/size", defaultValue=QSize(810, 569)))

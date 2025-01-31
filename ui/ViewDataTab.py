@@ -4,6 +4,9 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtWidgets import QAbstractItemView, QHeaderView
+
 from Functions.Settings_manager import settings
 from Functions.Database_views import AliquotViewQuery, SpotViewQuery, UPbViewQuery
 import Functions.Table_classes as TbC
@@ -30,11 +33,42 @@ class ViewDataTab(QtW.QWidget):
         self.show_cols = []
         self.display_table()
 
+
+    def adjustRowHeights(self, logical_index, old_size, new_size):
+        """Resize rows dynamically when columns are resized."""
+        self.view.resizeRowsToContents()
+
+    def optimizeVerticalResize(self, logical_index, old_size, new_size):
+        """Trigger a delayed row height update when the user resizes the window vertically."""
+        self.resize_timer.start(2500)  # Add a slight delay to avoid excessive updates
+
+    def resizeRowsOptimized(self):
+        """Resize rows only when resizing stops."""
+        self.view.resizeRowsToContents()
+
+
     def display_table(self):
         if self.child_type == 'Aliquot':
             self.view = QtW.QTreeView()
         else:
             self.view = QtW.QTableView()
+
+            self.view.setWordWrap(True)
+            self.view.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
+            self.view.setItemDelegate(TbC.WordWrapDelegate(self.view))
+
+            self.view.resizeRowsToContents()
+            self.view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+
+            # Optimize window resizing
+            self.resize_timer = QTimer()
+            self.resize_timer.setSingleShot(True)
+            self.resize_timer.timeout.connect(self.resizeRowsOptimized)
+
+            # Connect resizing events
+            self.view.horizontalHeader().sectionResized.connect(self.adjustRowHeights)
+            self.view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
+
         self.v_layout.addWidget(self.view)
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             # Columns to select from the view

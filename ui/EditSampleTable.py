@@ -14,6 +14,7 @@ from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTr
 from Functions.Table_classes import DisplayRoundedModel
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
+from Settings_manager import settings
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
@@ -24,6 +25,7 @@ class EditSampleTable(QtW.QDialog):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditSampleTable.ui")
         loadUi(sources_ui_file, self)
+        self.loadWindowState()
 
         self.table = 'Samples'
         self.view = 'SampleView'
@@ -43,6 +45,10 @@ class EditSampleTable(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_tableView.clicked.connect(self.display_dropdown)
+
+    def close(self):
+        self.saveWindowState()
+        return super().close()
 
     def update_model(self):
         if not self.sample_model.submitAll():
@@ -161,3 +167,11 @@ class EditSampleTable(QtW.QDialog):
         self.releaseSavepoint()
         self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
         self.close()
+
+    def saveWindowState(self):
+        settings.setValue("ui/DataviewWidget/pos", self.pos())
+        settings.setValue("ui/DataviewWidget/size", self.size())
+
+    def loadWindowState(self):
+        self.move(settings.value("ui/DataviewWidget/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/DataviewWidget/size", defaultValue=QSize(810, 569)))

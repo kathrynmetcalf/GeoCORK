@@ -10,6 +10,7 @@ from PyQt6 import QtSql as QtS
 from collections import namedtuple
 
 from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt
+from PyQt6.QtGui import QTextOption
 
 from Functions.Settings_manager import settings, SettingsManager
 from Functions import SQLUtils
@@ -35,7 +36,7 @@ def set_table(model: QtS.QSqlTableModel, table: str):
 class DecimalDelegate(QtW.QStyledItemDelegate):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.decimal_places = settings.value('decimals_to_show')
+        self.decimal_places = settings.value('decimals_to_show', type=int)
 
     def display_text(self, value):
         if isinstance(value, float):
@@ -50,11 +51,19 @@ class FontDelegate(QtW.QStyledItemDelegate):
             option.font = font
 
 
+class WordWrapDelegate(QtW.QStyledItemDelegate):
+    """Custom delegate to enable word wrap in QTableView."""
+
+    def initStyleOption(self, option, index):
+        super().initStyleOption(option, index)
+        option.textElideMode = Qt.TextElideMode.ElideNone  # Do not cut text
+        option.wrapMode = QTextOption.WrapMode.WordWrap  # Allow word wrap
+
 class SQLiteTableModel(QAbstractTableModel):
     def __init__(self, query: str):
         from Functions.Settings_manager import settings
 
-        db_file = settings.value('db_file')
+        db_file = settings.value('db_file', type=str)
         uri = f'file:{db_file}?mode=ro&immutable=1'
         self._data = []
         self._headers = []
