@@ -8,21 +8,13 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 
 from PyQt6.uic import loadUi
-from pandas.plotting import table
 
-import Functions.Create_database as Create_db
 import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
-import Functions.Text_manipulations as TxM
-import Functions.Errors as Er
+
 import Functions.Database_views as DB_views
-import ui.import_wizard
-import ui.New_reference
+
 from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel
-from ui.EditSampleTable import EditSampleTable
-from ui.EditTable import EditTable
-from ui.EditTree import EditTree
-from ui.Filters import QueryBuilder
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp

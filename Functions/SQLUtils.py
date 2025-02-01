@@ -488,7 +488,7 @@ table_attributes_dict = {
         "LabFacilityName", "LabFacilityDescription",
         "LabFacilityCreated", "LabFacilityModified"
     ],
-    '"References"': [
+    'References': [
         "Authors", "Year", "Title", "Source", "doi", "ShortCitation", "ReferenceDescription",
         "ReferenceCreated", "ReferenceModified"
     ],
@@ -566,7 +566,7 @@ table_attributes_dict = {
         "Calculated204Pb/207Pb",
         "Calculated208Pb/204Pb",
         "Calculated204Pb/208Pb",
-        "Concordance",
+        "CalculatedConcordance",
         "Rejected",
         "UPbAnalysisCreated",
         "UPbAnalysisModified",
@@ -579,7 +579,7 @@ table_attributes_dict = {
         "Calculated207Pb/235UAgeError",
         "Calculated206Pb/238UAgeError",
         "Calculated208Pb/232ThAgeError",
-        "BestAge",
+        "CalculatedBestAge",
         "CalculatedBestAgeError",
         "Calculated206Pb/207PbError",
         "Calculated207Pb/206PbError",

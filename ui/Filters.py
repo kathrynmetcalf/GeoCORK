@@ -34,7 +34,7 @@ def process_json_to_sql(json_string, scope):
     elif scope == 'Spots':
         join = SQLUtils.get_join_from_table(['Spots'])
         return f"SELECT * FROM Spots {join} WHERE {where};"
-    elif scope == 'UPbData':
+    elif scope == 'UPbAnalyses':
         join = SQLUtils.get_join_from_table(['UPbAnalyses'])
         return f"SELECT * FROM UPbAnalyses {join} WHERE {where};"
 
@@ -785,11 +785,11 @@ class QueryBuilder(QWidget):
             print("Failed to execute query:", query.lastError().text())
 
     def view_analysis(self):
-        filtered_ids = self.get_filtered_ids('upbdata')
+        filtered_ids = self.get_filtered_ids('UPbAnalyses')
         if filtered_ids is None:
             self.display_no_ids_error('upb data')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'upbdata')
+        dataviewer = DataViewerWidget(filtered_ids, 'UPbAnalyses')
         dataviewer.setWindowTitle("Filtered Analysis View")
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -797,11 +797,11 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def view_spots(self):
-        filtered_ids = self.get_filtered_ids('spot')
+        filtered_ids = self.get_filtered_ids('Spots')
         if filtered_ids is None:
-            self.display_no_ids_error('spot')
+            self.display_no_ids_error('Spots')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'spot')
+        dataviewer = DataViewerWidget(filtered_ids, 'Spots')
         dataviewer.setWindowTitle("Filtered Spot View")
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -809,11 +809,11 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def view_aliquots(self):
-        filtered_ids = self.get_filtered_ids('aliquot')
+        filtered_ids = self.get_filtered_ids('Aliquots')
         if filtered_ids is None:
-            self.display_no_ids_error('aliquot')
+            self.display_no_ids_error('Aliquots')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'aliquot')
+        dataviewer = DataViewerWidget(filtered_ids, 'Aliquots')
         dataviewer.setWindowTitle("Filtered Aliquot View")
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -821,11 +821,11 @@ class QueryBuilder(QWidget):
         loop.exec()
 
     def view_samples(self):
-        filtered_ids = self.get_filtered_ids('sample')
+        filtered_ids = self.get_filtered_ids('Samples')
         if filtered_ids is None:
-            self.display_no_ids_error('sample')
+            self.display_no_ids_error('Samples')
             return
-        dataviewer = DataViewerWidget(filtered_ids, 'sample')
+        dataviewer = DataViewerWidget(filtered_ids, 'Samples')
         dataviewer.setWindowTitle("Filtered Sample View")
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
@@ -853,14 +853,14 @@ class QueryBuilder(QWidget):
         print('join is, ', join)
 
 
-        if type == 'sample':
+        if type == 'Samples':
             sql_query = (
                 f"SELECT DISTINCT SampleID FROM ("
                 f"SELECT Samples.SampleID, {self.main_group_box.get_selects()} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause});"
             )
-        elif type == 'aliquot':
+        elif type == 'Aliquots':
             join += SQLUtils.get_join_from_table(['Aliquots'])
             sql_query = (
                 f"SELECT DISTINCT AliquotID FROM ("
@@ -869,7 +869,7 @@ class QueryBuilder(QWidget):
                 f"WHERE {where_clause}) "
                 f"WHERE AliquotID IS NOT NULL;"
             )
-        elif type == 'spot':
+        elif type == 'Spots':
             join += SQLUtils.get_join_from_table(['Spots'])
             sql_query = (
                 f"SELECT DISTINCT SpotID FROM ("
@@ -878,7 +878,7 @@ class QueryBuilder(QWidget):
                 f"WHERE {where_clause}) "
                 f"WHERE SpotID IS NOT NULL;"
             )
-        elif type == 'upbdata':
+        elif type == 'UPbAnalyses':
             join += SQLUtils.get_join_from_table(['UPbAnalyses'])
             sql_query = (
                 f"SELECT DISTINCT UPbAnalysisID FROM ("

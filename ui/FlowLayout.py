@@ -1,14 +1,14 @@
 from PyQt6.QtCore import QSize, QPoint, Qt, QRect, pyqtSignal
-from PyQt6.QtWidgets import QLayout, QSpacerItem, QSizePolicy
+from PyQt6.QtWidgets import (
+    QWidget, QScrollArea, QVBoxLayout, QLayout, QSpacerItem, QSizePolicy
+)
 
 
 class FlowLayout(QLayout):
-    """A ``QLayout`` that arranges its child widgets horizontally and
-    vertically.
+    """A ``QLayout`` that arranges its child widgets horizontally and vertically.
 
     If enough horizontal space is available, it looks like an ``HBoxLayout``,
-    but if enough space is lacking, it automatically wraps its children into
-    multiple rows.
+    but if enough space is lacking, it automatically wraps its children into multiple rows.
 
     """
     heightChanged = pyqtSignal(int)
@@ -106,3 +106,40 @@ class FlowLayout(QLayout):
         new_height = y + line_height - rect.y()
         self.heightChanged.emit(new_height)
         return new_height
+
+
+class ScrollableFlowWidget(QWidget):
+    """A QWidget that holds a FlowLayout inside a QScrollArea"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        # Create the scroll area
+        self.scroll_area = QScrollArea(self)
+        self.scroll_area.setWidgetResizable(True)  # Allow resizing
+
+        # Create a widget to hold the layout
+        self.content_widget = QWidget()
+        self.flow_layout = FlowLayout(self.content_widget)
+
+        # Set the layout to the content widget
+        self.content_widget.setLayout(self.flow_layout)
+
+        # Set the content widget inside the scroll area
+        self.scroll_area.setWidget(self.content_widget)
+
+        # Main layout to hold the scroll area
+        main_layout = QVBoxLayout(self)
+        main_layout.addWidget(self.scroll_area)
+        self.setLayout(main_layout)
+
+        # Connect height update signal
+        self.flow_layout.heightChanged.connect(self._update_height)
+
+    def _update_height(self, height):
+        """Update the height of the content widget to allow scrolling"""
+        self.content_widget.setMinimumHeight(height)
+
+    def addWidget(self, widget):
+        """Add a widget to the FlowLayout"""
+        self.flow_layout.addWidget(widget)

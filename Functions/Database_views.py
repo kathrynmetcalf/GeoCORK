@@ -224,10 +224,10 @@ def AliquotViewQuery():
 
     aliquot_query = f'''
                 SELECT
-                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qaliquot_parent_id},
                     {SQLUtils.qaliquot_parent_row},
+                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot},
                     {SQLUtils.qaliquot_sample},
                     {SQLUtils.qaliquot_contexts},
@@ -272,10 +272,10 @@ def AliquotEditViewQuery():
 
     aliquot_query = f'''
                 SELECT
-                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qaliquot_parent_id},
                     {SQLUtils.qaliquot_parent_row},
+                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot},
                     {SQLUtils.qaliquot_sample},
                     {SQLUtils.qaliquot_contexts},
@@ -293,9 +293,9 @@ def SpotViewQuery():
 
     spot_query = f'''
                 SELECT
+                    {SQLUtils.qspot_id},
                     {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
-                    {SQLUtils.qspot_id},
                     {SQLUtils.qspots},
                     {SQLUtils.qsample_name},
                     {SQLUtils.qaliquot},
@@ -338,9 +338,9 @@ def SpotEditViewQuery():
 
     spot_query = f'''
                 SELECT
+                    {SQLUtils.qspot_id},
                     {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
-                    {SQLUtils.qspot_id},
                     {SQLUtils.qspots},
                     {SQLUtils.qsample_name},
                     {SQLUtils.qaliquot},
@@ -378,10 +378,10 @@ def UPbViewQuery():
 
     upb_query = f'''
                 SELECT 
+                    {SQLUtils.qupb_id},
                     {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qspot_id},
-                    {SQLUtils.qupb_id},
                     {SQLUtils.qspot},
                     {SQLUtils.qaliquot},
                     {SQLUtils.qsample_name},
@@ -429,10 +429,10 @@ def UPbEditViewQuery():
 
     upb_query = f'''
                 SELECT 
+                    {SQLUtils.qupb_id},
                     {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qspot_id},
-                    {SQLUtils.qupb_id},
                     {SQLUtils.qspot},
                     {SQLUtils.qaliquot},
                     {SQLUtils.qsample_name},

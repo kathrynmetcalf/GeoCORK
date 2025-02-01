@@ -10,11 +10,13 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
-    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QErrorMessage
+    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QErrorMessage,
+    QGroupBox, QScrollArea
 )
 from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
+from FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase
 from Functions import FilterDatabase
 from Functions import SQLUtils
@@ -47,8 +49,6 @@ class ExportWidget(QWidget):
                 self.db_file = widget.db_file
 
         self.settings = QSettings("CSUF", "GeoChron")
-
-        # self.loadWindowState()
 
         self.samplesincluded_comboBox: CheckableComboBox()
 
@@ -340,42 +340,68 @@ class ExportWidget(QWidget):
         del self.worksheet_tabs_dict[current_worksheet_name]
 
     def populate_stack(self):
-        for table_name, field_items in SQLUtils.table_attributes_dict.items():
-            # Create a widget and layout for each table
-            table_widget = QWidget()
-            layout = QGridLayout()
-            layout.setSpacing(8)  # Set minimal spacing between rows and columns
-            layout.setContentsMargins(0, 0, 0, 0)  # Remove any outer margins
+        while self.columnattributes_stack.count():
+            widget = self.columnattributes_stack.widget(0)
+            self.columnattributes_stack.removeWidget(widget)
+            widget.deleteLater()
 
-            # Populate the layout with labels and checkboxes for each field
-            row, col = 0, 0
+        for table_name, field_items in SQLUtils.table_attributes_dict.items():
+            # Create container widget with QVBoxLayout
+            container_widget = QWidget()
+            # container_widget.setFixedSize(450, 500)
+            container_layout = QVBoxLayout(container_widget)
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            container_layout.setSpacing(0)
+
+            # Create a scroll area that expands vertically within vertical_layout9
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)  # Ensures the content resizes dynamically
+            scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+
+            # Create a widget to hold the FlowLayout
+            table_widget = QWidget()
+            flow_layout = FlowLayout()
+            flow_layout.setSpacing(0)
+            flow_layout.setContentsMargins(0, 0, 0, 0)
+
             for field in field_items:
                 label = QLabel(field)
                 checkbox = QCheckBox()
 
-                # Set size policies to prevent expanding
+                # Prevent expanding
                 label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
                 checkbox.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
-                layout.addWidget(label, row, col * 2, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
-                layout.addWidget(checkbox, row, col * 2 + 1, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+                # Group label and checkbox
+                group_widget = QGroupBox()
+                hbox_layout = QHBoxLayout()
+                hbox_layout.setContentsMargins(0, 0, 0, 0)
+                hbox_layout.setSpacing(8)
+                hbox_layout.addWidget(checkbox)
+                hbox_layout.addWidget(label)
+                group_widget.setLayout(hbox_layout)
 
-                if col == 1:  # After two columns are filled, move to the next row
-                    row += 1
-                col = (col + 1) % 2
+                flow_layout.addWidget(group_widget)
 
-                # Set the field name as a property of the checkbox to save and restore state
+                # Save field metadata
                 checkbox.setProperty("field_name", field)
-                checkbox.setProperty('table_name', table_name)
+                checkbox.setProperty("table_name", table_name)
                 checkbox.checkStateChanged.connect(lambda: self.update_table_view(deleted=False))
-                # checkbox.checkStateChanged.connect(lamd)
-            # Add a vertical spacer at the bottom to push content upwards
-            vertical_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
-            layout.addItem(vertical_spacer, row + 1, 0, 1, 2)  # Add spacer across both columns
 
-            # Set the layout for this table's widget and add it to the stack
-            table_widget.setLayout(layout)
-            self.columnattributes_stack.addWidget(table_widget)
+            # Add a vertical spacer to push content up
+            vertical_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+            flow_layout.addItem(vertical_spacer)
+
+            # Set the layout to the table_widget and add it to the scroll area
+            table_widget.setLayout(flow_layout)
+            scroll_area.setWidget(table_widget)  # Attach scroll area to table_widget
+
+            # Add the scroll area to the container layout
+            container_layout.addWidget(scroll_area)
+
+            # Add container widget to the main layout stack
+            self.columnattributes_stack.addWidget(container_widget)
+
 
     def switch_table_layout(self):
         # Switch the stack widget to show the layout corresponding to the selected table
@@ -396,12 +422,8 @@ class ExportWidget(QWidget):
             table_widget = self.columnattributes_stack.widget(index)
             table_name = self.columnselection_comboBox.itemText(index)
             if table_widget:
-                layout = table_widget.layout()
-                for i in range(layout.count()):
-                    item = layout.itemAt(i)
-                    if item is None:
-                        continue
-                    widget = item.widget()
+                for widget in table_widget.findChildren(QCheckBox,
+                                                        options=QtCore.Qt.FindChildOption.FindChildrenRecursively):
                     if isinstance(widget, QCheckBox):
                         field_name = widget.property('field_name')
                         checked = widget.isChecked()
@@ -425,12 +447,10 @@ class ExportWidget(QWidget):
             table_widget = self.columnattributes_stack.widget(index)
             table_name = self.columnselection_comboBox.itemText(index)
             if table_widget:
-                layout = table_widget.layout()
-                for i in range(layout.count()):
-                    item = layout.itemAt(i)
-                    if item is None:
+
+                for widget in table_widget.findChildren(QCheckBox, options=QtCore.Qt.FindChildOption.FindChildrenRecursively):
+                    if widget is None:
                         continue
-                    widget = item.widget()
                     if isinstance(widget, QCheckBox):
                         field_name = widget.property('field_name')
 
@@ -446,14 +466,10 @@ class ExportWidget(QWidget):
             table_widget = self.columnattributes_stack.widget(index)
             table_name = self.columnselection_comboBox.itemText(index)
             if table_widget:
-                layout = table_widget.layout()
-                for i in range(layout.count()):
-                    item = layout.itemAt(i)
-                    if item is None:
-                        continue
-                    widget = item.widget()
+                for widget in table_widget.findChildren(QCheckBox,
+                                                        options=QtCore.Qt.FindChildOption.FindChildrenRecursively):
                     if isinstance(widget, QCheckBox) and widget.isChecked():
-
+                        print('get_selected_values is checked', widget.property('field_name'))
                         field_name = widget.property('field_name')
                         # Ensure table_name is associated with the checkbox
                         widget_table_name = widget.property('table_name')
@@ -465,6 +481,7 @@ class ExportWidget(QWidget):
         # Store selected_columns in the current workbook
         current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = selected_columns
+        print(selected_columns)
         return selected_columns
 
     def select_checkboxes(self, values):
@@ -472,12 +489,8 @@ class ExportWidget(QWidget):
         for index in range(self.columnattributes_stack.count()):
             table_widget = self.columnattributes_stack.widget(index)
             if table_widget:
-                layout = table_widget.layout()
-                for i in range(layout.count()):
-                    item = layout.itemAt(i)
-                    if item is None:
-                        continue
-                    widget = item.widget()
+                for widget in table_widget.findChildren(QCheckBox,
+                                                        options=QtCore.Qt.FindChildOption.FindChildrenRecursively):
                     if isinstance(widget, QCheckBox):
                         table_name = widget.property('table_name')
                         field_name = widget.property('field_name')
@@ -505,6 +518,9 @@ class ExportWidget(QWidget):
             # Get the selected columns for the current workbook
             selected_columns = self.worksheet_tabs_dict[current_worksheet_name].get('selected_columns', {})
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
+
+            print('selected columns', selected_columns)
+            print('ordered columns', ordered_columns)
 
             if Counter(selected_columns) != Counter(ordered_columns):
                 ordered_columns = selected_columns
@@ -778,9 +794,9 @@ class ExportWidget(QWidget):
                     ('Spots', 'SpotName'): True,
                     ('UPbAnalyses', 'Uppm'): True,
                     ('UPbAnalyses', 'CalculatedU/Th'): True,
-                    ('UPbAnalyses', 'BestAge'): True,
-                    # ('UPbAnalyses', 'CalculatedBestAgeError'): True,
-                    ('UPbAnalyses', 'Concordance'): True
+                    ('UPbAnalyses', 'CalculatedBestAge'): True,
+                    ('UPbAnalyses', 'CalculatedBestAgeError'): True,
+                    ('UPbAnalyses', 'CalculatedConcordance'): True
                 } # todo not inputting as the correct order
 
                 self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns)
@@ -834,7 +850,7 @@ class ExportWidget(QWidget):
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
-                    ('UPbAnalyses', 'BestAge'): True,
+                    ('UPbAnalyses', 'CalculatedBestAge'): True,
                     ('UPbAnalyses', 'CalculatedBestAgeError'): True
                 }
                 self.add_worksheet_tab('DZStats - Intersample', False, True, UPb_columns, UPb_columns)
