@@ -4,9 +4,9 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel
+from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel, QTimer
 from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget
+from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView
 
 from PyQt6.uic import loadUi
 import Functions.Table_classes as TbC
@@ -150,6 +150,7 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
+            self.dbTable_treeView: QTreeView
         elif self.table in self.dbtable_list:
 
             self.switch_to_table()
@@ -179,6 +180,11 @@ class DisplayTables(QtW.QWidget):
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
             # else:
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+
+            self.dbTable_tableView.setWordWrap(True)
+            self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
+            self.dbTable_tableView.setItemDelegate(TbC.WordWrapDelegate(self.dbTable_tableView))
+
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             set_tableview_model_begin = time.time()
             self.dbTable_tableView.setModel(self.table_proxy_model)
@@ -189,6 +195,15 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.verticalHeader().hide()
+
+            # Optimize window resizing
+            self.resize_timer = QTimer()
+            self.resize_timer.setSingleShot(True)
+            self.resize_timer.timeout.connect(self.resizeRowsOptimized)
+
+            # Connect resizing events
+            self.dbTable_tableView.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
+            self.dbTable_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
@@ -197,6 +212,13 @@ class DisplayTables(QtW.QWidget):
         end = time.time()
         print('display_table connection time: ', end - start)
 
+    def optimizeVerticalResize(self, logical_index, old_size, new_size):
+        """Trigger a delayed row height update when the user resizes the window vertically."""
+        self.resize_timer.start(250)  # Add a slight delay to avoid excessive updates
+
+    def resizeRowsOptimized(self):
+        """Resize rows only when resizing stops."""
+        self.dbTable_tableView.resizeRowsToContents()
     def search(self):
         """
         Search the current table for the text in the search box

@@ -33,14 +33,9 @@ class ViewDataTab(QtW.QWidget):
         self.show_cols = []
         self.display_table()
 
-
-    def adjustRowHeights(self, logical_index, old_size, new_size):
-        """Resize rows dynamically when columns are resized."""
-        self.view.resizeRowsToContents()
-
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
-        self.resize_timer.start(2500)  # Add a slight delay to avoid excessive updates
+        self.resize_timer.start(250)  # Add a slight delay to avoid excessive updates
 
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""
@@ -66,7 +61,7 @@ class ViewDataTab(QtW.QWidget):
             self.resize_timer.timeout.connect(self.resizeRowsOptimized)
 
             # Connect resizing events
-            self.view.horizontalHeader().sectionResized.connect(self.adjustRowHeights)
+            self.view.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
             self.view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
 
         self.v_layout.addWidget(self.view)
