@@ -64,7 +64,7 @@ class LandingPage(QWidget):
 
     def open_geo_chron(self):
         if not self.test_database_lock():
-            from ui.GeoChronMain import GeoChron
+            from ui.GeoCORKMain import GeoChron
             self.hide()
             geo_chron = GeoChron(self)
             geo_chron.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

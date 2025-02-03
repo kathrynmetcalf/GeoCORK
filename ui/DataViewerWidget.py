@@ -12,12 +12,12 @@ from PyQt6.uic import loadUi
 import Functions.Table_classes as TbC
 import Functions.Text_manipulations as TxM
 import Functions.Tree_classes as TrC
-from Database_manager import update_database
+from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Table_classes import SQLiteTableModel
 from Functions.Tree_classes import TreeSortFilterProxyModel
-from SampleInformation import SampleInformation
-from Settings_manager import settings
+from ui.SampleInformation import SampleInformation
+from Functions.Settings_manager import settings
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 

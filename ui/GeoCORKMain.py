@@ -42,7 +42,7 @@ class GeoChron(QtW.QMainWindow):
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         base_path = os.path.normpath(base_path)
-        sources_ui_file = fr'{os.path.join(base_path, "GeochronMain.ui")}'
+        sources_ui_file = fr'{os.path.join(base_path, "GeoCORKMain.ui")}'
         sources_ui_file = os.path.normpath(sources_ui_file)
 
         loadUi(sources_ui_file, self)

@@ -15,17 +15,20 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
-    QProgressDialog
+    QProgressDialog, QSpacerItem
 )
 from PyQt6.QtCore import Qt, QPoint, QSize
 from PyQt6.QtGui import QBrush, QColor, QFont
 
 from Functions import SQLUtils, Savepoint_manager
-from Functions.Savepoint_manager import SavepointManager
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
 
-from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox
+from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox, set_table
 import Functions.Table_classes as TbC
-from Settings_manager import settings
+from Functions.Settings_manager import settings
+from ui.EditTable import EditTable
+from ui.AddTags import AddTags
+from ui.SampleInformation import SampleInformation
 
 # Updated DB schema to include lab_facilities, source, analysis_method, instrument
 DATABASE_FILE = 'yrrfgs.db'
@@ -58,6 +61,8 @@ class ColumnMapDialog(QDialog):
             # We'll prepend a 'None' option. You could also use an empty string, etc.
             combo.addItem("None")
             combo.addItems(possible_values)
+            # Now keep the user from adding items from the completer
+            combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
 
             # Connect signal so that if this combo changes,
             # we reset all others back to 'None'.
@@ -69,7 +74,7 @@ class ColumnMapDialog(QDialog):
             form_layout.addRow(field_label + ":", combo)
             self.combos.append(combo)
 
-        if current_field is not None:
+        if current_field is not None and current_field != "None":
             self.on_combo_changed()
 
         # Add an OK button for closing
@@ -117,7 +122,7 @@ class ColumnMapDialog(QDialog):
         You can customize how you want this data returned.
         """
         for combo in self.combos:
-            if combo.currentIndex() != 0:  # i.e., not "None"
+            if combo.currentIndex() != 0 and combo.currentIndex() != -1:  # i.e., not "None" or no selection
                 return combo.currentText()
         return "None"
 
@@ -176,6 +181,10 @@ class ImportWizardDialog(QWidget):
         self.label_file = QLabel("No file selected.")
         top_layout.addWidget(self.label_file)
 
+        self.sheet_instructions = QLabel("Select sheet with U-Pb data:")
+        self.sheet_instructions.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        top_layout.addWidget(self.sheet_instructions)
+
         self.combo_sheets = QComboBox()
         self.combo_sheets.setFixedWidth(150)
         top_layout.addWidget(self.combo_sheets)
@@ -211,7 +220,7 @@ class ImportWizardDialog(QWidget):
         self.combo_reference_comboBox.set_single_click(True)
 
         self.combo_reference = CheckableSqlTableModel()
-        self.combo_reference = self.set_table(self.combo_reference, '"References"')
+        self.combo_reference = set_table(self.combo_reference, '"References"')
         self.combo_reference_comboBox.setModel(self.combo_reference)
         self.combo_reference_comboBox.closing.connect(
             lambda: self.set_all_rows("Reference Display", self.combo_reference))
@@ -225,7 +234,7 @@ class ImportWizardDialog(QWidget):
         self.combo_instrument_comboBox.set_single_click(True)
 
         self.combo_instrument = CheckableSqlTableModel()
-        self.combo_instrument = self.set_table(self.combo_instrument, "Instruments")
+        self.combo_instrument = set_table(self.combo_instrument, "Instruments")
         self.combo_instrument_comboBox.setModel(self.combo_instrument)
         self.combo_instrument_comboBox.closing.connect(
             lambda: self.set_all_rows("Instrument Name", self.combo_instrument))
@@ -239,7 +248,7 @@ class ImportWizardDialog(QWidget):
         self.combo_lab_facility_comboBox.set_single_click(True)
 
         self.combo_lab_facility = CheckableSqlTableModel()
-        self.combo_lab_facility = self.set_table(self.combo_lab_facility, "LabFacilities")
+        self.combo_lab_facility = set_table(self.combo_lab_facility, "LabFacilities")
         self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
         self.combo_lab_facility_comboBox.closing.connect(
             lambda: self.set_all_rows("Lab Facility Name", self.combo_lab_facility))
@@ -253,7 +262,7 @@ class ImportWizardDialog(QWidget):
         self.combo_upb_analysis_method_comboBox.set_single_click(True)
 
         self.combo_upb_analysis_method = CheckableSqlTableModel()
-        self.combo_upb_analysis_method = self.set_table(self.combo_upb_analysis_method, "UPbAnalysisMethods")
+        self.combo_upb_analysis_method = set_table(self.combo_upb_analysis_method, "UPbAnalysisMethods")
         self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
         self.combo_upb_analysis_method_comboBox.closing.connect(
             lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method))
@@ -333,6 +342,20 @@ class ImportWizardDialog(QWidget):
         self.right_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.right_table.customContextMenuRequested.connect(self.show_right_table_context_menu)
 
+        # Enable the context menu for the checkable combo boxes and connect the signals
+        self.combo_reference_comboBox.enable_context_menu(True)
+        self.combo_reference_comboBox.edit_triggered.connect(self.edit_combo_box)
+        self.combo_reference_comboBox.add_triggered.connect(self.add_combo_box)
+        self.combo_instrument_comboBox.enable_context_menu(True)
+        self.combo_instrument_comboBox.edit_triggered.connect(self.edit_combo_box)
+        self.combo_instrument_comboBox.add_triggered.connect(self.add_combo_box)
+        self.combo_lab_facility_comboBox.enable_context_menu(True)
+        self.combo_lab_facility_comboBox.edit_triggered.connect(self.edit_combo_box)
+        self.combo_lab_facility_comboBox.add_triggered.connect(self.add_combo_box)
+        self.combo_upb_analysis_method_comboBox.enable_context_menu(True)
+        self.combo_upb_analysis_method_comboBox.edit_triggered.connect(self.edit_combo_box)
+        self.combo_upb_analysis_method_comboBox.add_triggered.connect(self.add_combo_box)
+
         # Connect the header double-click signal to the handler
         header = self.right_table.horizontalHeader()
         header.sectionDoubleClicked.connect(self.handle_header_double_clicked)
@@ -388,6 +411,9 @@ class ImportWizardDialog(QWidget):
         # Icons for accepted/rejected
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
+
+        # Sample IDs added or updated during import
+        self.sample_ids = []
 
         # Flash fill connections
         self.left_table.cellChanged.connect(self.handle_cell_change)
@@ -568,6 +594,49 @@ class ImportWizardDialog(QWidget):
 
         QMessageBox.information(self, "Validation Complete", "Validation of IDs is complete.")
 
+    def edit_combo_box(self, pos):
+        """
+        Selected 'Edit' from the context menu for the combo box.
+        Open the table edit dialog.
+        Args:
+            pos (QPoint): Position of the context menu request.
+        """
+        combo = self.sender()
+        if combo == self.combo_reference_comboBox:
+            table = "References"
+        elif combo == self.combo_instrument_comboBox:
+            table = "Instruments"
+        elif combo == self.combo_lab_facility_comboBox:
+            table = "LabFacilities"
+        elif combo == self.combo_upb_analysis_method_comboBox:
+            table = "UPbAnalysisMethods"
+        else:
+            return
+
+        dlg = EditTable(table)
+        dlg.exec()
+
+    def add_combo_box(self, pos):
+        """
+        Selected 'Add' from the context menu for the combo box.
+        :param pos:
+        :return:
+        """
+        combo = self.sender()
+        if combo == self.combo_reference_comboBox:
+            table = "References"
+        elif combo == self.combo_instrument_comboBox:
+            table = "Instruments"
+        elif combo == self.combo_lab_facility_comboBox:
+            table = "LabFacilities"
+        elif combo == self.combo_upb_analysis_method_comboBox:
+            table = "UPbAnalysisMethods"
+        else:
+            return
+        dlg = AddTags(table)
+        dlg.exec()
+
+
     def show_left_header_context_menu(self, pos):
         """
         Show a context menu on the horizontal header to set column values or insert columns.
@@ -672,12 +741,6 @@ class ImportWizardDialog(QWidget):
             self.mark_selected_rows_rejected([item], True)
 
 
-    def set_table(self, model, table: str):
-        model.setTable(table)
-        model.select()
-        return model
-
-
     # ---------------------------
     #    Context Menu Methods
     # ---------------------------
@@ -727,7 +790,7 @@ class ImportWizardDialog(QWidget):
 
         # Create a QSqlTableModel and set the table
         model = CheckableSqlTableModel()
-        model = self.set_table(model, table_name)
+        model = set_table(model, table_name)
 
         # Create a QTableView to display the model
         combobox = CheckableComboBox()
@@ -1209,6 +1272,7 @@ class ImportWizardDialog(QWidget):
                 checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
                 source_checked_row = row
         if checked_item_name is None or checked_item_id is None:
+            self.column
             return
 
 
@@ -1413,14 +1477,14 @@ class ImportWizardDialog(QWidget):
             return
         original_header_text = item.text()
         curr_map = self.column_mappings.get(logical_index, ("None"))
-        dialog = ColumnMapDialog(original_header_text, curr_map[0], self)
+        dialog = ColumnMapDialog(original_header_text, curr_map, self)
         if dialog.exec():
             new_field = dialog.get_selected_value()
-            if new_field == "None":
+            if new_field == "None" or not new_field:
                 if logical_index in self.column_mappings:
                     del self.column_mappings[logical_index]
                 item.setText(original_header_text)
-                item.setBackground(QBrush(Qt.GlobalColor.White))
+                item.setBackground(QBrush(Qt.GlobalColor.transparent))
             else:
                 self.column_mappings[logical_index] = (new_field)
                 item.setText(f"{new_field}")
@@ -1678,8 +1742,7 @@ class ImportWizardDialog(QWidget):
                 "Importing data...", "Cancel", 0, row_count, self
             )
 
-        # savepoint_manager = SavepointManager.get_instance()
-        # Database_manager.create_savepoint('before_upb_import')
+        create_savepoint('before_upb_import')
 
         inserted_count = 0
         try:
@@ -1689,6 +1752,7 @@ class ImportWizardDialog(QWidget):
                 QApplication.processEvents()
                 # If the user clicked "Cancel", we can break out
                 if progress_dialog.wasCanceled():
+                    rollback_savepoint('before_upb_import')
                     break
 
                 # Build a record dict with every key initialized to None
@@ -1724,6 +1788,7 @@ class ImportWizardDialog(QWidget):
                     if sample_query.next():
                         # found matching samplename in database, will use that sample ID
                         record["SampleID"] = sample_query.value(0)
+                        self.sample_ids.append(record["SampleID"])
                     else:
                         # no matching samplename in database, will create new one.
                         create_sample = QSqlQuery()
@@ -1734,6 +1799,7 @@ class ImportWizardDialog(QWidget):
                             print("Failed to execute query:", create_sample.lastError().text())
                         else:
                             record["SampleID"] = create_sample.lastInsertId()
+                            self.sample_ids.append(record["SampleID"])
                 else:
                     print("Failed to execute query:", sample_query.lastError().text())
 
@@ -1896,11 +1962,11 @@ class ImportWizardDialog(QWidget):
 
 
 
-            # Database_manager.release_savepoint('before_upb_import')
+            release_savepoint('before_upb_import')
             QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to import data:\n{e}")
-            # Database_manager.rollback_savepoint('before_upb_import')
+            rollback_savepoint('before_upb_import')
         QSqlDatabase().commit()
 
     def close(self):

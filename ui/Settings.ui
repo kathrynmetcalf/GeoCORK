@@ -23,9 +23,21 @@
       <attribute name="title">
        <string>Units and Formats</string>
       </attribute>
-      <layout class="QVBoxLayout" name="verticalLayout_3">
+      <layout class="QVBoxLayout" name="verticalLayout_6">
        <item>
-        <layout class="QHBoxLayout" name="horizontalLayout_2">
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <item>
+          <widget class="QGroupBox" name="decimals_groupBox">
+           <property name="title">
+            <string>Decimals to show</string>
+           </property>
+           <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item>
+             <widget class="QComboBox" name="decimals_comboBox"/>
+            </item>
+           </layout>
+          </widget>
+         </item>
          <item>
           <widget class="QGroupBox" name="gps_format_groupBox">
            <property name="title">
@@ -77,35 +89,10 @@
            </layout>
           </widget>
          </item>
-         <item>
-          <widget class="QGroupBox" name="age_units_groupBox">
-           <property name="title">
-            <string>Age Units and Formats</string>
-           </property>
-           <layout class="QGridLayout" name="gridLayout_3">
-            <item row="0" column="0">
-             <widget class="QLabel" name="age_units_label">
-              <property name="text">
-               <string>Age unit:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="0" column="1">
-             <widget class="QComboBox" name="age_unit_comboBox"/>
-            </item>
-            <item row="1" column="0">
-             <widget class="QLabel" name="age_error_format_label">
-              <property name="text">
-               <string>Age error format:</string>
-              </property>
-             </widget>
-            </item>
-            <item row="1" column="1">
-             <widget class="QComboBox" name="age_error_format_comboBox"/>
-            </item>
-           </layout>
-          </widget>
-         </item>
+        </layout>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
          <item>
           <widget class="QGroupBox" name="upb_formats_groupBox">
            <property name="title">
@@ -131,6 +118,35 @@
             </item>
             <item row="1" column="1">
              <widget class="QComboBox" name="upb_concordance_format_comboBox"/>
+            </item>
+           </layout>
+          </widget>
+         </item>
+         <item>
+          <widget class="QGroupBox" name="age_units_groupBox">
+           <property name="title">
+            <string>Age Units and Formats</string>
+           </property>
+           <layout class="QGridLayout" name="gridLayout_3">
+            <item row="0" column="0">
+             <widget class="QLabel" name="age_units_label">
+              <property name="text">
+               <string>Age unit:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QComboBox" name="age_unit_comboBox"/>
+            </item>
+            <item row="1" column="0">
+             <widget class="QLabel" name="age_error_format_label">
+              <property name="text">
+               <string>Age error format:</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="1">
+             <widget class="QComboBox" name="age_error_format_comboBox"/>
             </item>
            </layout>
           </widget>

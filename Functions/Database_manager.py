@@ -10,7 +10,7 @@ def update_database():
     Run this on startup and when settings are changed.
     The database has generated columns that set display values based on units and formats in settings. These need to be
     updated if the settings are changed. This function will drop and recreate the generated columns.
-    Uses the default connection established with the database file in GeoChronMain.py
+    Uses the default connection established with the database file in GeoCORKMain.py
     """
 
     # Check if the database exists and all tables are present

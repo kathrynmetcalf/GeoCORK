@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
-from FlowLayout import FlowLayout, ScrollableFlowWidget
+from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase
 from Functions import FilterDatabase
 from Functions import SQLUtils

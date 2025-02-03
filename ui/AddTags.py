@@ -12,10 +12,11 @@ from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
+from Functions.Table_classes import set_table
 import Functions.Check_triggers as Ct
 
 class AddTags(QtW.QDialog):
-    def __init__(self, model, table):
+    def __init__(self, table):
         super().__init__()
 
         # Define any widgets here
@@ -23,8 +24,9 @@ class AddTags(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "AddTags.ui")
         loadUi(sources_ui_file, self)
 
-        self.model = model
         self.table = table
+        self.model = QtS.QSqlTableModel()
+        set_table(self.model, self.table)
         self.table_name = TxM.add_spaces_camel(self.table)
         self.selectTags_label.setText(self.table_name)
         self.errmsg = QtW.QMessageBox(self)

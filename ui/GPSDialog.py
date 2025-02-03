@@ -4,7 +4,7 @@ from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 import ui.GPSFields
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
-from Settings_manager import settings
+from Functions.Settings_manager import settings
 
 
 class GPSDialog(QtW.QDialog):

@@ -32,21 +32,21 @@ def default_settings():
     if bool(settings.value('default_settings')) is True:
         # Unit and Format settings
         settings.setValue('age_unit_id', 2) # Ma
-        update_abbreviation('age_unit_id')
+        settings.setValue('age_unit_abbreviation', 'Ma')
         settings.setValue('elevation_unit_id', 2) # m
-        update_abbreviation('elevation_unit_id')
+        settings.setValue('elevation_unit_abbreviation', 'm')
         settings.setValue('gps_format_id', 1) # DD +/-
-        update_abbreviation('gps_format_id')
+        settings.setValue('gps_format_abbreviation', 'DD +/-' )
         settings.setValue('heightdepth_unit_id', 2) # m
-        update_abbreviation('heightdepth_unit_id')
-        settings.setValue('spotsize_unit_id', 5) # um
-        update_abbreviation('spotsize_unit_id')
+        settings.setValue('heightdepth_unit_abbreviation', 'm')
+        settings.setValue('spotsize_unit_id', 5) # µm
+        settings.setValue('spotsize_unit_abbreviation', 'µm')
         settings.setValue('age_error_format_id', 1) # 1 sigma abs
-        update_abbreviation('age_error_format_id')
+        settings.setValue('age_error_format_abbreviation', '1σ abs')
         settings.setValue('ratio_error_format_id', 3) # 1 sigma %
-        update_abbreviation('age_error_format_id')
+        settings.setValue('ratio_error_format_abbreviation', '1σ %')
         settings.setValue('concordance_format_id', 2) # Con%
-        update_abbreviation('concordance_format_id')
+        settings.setValue('concordance_format_abbreviation', 'Con%')
         settings.setValue('reference_format', '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
         settings.setValue('decimals_to_show', 2)
 
@@ -245,14 +245,25 @@ class SettingsDialog(QtW.QDialog):
 
     def populate_fields(self):
 
+        decimals = [str(i) for i in range(0, 10)]
+        self.decimals_comboBox.addItems(decimals)
+        self.decimals_comboBox.setCurrentText(str(settings.value('decimals_to_show')))
         self.set_combobox(self.gps_format_comboBox, self.gps_format_model)
+        self.gps_format_comboBox.setCurrentText(settings.value('gps_format_abbreviation'))
         self.set_combobox(self.elev_unit_comboBox, self.elevation_unit_model)
+        self.elev_unit_comboBox.setCurrentText(settings.value('elevation_unit_abbreviation'))
         self.set_combobox(self.column_unit_comboBox, self.column_unit_model)
+        self.column_unit_comboBox.setCurrentText(settings.value('heightdepth_unit_abbreviation'))
         self.set_combobox(self.spot_size_unit_comboBox, self.spot_size_unit_model)
+        self.spot_size_unit_comboBox.setCurrentText(settings.value('spotsize_unit_abbreviation'))
         self.set_combobox(self.age_unit_comboBox, self.age_unit_model)
+        self.age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
         self.set_combobox(self.age_error_format_comboBox, self.age_error_format_model)
+        self.age_error_format_comboBox.setCurrentText(settings.value('age_error_format_abbreviation'))
         self.set_combobox(self.upb_ratio_error_format_comboBox, self.ratio_error_format_model)
+        self.upb_ratio_error_format_comboBox.setCurrentText(settings.value('ratio_error_format_abbreviation'))
         self.set_combobox(self.upb_concordance_format_comboBox, self.concordance_format_model)
+        self.upb_concordance_format_comboBox.setCurrentText(settings.value('concordance_format_abbreviation'))
 
         self.about_db_model.setQuery('SELECT * FROM About')
         self.db_name_lineEdit.setText(self.about_db_model.record(0).value('Name'))
@@ -267,13 +278,17 @@ class SettingsDialog(QtW.QDialog):
         self.combobox_width_scaler_spinbox.setValue(float(settings.value('checkable_combobox_width_scaler')))
 
         # List of font sizes to populate the font size comboboxes
-        font_sizes = []
         font_sizes = [str(i) for i in range(6, 21)]
         self.font_size_comboBox.addItems(font_sizes)
         self.font_size_comboBox.setCurrentText(str(settings.value('font_size')))
         self.table_font_size_comboBox.addItems(font_sizes)
         self.table_font_size_comboBox.setCurrentText(str(settings.value('table_font_size')))
-        self.fontComboBox.setCurrentFont(self.fontComboBox.font())
+        # If the default font is not in the font family list, add it
+        if settings.value('font_family') not in self.fontComboBox.fontFamilies():
+            self.fontComboBox.addItems([settings.value('font_family')])
+        if settings.value('default_font_family') not in self.fontComboBox.fontFamilies():
+            self.fontComboBox.addItems([settings.value('default_font_family')])
+        self.fontComboBox.setCurrentFont(settings.value('font_family'))
 
     def update_settings(self):
         # No longer using default settings
@@ -281,6 +296,7 @@ class SettingsDialog(QtW.QDialog):
 
         # Save the settings to the QSettings object
         # Do not assume that the index is the same as the ID
+        settings.setValue('decimals_to_show', int(self.decimals_comboBox.currentText()))
         self.update_from_combobox(self.gps_format_comboBox, self.gps_format_model)
         self.update_from_combobox(self.elev_unit_comboBox, self.elevation_unit_model)
         self.update_from_combobox(self.column_unit_comboBox, self.column_unit_model)

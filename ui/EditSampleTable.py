@@ -14,7 +14,7 @@ from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTr
 from Functions.Table_classes import DisplayRoundedModel
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
-from Settings_manager import settings
+from Functions.Settings_manager import settings
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 

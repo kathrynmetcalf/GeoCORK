@@ -18,6 +18,7 @@ from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 import ui.New_reference
 from Functions.Tree_classes import TreeSortFilterProxyModel
+from ui.AddTreeTags import AddTreeTags
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -342,7 +343,7 @@ class DisplayTables(QtW.QWidget):
                 if action.text() == 'Insert above':
                     row = parent_rows[0]
                     parent_id = parent_ids[0]
-                    dlg_args = (None, parent_id, row)
+                    dlg_args = (self.table, parent_id, row)
                 elif action.text() == 'Insert below':
                     row = parent_rows[0] + 1
                     parent_id = parent_ids[0]
@@ -355,12 +356,13 @@ class DisplayTables(QtW.QWidget):
                 elif action.text() == 'Add to end':
                     dlg_args = (None, None)
             if dlg_args:
-                dlg = EditTree(self.tree_model.source_model, self.dbTable_comboBox.currentText())
+                dlg = AddTreeTags(self.table, *dlg_args)
         else:
-            dlg = EditTable(self.table)
+            dlg = AddTags(self.table)
         if not dlg:
             return
-        dlg.add_popup(*dlg_args)
+        dlg.exec()
+        update_database()
         self.display_table()
 
     def closeEvent(self, event):

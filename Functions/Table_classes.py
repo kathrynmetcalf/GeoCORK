@@ -447,7 +447,7 @@ def get_columns(table: str):
             virtual.append(f'"{query.value(1)}"')
     return query, virtual, stored, columns
 
-def name_column(table: str):
+def name_column(table: str) -> int | None:
     if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
         return 3
     elif 'Format' in table or 'Unit' in table:
@@ -462,11 +462,11 @@ def name_column(table: str):
     else:
         return None
 
-def get_name_from_id(table: str, id: int):
+def get_name_from_id(table: str, item_id: int):
     query = QtS.QSqlQuery()
     headers = get_headers(table)
-    if not query.exec(f'SELECT {headers[name_column(table)]} FROM {table} WHERE {headers[0]}={id}'):
-        print(f"Failed to get name for {id} in {table}")
+    if not query.exec(f'SELECT {headers[name_column(table)]} FROM {table} WHERE {headers[0]}={item_id}'):
+        print(f"Failed to get name for {item_id} in {table}")
         return None
     query.next()
     return query.value(0)
@@ -690,6 +690,7 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
 class CheckableComboBox(QtW.QComboBox):
     closing = QtC.pyqtSignal()
     edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
+    add_triggered = QtC.pyqtSignal(QtW.QComboBox)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
@@ -729,22 +730,25 @@ class CheckableComboBox(QtW.QComboBox):
     def show_context_menu(self, pos):
         menu = QtW.QMenu()
         edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.model().tableName())}")
+        add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.model().tableName())}")
         clear_all_action = menu.addAction("Clear All Checks")
         action = menu.exec(self.mapToGlobal(pos))
         if action == edit_action:
             self.edit_triggered.emit(self)
+        elif action == add_action:
+            self.add_triggered.emit(self)
         elif action == clear_all_action:
             self.clear_all_checks()
 
     def clear_all_checks(self):
-        col = name_column(self.model.tableName())
-        for row in range(self.model.rowCount()):
-            index = self.model.index(row, col)
+        col = name_column(self.model().tableName())
+        for row in range(self.model().rowCount()):
+            index = self.model().index(row, col)
             if row == self.tableView.currentIndex().row():
-                self.model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
             else:
-                self.model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-            print(f"Changed state to {self.model.data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
+                self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            print(f"Changed state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
 
 
     def showPopup(self):
@@ -802,8 +806,9 @@ class CheckableComboBox(QtW.QComboBox):
             # print(f"Object: viewport, Event type: {event.type()}")
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 if self.single_click:
-                    print(f"Clicked text: {self.tableView.currentIndex().data()}")
-                    print("Single click mode enabled")
+                    # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
+                    if self.currentIndex() in self.model().checked_data.keys():
+                        self.tableView.setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
                     self.set_line_edit_text(self.tableView.currentIndex().data())
                     self.hidePopup()
@@ -835,7 +840,7 @@ class SearchableSQLComboBox(QtW.QComboBox):
         if self.proxy_model.rowCount() > 0:
             self.setCurrentIndex(0)
         else:
-            self.setCurrentIndex(-1)
+            self.setCurrentIndex(0)
 
 class SearchableComboBox(QtW.QComboBox):
     selection_changed = QtC.pyqtSignal(QtW.QComboBox)
@@ -854,17 +859,22 @@ class SearchableComboBox(QtW.QComboBox):
 
     def addItem(self, text):
         super().addItem(text)
-        # self.all_items.append(text)
         # Set the default text to blank
         self.lineEdit().setText(None)
 
     def addItems(self, texts):
         super().addItems(texts)
-        # self.all_items.extend(texts)
+        # Set the default text to blank
         self.lineEdit().setText(None)
 
     def validate_input(self):
-        if self.findText(self.lineEdit().text()) == -1 or self.lineEdit().text() == 'None':
+        text = self.lineEdit().text()
+        if self.findText(text) == -1 or text == 'None':
+            self.lineEdit().setText(None)
+            self.setCurrentIndex(-1)
+        elif text not in [self.itemText(i) for i in range(self.count())]:
+            # The text does not match anything in the combo box
+            # Reset the text to blank
             self.lineEdit().setText(None)
             self.setCurrentIndex(-1)
 
