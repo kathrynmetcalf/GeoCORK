@@ -19,15 +19,11 @@ def update_database():
     # Need to drop views before dropping and regenerating generated columns
     DB_views.drop_all_views()
     # Get the current application settings for the generated columns
-    settings.setValue('default_settings', False)
 
     if settings.value('default_settings') == 'true':
         default_settings()
-    elif settings.value('default_settings') == 'false':
-        pass
     else:
-        print("Error: Invalid default settings value")
-        return
+        pass
 
     # Drop and regenerate the generated columns
     Alter_db.settings_reset()

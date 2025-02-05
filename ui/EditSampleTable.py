@@ -7,14 +7,17 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
-from Functions.Table_classes import DisplayRoundedModel
+from Functions.Table_classes import ReadableProxyModel
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import settings
+from Functions.Database_manager import update_database
 from ui.AddTags import AddTags
 import Functions.Table_classes as TbC
 
@@ -34,10 +37,11 @@ class EditSampleTable(QtW.QDialog):
         self.combo = CheckableTreeCombobox()
         self.combo_index = QtC.QModelIndex()
         # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
-        self.filter_proxy_model = QtC.QSortFilterProxyModel()
+        self.filter_proxy_model = ReadableProxyModel()
         self.msg = QtW.QMessageBox(self)
+        self.close_by_dialog = False
         self.display_table()
-        self.createSavepoint()
+        create_savepoint('before_edit')
 
         self.filter_proxy_model.dataChanged.connect(self.update_model)
         # self.combo.closing.connect(self.destroy_dropdown)
@@ -45,10 +49,6 @@ class EditSampleTable(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_tableView.clicked.connect(self.display_dropdown)
-
-    def close(self):
-        self.saveWindowState()
-        return super().close()
 
     def update_model(self):
         if not self.sample_model.submitAll():
@@ -144,29 +144,44 @@ class EditSampleTable(QtW.QDialog):
             # self.combo_index = QtC.QModelIndex()
 
     def recreate_sample_model(self):
-        self.sample_model.setTable(self.view)
-        self.sample_model.select()
-        for col in range(self.sample_model.columnCount()):
-            header = TxM.add_spaces_camel(
-                self.sample_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-            self.sample_model.setHeaderData(col, QtC.Qt.Orientation.Horizontal, header, QtC.Qt.ItemDataRole.DisplayRole)
+        self.sample_model.setQuery(f"SELECT * FROM {self.view}")
         self.display_table()
 
     # def update_edited_row(self):
     # todo: update the row in the sample table with the new values
 
     def rollback(self):
-        query = QtS.QSqlQuery()
-        if query.exec('ROLLBACK TO SAVEPOINT before_edit') is False:
-            errtxt = Er.rollback_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-        else:
-            self.reject()
+        rollback_savepoint('before_edit')
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
+        self.reject()
 
     def commit(self):
-        self.releaseSavepoint()
+        update_database()
+        release_savepoint('before_edit')
         self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
+        self.close_by_dialog = True
         self.close()
+        self.close_by_dialog = False
+        self.accept()
+
+    def discard_question(self):
+        self.msg.question(self, 'Discard changes', 'Are you sure you want to discard all changes?',QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = self.msg.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.rollback()
+        else:
+            pass
+
+    def closeEvent(self, event: QtG.QCloseEvent):
+        if not self.close_by_dialog:
+            self.discard_question()
+            event.ignore()
+        else:
+            self.saveWindowState()
+            event.accept()
 
     def saveWindowState(self):
         settings.setValue("ui/DataviewWidget/pos", self.pos())

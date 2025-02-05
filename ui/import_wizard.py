@@ -15,10 +15,10 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
-    QProgressDialog, QSpacerItem
+    QProgressDialog
 )
-from PyQt6.QtCore import Qt, QPoint, QSize
-from PyQt6.QtGui import QBrush, QColor, QFont
+from PyQt6.QtCore import Qt, QPoint, QSize, QEventLoop
+from PyQt6.QtGui import QBrush, QColor, QFont, QAction
 
 from Functions import SQLUtils, Savepoint_manager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
@@ -26,12 +26,13 @@ from Functions.Savepoint_manager import SavepointManager, create_savepoint, roll
 from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox, set_table
 import Functions.Table_classes as TbC
 from Functions.Settings_manager import settings
+from Functions.Tree_classes import CheckableTreeModel, CheckableTreeCombobox, save_expanded_state, restore_expanded_state, get_selected_ids
 from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
+from Functions.Widget_classes import CompleterInputDialog
 from ui.SampleInformation import SampleInformation
-
-# Updated DB schema to include lab_facilities, source, analysis_method, instrument
-DATABASE_FILE = 'yrrfgs.db'
 
 CONFIG_FILE = 'column_mappings.json'
 
@@ -136,35 +137,9 @@ class ImportWizardDialog(QWidget):
         for Lab Facilities, Source, Analysis Method, Instrument (all editable).
       - Context menus in both tables to set selected cells to a user-defined value.
     """
+    data_imported = QtCore.pyqtSignal(list)
     def __init__(self):
         super().__init__()
-
-        # test = QSqlQuery()
-        # test.prepare(f"pragma foreign_keys = OFF")
-        # if not test.exec():
-        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
-        #     sys.exit(1)
-        #
-        # test = QSqlQuery()
-        # test.prepare(f"DELETE FROM Samples")
-        # if not test.exec():
-        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
-        #     sys.exit(1)
-        # test = QSqlQuery()
-        # test.prepare(f"DELETE FROM Aliquots")
-        # if not test.exec():
-        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
-        #     sys.exit(1)
-        # test = QSqlQuery()
-        # test.prepare(f"DELETE FROM Spots")
-        # if not test.exec():
-        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
-        #     sys.exit(1)
-        # test = QSqlQuery()
-        # test.prepare(f"DELETE FROM UPbAnalyses")
-        # if not test.exec():
-        #     QMessageBox.critical(self, "Error", "Failed to connect to database.")
-        #     sys.exit(1)
 
         self.setWindowTitle("UPb Import Wizard")
         self.loadWindowState()
@@ -257,13 +232,16 @@ class ImportWizardDialog(QWidget):
         self.combo_lab_facility_comboBox.set_line_edit_text(None)
 
         # ComboBox for setting UPbAnalysisMethod
-        self.combo_upb_analysis_method_comboBox = CheckableComboBox()
+        self.combo_upb_analysis_method_comboBox = CheckableTreeCombobox()
         self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
         self.combo_upb_analysis_method_comboBox.set_single_click(True)
 
-        self.combo_upb_analysis_method = CheckableSqlTableModel()
-        self.combo_upb_analysis_method = set_table(self.combo_upb_analysis_method, "UPbAnalysisMethods")
+        self.upb_analysis_method = QSqlTableModel()
+        self.upb_analysis_method = set_table(self.upb_analysis_method, "UPbAnalysisMethods")
+        self.combo_upb_analysis_method = CheckableTreeModel()
+        self.combo_upb_analysis_method.setSourceModel(self.upb_analysis_method)
         self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
+        self.combo_upb_analysis_method_comboBox.set_single_click(True)
         self.combo_upb_analysis_method_comboBox.closing.connect(
             lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method))
         combo_box_layout.addWidget(QLabel("UPb Analysis Method"))
@@ -295,6 +273,7 @@ class ImportWizardDialog(QWidget):
             self.ratio_error_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Ratio Error"))
         formats_layout.addWidget(self.ratio_error_combobox)
+        self.ratio_error_combobox.setCurrentText(settings.value('ratio_error_format_abbreviation'))
 
         self.age_error_combobox = QComboBox()
         # self.age_error_combobox.setFixedWidth(100)
@@ -302,6 +281,7 @@ class ImportWizardDialog(QWidget):
             self.age_error_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Age Error"))
         formats_layout.addWidget(self.age_error_combobox)
+        self.age_error_combobox.setCurrentText(settings.value('age_error_format_abbreviation'))
 
         self.age_unit_combobox = QComboBox()
         # self.age_unit_combobox.setFixedWidth(100)
@@ -309,6 +289,7 @@ class ImportWizardDialog(QWidget):
             self.age_unit_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Age Unit"))
         formats_layout.addWidget(self.age_unit_combobox)
+        self.age_unit_combobox.setCurrentText(settings.value('age_unit_abbreviation'))
 
         self.spot_size_unit_combobox = QComboBox()
         # self.spot_size_combobox.setFixedWidth(100)
@@ -316,6 +297,7 @@ class ImportWizardDialog(QWidget):
             self.spot_size_unit_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Spot Size Unit"))
         formats_layout.addWidget(self.spot_size_unit_combobox)
+        self.spot_size_unit_combobox.setCurrentText(settings.value('spotsize_unit_abbreviation'))
 
         self.conc_error_combobox = QComboBox()
         # self.conc_error_combobox.setFixedWidth(150)
@@ -323,6 +305,7 @@ class ImportWizardDialog(QWidget):
             self.conc_error_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Concordance Error"))
         formats_layout.addWidget(self.conc_error_combobox)
+        self.conc_error_combobox.setCurrentText(settings.value('concordance_error_format_abbreviation'))
 
         main_layout.addLayout(formats_layout)
 
@@ -612,14 +595,17 @@ class ImportWizardDialog(QWidget):
             table = "UPbAnalysisMethods"
         else:
             return
-
-        dlg = EditTable(table)
+        if table in SQLUtils.user_viewable_trees:
+            dlg = EditTree(table)
+        else:
+            dlg = EditTable(table)
         dlg.exec()
 
-    def add_combo_box(self, pos):
+    def add_combo_box(self, pos, action: QAction | None = None):
         """
-        Selected 'Add' from the context menu for the combo box.
-        :param pos:
+        Selected an add action from the context menu for the combo box.
+        :param pos: QPoint of the context menu request.
+        :param action: QAction that was triggered.
         :return:
         """
         combo = self.sender()
@@ -633,9 +619,35 @@ class ImportWizardDialog(QWidget):
             table = "UPbAnalysisMethods"
         else:
             return
-        dlg = AddTags(table)
-        dlg.exec()
 
+        dlg = None
+        dlg_args = None
+        if table in SQLUtils.user_viewable_trees:
+            save_expanded_state(table, combo.model(), combo.treeView())
+            indexes = combo.treeView().selectedIndexes()
+            item_ids, parent_ids, parent_rows = get_selected_ids(combo.model(), indexes)
+            if action:
+                if action.text() == 'Insert above':
+                    row = parent_rows[0]
+                    parent_id = parent_ids[0]
+                    dlg_args = (table, parent_id, row)
+                elif action.text() == 'Insert below':
+                    row = parent_rows[0] + 1
+                    parent_id = parent_ids[0]
+                    dlg_args = (None, parent_id, row)
+                elif action.text() == 'Add child':
+                    parent_id = item_ids[0]
+                    dlg_args = (None, parent_id)
+                elif action.text() == 'Add parent':
+                    dlg_args = (item_ids, parent_ids, parent_rows)
+                elif action.text() == 'Add to end':
+                    dlg_args = (None, None)
+            if dlg_args:
+                dlg = AddTreeTags(table, *dlg_args)
+        else:
+            dlg = AddTags(table)
+        dlg.exec()
+        # combo.model().select()
 
     def show_left_header_context_menu(self, pos):
         """
@@ -869,8 +881,10 @@ class ImportWizardDialog(QWidget):
             dialog = ColumnMapDialog("New Column", "None", self)
             if dialog.exec():
                 selected_field = dialog.get_selected_value()
-
-        selected_field = field
+            else:
+                return
+        else:
+            selected_field = field
 
         # Ensure the user selected a valid field
         if selected_field == "None":
@@ -1011,12 +1025,13 @@ class ImportWizardDialog(QWidget):
         accept_action = menu.addAction("Mark Selected Rows as Accepted")
 
         action = menu.exec(self.right_table.mapToGlobal(pos))
+        items = self.right_table.selectedItems()
         if action == remove_action:
-            self.remove_selected_rows(row)
+            self.remove_selected_rows()
         elif action == reject_action:
-            self.mark_selected_rows_rejected([item], True)
+            self.mark_selected_rows_rejected(items, True)
         elif action == accept_action:
-            self.mark_selected_rows_rejected([item], False)
+            self.mark_selected_rows_rejected(items, False)
 
         self.repaint()
 
@@ -1255,24 +1270,28 @@ class ImportWizardDialog(QWidget):
             field (str): The field name (e.g., 'Reference', 'Instrument').
             value (str): The value to set.
         """
-        if model.tableName() == '"References"':
-            name_col = 6
+        if isinstance(model.tableName, str):
+            table = model.tableName
         else:
-            name_col = 1
+            table = model.tableName()
+        name_col = TbC.name_column(table)
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None
         checked_item_id = None
-        for row in range(model.rowCount()):
-            name_index = model.index(row, name_col)
-            id_index = model.index(row, 0)
+        if table != '':
+            for row in range(model.rowCount()):
+                name_index = model.index(row, name_col)
+                id_index = model.index(row, 0)
 
-            if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
-                checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
-                checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
-                source_checked_row = row
-        if checked_item_name is None or checked_item_id is None:
-            self.column
+                if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
+                    checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
+                    checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
+                    source_checked_row = row
+            if checked_item_name is None or checked_item_id is None:
+                return
+        else:
+            # todo: add logic to get checked item from tree
             return
 
 
@@ -1491,33 +1510,37 @@ class ImportWizardDialog(QWidget):
                 item.setBackground(QBrush(Qt.GlobalColor.green))
 
                 # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
-                if new_field == "Sample Name":
-                    for r in range(self.right_table.rowCount()):
-                        cell_item = self.right_table.item(r, logical_index)
-                        if not cell_item:
-                            continue
-                        sample_id_value = cell_item.text().strip()
+                if new_field in ["Sample Name", "Aliquot Name", "Spot Name"]:
+                    self.update_left_table_on_header_change(new_field, logical_index)
 
-                        # Update the left table
-                        self.left_table.blockSignals(True)
-                        self.left_table.setItem(r, 0, QTableWidgetItem(sample_id_value))  # Sample ID
-                        self.left_table.blockSignals(False)
-                    self.left_table.resizeColumnsToContents()
-                elif new_field == "Aliquot Name":
-                    for r in range(self.right_table.rowCount()):
-                        cell_item = self.right_table.item(r, logical_index)
-                        if not cell_item:
-                            continue
-                        aliquot_id_value = cell_item.text().strip()
+    def update_left_table_on_header_change(self, field, logical_index):
+        if field == "Sample Name":
+            for r in range(self.right_table.rowCount()):
+                cell_item = self.right_table.item(r, logical_index)
+                if not cell_item:
+                    continue
+                sample_id_value = cell_item.text().strip()
 
-                        # Update the left table
-                        self.left_table.blockSignals(True)
-                        self.left_table.setItem(r, 1, QTableWidgetItem(aliquot_id_value))  # Aliquot ID
-                        self.left_table.blockSignals(False)
-                    self.left_table.resizeColumnsToContents()
+                # Update the left table
+                self.left_table.blockSignals(True)
+                self.left_table.setItem(r, 0, QTableWidgetItem(sample_id_value))  # Sample ID
+                self.left_table.blockSignals(False)
+            self.left_table.resizeColumnsToContents()
+        elif field == "Aliquot Name":
+            for r in range(self.right_table.rowCount()):
+                cell_item = self.right_table.item(r, logical_index)
+                if not cell_item:
+                    continue
+                aliquot_id_value = cell_item.text().strip()
 
-                elif new_field == "Spot Name":
-                    self.auto_split_sample_spot(logical_index)
+                # Update the left table
+                self.left_table.blockSignals(True)
+                self.left_table.setItem(r, 1, QTableWidgetItem(aliquot_id_value))  # Aliquot ID
+                self.left_table.blockSignals(False)
+            self.left_table.resizeColumnsToContents()
+
+        elif field == "Spot Name":
+            self.auto_split_sample_spot(logical_index)
 
     def update_left_table_on_delimiter_change(self):
         """
@@ -1593,22 +1616,50 @@ class ImportWizardDialog(QWidget):
             QMessageBox.warning(self, "No Mapping", "No columns have been mapped yet.")
             return
 
-        name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
-        if ok and name:
-            try:
-                if os.path.exists(CONFIG_FILE):
-                    with open(CONFIG_FILE, 'r') as f:
+        try:
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, 'r') as f:
+                    try:
                         configs = json.load(f)
-                else:
-                    configs = {}
+                    except json.JSONDecodeError:
+                        # If the file is empty, it cannot load
+                        configs = {}
+            else:
+                configs = {}
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save mapping:\n{e}")
 
-                jmap = {str(k): {"field": v[0]} for k, v in self.column_mappings.items()}
-                configs[name] = jmap
-                with open(CONFIG_FILE, 'w') as f:
-                    json.dump(configs, f, indent=4)
-                QMessageBox.information(self, "Saved", f"Mapping '{name}' saved successfully.")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save mapping:\n{e}")
+        if configs == {}:
+            name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
+        else:
+            items = list(configs.keys())
+            if not items:
+                name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
+            else:
+                dlg = CompleterInputDialog(self, "Save Mapping", "Enter or select a name for this mapping:", items, True)
+                if dlg.exec() == QDialog.DialogCode.Accepted:
+                    name = dlg.get_input()
+                    if not name:
+                        return
+                    else:
+                        if name in items:
+                            ok = True
+                            reply = QMessageBox.question(self, "Overwrite Mapping",
+                                                         f"Mapping '{name}' already exists. Overwrite?",
+                                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                                         QMessageBox.StandardButton.No)
+                            if reply != QMessageBox.StandardButton.Yes:
+                                return
+                else:
+                    return
+
+        if ok and name:
+            jmap = {str(k): {"field": v} for k, v in self.column_mappings.items()}
+            configs[name] = jmap
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(configs, f, indent=4)
+            QMessageBox.information(self, "Saved", f"Mapping '{name}' saved successfully.")
+
 
     def load_mapping(self):
         if not os.path.exists(CONFIG_FILE):
@@ -1640,6 +1691,9 @@ class ImportWizardDialog(QWidget):
                         f_name = self.column_mappings[col_idx]
                         hdr_item.setText(f"{f_name}")
                         hdr_item.setBackground(QBrush(QColor("#ffffcc")))
+                        # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
+                        if f_name in ["Sample Name", "Aliquot Name", "Spot Name"]:
+                            self.update_left_table_on_header_change(f_name, col_idx)
                     else:
                         hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
 
@@ -1960,14 +2014,14 @@ class ImportWizardDialog(QWidget):
 
                 inserted_count += 1
 
-
-
-            release_savepoint('before_upb_import')
-            QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to import data:\n{e}")
             rollback_savepoint('before_upb_import')
         QSqlDatabase().commit()
+        release_savepoint('before_upb_import')
+        QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
+        self.data_imported.emit(self.sample_ids)
+        self.close()
 
     def close(self):
         self.saveWindowState()

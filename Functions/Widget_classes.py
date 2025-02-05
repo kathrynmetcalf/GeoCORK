@@ -193,3 +193,26 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
             self.setCurrentIndex(index)
         # if self.count() >= 3:
             # self.tabBar.add_vertical_line()
+
+class CompleterInputDialog(QtW.QDialog):
+    def __init__(self, parent: QtW.QWidget, title: str, label: str, completer_list: list[str], editable: bool = False):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self.setLayout(QtW.QVBoxLayout())
+        self.layout().addWidget(QtW.QLabel(label))
+        self.combo_box = QtW.QComboBox()
+        self.combo_box.setEditable(editable)
+        self.line_edit = self.combo_box.lineEdit()
+        self.combo_box.addItems(completer_list)
+        self.completer = QtW.QCompleter(completer_list)
+        self.completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.line_edit.setCompleter(self.completer)
+        self.layout().addWidget(self.combo_box)
+        self.button_box = QtW.QDialogButtonBox(QtW.QDialogButtonBox.StandardButton.Ok | QtW.QDialogButtonBox.StandardButton.Cancel)
+        self.layout().addWidget(self.button_box)
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+
+    def get_input(self):
+        return self.line_edit.text()

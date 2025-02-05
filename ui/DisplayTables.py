@@ -331,7 +331,7 @@ class DisplayTables(QtW.QWidget):
             return
         elif self.table in self.dbtree_list:
             TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
-            dlg = EditTree(self.model, self.table)
+            dlg = EditTree(self.table)
         else:
             dlg = EditTable(self.table)
         dlg.exec()

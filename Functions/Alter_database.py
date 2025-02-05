@@ -6,7 +6,7 @@ from Functions.Settings_manager import settings
 import pyproj
 import Functions.Create_database as Create_db
 from Functions.Table_classes import set_table, get_columns
-from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.GPS_conversions as GPS # gps conversions
 
 def settings_reset():
@@ -23,8 +23,6 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
         if edit_table is not None and table != edit_table:
             continue
         create_sql = table_info[1]
-        table_model = QtS.QSqlTableModel()
-        set_table(table_model, table)
         query, virtual, stored, columns = get_columns(table)
         if query.lastError().text() != '':
             print(f'Error getting {table} columns: {query.lastError().text()}')
@@ -37,6 +35,10 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
                 if 'already' in query.lastError().text():
                     if not query.exec(f'DROP TABLE {table}_old'):
                         print(f'Error dropping leftover old {table} table: {query.lastError().text()}')
+                        rollback_savepoint('before_drop')
+                        return
+                    if not query.exec(f'ALTER TABLE "{table}" RENAME TO {table}_old'):
+                        print(f'Error renaming {table} table: {query.lastError().text()}')
                         rollback_savepoint('before_drop')
                         return
                 else:
@@ -52,7 +54,6 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
                 print(f'Error copying data from {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop')
                 return
-            table_model.clear()
             if not query.exec(f'DROP TABLE {table}_old'):
                 print(f'Error dropping old {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop')

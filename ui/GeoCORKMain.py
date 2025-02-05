@@ -14,6 +14,7 @@ from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
 import ui.import_wizard
 import ui.New_reference
+from ui.SampleInformation import SampleInformation
 
 from ui.Settings import SettingsDialog
 from ui.ExportWidget import ExportWidget
@@ -92,8 +93,18 @@ class GeoChron(QtW.QMainWindow):
         """
 
         import_wizard = ui.import_wizard.ImportWizardDialog()
+        import_wizard.data_imported.connect(self.edit_sample_information)
         import_wizard.show()
 
+
+    def edit_sample_information(self, sample_ids: list[int]):
+        """
+        Opens the sample information dialog for the given sample IDs
+        :param sample_ids: The IDs of the samples to edit
+        :return:
+        """
+        dlg = SampleInformation(self, sample_ids)
+        dlg.exec()
 
     def drop_views(self):
         """

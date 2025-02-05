@@ -10,4 +10,6 @@ def add_spaces_camel(text: str):
     new_text = (re_inner.sub(r'\g<0> ', re_outer.sub(r'\1 \2', text)))
     if "/ " in new_text:
         new_text = new_text.replace("/ ", "/")
+    if "( " in new_text:
+        new_text = new_text.replace("( ", "(")
     return new_text

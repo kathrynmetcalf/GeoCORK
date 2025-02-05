@@ -522,7 +522,7 @@ class SampleInformation(QtW.QDialog):
         many_to_many_model.select()
 
         if len(self.checked_sample_list) > 0:
-            checked_ids , partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
+            checked_ids , partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtC.QModelIndex())
             create_savepoint('before_update')
             for sample_id in self.checked_sample_list:
                 update = model.update_db(checked_ids, partially_checked_ids, sample_id)

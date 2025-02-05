@@ -338,7 +338,7 @@ class AgeFields(QtW.QWidget):
                 model_index = tree.mapFromSource(table_model.index(row, col))
             else:
                 model = table_model
-                col = name_column(table_model.tableName())
+                col = name_column(table_model.tableName)
                 model_index = table_model.index(row, col)
             if many_to_many_model.rowCount() == len(self.item_ids):
                 # All samples have this tag

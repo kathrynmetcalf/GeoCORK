@@ -11,10 +11,14 @@ qupb_id = 'UPbAnalyses.UPbAnalysisID'
 # Sample view columns
 qsample_name = 'Samples.SampleName'
 qigsn = 'Samples.SampleIGSN'
-qgps = f'''GPSLocations.GPSLocationConverted'''
-qsample_elev = f'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError'
-qsample_age = f'SampleAges.SampleAgeDisplay'
-qage_range = f'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ")'
+qgps = 'GPSLocations.GPSLocationConverted'
+qgps_display = 'GPSLocations.GPSLocationDisplay'
+qsample_elev = 'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError'
+qsqmple_elev_display = 'GPSLocations.GPSElev || "±" || GPSLocations.GPSElevError'
+qsample_elev_unit = 'SampleElevationUnits.DistanceUnitAbbreviation'
+qsample_age = 'SampleAges.SampleAgeDisplay'
+qage_range = 'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ")'
+qage_range_display = 'COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " ") || "(" || COALESCE(DirectAgeUnitAbbreviation, " ") || ")(" || COALESCE(DirectAgeErrorFormatAbbreviation, " ") || ")"'
 qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName)'
 qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName)'
 qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)'
@@ -703,16 +707,16 @@ upb_possible_database_input_fields = [
     '232Th/238U', '232Th/238UError',
 
     'ErrorCorr/Rho',
-    'RatioErrorTypeID',
+    'RatioErrorFormatID',
     '207Pb/206PbAge', '207Pb/206PbAgeError',
     '207Pb/235UAge', '207Pb/235UAgeError',
     '206Pb/238UAge', '206Pb/238UAgeError',
     '208Pb/232ThAge', '208Pb/232ThAgeError',
     'BestAge', 'BestAgeError',
 
-    'AgeErrorTypeID',
+    'AgeErrorFormatID',
     'AgeUnitID',
-    'Concordance', 'ConcordanceTypeID',
+    'Concordance', 'ConcordanceFormatID',
     'SpotSize', 'SpotSizeUnitID',
     'Rejected',
 

@@ -21,6 +21,8 @@ from Functions import Check_triggers
 from PyQt6.sip import delete
 from openpyxl.styles.builtins import total, calculation
 
+from Functions.Tree_classes import TreeContextMenu
+
 # Map model column names back to database items
 table_model_cols = namedtuple('table_model_cols', ['model_col_name', 'reference_table', 'table_cols', 'tag_table'])
 sample_name = table_model_cols("Sample Name", "Samples", ["SampleName"], '')
@@ -76,6 +78,7 @@ class SQLiteTableModel(QAbstractTableModel):
                 _records = cursor.fetchall()
                 self._data = _records
                 self._headers = [desc[0] for desc in cursor.description]  # Get column names
+            conn.commit()
             conn.close()
 
         except sqlite3.Error as e:
@@ -608,17 +611,15 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         super().__init__()
         self.checked_data = {}
         self.partially_checked_data = {}
+        self.tableName = ''
 
     def setQuery(self, query):
         super().setQuery(query)
-        self.table = query.split('FROM ')[1].split(' ')[0]
-
-    def tableName(self):
-        return self.table
+        self.tableName = query.split('FROM ')[1].split(' ')[0]
 
     def flags(self, index):
         flags = super().flags(index)
-        col = name_column(self.table)
+        col = name_column(self.tableName)
         if index.column() == col:
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
         return flags
@@ -626,7 +627,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return False
-        col = name_column(self.table)
+        col = name_column(self.tableName)
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if index.row() in self.checked_data.keys():
                 return QtC.Qt.CheckState.Checked
@@ -637,7 +638,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
-        col = name_column(self.table)
+        col = name_column(self.tableName)
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
                 self.checked_data[index.row()] = value
@@ -728,7 +729,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setText(text)
 
     def show_context_menu(self, pos):
-        menu = QtW.QMenu()
+        menu = TreeContextMenu()
         edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.model().tableName())}")
         add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.model().tableName())}")
         clear_all_action = menu.addAction("Clear All Checks")
@@ -851,7 +852,7 @@ class SearchableComboBox(QtW.QComboBox):
         self.setView(self.list_view)
         self.previous_index = -1
         # self.all_items = []
-        self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchStartsWith)
+        self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
         self.lineEdit().setCompleter(self.completer())
 

@@ -8,6 +8,7 @@ from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Database_manager import update_database
+from Functions.Table_classes import set_table
 import Functions.Text_manipulations as TxM
 import Functions.Errors as Er
 import Functions.Tree_classes as TrC
@@ -15,7 +16,7 @@ from ui.AddTreeTags import AddTreeTags
 
 
 class EditTree(QtW.QDialog):
-    def __init__(self, model: QtS.QSqlTableModel, table_name):
+    def __init__(self, table_name):
         super().__init__()
 
         # Define any widgets here
@@ -23,8 +24,8 @@ class EditTree(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "EditTree.ui")
         loadUi(sources_ui_file, self)
 
-        self.model = model
-        # print(model)
+        self.model = QtS.QSqlTableModel()
+        set_table(self.model, table_name)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TrC.TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)

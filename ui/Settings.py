@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QFont, QFontDatabase
 
 from Functions.Settings_manager import settings
 
@@ -16,7 +16,7 @@ def populate_app_defaults():
     settings.setValue('default_table_font_size', app.font().pointSize())
 
     # If other settings have been set, update the font and stylesheet
-    if bool(settings.value('default_settings')) is False:
+    if settings.value('default_settings') == 'false':
         app.setFont(QFont(f'{settings.value('font_family')}, {settings.value('font_size')}'))
         app.setStyleSheet(f'''
                 QTableView {{
@@ -29,7 +29,7 @@ def populate_app_defaults():
 
 def default_settings():
     # get the default settings from the QSettings object
-    if bool(settings.value('default_settings')) is True:
+    if settings.value('default_settings') == 'true':
         # Unit and Format settings
         settings.setValue('age_unit_id', 2) # Ma
         settings.setValue('age_unit_abbreviation', 'Ma')
@@ -176,8 +176,8 @@ def default_settings():
 def update_setting(key, value):
     # pass the key to update and user input, then change the value in settings
     settings.setValue(key, value)
-    if bool(settings.value('default_settings')) is True:
-        settings.setValue('default_settings', False)
+    if settings.value('default_settings') == 'true':
+        settings.setValue('default_settings', 'false')
 
 def update_abbreviation(id_key: str):
     # Update the abbreviations in the settings file
@@ -284,15 +284,15 @@ class SettingsDialog(QtW.QDialog):
         self.table_font_size_comboBox.addItems(font_sizes)
         self.table_font_size_comboBox.setCurrentText(str(settings.value('table_font_size')))
         # If the default font is not in the font family list, add it
-        if settings.value('font_family') not in self.fontComboBox.fontFamilies():
+        if settings.value('font_family') not in QFontDatabase.families():
             self.fontComboBox.addItems([settings.value('font_family')])
-        if settings.value('default_font_family') not in self.fontComboBox.fontFamilies():
+        if settings.value('default_font_family') not in QFontDatabase.families():
             self.fontComboBox.addItems([settings.value('default_font_family')])
-        self.fontComboBox.setCurrentFont(settings.value('font_family'))
+        self.fontComboBox.setCurrentFont(QFont(settings.value('font_family')))
 
     def update_settings(self):
         # No longer using default settings
-        settings.setValue('default_settings', False)
+        settings.setValue('default_settings', 'false')
 
         # Save the settings to the QSettings object
         # Do not assume that the index is the same as the ID
@@ -346,7 +346,7 @@ class SettingsDialog(QtW.QDialog):
         self.close()
 
     def restore_defaults(self):
-        settings.setValue('default_settings', True)
+        settings.setValue('default_settings', 'true')
         default_settings()
         self.populate_fields()
 

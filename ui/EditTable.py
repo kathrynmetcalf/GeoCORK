@@ -31,19 +31,26 @@ class EditTable(QtW.QDialog):
         loadUi(sources_ui_file, self)
 
         self.table = TxM.remove_spaces(table_name)
-        self.model = TbC.VerifiableSqlTableModel()
         self.msg = QtW.QMessageBox(self)
+        self.view = None
         if self.table == 'Spots' or self.table == 'UPbAnalyses':
             self.parent_id = parent_id
             self.parent_type = parent_type
-            self.model = TbC.VerifiableSqlTableModel()
+            self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' else 'AliquotID' if self.parent_type == 'Aliquot' else 'SpotID' if parent_type == 'Spot' else None
             if self.table == 'Spots':
                 self.show_cols = settings.value('spot_edit_columns')
-            self.model.setQuery()
+            elif self.table == 'UPbAnalyses':
+                self.show_cols = settings.value('upb_analysis_edit_columns')
+            self.model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.table} WHERE {self.parent_id_header} = {self.parent_id}')
         elif self.table in SQLUtils.trigger_tables:
             if self.table == 'Columns':
-                self.model = TbC.VerifiableSqlViewModel()
-                TbC.set_table(self.model, 'ColumnEditView')
+                self.view = 'ColumnEditView'
+                self.show_cols = settings.value('column_edit_view_columns')
+                self.model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
+            elif self.table == 'Samples':
+                self.view = 'SampleView'
+                self.show_cols = settings.value('sample_view_columns')
+                self.model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
             else:
                 self.model = TbC.VerifiableSqlTableModel()
                 TbC.set_table(self.model, self.table)
@@ -70,7 +77,7 @@ class EditTable(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
-        self.model.row_submitted.connect(Alter_db.settings_reset())
+        # self.model.row_submitted.connect(Alter_db.settings_reset())
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
 

@@ -7,6 +7,8 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtSql import QSqlTableModel, QSqlDatabase
 from PyQt6 import QtTest as QtT
 from numpy import integer
+from qtpy.QtGui import QAction
+
 from Functions.Settings_manager import settings
 import Functions.Errors as Er
 import Functions.Text_manipulations as TxM
@@ -957,14 +959,18 @@ class CheckableTreeModel(TreeModel):
     def traverse_checkable_tree(self, parent: QtC.QModelIndex):
         checked_items = []
         partially_checked_items = []
+        checked_indices = []
+        partially_checked_indices = []
         for row in range(self.rowCount(parent)):
             index = self.index(row, 0, parent)
             if self.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
                 checked_items.append(self.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+                checked_indices.append(index)
             elif self.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.PartiallyChecked:
                 partially_checked_items.append(self.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+                partially_checked_indices.append(index)
             self.traverse_checkable_tree(index)
-        return checked_items, partially_checked_items
+        return checked_items, partially_checked_items, checked_indices, partially_checked_indices
 
     def update_db(self, checked_list: list, partially_checked_list = None, sample_ID = None):
         if not sample_ID:
@@ -1062,6 +1068,8 @@ class TreeCombobox(QtW.QComboBox):
 
 class CheckableTreeCombobox(TreeCombobox):
     closing = QtC.pyqtSignal()
+    edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
+    add_triggered = QtC.pyqtSignal(QtW.QComboBox, QAction)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
@@ -1070,11 +1078,12 @@ class CheckableTreeCombobox(TreeCombobox):
         self.lineEdit().setPlaceholderText("Search")
         self.lineEdit().setCompleter(self.completer())
         self.single_click = False
-        # self.closedOnLineEditClick = False
+        self.closedOnLineEditClick = False
         self.treeView = CheckableTreeView()
         # show the empty root item in the combo box
         self.treeView.setRootIsDecorated(True)
         self.setView(self.treeView)
+        self.context_menu = False
 
         self.lineEdit().installEventFilter(self)
         self.treeView.viewport().installEventFilter(self)
@@ -1083,6 +1092,14 @@ class CheckableTreeCombobox(TreeCombobox):
         super().setModel(model)
         if self.model():
             self.model().dataChanged.connect(self.update_line_edit)
+
+    def enable_context_menu(self, show_context_menu: bool):
+        self.context_menu = show_context_menu
+        if self.context_menu:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+            self.customContextMenuRequested.connect(self.show_context_menu)
+        else:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
 
     def set_single_click(self, single_click):
         self.single_click = single_click
@@ -1108,6 +1125,18 @@ class CheckableTreeCombobox(TreeCombobox):
             new_line_edit_text = ','.join(text_items)
             self.lineEdit().setText(new_line_edit_text)
 
+    def show_context_menu(self, pos):
+        menu = TreeContextMenu()
+        menu.set_view(self.treeView, False)
+        action = menu.exec(self.mapToGlobal(pos))
+        if action:
+            if action.text() == 'Edit':
+                self.edit_triggered.emit(self)
+            elif 'Add' in action.text() or 'Insert' in action.text():
+                self.add_triggered.emit(self, action)
+            elif 'Expand' in action.text() or 'Collapse' in action.text():
+                expand_collapse(self.treeView, action)
+
     def clear_all_checks(self):
         # traverse the tree and uncheck all items
         def traverse_tree(parent: QtC.QModelIndex):
@@ -1132,14 +1161,19 @@ class CheckableTreeCombobox(TreeCombobox):
             return super().eventFilter(obj, event)
 
         if obj == self.treeView.viewport():
-            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.LeftButton:
                 if self.single_click:
-                    print(f"Clicked text: {self.treeView.currentIndex().data()}")
-                    print("Single click mode enabled")
+                    # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
+                    checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.model().traverse_checkable_tree(QtC.QModelIndex())
+                    if self.currentIndex() in checked_items:
+                        self.treeView.setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
                     self.set_line_edit_text(self.treeView.currentIndex().data())
                 self.treeView.toggle_check_state(self.treeView.currentIndex())
                 self.showPopup()
+                return True
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.RightButton:
+                self.show_context_menu(event.pos())
                 return True
             return super().eventFilter(obj, event)
 
