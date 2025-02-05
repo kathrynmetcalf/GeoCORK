@@ -1,5 +1,8 @@
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
+from PyQt6 import QtGui as QtG
+import Functions.Text_manipulations as TxM
+from Functions.Settings_manager import settings
 
 class FocusGroupBox(QtW.QGroupBox):
     focusLost = QtC.pyqtSignal()
@@ -216,3 +219,95 @@ class CompleterInputDialog(QtW.QDialog):
 
     def get_input(self):
         return self.line_edit.text()
+
+class ColumnListProxyModel(QtC.QSortFilterProxyModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def data(self, index: QtC.QModelIndex, role: int = ...):
+        if role == QtC.Qt.ItemDataRole.DisplayRole:
+            header = super().data(index, role)
+            if 'ID' or 'Abbreviation' in header:
+                if 'Elev' in header:
+                    header = 'Elevation Unit'
+                elif 'AgeUnit' in header:
+                    header = 'Age Unit'
+                elif 'RatioErrorFormat' in header:
+                    header = 'Ratio Error Format'
+                elif 'AgeErrorFormat' in header:
+                    header = 'Age Error Format'
+                elif 'Height' in header:
+                    header = 'Height/Depth Unit'
+                elif 'GPSFormat' in header:
+                    header = 'GPS Format'
+                elif 'SpotSize' in header:
+                    header = 'Spot Size Unit'
+                elif 'ConcordanceFormat' in header:
+                    header = 'Concordance Format'
+            if 'GPSLocationConverted' in header:
+                header = 'GPS Location'
+            elif 'GPSElev || ' in header:
+                header = f'Elevation ({settings.value('elevation_unit_abbreviation')})'
+            elif 'TotalHeightDepth' in header:
+                header = f'Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+            elif 'HeightDepth' in header:
+                header = f'Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+            elif 'AgeDisplay' in header:
+                header = f'Age ({settings.value('age_unit_abbreviation')})'
+            elif 'AgeReferences' in header:
+                header = 'Age References'
+            elif 'SUM' in header:
+                header = 'Accepted/TotalUPbAnalayses'
+            elif 'COUNT' in header and 'SpotID' in header:
+                header = 'Number of Spots'
+            elif 'SpotSize' in header:
+                header = f'Spot Size ({settings.value('spotsize_unit_abbreviation')})'
+            elif 'DISTINCT' in header:
+                # Form is 'GROUP_CONCAT(DISTINCT table.column)' or 'GROUP_CONCAT(DISTINCT column)', get column
+                if '.' in header:
+                    header = header.split('(')[1].split(')')[0].split('.')[-1]
+                else:
+                    header = header.split('(')[1].split(')')[0].split(' ')[-1]
+            if '.' in header:
+                header = header.split('.')[-1]
+            if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
+                header = header.replace('Name', '')
+                if header.endswith('y'):
+                    header = header[:-1] + 'ies'
+                elif header.endswith('is'):
+                    header = header[:-2] + 'es'
+                else:
+                    header += 's'
+            if 'Display' in header:
+                header = header.replace('Display', '')
+            if 'Calculated' in header:
+                header = header.replace('Calculated', '')
+            if 'ppm' in header:
+                header = header.replace('ppm', '(ppm)')
+            if 'cps' in header:
+                header = header.replace('cps', '(cps)')
+            header = TxM.add_spaces_camel(header)
+            if 'U Pb' in header:
+                header = header.replace('U Pb', 'U-Pb')
+            return header
+        return super().data(index, role)
+
+class ColumnItemModel(QtG.QStandardItemModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.permanentIndexList = [0]
+
+    def data(self, index, role: int = ...):
+        if role == QtC.Qt.ItemDataRole.CheckStateRole:
+            if index.row() in self.permanentIndexList:
+                return QtC.Qt.CheckState.Checked
+            else:
+                return super().data(index, role)
+        return super().data(index, role)
+
+    def flags(self, index):
+        if index.row() in self.permanentIndexList:
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
+        else:
+            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsUserCheckable | QtC.Qt.ItemFlag.ItemIsDragEnabled
+

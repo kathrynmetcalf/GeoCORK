@@ -61,6 +61,7 @@ class DisplayTables(QtW.QWidget):
         self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
         self.table_proxy_model = TbC.ReadableProxyModel()
         self.table = ''
+        self.show_cols = []
         self.switch_to_table()
         self.display_table_list()
 
@@ -155,22 +156,22 @@ class DisplayTables(QtW.QWidget):
 
             self.switch_to_table()
             if self.table == 'Samples':
-                select_sample_view_begin = time.time()
-                model = TbC.SQLiteTableModel('SELECT * FROM SampleView')
+                self.show_cols = settings.value('sample_view_columns')
+                self.show_cols = ', '.join(self.show_cols)
+                # model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView')
+                model = TbC.SQLiteTableModel(f'SELECT * FROM SampleView')
 
-                select_sample_view_end = time.time()
-                print(f"Select sample view time: {select_sample_view_end - select_sample_view_begin}")
-                proxy_set_model_begin = time.time()
                 self.table_proxy_model.setSourceModel(model)
-                proxy_set_model_end = time.time()
-                print(f"Set proxy model time: {proxy_set_model_end - proxy_set_model_begin}")
                 self.edit_samples_pushButton.show()
                 # # Signal for double-clicked on table-view
                 # self.dbTable_tableView.doubleClicked.connect(self.edit_samples_popup('double-clicked'))
             else:
                 self.edit_samples_pushButton.hide()
                 if self.table == 'Columns':
-                    model = TbC.SQLiteTableModel('SELECT * FROM ColumnView')
+                    self.show_cols = settings.value('column_view_columns')
+                    self.show_cols = ' ,'.join(self.show_cols)
+                    # model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM ColumnView')
+                    model = TbC.SQLiteTableModel(f'SELECT * FROM ColumnView')
                     self.table_proxy_model.setSourceModel(model)
                 else:
                     self.model.setTable(table)

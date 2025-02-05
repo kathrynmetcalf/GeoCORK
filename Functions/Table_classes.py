@@ -355,23 +355,23 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
         if role == QtC.Qt.ItemDataRole.DisplayRole and orientation == QtC.Qt.Orientation.Horizontal:
             header = super().headerData(section, orientation, role)
-            if 'ID' in header:
+            if 'ID' or 'Abbreviation' in header:
                 if 'Elev' in header:
-                    header.replace('ID', f'({settings.value('elevation_unit_abbreviation')})')
+                    header = 'Elevation Unit'
                 elif 'AgeUnit' in header:
-                    header.replace('ID', f'({settings.value('age_unit_abbreviation')})')
+                    header = 'Age Unit'
                 elif 'RatioErrorFormat' in header:
-                    header.replace('ID', f'({settings.value('ratio_error_format_abbreviation')})')
+                    header = 'Ratio Error Format'
                 elif 'AgeErrorFormat' in header:
-                    header.replace('ID', f'({settings.value('age_error_format_abbreviation')})')
+                    header = 'Age Error Format'
                 elif 'Height' in header:
-                    header.replace('ID', f'({settings.value('heightdepth_unit_abbreviation')})')
+                    header = 'Height/Depth Unit'
                 elif 'GPSFormat' in header:
-                    header.replace('ID', f'({settings.value('gps_format_abbreviation')})')
+                    header = 'GPS Format'
                 elif 'SpotSize' in header:
-                    header.replace('ID', f'({settings.value('spotsize_unit_abbreviation')})')
+                    header = 'Spot Size Unit'
                 elif 'ConcordanceFormat' in header:
-                    header.replace('ID', f'({settings.value('concordance_format_abbreviation')})')
+                    header = 'Concordance Format'
             if 'GPSLocationConverted' in header:
                 header = 'GPS Location'
             elif 'GPSElev || ' in header:
@@ -404,8 +404,6 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                     header = header[:-2] + 'es'
                 else:
                     header += 's'
-            if 'Abbreviation' in header:
-                header = header.replace('Abbreviation', '')
             if 'Display' in header:
                 header = header.replace('Display', '')
             if 'Calculated' in header:
@@ -415,6 +413,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             if 'cps' in header:
                 header = header.replace('cps', '(cps)')
             header = TxM.add_spaces_camel(header)
+            if 'U Pb' in header:
+                header = header.replace('U Pb', 'U-Pb')
             return header
         super().headerData(section, orientation, role)
 

@@ -99,7 +99,7 @@ def SampleEditViewQuery():
                     {SQLUtils.qgps_display},
                     {SQLUtils.qsample_elev_display},
                     {SQLUtils.qsample_elev_unit},
-                    {SQLUtils.qsample_age_display},
+                    {SQLUtils.qsample_age},
                     {SQLUtils.qsample_age_constraint},
                     {SQLUtils.qsample_age_interpretation},
                     {SQLUtils.qsample_age_references},
@@ -253,8 +253,8 @@ def AliquotViewQuery():
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qaliquot_parent_id},
                     {SQLUtils.qaliquot_parent_row},
-                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot},
+                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_sample},
                     {SQLUtils.qaliquot_contexts},
                     {SQLUtils.qspot_count},
@@ -301,8 +301,8 @@ def AliquotEditViewQuery():
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qaliquot_parent_id},
                     {SQLUtils.qaliquot_parent_row},
-                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot},
+                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_sample},
                     {SQLUtils.qaliquot_contexts},
                     {SQLUtils.qaliquot_created},
@@ -327,7 +327,6 @@ def SpotViewQuery():
                     {SQLUtils.qaliquot},
                     {SQLUtils.qspot_compositions},
                     {SQLUtils.qspot_contexts},
-                    {SQLUtils.qupb_count},
                     {SQLUtils.qupb_lab_facilities},
                     {SQLUtils.qupb_analysis_methods},
                     {SQLUtils.qupb_ratio_error_formats},
@@ -335,6 +334,7 @@ def SpotViewQuery():
                     {SQLUtils.qupb_age_error_formats},
                     {SQLUtils.qconcordance_formats},
                     {SQLUtils.qspot_sizes},
+                    {SQLUtils.qupb_rejected},
                     {SQLUtils.qupb_rejection_reasons},
                     {SQLUtils.qupb_references},
                     {SQLUtils.qspot_created},
@@ -416,6 +416,7 @@ def UPbViewQuery():
                     {SQLUtils.qupb_instruments},
                     {SQLUtils.qupb_analysis_methods},
                     {query_columns},
+                    {SQLUtils.qupb_rejected},
                     {SQLUtils.qupb_rejection_reasons},
                     {SQLUtils.qupb_created},
                     {SQLUtils.qupb_modified}
@@ -467,6 +468,7 @@ def UPbEditViewQuery():
                     {SQLUtils.qupb_instruments},
                     {SQLUtils.qupb_analysis_methods},
                     {query_columns},
+                    {SQLUtils.qupb_rejected},
                     {SQLUtils.qupb_rejection_reasons},
                     {SQLUtils.qupb_created},
                     {SQLUtils.qupb_modified}
@@ -567,7 +569,7 @@ def create_sample_view():
         print('Sample view creation failed')
         return False
 
-def create_sample_edit_view(conditions):
+def create_sample_edit_view():
     sample_query = SampleEditViewQuery()
     query = QtS.QSqlQuery()
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleEditView AS {sample_query}'
@@ -667,6 +669,7 @@ def create_column_edit_view():
 
 def create_all_views():
     create_sample_view()
+    create_sample_edit_view()
     create_sample_ifnull_view()
     create_aliquot_view()
     create_aliquot_edit_view()

@@ -8,6 +8,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.QtGui import QFont, QFontDatabase
 
 from Functions.Settings_manager import settings
+from ui.SelectColumns import SelectColumns
 
 def populate_app_defaults():
     app = QtW.QApplication.instance()
@@ -55,7 +56,24 @@ def default_settings():
             'Samples.SampleID', 'Samples.SampleIGSN', 'Samples.SampleName', 'Samples.SampleDescription',
             'GPSLocations.GPSLocationConverted', 'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError',
             'SampleAges.SampleAgeDisplay', 'GROUP_CONCAT(DISTINCT AgeConstraintName)', 'GROUP_CONCAT(DISTINCT AgeInterpretationName)',
-            'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)', 'Columns.ColumnName', 'HeightDepth || "±" || HeightDepthError',
+            'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)', 'Columns.ColumnName', 'Samples.CalculatedHeightDepth || "±" || Samples.CalculatedHeightDepthError',
+            'GROUP_CONCAT(DISTINCT AgeSignatureName)', 'GROUP_CONCAT(DISTINCT RegionName)', 'GROUP_CONCAT(DISTINCT RockTypeName)',
+            'GROUP_CONCAT(DISTINCT SampleContextName)', 'GROUP_CONCAT(DISTINCT SamplingMethodName)', 'GROUP_CONCAT(DISTINCT SettingName)',
+            'GROUP_CONCAT(DISTINCT UnitName)', 'GROUP_CONCAT(DISTINCT AliquotName)', 'GROUP_CONCAT(DISTINCT AliquotContextName)',
+            'COUNT(DISTINCT Spots.SpotID)', 'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)',
+            'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
+            'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
+            'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)',
+            'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)',
+            'GROUP_CONCAT(DISTINCT CalculatedSpotSize)', 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
+            'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'Samples.SampleCreated', 'Samples.SampleModified'
+        ])
+        settings.setValue('sample_edit_columns', [
+            'Samples.SampleID', 'Samples.SampleIGSN', 'Samples.SampleName', 'Samples.SampleDescription', 'GPSLocations.GPSLocationDisplay',
+            'GPSLocations.GPSElev || "±" || GPSLocations.GPSElevError', 'SampleElevationUnits.DistanceUnitAbbreviation',
+            'SampleAges.SampleAgeDisplay', 'GROUP_CONCAT(DISTINCT AgeConstraintName)', 'GROUP_CONCAT(DISTINCT AgeInterpretationName)',
+            'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)', 'Columns.ColumnName',
+            'Samples.HeightDepth || "±" || Samples.HeightDepthError', 'ColumnHeightDepthUnits.DistanceUnitAbbreviation',
             'GROUP_CONCAT(DISTINCT AgeSignatureName)', 'GROUP_CONCAT(DISTINCT RegionName)', 'GROUP_CONCAT(DISTINCT RockTypeName)',
             'GROUP_CONCAT(DISTINCT SampleContextName)', 'GROUP_CONCAT(DISTINCT SamplingMethodName)', 'GROUP_CONCAT(DISTINCT SettingName)',
             'GROUP_CONCAT(DISTINCT UnitName)', 'GROUP_CONCAT(DISTINCT AliquotName)', 'GROUP_CONCAT(DISTINCT AliquotContextName)',
@@ -68,7 +86,7 @@ def default_settings():
             'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'Samples.SampleCreated', 'Samples.SampleModified'
         ])
         settings.setValue('aliquot_view_columns', [
-            'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleName',
+            'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleID', 'Samples.SampleName',
             'GROUP_CONCAT(DISTINCT AliquotContextName)', 'COUNT(DISTINCT Spots.SpotID)', 'GROUP_CONCAT(DISTINCT SpotCompositionName)',
             'GROUP_CONCAT(DISTINCT SpotContextName)', 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
             'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)', 'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)',
@@ -78,29 +96,30 @@ def default_settings():
             'AliquotCreated', 'AliquotModified'
         ])
         settings.setValue('aliquot_edit_columns', [
-            'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleName',
+            'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleID', 'Samples.SampleName',
             'GROUP_CONCAT(DISTINCT AliquotContextName)', 'AliquotCreated', 'AliquotModified'
         ])
         settings.setValue('spot_view_columns', [
-            'Spots.SpotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName', 'AliquotName',
-            'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)',
-            'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
+            'Spots.SpotID', 'Samples.SampleID', 'Aliquots.AliquotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName',
+            'AliquotName', 'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)',
             'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
             'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)',
             'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)',
-            'GROUP_CONCAT(DISTINCT CalculatedSpotSize)', 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
-            'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'SpotCreated', 'SpotModified'
+            'GROUP_CONCAT(DISTINCT CalculatedSpotSize)', 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END',
+            'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)',
+            'SpotCreated', 'SpotModified'
         ])
         settings.setValue('spot_edit_columns', [
-            'Spots.SpotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName', 'AliquotName',
+            'Spots.SpotID', 'Samples.SampleID', 'Aliquots.AliquotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName', 'AliquotName',
             'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)', 'SpotCreated', 'SpotModified'
         ])
         settings.setValue('upb_analysis_view_columns', [
-            'UPbAnalyses.UPbAnalysisID', 'SpotName', 'AliquotName', 'Samples.SampleName', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)',
-            'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT InstrumentName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
-            'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"', 'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"',
-            'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"', 'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"',
-            'UPbAnalyses."CalculatedU/Th"', 'UPbAnalyses."CalculatedTh/U"',
+            'UPbAnalyses.UPbAnalysisID', 'Samples.SampleID', 'Aliquots.AliquotID', 'Spots.SpotID', 'SpotName', 'AliquotName',
+            'Samples.SampleName', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'GROUP_CONCAT(DISTINCT LabFacilityName)',
+            'GROUP_CONCAT(DISTINCT InstrumentName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
+            'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"', 'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"',
+            'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"', 'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"',
+            'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"', 'UPbAnalyses."CalculatedU/Th"', 'UPbAnalyses."CalculatedTh/U"',
             'UPbAnalyses."Calculated206Pb/207Pb"', 'UPbAnalyses."Calculated206Pb/207PbError"',
             'UPbAnalyses."Calculated207Pb/206Pb"', 'UPbAnalyses."Calculated207Pb/206PbError"',
             'UPbAnalyses."Calculated207Pb/235U"', 'UPbAnalyses."Calculated207Pb/235UError"',
@@ -124,12 +143,13 @@ def default_settings():
             'UPbAnalyses."Calculated207Pb/235UAge"', 'UPbAnalyses."Calculated207Pb/235UAgeError"',
             'UPbAnalyses."Calculated208Pb/232ThAge"', 'UPbAnalyses."Calculated208Pb/232ThAgeError"',
             'UPbAnalyses."CalculatedBestAge"', 'UPbAnalyses."CalculatedBestAgeError"', 'UPbAnalyses."CalculatedSpotSize"',
-            'UPbAnalyses."CalculatedConcordance"', 'UPbAnalyses."GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)"',
-            'UPbAnalyses.UPbAnalysisCreated', 'UPbAnalyses.UPbAnalysisModified'
+            'UPbAnalyses."CalculatedConcordance"', 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END',
+            'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
+            'UPbAnalysisCreated', 'UPbAnalysisModified'
         ])
         settings.setValue('upb_analysis_edit_columns', [
-            'UPbAnalyses.UPbAnalysisID', 'SpotName', 'AliquotName', 'Samples.SampleName',
-            'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'GROUP_CONCAT(DISTINCT LabFacilityName)',
+            'UPbAnalyses.UPbAnalysisID', 'Samples.SampleID', 'Aliquots.AliquotID', 'Spots.SpotID', 'SpotName', 'AliquotName',
+            'Samples.SampleName', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'GROUP_CONCAT(DISTINCT LabFacilityName)',
             'GROUP_CONCAT(DISTINCT InstrumentName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
             'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"', 'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"',
             'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"', 'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"',
@@ -143,19 +163,23 @@ def default_settings():
             'UPbAnalyses."206Pb/204Pb"', 'UPbAnalyses."206Pb/204PbError"', 'UPbAnalyses."204Pb/206Pb"', 'UPbAnalyses."204Pb/206PbError"',
             'UPbAnalyses."207Pb/204Pb"', 'UPbAnalyses."207Pb/204PbError"', 'UPbAnalyses."204Pb/207Pb"', 'UPbAnalyses."204Pb/207PbError"',
             'UPbAnalyses."208Pb/204Pb"', 'UPbAnalyses."208Pb/204PbError"', 'UPbAnalyses."204Pb/208Pb"', 'UPbAnalyses."204Pb/208PbError"',
-            'UPbAnalyses."ErrorCorr/Rho"', 'UPbAnalyses."207Pb/206PbAge"', 'UPbAnalyses."207Pb/206PbAgeError"',
-            'UPbAnalyses."207Pb/235UAge"', 'UPbAnalyses."207Pb/235UAgeError"', 'UPbAnalyses."206Pb/238UAge"',
-            'UPbAnalyses."206Pb/238UAgeError"', 'UPbAnalyses."208Pb/232ThAge"', 'UPbAnalyses."208Pb/232ThAgeError"',
-            'UPbAnalyses."BestAge"', 'UPbAnalyses."BestAgeError"', 'UPbAnalyses."Concordance"', 'UPbAnalyses."SpotSize"',
-            'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)', 'UPbAnalysisCreated', 'UPbAnalysisModified'
+            'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)', 'UPbAnalyses."ErrorCorr/Rho"',
+            'UPbAnalyses."207Pb/206PbAge"', 'UPbAnalyses."207Pb/206PbAgeError"', 'UPbAnalyses."207Pb/235UAge"', 'UPbAnalyses."207Pb/235UAgeError"',
+            'UPbAnalyses."206Pb/238UAge"', 'UPbAnalyses."206Pb/238UAgeError"', 'UPbAnalyses."208Pb/232ThAge"', 'UPbAnalyses."208Pb/232ThAgeError"',
+            'UPbAnalyses."BestAge"', 'UPbAnalyses."BestAgeError"', 'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)',
+            'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)', 'UPbAnalyses."Concordance"',
+            'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)', 'UPbAnalyses."SpotSize"', 'GROUP_CONCAT(DISTINCT SpotSizeUnit.DistanceUnitAbbreviation)',
+            'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END', 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
+            'UPbAnalysisCreated', 'UPbAnalysisModified'
         ])
         settings.setValue('column_view_columns', [
-            'Columns.ColumnID', 'Columns.ColumnName', 'Columns.CalculatedTotalHeightDepth', 'ColumnGPS.GPSLocationConverted',
-            'ColumnDescription', 'ColumnCreated', 'ColumnModified'
+            'Columns.ColumnID', 'Columns.ColumnName', 'Columns.CalculatedColumnTotalHeightDepth', 'ColumnGPS.GPSLocationConverted',
+            'ColumnGPS.CalculatedGPSElev || "±" || ColumnGPS.CalculatedGPSElevError', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
         ])
         settings.setValue('column_edit_columns', [
             'Columns.ColumnID', 'Columns.ColumnName', 'Columns.ColumnTotalHeightDepth', 'ColumnUnits.DistanceUnitAbbreviation',
-            'ColumnGPS.GPSLocationDisplay', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
+            'ColumnGPS.GPSLocationDisplay', 'ColumnGPS.GPSElev || "±" || ColumnGPS.GPSElevError', 'ColumnElevationUnits.DistanceUnitAbbreviation',
+            'ColumnDescription', 'ColumnCreated', 'ColumnModified'
         ])
 
         settings.setValue('checkable_combobox_height_scaler', 1.0)
@@ -235,6 +259,8 @@ class SettingsDialog(QtW.QDialog):
         self.concordance_format_model = QSqlQueryModel()
         self.table_columns_model = QSqlQueryModel()
         self.about_db_model = QSqlQueryModel()
+        self.select_columns = SelectColumns()
+        self.column_verticalLayout.addWidget(self.select_columns)
 
         self.populate_fields()
 
@@ -322,6 +348,8 @@ class SettingsDialog(QtW.QDialog):
         query.bindValue(5, self.db_reference_lineEdit.text())
         if not query.exec():
             print(query.lastError().text())
+
+        self.select_columns.save_list_states()
 
         self.combobox_height_scaler_spinbox: QDoubleSpinBox
         update_setting('checkable_combobox_height_scaler', self.combobox_height_scaler_spinbox.value())

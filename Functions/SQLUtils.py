@@ -658,11 +658,19 @@ view_attributes_dict = {
         f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}",
         f"{qupb_references}", f"{qaliquot_created}", f"{qaliquot_modified}"
     ],
+    'AliquotEditView': [
+        f"{qaliquot_id}", f"{qaliquot_parent_id}", f"{qaliquot_parent_row}", f"{qsample_id}", f"{qaliquot}",
+        f"{qaliquot_sample}", f"{qaliquot_contexts}", f"{qaliquot_created}", f"{qaliquot_modified}"
+    ],
     'SpotView': [
         f"{qspot_id}", f"{qspots}", f"{qsample_name}", f"{qaliquot}", f"{qspot_compositions}", f"{qspot_contexts}",
-        f"{qupb_count}", f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}",
-        f"{qupb_age_units}", f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}",
+        f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
+        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejected}", f"{qupb_rejection_reasons}",
         f"{qupb_references}", f"{qspot_created}", f"{qspot_modified}"
+    ],
+    'SpotEditView': [
+        f"{qspot_id}", f"{qsample_id}", f"{qaliquot_id}", f"{qspots}", f"{qsample_name}", f"{qaliquot}",
+        f"{qspot_compositions}", f"{qspot_contexts}", f"{qspot_created}", f"{qspot_modified}"
     ],
     'UPbAnalysisView': [
         f"{qupb_id}", f"{qspot}", f"{qaliquot}", f"{qsample_name}", f"{qupb_references}", f"{qupb_lab_facilities}",
@@ -693,7 +701,43 @@ view_attributes_dict = {
         'UPbAnalyses."Calculated207Pb/235UAge"', 'UPbAnalyses."Calculated207Pb/235UAgeError"',
         'UPbAnalyses."Calculated208Pb/232ThAge"', 'UPbAnalyses."Calculated208Pb/232ThAgeError"',
         'UPbAnalyses."CalculatedBestAge"', 'UPbAnalyses."CalculatedBestAgeError"', 'UPbAnalyses."CalculatedSpotSize"',
-        'UPbAnalyses."CalculatedConcordance"', f"{qupb_rejection_reasons}", f"{qupb_created}", f"{qupb_modified}"
+        'UPbAnalyses."CalculatedConcordance"', f"{qupb_rejected}", f"{qupb_rejection_reasons}",
+        f"{qupb_created}", f"{qupb_modified}"
+    ],
+    'UPbAnalysisEditView': [
+        f"{qupb_id}", f"{qsample_id}", f"{qaliquot_id}", f"{qspot_id}", f"{qspot}", f"{qaliquot}", f"{qsample_name}",
+        f"{qupb_references}", f"{qupb_lab_facilities}", f"{qupb_instruments}", f"{qupb_analysis_methods}",
+        'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"',
+        'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"', 'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"',
+        'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"', 'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"',
+        'UPbAnalyses."U/Th"', 'UPbAnalyses."Th/U"',
+        'UPbAnalyses."206Pb/204Pb"', 'UPbAnalyses."206Pb/204PbError"',
+        'UPbAnalyses."204Pb/206Pb"', 'UPbAnalyses."204Pb/206PbError"',
+        'UPbAnalyses."207Pb/204Pb"', 'UPbAnalyses."207Pb/204PbError"',
+        'UPbAnalyses."204Pb/207Pb"', 'UPbAnalyses."204Pb/207PbError"',
+        'UPbAnalyses."208Pb/204Pb"', 'UPbAnalyses."208Pb/204PbError"',
+        'UPbAnalyses."204Pb/208Pb"', 'UPbAnalyses."204Pb/208PbError"',
+        'UPbAnalyses."206Pb/207Pb"', 'UPbAnalyses."206Pb/207PbError"',
+        'UPbAnalyses."207Pb/206Pb"', 'UPbAnalyses."207Pb/206PbError"',
+        'UPbAnalyses."204Pb/238U"', 'UPbAnalyses."204Pb/238UError"',
+        'UPbAnalyses."238U/204Pb"', 'UPbAnalyses."238U/204PbError"',
+        'UPbAnalyses."206Pb/238U"', 'UPbAnalyses."206Pb/238UError"',
+        'UPbAnalyses."238U/206Pb"', 'UPbAnalyses."238U/206PbError"',
+        'UPbAnalyses."207Pb/235U"', 'UPbAnalyses."207Pb/235UError"',
+        'UPbAnalyses."235U/207Pb"', 'UPbAnalyses."235U/207PbError"',
+        'UPbAnalyses."208Pb/232Th"', 'UPbAnalyses."208Pb/232ThError"',
+        'UPbAnalyses."232Th/208Pb"', 'UPbAnalyses."232Th/208PbError"',
+        'UPbAnalyses."238U/232Th"', 'UPbAnalyses."238U/232ThError"',
+        'UPbAnalyses."232Th/238U"', 'UPbAnalyses."232Th/238UError"',
+        f"{qupb_ratio_error_formats}", 'UPbAnalyses."ErrorCorr/Rho"',
+        'UPbAnalyses."207Pb/206PbAge"', 'UPbAnalyses."207Pb/206PbAgeError"',
+        'UPbAnalyses."207Pb/235UAge"', 'UPbAnalyses."207Pb/235UAgeError"',
+        'UPbAnalyses."206Pb/238UAge"', 'UPbAnalyses."206Pb/238UAgeError"',
+        'UPbAnalyses."208Pb/232ThAge"', 'UPbAnalyses."208Pb/232ThAgeError"',
+        'UPbAnalyses."BestAge"', 'UPbAnalyses."BestAgeError"',
+        f"{qupb_age_error_formats}", f"{qupb_age_units}", 'UPbAnalyses."Concordance"', f"{qconcordance_formats}",
+        'UPbAnalyses."SpotSize"', f"{qspot_size_unit}", f"{qupb_rejected}", f"{qupb_rejection_reasons}",
+        f"{qupb_created}", f"{qupb_modified}"
     ]
 }
 
