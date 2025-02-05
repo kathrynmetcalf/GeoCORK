@@ -9,13 +9,8 @@ from Functions.Table_classes import set_table, get_headers
 import time
 
 
-def SampleViewQuery(ids_to_show=None):
+def SampleViewQuery():
     # Select columns
-    if ids_to_show is not None:
-        ids_to_show = tuple(ids_to_show)
-        where_statement = f'''WHERE Samples.SampleID IN {ids_to_show}'''
-    else:
-        where_statement = ''
 
     sample_query = f'''
             SELECT
@@ -30,7 +25,7 @@ def SampleViewQuery(ids_to_show=None):
                     {SQLUtils.qsample_age_interpretation},
                     {SQLUtils.qsample_age_references},
                     {SQLUtils.qcolumn_name},
-                    {SQLUtils.qcolumn_data},
+                    {SQLUtils.qsample_column_data},
                     {SQLUtils.qage_signature},
                     {SQLUtils.qregions},
                     {SQLUtils.qrock_types},
@@ -85,7 +80,86 @@ def SampleViewQuery(ids_to_show=None):
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
-                {where_statement}
+                GROUP BY Samples.SampleName
+                ORDER BY Samples.SampleID
+                '''
+
+    # print(sample_query)
+    return sample_query
+
+def SampleEditViewQuery():
+    # Select columns
+
+    sample_query = f'''
+            SELECT
+                    {SQLUtils.qsample_id},
+                    {SQLUtils.qigsn},
+                    {SQLUtils.qsample_name},
+                    {SQLUtils.qsample_description},
+                    {SQLUtils.qgps_display},
+                    {SQLUtils.qsample_elev_display},
+                    {SQLUtils.qsample_elev_unit},
+                    {SQLUtils.qsample_age_display},
+                    {SQLUtils.qsample_age_constraint},
+                    {SQLUtils.qsample_age_interpretation},
+                    {SQLUtils.qsample_age_references},
+                    {SQLUtils.qcolumn_name},
+                    {SQLUtils.qsample_column_data_display},
+                    {SQLUtils.qsample_column_data_unit},
+                    {SQLUtils.qage_signature},
+                    {SQLUtils.qregions},
+                    {SQLUtils.qrock_types},
+                    {SQLUtils.qsample_context},
+                    {SQLUtils.qsampling_methods},
+                    {SQLUtils.qsettings},
+                    {SQLUtils.qunits},
+                    {SQLUtils.qaliquots},
+                    {SQLUtils.qaliquot_contexts},
+                    {SQLUtils.qspot_count},
+                    {SQLUtils.qspot_compositions},
+                    {SQLUtils.qspot_contexts},
+                    {SQLUtils.qupb_count},
+                    {SQLUtils.qupb_lab_facilities},
+                    {SQLUtils.qupb_analysis_methods},
+                    {SQLUtils.qupb_ratio_error_formats},
+                    {SQLUtils.qupb_age_units},
+                    {SQLUtils.qupb_age_error_formats},
+                    {SQLUtils.qconcordance_formats},
+                    {SQLUtils.qspot_sizes},
+                    {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_references},
+                    {SQLUtils.qsample_created},
+                    {SQLUtils.qsample_modified}
+                FROM Samples
+                {SQLUtils.age_signature_join}
+                {SQLUtils.column_join}
+                {SQLUtils.region_join}
+                {SQLUtils.rock_type_join}
+                {SQLUtils.sample_context_join}
+                {SQLUtils.sample_sampleage_join}
+                {SQLUtils.sampling_method_join}
+                {SQLUtils.setting_join}
+                {SQLUtils.unit_join}
+                {SQLUtils.sample_age_join}
+                {SQLUtils.sample_age_left_joins}
+                {SQLUtils.gps_sample_join}
+                {SQLUtils.gps_column_join}
+                {SQLUtils.sample_aliquot_join}
+                {SQLUtils.aliquot_context_join}
+                {SQLUtils.aliquot_spot_join}
+                {SQLUtils.spot_composition_join}
+                {SQLUtils.spot_context_join}
+                {SQLUtils.spot_upb_analysis_join}
+                {SQLUtils.upb_reference_join}
+                {SQLUtils.upb_labs_join}
+                {SQLUtils.upb_instruments_join}
+                {SQLUtils.upb_method_join}
+                {SQLUtils.upb_ratio_error_format_join}
+                {SQLUtils.upb_age_error_format_join}
+                {SQLUtils.upb_age_unit_join}
+                {SQLUtils.upb_concordance_format_join}
+                {SQLUtils.upb_spot_size_unit_join}
+                {SQLUtils.upb_rejection_reason_join}
                 GROUP BY Samples.SampleName
                 ORDER BY Samples.SampleID
                 '''
@@ -423,6 +497,7 @@ def ColumnViewQuery():
                     {SQLUtils.qcolumn_name},
                     {SQLUtils.qcolumn_calc_total_height_depth},
                     {SQLUtils.qcolumn_gps},
+                    {SQLUtils.qcolumn_elev},
                     {SQLUtils.qcolumn_description},
                     {SQLUtils.qcolumn_created},
                     {SQLUtils.qcolumn_modified}
@@ -443,6 +518,8 @@ def ColumnEditViewQuery():
                         {SQLUtils.qcolumn_total_height_depth},
                         {SQLUtils.qcolumn_total_height_depth_unit},
                         {SQLUtils.qcolumn_gps_display},
+                        {SQLUtils.qcolumn_elev_display},
+                        {SQLUtils.qcolumn_elev_unit},
                         {SQLUtils.qcolumn_description},
                         {SQLUtils.qcolumn_created},
                         {SQLUtils.qcolumn_modified}
@@ -481,22 +558,23 @@ def ColumnIfNullQuery():
     '''
     return column_ifnull_query
 
-def create_sample_view(conditions: str = None):
-    base_query = SampleViewQuery()
-    if conditions:
-        sample_query = f'{base_query} {conditions}'
-    else:
-        sample_query = base_query
+def create_sample_view():
+    sample_query = SampleViewQuery()
     query = QtS.QSqlQuery()
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
     # print(sample_view)
-    create_view_begin = time.time()
-    print("Creating SampleView")
     if not query.exec(sample_view):
         print('Sample view creation failed')
         return False
-    create_view_end = time.time()
-    print(f"Create SampleView time: {create_view_end - create_view_begin}")
+
+def create_sample_edit_view(conditions):
+    sample_query = SampleEditViewQuery()
+    query = QtS.QSqlQuery()
+    sample_view = f'CREATE VIEW IF NOT EXISTS SampleEditView AS {sample_query}'
+    # print(sample_view)
+    if not query.exec(sample_view):
+        print('Sample edit view creation failed')
+        return False
 
 def create_sample_ifnull_view():
     sample_query = SampleIfNullQuery()

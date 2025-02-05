@@ -70,8 +70,8 @@ class GeoChron(QtW.QMainWindow):
         self.tabWidget.addTab(DisplayTables(self), 'Data Tables')
         self.tabWidget.addTab(Filters(self), 'Filters')
         self.tabWidget.addTab(ExportWidget(self), 'Export')
+
         # todo: figure out how to add a divider between the permanent tabs and the user-added tabs
-        # todo: make the permanent tabs unmovable, current workaround is reordering everything after a mouse release event
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
 

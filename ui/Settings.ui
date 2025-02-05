@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="settings_tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="units_formats_tab">
       <attribute name="title">
@@ -329,7 +329,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Combobox Height Scaler</string>
+            <string>Combobox Height Scaler:</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>
@@ -380,7 +380,7 @@
             </size>
            </property>
            <property name="text">
-            <string>Combobox Width Scaler</string>
+            <string>Combobox Width Scaler:</string>
            </property>
            <property name="wordWrap">
             <bool>true</bool>

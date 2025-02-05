@@ -67,7 +67,7 @@ def default_settings():
             'GROUP_CONCAT(DISTINCT CalculatedSpotSize)', 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
             'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'Samples.SampleCreated', 'Samples.SampleModified'
         ])
-        settings.setValue('aliquot_columns', [
+        settings.setValue('aliquot_view_columns', [
             'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleName',
             'GROUP_CONCAT(DISTINCT AliquotContextName)', 'COUNT(DISTINCT Spots.SpotID)', 'GROUP_CONCAT(DISTINCT SpotCompositionName)',
             'GROUP_CONCAT(DISTINCT SpotContextName)', 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
@@ -81,7 +81,7 @@ def default_settings():
             'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleName',
             'GROUP_CONCAT(DISTINCT AliquotContextName)', 'AliquotCreated', 'AliquotModified'
         ])
-        settings.setValue('spot_columns', [
+        settings.setValue('spot_view_columns', [
             'Spots.SpotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName', 'AliquotName',
             'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)',
             'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
@@ -95,7 +95,7 @@ def default_settings():
             'Spots.SpotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName', 'AliquotName',
             'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)', 'SpotCreated', 'SpotModified'
         ])
-        settings.setValue('upb_analysis_columns', [
+        settings.setValue('upb_analysis_view_columns', [
             'UPbAnalyses.UPbAnalysisID', 'SpotName', 'AliquotName', 'Samples.SampleName', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)',
             'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT InstrumentName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
             'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"', 'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"',
@@ -153,7 +153,7 @@ def default_settings():
             'Columns.ColumnID', 'Columns.ColumnName', 'Columns.CalculatedTotalHeightDepth', 'ColumnGPS.GPSLocationConverted',
             'ColumnDescription', 'ColumnCreated', 'ColumnModified'
         ])
-        settings.setValue('column_edit_view_columns', [
+        settings.setValue('column_edit_columns', [
             'Columns.ColumnID', 'Columns.ColumnName', 'Columns.ColumnTotalHeightDepth', 'ColumnUnits.DistanceUnitAbbreviation',
             'ColumnGPS.GPSLocationDisplay', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
         ])
@@ -243,6 +243,9 @@ class SettingsDialog(QtW.QDialog):
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Apply).clicked.connect(self.update_settings)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.restore_defaults)
 
+    def display_tab(self, index):
+        self.settings_tabWidget.setCurrentIndex(index)
+
     def populate_fields(self):
 
         decimals = [str(i) for i in range(0, 10)]
@@ -289,6 +292,8 @@ class SettingsDialog(QtW.QDialog):
         if settings.value('default_font_family') not in QFontDatabase.families():
             self.fontComboBox.addItems([settings.value('default_font_family')])
         self.fontComboBox.setCurrentFont(QFont(settings.value('font_family')))
+
+    # def
 
     def update_settings(self):
         # No longer using default settings

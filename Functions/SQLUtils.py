@@ -14,11 +14,17 @@ qigsn = 'Samples.SampleIGSN'
 qgps = 'GPSLocations.GPSLocationConverted'
 qgps_display = 'GPSLocations.GPSLocationDisplay'
 qsample_elev = 'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError'
-qsqmple_elev_display = 'GPSLocations.GPSElev || "±" || GPSLocations.GPSElevError'
+qsample_elev_display = 'GPSLocations.GPSElev || "±" || GPSLocations.GPSElevError'
 qsample_elev_unit = 'SampleElevationUnits.DistanceUnitAbbreviation'
+qsample_column_data = 'Samples.CalculatedHeightDepth || "±" || Samples.CalculatedHeightDepthError'
+qsample_column_data_display = 'Samples.HeightDepth || "±" || Samples.HeightDepthError'
+qsample_column_data_unit = 'ColumnHeightDepthUnits.DistanceUnitAbbreviation'
 qsample_age = 'SampleAges.SampleAgeDisplay'
+qsample_age_display = '(ifnull(DirectAge, "") || "±" || ifnull(DirectAgeError, "") || ", " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, "")'
 qage_range = 'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ")'
-qage_range_display = 'COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " ") || "(" || COALESCE(DirectAgeUnitAbbreviation, " ") || ")(" || COALESCE(DirectAgeErrorFormatAbbreviation, " ") || ")"'
+qage_range_display = 'COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " ")'
+qage_unit = 'DirectAgeUnitAbbreviation'
+qage_error_format = 'DirectAgeErrorFormatAbbreviation'
 qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName)'
 qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName)'
 qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)'
@@ -100,6 +106,9 @@ qcolumn_calc_total_height_depth = f'Columns.CalculatedColumnTotalHeightDepth'
 qcolumn_total_height_depth = f'Columns.ColumnTotalHeightDepth'
 qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation'
 qcolumn_gps_display = 'ColumnGPS.GPSLocationDisplay'
+qcolumn_elev = 'ColumnGPS.CalculatedGPSElev || "±" || ColumnGPS.CalculatedGPSElevError'
+qcolumn_elev_display = 'ColumnGPS.GPSElev || "±" || ColumnGPS.GPSElevError'
+qcolumn_elev_unit = 'ColumnElevationUnits.DistanceUnitAbbreviation'
 qcolumn_description = 'ColumnDescription'
 qcolumn_created = 'ColumnCreated'
 qcolumn_modified = 'ColumnModified'
@@ -417,7 +426,7 @@ conditionally_editable_trees = ['Aliquots']
 
 trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'SampleView', 'ColumnEditView', 'UPbAnalyses', 'UPbAnalysesView', 'UPbAnalysesEditView']
 
-views = ['SampleView', 'AliquotView', 'SpotView', 'UPbView', 'ColumnView', 'ColumnEditView']
+views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView', 'UPbEditView', 'ColumnView', 'ColumnEditView']
 
 age_units = [('Billion years', 'Ga', '1000000000'),
                  ('Million years', 'Ma', '1000000'),
@@ -617,7 +626,17 @@ table_attributes_dict = {
 view_attributes_dict = {
     'SampleView': [
         f"{qsample_id}", f"{qigsn}", f"{qsample_name}", f"{qsample_description}", f"{qgps}", f"{qsample_elev}", f"{qsample_age}",
-        f"{qsample_age_constraint}", f"{qsample_age_interpretation}", f"{qsample_age_references}", f"{qcolumn_name}", f"{qcolumn_data}",
+        f"{qsample_age_constraint}", f"{qsample_age_interpretation}", f"{qsample_age_references}", f"{qcolumn_name}", f"{qsample_column_data}",
+        f"{qage_signature}", f"{qregions}", f"{qrock_types}", f"{qsample_context}", f"{qsampling_methods}", f"{qsettings}",
+        f"{qunits}", f"{qaliquots}", f"{qaliquot_contexts}", f"{qspot_count}", f"{qspot_compositions}", f"{qspot_contexts}",
+        f"{qupb_count}", f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
+        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}", f"{qupb_references}",
+        f"{qsample_created}", f"{qsample_modified}"
+        ],
+    'SampleEditView': [
+        f"{qsample_id}", f"{qigsn}", f"{qsample_name}", f"{qsample_description}", f"{qgps_display}", f"{qsample_elev_display}",
+        f"{qsample_elev_unit}", f"{qsample_age_display}", f"{qsample_age_constraint}", f"{qsample_age_interpretation}",
+        f"{qsample_age_references}", f"{qcolumn_name}", f"{qsample_column_data_display}", f"{qsample_column_data_unit}",
         f"{qage_signature}", f"{qregions}", f"{qrock_types}", f"{qsample_context}", f"{qsampling_methods}", f"{qsettings}",
         f"{qunits}", f"{qaliquots}", f"{qaliquot_contexts}", f"{qspot_count}", f"{qspot_compositions}", f"{qspot_contexts}",
         f"{qupb_count}", f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",

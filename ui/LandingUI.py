@@ -62,6 +62,15 @@ class LandingPage(QWidget):
         self.saveWindowState()
         super().closeEvent(a0)
 
+    def open_about_db(self):
+        # This is a new database, so prompt the user to fill in the About Database form
+        if not self.test_database_lock():
+            from ui.Settings import SettingsDialog
+            settings_dialog = SettingsDialog()
+            # Set the current tab to the About Database tab
+            settings_dialog.display_tab(2)
+            settings_dialog.exec()
+
     def open_geo_chron(self):
         if not self.test_database_lock():
             from ui.GeoCORKMain import GeoChron
@@ -125,9 +134,11 @@ class LandingPage(QWidget):
         if not file_name:
             return
 
-        # Ensure the filename ends with .xlsx
+        # Ensure the filename ends with .db
         if not file_name.lower().endswith(".db"):
-            file_name += ".db"
+            if '.' in file_name:
+                # If there's already an extension, replace it with .db
+                file_name = file_name.split('.')[0] + ".db"
 
         if file_name:
             # QSqlDatabase.addDatabase("QSQLITE")
@@ -137,6 +148,7 @@ class LandingPage(QWidget):
             if self.selected_files not in self.list_recents:
                 self.list_recents.append(self.selected_files)
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+            self.open_about_db()
             self.open_geo_chron()
             self.setVisible(False)
 
