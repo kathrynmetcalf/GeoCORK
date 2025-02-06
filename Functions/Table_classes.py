@@ -749,7 +749,7 @@ class CheckableComboBox(QtW.QComboBox):
                 self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
             else:
                 self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-            print(f"Changed state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
+            # print(f"Changed state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
 
 
     def showPopup(self):

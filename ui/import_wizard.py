@@ -2,6 +2,8 @@ import sys
 import os
 import json
 import sqlite3
+from dataclasses import field
+
 import pandas as pd
 import qtawesome
 from difflib import get_close_matches
@@ -15,7 +17,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
-    QProgressDialog
+    QProgressDialog, QListWidget
 )
 from PyQt6.QtCore import Qt, QPoint, QSize, QEventLoop
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction
@@ -23,7 +25,7 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QAction
 from Functions import SQLUtils, Savepoint_manager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
 
-from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox, set_table
+from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox, set_table, name_column
 import Functions.Table_classes as TbC
 from Functions.Settings_manager import settings
 from Functions.Tree_classes import CheckableTreeModel, CheckableTreeCombobox, save_expanded_state, restore_expanded_state, get_selected_ids
@@ -127,8 +129,6 @@ class ColumnMapDialog(QDialog):
                 return combo.currentText()
         return "None"
 
-
-
 class ImportWizardDialog(QWidget):
     """
     Main window of the application:
@@ -163,11 +163,7 @@ class ImportWizardDialog(QWidget):
         self.combo_sheets = QComboBox()
         self.combo_sheets.setFixedWidth(150)
         top_layout.addWidget(self.combo_sheets)
-
-        self.btn_load_sheet = QPushButton("Load Sheet")
-        self.btn_load_sheet.setFixedWidth(100)
-        self.btn_load_sheet.clicked.connect(self.load_sheet)
-        top_layout.addWidget(self.btn_load_sheet)
+        self.combo_sheets.currentIndexChanged.connect(self.load_sheet)
 
         main_layout.addLayout(top_layout)
 
@@ -305,7 +301,7 @@ class ImportWizardDialog(QWidget):
             self.conc_error_combobox.addItem(display_text, backend_id)
         formats_layout.addWidget(QLabel("Concordance Error"))
         formats_layout.addWidget(self.conc_error_combobox)
-        self.conc_error_combobox.setCurrentText(settings.value('concordance_error_format_abbreviation'))
+        self.conc_error_combobox.setCurrentText(settings.value('concordance_format_abbreviation'))
 
         main_layout.addLayout(formats_layout)
 
@@ -402,6 +398,8 @@ class ImportWizardDialog(QWidget):
         self.left_table.cellChanged.connect(self.handle_cell_change)
         self.right_table.cellChanged.connect(self.handle_cell_change)
 
+        self.right_table.cellClicked.connect(self.on_cell_clicked)
+
         # self.right_table.cellClicked.connect(self.handle_cell_click)
 
         self.right_table.verticalHeader().sectionDoubleClicked.connect(self.handle_vertical_header_double_click)
@@ -424,6 +422,68 @@ class ImportWizardDialog(QWidget):
         self.combo_lab_facility_comboBox.disconnect()
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
+
+    def on_cell_clicked(self, row, column):
+        header_name = self.right_table.horizontalHeaderItem(column).text()
+
+        table_name_map = {
+            "Reference Display": '"References"',
+            "Instrument Name": "Instruments",
+            "Lab Facility Name": "LabFacilities",
+            "UPb Analysis Method Name": "UPbAnalysisMethods"
+        }
+
+        if header_name in table_name_map:
+            self.show_listwidget_popup(row, column, header_name, table_name_map[header_name])
+
+    def show_listwidget_popup(self, row, column, header_name, table_name):
+        popup = QDialog(self)
+        popup.setWindowTitle("Select a valid {} value".format(header_name))
+
+        list_widget = QListWidget(popup)
+
+        # Query database for ID and name
+        query = QSqlQuery(f"SELECT * FROM {table_name}")
+        data_map = {}  # Dictionary to store ID-Name mapping
+
+        while query.next():
+            item_id = query.value(0)
+            item_name = query.value(TbC.name_column(table_name))
+            data_map[item_name] = item_id  # Store in map
+            list_widget.addItem(item_name)  # Display only name in list
+
+        # Handle item selection
+        def on_item_clicked(item):
+            selected_name = item.text()
+            selected_id = data_map[selected_name]  # Get the associated ID
+            self.create_table_item(row, column, selected_name, selected_id, header_name, table_name)
+            popup.accept()
+
+        list_widget.itemClicked.connect(on_item_clicked)
+
+        # Set layout
+        layout = QVBoxLayout()
+        layout.addWidget(list_widget)
+        popup.setLayout(layout)
+
+        popup.exec()
+
+    def create_table_item(self, row, column, name, id, header_name, table_name):
+        """Creates a QTableWidgetItem with stored data."""
+        field_to_column = {
+            "ReferenceID": self.get_column_index("ReferenceID"),
+            "Reference Display": self.get_column_index("Reference Display"),
+            "InstrumentID": self.get_column_index("InstrumentID"),
+            "Instrument Name": self.get_column_index("Instrument Name"),
+            "LabFacilityID": self.get_column_index("LabFacilityID"),
+            "Lab Facility Name": self.get_column_index("Lab Facility Name"),
+            "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
+            "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name")
+        }
+        # item = QTableWidgetItem(name)
+
+        self.right_table.setItem(row, field_to_column[header_name], QTableWidgetItem(name))
+        self.right_table.setItem(row, field_to_column[header_name]+1, QTableWidgetItem(str(id)))
 
     def get_valid_unit_formats(self):
         age_unit_query = QSqlQuery()
@@ -783,90 +843,91 @@ class ImportWizardDialog(QWidget):
     #         table_name = column_to_table[column_name]
     #         # self.show_table_popup(table_name, row, column)
 
-    def show_table_popup(self, table_name, row, column_index):
-        """
-        Show a popup with a QSqlTableModel for the specified table.
-        Args:
-            @param table_name: Name of the database table to display.
-            @param column_index:
-            @param row:
-        """
-        if table_name == "Reference Display":
-            table_name = '"References"'
-        elif table_name == "Instrument Name":
-            table_name = "Instruments"
-        elif table_name == "Lab Facility Name":
-            table_name = "LabFacilities"
-        elif table_name == "UPb Analysis Method Name":
-            table_name = "UPbAnalysisMethods"
+    # def show_table_popup(self, table_name, row, column_index):
+    #     """
+    #     Show a popup with a QSqlTableModel for the specified table.
+    #     Args:
+    #         @param table_name: Name of the database table to display.
+    #         @param column_index:
+    #         @param row:
+    #     """
+    #     if table_name == "Reference Display":
+    #         table_name = '"References"'
+    #     elif table_name == "Instrument Name":
+    #         table_name = "Instruments"
+    #     elif table_name == "Lab Facility Name":
+    #         table_name = "LabFacilities"
+    #     elif table_name == "UPb Analysis Method Name":
+    #         table_name = "UPbAnalysisMethods"
+    #
+    #     # Create a QSqlTableModel and set the table
+    #     model = CheckableSqlTableModel()
+    #     model = set_table(model, table_name)
+    #
+    #     # Create a QTableView to display the model
+    #     combobox = QComboBox()
+    #     # combobox.set_single_click(True)
+    #     # combobox.set_line_edit_text(None)
+    #     # combobox.setModel(model)
+    #     combobox.addItems(["Edit", "Add"])
+    #
+    #     # combobox.closing.connect(lambda: self.set_cell_combobox(model, row, column_index))
+    #
+    #     self.right_table.setCellWidget(row, column_index, combobox)
+    #     self.right_table.setColumnWidth(column_index, 200)
 
-        # Create a QSqlTableModel and set the table
-        model = CheckableSqlTableModel()
-        model = set_table(model, table_name)
-
-        # Create a QTableView to display the model
-        combobox = CheckableComboBox()
-        combobox.set_single_click(True)
-        combobox.set_line_edit_text(None)
-        combobox.setModel(model)
-
-        combobox.closing.connect(lambda: self.set_cell_combobox(model, row, column_index))
-
-        self.right_table.setCellWidget(row, column_index, combobox)
-        self.right_table.setColumnWidth(column_index, 200)
-
-    def set_cell_combobox(self, model, row, column_index):
-        name_col = TbC.name_column(model.tableName())
-
-        field = self.right_table.horizontalHeaderItem(column_index).text().strip()
-
-        for temp_row in range(model.rowCount()):
-            name_index = model.index(temp_row, name_col)
-            id_index = model.index(temp_row, 0)
-
-            if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
-                checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
-                checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
-
-        field_to_column = {
-            "ReferenceID": self.get_column_index("ReferenceID"),
-            "Reference Display": self.get_column_index("Reference Display"),
-            "InstrumentID": self.get_column_index("InstrumentID"),
-            "Instrument Name": self.get_column_index("Instrument Name"),
-            "LabFacilityID": self.get_column_index("LabFacilityID"),
-            "Lab Facility Name": self.get_column_index("Lab Facility Name"),
-            "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
-            "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name"),
-        }
-
-        # Update all rows in the column
-        self.right_table.blockSignals(True)
-
-        if field == "Reference Display":
-            id_column = field_to_column.get("ReferenceID")
-        elif field == "Instrument Name":
-            id_column = field_to_column.get("InstrumentID")
-        elif field == "Lab Facility Name":
-            id_column = field_to_column.get("LabFacilityID")
-        elif field == "UPb Analysis Method Name":
-            id_column = field_to_column.get("UPbAnalysisMethodID")
-        else:
-            id_column = None
-
-        name_column = field_to_column.get(field)
-
-        item = self.right_table.item(row, id_column)
-        if item is None:
-            item = QTableWidgetItem()
-            self.right_table.setItem(row, id_column, item)
-        item.setText(str(checked_item_id))
-
-        item = self.right_table.item(row, name_column)
-        if item is None:
-            item = QTableWidgetItem()
-            self.right_table.setItem(row, name_column, item)
-        item.setText(str(checked_item_name))
-        self.right_table.blockSignals(False)
+    # def set_cell_combobox(self, model, row, column_index):
+    #     name_col = TbC.name_column(model.tableName())
+    #
+    #     field = self.right_table.horizontalHeaderItem(column_index).text().strip()
+    #
+    #     for temp_row in range(model.rowCount()):
+    #         name_index = model.index(temp_row, name_col)
+    #         id_index = model.index(temp_row, 0)
+    #
+    #         if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
+    #             checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
+    #             checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
+    #
+    #     field_to_column = {
+    #         "ReferenceID": self.get_column_index("ReferenceID"),
+    #         "Reference Display": self.get_column_index("Reference Display"),
+    #         "InstrumentID": self.get_column_index("InstrumentID"),
+    #         "Instrument Name": self.get_column_index("Instrument Name"),
+    #         "LabFacilityID": self.get_column_index("LabFacilityID"),
+    #         "Lab Facility Name": self.get_column_index("Lab Facility Name"),
+    #         "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
+    #         "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name"),
+    #     }
+    #
+    #     # Update all rows in the column
+    #     self.right_table.blockSignals(True)
+    #
+    #     if field == "Reference Display":
+    #         id_column = field_to_column.get("ReferenceID")
+    #     elif field == "Instrument Name":
+    #         id_column = field_to_column.get("InstrumentID")
+    #     elif field == "Lab Facility Name":
+    #         id_column = field_to_column.get("LabFacilityID")
+    #     elif field == "UPb Analysis Method Name":
+    #         id_column = field_to_column.get("UPbAnalysisMethodID")
+    #     else:
+    #         id_column = None
+    #
+    #     name_column = field_to_column.get(field)
+    #
+    #     item = self.right_table.item(row, id_column)
+    #     if item is None:
+    #         item = QTableWidgetItem()
+    #         self.right_table.setItem(row, id_column, item)
+    #     item.setText(str(checked_item_id))
+    #
+    #     item = self.right_table.item(row, name_column)
+    #     if item is None:
+    #         item = QTableWidgetItem()
+    #         self.right_table.setItem(row, name_column, item)
+    #     item.setText(str(checked_item_name))
+    #     self.right_table.blockSignals(False)
 
 
     def add_column(self, column_index=None, before=False, field=None):
@@ -928,13 +989,8 @@ class ImportWizardDialog(QWidget):
         elif selected_field == "UPb Analysis Method Name":
             field = "UPbAnalysisMethodID"
 
-        if selected_field in ["Reference Display", "Instrument Name", "Lab Facility Name",
-                              "UPb Analysis Method Name"]:
-            for row in range(self.right_table.rowCount()):
-                self.show_table_popup(selected_field, row, column_index)
-        else:
-            for row in range(self.right_table.rowCount()):
-                self.right_table.setItem(row, column_index, QTableWidgetItem(""))
+        for row in range(self.right_table.rowCount()):
+            self.right_table.setItem(row, column_index, QTableWidgetItem(""))
         self.right_table.blockSignals(False)
 
         #add additional ID column if column is References, Instruments, Analysis Methods, or Lab Facilities
@@ -1107,14 +1163,22 @@ class ImportWizardDialog(QWidget):
             self.selected_file_path = path
             self.label_file.setText(f"Selected File: {os.path.basename(path)}")
             try:
-                self.wb = load_workbook(path, data_only=True)
+                self.wb = load_workbook(path, data_only=True, rich_text=True)
                 self.combo_sheets.clear()
                 self.combo_sheets.addItems(self.wb.sheetnames)
-                self.load_sheet()
+                # self.load_sheet(bypass=True)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to read Excel file:\n{e}")
 
-    def load_sheet(self):
+    def load_sheet(self, bypass=False):
+
+        if bypass:
+            if QMessageBox.question(self, "Confirmation", "Loading this sheet will clear all existing data. Continue?",
+                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                 QMessageBox.StandardButton.Yes) == QMessageBox.StandardButton.No:
+                return
+
+
         if not hasattr(self, 'selected_file_path') or not self.selected_file_path:
             QMessageBox.warning(self, "No File", "Please select an Excel file first.")
             return
@@ -1124,7 +1188,7 @@ class ImportWizardDialog(QWidget):
             return
 
         try:
-            self.df = pd.read_excel(self.selected_file_path, sheet_name=sheet_name, engine="openpyxl")
+            self.df = pd.read_excel(self.selected_file_path, header=None, sheet_name=sheet_name, engine="openpyxl")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to parse sheet with pandas:\n{e}")
             return
@@ -1274,14 +1338,14 @@ class ImportWizardDialog(QWidget):
             table = model.tableName
         else:
             table = model.tableName()
-        name_col = TbC.name_column(table)
+        name_column = TbC.name_column(table)
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None
         checked_item_id = None
         if table != '':
             for row in range(model.rowCount()):
-                name_index = model.index(row, name_col)
+                name_index = model.index(row, name_column)
                 id_index = model.index(row, 0)
 
                 if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
@@ -1346,38 +1410,15 @@ class ImportWizardDialog(QWidget):
             else:
                 id_item.setText(str(checked_item_id))
 
-            name_item: CheckableComboBox = self.right_table.cellWidget(row, name_column)
-
-            def get_deep_size(obj, seen=None):
-                """Recursively calculates the memory size of an object."""
-                if seen is None:
-                    seen = set()
-
-                obj_id = id(obj)
-                if obj_id in seen:
-                    return 0  # Avoid double-counting
-                seen.add(obj_id)
-
-                size = sys.getsizeof(obj)
-                if isinstance(obj, dict):
-                    size += sum(get_deep_size(k, seen) + get_deep_size(v, seen) for k, v in obj.items())
-                elif isinstance(obj, (list, tuple, set, frozenset)):
-                    size += sum(get_deep_size(i, seen) for i in obj)
-
-                return size
-            print('name_item size is', get_deep_size(name_item))
-            #set all rows in each combobox to unchecked
-            for modelrow in range(name_item.model().rowCount()):
-                modelindex = name_item.model().index(modelrow, name_col)
-                name_item.model().setData(modelindex, QtCore.Qt.CheckState.Unchecked, QtCore.Qt.ItemDataRole.CheckStateRole)
-
-            index = name_item.model().index(source_checked_row, name_col)
-            name_item.model().setData(index, QtCore.Qt.CheckState.Checked, QtCore.Qt.ItemDataRole.CheckStateRole)
-            name_item.set_line_edit_text(checked_item_name)
-
+        for row in range(self.right_table.rowCount()):
+            id_item = self.right_table.item(row, name_column)
+            if id_item is None:
+                self.right_table.setItem(row, name_column, QTableWidgetItem(str(checked_item_name)))
+            else:
+                id_item.setText(str(checked_item_name))
 
         self.right_table.blockSignals(False)
-
+        # self.right_table.hideColumn(id_column)
         QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name)}' for {field}.")
 
     def get_column_index(self, header_name):

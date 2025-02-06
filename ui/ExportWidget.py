@@ -365,11 +365,9 @@ class ExportWidget(QWidget):
             flow_layout.setContentsMargins(0, 0, 0, 0)
 
             for field in field_items:
-                label = QLabel(field)
-                checkbox = QCheckBox()
+                checkbox = QCheckBox(field)
 
                 # Prevent expanding
-                label.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
                 checkbox.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
 
                 # Group label and checkbox
@@ -378,7 +376,6 @@ class ExportWidget(QWidget):
                 hbox_layout.setContentsMargins(0, 0, 0, 0)
                 hbox_layout.setSpacing(8)
                 hbox_layout.addWidget(checkbox)
-                hbox_layout.addWidget(label)
                 group_widget.setLayout(hbox_layout)
 
                 flow_layout.addWidget(group_widget)
