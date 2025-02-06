@@ -133,6 +133,7 @@ def SampleEditViewQuery():
                 FROM Samples
                 {SQLUtils.age_signature_join}
                 {SQLUtils.column_join}
+                {SQLUtils.column_unit_join}
                 {SQLUtils.region_join}
                 {SQLUtils.rock_type_join}
                 {SQLUtils.sample_context_join}
@@ -143,7 +144,9 @@ def SampleEditViewQuery():
                 {SQLUtils.sample_age_join}
                 {SQLUtils.sample_age_left_joins}
                 {SQLUtils.gps_sample_join}
+                {SQLUtils.gps_sample_left_joins}
                 {SQLUtils.gps_column_join}
+                {SQLUtils.gps_column_left_joins}
                 {SQLUtils.sample_aliquot_join}
                 {SQLUtils.aliquot_context_join}
                 {SQLUtils.aliquot_spot_join}
@@ -391,15 +394,15 @@ def UPbViewQuery():
         if f'UPbAnalyses."{header}"' in columns:
             continue
         if 'Calculated' in header:
-            columns.append(f'UPbAnalyses."{header}"')
+            columns.append(f'UPbAnalyses."{header}" AS "{header}"')
             if f'{header}Error' in headers:
-                columns.append(f'UPbAnalyses."{header}Error"')
+                columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
         elif f'Calculated{header}' in headers:
             pass
         elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
             pass
         else:
-            columns.append(f'UPbAnalyses."{header}"')
+            columns.append(f'UPbAnalyses."{header}" AS "{header}"')
     query_columns = ',\n'.join(columns)
 
     upb_query = f'''
@@ -449,9 +452,9 @@ def UPbEditViewQuery():
         elif 'Calculated' in header:
             pass
         else:
-            columns.append(f'UPbAnalyses."{header}"')
+            columns.append(f'UPbAnalyses."{header}" AS "{header}"')
             if f'{header}Error' in headers:
-                columns.append(f'UPbAnalyses."{header}Error"')
+                columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
     query_columns = ',\n'.join(columns)
 
     upb_query = f'''
@@ -528,8 +531,10 @@ def ColumnEditViewQuery():
                     FROM Columns
                     {SQLUtils.column_units_join}
                     {SQLUtils.gps_column_join}
+                    {SQLUtils.gps_column_left_joins}
                     GROUP BY ColumnName
                     '''
+    # print(column_query)
     return column_query
 
 def ColumnIfNullQuery():

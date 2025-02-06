@@ -2,42 +2,42 @@ from Functions.Settings_manager import settings
 from PyQt6.QtSql import QSqlQueryModel
 
 # ID columns
-qsample_id = 'Samples.SampleID'
-qaliquot_id = 'Aliquots.AliquotID'
-qspot_id = 'Spots.SpotID'
-qupb_id = 'UPbAnalyses.UPbAnalysisID'
+qsample_id = 'Samples.SampleID AS SampleID'
+qaliquot_id = 'Aliquots.AliquotID AS AliquotID'
+qspot_id = 'Spots.SpotID AS SpotID'
+qupb_id = 'UPbAnalyses.UPbAnalysisID AS UPbAnalysisID'
 
 
 # Sample view columns
-qsample_name = 'Samples.SampleName'
-qigsn = 'Samples.SampleIGSN'
-qgps = 'GPSLocations.GPSLocationConverted'
-qgps_display = 'GPSLocations.GPSLocationDisplay'
-qsample_elev = 'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError'
-qsample_elev_display = 'GPSLocations.GPSElev || "±" || GPSLocations.GPSElevError'
-qsample_elev_unit = 'SampleElevationUnits.DistanceUnitAbbreviation'
-qsample_column_data = 'Samples.CalculatedHeightDepth || "±" || Samples.CalculatedHeightDepthError'
-qsample_column_data_display = 'Samples.HeightDepth || "±" || Samples.HeightDepthError'
-qsample_column_data_unit = 'ColumnHeightDepthUnits.DistanceUnitAbbreviation'
-qsample_age = 'SampleAges.SampleAgeDisplay'
-qsample_age_display = '(ifnull(DirectAge, "") || "±" || ifnull(DirectAgeError, "") || ", " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, "")'
-qage_range = 'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ")'
-qage_range_display = 'COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " ")'
-qage_unit = 'DirectAgeUnitAbbreviation'
-qage_error_format = 'DirectAgeErrorFormatAbbreviation'
-qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName)'
-qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName)'
-qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)'
-qsample_description = 'Samples.SampleDescription'
-qage_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName)'
-qregions = 'GROUP_CONCAT(DISTINCT RegionName)'
-qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName)'
-qsample_context = 'GROUP_CONCAT(DISTINCT SampleContextName)'
-qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName)'
-qsettings = 'GROUP_CONCAT(DISTINCT SettingName)'
-qunits = 'GROUP_CONCAT(DISTINCT UnitName)'
-qsample_created = 'Samples.SampleCreated'
-qsample_modified = 'Samples.SampleModified'
+qsample_name = 'Samples.SampleName AS SampleName'
+qigsn = 'Samples.SampleIGSN AS SampleIGSN'
+qgps = 'GPSLocations.GPSLocationConverted AS GPSSampleLocationCalculated'
+qgps_display = 'GPSLocations.GPSLocationDisplay AS SampleGPSLocationDisplay'
+qsample_elev = 'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError AS SampleElevationCalculated'
+qsample_elev_display = 'GPSLocations.GPSElev || "±" || GPSLocations.GPSElevError AS SampleElevation'
+qsample_elev_unit = 'SampleElevationUnits.DistanceUnitAbbreviation AS SampleElevationUnitAbbreviation'
+qsample_column_data = 'Samples.CalculatedHeightDepth || "±" || Samples.CalculatedHeightDepthError AS ColumnHeightDepthCalculated'
+qsample_column_data_display = 'Samples.HeightDepth || "±" || Samples.HeightDepthError AS ColumnHeightDepth'
+qsample_column_data_unit = 'ColumnHeightDepthUnits.DistanceUnitAbbreviation AS ColumnHeightDepthUnitAbbreviation'
+qsample_age = 'SampleAges.SampleAgeDisplay AS SampleAgeCalculated'
+qsample_age_display = '(ifnull(DirectAge, "") || "±" || ifnull(DirectAgeError, "") || ", " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, "") AS SampleAge'
+qage_range = 'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " ") AS SampleAgeRangeCalculated'
+qage_range_display = 'COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " ") AS SampleAgeRange'
+qage_unit = 'DirectAgeUnitAbbreviation AS SampleAgeUnitAbbreviation'
+qage_error_format = 'DirectAgeErrorFormatAbbreviation AS SampleAgeErrorFormatAbbreviation'
+qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName) AS SampleAgeConstraint'
+qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName) AS SampleAgeInterpretation'
+qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay) AS SampleAgeReference'
+qsample_description = 'Samples.SampleDescription AS SampleDescription'
+qage_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) AS SampleAgeSignature'
+qregions = 'GROUP_CONCAT(DISTINCT RegionName) AS RegionName'
+qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) AS RockTypeName'
+qsample_context = 'GROUP_CONCAT(DISTINCT SampleContextName) AS SampleContextName'
+qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) AS SamplingMethodName'
+qsettings = 'GROUP_CONCAT(DISTINCT SettingName) AS SettingName'
+qunits = 'GROUP_CONCAT(DISTINCT UnitName) AS UnitName'
+qsample_created = 'Samples.SampleCreated AS SampleCreated'
+qsample_modified = 'Samples.SampleModified AS SampleModified'
 
 # Samples, include null values
 qsample_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(Samples.SampleID,"Null"))'
@@ -99,23 +99,23 @@ qsettings_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SettingName,"Null"))'
 qunits_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(UnitName,"Null"))'
 
 #Columns, skip null values
-qcolumn_names = 'GROUP_CONCAT(DISTINCT ColumnName)'
-qcolumn_data = f'HeightDepth || "±" || HeightDepthError'
-qcolumn_gps = f'''ColumnGPS.GPSLocationConverted'''
-qcolumn_calc_total_height_depth = f'Columns.CalculatedColumnTotalHeightDepth'
-qcolumn_total_height_depth = f'Columns.ColumnTotalHeightDepth'
-qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation'
-qcolumn_gps_display = 'ColumnGPS.GPSLocationDisplay'
-qcolumn_elev = 'ColumnGPS.CalculatedGPSElev || "±" || ColumnGPS.CalculatedGPSElevError'
-qcolumn_elev_display = 'ColumnGPS.GPSElev || "±" || ColumnGPS.GPSElevError'
-qcolumn_elev_unit = 'ColumnElevationUnits.DistanceUnitAbbreviation'
-qcolumn_description = 'ColumnDescription'
-qcolumn_created = 'ColumnCreated'
-qcolumn_modified = 'ColumnModified'
+qcolumn_names = 'GROUP_CONCAT(DISTINCT ColumnName) AS ColumnName'
+qcolumn_data = f'HeightDepth || "±" || HeightDepthError AS ColumnHeightDepth'
+qcolumn_gps = f'ColumnGPS.GPSLocationConverted AS ColumnGPSLocationCalculated'
+qcolumn_calc_total_height_depth = f'Columns.CalculatedColumnTotalHeightDepth AS ColumnTotalHeightDepthCalculated'
+qcolumn_total_height_depth = f'Columns.ColumnTotalHeightDepth AS ColumnTotalHeightDepth'
+qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation AS ColumnTotalHeightDepthUnitAbbreviation'
+qcolumn_gps_display = 'ColumnGPS.GPSLocationDisplay AS ColumnGPSLocationDisplay'
+qcolumn_elev = 'ColumnGPS.CalculatedGPSElev || "±" || ColumnGPS.CalculatedGPSElevError AS ColumnElevationCalculated'
+qcolumn_elev_display = 'ColumnGPS.GPSElev || "±" || ColumnGPS.GPSElevError AS ColumnElevation'
+qcolumn_elev_unit = 'ColumnElevationUnits.DistanceUnitAbbreviation AS ColumnElevationUnitAbbreviation'
+qcolumn_description = 'ColumnDescription AS ColumnDescription'
+qcolumn_created = 'ColumnCreated AS ColumnCreated'
+qcolumn_modified = 'ColumnModified AS ColumnModified'
 
 # Columns, include null values
-qcolumn_id = 'Columns.ColumnID'
-qcolumn_name = 'Columns.ColumnName'
+qcolumn_id = 'Columns.ColumnID AS ColumnID'
+qcolumn_name = 'Columns.ColumnName AS ColumnName'
 qcolumn_total_height_depth_ifnull = f'GROUP_CONCAT( DISTINCT ifnull(Columns.CalculatedColumnTotalHeightDepth)"'
 qcolumn_gps_id_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnGPS.BaseGPSLocationID,"Null"))'
 qcolumn_names_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(Columns.ColumnName,"Null"))'
@@ -143,21 +143,21 @@ qcolumn_description_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(ColumnDescription,"Nu
 
 
 # Aliquot view columns
-qaliquot_count = 'COUNT(DISTINCT Aliquots.AliquotID)'
-qaliquot = 'AliquotName'
-qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName)'
-qaliquot_parent_id = 'ParentAliquotID'
-qaliquot_parent_row = 'AliquotParentRow'
-qaliquot_sample = 'Samples.SampleName'
-qaliquot_contexts = 'GROUP_CONCAT(DISTINCT AliquotContextName)'
-qaliquot_spots = 'GROUP_CONCAT(DISTINCT SpotName)'
-qaliquot_spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName)'
-qaliquot_spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName)'
-qaliquot_references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay)'
-qaliquot_upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)'
-qaliquot_labs = 'GROUP_CONCAT(DISTINCT LabFacilityName)'
-qaliquot_created = 'AliquotCreated'
-qaliquot_modified = 'AliquotModified'
+qaliquot_count = 'COUNT(DISTINCT Aliquots.AliquotID) AS AliquotCount'
+qaliquot = 'AliquotName AS AliquotName'
+qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName) AS AliquotName'
+qaliquot_parent_id = 'ParentAliquotID AS ParentAliquotID'
+qaliquot_parent_row = 'AliquotParentRow AS AliquotParentRow'
+qaliquot_sample = 'Samples.SampleName AS SampleName'
+qaliquot_contexts = 'GROUP_CONCAT(DISTINCT AliquotContextName) AS AliquotContextName'
+qaliquot_spots = 'GROUP_CONCAT(DISTINCT SpotName) AS SpotName'
+qaliquot_spot_context = 'GROUP_CONCAT(DISTINCT SpotContextName) AS SpotContextName'
+qaliquot_spot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) AS SpotCompositionName'
+qaliquot_references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) AS UPb Reference'
+qaliquot_upb_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) AS UPbAnalysisMethodName'
+qaliquot_labs = 'GROUP_CONCAT(DISTINCT LabFacilityName) AS LabFacilityName'
+qaliquot_created = 'AliquotCreated AS AliquotCreated'
+qaliquot_modified = 'AliquotModified AS AliquotModified'
 
 # Aliquot, include null values
 qaliquots_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(AliquotName,"Null"))'
@@ -165,13 +165,13 @@ qaliquot_context_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(AliquotContextName,"Null
 
 
 # Spot view columns
-qspot_count = 'COUNT(DISTINCT Spots.SpotID)'
-qspot = 'SpotName'
-qspots = 'GROUP_CONCAT(DISTINCT SpotName)'
-qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName)'
-qspot_contexts = 'GROUP_CONCAT(DISTINCT SpotContextName)'
-qspot_created = 'SpotCreated'
-qspot_modified = 'SpotModified'
+qspot_count = 'COUNT(DISTINCT Spots.SpotID) AS SpotCount'
+qspot = 'SpotName AS SpotName'
+qspots = 'GROUP_CONCAT(DISTINCT SpotName) AS SpotName'
+qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) AS SpotCompositionName'
+qspot_contexts = 'GROUP_CONCAT(DISTINCT SpotContextName) AS SpotContextName'
+qspot_created = 'SpotCreated AS SpotCreated'
+qspot_modified = 'SpotModified AS SpotModified'
 
 # Spots, include null values
 qspots_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SpotName,"Null"))'
@@ -179,132 +179,132 @@ qspot_contexts_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SpotContextName,"Null"))'
 qspot_compositions_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(SpotCompositionName,"Null"))'
 
 # UPb view columns
-qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)'  # accepted/total
-qupb_references = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)'
-qupb_lab_facilities = 'GROUP_CONCAT(DISTINCT LabFacilityName)'
-qupb_instruments = 'GROUP_CONCAT(DISTINCT InstrumentName)'
-qupb_analysis_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)'
-qupb_204cps = 'UPbAnalyses."Pb204cps"'
-qupb_206cps = 'UPbAnalyses."Pb206cps"'
-qupb_207cps = 'UPbAnalyses."Pb207cps"'
-qupb_208cps = 'UPbAnalyses."Pb208cps"'
-qupb_pbcps = 'UPbAnalyses."Pb*cps"'
-qupb_232cps = 'UPbAnalyses."Th232cps"'
-qupb_235cps = 'UPbAnalyses."U235cps"'
-qupb_238cps = 'UPbAnalyses."U238cps"'
-qupb_uppm = 'UPbAnalyses."Uppm"'
-qupb_thppm = 'UPbAnalyses."Thppm"'
-qupb_uth = 'UPbAnalyses."U/Th"'
-qupb_thu = 'UPbAnalyses."Th/U"'
-qupb_calc_uth = 'UPbAnalyses."CalculatedU/Th"'
-qupb_calc_thu = 'UPbAnalyses."CalculatedTh/U"'
-qupb_206207 = 'UPbAnalyses."206Pb/207Pb"'
-qupb_206207_error = 'UPbAnalyses."206Pb/207PbError"'
-qupb_calc_206207 = 'UPbAnalyses."Calculated206Pb/207Pb"'
-qupb_calc_206207_error = 'UPbAnalyses."Calculated206Pb/207PbError"'
-qupb_207206 = 'UPbAnalyses."207Pb/206Pb"'
-qupb_207206_error = 'UPbAnalyses."207Pb/206PbError"'
-qupb_calc_207206 = 'UPbAnalyses."Calculated207Pb/206Pb"'
-qupb_calc_207206_error = 'UPbAnalyses."Calculated207Pb/206PbError"'
-qupb_207235 = 'UPbAnalyses."207Pb/235U"'
-qupb_207235_error = 'UPbAnalyses."207Pb/235UError"'
-qupb_calc_207235 = 'UPbAnalyses."Calculated207Pb/225U"'
-qupb_calc_207235_error = 'UPbAnalyses."Calculated207Pb/235UError"'
-qupb_235207 = 'UPbAnalyses."235U/207Pb"'
-qupb_235207_error = 'UPbAnalyses."235U/207PbError"'
-qupb_calc_235207 = 'UPbAnalyses."Calculated235U/207Pb"'
-qupb_calc_235207_error = 'UPbAnalyses."Calculated235U/207PbError"'
-qupb_206238 = 'UPbAnalyses."206Pb/238U"'
-qupb_206238_error = 'UPbAnalyses."206Pb/238UError"'
-qupb_calc_206238 = 'UPbAnalyses."Calculated206Pb/238U"'
-qupb_calc_206238_error = 'UPbAnalyses."Calculated206Pb/238UError"'
-qupb_238206 = 'UPbAnalyses."238U/206Pb"'
-qupb_238206_error = 'UPbAnalyses."238U/206PbError"'
-qupb_calc_238206 = 'UPbAnalyses."Calculated238U/206Pb"'
-qupb_calc_238206_error = 'UPbAnalyses."Calculated238U/206PbError"'
-qupb_208232 = 'UPbAnalyses."208Pb/232Th"'
-qupb_208232_error = 'UPbAnalyses."208Pb/232ThError"'
-qupb_calc_208232 = 'UPbAnalyses."Calculated208Pb/232Th"'
-qupb_calc_208232_error = 'UPbAnalyses."Calculated208Pb/232ThError"'
-qupb_232208 = 'UPbAnalyses."232Th/208Pb"'
-qupb_232208_error = 'UPbAnalyses."232Th/208PbError"'
-qupb_calc_232208 = 'UPbAnalyses."Calculated232Th/208Pb"'
-qupb_calc_232208_error = 'UPbAnalyses."Calculated232Th/208PbError"'
-qupb_238232 = 'UPbAnalyses."238U/232Th"'
-qupb_238232_error = 'UPbAnalyses."238U/232ThError"'
-qupb_calc_238232 = 'UPbAnalyses."Calculated238U/232Th"'
-qupb_calc_238232_error = 'UPbAnalyses."Calculated238U/232ThError"'
-qupb_232238 = 'UPbAnalyses."232Th/238U"'
-qupb_232238_error = 'UPbAnalyses."232Th/238UError"'
-qupb_calc_232238 = 'UPbAnalyses."Calculated232Th/238U"'
-qupb_calc_232238_error = 'UPbAnalyses."Calculated232Th/238UError"'
-qupb204238 = 'UPbAnalyses."204Pb/238U"'
-qupb204238_error = 'UPbAnalyses."204Pb/238UError"'
-qupb_calc_204238 = 'UPbAnalyses."Calculated204Pb/238U"'
-qupb_calc_204238_error = 'UPbAnalyses."Calculated204Pb/238UError"'
-qupb_2382204 = 'UPbAnalyses."238U/204Pb"'
-qupb_2382204_error = 'UPbAnalyses."238U/204PbError"'
-qupb_calc_238204 = 'UPbAnalyses."Calculated238U/204Pb"'
-qupb_calc_238204_error = 'UPbAnalyses."Calculated238U/204PbError"'
-qupb_206204 = 'UPbAnalyses."206Pb/204Pb"'
-qupb_206204_error = 'UPbAnalyses."206Pb/204PbError"'
-qupb_calc_206204 = 'UPbAnalyses."Calculated206Pb/204Pb"'
-qupb_calc_206204_error = 'UPbAnalyses."Calculated206Pb/204PbError"'
-qupb_204206 = 'UPbAnalyses."204Pb/206Pb"'
-qupb_204206_error = 'UPbAnalyses."204Pb/206PbError"'
-qupb_calc_204206 = 'UPbAnalyses."Calculated204Pb/206Pb"'
-qupb_calc_204206_error = 'UPbAnalyses."Calculated204Pb/206PbError"'
-qupb_207204 = 'UPbAnalyses."207Pb/204Pb"'
-qupb_207204_error = 'UPbAnalyses."207Pb/204PbError"'
-qupb_calc_207204 = 'UPbAnalyses."Calculated207Pb/204Pb"'
-qupb_calc_207204_error = 'UPbAnalyses."Calculated207Pb/204PbError"'
-qupb_204207 = 'UPbAnalyses."204Pb/207Pb"'
-qupb_204207_error = 'UPbAnalyses."204Pb/207PbError"'
-qupb_calc_204207 = 'UPbAnalyses."Calculated204Pb/207Pb"'
-qupb_calc_204207_error = 'UPbAnalyses."Calculated204Pb/207PbError"'
-upb_208204 = 'UPbAnalyses."208Pb/204Pb"'
-qupb_208204_error = 'UPbAnalyses."208Pb/204PbError"'
-qupb_calc_208204 = 'UPbAnalyses."Calculated208Pb/204Pb"'
-qupb_calc_208204_error = 'UPbAnalyses."Calculated208Pb/204PbError"'
-upb_204208 = 'UPbAnalyses."204Pb/208Pb"'
-upb_204208_error = 'UPbAnalyses."204Pb/208PbError"'
-qupb_calc_204208 = 'UPbAnalyses."Calculated204Pb/208Pb"'
-qupb_calc_204208_error = 'UPbAnalyses."Calculated204Pb/208PbError"'
-qupb_ratio_error_formats = 'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)'
-qupb_error_corr = 'UPbAnalyses.ErrorCorr'
-qupb_207206_age = 'UPbAnalyses."207Pb/206PbAge"'
-qupb_207206_age_error = 'UPbAnalyses."207Pb/206PbAgeError"'
-qupb_calc_207206_age = 'UPbAnalyses."Calculated207Pb/206PbAge"'
-qupb_calc_207206_age_error = 'UPbAnalyses."Calculated207Pb/206PbAgeError'
-qupb_207235_age = 'UPbAnalyses."207Pb/235UAge"'
-qupb_207235_age_error = 'UPbAnalyses."207Pb/235UAgeError"'
-qupb_calc_207235_age = 'UPbAnalyses."Calculated207Pb/235UAge"'
-qupb_calc_207235_age_error = 'UPbAnalyses."Calculated207Pb/235UAgeError"'
-qupb_206238_age = 'UPbAnalyses."206Pb/238UAge"'
-qupb_206238_age_error = 'UPbAnalyses."206Pb/238UAgeError"'
-qupb_calc_206238_age = 'UPbAnalyses."Calculated206Pb/238UAge"'
-qupb_calc_206238_age_error = 'UPbAnalyses."Calculated206Pb/238UAgeError"'
-qupb_208232_age = 'UPbAnalyses."208Pb/232ThAge"'
-qupb_208232_age_error = 'UPbAnalyses."208Pb/232ThAgeError"'
-qupb_calc_208232_age = 'UPbAnalyses."Calculated208Pb/232ThAge"'
-qupb_calc_208232_age_error = 'UPbAnalyses."Calculated208Pb/232ThAgeError"'
-qupb_best_age = 'UPbAnalyses.BestAge'
-qupb_best_age_error = 'UPbAnalyses.BestAgeError'
-qupb_calc_best_age = 'UPbAnalyses."CalculatedBestAge"'
-qupb_calc_best_age_error = 'UPbAnalyses."CalculatedBestAgeError"'
-qupb_age_error_formats = 'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)'
-qupb_age_units = 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)'
-qupb_age_interpretations = 'GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInterpretationName)'
-qupb_concordance = 'UPbAnalyses.Concordance'
-qupb_calc_concordance = 'UPbAnalyses."CalculatedConcordance"'
-qconcordance_formats = 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)'
-qspot_size = 'UPbAnalyses.SpotSize'
-qspot_sizes = f'GROUP_CONCAT(DISTINCT CalculatedSpotSize)'
-qspot_size_unit = 'GROUP_CONCAT(DISTINCT SpotSizeUnit.DistanceUnitAbbreviation)'
-qupb_rejected = 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END'
-qupb_rejection_reasons = 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)'
-qupb_created = 'UPbAnalysisCreated'
-qupb_modified = 'UPbAnalysisModified'
+qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalayses"'  # accepted/total
+qupb_references = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay) AS UPbReference'
+qupb_lab_facilities = 'GROUP_CONCAT(DISTINCT LabFacilityName) AS LabFacilityName'
+qupb_instruments = 'GROUP_CONCAT(DISTINCT InstrumentName) AS InstrumentName'
+qupb_analysis_methods = 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName) AS UPbAnalysisMethodName'
+qupb_204cps = 'UPbAnalyses."Pb204cps" AS "Pb204cps"'
+qupb_206cps = 'UPbAnalyses."Pb206cps" AS "Pb206cps"'
+qupb_207cps = 'UPbAnalyses."Pb207cps" AS "Pb207cps"'
+qupb_208cps = 'UPbAnalyses."Pb208cps" AS "Pb208cps"'
+qupb_pbcps = 'UPbAnalyses."Pb*cps" AS "Pb*cps"'
+qupb_232cps = 'UPbAnalyses."Th232cps" AS "Th232cps"'
+qupb_235cps = 'UPbAnalyses."U235cps" AS "U235cps"'
+qupb_238cps = 'UPbAnalyses."U238cps" AS "U238cps"'
+qupb_uppm = 'UPbAnalyses."Uppm" AS "Uppm"'
+qupb_thppm = 'UPbAnalyses."Thppm" AS "Thppm"'
+qupb_uth = 'UPbAnalyses."U/Th" AS "U/Th"'
+qupb_thu = 'UPbAnalyses."Th/U" AS "Th/U"'
+qupb_calc_uth = 'UPbAnalyses."CalculatedU/Th" AS "CalculatedU/Th"'
+qupb_calc_thu = 'UPbAnalyses."CalculatedTh/U" AS "CalculatedTh/U"'
+qupb_206207 = 'UPbAnalyses."206Pb/207Pb" AS "206Pb/207Pb"'
+qupb_206207_error = 'UPbAnalyses."206Pb/207PbError" AS "206Pb/207PbError"'
+qupb_calc_206207 = 'UPbAnalyses."Calculated206Pb/207Pb" AS "Calculated206Pb/207Pb"'
+qupb_calc_206207_error = 'UPbAnalyses."Calculated206Pb/207PbError" AS "Calculated206Pb/207PbError"'
+qupb_207206 = 'UPbAnalyses."207Pb/206Pb" AS "207Pb/206Pb"'
+qupb_207206_error = 'UPbAnalyses."207Pb/206PbError" AS "207Pb/206PbError"'
+qupb_calc_207206 = 'UPbAnalyses."Calculated207Pb/206Pb" AS "Calculated207Pb/206Pb"'
+qupb_calc_207206_error = 'UPbAnalyses."Calculated207Pb/206PbError" AS "Calculated207Pb/206PbError"'
+qupb_207235 = 'UPbAnalyses."207Pb/235U" AS "207Pb/235U"'
+qupb_207235_error = 'UPbAnalyses."207Pb/235UError" AS "207Pb/235UError"'
+qupb_calc_207235 = 'UPbAnalyses."Calculated207Pb/225U" AS "Calculated207Pb/235U"'
+qupb_calc_207235_error = 'UPbAnalyses."Calculated207Pb/235UError" AS "Calculated207Pb/235UError"'
+qupb_235207 = 'UPbAnalyses."235U/207Pb" AS "235U/207Pb"'
+qupb_235207_error = 'UPbAnalyses."235U/207PbError" AS "235U/207PbError"'
+qupb_calc_235207 = 'UPbAnalyses."Calculated235U/207Pb" AS "Calculated235U/207Pb"'
+qupb_calc_235207_error = 'UPbAnalyses."Calculated235U/207PbError" AS "Calculated235U/207PbError"'
+qupb_206238 = 'UPbAnalyses."206Pb/238U" AS "206Pb/238U"'
+qupb_206238_error = 'UPbAnalyses."206Pb/238UError" AS "206Pb/238UError"'
+qupb_calc_206238 = 'UPbAnalyses."Calculated206Pb/238U" AS "Calculated206Pb/238U"'
+qupb_calc_206238_error = 'UPbAnalyses."Calculated206Pb/238UError" AS "Calculated206Pb/238UError"'
+qupb_238206 = 'UPbAnalyses."238U/206Pb" AS "238U/206Pb"'
+qupb_238206_error = 'UPbAnalyses."238U/206PbError" AS "238U/206PbError"'
+qupb_calc_238206 = 'UPbAnalyses."Calculated238U/206Pb" AS "Calculated238U/206Pb"'
+qupb_calc_238206_error = 'UPbAnalyses."Calculated238U/206PbError" AS "Calculated238U/206PbError"'
+qupb_208232 = 'UPbAnalyses."208Pb/232Th" AS "208Pb/232Th"'
+qupb_208232_error = 'UPbAnalyses."208Pb/232ThError" AS "208Pb/232ThError"'
+qupb_calc_208232 = 'UPbAnalyses."Calculated208Pb/232Th" AS "Calculated208Pb/232Th"'
+qupb_calc_208232_error = 'UPbAnalyses."Calculated208Pb/232ThError" AS "Calculated208Pb/232ThError"'
+qupb_232208 = 'UPbAnalyses."232Th/208Pb" AS "232Th/208Pb"'
+qupb_232208_error = 'UPbAnalyses."232Th/208PbError" AS "232Th/208PbError"'
+qupb_calc_232208 = 'UPbAnalyses."Calculated232Th/208Pb" AS "Calculated232Th/208Pb"'
+qupb_calc_232208_error = 'UPbAnalyses."Calculated232Th/208PbError" AS "Calculated232Th/208PbError"'
+qupb_238232 = 'UPbAnalyses."238U/232Th" AS "238U/232Th"'
+qupb_238232_error = 'UPbAnalyses."238U/232ThError" AS "238U/232ThError"'
+qupb_calc_238232 = 'UPbAnalyses."Calculated238U/232Th" AS "Calculated238U/232Th"'
+qupb_calc_238232_error = 'UPbAnalyses."Calculated238U/232ThError" AS "Calculated238U/232ThError"'
+qupb_232238 = 'UPbAnalyses."232Th/238U" AS "232Th/238U"'
+qupb_232238_error = 'UPbAnalyses."232Th/238UError" AS "232Th/238UError"'
+qupb_calc_232238 = 'UPbAnalyses."Calculated232Th/238U" AS "Calculated232Th/238U"'
+qupb_calc_232238_error = 'UPbAnalyses."Calculated232Th/238UError" AS "Calculated232Th/238UError"'
+qupb204238 = 'UPbAnalyses."204Pb/238U" AS "204Pb/238U"'
+qupb204238_error = 'UPbAnalyses."204Pb/238UError" AS "204Pb/238UError"'
+qupb_calc_204238 = 'UPbAnalyses."Calculated204Pb/238U" AS "Calculated204Pb/238U"'
+qupb_calc_204238_error = 'UPbAnalyses."Calculated204Pb/238UError" AS "Calculated204Pb/238UError"'
+qupb_2382204 = 'UPbAnalyses."238U/204Pb" AS "238U/204Pb"'
+qupb_2382204_error = 'UPbAnalyses."238U/204PbError" AS "238U/204PbError"'
+qupb_calc_238204 = 'UPbAnalyses."Calculated238U/204Pb" AS "Calculated238U/204Pb"'
+qupb_calc_238204_error = 'UPbAnalyses."Calculated238U/204PbError" AS "Calculated238U/204PbError"'
+qupb_206204 = 'UPbAnalyses."206Pb/204Pb" AS "206Pb/204Pb"'
+qupb_206204_error = 'UPbAnalyses."206Pb/204PbError" AS "206Pb/204PbError"'
+qupb_calc_206204 = 'UPbAnalyses."Calculated206Pb/204Pb" AS "Calculated206Pb/204Pb"'
+qupb_calc_206204_error = 'UPbAnalyses."Calculated206Pb/204PbError" AS "Calculated206Pb/204PbError"'
+qupb_204206 = 'UPbAnalyses."204Pb/206Pb" AS "204Pb/206Pb"'
+qupb_204206_error = 'UPbAnalyses."204Pb/206PbError" AS "204Pb/206PbError"'
+qupb_calc_204206 = 'UPbAnalyses."Calculated204Pb/206Pb" AS "Calculated204Pb/206Pb"'
+qupb_calc_204206_error = 'UPbAnalyses."Calculated204Pb/206PbError" AS "Calculated204Pb/206Pb"'
+qupb_207204 = 'UPbAnalyses."207Pb/204Pb" AS "207Pb/204Pb"'
+qupb_207204_error = 'UPbAnalyses."207Pb/204PbError" AS "207Pb/204PbError"'
+qupb_calc_207204 = 'UPbAnalyses."Calculated207Pb/204Pb" AS "Calculated207Pb/204Pb"'
+qupb_calc_207204_error = 'UPbAnalyses."Calculated207Pb/204PbError" AS "Calculated207Pb/204Pb"'
+qupb_204207 = 'UPbAnalyses."204Pb/207Pb" AS "204Pb/207Pb"'
+qupb_204207_error = 'UPbAnalyses."204Pb/207PbError" AS "204Pb/207PbError"'
+qupb_calc_204207 = 'UPbAnalyses."Calculated204Pb/207Pb" AS "Calculated204Pb/207Pb"'
+qupb_calc_204207_error = 'UPbAnalyses."Calculated204Pb/207PbError" AS "Calculated204Pb/207Pb"'
+upb_208204 = 'UPbAnalyses."208Pb/204Pb" AS "208Pb/204Pb"'
+qupb_208204_error = 'UPbAnalyses."208Pb/204PbError" AS "208Pb/204PbError"'
+qupb_calc_208204 = 'UPbAnalyses."Calculated208Pb/204Pb" AS "Calculated208Pb/204Pb"'
+qupb_calc_208204_error = 'UPbAnalyses."Calculated208Pb/204PbError" AS "Calculated208Pb/204Pb"'
+upb_204208 = 'UPbAnalyses."204Pb/208Pb" AS "204Pb/208Pb"'
+upb_204208_error = 'UPbAnalyses."204Pb/208PbError" AS "204Pb/208PbError"'
+qupb_calc_204208 = 'UPbAnalyses."Calculated204Pb/208Pb" AS "Calculated204Pb/208Pb"'
+qupb_calc_204208_error = 'UPbAnalyses."Calculated204Pb/208PbError" AS "Calculated204Pb/208Pb"'
+qupb_ratio_error_formats = 'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation) AS RatioErrorFormatAbbreviation'
+qupb_error_corr = 'UPbAnalyses.ErrorCorr AS ErrorCorr'
+qupb_207206_age = 'UPbAnalyses."207Pb/206PbAge" AS "207Pb/206PbAge"'
+qupb_207206_age_error = 'UPbAnalyses."207Pb/206PbAgeError" AS "207Pb/206PbAgeError"'
+qupb_calc_207206_age = 'UPbAnalyses."Calculated207Pb/206PbAge" AS "Calculated207Pb/206PbAge"'
+qupb_calc_207206_age_error = 'UPbAnalyses."Calculated207Pb/206PbAgeError AS "Calculated207Pb/206PbAgeError"'
+qupb_207235_age = 'UPbAnalyses."207Pb/235UAge" AS "207Pb/235UAge"'
+qupb_207235_age_error = 'UPbAnalyses."207Pb/235UAgeError" AS "207Pb/235UAgeError"'
+qupb_calc_207235_age = 'UPbAnalyses."Calculated207Pb/235UAge" AS "Calculated207Pb/235UAge"'
+qupb_calc_207235_age_error = 'UPbAnalyses."Calculated207Pb/235UAgeError" AS "Calculated207Pb/235UAgeError"'
+qupb_206238_age = 'UPbAnalyses."206Pb/238UAge" AS "206Pb/238UAge"'
+qupb_206238_age_error = 'UPbAnalyses."206Pb/238UAgeError" AS "206Pb/238UAgeError"'
+qupb_calc_206238_age = 'UPbAnalyses."Calculated206Pb/238UAge" AS "Calculated206Pb/238UAge"'
+qupb_calc_206238_age_error = 'UPbAnalyses."Calculated206Pb/238UAgeError" AS "Calculated206Pb/238UAgeError"'
+qupb_208232_age = 'UPbAnalyses."208Pb/232ThAge" AS "208Pb/232ThAge"'
+qupb_208232_age_error = 'UPbAnalyses."208Pb/232ThAgeError" AS "208Pb/232ThAgeError"'
+qupb_calc_208232_age = 'UPbAnalyses."Calculated208Pb/232ThAge" AS "Calculated208Pb/232ThAge"'
+qupb_calc_208232_age_error = 'UPbAnalyses."Calculated208Pb/232ThAgeError" AS "Calculated208Pb/232ThAgeError"'
+qupb_best_age = 'UPbAnalyses.BestAge AS BestAge'
+qupb_best_age_error = 'UPbAnalyses.BestAgeError AS BestAgeError'
+qupb_calc_best_age = 'UPbAnalyses."CalculatedBestAge" AS "CalculatedBestAge"'
+qupb_calc_best_age_error = 'UPbAnalyses."CalculatedBestAgeError" AS "CalculatedBestAgeError"'
+qupb_age_error_formats = 'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation) AS AgeErrorFormatAbbreviation'
+qupb_age_units = 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation) AS AgeUnitAbbreviation'
+qupb_age_interpretations = 'GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInterpretationName) AS AgeInterpretationName'
+qupb_concordance = 'UPbAnalyses.Concordance AS Concordance'
+qupb_calc_concordance = 'UPbAnalyses."CalculatedConcordance" AS "CalculatedConcordance"'
+qconcordance_formats = 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation) AS ConcordanceFormatAbbreviation'
+qspot_size = 'UPbAnalyses.SpotSize AS SpotSize'
+qspot_sizes = f'GROUP_CONCAT(DISTINCT CalculatedSpotSize) AS CalculatedSpotSize'
+qspot_size_unit = 'GROUP_CONCAT(DISTINCT SpotSizeUnit.DistanceUnitAbbreviation) AS SpotSizeUnitAbbreviation'
+qupb_rejected = 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END AS Rejected'
+qupb_rejection_reasons = 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName) AS RejectionReasonName'
+qupb_created = 'UPbAnalysisCreated AS UPbAnalysisCreated'
+qupb_modified = 'UPbAnalysisModified AS UPbAnalysisModified'
 
 # UPb, include null values
 qupb_references_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(UPbReferences.ReferenceDisplay,"Null")) AS "References"'
@@ -625,119 +625,124 @@ table_attributes_dict = {
 
 view_attributes_dict = {
     'SampleView': [
-        f"{qsample_id}", f"{qigsn}", f"{qsample_name}", f"{qsample_description}", f"{qgps}", f"{qsample_elev}", f"{qsample_age}",
-        f"{qsample_age_constraint}", f"{qsample_age_interpretation}", f"{qsample_age_references}", f"{qcolumn_name}", f"{qsample_column_data}",
-        f"{qage_signature}", f"{qregions}", f"{qrock_types}", f"{qsample_context}", f"{qsampling_methods}", f"{qsettings}",
-        f"{qunits}", f"{qaliquots}", f"{qaliquot_contexts}", f"{qspot_count}", f"{qspot_compositions}", f"{qspot_contexts}",
-        f"{qupb_count}", f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
-        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}", f"{qupb_references}",
-        f"{qsample_created}", f"{qsample_modified}"
+        f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
+        f"{qsample_description.split('AS ')[1]}", f"{qgps.split('AS ')[1]}", f"{qsample_elev.split('AS ')[1]}",
+        f"{qsample_age.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
+        f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data.split('AS ')[1]}",
+        f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
+        f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
+        f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
+        f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+        f'"{qupb_count.split('AS ')[1]}"', f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
+        f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", f"{qupb_age_error_formats.split('AS ')[1]}",
+        f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
         ],
     'SampleEditView': [
-        f"{qsample_id}", f"{qigsn}", f"{qsample_name}", f"{qsample_description}", f"{qgps_display}", f"{qsample_elev_display}",
-        f"{qsample_elev_unit}", f"{qsample_age_display}", f"{qsample_age_constraint}", f"{qsample_age_interpretation}",
-        f"{qsample_age_references}", f"{qcolumn_name}", f"{qsample_column_data_display}", f"{qsample_column_data_unit}",
-        f"{qage_signature}", f"{qregions}", f"{qrock_types}", f"{qsample_context}", f"{qsampling_methods}", f"{qsettings}",
-        f"{qunits}", f"{qaliquots}", f"{qaliquot_contexts}", f"{qspot_count}", f"{qspot_compositions}", f"{qspot_contexts}",
-        f"{qupb_count}", f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
-        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}", f"{qupb_references}",
-        f"{qsample_created}", f"{qsample_modified}"
+        f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qsample_description.split('AS ')[1]}", f"{qgps_display.split('AS ')[1]}", f"{qsample_elev_display.split('AS ')[1]}",
+        f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_display.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
+        f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
+        f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}", f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
+        f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+        f'"{qupb_count.split('AS ')[1]}"', f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
+        f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
         ],
     'ColumnView': [
-        f"{qcolumn_id}", f"{qcolumn_name}", f"{qcolumn_calc_total_height_depth}", f"{qcolumn_gps}",
-        f"{qcolumn_description}", f"{qcolumn_created}", f"{qcolumn_modified}"
+        f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_calc_total_height_depth.split('AS ')[1]}", f"{qcolumn_gps.split('AS ')[1]}",
+        f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
     ],
     'ColumnEditView': [
-        f"{qcolumn_id}", f"{qcolumn_name}", f"{qcolumn_total_height_depth}", f"{qcolumn_total_height_depth_unit}",
-        f"{qcolumn_gps_display}", f"{qcolumn_description}", f"{qcolumn_created}", f"{qcolumn_modified}"
+        f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_total_height_depth.split('AS ')[1]}", f"{qcolumn_total_height_depth_unit.split('AS ')[1]}",
+        f"{qcolumn_gps_display.split('AS ')[1]}", f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
     ],
     'AliquotView': [
-        f"{qaliquot_id}", f"{qaliquot_parent_id}", f"{qaliquot_parent_row}", f"{qaliquot}", f"{qaliquot_sample}",
-        f"{qaliquot_contexts}", f"{qspot_count}", f"{qspot_compositions}", f"{qspot_contexts}", f"{qupb_count}",
-        f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
-        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejection_reasons}",
-        f"{qupb_references}", f"{qaliquot_created}", f"{qaliquot_modified}"
+        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}", f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qaliquot_sample.split('AS ')[1]}",
+        f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f'"{qupb_count.split('AS ')[1]}"',
+        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_references.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
     ],
     'AliquotEditView': [
-        f"{qaliquot_id}", f"{qaliquot_parent_id}", f"{qaliquot_parent_row}", f"{qsample_id}", f"{qaliquot}",
-        f"{qaliquot_sample}", f"{qaliquot_contexts}", f"{qaliquot_created}", f"{qaliquot_modified}"
+        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}", f"{qaliquot_parent_row.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
     ],
     'SpotView': [
-        f"{qspot_id}", f"{qspots}", f"{qsample_name}", f"{qaliquot}", f"{qspot_compositions}", f"{qspot_contexts}",
-        f"{qupb_lab_facilities}", f"{qupb_analysis_methods}", f"{qupb_ratio_error_formats}", f"{qupb_age_units}",
-        f"{qupb_age_error_formats}", f"{qconcordance_formats}", f"{qspot_sizes}", f"{qupb_rejected}", f"{qupb_rejection_reasons}",
-        f"{qupb_references}", f"{qspot_created}", f"{qspot_modified}"
+        f"{qspot_id.split('AS ')[1]}", f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_references.split('AS ')[1]}", f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
     'SpotEditView': [
-        f"{qspot_id}", f"{qsample_id}", f"{qaliquot_id}", f"{qspots}", f"{qsample_name}", f"{qaliquot}",
-        f"{qspot_compositions}", f"{qspot_contexts}", f"{qspot_created}", f"{qspot_modified}"
+        f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}", f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
     'UPbAnalysisView': [
-        f"{qupb_id}", f"{qspot}", f"{qaliquot}", f"{qsample_name}", f"{qupb_references}", f"{qupb_lab_facilities}",
-        f"{qupb_instruments}", f"{qupb_analysis_methods}", 'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"',
-        'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"', 'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"',
-        'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"', 'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"',
-        'UPbAnalyses."CalculatedU/Th"', 'UPbAnalyses."CalculatedTh/U"',
-        'UPbAnalyses."Calculated206Pb/207Pb"', 'UPbAnalyses."Calculated206Pb/207PbError"',
-        'UPbAnalyses."Calculated207Pb/206Pb"', 'UPbAnalyses."Calculated207Pb/206PbError"',
-        'UPbAnalyses."Calculated207Pb/235U"', 'UPbAnalyses."Calculated207Pb/235UError"',
-        'UPbAnalyses."Calculated235U/207Pb"', 'UPbAnalyses."Calculated235U/207PbError"',
-        'UPbAnalyses."Calculated206Pb/238U"', 'UPbAnalyses."Calculated206Pb/238UError"',
-        'UPbAnalyses."Calculated238U/206Pb"', 'UPbAnalyses."Calculated238U/206PbError"',
-        'UPbAnalyses."Calculated208Pb/232Th"', 'UPbAnalyses."Calculated208Pb/232ThError"',
-        'UPbAnalyses."Calculated232Th/208Pb"', 'UPbAnalyses."Calculated232Th/208PbError"',
-        'UPbAnalyses."Calculated238U/232Th"', 'UPbAnalyses."Calculated238U/232ThError"',
-        'UPbAnalyses."Calculated232Th/238U"', 'UPbAnalyses."Calculated232Th/238UError"',
-        'UPbAnalyses."Calculated204Pb/238U"', 'UPbAnalyses."Calculated204Pb/238UError"',
-        'UPbAnalyses."Calculated238U/204Pb"', 'UPbAnalyses."Calculated238U/204PbError"',
-        'UPbAnalyses."Calculated206Pb/204Pb"', 'UPbAnalyses."Calculated206Pb/204PbError"',
-        'UPbAnalyses."Calculated204Pb/206Pb"', 'UPbAnalyses."Calculated204Pb/206PbError"',
-        'UPbAnalyses."Calculated207Pb/204Pb"', 'UPbAnalyses."Calculated207Pb/204PbError"',
-        'UPbAnalyses."Calculated204Pb/207Pb"', 'UPbAnalyses."Calculated204Pb/207PbError"',
-        'UPbAnalyses."Calculated208Pb/204Pb"', 'UPbAnalyses."Calculated208Pb/204PbError"',
-        'UPbAnalyses."Calculated204Pb/208Pb"', 'UPbAnalyses."Calculated204Pb/208PbError"', 'UPbAnalyses."ErrorCorr/Rho"',
-        'UPbAnalyses."Calculated207Pb/206PbAge"', 'UPbAnalyses."Calculated207Pb/206PbAgeError"',
-        'UPbAnalyses."Calculated206Pb/238UAge"', 'UPbAnalyses."Calculated206Pb/238UAgeError"',
-        'UPbAnalyses."Calculated207Pb/235UAge"', 'UPbAnalyses."Calculated207Pb/235UAgeError"',
-        'UPbAnalyses."Calculated208Pb/232ThAge"', 'UPbAnalyses."Calculated208Pb/232ThAgeError"',
-        'UPbAnalyses."CalculatedBestAge"', 'UPbAnalyses."CalculatedBestAgeError"', 'UPbAnalyses."CalculatedSpotSize"',
-        'UPbAnalyses."CalculatedConcordance"', f"{qupb_rejected}", f"{qupb_rejection_reasons}",
-        f"{qupb_created}", f"{qupb_modified}"
+        f"{qupb_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
+        f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", '"Pb204cps"', '"Pb206cps"',
+        '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"',
+        '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"',
+        '"CalculatedU/Th"', '"CalculatedTh/U"',
+        '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"',
+        '"Calculated207Pb/206Pb"', '"Calculated207Pb/206PbError"',
+        '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"',
+        '"Calculated235U/207Pb"', '"Calculated235U/207PbError"',
+        '"Calculated206Pb/238U"', '"Calculated206Pb/238UError"',
+        '"Calculated238U/206Pb"', '"Calculated238U/206PbError"',
+        '"Calculated208Pb/232Th"', '"Calculated208Pb/232ThError"',
+        '"Calculated232Th/208Pb"', '"Calculated232Th/208PbError"',
+        '"Calculated238U/232Th"', '"Calculated238U/232ThError"',
+        '"Calculated232Th/238U"', '"Calculated232Th/238UError"',
+        '"Calculated204Pb/238U"', '"Calculated204Pb/238UError"',
+        '"Calculated238U/204Pb"', '"Calculated238U/204PbError"',
+        '"Calculated206Pb/204Pb"', '"Calculated206Pb/204PbError"',
+        '"Calculated204Pb/206Pb"', '"Calculated204Pb/206PbError"',
+        '"Calculated207Pb/204Pb"', '"Calculated207Pb/204PbError"',
+        '"Calculated204Pb/207Pb"', '"Calculated204Pb/207PbError"',
+        '"Calculated208Pb/204Pb"', '"Calculated208Pb/204PbError"',
+        '"Calculated204Pb/208Pb"', '"Calculated204Pb/208PbError"', '"ErrorCorr/Rho"',
+        '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"',
+        '"Calculated206Pb/238UAge"', '"Calculated206Pb/238UAgeError"',
+        '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
+        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"',
+        '"CalculatedBestAge"', '"CalculatedBestAgeError"', '"CalculatedSpotSize"',
+        '"CalculatedConcordance"', f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ],
     'UPbAnalysisEditView': [
-        f"{qupb_id}", f"{qsample_id}", f"{qaliquot_id}", f"{qspot_id}", f"{qspot}", f"{qaliquot}", f"{qsample_name}",
-        f"{qupb_references}", f"{qupb_lab_facilities}", f"{qupb_instruments}", f"{qupb_analysis_methods}",
-        'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"',
-        'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"', 'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"',
-        'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"', 'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"',
-        'UPbAnalyses."U/Th"', 'UPbAnalyses."Th/U"',
-        'UPbAnalyses."206Pb/204Pb"', 'UPbAnalyses."206Pb/204PbError"',
-        'UPbAnalyses."204Pb/206Pb"', 'UPbAnalyses."204Pb/206PbError"',
-        'UPbAnalyses."207Pb/204Pb"', 'UPbAnalyses."207Pb/204PbError"',
-        'UPbAnalyses."204Pb/207Pb"', 'UPbAnalyses."204Pb/207PbError"',
-        'UPbAnalyses."208Pb/204Pb"', 'UPbAnalyses."208Pb/204PbError"',
-        'UPbAnalyses."204Pb/208Pb"', 'UPbAnalyses."204Pb/208PbError"',
-        'UPbAnalyses."206Pb/207Pb"', 'UPbAnalyses."206Pb/207PbError"',
-        'UPbAnalyses."207Pb/206Pb"', 'UPbAnalyses."207Pb/206PbError"',
-        'UPbAnalyses."204Pb/238U"', 'UPbAnalyses."204Pb/238UError"',
-        'UPbAnalyses."238U/204Pb"', 'UPbAnalyses."238U/204PbError"',
-        'UPbAnalyses."206Pb/238U"', 'UPbAnalyses."206Pb/238UError"',
-        'UPbAnalyses."238U/206Pb"', 'UPbAnalyses."238U/206PbError"',
-        'UPbAnalyses."207Pb/235U"', 'UPbAnalyses."207Pb/235UError"',
-        'UPbAnalyses."235U/207Pb"', 'UPbAnalyses."235U/207PbError"',
-        'UPbAnalyses."208Pb/232Th"', 'UPbAnalyses."208Pb/232ThError"',
-        'UPbAnalyses."232Th/208Pb"', 'UPbAnalyses."232Th/208PbError"',
-        'UPbAnalyses."238U/232Th"', 'UPbAnalyses."238U/232ThError"',
-        'UPbAnalyses."232Th/238U"', 'UPbAnalyses."232Th/238UError"',
-        f"{qupb_ratio_error_formats}", 'UPbAnalyses."ErrorCorr/Rho"',
-        'UPbAnalyses."207Pb/206PbAge"', 'UPbAnalyses."207Pb/206PbAgeError"',
-        'UPbAnalyses."207Pb/235UAge"', 'UPbAnalyses."207Pb/235UAgeError"',
-        'UPbAnalyses."206Pb/238UAge"', 'UPbAnalyses."206Pb/238UAgeError"',
-        'UPbAnalyses."208Pb/232ThAge"', 'UPbAnalyses."208Pb/232ThAgeError"',
-        'UPbAnalyses."BestAge"', 'UPbAnalyses."BestAgeError"',
-        f"{qupb_age_error_formats}", f"{qupb_age_units}", 'UPbAnalyses."Concordance"', f"{qconcordance_formats}",
-        'UPbAnalyses."SpotSize"', f"{qspot_size_unit}", f"{qupb_rejected}", f"{qupb_rejection_reasons}",
-        f"{qupb_created}", f"{qupb_modified}"
+        f"{qupb_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}", f"{qspot_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
+        f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
+        '"Pb204cps"', '"Pb206cps"',
+        '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"',
+        '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"',
+        '"U/Th"', '"Th/U"',
+        '"206Pb/207Pb"', '"206Pb/207PbError"',
+        '"207Pb/206Pb"', '"207Pb/206PbError"',
+        '"206Pb/238U"', '"206Pb/238UError"',
+        '"238U/206Pb"', '"238U/206PbError"',
+        '"207Pb/235U"', '"207Pb/235UError"',
+        '"235U/207Pb"', '"235U/207PbError"',
+        '"208Pb/232Th"', '"208Pb/232ThError"',
+        '"232Th/208Pb"', '"232Th/208PbError"',
+        '"238U/232Th"', '"238U/232ThError"',
+        '"232Th/238U"', '"232Th/238UError"',
+        '"204Pb/238U"', '"204Pb/238UError"',
+        '"238U/204Pb"', '"238U/204PbError"',
+        '"206Pb/204Pb"', '"206Pb/204PbError"',
+        '"204Pb/206Pb"', '"204Pb/206PbError"',
+        '"207Pb/204Pb"', '"207Pb/204PbError"',
+        '"204Pb/207Pb"', '"204Pb/207PbError"',
+        '"208Pb/204Pb"', '"208Pb/204PbError"',
+        '"204Pb/208Pb"', '"204Pb/208PbError"',
+        f"{qupb_ratio_error_formats.split('AS ')[1]}", '"ErrorCorr/Rho"',
+        '"207Pb/206PbAge"', '"207Pb/206PbAgeError"',
+        '"207Pb/235UAge"', '"207Pb/235UAgeError"',
+        '"206Pb/238UAge"', '"206Pb/238UAgeError"',
+        '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
+        '"BestAge"', '"BestAgeError"',
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", '"Concordance"', f"{qconcordance_formats.split('AS ')[1]}",
+        '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ]
 }
 

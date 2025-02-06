@@ -63,133 +63,99 @@ def default_settings():
 
     # Column display settings
     settings.setValue('default_sample_view_columns', [
-        'Samples.SampleID', 'Samples.SampleIGSN', 'Samples.SampleName', 'Samples.SampleDescription',
-        'GPSLocations.GPSLocationConverted', 'GPSLocations.CalculatedGPSElev || "±" || GPSLocations.CalculatedGPSElevError',
-        'SampleAges.SampleAgeDisplay', 'GROUP_CONCAT(DISTINCT AgeConstraintName)', 'GROUP_CONCAT(DISTINCT AgeInterpretationName)',
-        'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)', 'Columns.ColumnName', 'Samples.CalculatedHeightDepth || "±" || Samples.CalculatedHeightDepthError',
-        'GROUP_CONCAT(DISTINCT AgeSignatureName)', 'GROUP_CONCAT(DISTINCT RegionName)', 'GROUP_CONCAT(DISTINCT RockTypeName)',
-        'GROUP_CONCAT(DISTINCT SampleContextName)', 'GROUP_CONCAT(DISTINCT SamplingMethodName)', 'GROUP_CONCAT(DISTINCT SettingName)',
-        'GROUP_CONCAT(DISTINCT UnitName)', 'GROUP_CONCAT(DISTINCT AliquotName)', 'GROUP_CONCAT(DISTINCT AliquotContextName)',
-        'COUNT(DISTINCT Spots.SpotID)', 'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)',
-        'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
-        'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
-        'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)',
-        'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)',
-        'GROUP_CONCAT(DISTINCT CalculatedSpotSize)', 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
-        'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'Samples.SampleCreated', 'Samples.SampleModified'
+        'SampleID', 'SampleIGSN', 'SampleName', 'SampleDescription', 'GPSSampleLocationCalculated',
+        'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraint', 'SampleAgeInterpretation',
+        'SampleAgeReference', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignature', 'RegionName',
+        'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName',
+        'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalayses"',
+        'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
+        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
+        'UPbReference', 'SampleCreated', 'SampleModified'
     ])
     settings.setValue('default_sample_edit_columns', [
-        'Samples.SampleID', 'Samples.SampleIGSN', 'Samples.SampleName', 'Samples.SampleDescription', 'GPSLocations.GPSLocationDisplay',
-        'GPSLocations.GPSElev || "±" || GPSLocations.GPSElevError', 'SampleElevationUnits.DistanceUnitAbbreviation',
-        'SampleAges.SampleAgeDisplay', 'GROUP_CONCAT(DISTINCT AgeConstraintName)', 'GROUP_CONCAT(DISTINCT AgeInterpretationName)',
-        'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay)', 'Columns.ColumnName',
-        'Samples.HeightDepth || "±" || Samples.HeightDepthError', 'ColumnHeightDepthUnits.DistanceUnitAbbreviation',
-        'GROUP_CONCAT(DISTINCT AgeSignatureName)', 'GROUP_CONCAT(DISTINCT RegionName)', 'GROUP_CONCAT(DISTINCT RockTypeName)',
-        'GROUP_CONCAT(DISTINCT SampleContextName)', 'GROUP_CONCAT(DISTINCT SamplingMethodName)', 'GROUP_CONCAT(DISTINCT SettingName)',
-        'GROUP_CONCAT(DISTINCT UnitName)', 'GROUP_CONCAT(DISTINCT AliquotName)', 'GROUP_CONCAT(DISTINCT AliquotContextName)',
-        'COUNT(DISTINCT Spots.SpotID)', 'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)',
-        'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
-        'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
-        'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)',
-        'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)',
-        'GROUP_CONCAT(DISTINCT CalculatedSpotSize)', 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
-        'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'Samples.SampleCreated', 'Samples.SampleModified'
+        'SampleID', 'SampleIGSN', 'SampleName', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
+        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraint', 'SampleAgeInterpretation',
+        'SampleAgeReference', 'ColumnName', 'ColumnHeightDepth', 'ColumnHeightDepthUnitAbbreviation',
+        'SampleAgeSignature', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName',
+        'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
+        '"Accepted/TotalUPbAnalayses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
+        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
+        'RejectionReasonName', 'UPbReference', 'SampleCreated', 'SampleModified'
     ])
     settings.setValue('default_aliquot_view_columns', [
-        'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleID', 'Samples.SampleName',
-        'GROUP_CONCAT(DISTINCT AliquotContextName)', 'COUNT(DISTINCT Spots.SpotID)', 'GROUP_CONCAT(DISTINCT SpotCompositionName)',
-        'GROUP_CONCAT(DISTINCT SpotContextName)', 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID)',
-        'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)', 'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)',
-        'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)', 'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)',
-        'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT CalculatedSpotSize)',
-        'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)',
-        'AliquotCreated', 'AliquotModified'
+        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
+        'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalayses"',
+        'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
+        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
+        'UPbReference', 'AliquotCreated', 'AliquotModified'
     ])
     settings.setValue('default_aliquot_edit_columns', [
-        'Aliquots.AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'Samples.SampleID', 'Samples.SampleName',
-        'GROUP_CONCAT(DISTINCT AliquotContextName)', 'AliquotCreated', 'AliquotModified'
+        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName', 'AliquotContextName',
+        'AliquotCreated', 'AliquotModified'
     ])
     settings.setValue('default_spot_view_columns', [
-        'Spots.SpotID', 'Samples.SampleID', 'Aliquots.AliquotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName',
-        'AliquotName', 'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)',
-        'GROUP_CONCAT(DISTINCT LabFacilityName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
-        'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)',
-        'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)', 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)',
-        'GROUP_CONCAT(DISTINCT CalculatedSpotSize)', 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END',
-        'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)',
-        'SpotCreated', 'SpotModified'
+        'SpotID', 'SampleID', 'AliquotID', 'SpotName', 'SampleName', 'AliquotName', 'SpotCompositionName',
+        'SpotContextName', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
+        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
+        'Rejected', 'RejectionReasonName', 'UPbReference', 'SpotCreated', 'SpotModified'
     ])
     settings.setValue('default_spot_edit_columns', [
-        'Spots.SpotID', 'Samples.SampleID', 'Aliquots.AliquotID', 'GROUP_CONCAT(DISTINCT SpotName)', 'Samples.SampleName', 'AliquotName',
-        'GROUP_CONCAT(DISTINCT SpotCompositionName)', 'GROUP_CONCAT(DISTINCT SpotContextName)', 'SpotCreated', 'SpotModified'
+        'SpotID', 'SampleID', 'AliquotID', 'SpotName', 'SampleName', 'AliquotName', 'SpotCompositionName',
+        'SpotContextName', 'SpotCreated', 'SpotModified'
     ])
     settings.setValue('default_upb_analysis_view_columns', [
-        'UPbAnalyses.UPbAnalysisID', 'Samples.SampleID', 'Aliquots.AliquotID', 'Spots.SpotID', 'SpotName', 'AliquotName',
-        'Samples.SampleName', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'GROUP_CONCAT(DISTINCT LabFacilityName)',
-        'GROUP_CONCAT(DISTINCT InstrumentName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
-        'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"', 'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"',
-        'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"', 'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"',
-        'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"', 'UPbAnalyses."CalculatedU/Th"', 'UPbAnalyses."CalculatedTh/U"',
-        'UPbAnalyses."Calculated206Pb/207Pb"', 'UPbAnalyses."Calculated206Pb/207PbError"',
-        'UPbAnalyses."Calculated207Pb/206Pb"', 'UPbAnalyses."Calculated207Pb/206PbError"',
-        'UPbAnalyses."Calculated207Pb/235U"', 'UPbAnalyses."Calculated207Pb/235UError"',
-        'UPbAnalyses."Calculated235U/207Pb"', 'UPbAnalyses."Calculated235U/207PbError"',
-        'UPbAnalyses."Calculated206Pb/238U"', 'UPbAnalyses."Calculated206Pb/238UError"',
-        'UPbAnalyses."Calculated238U/206Pb"', 'UPbAnalyses."Calculated238U/206PbError"',
-        'UPbAnalyses."Calculated208Pb/232Th"', 'UPbAnalyses."Calculated208Pb/232ThError"',
-        'UPbAnalyses."Calculated232Th/208Pb"', 'UPbAnalyses."Calculated232Th/208PbError"',
-        'UPbAnalyses."Calculated238U/232Th"', 'UPbAnalyses."Calculated238U/232ThError"',
-        'UPbAnalyses."Calculated232Th/238U"', 'UPbAnalyses."Calculated232Th/238UError"',
-        'UPbAnalyses."Calculated204Pb/238U"', 'UPbAnalyses."Calculated204Pb/238UError"',
-        'UPbAnalyses."Calculated238U/204Pb"', 'UPbAnalyses."Calculated238U/204PbError"',
-        'UPbAnalyses."Calculated206Pb/204Pb"', 'UPbAnalyses."Calculated206Pb/204PbError"',
-        'UPbAnalyses."Calculated204Pb/206Pb"', 'UPbAnalyses."Calculated204Pb/206PbError"',
-        'UPbAnalyses."Calculated207Pb/204Pb"', 'UPbAnalyses."Calculated207Pb/204PbError"',
-        'UPbAnalyses."Calculated204Pb/207Pb"', 'UPbAnalyses."Calculated204Pb/207PbError"',
-        'UPbAnalyses."Calculated208Pb/204Pb"', 'UPbAnalyses."Calculated208Pb/204PbError"',
-        'UPbAnalyses."Calculated204Pb/208Pb"', 'UPbAnalyses."Calculated204Pb/208PbError"', 'UPbAnalyses."ErrorCorr/Rho"',
-        'UPbAnalyses."Calculated207Pb/206PbAge"', 'UPbAnalyses."Calculated207Pb/206PbAgeError"',
-        'UPbAnalyses."Calculated206Pb/238UAge"', 'UPbAnalyses."Calculated206Pb/238UAgeError"',
-        'UPbAnalyses."Calculated207Pb/235UAge"', 'UPbAnalyses."Calculated207Pb/235UAgeError"',
-        'UPbAnalyses."Calculated208Pb/232ThAge"', 'UPbAnalyses."Calculated208Pb/232ThAgeError"',
-        'UPbAnalyses."CalculatedBestAge"', 'UPbAnalyses."CalculatedBestAgeError"', 'UPbAnalyses."CalculatedSpotSize"',
-        'UPbAnalyses."CalculatedConcordance"', 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END',
-        'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
+        '"UPbAnalysisID"', '"SampleID"', '"AliquotID"', '"SpotID"', '"SpotName"', '"AliquotName"', '"SampleName"', '"UPbReference"',
+        '"LabFacilityName"', '"InstrumentName"', '"UPbAnalysisMethodName"', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
+        '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
+        '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"', '"Calculated207Pb/206PbError"',
+        '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"', '"Calculated235U/207Pb"', '"Calculated235U/207PbError"',
+        '"Calculated206Pb/238U"', '"Calculated206Pb/238UError"', '"Calculated238U/206Pb"', '"Calculated238U/206PbError"',
+        '"Calculated208Pb/232Th"', '"Calculated208Pb/232ThError"', '"Calculated232Th/208Pb"', '"Calculated232Th/208PbError"',
+        '"Calculated238U/232Th"', '"Calculated238U/232ThError"', '"Calculated232Th/238U"', '"Calculated232Th/238UError"',
+        '"Calculated204Pb/238U"', '"Calculated204Pb/238UError"', '"Calculated238U/204Pb"', '"Calculated238U/204PbError"',
+        '"Calculated206Pb/204Pb"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206Pb"', '"Calculated204Pb/206PbError"',
+        '"Calculated207Pb/204Pb"', '"Calculated207Pb/204PbError"', '"Calculated204Pb/207Pb"', '"Calculated204Pb/207PbError"',
+        '"Calculated208Pb/204Pb"', '"Calculated208Pb/204PbError"', '"Calculated204Pb/208Pb"', '"Calculated204Pb/208PbError"',
+        '"ErrorCorr/Rho"', '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"', '"Calculated206Pb/238UAge"',
+        '"Calculated206Pb/238UAgeError"', '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
+        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAge"', '"CalculatedBestAgeError"',
+        '"CalculatedSpotSize"', '"CalculatedConcordance"', '"Calculated207Pb/206PbAgeError"',
+        '"Calculated207Pb/235UAgeError"', '"Calculated206Pb/238UAgeError"', '"Calculated208Pb/232ThAgeError"',
+        '"CalculatedBestAgeError"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206PbError"',
+        '"Calculated207Pb/235UError"', '"Calculated235U/207PbError"', '"Calculated206Pb/238UError"',
+        '"Calculated238U/206PbError"', '"Calculated208Pb/232ThError"', '"Calculated232Th/208PbError"',
+        '"Calculated238U/232ThError"', '"Calculated232Th/238UError"', '"Calculated204Pb/238UError"',
+        '"Calculated238U/204PbError"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206PbError"',
+        '"Calculated207Pb/204PbError"', '"Calculated204Pb/207PbError"', '"Calculated208Pb/204PbError"',
+        '"Calculated204Pb/208PbError"', '"Rejected"', '"RejectionReasonName"', '"UPbAnalysisCreated"', '"UPbAnalysisModified"'
     ])
     settings.setValue('default_upb_analysis_edit_columns', [
-        'UPbAnalyses.UPbAnalysisID', 'Samples.SampleID', 'Aliquots.AliquotID', 'Spots.SpotID', 'SpotName', 'AliquotName',
-        'Samples.SampleName', 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay)', 'GROUP_CONCAT(DISTINCT LabFacilityName)',
-        'GROUP_CONCAT(DISTINCT InstrumentName)', 'GROUP_CONCAT(DISTINCT UPbAnalysisMethodName)',
-        'UPbAnalyses."Pb204cps"', 'UPbAnalyses."Pb206cps"', 'UPbAnalyses."Pb207cps"', 'UPbAnalyses."Pb208cps"',
-        'UPbAnalyses."Pb*cps"', 'UPbAnalyses."Th232cps"', 'UPbAnalyses."U235cps"', 'UPbAnalyses."U238cps"',
-        'UPbAnalyses."Uppm"', 'UPbAnalyses."Thppm"', 'UPbAnalyses."U/Th"', 'UPbAnalyses."Th/U"',
-        'UPbAnalyses."206Pb/207Pb"', 'UPbAnalyses."206Pb/207PbError"', 'UPbAnalyses."207Pb/206Pb"', 'UPbAnalyses."207Pb/206PbError"',
-        'UPbAnalyses."207Pb/235U"', 'UPbAnalyses."207Pb/235UError"', 'UPbAnalyses."235U/207Pb"', 'UPbAnalyses."235U/207PbError"',
-        'UPbAnalyses."206Pb/238U"', 'UPbAnalyses."206Pb/238UError"', 'UPbAnalyses."238U/206Pb"', 'UPbAnalyses."238U/206PbError"',
-        'UPbAnalyses."208Pb/232Th"', 'UPbAnalyses."208Pb/232ThError"', 'UPbAnalyses."232Th/208Pb"', 'UPbAnalyses."232Th/208PbError"',
-        'UPbAnalyses."238U/232Th"', 'UPbAnalyses."238U/232ThError"', 'UPbAnalyses."232Th/238U"', 'UPbAnalyses."232Th/238UError"',
-        'UPbAnalyses."204Pb/238U"', 'UPbAnalyses."204Pb/238UError"', 'UPbAnalyses."238U/204Pb"', 'UPbAnalyses."238U/204PbError"',
-        'UPbAnalyses."206Pb/204Pb"', 'UPbAnalyses."206Pb/204PbError"', 'UPbAnalyses."204Pb/206Pb"', 'UPbAnalyses."204Pb/206PbError"',
-        'UPbAnalyses."207Pb/204Pb"', 'UPbAnalyses."207Pb/204PbError"', 'UPbAnalyses."204Pb/207Pb"', 'UPbAnalyses."204Pb/207PbError"',
-        'UPbAnalyses."208Pb/204Pb"', 'UPbAnalyses."208Pb/204PbError"', 'UPbAnalyses."204Pb/208Pb"', 'UPbAnalyses."204Pb/208PbError"',
-        'GROUP_CONCAT(DISTINCT RatioErrorFormats.ErrorFormatAbbreviation)', 'UPbAnalyses."ErrorCorr/Rho"',
-        'UPbAnalyses."207Pb/206PbAge"', 'UPbAnalyses."207Pb/206PbAgeError"', 'UPbAnalyses."207Pb/235UAge"', 'UPbAnalyses."207Pb/235UAgeError"',
-        'UPbAnalyses."206Pb/238UAge"', 'UPbAnalyses."206Pb/238UAgeError"', 'UPbAnalyses."208Pb/232ThAge"', 'UPbAnalyses."208Pb/232ThAgeError"',
-        'UPbAnalyses."BestAge"', 'UPbAnalyses."BestAgeError"', 'GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation)',
-        'GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation)', 'UPbAnalyses."Concordance"',
-        'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation)', 'UPbAnalyses."SpotSize"', 'GROUP_CONCAT(DISTINCT SpotSizeUnit.DistanceUnitAbbreviation)',
-        'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END', 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName)',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
+        '"UPbAnalysisID"', '"SampleID"', '"AliquotID"', '"SpotID"', '"SpotName"', '"AliquotName"', '"SampleName"', '"UPbReference"',
+        '"LabFacilityName"', '"InstrumentName"', '"UPbAnalysisMethodName"', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
+        '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"', '"206Pb/207Pb"', '"206Pb/207PbError"',
+        '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"', '"207Pb/206PbError"', '"207Pb/235U"', '"207Pb/235UError"',
+        '"207Pb/235UError"', '"235U/207Pb"', '"235U/207PbError"', '"235U/207PbError"', '"206Pb/238U"', '"206Pb/238UError"',
+        '"206Pb/238UError"', '"238U/206Pb"', '"238U/206PbError"', '"238U/206PbError"', '"208Pb/232Th"', '"208Pb/232ThError"',
+        '"208Pb/232ThError"', '"232Th/208Pb"', '"232Th/208PbError"', '"232Th/208PbError"', '"238U/232Th"', '"238U/232ThError"',
+        '"238U/232ThError"', '"232Th/238U"', '"232Th/238UError"', '"232Th/238UError"', '"204Pb/238U"', '"204Pb/238UError"',
+        '"204Pb/238UError"', '"238U/204Pb"', '"238U/204PbError"', '"238U/204PbError"', '"206Pb/204Pb"', '"206Pb/204PbError"',
+        '"206Pb/204PbError"', '"204Pb/206Pb"', '"204Pb/206PbError"', '"204Pb/206PbError"', '"207Pb/204Pb"',
+        '"207Pb/204PbError"', '"207Pb/204PbError"', '"204Pb/207Pb"', '"204Pb/207PbError"', '"204Pb/207PbError"',
+        '"208Pb/204Pb"', '"208Pb/204PbError"', '"208Pb/204PbError"', '"204Pb/208Pb"', '"204Pb/208PbError"',
+        '"204Pb/208PbError"', '"ErrorCorr/Rho"', '"207Pb/206PbAge"', '"207Pb/206PbAgeError"', '"207Pb/206PbAgeError"',
+        '"207Pb/235UAge"', '"207Pb/235UAgeError"', '"207Pb/235UAgeError"', '"206Pb/238UAge"', '"206Pb/238UAgeError"',
+        '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"', '"208Pb/232ThAgeError"', '"BestAge"',
+        '"BestAgeError"', '"BestAgeError"', '"Concordance"', '"SpotSize"', '"Rejected"', '"RejectionReasonName"',
+        '"UPbAnalysisCreated"', '"UPbAnalysisModified"'
     ])
     settings.setValue('default_column_view_columns', [
-        'Columns.ColumnID', 'Columns.ColumnName', 'Columns.CalculatedColumnTotalHeightDepth', 'ColumnGPS.GPSLocationConverted',
-        'ColumnGPS.CalculatedGPSElev || "±" || ColumnGPS.CalculatedGPSElevError', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
+        'ColumnID', 'ColumnName', 'ColumnTotalHeightDepthCalculated', 'ColumnGPSLocationCalculated',
+        'ColumnElevationCalculated', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
     ])
     settings.setValue('default_column_edit_columns', [
-        'Columns.ColumnID', 'Columns.ColumnName', 'Columns.ColumnTotalHeightDepth', 'ColumnUnits.DistanceUnitAbbreviation',
-        'ColumnGPS.GPSLocationDisplay', 'ColumnGPS.GPSElev || "±" || ColumnGPS.GPSElevError', 'ColumnElevationUnits.DistanceUnitAbbreviation',
-        'ColumnDescription', 'ColumnCreated', 'ColumnModified'
+        'ColumnID', 'ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitAbbreviation',
+        'ColumnGPSLocationDisplay', 'ColumnElevation', 'ColumnElevationUnitAbbreviation', 'ColumnDescription',
+        'ColumnCreated', 'ColumnModified'
     ])
 
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)

@@ -71,7 +71,7 @@
      <widget class="QLineEdit" name="year_lineEdit"/>
     </item>
     <item row="5" column="1">
-     <widget class="QLineEdit" name="short_lineEdit"/>
+     <widget class="QLineEdit" name="description_lineEdit"/>
     </item>
     <item row="3" column="0">
      <widget class="QLabel" name="source_label">
@@ -94,9 +94,9 @@
      </widget>
     </item>
     <item row="5" column="0">
-     <widget class="QLabel" name="short_label">
+     <widget class="QLabel" name="description_label">
       <property name="text">
-       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff2600;&quot;&gt;*&lt;/span&gt;Short Citation:&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reference Description&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
       </property>
      </widget>
     </item>

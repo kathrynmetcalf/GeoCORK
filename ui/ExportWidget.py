@@ -469,11 +469,11 @@ class ExportWidget(QWidget):
                 for widget in table_widget.findChildren(QCheckBox,
                                                         options=QtCore.Qt.FindChildOption.FindChildrenRecursively):
                     if isinstance(widget, QCheckBox) and widget.isChecked():
-                        print('get_selected_values is checked', widget.property('field_name'))
+                        # print('get_selected_values is checked', widget.property('field_name'))
                         field_name = widget.property('field_name')
                         # Ensure table_name is associated with the checkbox
                         widget_table_name = widget.property('table_name')
-                        print(field_name, widget_table_name)
+                        # print(field_name, widget_table_name)
                         if widget_table_name is None:
                             widget.setProperty('table_name', table_name)
                             widget_table_name = table_name
@@ -481,7 +481,7 @@ class ExportWidget(QWidget):
         # Store selected_columns in the current workbook
         current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = selected_columns
-        print(selected_columns)
+        # print(selected_columns)
         return selected_columns
 
     def select_checkboxes(self, values):
@@ -519,8 +519,8 @@ class ExportWidget(QWidget):
             selected_columns = self.worksheet_tabs_dict[current_worksheet_name].get('selected_columns', {})
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
 
-            print('selected columns', selected_columns)
-            print('ordered columns', ordered_columns)
+            # print('selected columns', selected_columns)
+            # print('ordered columns', ordered_columns)
 
             if Counter(selected_columns) != Counter(ordered_columns):
                 ordered_columns = selected_columns
@@ -642,7 +642,7 @@ class ExportWidget(QWidget):
             GROUP BY c.RowNum
             ORDER BY c.RowNum""")
 
-        print(query_str)
+        # print(query_str)
 
         model = QSqlQueryModel()
         model.setQuery(query_str)

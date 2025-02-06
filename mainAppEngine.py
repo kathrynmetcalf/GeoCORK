@@ -17,6 +17,10 @@ if __name__ == "__main__":
     default_settings()
     # Populate the default font family and font size based on the system settings
     populate_app_defaults()
+
+    # #Optional: reset settings
+    # settings.setValue('default_settings', 'true')
+
     # makes it so if 'default_settings' is ANYTHING but False, then it will be set to True and
     # default_settings() will be called. Makes sure that the default settings are set even on first launch (eg None)
     if settings.value('default_settings') != 'false':

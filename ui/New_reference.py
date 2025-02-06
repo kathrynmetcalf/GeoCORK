@@ -1,3 +1,4 @@
+import os
 import sys
 import sqlite3
 from PyQt6 import QtWidgets as QtW
@@ -9,10 +10,12 @@ class NewReference(QtW.QDialog):
     def __init__(self):
         super().__init__()
 
-        sources_ui_file = "New_reference.ui"
-        loadUi(sources_ui_file, self)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        base_path = os.path.normpath(base_path)
+        sources_ui_file = fr'{os.path.join(base_path, "New_reference.ui")}'
+        sources_ui_file = os.path.normpath(sources_ui_file)
 
-        self.ok_buttonBox.clicked(self.add_reference)
+        self.ok_buttonBox.accepted(self.add_reference)
         self.ok_buttonBox.rejected(self.rejected)
 
     def add_reference(self):
@@ -21,14 +24,16 @@ class NewReference(QtW.QDialog):
         title = self.title_lineEdit.text()
         source = self.source_lineEdit.text()
         doi = self.doi_lineEdit.text()
+        description = self.description_lineEdit.text()
 
         query = QSqlQuery()
-        query.prepare('INSERT INTO References (Authors, Year, Title, Source, DOI) VALUES (?, ?, ?, ?, ?)')
+        query.prepare('INSERT INTO References (Authors, Year, Title, Source, DOI, Description) VALUES (?, ?, ?, ?, ?, ?)')
         query.addBindValue(authors)
         query.addBindValue(year)
         query.addBindValue(title)
         query.addBindValue(source)
         query.addBindValue(doi)
+        query.addBindValue(description)
         if not query.exec():
             print('Error inserting reference:', query.lastError().text())
             return

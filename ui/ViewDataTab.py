@@ -68,27 +68,27 @@ class ViewDataTab(QtW.QWidget):
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             # Columns to select from the view
             self.show_cols = settings.value('aliquot_columns')
-            self.show_cols = ' , '.join(self.show_cols)
-            table_query = f'SELECT {", ".join(self.show_cols)} FROM AliquotView WHERE SampleID = {self.parent_id}'
+            self.show_cols = ', '.join(self.show_cols)
+            table_query = f'SELECT {self.show_cols} FROM AliquotView WHERE SampleID = {self.parent_id}'
         elif self.child_type == 'Spot':
             self.show_cols = settings.value('spot_columns')
-            self.show_cols = ' , '.join(self.show_cols)
+            self.show_cols = ', '.join(self.show_cols)
             if self.parent_type == 'Aliquot':
-                table_query = f'SELECT {", ".join(self.show_cols)} FROM SpotView WHERE AliquotID = {self.parent_id}'
+                table_query = f'SELECT {self.show_cols} FROM SpotView WHERE AliquotID = {self.parent_id}'
             elif self.parent_type == 'Sample':
-                table_query = f'SELECT {", ".join(self.show_cols)} FROM SpotView WHERE SampleID = {self.parent_id}'
+                table_query = f'SELECT {self.show_cols} FROM SpotView WHERE SampleID = {self.parent_id}'
             else:
                 print(f'Error: Invalid parent type {self.parent_type} for Spot table')
                 table_query = None
         elif self.child_type == 'UPbAnalysis':
-            self.show_cols = settings.value('upb_analysis_columns')
-            self.show_cols = ' , '.join(self.show_cols)
+            self.show_cols = settings.value('upb_analysis_view_columns')
+            self.show_cols = ', '.join(self.show_cols)
             if self.parent_type == 'Sample':
-                table_query = f'SELECT {", ".join(self.show_cols)} FROM UPbView WHERE SampleID = {self.parent_id}'
+                table_query = f'SELECT {self.show_cols} FROM UPbView WHERE SampleID = {self.parent_id}'
             elif self.parent_type == 'Aliquot':
-                table_query = f'SELECT {", ".join(self.show_cols)} FROM UPbView WHERE AliquotID = {self.parent_id}'
+                table_query = f'SELECT {self.show_cols} FROM UPbView WHERE AliquotID = {self.parent_id}'
             elif self.parent_type == 'Spot':
-                table_query = f'SELECT {", ".join(self.show_cols)} FROM UPbView WHERE SpotID = {self.parent_id}'
+                table_query = f'SELECT {self.show_cols} FROM UPbView WHERE SpotID = {self.parent_id}'
             else:
                 print(f'Error: Invalid parent type {self.parent_type} for UPbAnalysis table')
                 table_query = None
@@ -107,12 +107,12 @@ class ViewDataTab(QtW.QWidget):
             self.view.setSortingEnabled(True)
             # Hide the ID columns
             self.view.hideColumn(0)
-            self.view.hideColumn(2)
+            self.view.hideColumn(1)
             if self.child_type == 'Spot':
-                self.view.hideColumn(4)
+                self.view.hideColumn(2)
             if self.child_type == 'UPbAnalysis':
-                self.view.hideColumn(4)
-                self.view.hideColumn(6)
+                self.view.hideColumn(2)
+                self.view.hideColumn(3)
 
     def edit_popup(self):
         if self.child_type == 'Aliquot':

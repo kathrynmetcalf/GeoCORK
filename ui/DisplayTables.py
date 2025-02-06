@@ -1,5 +1,6 @@
 import sqlite3
-
+import os
+import sys
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -32,7 +33,8 @@ class DisplayTables(QtW.QWidget):
         super().__init__(parent)
 
         # Load the ui file
-        sources_ui_file = "ui/DisplayTables.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "DisplayTables.ui")
         loadUi(sources_ui_file, self)
 
         # Retrieve the main window
@@ -158,8 +160,8 @@ class DisplayTables(QtW.QWidget):
             if self.table == 'Samples':
                 self.show_cols = settings.value('sample_view_columns')
                 self.show_cols = ', '.join(self.show_cols)
-                # model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView')
-                model = TbC.SQLiteTableModel(f'SELECT * FROM SampleView')
+                model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView')
+                # model = TbC.SQLiteTableModel(f'SELECT * FROM SampleView')
 
                 self.table_proxy_model.setSourceModel(model)
                 self.edit_samples_pushButton.show()
@@ -169,9 +171,9 @@ class DisplayTables(QtW.QWidget):
                 self.edit_samples_pushButton.hide()
                 if self.table == 'Columns':
                     self.show_cols = settings.value('column_view_columns')
-                    self.show_cols = ' ,'.join(self.show_cols)
-                    # model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM ColumnView')
-                    model = TbC.SQLiteTableModel(f'SELECT * FROM ColumnView')
+                    self.show_cols = ', '.join(self.show_cols)
+                    model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM ColumnView')
+                    # model = TbC.SQLiteTableModel(f'SELECT * FROM ColumnView')
                     self.table_proxy_model.setSourceModel(model)
                 else:
                     self.model.setTable(table)

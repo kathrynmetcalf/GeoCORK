@@ -393,7 +393,7 @@ class EditTable(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
         # if self.table == 'Samples' or self.table == '"References"' or self.table == 'Aliquots' or self.table == 'UPbData':
         #     pass
-        if self.table == '"References"':
+        if self.table == '"References"' or self.table == 'References':
             dlg = NewReference()
             dlg.exec()
         else:

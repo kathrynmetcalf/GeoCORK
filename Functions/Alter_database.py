@@ -13,8 +13,8 @@ def settings_reset():
     tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
                        ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE], ['Samples', Create_db.CREATE_SAMPLES_TABLE],
                        ['Columns', Create_db.CREATE_COLUMNS_TABLE], ['References', Create_db.CREATE_REFERENCES_TABLE]]
-    drop_virtual_columns(tables_affected)
-    populate_generated_columns()
+    if drop_virtual_columns(tables_affected):
+        populate_generated_columns()
 
 def drop_virtual_columns(tables_affected: list, edit_table: str = None):
     create_savepoint('before_drop')
@@ -27,7 +27,7 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
         if query.lastError().text() != '':
             print(f'Error getting {table} columns: {query.lastError().text()}')
             rollback_savepoint('before_drop')
-            return
+            return False
         if virtual:
             column_str = ', '.join(columns)
             query.exec('PRAGMA foreign_keys=OFF')
@@ -36,35 +36,36 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
                     if not query.exec(f'DROP TABLE {table}_old'):
                         print(f'Error dropping leftover old {table} table: {query.lastError().text()}')
                         rollback_savepoint('before_drop')
-                        return
+                        return False
                     if not query.exec(f'ALTER TABLE "{table}" RENAME TO {table}_old'):
                         print(f'Error renaming {table} table: {query.lastError().text()}')
                         rollback_savepoint('before_drop')
-                        return
+                        return False
                 else:
                     print(f'Error renaming {table} table: {query.lastError().text()}')
                     rollback_savepoint('before_drop')
-                    return
+                    return False
             # Select only the stored columns, not the virtual ones
             if not query.exec(create_sql):
                 print(f'Error creating new {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop')
-                return
+                return False
             if not query.exec(f'INSERT INTO "{table}" SELECT {column_str} FROM {table}_old'):
                 print(f'Error copying data from {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop')
-                return
+                return False
             if not query.exec(f'DROP TABLE {table}_old'):
                 print(f'Error dropping old {table} table: {query.lastError().text()}')
                 rollback_savepoint('before_drop')
-                return
+                return False
             new_query, new_virtual, new_stored, new_columns = get_columns(table)
             if new_columns != columns:
                 print(f'Error copying new table {table} columns')
                 rollback_savepoint('before_drop')
-                return
+                return False
             query.exec('PRAGMA foreign_keys=ON')
     release_savepoint('before_drop')
+    return True
 
 def populate_generated_columns():
     create_savepoint('before_populate')

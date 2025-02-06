@@ -355,7 +355,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
         if role == QtC.Qt.ItemDataRole.DisplayRole and orientation == QtC.Qt.Orientation.Horizontal:
             header = super().headerData(section, orientation, role)
-            if 'ID' or 'Abbreviation' in header:
+            if 'ID' in header or 'Abbreviation' in header:
                 if 'Elev' in header:
                     header = 'Elevation Unit'
                 elif 'AgeUnit' in header:
@@ -374,28 +374,26 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                     header = 'Concordance Format'
             if 'GPSLocationConverted' in header:
                 header = 'GPS Location'
-            elif 'GPSElev || ' in header:
-                header = f'Elevation ({settings.value('elevation_unit_abbreviation')})'
-            elif 'TotalHeightDepth' in header:
+            elif 'SampleElevationCalculated' in header:
+                header = f'Sample Elevation ({settings.value('elevation_unit_abbreviation')})'
+            elif 'SampleElevation' in header:
+                header = f'Sample Elevation'
+            elif 'ColumnElevationCalculated' in header:
+                header = f'Column Elevation ({settings.value('elevation_unit_abbreviation')})'
+            elif 'ColumnElevation' in header:
+                header = f'Column Elevation'
+            elif 'TotalHeightDepthCalculated' in header:
                 header = f'Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
-            elif 'HeightDepth' in header:
+            elif 'TotalHeightDepth' in header:
+                header = f'Total Height/Depth'
+            elif 'HeightDepthCalculated' in header:
                 header = f'Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
-            elif 'AgeDisplay' in header:
+            elif 'HeightDepth' in header:
+                header = f'Height/Depth'
+            elif 'AgeCalculated' in header:
                 header = f'Age ({settings.value('age_unit_abbreviation')})'
-            elif 'AgeReferences' in header:
-                header = 'Age References'
-            elif 'SUM' in header:
-                header = 'Accepted/TotalUPbAnalayses'
-            elif 'COUNT' in header and 'SpotID' in header:
-                header = 'Number of Spots'
-            elif 'SpotSize' in header:
+            elif 'SpotSizeCalculated' in header:
                 header = f'Spot Size ({settings.value('spotsize_unit_abbreviation')})'
-            elif 'DISTINCT' in header:
-                # Form is 'GROUP_CONCAT(DISTINCT table.column)' or 'GROUP_CONCAT(DISTINCT column)', get column
-                if '.' in header:
-                    header = header.split('(')[1].split(')')[0].split('.')[-1]
-                else:
-                    header = header.split('(')[1].split(')')[0].split(' ')[-1]
             if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
                 header = header.replace('Name', '')
                 if header.endswith('y'):
@@ -412,6 +410,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                 header = header.replace('ppm', '(ppm)')
             if 'cps' in header:
                 header = header.replace('cps', '(cps)')
+            if '"' in header:
+                header = header.replace('"', '')
             header = TxM.add_spaces_camel(header)
             if 'U Pb' in header:
                 header = header.replace('U Pb', 'U-Pb')
