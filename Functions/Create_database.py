@@ -5,6 +5,8 @@ import sys, os
 
 from PyQt6 import QtSql as QtS
 
+import logger_setup
+
 '''
 Commands to create the database
 Foreign keys are set to cascade on update
@@ -959,200 +961,256 @@ def create_tables():
     Populates the units, types, and conversion tables
     Uses the default database connection
     """
-
+    logger_setup.get_logger().info('Creating database tables')
     query = QtS.QSqlQuery()
 
     # Create the tables
     if not query.exec(CREATE_ABOUT_TABLE):
-        print(f'About table creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating About table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ABOUT_TABLE}')
         return
 
     # Create unit and type tables
     if not query.exec(CREATE_AGE_UNITS_TABLE):
-        print(f'AgeUnits table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Age Units table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_UNITS_TABLE}')
         return
     if not query.exec(CREATE_CONCORDANCE_TYPES_TABLE):
-        print(f'ConcordanceFormats table creation failed')
+        logger_setup.get_logger().critical(f'Error creating ConcordanceFormats table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_CONCORDANCE_TYPES_TABLE}')
         return
     if not query.exec(CREATE_DIRECTION_UNITS_TABLE):
-        print(f'DirectionUnits table creation failed')
+        logger_setup.get_logger().critical(f'Error creating DirectionUnits table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_DIRECTION_UNITS_TABLE}')
         return
     if not query.exec(CREATE_DISTANCE_UNITS_TABLE):
-        print(f'DistanceUnits table creation failed')
+        logger_setup.get_logger().critical(f'Error creating DistanceUnits table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_DISTANCE_UNITS_TABLE}')
         return
     if not query.exec(CREATE_ERROR_TYPES_TABLE):
-        print(f'ErrorFormats table creation failed')
+        logger_setup.get_logger().critical(f'Error creating ErrorFormats table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ERROR_TYPES_TABLE}')
         return
 
     # Create conversion tables
     if not query.exec(CREATE_AGE_CONVERSIONS_TABLE):
-        print(f'AgeConversions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating AgeConversions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_CONVERSIONS_TABLE}')
         return
     if not query.exec(CREATE_CONCORDANCE_CONVERSIONS_TABLE):
-        print(f'ConcordanceConversions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating ConcordanceConversions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_CONCORDANCE_CONVERSIONS_TABLE}')
         return
     if not query.exec(CREATE_DISTANCE_CONVERSIONS_TABLE):
-        print(f'DistanceConversions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating DistanceConversions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_DISTANCE_CONVERSIONS_TABLE}')
         return
     if not query.exec(CREATE_ERROR_CONVERSIONS_TABLE):
-        print(f'ErrorConversions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating ErrorConversions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ERROR_CONVERSIONS_TABLE}')
         return
 
     # Create analysis tag tables
     if not query.exec(CREATE_INSTRUMENTS_TABLE):
-        print(f'Instruments table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Instruments table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_INSTRUMENTS_TABLE}')
         return
     if not query.exec(CREATE_LAB_FACILITIES_TABLE):
-        print(f'LabFacilities table creation failed')
+        logger_setup.get_logger().critical(f'Error creating LabFacilities table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_LAB_FACILITIES_TABLE}')
         return
     if not query.exec(CREATE_REJECTION_REASONS_TABLE):
-        print(f'RejectionReasons table creation failed')
+        logger_setup.get_logger().critical(f'Error creating RejectionReasons table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_REJECTION_REASONS_TABLE}')
         return
     if not query.exec(CREATE_REFERENCES_TABLE):
-        print(f'References table creation failed')
+        logger_setup.get_logger().critical(f'Error creating References table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_REFERENCES_TABLE}')
         return
     if not query.exec(CREATE_UPBANALYSIS_METHOD_TABLE):
-        print(f'UPbAnalysisMethods table creation failed')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalysisMethods table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_UPBANALYSIS_METHOD_TABLE}')
         return
 
     # Create spot tag tables
     if not query.exec(CREATE_SPOT_COMPOSITION_TABLE):
-        print(f'SpotCompositions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SpotCompositions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOT_COMPOSITION_TABLE}')
         return
     if not query.exec(CREATE_SPOT_CONTEXT_TABLE):
-        print(f'SpotContexts table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SpotContexts table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOT_CONTEXT_TABLE}')
         return
 
     # Create aliquot tag tables
     if not query.exec(CREATE_ALIQUOT_CONTEXT_TABLE):
-        print(f'AliquotContexts table creation failed')
+        logger_setup.get_logger().critical(f'Error creating AliquotContexts table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ALIQUOT_CONTEXT_TABLE}')
         return
 
     # Create sample tag tables
     if not query.exec(CREATE_AGE_CONSTRAINTS_TABLE):
-        print(f'AgeConstraints table creation failed')
+        logger_setup.get_logger().critical(f'Error creating AgeConstraints table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_CONSTRAINTS_TABLE}')
         return
     if not query.exec(CREATE_AGE_INTERPRETATIONS_TABLE): # Shared with upb analyses
-        print(f'AgeInterpretations table creation failed')
+        logger_setup.get_logger().critical(f'Error creating AgeInterpretations table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_INTERPRETATIONS_TABLE}')
         return
     if not query.exec(CREATE_AGE_SIGNATURES_TABLE):
-        print(f'AgeSignatures table creation failed')
+        logger_setup.get_logger().critical(f'Error creating AgeSignatures table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_SIGNATURES_TABLE}')
         return
     if not query.exec(CREATE_AGES_TABLE):
-        print(f'Ages table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Ages table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGES_TABLE}')
         return
     if not query.exec(CREATE_COLUMNS_TABLE):
-        print(f'Columns table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Columns table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_COLUMNS_TABLE}')
         return
     if not query.exec(CREATE_GPS_CONVERSIONS_TABLE):
-        print(f'GPSConversions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating GPSConversions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_GPS_CONVERSIONS_TABLE}')
         return
     if not query.exec(CREATE_GPS_FORMATS_TABLE):
-        print(f'GPSFormats table creation failed')
+        logger_setup.get_logger().critical(f'Error creating GPSFormats table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_GPS_FORMATS_TABLE}')
         return
     if not query.exec(CREATE_GPS_LOCATIONS_TABLE):
-        print(f'GPSLocations table creation failed')
+        logger_setup.get_logger().critical(f'Error creating GPSLocations table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_GPS_LOCATIONS_TABLE}')
         return
     if not query.exec(CREATE_REGIONS_TABLE):
-        print(f'Regions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Regions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_REGIONS_TABLE}')
         return
     if not query.exec(CREATE_ROCK_TYPES_TABLE):
-        print(f'RockTypes table creation failed')
+        logger_setup.get_logger().critical(f'Error creating RockTypes table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ROCK_TYPES_TABLE}')
         return
     if not query.exec(CREATE_SAMPLE_AGE_TABLE):
-        print(f'SampleAges table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SampleAges table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLE_AGE_TABLE}')
         return
     if not query.exec(CREATE_SAMPLE_CONTEXT_TABLE):
-        print(f'SampleContexts table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SampleContexts table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLE_CONTEXT_TABLE}')
         return
     if not query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE):
-        print(f'SampleAges_AgeConstraints table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeConstraints table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE}')
         return
     if not query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE):
-        print(f'SampleAges_AgeInterpretations table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeInterpretations table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE}')
         return
     if not query.exec(CREATE_SAMPLEAGES_REFERENCES_TABLE):
-        print(f'SampleAges_References table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SampleAges_References table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLEAGES_REFERENCES_TABLE}')
         return
     if not query.exec(CREATE_SAMPLING_METHODS_TABLE):
-        print(f'SamplingMethods table creation failed')
+        logger_setup.get_logger().critical(f'Error creating SamplingMethods table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLING_METHODS_TABLE}')
         return
     if not query.exec(CREATE_SETTINGS_TABLE):
-        print(f'Settings table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Settings table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SETTINGS_TABLE}')
         return
     if not query.exec(CREATE_UNITS_TABLE):
-        print(f'Units table creation failed')
+        logger_setup.get_logger().critical(f'Error creating  table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_UNITS_TABLE}')
         return
 
     # Create sample item and analysis tables
     if not query.exec(CREATE_SAMPLES_TABLE):
-        print(f'Samples table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_TABLE}')
         return
     if not query.exec(CREATE_ALIQUOTS_TABLE):
-        print(f'Aliquots table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Aliquots table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ALIQUOTS_TABLE}')
         return
     if not query.exec(CREATE_SPOTS_TABLE):
-        print(f'Spots table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Spots table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOTS_TABLE}')
         return
     if not query.exec(CREATE_UPBANALYSES_TABLE):
-        print(f'UPbAnalyses table creation failed')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_UPBANALYSES_TABLE}')
         return
 
     # Create many-to-many sample tables
     if not query.exec(CREATE_SAMPLES_AGESIGNATURES_TABLE):
-        print(f'Samples_AgeSignatures table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_AgeSignatures table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_AGESIGNATURES_TABLE}')
         return
     if not query.exec(CREATE_SAMPLES_REGIONS_TABLE):
-        print(f'Samples_Regions table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_Regions table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_REGIONS_TABLE}')
         return
     if not query.exec(CREATE_SAMPLES_ROCKTYPES_TABLE):
-        print(f'Samples_RockTypes table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_RockTypes table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_ROCKTYPES_TABLE}')
         return
     if not query.exec(CREATE_SAMPLES_SAMPLEAGES_TABLE):
-        print(f'Samples_SampleAges table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_SampleAges table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SAMPLEAGES_TABLE}')
         return
     if not query.exec(CREATE_SAMPLES_SAMPLECONTEXT_TABLE):
-        print(f'Samples_SampleContexts table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_SampleContexts table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SAMPLECONTEXT_TABLE}')
         return
     if not query.exec(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE):
-        print(f'Samples_SamplingMethods table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_SamplingMethods table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SAMPLINGMETHODS_TABLE}')
         return
     if not query.exec(CREATE_SAMPLES_SETTINGS_TABLE):
-        print(f'Samples_Settings table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_Settings table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SETTINGS_TABLE}')
         return
     if not query.exec(CREATE_SAMPLES_UNITS_TABLE):
-        print(f'Samples_Units table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Samples_Units table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_UNITS_TABLE}')
         return
 
     # Create many-to-many anliquot tables
     if not query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE):
-        print(f'Aliquots_AliquotContexts table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Aliquots_AliquotContexts table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE}')
         return
 
     # Create many-to-many spot tables
     if not query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE):
-        print(f'Spots_SpotContexts table creation failed')
+        logger_setup.get_logger().critical(f'Error creating Spots_SpotContexts table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOTS_SPOTCONTEXT_TABLE}')
         return
 
     # Create many-to-many analysis tables
     if not query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE):
-        print(f'UPbAnalyses_RejectionReasons table creation failed')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_RejectionReasons table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_UPBANALYSES_REJECTIONREASONS_TABLE}')
         return
 
     if not query.exec(CREATE_FILTER_GROUPS_TABLE):
-        print(f'FilterGroups table creation failed')
+        logger_setup.get_logger().critical(f'Error creating FilterGroups table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_FILTER_GROUPS_TABLE}')
         return
 
+    logger_setup.get_logger().info('Successfully created all database tables')
     # Populate the tables
     populate_tables()
 
 def populate_tables():
     # Populate the age units table during initiation
+    logger_setup.get_logger().info('Populating tables')
     query = QtS.QSqlQuery()
-    sql = '''SELECT * FROM AgeUnits'''
-    try: query.exec(sql)
-    except:
-        print(f'AgeUnits query failed')
+    sql = 'SELECT * FROM AgeUnits'
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error selecting all rows from AgeUnits: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     out = []
     while query.next(): out.append(query.value(1))
@@ -1162,9 +1220,10 @@ def populate_tables():
 
     # Populate the concordance type table during initiation
     sql = '''SELECT * FROM ConcordanceFormats'''
-    try: query.exec(sql)
-    except:
-        print(f'ConcordanceFormats query failed')
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error selecting all rows from ConcordanceFormats: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     out = []
     while query.next(): out.append(query.value(1))
@@ -1174,9 +1233,10 @@ def populate_tables():
 
     # Populate the direction unit table during initiation
     sql = '''SELECT * FROM DirectionUnits'''
-    try: query.exec(sql)
-    except:
-        print(f'DirectionUnits query failed')
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error selecting all rows from DirectionUnits: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     out = []
     while query.next(): out.append(query.value(1))
@@ -1185,9 +1245,10 @@ def populate_tables():
 
     # Populate the distance unit table during initiation
     sql = '''SELECT * FROM DistanceUnits'''
-    try: query.exec(sql)
-    except:
-        print(f'DistanceUnits query failed')
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error selecting all rows from DistanceUnits: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     out = []
     while query.next(): out.append(query.value(1))
@@ -1197,9 +1258,10 @@ def populate_tables():
 
     # Populate the error type table during initiation
     sql = '''SELECT * FROM ErrorFormats'''
-    try: query.exec(sql)
-    except:
-        print(f'ErrorFormats query failed')
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error selecting all rows from ErrorFormats: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     out = []
     while query.next(): out.append(query.value(1))
@@ -1209,17 +1271,20 @@ def populate_tables():
 
     # Populate the gps format table during initiation
     sql = '''SELECT * FROM GPSFormats'''
-    try: query.exec(sql)
-    except:
-        print(f'GPSFormats query failed')
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error selecting all rows from GPSFormats: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     out = []
     while query.next(): out.append(query.value(2))
     if not out:
         populate_gps_formats()
-    try: query.exec('DELETE FROM GPSConversions')
-    except:
-        print(f'GPSConversions delete failed')
+    sql = 'DELETE FROM GPSConversions'
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error deleting all rows from GPSConversions: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     populate_gps_conversions()
 
@@ -1231,7 +1296,10 @@ def populate_tables():
         if not out:  # if there is no output, the table is empty
             populate_ages()  # populate it
     else:
-        print(f'Ages query failed')
+        logger_setup.get_logger().critical(
+            f'Error selecting all rows from AgeUnits: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        return
 
 
 

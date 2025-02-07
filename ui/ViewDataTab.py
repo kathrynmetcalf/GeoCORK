@@ -7,6 +7,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QAbstractItemView, QHeaderView
 
+import logger_setup
 from Functions.Settings_manager import settings
 from Functions.Database_views import AliquotViewQuery, SpotViewQuery, UPbViewQuery
 import Functions.Table_classes as TbC
@@ -78,7 +79,7 @@ class ViewDataTab(QtW.QWidget):
             elif self.parent_type == 'Sample':
                 table_query = f'SELECT {self.show_cols} FROM SpotView WHERE SampleID = {self.parent_id}'
             else:
-                print(f'Error: Invalid parent type {self.parent_type} for Spot table')
+                logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for Spot table')
                 table_query = None
         elif self.child_type == 'UPbAnalysis':
             self.show_cols = settings.value('upb_analysis_view_columns')
@@ -90,17 +91,13 @@ class ViewDataTab(QtW.QWidget):
             elif self.parent_type == 'Spot':
                 table_query = f'SELECT {self.show_cols} FROM UPbView WHERE SpotID = {self.parent_id}'
             else:
-                print(f'Error: Invalid parent type {self.parent_type} for UPbAnalysis table')
+                logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for UPbAnalysis table')
                 table_query = None
         else:
-            print(f'Error: Invalid child type {self.child_type}')
+            logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             table_query = None
         if table_query is not None:
-            # print(table_query)
-            start = time.time()
             self.model = SQLiteTableModel(table_query)
-            end = time.time()
-            print(f'Time to create SQLiteTableModel: {end - start}')
             self.proxy_model = TbC.ReadableProxyModel()
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)

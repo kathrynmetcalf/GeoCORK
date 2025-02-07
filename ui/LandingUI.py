@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
     QListWidget, QListWidgetItem
 from PyQt6.uic import loadUi
 
+import logger_setup
 from Functions.Settings_manager import settings
 # from Functions.Create_database import create_tables
 # from ui.Settings import SettingsDialog, settings_ids
@@ -21,6 +22,7 @@ from Functions.Settings_manager import settings
 class LandingPage(QWidget):
     def __init__(self):
         super().__init__()
+        logger_setup.get_logger().info("Starting Landing Page...")
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file =os.path.join(base_path,  "landingpage.ui")
@@ -30,11 +32,8 @@ class LandingPage(QWidget):
 
         self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
 
-        print(self.list_recents)
-
         for (i, item) in enumerate(self.list_recents):
             self.listWidget.addItem(str(item))
-
 
         self.newdatabase_button.clicked.connect(self.new_database_dialog)
 
@@ -60,6 +59,7 @@ class LandingPage(QWidget):
 
     def closeEvent(self, a0):
         self.saveWindowState()
+        logger_setup.get_logger().info("Closing Landing Page...")
         super().closeEvent(a0)
 
     def open_about_db(self):
@@ -96,6 +96,7 @@ class LandingPage(QWidget):
             self.listWidget.addItem(str(item))
 
     def test_database_lock(self):
+        logger_setup.get_logger().info("Testing Database Lock...")
         database_path = self.get_filename()
         try:
             # Attempt to connect and perform a simple query
@@ -103,9 +104,13 @@ class LandingPage(QWidget):
             cursor = connection.cursor()
             cursor.execute("PRAGMA schema_version")  # Simple query to test access
             connection.close()
-        except sqlite3.OperationalError as e:
+        except Exception as e:
             # Handle the specific database lock error
+            logger_setup.get_logger().critical(
+                f"Error testing for database lock: {e}")
             if "database is locked" in str(e):
+                logger_setup.get_logger().critical(
+                    f"Database lock error: {e}")
                 self.show_message("Database Locked", "The database is currently locked. Please try again later.")
                 return True
             else:

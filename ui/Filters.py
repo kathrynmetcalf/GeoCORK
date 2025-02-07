@@ -12,6 +12,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.uic import loadUi
 
+import logger_setup
 from Functions import SQLUtils
 from ui.DataViewerWidget import DataViewerWidget
 
@@ -20,28 +21,33 @@ def process_json_to_sql(json_string, scope):
     """
     Converts a structured JSON string representing a filter group to a SQL WHERE clause.
     """
+    logger_setup.get_logger().debug(f'Processing with scope: {scope}: {json_string}')
     json_string = json_string.replace("'", "\"")
     group = json.loads(json_string)
     where = process_group(group)
 
     table_names = process_table_names(group)
     join = SQLUtils.get_join_from_table(table_names)
+    sql = None
     if scope == 'Samples':
-        return f"SELECT * FROM Samples {join} WHERE {where};"
+        sql = f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'Aliquots':
-        join = SQLUtils.get_join_from_table(['Aliquots'])
-        return f"SELECT * FROM Aliquots {join} WHERE {where};"
+        join += SQLUtils.get_join_from_table(['Aliquots'])
+        sql = f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'Spots':
-        join = SQLUtils.get_join_from_table(['Spots'])
-        return f"SELECT * FROM Spots {join} WHERE {where};"
+        join += SQLUtils.get_join_from_table(['Spots'])
+        sql = f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'UPbAnalyses':
-        join = SQLUtils.get_join_from_table(['UPbAnalyses'])
-        return f"SELECT * FROM UPbAnalyses {join} WHERE {where};"
+        join += SQLUtils.get_join_from_table(['UPbAnalyses'])
+        sql = f"SELECT * FROM Samples {join} WHERE {where};"
+    else:
+        logger_setup.get_logger().critical(f"Unknown scope: {scope}")
+    logger_setup.get_logger().debug(f"SQL generated successfully: {sql}")
+    return sql
 
 
 def process_table_names(data):
     table_names = set()
-
     def collect_table_names(group):
         conditions = group.get('conditions', [])
         subgroups = group.get('subgroups', [])
@@ -54,6 +60,7 @@ def process_table_names(data):
             collect_table_names(subgroup)
 
     collect_table_names(data)
+    logger_setup.get_logger().debug(f'Collected table names: {table_names}')
     return table_names
 
 
@@ -287,12 +294,12 @@ class InsertFilterGroupDialog(QDialog):
         color = getattr(self, 'color', '#FFFFFF')
         description = self.description_input.toPlainText()
 
-        db = QSqlDatabase.database()
-        if not db.isOpen():
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Database is not open</font>')
-            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            return
+        # db = QSqlDatabase.database()
+        # if not db.isOpen():
+        #     self.warning_label.show()
+        #     self.warning_label.setText('<font color="red">Database is not open</font>')
+        #     self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        #     return
 
         query = QSqlQuery()
 
@@ -326,7 +333,7 @@ class InsertFilterGroupDialog(QDialog):
                 self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
             else:
                 self.accept()
-        db.commit()
+        # db.commit()
 
 
 class FocusWheelComboBox(QComboBox):

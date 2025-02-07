@@ -10,7 +10,7 @@ from numpy import integer
 from qtpy.QtGui import QAction
 
 from Functions.Settings_manager import settings
-import Functions.Errors as Er
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 import Functions.Check_triggers as Ct
 
@@ -477,7 +477,7 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def insertItem(self, itemName: str, itemDescription: str, parentID = None, parentRow = None):
         # Add a new item to the database, first as a top-level item, then move it to the correct parent and row
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         pID = 'IS NULL'
         self.source_model.setFilter(f"{self.base_filter_sql} {self.sourceHeaders[1]} {pID}")
         childCount = self.source_model.rowCount()
@@ -485,10 +485,10 @@ class TreeModel(QtC.QAbstractProxyModel):
         query.bindValue(':parentRow', childCount)
         query.bindValue(':itemName', itemName)
         query.bindValue(':itemDescription', itemDescription)
-        self.createSavepoint()
+        create_savepoint('before_insert')
         if not query.exec():
             # print(f'Error inserting new item {itemName}')
-            self.rollback()
+            rollback_savepoint('before_insert')
             return None
         else:
             # print(f'Successfully inserted new item {itemName}')
@@ -506,7 +506,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             if not self.moveItem(itemID, parentRow, pID):
                 self.rollback()
                 return None
-            self.releaseSavepoint()
+            release_savepoint('before_insert')
             self.dataEdited.emit()
             return True
 
@@ -530,10 +530,10 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.source_model.setFilter(self.base_filter)  # Reset the filter
         query = QtS.QSqlQuery(self.db)
         query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} IN {del_string}')
-        self.createSavepoint()
+        create_savepoint('before_delete')
         if not query.exec(): # if item and children not deleted, rollback
             # print(f'Error deleting {del_ids}')
-            self.rollback()
+            rollback_savepoint('before_delete')
             return None
         # else:
             # print(f'Successfully deleted {del_ids}')
@@ -555,9 +555,9 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.source_model.setFilter(self.base_filter)  # Reset the filter
                 if not self.update_parent_info(childID, parentID, newParentRow):
                     # print(f'Error updating parent row for child {childID}')
-                    self.rollback()
+                    rollback_savepoint('before_delete')
                     return None
-        self.releaseSavepoint()
+        release_savepoint('before_delete')
         self.dataEdited.emit()
         return True
 
@@ -695,7 +695,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             pID = f'= {parentID}'
         else:   # If the parent ID is not an integer
             pID = 'IS NULL'
-        self.createSavepoint()
+        create_savepoint('drop_mime_data')
         while not stream.atEnd():
             itemIDs.append(stream.readInt32())
             if row == -1:
@@ -708,11 +708,11 @@ class TreeModel(QtC.QAbstractProxyModel):
         for move in range(len(itemIDs)):
             if not self.moveItem(itemIDs[move], rows[move], pID):
                 # Move was unsuccessful
-                self.rollback()
+                rollback_savepoint('drop_mime_data')
                 return False
         # All moves were successful
         self.source_model.setFilter(self.base_filter)  # Reset the filter
-        self.releaseSavepoint()
+        release_savepoint('drop_mime_data')
         # Emit signal so that the view can rebuild the tree model
         self.dataEdited.emit()
         return True
@@ -729,24 +729,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         if orientation == QtC.Qt.Orientation.Horizontal:
             return TxM.add_spaces_camel(self.proxyHeaders[section])
         return QtC.QVariant()
-
-    def createSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('SAVEPOINT before_move') is False:
-            errtxt = Er.savepoint_fail(self.table)
-            # print(errtxt)
-
-    def rollback(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('ROLLBACK TO SAVEPOINT before_move') is False:
-            errtxt = Er.rollback_fail(self.table)
-            # print(errtxt)
-
-    def releaseSavepoint(self):
-        query = QtS.QSqlQuery(self.db)
-        if query.exec('RELEASE SAVEPOINT before_move') is False:
-            errtxt = Er.savepoint_release_fail(self.table)
-            # print(errtxt)
 
     def testModelIndexing(self, parentItem: TreeItem):
         if parentItem == self.rootItem:
@@ -994,7 +976,7 @@ class CheckableTreeModel(TreeModel):
             if query.exec():
                 while query.next():
                     checked_IDs.append(query.value(0))
-            self.createSavepoint()
+            create_savepoint('update_db')
             to_remove = []
             to_add = []
             for ID in current_IDs:
@@ -1007,7 +989,7 @@ class CheckableTreeModel(TreeModel):
                 query.prepare(f"DELETE FROM SAMPLES_{self.table} WHERE SampleID = {sample_ID} AND {self.id_header} = {ID}")
                 if not query.exec():
                     print(f"Error removing {ID} from SAMPLES_{self.table}")
-                    self.rollback()
+                    rollback_savepoint('update_db')
                     return
                 else:
                     print(f"Removed {sample_ID, ID} from SAMPLES_{self.table}")
@@ -1019,7 +1001,7 @@ class CheckableTreeModel(TreeModel):
                     return
                 else:
                     print(f"Added {sample_ID, ID} to SAMPLES_{self.table}")
-            self.releaseSavepoint()
+            release_savepoint('update_db')
 
 class TreeCombobox(QtW.QComboBox):
     def __init__(self, parent=None):

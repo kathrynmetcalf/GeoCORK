@@ -191,7 +191,7 @@ class ImportWizardDialog(QWidget):
         self.combo_reference_comboBox.set_single_click(True)
 
         self.combo_reference = CheckableSqlTableModel()
-        self.combo_reference = set_table(self.combo_reference, '"References"')
+        self.combo_reference = set_table(self.combo_reference, 'References')
         self.combo_reference_comboBox.setModel(self.combo_reference)
         self.combo_reference_comboBox.closing.connect(
             lambda: self.set_all_rows("Reference Display", self.combo_reference))
@@ -1355,6 +1355,7 @@ class ImportWizardDialog(QWidget):
                     source_checked_row = row
             if checked_item_name is None or checked_item_id is None:
                 return
+            print(checked_item_name, checked_item_id)
         else:
             # todo: add logic to get checked item from tree
             return

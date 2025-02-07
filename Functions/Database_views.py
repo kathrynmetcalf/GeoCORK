@@ -4,6 +4,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
+import logger_setup
 from Functions.SQLUtils import gps_column_join
 from Functions.Table_classes import set_table, get_headers
 import time
@@ -569,110 +570,149 @@ def create_sample_view():
     sample_query = SampleViewQuery()
     query = QtS.QSqlQuery()
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
-    # print(sample_view)
+
+    logger_setup.get_logger().info(f'Creating SampleView')
+    logger_setup.get_logger().debug(f'SQL command: {sample_view}')
     if not query.exec(sample_view):
-        print('Sample view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating SampleView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sample_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created SampleView')
 
 def create_sample_edit_view():
     sample_query = SampleEditViewQuery()
     query = QtS.QSqlQuery()
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleEditView AS {sample_query}'
-    # print(sample_view)
+    logger_setup.get_logger().info(f'Creating SampleEditView')
+    logger_setup.get_logger().debug(f'SQL command: {sample_view}')
     if not query.exec(sample_view):
-        print('Sample edit view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating SampleEditView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sample_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created SampleEditView')
 
 def create_sample_ifnull_view():
     sample_query = SampleIfNullQuery()
-    # print(sample_query)
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleIfNullView AS {sample_query}'
     query = QtS.QSqlQuery()
-    # print(sample_view)
+    logger_setup.get_logger().info(f'Creating SampleIfNullView')
+    logger_setup.get_logger().debug(f'SQL command: {sample_view}')
     if not query.exec(sample_view):
-        print('Sample ifnull view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating SampleIfNullView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sample_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created SampleIfNullView')
 
 def create_aliquot_view():
     aliquot_query = AliquotViewQuery()
-    # print(aliquot_query)
     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotView AS {aliquot_query}'
     query = QtS.QSqlQuery()
-    # print(aliquot_view)
+    logger_setup.get_logger().info(f'Creating AliquotView')
+    logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
     if not query.exec(aliquot_view):
-        print('Aliquot view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating AliquotView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {aliquot_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created AliquotView')
 
 def create_aliquot_edit_view():
     aliquot_query = AliquotEditViewQuery()
-    # print(aliquot_query)
     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotEditView AS {aliquot_query}'
     query = QtS.QSqlQuery()
-    # print(aliquot_view)
+    logger_setup.get_logger().info(f'Creating AliquotEditView')
+    logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
     if not query.exec(aliquot_view):
-        print('Aliquot edit view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating AliquotEditView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {aliquot_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created AliquotEditView')
 
 def create_spot_view():
     spot_query = SpotViewQuery()
-    # print(spot_query)
     spot_view = f'CREATE VIEW IF NOT EXISTS SpotView AS {spot_query}'
     query = QtS.QSqlQuery()
-    # print(spot_view)
+    logger_setup.get_logger().info(f'Creating SpotView')
+    logger_setup.get_logger().debug(f'SQL command: {spot_view}')
     if not query.exec(spot_view):
-        print('Spot view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating SpotView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {spot_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created SpotView')
 
 def create_spot_edit_view():
     spot_query = SpotEditViewQuery()
-    # print(spot_query)
     spot_view = f'CREATE VIEW IF NOT EXISTS SpotEditView AS {spot_query}'
     query = QtS.QSqlQuery()
-    # print(spot_view)
+    logger_setup.get_logger().info(f'Creating SpotEditView')
+    logger_setup.get_logger().debug(f'SQL command: {spot_view}')
     if not query.exec(spot_view):
-        print('Spot edit view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating SpotEditView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {spot_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created SpotEditView')
 
 def create_upb_view():
     upb_query = UPbViewQuery()
-    # print(upb_query)
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbView AS {upb_query}'
     query = QtS.QSqlQuery()
-    # print(upb_view)
+    logger_setup.get_logger().info(f'Creating UPbView')
+    logger_setup.get_logger().debug(f'SQL command: {upb_view}')
     if not query.exec(upb_view):
-        print('UPb view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating UPbView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {upb_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created UPbView')
 
 def create_upb_edit_view():
     upb_query = UPbEditViewQuery()
-    # print(upb_query)
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbEditView AS {upb_query}'
     query = QtS.QSqlQuery()
-    # print(upb_view)
+    logger_setup.get_logger().info(f'Creating UPbEditView')
+    logger_setup.get_logger().debug(f'SQL command: {upb_view}')
     if not query.exec(upb_view):
-        print('UPb edit view creation failed: ', query.lastError().text())
+        logger_setup.get_logger().critical(
+            f'Error creating UPbEditView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {upb_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created UPbEditView')
 
 def create_column_view():
     column_query = ColumnViewQuery()
-    # print(column_query)
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnView AS {column_query}'
     query = QtS.QSqlQuery()
-    # print(column_view)
+    logger_setup.get_logger().info(f'Creating ColumnView')
+    logger_setup.get_logger().debug(f'SQL command: {column_view}')
     if not query.exec(column_view):
-        print('Column view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating ColumnView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {column_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created ColumnView')
 
 def create_column_edit_view():
     column_query = ColumnEditViewQuery()
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnEditView AS {column_query}'
     query = QtS.QSqlQuery()
-    # print(column_view)
+    logger_setup.get_logger().info(f'Creating ColumnEditView')
+    logger_setup.get_logger().debug(f'SQL command: {column_view}')
     if not query.exec(column_view):
-        print('Column edit view creation failed')
+        logger_setup.get_logger().critical(
+            f'Error creating ColumnEditView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {column_view}')
         return False
+    logger_setup.get_logger().info(f'Successfully created ColumnEditView')
 
 def create_all_views():
+    start_time = time.time()
+    logger_setup.get_logger().info('Creating all views')
     create_sample_view()
     create_sample_edit_view()
     create_sample_ifnull_view()
@@ -684,20 +724,35 @@ def create_all_views():
     create_upb_edit_view()
     create_column_view()
     create_column_edit_view()
+    end_time = time.time()
+    logger_setup.get_logger().info(f'All views created in {end_time - start_time} seconds')
 
 def drop_view(view: str):
     query = QtS.QSqlQuery()
-    if not query.exec(f'DROP VIEW IF EXISTS {view}'):
-        print(f'Failed to drop {view}: {query.lastError().text()}')
+    sql = f'DROP VIEW IF EXISTS {view}'
+    logger_setup.get_logger().info(f'Dropping view: {view}')
+    logger_setup.get_logger().debug(f'SQL command: {sql}')
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error dropping view: {view}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return False
+    logger_setup.get_logger().info(f'Successfully dropped view: {view}')
 
 def drop_all_views():
+    start_time = time.time()
+    logger_setup.get_logger().info('Dropping all views')
     query = QtS.QSqlQuery()
-    if not query.exec('SELECT name FROM sqlite_master WHERE type="view"'):
-        print(f'Failed to drop all views: {query.lastError().text()}')
+    sql = 'SELECT name FROM sqlite_master WHERE type="view"'
+    if not query.exec(sql):
+        logger_setup.get_logger().critical(
+            f'Error getting all views from database: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql}')
         return False
     views = []
     while query.next():
         views.append(query.value(0))
     for view in views:
         drop_view(view)
+    end_time = time.time()
+    logger_setup.get_logger().info(f'All views dropped in {end_time - start_time} seconds')

@@ -1,6 +1,9 @@
 import sqlite3
+import time
 
 from PyQt6 import QtSql
+
+import logger_setup
 
 '''Commands to create the database indexes'''
 '''SQL strings to create each index'''
@@ -174,7 +177,8 @@ def create_indexes():
     Populates the units, types, and conversion tables
     Uses the default database connection
     """
-
+    start_time = time.time()
+    logger_setup.get_logger().info('Creating database indexes')
     query = QtSql.QSqlQuery()
 
 
@@ -252,6 +256,5 @@ def create_indexes():
 
     query.exec(CREATE_FILTER_GROUPS_INDEX)
 
-if __name__ == '__main__':
-    db_file = '../DataTestSchema.db'
-    create_indexes(db_file)
+    end_time = time.time()
+    logger_setup.get_logger().info(f'Database indexes created in {end_time - start_time} seconds')

@@ -4,6 +4,7 @@ import sys
 
 from PyQt6.QtWidgets import QApplication, QErrorMessage
 
+import logger_setup
 from ui.LandingUI import LandingPage
 from Functions.Settings_manager import settings
 from ui.Settings import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
@@ -12,6 +13,12 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setApplicationName("GeoCORK")
+
+    logger_setup.setup_async_logger()
+    logger = logger_setup.get_logger()
+
+    logger.info("Starting GeoCORK...")
 
     # Make sure that the default settings values are set
     default_settings()
@@ -24,13 +31,23 @@ if __name__ == "__main__":
     # makes it so if 'default_settings' is ANYTHING but False, then it will be set to True and
     # default_settings() will be called. Makes sure that the default settings are set even on first launch (eg None)
     if settings.value('default_settings') != 'false':
-        settings.setValue('default_settings', 'true')
+        if settings.value('default_settings') == 'true':
+            logger.info('Default settings are set True')
+        else:
+            logger.info('Default settings is set to something other than True or False, resetting to Default settings.')
+
         # Set all settings to the default values
+        settings.setValue('default_settings', 'true')
         reset_to_default_settings()
     else:
         # Check if any settings are missing, and if so, set them to the default values
+        logger.info('Default settings are set to False, checking for missing settings.')
         check_missing_settings()
 
     landing_page = LandingPage()
 
-    sys.exit(app.exec())
+    exit_code = app.exec()
+
+    logger_setup.stop_logger()
+
+    sys.exit(exit_code)

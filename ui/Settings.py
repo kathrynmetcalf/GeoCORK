@@ -7,6 +7,7 @@ from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtGui import QFont, QFontDatabase
 
+import logger_setup
 from Functions.Settings_manager import settings
 from ui.SelectColumns import SelectColumns
 
@@ -18,7 +19,7 @@ settings_list = [
     'decimals_to_show', 'sample_view_columns', 'sample_edit_columns', 'aliquot_view_columns', 'aliquot_edit_columns',
     'spot_view_columns', 'spot_edit_columns', 'upb_analysis_view_columns', 'upb_analysis_edit_columns',
     'column_view_columns', 'column_edit_columns', 'checkable_combobox_height_scaler', 'checkable_combobox_width_scaler',
-    'font_family', 'font_size', 'table_font_size'
+    'font_family', 'font_size', 'table_font_size', 'debug_level'
 ]
 
 def populate_app_defaults():
@@ -161,6 +162,8 @@ def default_settings():
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)
     settings.setValue('default_checkable_combobox_width_scaler', 1.0)
 
+    settings.setValue('default_debug_level', 'INFO')
+
 def reset_to_default_settings():
     # get the default settings from the QSettings object
     if settings.value('default_settings') == 'true':
@@ -182,8 +185,12 @@ def reset_to_default_settings():
 def check_missing_settings():
     # Check if any of the settings are missing, if so, set them to the default
     for setting in settings_list:
+        logger_setup.get_logger().debug(f'Checking for missing setting: {setting}')
         if settings.value(setting) is None:
+            logger_setup.get_logger().info(f'Found missing setting: {setting} - setting to default value: {settings.value(f"default_{setting}")}')
             settings.setValue(setting, settings.value(f'default_{setting}'))
+        else:
+            logger_setup.get_logger().debug(f'Found setting: {setting}')
 
 def update_setting(key, value):
     # pass the key to update and user input, then change the value in settings
@@ -212,8 +219,7 @@ def update_abbreviation(id_key: str):
         model.setQuery(f"SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats WHERE ConcordanceFormatID = {settings.value(id_key)}")
 
     if model.rowCount() == 0:
-        print(f"Error: No results found for {id_key}")
-        print(f"{model.lastError().text()}")
+        logger_setup.get_logger().critical(f"Error: No results found for {id_key}: {model.lastError().text()}")
         return False
     abbreviation_key = id_key.replace('_id', '_abbreviation')
     settings.setValue(abbreviation_key, model.record(0).value(0))

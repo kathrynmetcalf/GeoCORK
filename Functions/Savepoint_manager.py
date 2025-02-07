@@ -1,5 +1,8 @@
 from PyQt6 import QtSql as QtS
 
+import logger_setup
+
+
 class SavepointManager:
     _instance = None
 
@@ -36,21 +39,24 @@ class SavepointManager:
 
 def create_savepoint(savepoint_name: str):
     query = QtS.QSqlQuery()
+    logger_setup.get_logger().info(f'Creating savepoint {savepoint_name}')
     if not query.exec(f'SAVEPOINT {savepoint_name}'):
-        print(f'Failed to create savepoint {savepoint_name}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Failed to create savepoint {savepoint_name}: {query.lastError().text()}')
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.add_savepoint(savepoint_name)
 
 def release_savepoint(savepoint_name: str):
     query = QtS.QSqlQuery()
+    logger_setup.get_logger().info(f'Releasing savepoint {savepoint_name}')
     if not query.exec(f'RELEASE SAVEPOINT {savepoint_name}'):
-        print(f'Failed to release savepoint {savepoint_name}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Failed to release savepoint {savepoint_name}: {query.lastError().text()}')
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.remove_savepoint(savepoint_name)
 
 def rollback_savepoint(savepoint_name: str):
     query = QtS.QSqlQuery()
+    logger_setup.get_logger().critical(f'Rolling back to savepoint {savepoint_name}')
     if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
-        print(f'Failed to rollback to savepoint {savepoint_name}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Failed to rollback to savepoint {savepoint_name}: {query.lastError().text()}')
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.rollback_savepoint(savepoint_name)

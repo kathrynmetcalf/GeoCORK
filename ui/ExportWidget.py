@@ -546,9 +546,9 @@ class ExportWidget(QWidget):
         filtered_where_clause = ''
         ids = []
         for filter_id, filter_json in self.checked_filter_list:
-            if len(self.checked_filter_list) > 0:
-                filtered_where_clause = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbData')
-                filtered_where_clause = filtered_where_clause[0:-1]
+
+            filtered_where_clause = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
+            filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = ''
             join += SQLUtils.get_join_from_table(['UPbAnalyses'])
@@ -574,16 +574,18 @@ class ExportWidget(QWidget):
             ids_more_than_once = [id for id, count in id_counts.items() if count > 1]
 
             ids = f"({', '.join(map(str, ids_more_than_once))})"
-
         # todo Maybe change to pagination
 
-        if len(self.checked_sample_names) > 2:
-            query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
+        if len(self.checked_sample_names) > 1:
             if len(filtered_where_clause) > 0:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
+            else:
+                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
         else:
-            query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
-
+            if len(filtered_where_clause) > 0:
+                query_str = f"SELECT {'DISTINT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} UPbAnalysisID IN {ids} LIMIT 250"
+            else:
+                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
 
         # code to transform the query into a pivot table
         if self.worksheet_tabs_dict[current_worksheet_name]['pivot']:
@@ -939,6 +941,8 @@ class ExportWidget(QWidget):
             tableView.setFilter(f'{table[0:-1]}ID IN ' + db_id_subset)
 
     def update_step_2_list(self):
+        # self.samplesincluded_comboBox.disconnect()
+        self.samplesincluded_comboBox.setEnabled(True)
         if self.selectionscope_comboBox.currentText() == 'Samples':
             self.samplesincluded_comboBox.setModel(self.samples_model)
             self.samples_model.dataChanged.connect(lambda: self.update_sample_list(self.samples_model))
@@ -957,6 +961,9 @@ class ExportWidget(QWidget):
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.spots_model, 'Samples'))
             self.update_checked_list(self.spots_model, 'Samples')
+        elif self.selectionscope_comboBox.currentText() == 'Filter Groups':
+            self.samplesincluded_comboBox.setEnabled(False)
+
         self.update_checked_list(self.filter_model, 'FilterGroups')
 
     def closeEvent(self, a0):

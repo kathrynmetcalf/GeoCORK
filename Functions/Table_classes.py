@@ -471,7 +471,7 @@ def name_column(table: str) -> int | None:
         return 9
     elif table == 'GPSLocations':
         return 1
-    elif table in SQLUtils.user_viewable_tables or table == 'Spots' or table == 'SampleAges':
+    elif table in SQLUtils.user_viewable_tables or table in ['Spots', 'SampleAges', 'FilterGroups']:
         return 1
     else:
         return None

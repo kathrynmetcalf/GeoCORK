@@ -55,17 +55,6 @@ class EditSampleTable(QtW.QDialog):
             errtxt = self.sample_model.lastError().text()
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
-    def createSavepoint(self):
-        query = QtS.QSqlQuery()
-        if query.exec('SAVEPOINT before_edit') is False:
-            errtxt = Er.savepoint_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
-
-    def releaseSavepoint(self):
-        query = QtS.QSqlQuery()
-        if query.exec('RELEASE SAVEPOINT before_edit') is False:
-            errtxt = Er.savepoint_release_fail(self.table)
-            self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def get_items(self, table):
         headers = []
@@ -184,9 +173,9 @@ class EditSampleTable(QtW.QDialog):
             event.accept()
 
     def saveWindowState(self):
-        settings.setValue("ui/DataviewWidget/pos", self.pos())
-        settings.setValue("ui/DataviewWidget/size", self.size())
+        settings.setValue("ui/EditSampleTable/pos", self.pos())
+        settings.setValue("ui/EditSampleTable/size", self.size())
 
     def loadWindowState(self):
-        self.move(settings.value("ui/DataviewWidget/pos", defaultValue=QPoint(410, 241)))
-        self.resize(settings.value("ui/DataviewWidget/size", defaultValue=QSize(810, 569)))
+        self.move(settings.value("ui/EditSampleTable/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/EditSampleTable/size", defaultValue=QSize(810, 569)))

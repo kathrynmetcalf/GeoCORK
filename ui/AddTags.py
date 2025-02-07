@@ -8,6 +8,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 
+import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
@@ -18,7 +19,7 @@ import Functions.Check_triggers as Ct
 class AddTags(QtW.QDialog):
     def __init__(self, table):
         super().__init__()
-
+        logger_setup.get_logger().info(f'Starting AddTags dialog for {table}...')
         # Define any widgets here
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "AddTags.ui")
@@ -59,7 +60,10 @@ class AddTags(QtW.QDialog):
         query = QtS.QSqlQuery()
 
         # Get a list of column names for the selected table
-        query.prepare(f'PRAGMA table_info({self.table})')
+        sql = f'PRAGMA table_info({self.table})'
+        query.prepare(sql)
+        logger_setup.get_logger().info(f'Getting list of column names for {self.table}')
+        logger_setup.get_logger().debug(f'SQL command: {sql}')
         if not query.exec():
             error = query.lastError().text()
             self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
@@ -92,13 +96,10 @@ class AddTags(QtW.QDialog):
         query.prepare(f'INSERT INTO {self.table}({self.name_column}, {self.description_column}) VALUES(?, ?)')
         query.addBindValue(name)
         query.addBindValue(description)
-        if query.exec():
-            self.model.setTable(self.table)
-            self.model.select()
-            self.newName_lineEdit.clear()
-            self.newDescription_lineEdit.clear()
-            self.display_tags()
-        else:
+
+        logger_setup.get_logger().info(f'Inserting {name}, {description} into {self.table}')
+
+        if not query.exec():
             error = query.lastError().text()
             header = TxM.add_spaces_camel(self.columns[1])
             if 'UNIQUE constraint failed:' in error:
@@ -106,15 +107,28 @@ class AddTags(QtW.QDialog):
                 for entry in self.existing_names:
                     if name.casefold() == entry.casefold():
                         duplicates.append(entry)
-                errtxt = Er.duplicate_entry(header, duplicates)
-                self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+                logger_setup.get_logger().critical(f'Each entry in {header} must be unique (case insensitive) Duplicates: {duplicates}: {error}')
+                self.errmsg.critical(self, 'Error',
+                                     f'Each entry in {header} must be unique (case insensitive) Duplicates: {duplicates}: {error}',
+                                     QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
             elif 'CHECK constraint failed:' in error:
-                errtxt = Er.blank_entry(header)
-                self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok,
+                logger_setup.get_logger().critical(f'{header} cannot be blank: {error} ')
+                self.errmsg.critical(self, 'Error', f'{header} cannot be blank', QtW.QMessageBox.StandardButton.Ok,
                                      QtW.QMessageBox.StandardButton.Ok)
             else:
+                logger_setup.get_logger().critical(f'Error: {error}')
                 self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
             rollback_savepoint('before_add')
+
+        logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
+
+        self.model.setTable(self.table)
+        self.model.select()
+        self.newName_lineEdit.clear()
+        self.newDescription_lineEdit.clear()
+        self.display_tags()
+
+        logger_setup.get_logger().info(f'Successfully inserted {name}, {description} into {self.table}')
 
     def discard_question(self):
         msg_box = QtW.QMessageBox()

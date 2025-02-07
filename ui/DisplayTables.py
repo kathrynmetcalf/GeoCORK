@@ -117,7 +117,6 @@ class DisplayTables(QtW.QWidget):
         Displays the selected table
         :return:
         """
-        start = time.time()
         self.edit_pushButton: QPushButton
         self.dbTable_tableView: QtW.QTableView
         self.dbTable_treeView: QtW.QTreeView
@@ -155,7 +154,6 @@ class DisplayTables(QtW.QWidget):
             TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
             self.dbTable_treeView: QTreeView
         elif self.table in self.dbtable_list:
-
             self.switch_to_table()
             if self.table == 'Samples':
                 self.show_cols = settings.value('sample_view_columns')
@@ -189,10 +187,7 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_tableView.setItemDelegate(TbC.WordWrapDelegate(self.dbTable_tableView))
 
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            set_tableview_model_begin = time.time()
             self.dbTable_tableView.setModel(self.table_proxy_model)
-            set_tableview_model_end = time.time()
-            print(f"Set table view model time: {set_tableview_model_end - set_tableview_model_begin}")
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
             self.dbTable_tableView.resizeColumnsToContents()
             self.dbTable_tableView.setSortingEnabled(True)
@@ -211,9 +206,6 @@ class DisplayTables(QtW.QWidget):
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 
         self.edit_pushButton.setText(f"Edit {table}")
-
-        end = time.time()
-        print('display_table connection time: ', end - start)
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""

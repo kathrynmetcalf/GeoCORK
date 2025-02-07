@@ -8,6 +8,7 @@ from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 import Functions.Database_views as DB_views
 import Functions.Table_classes as TbC
+import logger_setup
 from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Settings_manager import settings
@@ -30,14 +31,21 @@ import time
 class GeoChron(QtW.QMainWindow):
     def __init__(self, landingpage):
         super().__init__()
+        logger_setup.get_logger().info("Starting the main window")
         # Define any variables here
         self.landingpage = landingpage
+
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db_file = self.landingpage.get_filename()
+
         settings.setValue('db_file', self.db_file)
+        logger_setup.get_logger().info(f"Setting database file to: {self.db_file}")
         self.db.setDatabaseName(self.db_file)
-        ok = self.db.open()
-        print("Database is open: " + str(ok))
+        if self.db.open():
+            logger_setup.get_logger().info(f"Database opened successfully")
+        else:
+            logger_setup.get_logger().critical('Database could not be opened')
+            return
         self.loadWindowState()
 
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
@@ -55,11 +63,6 @@ class GeoChron(QtW.QMainWindow):
 
         # self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
         update_database()
-        create_view_begin = time.time()
-        print("Creating views")
-        DB_views.create_all_views()
-        create_view_end = time.time()
-        print(f"Create views time: {create_view_end - create_view_begin}")
 
         self.actionImport.triggered.connect(self.show_import_wizard_dialog)
         self.actionSettings.triggered.connect(self.show_settings_dialog)
@@ -106,16 +109,6 @@ class GeoChron(QtW.QMainWindow):
         dlg = SampleInformation(self, sample_ids)
         dlg.exec()
 
-    def drop_views(self):
-        """
-        Drop all views in the database
-        :return:
-        """
-        for view in SQLUtils.views:
-            output = DB_views.drop_view(view)
-            if output is not None and output.type == str:
-                errtxt = output
-                self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
 
     def open_tab(self, parent_id: list[int], parent_type: str, child_type: str):
         """
@@ -172,7 +165,8 @@ class GeoChron(QtW.QMainWindow):
         if self.db.isOpen():
             if not self.db.commit():
                 if 'no transaction is active' not in self.db.lastError().text():
-                    print(self.db.lastError().text())
+                    logger_setup.get_logger().critical(
+                        f'Database is open but a transaction is active: {self.db.lastError().text()}')
             self.db.close()
         self.landingpage.show()
         super().closeEvent(event)

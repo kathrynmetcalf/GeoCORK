@@ -1,6 +1,9 @@
 import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
+from PyQt6.QtSql import QSqlDatabase
+
+import logger_setup
 from Functions.Settings_manager import settings
 
 import pyproj
@@ -28,51 +31,92 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
         create_sql = table_info[1]
         query, virtual, stored, columns = get_columns(table)
         if query.lastError().text() != '':
-            print(f'Error getting {table} columns: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'Error getting {table} columns: {query.lastError().text()}')
             rollback_savepoint('before_drop')
             return False
         if virtual:
             column_str = ', '.join(columns)
-            if not query.exec('PRAGMA foreign_keys=OFF'):
-                print(f'Error turning off foreign keys: {query.lastError().text()}')
+
+            logger_setup.get_logger().info(f'Turning off foreign keys')
+            pragma_foreign_keys = 'PRAGMA foreign_keys=OFF'
+            if not query.exec(pragma_foreign_keys):
+                logger_setup.get_logger().critical(
+                    f'Error turning off foreign keys: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {pragma_foreign_keys}')
                 rollback_savepoint('before_drop')
                 return False
-            if not query.exec(f'ALTER TABLE "{table}" RENAME TO {table}_old'):
+            logger_setup.get_logger().info('Successfully turned off foreign keys')
+
+            alter_table_qry = f'ALTER TABLE "{table}" RENAME TO {table}_old'
+            logger_setup.get_logger().info(f'Altering table rename: {table} to {table}_old')
+            logger_setup.get_logger().debug(f'SQL command: {alter_table_qry}')
+            if not query.exec(alter_table_qry):
                 if 'already' in query.lastError().text():
                     if not query.exec(f'DROP TABLE {table}_old'):
-                        print(f'Error dropping leftover old {table} table: {query.lastError().text()}')
+                        logger_setup.get_logger().critical(f'Error dropping leftover old {table} table: {query.lastError().text()}')
                         rollback_savepoint('before_drop')
                         return False
                     if not query.exec(f'ALTER TABLE "{table}" RENAME TO {table}_old'):
-                        print(f'Error renaming {table} table: {query.lastError().text()}')
+                        logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
                         rollback_savepoint('before_drop')
                         return False
                 else:
-                    print(f'Error renaming {table} table: {query.lastError().text()}')
+                    logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
                     rollback_savepoint('before_drop')
                     return False
+            logger_setup.get_logger().info(f'Successfully altered table rename: {table} to {table}_old')
+
+
             # Select only the stored columns, not the virtual ones
+            logger_setup.get_logger().info(f'Creating table: {table}')
+            logger_setup.get_logger().debug(f'SQL command: {create_sql}')
             if not query.exec(create_sql):
-                print(f'Error creating new {table} table: {query.lastError().text()}')
+                logger_setup.get_logger().critical(
+                    f'Error creating {table} table: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {create_sql}')
                 rollback_savepoint('before_drop')
                 return False
-            if not query.exec(f'INSERT INTO "{table}" SELECT {column_str} FROM {table}_old'):
-                print(f'Error copying data from {table} table: {query.lastError().text()}')
+            logger_setup.get_logger().info(f'Successfully created table: {table}')
+
+
+            insert_old_table = f'INSERT INTO "{table}" SELECT {column_str} FROM {table}_old'
+            logger_setup.get_logger().info(f'Inserting into old table: {table}_old')
+            logger_setup.get_logger().debug(f'SQL command: {insert_old_table}')
+            if not query.exec(insert_old_table):
+                logger_setup.get_logger().critical(
+                    f'Error inserting old {table} table: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {insert_old_table}')
                 rollback_savepoint('before_drop')
                 return False
-            if not query.exec(f'DROP TABLE {table}_old'):
-                print(f'Error dropping old {table} table: {query.lastError().text()}')
+            logger_setup.get_logger().info(f'Successfully inserted into old table: {table}_old')
+
+
+            drop_old_table =f'DROP TABLE {table}_old'
+            logger_setup.get_logger().info(f'Dropping old table: {table}_old')
+            logger_setup.get_logger().debug(f'SQL command: {drop_old_table}')
+            if not query.exec(drop_old_table):
+                logger_setup.get_logger().critical(
+                    f'Error dropping old {table} table: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {drop_old_table}')
                 rollback_savepoint('before_drop')
                 return False
+            logger_setup.get_logger().info(f'Successfully dropped old table: {table}_old')
+
             new_query, new_virtual, new_stored, new_columns = get_columns(table)
             if new_columns != columns:
-                print(f'Error copying new table {table} columns')
+                logger_setup.get_logger().critical(f'Error copying new table {table} columns')
                 rollback_savepoint('before_drop')
                 return False
-            if not query.exec('PRAGMA foreign_keys=ON'):
-                print(f'Error turning on foreign keys: {query.lastError().text()}')
+
+            logger_setup.get_logger().info(f'Turning off foreign keys')
+            pragma_foreign_keys = 'PRAGMA foreign_keys=OFF'
+            if not query.exec(pragma_foreign_keys):
+                logger_setup.get_logger().critical(
+                    f'Error turning off foreign keys: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {pragma_foreign_keys}')
                 rollback_savepoint('before_drop')
                 return False
+            logger_setup.get_logger().info('Successfully turned off foreign keys')
     release_savepoint('before_drop')
     return True
 
@@ -195,7 +239,7 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
             break
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
-        print('Calculation and from columns not found')
+        logger_setup.get_logger().critical(f'Calculation: {calculation_col} and from columns:{from_id_col} not found')
         rollback_savepoint('before_populate')
         return "error"
     conversions = []
@@ -222,20 +266,28 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
                 calculation = calculation.replace('y', ratio_column)
             sql_alter += f' WHEN {table_id_header}={conversion[0]} THEN ({calculation})'
         sql_alter += ' END) VIRTUAL'
-        # print(sql_alter)
+
+        logger_setup.get_logger().info(f'Adding the calculated column {column}')
+        logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
         if not query.exec(sql_alter):
-            print(f'Error adding the calculated column Calculated{column}: {query.lastError().text()}')
+            logger_setup.get_logger().critical(
+                f'Error adding the calculated column {column}: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
             rollback_savepoint('before_populate')
             return "error"
+        logger_setup.get_logger().info(f'Successfully updated {column}')
 
 def generate_age_display_column(table: str, table_id_header: str):
     query = QtS.QSqlQuery()
     column = 'SampleAgeDisplay'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || "±" || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
+    logger_setup.get_logger().info(f'Adding the calculated column {column}')
+    logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
     if not query.exec(sql_alter):
-        print(f'Error updating SampleAgeDisplay: {query.lastError().text()}')
-        rollback_savepoint('before_populate')
+        logger_setup.get_logger().critical(f'Error adding the calculated column {column}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
         return "error"
+    logger_setup.get_logger().info(f'Successfully updated {column}')
 
 def generate_age_error_columns(affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list, err_conversions: list, age_conversions: list):
     table_error_id_header = table_id_headers[0]
@@ -267,11 +319,15 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
                     calculation = age_conversion[1].replace('x', f'({err_calculation})')
                     sql_alter += f' WHEN {table_age_id_header}={age_conversion[0]} AND {table_error_id_header}={err_conversion[0]} THEN ({calculation})'
         sql_alter += ' END) VIRTUAL'
-        # print(sql_alter)
+        logger_setup.get_logger().info(f'Updating the calculated {err_column}')
+        logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
         if not query.exec(sql_alter):
-            print(f'Error adding the calculated column Calculated{err_column}: {query.lastError().text()}')
+            logger_setup.get_logger().critical(
+                f'Error adding the calculated column {err_column}: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
             rollback_savepoint('before_populate')
             return "error"
+        logger_setup.get_logger().info(f'Successfully updated {err_column}')
 
 def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list):
     query = QtS.QSqlQuery()
@@ -301,24 +357,35 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
 
         for conversion in conversions:
             if conversion[0] == gps_format_id:
+
                 gps_code = conversion[1]
                 exec(gps_code, global_vars, local_vars)
                 gps_display = local_vars.get('converted')
-                if not query.exec(f'UPDATE {table} SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'):
-                    print(f'Error updating GPSLocationDisplay: {query.lastError().text()}')
+                sql_alter = f'UPDATE {table} SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'
+                logger_setup.get_logger().info(f'Updating the calculated {column}')
+                logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
+                if not query.exec(sql_alter):
+                    logger_setup.get_logger().critical(
+                        f'Error adding the calculated column {column}: {query.lastError().text()}')
+                    logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
                     rollback_savepoint('before_populate')
                     return "error"
+                logger_setup.get_logger().info(f'Successfully updated {column}')
                 break
 
 def generate_reference_column(table: str, table_id_header: str, constructor: str):
     query = QtS.QSqlQuery()
     column = 'ReferenceDisplay'
 
-    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS {constructor} VIRTUAL'
+    sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS ({constructor}) VIRTUAL'
+    logger_setup.get_logger().info(f'Adding the calculated column {column}')
+    logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
     if not query.exec(sql_alter):
-        print(f'Error updating ReferenceDisplay: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error adding the calculated column {column}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
         rollback_savepoint('before_populate')
         return "error"
+    logger_setup.get_logger().info(f'Successfully updated {column}')
 
 def update_generated_columns(table: str):
     if table == 'GPSLocations':
