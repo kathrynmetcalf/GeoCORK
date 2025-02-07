@@ -306,10 +306,12 @@ class InsertFilterGroupDialog(QDialog):
         check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name"
         query.prepare(check_query)
         query.bindValue(":name", name)
+        logger_setup.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
+        logger_setup.get_logger().debug(f'SQL command: {check_query}')
         if not query.exec():
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Failed to execute query</font>')
-            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            logger_setup.get_logger().critical(
+                f'Error in checking for existing Filters: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {check_query}')
             return
 
         if query.next():
@@ -908,6 +910,7 @@ class QueryBuilder(QWidget):
         self.listWidget.clear()
         query = QSqlQuery()
         sql_query = "SELECT * FROM FilterGroups;"
+        logger_setup.get_logger().debug(f'Updating filter list')
         if query.exec(sql_query):
             while query.next():
                 item = QListWidgetItem()
@@ -916,7 +919,8 @@ class QueryBuilder(QWidget):
                 item.setText(query.value(1))     # FilterGroupName
                 self.listWidget.addItem(item)
         else:
-            print("Failed to execute query:", query.lastError().text())
+            logger_setup.get_logger().info(f'Failed to get all filters from the database: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
     def save_filter(self):
         InsertFilterGroupDialog(self.main_group_box.get_structure(), self).exec()
