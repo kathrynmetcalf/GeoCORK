@@ -3,6 +3,13 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
 import Functions.Text_manipulations as TxM
 from Functions.Settings_manager import settings
+from Functions import SQLUtils as SQLUtils
+from Functions import Tree_classes as TrC
+import ui.EditTree as EditTree
+import ui.AddTreeTags as AddTreeTags
+import ui.New_reference as NewReference
+import ui.EditTable as EditTable
+import ui.AddTags as AddTags
 
 class FocusGroupBox(QtW.QGroupBox):
     focusLost = QtC.pyqtSignal()

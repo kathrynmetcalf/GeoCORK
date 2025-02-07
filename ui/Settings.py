@@ -1,5 +1,5 @@
 import sys
-
+import re
 from PyQt6.QtCore import QSettings, QPoint, QSize
 from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
@@ -252,6 +252,12 @@ class SettingsDialog(QtW.QDialog):
 
         self.populate_fields()
 
+        self.authors_pushButton.clicked.connect(self.add_reference_element)
+        self.year_pushButton.clicked.connect(self.add_reference_element)
+        self.title_pushButton.clicked.connect(self.add_reference_element)
+        self.source_pushButton.clicked.connect(self.add_reference_element)
+        self.doi_pushButton.clicked.connect(self.add_reference_element)
+
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Ok).clicked.connect(self.update_settings_close)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Cancel).clicked.connect(self.close)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Apply).clicked.connect(self.update_settings)
@@ -273,14 +279,32 @@ class SettingsDialog(QtW.QDialog):
         self.column_unit_comboBox.setCurrentText(settings.value('heightdepth_unit_abbreviation'))
         self.set_combobox(self.spot_size_unit_comboBox, self.spot_size_unit_model)
         self.spot_size_unit_comboBox.setCurrentText(settings.value('spotsize_unit_abbreviation'))
-        self.set_combobox(self.age_unit_comboBox, self.age_unit_model)
-        self.age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
-        self.set_combobox(self.age_error_format_comboBox, self.age_error_format_model)
-        self.age_error_format_comboBox.setCurrentText(settings.value('age_error_format_abbreviation'))
         self.set_combobox(self.upb_ratio_error_format_comboBox, self.ratio_error_format_model)
         self.upb_ratio_error_format_comboBox.setCurrentText(settings.value('ratio_error_format_abbreviation'))
         self.set_combobox(self.upb_concordance_format_comboBox, self.concordance_format_model)
         self.upb_concordance_format_comboBox.setCurrentText(settings.value('concordance_format_abbreviation'))
+        self.set_combobox(self.age_unit_comboBox, self.age_unit_model)
+        self.age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
+        self.set_combobox(self.age_error_format_comboBox, self.age_error_format_model)
+        self.age_error_format_comboBox.setCurrentText(settings.value('age_error_format_abbreviation'))
+
+        reference_format = settings.value('reference_format')
+        if 'ifnull(Authors, "")' in reference_format:
+            reference_format = reference_format.replace('ifnull(Authors, "")', '{Authors}')
+        if 'ifnull(Year, "")' in reference_format:
+            reference_format = reference_format.replace('ifnull(Year, "")', '{Year}')
+        if 'ifnull(Title, "")' in reference_format:
+            reference_format = reference_format.replace('ifnull(Title, "")', '{Title}')
+        if 'ifnull(Source, "")' in reference_format:
+            reference_format = reference_format.replace('ifnull(Source, "")', '{Source}')
+        if 'ifnull(DOI, "")' in reference_format:
+            reference_format = reference_format.replace('ifnull(DOI, "")', '{DOI}')
+        if ' || "' in reference_format:
+            reference_format = reference_format.replace(' || "', '')
+        if '" || ' in reference_format:
+            reference_format = reference_format.replace('" || ', '')
+        self.reference_display_lineEdit.setText(reference_format)
+        # '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))'''
 
         self.about_db_model.setQuery('SELECT * FROM About')
         self.db_name_lineEdit.setText(self.about_db_model.record(0).value('Name'))
@@ -324,6 +348,8 @@ class SettingsDialog(QtW.QDialog):
         self.update_from_combobox(self.age_error_format_comboBox, self.age_error_format_model)
         self.update_from_combobox(self.upb_ratio_error_format_comboBox, self.ratio_error_format_model)
         self.update_from_combobox(self.upb_concordance_format_comboBox, self.concordance_format_model)
+
+        settings.setValue('reference_format', self.update_reference_format())
 
         query = QSqlQuery()
         query.prepare('''UPDATE About SET (Name, Authors, Description, Citation, CreatedBy, Citation) = (?, ?, ?, ?, ?, ?)
@@ -429,6 +455,44 @@ class SettingsDialog(QtW.QDialog):
         else:
             return
         return table, column, id_header, setting_key
+
+    def add_reference_element(self):
+        # Add the selected reference element to the reference format lineEdit at the current cursor position
+        button = self.sender()
+        if button.objectName() == 'authors_pushButton':
+            text = '{Authors}'
+        elif button.objectName() == 'year_pushButton':
+            text = '{Year}'
+        elif button.objectName() == 'title_pushButton':
+            text = '{Title}'
+        elif button.objectName() == 'source_pushButton':
+            text = '{Source}'
+        elif button.objectName() == 'doi_pushButton':
+            text = '{DOI}'
+        else:
+            return
+        self.reference_display_lineEdit.insert(text)
+
+    def update_reference_format(self):
+        reference_format = self.reference_display_lineEdit.text()
+        if '{' and '}' in reference_format:
+            # identify any text between curly braced elements and replace with || "text" ||
+            pattern = r'(?<=\})([^{}]+)(?=\{)'
+            def replace_match(match):
+                return f' || "{match.group(0)}" || '
+            reference_format = re.sub(pattern, replace_match, reference_format)
+
+        if '{Authors}' in reference_format:
+            reference_format = reference_format.replace('{Authors}', 'ifnull(Authors, "")')
+        if '{Year}' in reference_format:
+            reference_format = reference_format.replace('{Year}', 'ifnull(Year, "")')
+        if '{Title}' in reference_format:
+            reference_format = reference_format.replace('{Title}', 'ifnull(Title, "")')
+        if '{Source}' in reference_format:
+            reference_format = reference_format.replace('{Source}', 'ifnull(Source, "")')
+        if '{DOI}' in reference_format:
+            reference_format = reference_format.replace('{DOI}', 'ifnull(DOI, "")')
+        return reference_format
 
     def close(self):
         self.saveWindowState()

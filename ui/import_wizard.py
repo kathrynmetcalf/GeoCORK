@@ -602,6 +602,7 @@ class ImportWizardDialog(QWidget):
                 spot_query.bindValue(":spot_name", spot_name)
                 spot_query.bindValue(":aliquot_id", aliquot_id)
                 spot_match = spot_query.exec() and spot_query.next()
+                spot_id = spot_query.value(0) if spot_match else None
 
             self.left_table.blockSignals(True)
             # Highlight the row if any match is found

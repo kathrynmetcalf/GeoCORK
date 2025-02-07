@@ -963,81 +963,185 @@ def create_tables():
     query = QtS.QSqlQuery()
 
     # Create the tables
-    query.exec(CREATE_ABOUT_TABLE)
+    if not query.exec(CREATE_ABOUT_TABLE):
+        print(f'About table creation failed')
+        return
 
     # Create unit and type tables
-    query.exec(CREATE_AGE_UNITS_TABLE)
-    query.exec(CREATE_CONCORDANCE_TYPES_TABLE)
-    query.exec(CREATE_DIRECTION_UNITS_TABLE)
-    query.exec(CREATE_DISTANCE_UNITS_TABLE)
-    query.exec(CREATE_ERROR_TYPES_TABLE)
+    if not query.exec(CREATE_AGE_UNITS_TABLE):
+        print(f'AgeUnits table creation failed')
+        return
+    if not query.exec(CREATE_CONCORDANCE_TYPES_TABLE):
+        print(f'ConcordanceFormats table creation failed')
+        return
+    if not query.exec(CREATE_DIRECTION_UNITS_TABLE):
+        print(f'DirectionUnits table creation failed')
+        return
+    if not query.exec(CREATE_DISTANCE_UNITS_TABLE):
+        print(f'DistanceUnits table creation failed')
+        return
+    if not query.exec(CREATE_ERROR_TYPES_TABLE):
+        print(f'ErrorFormats table creation failed')
+        return
 
     # Create conversion tables
-    query.exec(CREATE_AGE_CONVERSIONS_TABLE)
-    query.exec(CREATE_CONCORDANCE_CONVERSIONS_TABLE)
-    query.exec(CREATE_DISTANCE_CONVERSIONS_TABLE)
-    query.exec(CREATE_ERROR_CONVERSIONS_TABLE)
+    if not query.exec(CREATE_AGE_CONVERSIONS_TABLE):
+        print(f'AgeConversions table creation failed')
+        return
+    if not query.exec(CREATE_CONCORDANCE_CONVERSIONS_TABLE):
+        print(f'ConcordanceConversions table creation failed')
+        return
+    if not query.exec(CREATE_DISTANCE_CONVERSIONS_TABLE):
+        print(f'DistanceConversions table creation failed')
+        return
+    if not query.exec(CREATE_ERROR_CONVERSIONS_TABLE):
+        print(f'ErrorConversions table creation failed')
+        return
 
     # Create analysis tag tables
-    query.exec(CREATE_INSTRUMENTS_TABLE)
-    query.exec(CREATE_LAB_FACILITIES_TABLE)
-    query.exec(CREATE_REJECTION_REASONS_TABLE)
-    query.exec(CREATE_REFERENCES_TABLE)
-    query.exec(CREATE_UPBANALYSIS_METHOD_TABLE)
+    if not query.exec(CREATE_INSTRUMENTS_TABLE):
+        print(f'Instruments table creation failed')
+        return
+    if not query.exec(CREATE_LAB_FACILITIES_TABLE):
+        print(f'LabFacilities table creation failed')
+        return
+    if not query.exec(CREATE_REJECTION_REASONS_TABLE):
+        print(f'RejectionReasons table creation failed')
+        return
+    if not query.exec(CREATE_REFERENCES_TABLE):
+        print(f'References table creation failed')
+        return
+    if not query.exec(CREATE_UPBANALYSIS_METHOD_TABLE):
+        print(f'UPbAnalysisMethods table creation failed')
+        return
 
     # Create spot tag tables
-    query.exec(CREATE_SPOT_COMPOSITION_TABLE)
-    query.exec(CREATE_SPOT_CONTEXT_TABLE)
+    if not query.exec(CREATE_SPOT_COMPOSITION_TABLE):
+        print(f'SpotCompositions table creation failed')
+        return
+    if not query.exec(CREATE_SPOT_CONTEXT_TABLE):
+        print(f'SpotContexts table creation failed')
+        return
 
     # Create aliquot tag tables
-    query.exec(CREATE_ALIQUOT_CONTEXT_TABLE)
+    if not query.exec(CREATE_ALIQUOT_CONTEXT_TABLE):
+        print(f'AliquotContexts table creation failed')
+        return
 
     # Create sample tag tables
-    query.exec(CREATE_AGE_CONSTRAINTS_TABLE)
-    query.exec(CREATE_AGE_INTERPRETATIONS_TABLE) # Shared with upb analyses
-    query.exec(CREATE_AGE_SIGNATURES_TABLE)
-    query.exec(CREATE_AGES_TABLE)
-    query.exec(CREATE_COLUMNS_TABLE)
-    query.exec(CREATE_GPS_CONVERSIONS_TABLE)
-    query.exec(CREATE_GPS_FORMATS_TABLE)
-    query.exec(CREATE_GPS_LOCATIONS_TABLE)
-    query.exec(CREATE_REGIONS_TABLE)
-    query.exec(CREATE_ROCK_TYPES_TABLE)
-    query.exec(CREATE_SAMPLE_AGE_TABLE)
-    query.exec(CREATE_SAMPLE_CONTEXT_TABLE)
-    query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE)
-    query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE)
-    query.exec(CREATE_SAMPLEAGES_REFERENCES_TABLE)
-    query.exec(CREATE_SAMPLING_METHODS_TABLE)
-    query.exec(CREATE_SETTINGS_TABLE)
-    query.exec(CREATE_UNITS_TABLE)
+    if not query.exec(CREATE_AGE_CONSTRAINTS_TABLE):
+        print(f'AgeConstraints table creation failed')
+        return
+    if not query.exec(CREATE_AGE_INTERPRETATIONS_TABLE): # Shared with upb analyses
+        print(f'AgeInterpretations table creation failed')
+        return
+    if not query.exec(CREATE_AGE_SIGNATURES_TABLE):
+        print(f'AgeSignatures table creation failed')
+        return
+    if not query.exec(CREATE_AGES_TABLE):
+        print(f'Ages table creation failed')
+        return
+    if not query.exec(CREATE_COLUMNS_TABLE):
+        print(f'Columns table creation failed')
+        return
+    if not query.exec(CREATE_GPS_CONVERSIONS_TABLE):
+        print(f'GPSConversions table creation failed')
+        return
+    if not query.exec(CREATE_GPS_FORMATS_TABLE):
+        print(f'GPSFormats table creation failed')
+        return
+    if not query.exec(CREATE_GPS_LOCATIONS_TABLE):
+        print(f'GPSLocations table creation failed')
+        return
+    if not query.exec(CREATE_REGIONS_TABLE):
+        print(f'Regions table creation failed')
+        return
+    if not query.exec(CREATE_ROCK_TYPES_TABLE):
+        print(f'RockTypes table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLE_AGE_TABLE):
+        print(f'SampleAges table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLE_CONTEXT_TABLE):
+        print(f'SampleContexts table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE):
+        print(f'SampleAges_AgeConstraints table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE):
+        print(f'SampleAges_AgeInterpretations table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLEAGES_REFERENCES_TABLE):
+        print(f'SampleAges_References table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLING_METHODS_TABLE):
+        print(f'SamplingMethods table creation failed')
+        return
+    if not query.exec(CREATE_SETTINGS_TABLE):
+        print(f'Settings table creation failed')
+        return
+    if not query.exec(CREATE_UNITS_TABLE):
+        print(f'Units table creation failed')
+        return
 
     # Create sample item and analysis tables
-    query.exec(CREATE_SAMPLES_TABLE)
-    query.exec(CREATE_ALIQUOTS_TABLE)
-    query.exec(CREATE_SPOTS_TABLE)
-    query.exec(CREATE_UPBANALYSES_TABLE)
+    if not query.exec(CREATE_SAMPLES_TABLE):
+        print(f'Samples table creation failed')
+        return
+    if not query.exec(CREATE_ALIQUOTS_TABLE):
+        print(f'Aliquots table creation failed')
+        return
+    if not query.exec(CREATE_SPOTS_TABLE):
+        print(f'Spots table creation failed')
+        return
+    if not query.exec(CREATE_UPBANALYSES_TABLE):
+        print(f'UPbAnalyses table creation failed')
+        return
 
     # Create many-to-many sample tables
-    query.exec(CREATE_SAMPLES_AGESIGNATURES_TABLE)
-    query.exec(CREATE_SAMPLES_REGIONS_TABLE)
-    query.exec(CREATE_SAMPLES_ROCKTYPES_TABLE)
-    query.exec(CREATE_SAMPLES_SAMPLEAGES_TABLE)
-    query.exec(CREATE_SAMPLES_SAMPLECONTEXT_TABLE)
-    query.exec(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE)
-    query.exec(CREATE_SAMPLES_SETTINGS_TABLE)
-    query.exec(CREATE_SAMPLES_UNITS_TABLE)
+    if not query.exec(CREATE_SAMPLES_AGESIGNATURES_TABLE):
+        print(f'Samples_AgeSignatures table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLES_REGIONS_TABLE):
+        print(f'Samples_Regions table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLES_ROCKTYPES_TABLE):
+        print(f'Samples_RockTypes table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLES_SAMPLEAGES_TABLE):
+        print(f'Samples_SampleAges table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLES_SAMPLECONTEXT_TABLE):
+        print(f'Samples_SampleContexts table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE):
+        print(f'Samples_SamplingMethods table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLES_SETTINGS_TABLE):
+        print(f'Samples_Settings table creation failed')
+        return
+    if not query.exec(CREATE_SAMPLES_UNITS_TABLE):
+        print(f'Samples_Units table creation failed')
+        return
 
     # Create many-to-many anliquot tables
-    query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE)
+    if not query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE):
+        print(f'Aliquots_AliquotContexts table creation failed')
+        return
 
     # Create many-to-many spot tables
-    query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE)
+    if not query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE):
+        print(f'Spots_SpotContexts table creation failed')
+        return
 
     # Create many-to-many analysis tables
-    query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE)
+    if not query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE):
+        print(f'UPbAnalyses_RejectionReasons table creation failed')
+        return
 
-    query.exec(CREATE_FILTER_GROUPS_TABLE)
+    if not query.exec(CREATE_FILTER_GROUPS_TABLE):
+        print(f'FilterGroups table creation failed')
+        return
 
     # Populate the tables
     populate_tables()

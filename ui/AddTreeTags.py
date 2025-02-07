@@ -68,7 +68,9 @@ class AddTreeTags(QtW.QDialog):
             if self.parentID:
                 query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parentID}')
-                query.exec()
+                if not query.exec():
+                    print(f'Error: {query.lastError().text()}')
+                    return
                 query.next()
                 parent_name = query.value(3)
             else:
@@ -76,7 +78,9 @@ class AddTreeTags(QtW.QDialog):
             if self.itemID:
                 query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.itemID}')
-                query.exec()
+                if not query.exec():
+                    print(f'Error: {query.lastError().text()}')
+                    return
                 query.next()
                 item_name = query.value(3)
             else:
@@ -130,7 +134,9 @@ class AddTreeTags(QtW.QDialog):
             query = QtS.QSqlQuery()
             query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.item_name_header} = "{name}"')
-            query.exec()
+            if not query.exec():
+                print(f'Error: {query.lastError().text()}')
+                return
             query.next()
             new_parent_id = query.value(0)
             if isinstance(new_parent_id, int):
@@ -191,9 +197,3 @@ class AddTreeTags(QtW.QDialog):
         else:
             event.accept()
 
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    app = QtW.QDialog(sys.argv)  # pass command line arguments
-    w = AddTreeTags()
-    sys.exit(app.exec())  # runs event loop, pass exit status to the system

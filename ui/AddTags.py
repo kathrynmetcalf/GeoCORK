@@ -60,7 +60,10 @@ class AddTags(QtW.QDialog):
 
         # Get a list of column names for the selected table
         query.prepare(f'PRAGMA table_info({self.table})')
-        query.exec()
+        if not query.exec():
+            error = query.lastError().text()
+            self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+            return False
         while query.next():
             self.columns.append(query.value(1))
             if 'Name' in query.value(1):
@@ -70,7 +73,10 @@ class AddTags(QtW.QDialog):
 
         # Get a list of the existing tag names
         query.prepare(f'SELECT {self.name_column} FROM {self.table}')
-        query.exec()
+        if not query.exec():
+            error = query.lastError().text()
+            self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+            return False
         while query.next():
             self.existing_names.append(query.value(0))
         completer = QtW.QCompleter(self.existing_names)

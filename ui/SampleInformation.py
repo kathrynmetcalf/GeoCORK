@@ -13,6 +13,7 @@ import Functions.Table_classes as TbC
 import Functions.Tree_classes as TrC
 
 import Functions.Database_views as DB_views
+import Functions.SQLUtils as SQLUtils
 
 from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
@@ -22,6 +23,13 @@ from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
+# from ui.EditTable import EditTable
+# from ui.EditTree import EditTree
+from ui.AddTags import AddTags
+from ui.New_reference import NewReference
+
+
+# from ui.AddTreeTags import AddTreeTags
 
 
 # todo: Figure out why it is slowing down after checking and unchecking a bunch of stuff
@@ -162,7 +170,7 @@ class SampleInformation(QtW.QDialog):
         self.lab_facility_model = self.set_table(self.lab_facility_model, 'LabFacilities')
         self.instrument_model = self.set_table(self.instrument_model, 'Instruments')
 
-
+        self.column_name_comboBox.model_modifiable = True
         self.column_name_comboBox.setModel(self.column_model)
         TbC.show_column(self.column_name_comboBox, 'ColumnName')
         self.height_depth_unit_comboBox.setModel(self.column_unit_model)
@@ -174,10 +182,14 @@ class SampleInformation(QtW.QDialog):
         self.region_comboBox.setModel(self.region_tree)
         self.setting_comboBox.setModel(self.setting_tree)
         self.age_signature_comboBox.setModel(self.age_signature_tree)
+        self.reference_comboBox.model_modifiable = True
         self.reference_comboBox.setModel(self.reference_model)
         TbC.show_column(self.reference_comboBox, 'ReferenceDisplay')
+        self.analysis_method_comboBox.model_modifiable = True
         self.analysis_method_comboBox.setModel(self.analysis_method_tree)
+        self.lab_facility_comboBox.model_modifiable = True
         self.lab_facility_comboBox.setModel(self.lab_facility_model)
+        self.instrument_comboBox.model_modifiable = True
         self.instrument_comboBox.setModel(self.instrument_model)
 
         self.sample_name_comboBox: CheckableTreeCombobox
@@ -197,6 +209,8 @@ class SampleInformation(QtW.QDialog):
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'"{self.sample_igsn_lineEdit.text()}"'))
         # self.location_groupBox.focusLost.connect(self.update_gps)
         self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('SampleColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
+        # self.column_name_comboBox.add_triggered.connect(self.add_popup)
+        # self.column_name_comboBox.edit_triggered.connect(self.edit_popup)
         self.height_depth_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepth', self.height_depth_lineEdit.text()))
         self.height_depth_error_lineEdit.editingFinished.connect(
@@ -209,6 +223,16 @@ class SampleInformation(QtW.QDialog):
         self.region_comboBox.closing.connect(lambda: self.update_sample_tags(self.region_tree, 'Regions'))
         self.setting_comboBox.closing.connect(lambda: self.update_sample_tags(self.setting_tree, 'Settings'))
         self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_tree, 'AgeSignatures'))
+        self.reference_comboBox.closing.connect(lambda: self.update_subfield_id(self.reference_model, 'ReferenceID'))
+        self.reference_comboBox.add_triggered.connect(self.add_popup)
+        # self.reference_comboBox.edit_triggered.connect(self.edit_popup)
+        # self.analysis_method_comboBox.closing.connect(lambda: self.update_subfield_id(self.analysis_method_model, 'UPbAnalysisMethodID'))
+        self.lab_facility_comboBox.closing.connect(lambda: self.update_subfield_id(self.lab_facility_model, 'LabFacilityID'))
+        self.lab_facility_comboBox.add_triggered.connect(self.add_popup)
+        # self.lab_facility_comboBox.edit_triggered.connect(self.edit_popup)
+        self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id(self.instrument_model, 'InstrumentID'))
+        self.instrument_comboBox.add_triggered.connect(self.add_popup)
+        # self.instrument_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'"{self.sample_description_lineEdit.text()}"'))
 
     def disconnect_text_signals(self):
@@ -560,6 +584,29 @@ class SampleInformation(QtW.QDialog):
             print(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
             self.updated = True
             release_savepoint('before_update')
+
+    def add_popup(self, action: QtG.QAction | None = None):
+        combo = self.sender()
+        table = combo.model().tableName()
+        if table in SQLUtils.user_viewable_trees:
+            model = combo.model()
+            # view = combo.view()
+            # TrC.save_expanded_state(table, model, view)
+            # dlg = AddTreeTags(table, action, view)
+        elif table == '"References"' or table == 'References':
+            dlg = NewReference()
+        else:
+            dlg = AddTags(table)
+        if dlg is None:
+            return
+        dlg.exec()
+
+        # Update the model
+        if isinstance(combo.model(), QtS.QSqlTableModel):
+            combo.model().select()
+        # elif isinstance(model, TrC.CheckableTreeModel):
+        #     model.source_model.select()
+        #     model.setSourceModel(model.source_model)
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()

@@ -123,6 +123,14 @@
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>authors_lineEdit</tabstop>
+  <tabstop>year_lineEdit</tabstop>
+  <tabstop>title_lineEdit</tabstop>
+  <tabstop>source_lineEdit</tabstop>
+  <tabstop>doi_lineEdit</tabstop>
+  <tabstop>description_lineEdit</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>

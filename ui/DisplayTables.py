@@ -17,14 +17,14 @@ from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
-import ui.New_reference
 from Functions.Tree_classes import TreeSortFilterProxyModel
-from ui.AddTreeTags import AddTreeTags
+# from Functions.Widget_classes import add_popup_dialog
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
-from ui.Filters import QueryBuilder
+from ui.AddTreeTags import AddTreeTags
+from ui.New_reference import NewReference
 from ui.SampleInformation import  SampleInformation
 import time
 

@@ -391,6 +391,7 @@ class EditTable(QtW.QDialog):
         if not self.model.submit():
             errtxt = f'Failed to save changes to {self.table}: {self.model.lastError().text()}'
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+            return
         # if self.table == 'Samples' or self.table == '"References"' or self.table == 'Aliquots' or self.table == 'UPbData':
         #     pass
         if self.table == '"References"' or self.table == 'References':
@@ -399,7 +400,7 @@ class EditTable(QtW.QDialog):
         else:
             dlg = AddTags(self.model, self.table)
             dlg.exec()
-            self.display_table()
+        self.display_table()
 
     def rollback(self):
         rollback_savepoint('before_edit')
@@ -409,9 +410,13 @@ class EditTable(QtW.QDialog):
         self.reject()
 
     def commit(self):
-        if self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            update_database()
+        if self.edit_tableView.currentIndex().isValid() and not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
+            # There is a valid index selected and the row change failed
+            self.msg.critical(self, 'Error', 'Failed to save changes', QtW.QMessageBox.StandardButton.Ok)
+            return
+        else:
             release_savepoint('before_edit')
+            update_database()
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True
             self.close()

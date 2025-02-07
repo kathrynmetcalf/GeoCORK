@@ -14,9 +14,10 @@ class NewReference(QtW.QDialog):
         base_path = os.path.normpath(base_path)
         sources_ui_file = fr'{os.path.join(base_path, "New_reference.ui")}'
         sources_ui_file = os.path.normpath(sources_ui_file)
+        loadUi(sources_ui_file, self)
 
-        self.ok_buttonBox.accepted(self.add_reference)
-        self.ok_buttonBox.rejected(self.rejected)
+        self.ok_buttonBox.accepted.connect(self.add_reference)
+        self.ok_buttonBox.rejected.connect(self.rejected)
 
     def add_reference(self):
         authors = self.authors_lineEdit.text()
@@ -27,7 +28,7 @@ class NewReference(QtW.QDialog):
         description = self.description_lineEdit.text()
 
         query = QSqlQuery()
-        query.prepare('INSERT INTO References (Authors, Year, Title, Source, DOI, Description) VALUES (?, ?, ?, ?, ?, ?)')
+        query.prepare('INSERT INTO "References" (Authors, Year, Title, Source, DOI, ReferenceDescription) VALUES (?, ?, ?, ?, ?, ?)')
         query.addBindValue(authors)
         query.addBindValue(year)
         query.addBindValue(title)

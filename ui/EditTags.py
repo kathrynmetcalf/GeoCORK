@@ -41,11 +41,15 @@ class EditTags(QtW.QDialog):
         query = QtS.QSqlQuery()
         # Get a list of column names for the selected table
         query.prepare(f'PRAGMA table_info({self.table})')
-        query.exec()
+        if not query.exec():
+            print(f'Error: {query.lastError().text()}')
+            return
         while query.next():
             self.columns.append(query.value(1))
         query.prepare(f'SELECT {self.columns[1]} FROM {self.table}')
-        query.exec()
+        if not query.exec():
+            print(f'Error: {query.lastError().text()}')
+            return
         while query.next():
             self.existing_names.append(query.value(0))
         completer = QtW.QCompleter(self.existing_names)
@@ -82,10 +86,3 @@ class EditTags(QtW.QDialog):
                 self.model.select()
                 self.accept()
 
-
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    app = QtW.QDialog(sys.argv)  # pass command line arguments
-    w = EditTags()
-    sys.exit(app.exec())  # runs event loop, pass exit status to the system

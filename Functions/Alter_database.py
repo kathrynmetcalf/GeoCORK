@@ -13,6 +13,9 @@ def settings_reset():
     tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
                        ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE], ['Samples', Create_db.CREATE_SAMPLES_TABLE],
                        ['Columns', Create_db.CREATE_COLUMNS_TABLE], ['References', Create_db.CREATE_REFERENCES_TABLE]]
+    query = QtS.QSqlQuery()
+    query.exec('COMMIT')
+    query.exec('VACUUM')
     if drop_virtual_columns(tables_affected):
         populate_generated_columns()
 
@@ -30,7 +33,10 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
             return False
         if virtual:
             column_str = ', '.join(columns)
-            query.exec('PRAGMA foreign_keys=OFF')
+            if not query.exec('PRAGMA foreign_keys=OFF'):
+                print(f'Error turning off foreign keys: {query.lastError().text()}')
+                rollback_savepoint('before_drop')
+                return False
             if not query.exec(f'ALTER TABLE "{table}" RENAME TO {table}_old'):
                 if 'already' in query.lastError().text():
                     if not query.exec(f'DROP TABLE {table}_old'):
@@ -63,7 +69,10 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
                 print(f'Error copying new table {table} columns')
                 rollback_savepoint('before_drop')
                 return False
-            query.exec('PRAGMA foreign_keys=ON')
+            if not query.exec('PRAGMA foreign_keys=ON'):
+                print(f'Error turning on foreign keys: {query.lastError().text()}')
+                rollback_savepoint('before_drop')
+                return False
     release_savepoint('before_drop')
     return True
 

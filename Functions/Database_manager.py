@@ -1,4 +1,3 @@
-from ui.Settings import default_settings
 import Functions.Database_views as DB_views
 from Functions import Create_database as Create_db, Create_indexes
 from Functions import Alter_database as Alter_db
@@ -18,13 +17,6 @@ def update_database():
     Create_indexes.create_indexes()
     # Need to drop views before dropping and regenerating generated columns
     DB_views.drop_all_views()
-    # Get the current application settings for the generated columns
-
-    if settings.value('default_settings') == 'true':
-        default_settings()
-    else:
-        pass
-
     # Drop and regenerate the generated columns
     Alter_db.settings_reset()
     create_view_begin = time.time()

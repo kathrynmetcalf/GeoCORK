@@ -69,6 +69,13 @@ class SQLiteTableModel(QAbstractTableModel):
         uri = f'file:{db_file}?mode=ro&immutable=1'
         self._data = []
         self._headers = []
+        model = QtS.QSqlTableModel()
+        db = model.database()
+        if db.isOpen():
+            if not db.commit():
+                if 'no transaction is active' not in db.lastError().text():
+                    print(db.lastError().text())
+            db.close()
         try:
             conn = sqlite3.connect(uri, uri=True)
             with conn:
@@ -83,6 +90,8 @@ class SQLiteTableModel(QAbstractTableModel):
 
         except sqlite3.Error as e:
             print(f"Error opening database: {e}")
+        if not db.open():
+            print(f"Failed to open database {db_file}")
         super().__init__()
 
 
@@ -299,7 +308,9 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
             elif 'GPS' in header:
                 set_header = 'ColumnBaseGPSID'
                 query = QtS.QSqlQuery()
-                query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"')
+                if not query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"'):
+                    print(f'Failed to get GPSLocationID for {value}')
+                    return False
                 query.next()
                 set_value = query.value(0)
                 # set_value = foreign_table.record(0).value('GPSLocationID')
@@ -699,7 +710,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.lineEdit().setPlaceholderText("Search")
         self.lineEdit().setCompleter(self.completer())
-        # self.closedOnLineEditClick = True
+        self.model_modifiable = False
         self.single_click = False
         self.tableView = CheckableSampleTableView()
         self.setView(self.tableView)
@@ -713,11 +724,35 @@ class CheckableComboBox(QtW.QComboBox):
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
-        if self.context_menu:
+        if self.context_menu and self.model_modifiable:
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-            self.customContextMenuRequested.connect(self.show_context_menu)
+            # self.customContextMenuRequested.connect(self.show_context_menu)
         else:
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
+
+    def contextMenuEvent(self, event):
+        menu = TreeContextMenu()
+        if self.model().tableName():
+            table = self.model().tableName()
+        else:
+            table = self.model().tableName
+        if table == '"References"':
+            table = 'References'
+        if self.model().rowCount() !=0:
+            edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
+            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
+            clear_all_action = menu.addAction("Clear All Checks")
+        else:
+            edit_action = None
+            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
+            clear_all_action = None
+        action = menu.exec(self.mapToGlobal(event.pos()))
+        if action == edit_action:
+            self.edit_triggered.emit(self)
+        elif action == add_action:
+            self.add_triggered.emit(self)
+        elif action == clear_all_action:
+            self.clear_all_checks()
 
     def set_single_click(self, single_click: bool):
         self.single_click = single_click
@@ -728,18 +763,18 @@ class CheckableComboBox(QtW.QComboBox):
     def set_line_edit_text(self, text):
         self.lineEdit().setText(text)
 
-    def show_context_menu(self, pos):
-        menu = TreeContextMenu()
-        edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.model().tableName())}")
-        add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.model().tableName())}")
-        clear_all_action = menu.addAction("Clear All Checks")
-        action = menu.exec(self.mapToGlobal(pos))
-        if action == edit_action:
-            self.edit_triggered.emit(self)
-        elif action == add_action:
-            self.add_triggered.emit(self)
-        elif action == clear_all_action:
-            self.clear_all_checks()
+    # def show_context_menu(self, pos):
+    #     menu = TreeContextMenu()
+    #     edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.model().tableName())}")
+    #     add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.model().tableName())}")
+    #     clear_all_action = menu.addAction("Clear All Checks")
+    #     action = menu.exec(self.mapToGlobal(pos))
+    #     if action == edit_action:
+    #         self.edit_triggered.emit(self)
+    #     elif action == add_action:
+    #         self.add_triggered.emit(self)
+    #     elif action == clear_all_action:
+    #         self.clear_all_checks()
 
     def clear_all_checks(self):
         col = name_column(self.model().tableName())
