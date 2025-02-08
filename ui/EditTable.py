@@ -6,7 +6,7 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QModelIndex
 from PyQt6.uic import loadUi
-from pandas.plotting import table
+# from pandas.plotting import table
 
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings

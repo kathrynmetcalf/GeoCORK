@@ -300,19 +300,22 @@ class ColumnListProxyModel(QtC.QSortFilterProxyModel):
 class ColumnItemModel(QtG.QStandardItemModel):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.permanentIndexList = [0]
+        self.permanent_header = ''
+
+    def set_permanent_header(self, header: str):
+        # Set the header that should always be checked, the name or display column
+        self.permanent_header = header
 
     def data(self, index, role: int = ...):
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
-            if index.row() in self.permanentIndexList:
+            if self.data(index, QtC.Qt.ItemDataRole.DisplayRole) == self.permanent_header:
                 return QtC.Qt.CheckState.Checked
             else:
                 return super().data(index, role)
         return super().data(index, role)
 
-    def flags(self, index):
-        if index.row() in self.permanentIndexList:
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable
-        else:
-            return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsUserCheckable | QtC.Qt.ItemFlag.ItemIsDragEnabled
-
+    def setData(self, index, value, role: int = ...):
+        if role == QtC.Qt.ItemDataRole.CheckStateRole:
+            if self.data(index, QtC.Qt.ItemDataRole.DisplayRole) == self.permanent_header and value == QtC.Qt.CheckState.Unchecked:
+                return False
+        return super().setData(index, value, role)

@@ -7,7 +7,7 @@ import os
 from PyQt6.QtCore import QSettings, QStandardPaths
 from PyQt6.QtWidgets import QMessageBox
 
-from Settings_manager import settings
+from Functions.Settings_manager import settings
 from tzlocal import get_localzone
 
 # Get the local timezone

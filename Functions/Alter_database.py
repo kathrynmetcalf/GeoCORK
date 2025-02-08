@@ -16,9 +16,6 @@ def settings_reset():
     tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
                        ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE], ['Samples', Create_db.CREATE_SAMPLES_TABLE],
                        ['Columns', Create_db.CREATE_COLUMNS_TABLE], ['References', Create_db.CREATE_REFERENCES_TABLE]]
-    query = QtS.QSqlQuery()
-    query.exec('COMMIT')
-    query.exec('VACUUM')
     if drop_virtual_columns(tables_affected):
         populate_generated_columns()
 
@@ -108,15 +105,15 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
                 rollback_savepoint('before_drop')
                 return False
 
-            logger_setup.get_logger().info(f'Turning off foreign keys')
-            pragma_foreign_keys = 'PRAGMA foreign_keys=OFF'
+            logger_setup.get_logger().info(f'Turning on foreign keys')
+            pragma_foreign_keys = 'PRAGMA foreign_keys=ON'
             if not query.exec(pragma_foreign_keys):
                 logger_setup.get_logger().critical(
-                    f'Error turning off foreign keys: {query.lastError().text()}')
+                    f'Error turning on foreign keys: {query.lastError().text()}')
                 logger_setup.get_logger().critical(f'SQL command: {pragma_foreign_keys}')
                 rollback_savepoint('before_drop')
                 return False
-            logger_setup.get_logger().info('Successfully turned off foreign keys')
+            logger_setup.get_logger().info('Successfully turned on foreign keys')
     release_savepoint('before_drop')
     return True
 

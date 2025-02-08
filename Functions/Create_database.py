@@ -1280,10 +1280,10 @@ def populate_tables():
     while query.next(): out.append(query.value(2))
     if not out:
         populate_gps_formats()
-    sql = 'DELETE FROM GPSConversions'
+    sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
         logger_setup.get_logger().critical(
-            f'Error deleting all rows from GPSConversions: {query.lastError().text()}')
+            f'Error deleting all rows from GPSFormatConversions: {query.lastError().text()}')
         logger_setup.get_logger().critical(f'SQL command: {sql}')
         return
     populate_gps_conversions()

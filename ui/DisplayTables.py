@@ -125,8 +125,6 @@ class DisplayTables(QtW.QWidget):
         self.case_checkBox: QtW.QCheckBox
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
-        if self.table == 'References':
-            self.table == '"References"'
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
             TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
@@ -172,6 +170,12 @@ class DisplayTables(QtW.QWidget):
                     self.show_cols = ', '.join(self.show_cols)
                     model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM ColumnView')
                     # model = TbC.SQLiteTableModel(f'SELECT * FROM ColumnView')
+                    self.table_proxy_model.setSourceModel(model)
+                elif self.table == 'References':
+                    self.show_cols = settings.value('reference_view_columns')
+                    self.show_cols = ', '.join(self.show_cols)
+                    model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM ReferenceView')
+                    # model = TbC.SQLiteTableModel(f'SELECT * FROM ReferenceView')
                     self.table_proxy_model.setSourceModel(model)
                 else:
                     self.model.setTable(table)

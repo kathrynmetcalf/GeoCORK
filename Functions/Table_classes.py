@@ -12,6 +12,7 @@ from collections import namedtuple
 from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt
 from PyQt6.QtGui import QTextOption
 
+import logger_setup
 from Functions.Settings_manager import settings, SettingsManager
 from Functions import SQLUtils
 import Functions.Text_manipulations as TxM
@@ -31,8 +32,15 @@ age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatu
 
 
 def set_table(model: QtS.QSqlTableModel, table: str):
+    logger_setup.get_logger().info(f"Setting table to {table}")
     model.setTable(table)
+    if model.lastError().text():
+        logger_setup.get_logger().critical(f"Failed to set table to {table}: {model.lastError().text()}")
+        return False
     model.select()
+    if model.lastError().text():
+        logger_setup.get_logger().critical(f"Failed to select table {table}: {model.lastError().text()}")
+        return False
     return model
 
 class DecimalDelegate(QtW.QStyledItemDelegate):
@@ -163,6 +171,18 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
 class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
     def __init__(self):
         super().__init__()
+        self.table = ''
+
+    def setQuery(self, query):
+        super().setQuery(query)
+        if self.lastError().text():
+            logger_setup.get_logger().critical(f"Failed to set query '{query}': {self.lastError().text()}")
+        else:
+            logger_setup.get_logger().info(f"Query set to '{query}'")
+            self.table = query.split('FROM ')[1].split(' ')[0]
+
+    def tableName(self):
+        return self.table
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -504,6 +524,9 @@ def get_column_types(table: str):
         column_types.append(query.value(2))
     return column_types
 
+# def get_col_from_view_header(model: QtS.QSqlQueryModel, header: str):
+#     #
+
 def foreign_key_columns(table: str):
     query = QtS.QSqlQuery()
     foreign_keys = {}
@@ -622,15 +645,10 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         super().__init__()
         self.checked_data = {}
         self.partially_checked_data = {}
-        self.tableName = ''
-
-    def setQuery(self, query):
-        super().setQuery(query)
-        self.tableName = query.split('FROM ')[1].split(' ')[0]
 
     def flags(self, index):
         flags = super().flags(index)
-        col = name_column(self.tableName)
+        col = name_column(self.table)
         if index.column() == col:
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
         return flags
@@ -638,7 +656,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return False
-        col = name_column(self.tableName)
+        col = name_column(self.table)
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if index.row() in self.checked_data.keys():
                 return QtC.Qt.CheckState.Checked
@@ -649,7 +667,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
-        col = name_column(self.tableName)
+        col = name_column(self.table)
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
                 self.checked_data[index.row()] = value
@@ -671,9 +689,6 @@ class SampleAgeTableModel(QtS.QSqlQueryModel):
         self.default_query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
                         OldestAgeID, YoungestAgeID, SampleAgeDescription, SampleAgeCreated, SampleAgeModified FROM SampleAges'''
         self.setQuery(self.default_query)
-
-    def tableName(self):
-        return 'SampleAges'
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -736,7 +751,7 @@ class CheckableComboBox(QtW.QComboBox):
             table = self.model().tableName()
         else:
             table = self.model().tableName
-        if table == '"References"':
+        if 'Reference' in table:
             table = 'References'
         if self.model().rowCount() !=0:
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
@@ -1130,34 +1145,27 @@ def find_sub_items(sample_ids):
     query = QtS.QSqlQuery()
     aliquot_ids = []
     spot_ids = []
-    upb_data_ids = []
-    sample_table = QtS.QSqlTableModel()
-    sample_table.setTable('Samples')
-    sample_table.select()
-    aliquot_table = QtS.QSqlTableModel()
-    aliquot_table.setTable('Aliquots')
-    aliquot_table.select()
-    spot_table = QtS.QSqlTableModel()
-    spot_table.setTable('Spots')
-    spot_table.select()
-    UPb_data_table = QtS.QSqlTableModel()
-    UPb_data_table.setTable('UPbData')
-    UPb_data_table.select()
-
+    upb_analysis_ids = []
     for sample_id in sample_ids:
-        aliquot_table.setFilter(f'SampleID={sample_id}')
-        for row in range(aliquot_table.rowCount()):
-            aliquot_id = aliquot_table.record(row).value('AliquotID')
+        aliquot_table = SQLiteTableModel(f'SELECT * FROM Aliquots WHERE SampleID={sample_id}')
+        for a_row in range(aliquot_table.rowCount()):
+            aliquot_id = aliquot_table.data(aliquot_table.index(a_row, 0))
             aliquot_ids.append(aliquot_id)
-            spot_table.setFilter(f'AliquotID={aliquot_id}')
-            for row in range(spot_table.rowCount()):
-                spot_id = spot_table.record(row).value('SpotID')
+            spot_table = SQLiteTableModel(f'SELECT * FROM Spots WHERE AliquotID={aliquot_id}')
+            for s_row in range(spot_table.rowCount()):
+                spot_id = spot_table.data(spot_table.index(s_row, 0))
                 spot_ids.append(spot_id)
-                UPb_data_table.setFilter(f'SpotID={spot_id}')
-                for row in range(UPb_data_table.rowCount()):
-                    upb_data_id = UPb_data_table.record(row).value('UPbAnalysisID')
-                    upb_data_ids.append(upb_data_id)
-    return aliquot_ids, spot_ids, upb_data_ids
+                UPb_analysis_table = SQLiteTableModel(f'SELECT * FROM UPbAnalyses WHERE SpotID={spot_id}')
+                for row in range(UPb_analysis_table.rowCount()):
+                    upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
+                    upb_analysis_ids.append(upb_data_id)
+    try:
+        UPb_analysis_table.deleteLater()
+        spot_table.deleteLater()
+        aliquot_table.deleteLater()
+    except NameError:
+        pass
+    return aliquot_ids, spot_ids, upb_analysis_ids
 
 def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
     if text == '' or text == '-':
@@ -1171,3 +1179,4 @@ def show_column(comboBox: QtW.QComboBox, column: str):
         header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         if header == column:
             comboBox.setModelColumn(col)
+            return

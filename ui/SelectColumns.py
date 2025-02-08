@@ -2,7 +2,6 @@ import os
 import sys
 from collections import Counter
 
-import pandas
 from PyQt6 import QtCore
 from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QModelIndex
 from PyQt6.QtGui import QDesktopServices, QStandardItemModel, QStandardItem
@@ -20,7 +19,7 @@ from Functions.SQLUtils import views
 from Functions.Settings_manager import settings
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import SQLUtils
-from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox
+from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox, name_column, set_table
 from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel
 
 class SelectColumns(QWidget):
@@ -44,7 +43,8 @@ class SelectColumns(QWidget):
             'UPbAnalysisView': 'upb_analysis_view_columns',
             'UPbAnalysisEditView': 'upb_analysis_edit_columns',
             'ColumnView': 'column_view_columns',
-            'ColumnEditView': 'column_edit_columns'
+            'ColumnEditView': 'column_edit_columns',
+            'ReferenceView': 'reference_view_columns',
         }
 
         self.columnselection_comboBox.addItems(self.view_dict.keys())
@@ -76,11 +76,27 @@ class SelectColumns(QWidget):
             self.columnattributes_stack.addWidget(column_list_view)
 
     def check_list_view(self, field_items, settings_columns):
-        model = QStandardItemModel()
+        model = ColumnItemModel()
         for column in settings_columns:
             # Do not bother to add the table ID field which must be present but is always hidden
+            # But do figure out which header should be the permanent one
             if column == field_items[0]:
-                pass
+                if 'Sample' in column:
+                    table = 'Samples'
+                elif 'Aliquot' in column:
+                    table = 'Aliquots'
+                elif 'Spot' in column:
+                    table = 'Spots'
+                elif 'UPbAnalysis' in column:
+                    table = 'UPbAnalyses'
+                elif 'Column' in column:
+                    table = 'Columns'
+                elif 'Reference' in column:
+                    table = 'References'
+                name_col = name_column(table)
+                table_model = QSqlTableModel()
+                set_table(table_model, table)
+                model.set_permanent_header(table_model.headerData(name_col, QtCore.Qt.Orientation.Horizontal))
             else:
                 item = QStandardItem(column)
                 item.setDragEnabled(True)

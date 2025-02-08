@@ -566,6 +566,26 @@ def ColumnIfNullQuery():
     '''
     return column_ifnull_query
 
+def ReferenceViewQuery():
+    # Select columns
+
+    reference_query = f'''
+                SELECT
+                    {SQLUtils.qreference_id},
+                    {SQLUtils.qreference_display},
+                    {SQLUtils.qauthors},
+                    {SQLUtils.qyear},
+                    {SQLUtils.qtitle},
+                    {SQLUtils.qsource},
+                    {SQLUtils.qdoi},
+                    {SQLUtils.qreference_description},
+                    {SQLUtils.qreference_created},
+                    {SQLUtils.qreference_modified}
+                FROM "References"
+                '''
+    # print(reference_query)
+    return reference_query
+
 def create_sample_view():
     sample_query = SampleViewQuery()
     query = QtS.QSqlQuery()
@@ -710,6 +730,19 @@ def create_column_edit_view():
         return False
     logger_setup.get_logger().info(f'Successfully created ColumnEditView')
 
+def create_reference_view():
+    reference_query = ReferenceViewQuery()
+    reference_view = f'CREATE VIEW IF NOT EXISTS ReferenceView AS {reference_query}'
+    query = QtS.QSqlQuery()
+    logger_setup.get_logger().info(f'Creating ReferenceView')
+    logger_setup.get_logger().debug(f'SQL command: {reference_view}')
+    if not query.exec(reference_view):
+        logger_setup.get_logger().critical(
+            f'Error creating ReferenceView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {reference_view}')
+        return False
+    logger_setup.get_logger().info(f'Successfully created ReferenceView')
+
 def create_all_views():
     start_time = time.time()
     logger_setup.get_logger().info('Creating all views')
@@ -724,6 +757,7 @@ def create_all_views():
     create_upb_edit_view()
     create_column_view()
     create_column_edit_view()
+    create_reference_view()
     end_time = time.time()
     logger_setup.get_logger().info(f'All views created in {end_time - start_time} seconds')
 

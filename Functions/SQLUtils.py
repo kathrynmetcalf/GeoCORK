@@ -311,6 +311,17 @@ qupb_references_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(UPbReferences.ReferenceDi
 qupb_methods_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(UPbAnalysisMethodName,"Null")) AS "UPb Analysis Methods"'
 qupb_labs_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(LabFacilityName,"Null")) AS "Lab Facilities"'
 
+# Reference view columns
+qreference_id = 'ReferenceID AS ReferenceID'
+qreference_display = 'ReferenceDisplay AS ReferenceDisplay'
+qauthors = 'Authors AS Authors'
+qyear = 'Year AS Year'
+qtitle = 'Title AS Title'
+qsource = 'Source AS Source'
+qdoi = 'DOI AS DOI'
+qreference_description = 'ReferenceDescription AS ReferenceDescription'
+qreference_created = 'ReferenceCreated AS ReferenceCreated'
+qreference_modified = 'ReferenceModified AS ReferenceModified'
 
 # Join lines
 # SampleAge-Age joins
@@ -743,6 +754,11 @@ view_attributes_dict = {
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", '"Concordance"', f"{qconcordance_formats.split('AS ')[1]}",
         '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
+    ],
+    'ReferenceView': [
+        f"{qreference_id.split('AS ')[1]}", f"{qreference_display.split('AS ')[1]}", f"{qauthors.split('AS ')[1]}",
+        f"{qyear.split('AS ')[1]}", f"{qtitle.split('AS ')[1]}", f"{qsource.split('AS ')[1]}", f"{qdoi.split('AS ')[1]}",
+        f"{qreference_description.split('AS ')[1]}", f"{qreference_created.split('AS ')[1]}", f"{qreference_modified.split('AS ')[1]}"
     ]
 }
 

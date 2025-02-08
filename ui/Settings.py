@@ -18,8 +18,8 @@ settings_list = [
     'ratio_error_format_abbreviation', 'concordance_format_id', 'concordance_format_abbreviation', 'reference_format',
     'decimals_to_show', 'sample_view_columns', 'sample_edit_columns', 'aliquot_view_columns', 'aliquot_edit_columns',
     'spot_view_columns', 'spot_edit_columns', 'upb_analysis_view_columns', 'upb_analysis_edit_columns',
-    'column_view_columns', 'column_edit_columns', 'checkable_combobox_height_scaler', 'checkable_combobox_width_scaler',
-    'font_family', 'font_size', 'table_font_size', 'debug_level'
+    'column_view_columns', 'column_edit_columns', 'reference_view_columns', 'checkable_combobox_height_scaler',
+    'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level'
 ]
 
 def populate_app_defaults():
@@ -157,6 +157,10 @@ def default_settings():
         'ColumnID', 'ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitAbbreviation',
         'ColumnGPSLocationDisplay', 'ColumnElevation', 'ColumnElevationUnitAbbreviation', 'ColumnDescription',
         'ColumnCreated', 'ColumnModified'
+    ])
+    settings.setValue('default_reference_view_columns', [
+        'ReferenceID', 'ReferenceDisplay', 'Authors', 'Year', 'Title', 'Source', 'DOI', 'ReferenceDescription',
+        'ReferenceCreated', 'ReferenceModified'
     ])
 
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)
