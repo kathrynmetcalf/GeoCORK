@@ -14,6 +14,7 @@ from PyQt6.QtGui import QTextOption
 
 import logger_setup
 from Functions.Settings_manager import settings, SettingsManager
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions import SQLUtils
 import Functions.Text_manipulations as TxM
 from Functions import Check_triggers
@@ -100,6 +101,24 @@ class SQLiteTableModel(QAbstractTableModel):
             print(f"Error opening database: {e}")
         if not db.open():
             print(f"Failed to open database {db_file}")
+        table = query.split('FROM ')[1].split(' ')[0]
+        if 'View' in table:
+            self.view = table
+            if 'Sample' in table:
+                self.table = 'Samples'
+            elif 'Aliquot' in table:
+                self.table = 'Aliquots'
+            elif 'Spot' in table:
+                self.table = 'Spots'
+            elif 'Column' in table:
+                self.table = 'Columns'
+            elif 'Reference' in table:
+                self.table = 'References'
+            self.table_name_col = name_column(self.table)
+            self.view_name_col = get_view_name_column(self.view)
+        else:
+            self.table = table
+            self.table_name_col = name_column(self.table)
         super().__init__()
 
 
@@ -108,6 +127,12 @@ class SQLiteTableModel(QAbstractTableModel):
 
     def columnCount(self, parent=None):
         return len(self._headers)
+
+    def tableName(self):
+        return self.table
+
+    def tableView(self):
+        return self.view
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
@@ -171,7 +196,10 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
 class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
     def __init__(self):
         super().__init__()
+        self.view = ''
+        self.view_name_col = ''
         self.table = ''
+        self.table_name_col = ''
 
     def setQuery(self, query):
         super().setQuery(query)
@@ -179,10 +207,30 @@ class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
             logger_setup.get_logger().critical(f"Failed to set query '{query}': {self.lastError().text()}")
         else:
             logger_setup.get_logger().info(f"Query set to '{query}'")
-            self.table = query.split('FROM ')[1].split(' ')[0]
+            table = query.split('FROM ')[1].split(' ')[0]
+            if 'View' in table:
+                self.view = table
+                if 'Sample' in table:
+                    self.table = 'Samples'
+                elif 'Aliquot' in table:
+                    self.table = 'Aliquots'
+                elif 'Spot' in table:
+                    self.table = 'Spots'
+                elif 'Column' in table:
+                    self.table = 'Columns'
+                elif 'Reference' in table:
+                    self.table = 'References'
+                self.table_name_col = name_column(self.table)
+                self.view_name_col = get_view_name_column(self.view)
+            else:
+                self.table = table
+                self.table_name_col = name_column(self.table)
 
     def tableName(self):
         return self.table
+
+    def tableView(self):
+        return self.view
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -295,11 +343,19 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
 
     def setTable(self, tableName):
         if 'View' in tableName:
-            if 'Column' in tableName:
-                self.table = 'Columns'
-            elif 'Sample' in tableName:
+            if 'Sample' in tableName:
                 self.table = 'Samples'
-            super().setTable(tableName)
+            elif 'Aliquot' in tableName:
+                self.table = 'Aliquots'
+            elif 'Spot' in tableName:
+                self.table = 'Spots'
+            elif 'UPbAnalysis' in tableName:
+                self.table = 'UPbAnalyses'
+            elif 'Column' in tableName:
+                self.table = 'Columns'
+            elif 'Reference' in tableName:
+                self.table = 'References'
+            super().setTable(self.table)
         else:
             print('Table name is not a view')
 
@@ -487,14 +543,42 @@ def name_column(table: str) -> int | None:
     elif 'Format' in table or 'Unit' in table:
         # return the column for the abbreviation
         return 2
-    elif table == '"References"':
+    elif table == 'References':
         return 9
-    elif table == 'GPSLocations':
-        return 1
-    elif table in SQLUtils.user_viewable_tables or table in ['Spots', 'SampleAges', 'FilterGroups']:
+    elif table == 'SampleAges':
+        return 16
+    elif table in SQLUtils.user_viewable_tables or table in ['Spots', 'GPSLocations', 'FilterGroups']:
         return 1
     else:
         return None
+
+def get_table_from_view(view: str):
+    if 'Sample' in view:
+        return 'Samples'
+    elif 'Aliquot' in view:
+        return 'Aliquots'
+    elif 'Spot' in view:
+        return 'Spots'
+    elif 'Column' in view:
+        return 'Columns'
+    elif 'Reference' in view:
+        return 'References'
+    else:
+        return view
+
+def get_view_name_column(view: str):
+    table = get_table_from_view(view)
+    table_name_col = name_column(table)
+    if table_name_col is not None:
+        # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
+        query_model = QtS.QSqlQueryModel()
+        query_model.setQuery(f'SELECT * FROM "{table}"')
+        name_header = query_model.headerData(table_name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        view_column_settings = SQLUtils.view_setting_dict[view]
+        view_columns = settings.value(view_column_settings)
+        if name_header in view_columns:
+            view_name_col = view_columns.index(name_header)
+            return view_name_col
 
 def get_name_from_id(table: str, item_id: int):
     query = QtS.QSqlQuery()
@@ -523,9 +607,6 @@ def get_column_types(table: str):
     while query.next():
         column_types.append(query.value(2))
     return column_types
-
-# def get_col_from_view_header(model: QtS.QSqlQueryModel, header: str):
-#     #
 
 def foreign_key_columns(table: str):
     query = QtS.QSqlQuery()
@@ -568,6 +649,22 @@ def get_foreign_id_table(table: str, header: str, value):
             return value
         query.next()
         return query.value(0), foreign_table
+
+
+def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
+    if text == '' or text == '-':
+        comboBox.setCurrentIndex(-1)
+    else:
+        comboBox.setCurrentText(text)
+
+
+def show_column(comboBox: QtW.QComboBox, column: str):
+    model = comboBox.model()
+    for col in range(model.columnCount()):
+        header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        if header == column:
+            comboBox.setModelColumn(col)
+            return
 
 class ComboList(QtW.QComboBox):
     def __init__(self, parent, model):
@@ -622,6 +719,15 @@ class CheckableSqlTableModel(DisplayRoundedModel):
                 return QtC.Qt.CheckState.PartiallyChecked
             else:
                 return QtC.Qt.CheckState.Unchecked
+        elif index.column() == col and role == QtC.Qt.ItemDataRole.ToolTipRole:
+            description_col = None
+            for header_col in range(self.columnCount()):
+                header = self.headerData(header_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Description' in header:
+                    description_col = header_col
+                    break
+            if description_col is not None:
+                return super().data(self.index(index.row(), description_col), QtC.Qt.ItemDataRole.DisplayRole)
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
@@ -656,7 +762,11 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return False
-        col = name_column(self.table)
+        try:
+            view = self.tableView()
+            col = get_view_name_column(view)
+        except AttributeError:
+            col = name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if index.row() in self.checked_data.keys():
                 return QtC.Qt.CheckState.Checked
@@ -664,10 +774,23 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
                 return QtC.Qt.CheckState.PartiallyChecked
             else:
                 return QtC.Qt.CheckState.Unchecked
+        elif index.column() == col and role == QtC.Qt.ItemDataRole.ToolTipRole:
+            description_col = None
+            for header_col in range(self.columnCount()):
+                header = self.headerData(header_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Description' in header:
+                    description_col = header_col
+                    break
+            if description_col is not None:
+                return super().data(self.index(index.row(), description_col), QtC.Qt.ItemDataRole.DisplayRole)
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
-        col = name_column(self.table)
+        try:
+            view = self.tableView()
+            col = get_view_name_column(view)
+        except AttributeError:
+            col = name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
                 self.checked_data[index.row()] = value
@@ -727,15 +850,39 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setCompleter(self.completer())
         self.model_modifiable = False
         self.single_click = False
-        self.tableView = CheckableSampleTableView()
-        self.setView(self.tableView)
+        # self.tableView = CheckableSampleTableView()
+        # self.setView(self.tableView)
         self.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContentsOnFirstShow)
         self.context_menu = False
+        self.name_col = None
+        self.table = ''
 
-        self.tableView.viewport().installEventFilter(self)
+        self.view().viewport().installEventFilter(self)
 
     def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel):
         super().setModel(model)
+        column = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        # If it is not a table model, it is a view, get the name of the table
+        if not isinstance(model, QtS.QSqlTableModel) and 'SampleAge' not in column:
+            if 'Sample' in column:
+                self.table = 'Samples'
+            elif 'Aliquot' in column:
+                self.table = 'Aliquots'
+            elif 'Spot' in column:
+                self.table = 'Spots'
+            elif 'UPbAnalysis' in column:
+                self.table = 'UPbAnalyses'
+            elif 'Column' in column:
+                self.table = 'Columns'
+            elif 'Reference' in column:
+                self.table = 'References'
+            view = model.tableView()
+            self.name_col = get_view_name_column(view)
+        # If it is just a table or SampleAge query, use the table name
+        else:
+            self.table = model.tableName()
+            self.name_col = name_column(model.tableName())
+        show_column(self, model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal))
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -747,19 +894,13 @@ class CheckableComboBox(QtW.QComboBox):
 
     def contextMenuEvent(self, event):
         menu = TreeContextMenu()
-        if self.model().tableName():
-            table = self.model().tableName()
-        else:
-            table = self.model().tableName
-        if 'Reference' in table:
-            table = 'References'
         if self.model().rowCount() !=0:
-            edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
-            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
+            edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.table)}")
+            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.table)}")
             clear_all_action = menu.addAction("Clear All Checks")
         else:
             edit_action = None
-            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
+            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.table)}")
             clear_all_action = None
         action = menu.exec(self.mapToGlobal(event.pos()))
         if action == edit_action:
@@ -778,66 +919,52 @@ class CheckableComboBox(QtW.QComboBox):
     def set_line_edit_text(self, text):
         self.lineEdit().setText(text)
 
-    # def show_context_menu(self, pos):
-    #     menu = TreeContextMenu()
-    #     edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.model().tableName())}")
-    #     add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.model().tableName())}")
-    #     clear_all_action = menu.addAction("Clear All Checks")
-    #     action = menu.exec(self.mapToGlobal(pos))
-    #     if action == edit_action:
-    #         self.edit_triggered.emit(self)
-    #     elif action == add_action:
-    #         self.add_triggered.emit(self)
-    #     elif action == clear_all_action:
-    #         self.clear_all_checks()
-
     def clear_all_checks(self):
-        col = name_column(self.model().tableName())
         for row in range(self.model().rowCount()):
-            index = self.model().index(row, col)
-            if row == self.tableView.currentIndex().row():
+            index = self.model().index(row, self.name_col)
+            if row == self.view().currentIndex().row():
                 self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
             else:
                 self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
             # print(f"Changed state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}")
 
 
-    def showPopup(self):
-        self.tableView.resizeColumnsToContents()
-        columns = self.model().columnCount()
-        width_hint = 0
-        show_cols_indices = []
-        if self.model().tableName() == '"References"':
-            show_cols = ["ReferenceDisplay", "ReferenceDescription"]
-        elif 'Units' in self.model().tableName() or 'Formats' in self.model().tableName():
-            show_cols = ["Abbreviation"]
-        else:
-            show_cols = ["Name", "Description"]
-        for col in range(0, columns):
-            # hide all but name and description
-            col_name = self.model().headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if any(s in col_name for s in show_cols):
-                self.tableView.showColumn(col)
-                show_cols_indices.append(col)
-                # Add up the size hints for all the visible columns
-                width_hint += self.tableView.columnWidth(col)
-            else:
-                self.tableView.hideColumn(col)
-        self.tableView.setSortingEnabled(False)
-        width_c1 = self.tableView.sizeHintForColumn(show_cols_indices[0])
-        if width_hint < 2 * width_c1:
-            size_hint = width_hint
-        else:
-            size_hint = 2 * width_c1
-        self.tableView.setMinimumWidth(size_hint)
-        # row height * number of rows plus header height
-        total_height = self.tableView.rowHeight(0)*self.tableView.model().rowCount() + self.tableView.horizontalHeader().height()
-        if total_height > self.tableView.sizeHint().height():
-            self.tableView.setFixedHeight(self.tableView.sizeHint().height() * int(float(settings.value('checkable_combobox_height_scaler'))))
-        else:
-            self.tableView.setFixedHeight(total_height)
-        super().showPopup()
-        # print(f"Height of dropdown: {self.tableView.height()}")
+    # def showPopup(self):
+    #     self.tableView.resizeColumnsToContents()
+    #     columns = self.model().columnCount()
+    #     width_hint = 0
+    #     show_cols_indices = []
+    #     if self.model().tableName() == '"References"':
+    #         show_cols = ["ReferenceDisplay", "ReferenceDescription"]
+    #     elif 'Units' in self.model().tableName() or 'Formats' in self.model().tableName():
+    #         show_cols = ["Abbreviation"]
+    #     else:
+    #         show_cols = ["Name", "Description"]
+    #     for col in range(0, columns):
+    #         # hide all but name and description
+    #         col_name = self.model().headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+    #         if any(s in col_name for s in show_cols):
+    #             self.tableView.showColumn(col)
+    #             show_cols_indices.append(col)
+    #             # Add up the size hints for all the visible columns
+    #             width_hint += self.tableView.columnWidth(col)
+    #         else:
+    #             self.tableView.hideColumn(col)
+    #     self.tableView.setSortingEnabled(False)
+    #     width_c1 = self.tableView.sizeHintForColumn(show_cols_indices[0])
+    #     if width_hint < 2 * width_c1:
+    #         size_hint = width_hint
+    #     else:
+    #         size_hint = 2 * width_c1
+    #     self.tableView.setMinimumWidth(size_hint)
+    #     # row height * number of rows plus header height
+    #     total_height = self.tableView.rowHeight(0)*self.tableView.model().rowCount() + self.tableView.horizontalHeader().height()
+    #     if total_height > self.tableView.sizeHint().height():
+    #         self.tableView.setFixedHeight(self.tableView.sizeHint().height() * int(float(settings.value('checkable_combobox_height_scaler'))))
+    #     else:
+    #         self.tableView.setFixedHeight(total_height)
+    #     super().showPopup()
+    #     # print(f"Height of dropdown: {self.tableView.height()}")
 
     def hidePopup(self):
         super().hidePopup()
@@ -853,19 +980,24 @@ class CheckableComboBox(QtW.QComboBox):
                 return True
             return super().eventFilter(obj, event)
 
-        if obj == self.tableView.viewport():
+        if obj == self.view().viewport():
             # print(f"Object: viewport, Event type: {event.type()}")
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 if self.single_click:
                     # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
                     if self.currentIndex() in self.model().checked_data.keys():
-                        self.tableView.setCurrentIndex(QtC.QModelIndex())
+                        self.view().setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
-                    self.set_line_edit_text(self.tableView.currentIndex().data())
+                    self.set_line_edit_text(self.view().currentIndex().data())
                     self.hidePopup()
                     return True
                 else:
-                    self.tableView.toggle_check_state(self.tableView.currentIndex())
+                    # Get model index from view index
+                    index = self.model().index(self.view().currentIndex().row(), self.name_col)
+                    if self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                        self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    elif self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Unchecked:
+                        self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                     self.showPopup()
                     return True
             return super().eventFilter(obj, event)
@@ -1093,29 +1225,15 @@ def comboBox_display_table(comboBox):
 
 def delete_samples(sample_ids: list):
     # Delete the selected samples and all aliquots, spots, and UPb data associated with them
-    aliquot_ids, spot_ids, upb_data_ids = find_sub_items(sample_ids, 'UPbData')
+    aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(sample_ids)
+    logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
 
     # Get a list of tables in the database
     query = QtS.QSqlQuery()
-    db = QtS.QSqlDatabase.database('qt_sql_default_connection')
+    db = QtS.QSqlDatabase.database()
     tables = db.tables()
 
-    save_query = QtS.QSqlQuery()
-    if save_query.exec('SAVEPOINT before_delete') is False:
-        errtxt = save_query.lastError().text()
-        return errtxt
-
-    def release_savepoint():
-        save_query = QtS.QSqlQuery()
-        if save_query.exec('RELEASE SAVEPOINT before_delete') is False:
-            errtxt = save_query.lastError().text()
-            return errtxt
-
-    def rollback_savepoint():
-        save_query = QtS.QSqlQuery()
-        if save_query.exec('ROLLBACK TO before_delete') is False:
-            errtxt = save_query.lastError().text()
-            return errtxt
+    create_savepoint('before_delete')
 
     def delete_query(table, ids, id_name):
         if len(ids) > 0:
@@ -1123,10 +1241,11 @@ def delete_samples(sample_ids: list):
         if len(ids) == 1:
             query.prepare(f'DELETE FROM {table} WHERE {id_name}={ids[0]}')
         if not query.exec():
-            rollback_savepoint()
+            logger_setup.get_logger().error(f"Failed to delete {id_name} from {table}")
+            rollback_savepoint('before_delete')
             return query.lastError().text()
 
-    delete_query('UPbData', upb_data_ids, 'UPbDataID')
+    delete_query('UPbAnalyses', upb_analysis_ids, 'UPbAnalysisID')
     for table in tables:
         if 'Spots_' in table:
             delete_query(f'Spots_{table}', spot_ids, 'SpotID')
@@ -1138,10 +1257,12 @@ def delete_samples(sample_ids: list):
     delete_query('Aliquots', aliquot_ids, 'AliquotID')
     delete_query('Samples', sample_ids, 'SampleID')
 
-    release_savepoint()
+    logger_setup.get_logger().info(f"Deleted {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+    release_savepoint('before_delete')
 
 def find_sub_items(sample_ids):
     # Find all the sub items of a list of samples
+    logger_setup.get_logger().info(f"Finding sub items for {len(sample_ids)} samples")
     query = QtS.QSqlQuery()
     aliquot_ids = []
     spot_ids = []
@@ -1159,24 +1280,5 @@ def find_sub_items(sample_ids):
                 for row in range(UPb_analysis_table.rowCount()):
                     upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
                     upb_analysis_ids.append(upb_data_id)
-    try:
-        UPb_analysis_table.deleteLater()
-        spot_table.deleteLater()
-        aliquot_table.deleteLater()
-    except NameError:
-        pass
     return aliquot_ids, spot_ids, upb_analysis_ids
 
-def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
-    if text == '' or text == '-':
-        comboBox.setCurrentIndex(-1)
-    else:
-        comboBox.setCurrentText(text)
-
-def show_column(comboBox: QtW.QComboBox, column: str):
-    model = comboBox.model()
-    for col in range(model.columnCount()):
-        header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        if header == column:
-            comboBox.setModelColumn(col)
-            return

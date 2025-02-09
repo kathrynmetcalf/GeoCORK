@@ -31,7 +31,8 @@ class SavepointManager:
         # print(self.savepoint_list)
 
     def rollback_savepoint(self, savepoint_name: str):
-        self.savepoint_list.remove(savepoint_name)
+        if savepoint_name in self.savepoint_list:
+            self.savepoint_list.remove(savepoint_name)
         # print(self.savepoint_list)
 
     def active_savepoints(self):
@@ -42,6 +43,7 @@ def create_savepoint(savepoint_name: str):
     logger_setup.get_logger().info(f'Creating savepoint {savepoint_name}')
     if not query.exec(f'SAVEPOINT {savepoint_name}'):
         logger_setup.get_logger().critical(f'Failed to create savepoint {savepoint_name}: {query.lastError().text()}')
+        return
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.add_savepoint(savepoint_name)
 
@@ -50,12 +52,13 @@ def release_savepoint(savepoint_name: str):
     logger_setup.get_logger().info(f'Releasing savepoint {savepoint_name}')
     if not query.exec(f'RELEASE SAVEPOINT {savepoint_name}'):
         logger_setup.get_logger().critical(f'Failed to release savepoint {savepoint_name}: {query.lastError().text()}')
+        return
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.remove_savepoint(savepoint_name)
 
 def rollback_savepoint(savepoint_name: str):
     query = QtS.QSqlQuery()
-    logger_setup.get_logger().critical(f'Rolling back to savepoint {savepoint_name}')
+    logger_setup.get_logger().info(f'Rolling back to savepoint {savepoint_name}')
     if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
         logger_setup.get_logger().critical(f'Failed to rollback to savepoint {savepoint_name}: {query.lastError().text()}')
     savepoint_manager = SavepointManager.get_instance()

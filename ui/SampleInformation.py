@@ -17,7 +17,7 @@ import Functions.Database_views as DB_views
 import Functions.SQLUtils as SQLUtils
 
 from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, \
-    SQLiteTableModel, CheckableSqlQueryModel
+    SQLiteTableModel, CheckableSqlQueryModel, CheckableSqlTableModel, name_column, get_view_name_column
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -144,6 +144,7 @@ class SampleInformation(QtW.QDialog):
             self.checked_sample_names = checked_sample_names[0]
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
+        logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
         self.disconnect_text_signals()
         # self.populate_age_dropdown()
         self.populate_fields()
@@ -200,6 +201,7 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox: CheckableTreeCombobox
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
+        logger_setup.get_logger().info("Dropdowns populated")
 
     def connect_signals(self):
         logger_setup.get_logger().info("Connecting signals")
@@ -235,6 +237,7 @@ class SampleInformation(QtW.QDialog):
         self.instrument_comboBox.add_triggered.connect(self.add_popup)
         # self.instrument_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'"{self.sample_description_lineEdit.text()}"'))
+        logger_setup.get_logger().info("Signals connected")
 
     def disconnect_text_signals(self):
         logger_setup.get_logger().info("Disconnecting text signals")
@@ -258,6 +261,7 @@ class SampleInformation(QtW.QDialog):
             self.sample_description_lineEdit.editingFinished.disconnect()
         except TypeError:
             pass
+        logger_setup.get_logger().info("Text signals disconnected")
 
     def populate_fields(self):
         logger_setup.get_logger().info("Populating fields")
@@ -338,8 +342,10 @@ class SampleInformation(QtW.QDialog):
 
             self.gps.update_list(self.checked_sample_list)
             self.age.update_list(self.checked_sample_list)
+        logger_setup.get_logger().info("Fields populated")
 
     def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
+        logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(many_to_many_table)
         many_to_many_model.select()
@@ -347,7 +353,7 @@ class SampleInformation(QtW.QDialog):
         items = []
         text = ""
         if len(self.checked_sample_list) == 0:
-            # No samples selected, so uncheck everything
+            logger_setup.get_logger().info("No samples selected, so unchecking everything")
             for row in range(table_model.rowCount()):
                 if tree is not None:
                     model = tree
@@ -358,6 +364,9 @@ class SampleInformation(QtW.QDialog):
                     col = TbC.name_column(table_model.tableName())
                     model_index = table_model.index(row, col)
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if model.lastError().text():
+                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
+            logger_setup.get_logger().info("Unchecked everything")
             return text
         for row in range(table_model.rowCount()):
             tag_id = table_model.index(row, 0).data()
@@ -376,32 +385,43 @@ class SampleInformation(QtW.QDialog):
             if many_to_many_model.rowCount() == len(self.selected_sample_list):
                 # All samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if model.lastError().text():
+                    logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {model.lastError().text()}")
                 items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             elif many_to_many_model.rowCount() > 0:
                 # Some samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if model.lastError().text():
+                    logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {model.lastError().text()}")
                 items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 # No samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if model.lastError().text():
+                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
         text = ", ".join(items)
+        logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
         return text
 
     def populate_upb_checks(self, table_model):
+        logger_setup.get_logger().info(f"Populating UPb checks for {table_model.tableName()}")
         items = []
         text = ""
         table = table_model.tableName()
-        col = TbC.name_column(table)
-        if 'Reference' in table:
-            table = 'References'
-            # Get the current ReferenceDisplay column from the settings
-            col = settings.value('reference_view_columns').index('ReferenceDisplay')
+        try:
+            view = table_model.tableView()
+            col = TbC.get_view_name_column(view)
+        except AttributeError:
+            col = TbC.name_column(table)
         tag_id_header = table_model.record().fieldName(0)
         if len(self.checked_sample_list) == 0:
-            # No samples selected, so uncheck everything
+            logger_setup.get_logger().info("No samples selected, so unchecking everything")
             for row in range(table_model.rowCount()):
                 index = table_model.index(row, col)
                 table_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if table_model.lastError().text():
+                    logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
+            logger_setup.get_logger().info("Unchecked everything")
             return text
         aliquot_ids, spot_ids, upb_analysis_ids = TbC.find_sub_items(self.checked_sample_list)
         if len(upb_analysis_ids) > 0:
@@ -412,21 +432,27 @@ class SampleInformation(QtW.QDialog):
                 if upb_analysis_table.rowCount() == len(upb_analysis_ids):
                     # All analyses have this tag
                     table_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if table_model.lastError().text():
+                        logger_setup.get_logger().critical(f"Error setting checked for {table_model.tableName()}: {table_model.lastError().text()}")
                     items.append(table_model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
                 elif upb_analysis_table.rowCount() > 0:
                     # Some samples have this tag
                     table_model.setData(index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if table_model.lastError().text():
+                        logger_setup.get_logger().critical(f"Error setting partial checked for {table_model.tableName()}: {table_model.lastError().text()}")
                     items.append(table_model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
                 else:
                     # No samples have this tag
                     table_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if table_model.lastError().text():
+                        logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
             if items:
                 text = ", ".join(map(str, items))
-            try: upb_analysis_table.deleteLater()
-            except NameError: pass
+        logger_setup.get_logger().info(f"Populated UPb checks for {table_model.tableName()}")
         return text
 
     def show_context_menu(self, pos: QtC.QPoint):
+        logger_setup.get_logger().info("Showing context menu")
         menu = QtW.QMenu()
         selected_indexes = self.sample_name_comboBox.view().selectedIndexes()
         select_action = menu.addAction("Select all")
@@ -442,8 +468,10 @@ class SampleInformation(QtW.QDialog):
                 TbC.delete_samples(selected_indexes)
 
     def update_field(self, field: str, text: str):
+        logger_setup.get_logger().info(f"Update field called with {field} and {text}")
         if text != "-":
             if len(self.checked_sample_list) > 0:
+                logger_setup.get_logger().info(f"Updating {field} to {text} for {len(self.checked_sample_list)} samples")
                 query = QtS.QSqlQuery()
                 create_savepoint('before_update')
                 for sample_id in self.checked_sample_list:
@@ -452,7 +480,7 @@ class SampleInformation(QtW.QDialog):
                         return
                     query.next()
                     if query.value(0) != text:
-                        print(f"Updating {field} to {text} for SampleID {sample_id}")
+                        logger_setup.get_logger().info(f"Updating {field} to {text} for SampleID {sample_id}")
                         if text is None or text == '':
                             text = 'Null'
                         if not query.exec(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}"):
@@ -461,10 +489,13 @@ class SampleInformation(QtW.QDialog):
                             return
                         update_modified_timestamp('Samples', [sample_id])
                 self.updated = True
+                logger_setup.get_logger().info(f"Updated {field} to {text} for {len(self.checked_sample_list)} samples")
                 release_savepoint('before_update')
+            else:
+                logger_setup.get_logger().info("No samples selected")
 
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
-        print(f'Update_id called with {id_field}, {name_field}, {text}, {table}')
+        logger_setup.get_logger().info(f'update_id called with {id_field}, {name_field}, {text}, {table}')
         table_model = QtS.QSqlTableModel()
         table_model.setTable(table)
         table_model.select()
@@ -472,6 +503,7 @@ class SampleInformation(QtW.QDialog):
         table_model.setFilter(f"{name_field} is '{text}'")
         item_id = table_model.data(table_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
         if len(self.checked_sample_list) > 0:
+            logger_setup.get_logger().info(f"Updating {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             query = QtS.QSqlQuery()
             create_savepoint('before_update')
             for sample_id in self.checked_sample_list:
@@ -486,47 +518,54 @@ class SampleInformation(QtW.QDialog):
                         return
             update_modified_timestamp('Samples', self.checked_sample_list)
             self.updated = True
+            logger_setup.get_logger().info(f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
+        else:
+            logger_setup.get_logger().info("No samples selected")
 
-    def update_subfield_id(self, model: CheckableSqlTableModel, field: str):
-        print(f"update_subfield_id called with {model.tableName()} and {field}")
-        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list)
+    def update_subfield_id(self, model: CheckableSqlTableModel | CheckableSqlQueryModel, field: str):
+        logger_setup.get_logger().info(f"update_subfield_id called with {model.tableName()} and {field}")
+        aliquot_ids, spot_ids, upb_analysis_ids = TbC.find_sub_items(self.checked_sample_list)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If nothing is fully checked, then nothing should be updated
         checked_item_id = None  # Should only be one
-        if len(upb_data_ids) > 0:
-            column = TbC.name_column(model.tableName())
+        if len(upb_analysis_ids) > 0:
+            try:
+                view = model.tableView()
+                column = get_view_name_column(view)
+            except AttributeError:
+                column = name_column(model.tableName())
             for row in range(model.rowCount()):
                 name_index = model.index(row, column)
                 id_index = model.index(row, 0)
                 if model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
                     checked_item_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
+                    break
             # todo: optimize update for thousands of analysis IDs
             # todo: figure out what other transaction is going on before beginning one for the updates
+            logger_setup.get_logger().info(f"Updating {field} to {checked_item_id} for {len(upb_analysis_ids)} UPb Analyses")
             create_savepoint('before_update')
             query_start_time = time.time()
-            if model.database().transaction():
-                query = QtS.QSqlQuery()
-                query.setForwardOnly(True)
-                if len(upb_data_ids) > 1:
-                    print(len(upb_data_ids))
-                    upb_data_ids.sort()
-                    if not query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_data_ids)[0:10]}"):
-                        logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}: {query.lastError().text()}")
-                    update_modified_timestamp('UPbData', upb_data_ids[0:10])
-                else:
-                    if not query.exec(f"UPDATE UPbData SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_data_ids[0]}"):
-                        logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0]}: {query.lastError().text()}")
-                    update_modified_timestamp('UPbData', upb_data_ids[0])
-                if model.database().commit():
-                    logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for UPbAnalysisID {upb_data_ids[0:10]}")
-                    release_savepoint('before_update')
-                else:
-                    logger_setup.get_logger().critical(f"Failed to commit update for UPbAnalysisID {upb_data_ids[0:10]}: {query.lastError().text()}")
+            query = QtS.QSqlQuery()
+            query.setForwardOnly(True)
+            if checked_item_id is None:
+                checked_item_id = 'Null'
+            if len(upb_analysis_ids) > 1:
+                upb_analysis_ids.sort()
+                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_analysis_ids)}"):
+                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for {len(upb_analysis_ids)} UPb Analyses: {query.lastError().text()}")
+                update_modified_timestamp('UPbAnalyses', upb_analysis_ids)
+            else:
+                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_analysis_ids[0]}"):
+                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_analysis_ids[0]}: {query.lastError().text()}")
+                update_modified_timestamp('UPbAnalyses', upb_analysis_ids[0])
             query_end_time = time.time()
             logger_setup.get_logger().info(f"Query time: {query_end_time - query_start_time}")
             self.updated = True
+            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(upb_analysis_ids)} UPb Analyses")
             release_savepoint('before_update')
+        else:
+            logger_setup.get_logger().info("No UPbAnalyses for selected samples")
 
     def update_sample_tags(self, model: TrC.CheckableTreeModel, table: str):
         logger_setup.get_logger().info(f"update_tags called with {model.source_model.tableName()} and {table}")
@@ -535,6 +574,7 @@ class SampleInformation(QtW.QDialog):
 
         if len(self.checked_sample_list) > 0:
             checked_ids , partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtC.QModelIndex())
+            logger_setup.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
             create_savepoint('before_update')
             for sample_id in self.checked_sample_list:
                 update = model.update_db(checked_ids, partially_checked_ids, sample_id)
@@ -543,31 +583,57 @@ class SampleInformation(QtW.QDialog):
                     rollback_savepoint('before_update')
                     return
             self.updated = True
+            logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
+        else:
+            logger_setup.get_logger().info("No samples selected")
 
     def update_sub_tags(self, model: TrC.CheckableTreeModel, table: str):
         logger_setup.get_logger().info(f"update_tags called with {model.source_model.tableName()} and {table}")
         field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        aliquot_ids, spot_ids, upb_data_ids = TbC.find_sub_items(self.checked_sample_list)
+        aliquot_ids, spot_ids, upb_analysis_ids = TbC.find_sub_items(self.checked_sample_list)
         # UPbAnalayses have only one value for each field, so only one value should be checked
-        # If nothing is fully checked, then nothing should be updated
+        # If there are still partial checks, then nothing should be updated
         checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
-        if len(checked_ids) == 1:
+        if len(partially_checked_ids) > 0:
+            logger_setup.get_logger().info(f"No changes made to {table}")
+        elif len(checked_ids) > 1:
+            logger_setup.get_logger().critical(f"More than one checked value for {field}")
+        elif len(checked_ids) == 1:
             # Should only be one checked value
+            logger_setup.get_logger().info(f"Updating {field} to {checked_ids[0]} for {len(upb_analysis_ids)} UPb Analyses")
             create_savepoint('before_update')
             query = QtS.QSqlQuery()
-            if len(upb_data_ids) > 1:
+            if len(upb_analysis_ids) > 1:
                 query.prepare(
-                    f"UPDATE UPbData SET {field} = {checked_ids[0]} WHERE UPbAnalysisID in {tuple(upb_data_ids)}")
-            if len(upb_data_ids) == 1:
+                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID in {tuple(upb_analysis_ids)}")
+            if len(upb_analysis_ids) == 1:
                 query.prepare(
-                    f"UPDATE UPbData SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {upb_data_ids[0]}")
+                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {upb_analysis_ids[0]}")
             if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}: {query.lastError().text()}")
+                logger_setup.get_logger().critical(f"Failed to update {field} to {checked_ids[0]} for UPbAnalysisID {upb_analysis_ids}: {query.lastError().text()}")
                 rollback_savepoint('before_update')
                 return
-            update_modified_timestamp('UPbData', upb_data_ids)
-            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_data_ids}")
+            update_modified_timestamp('UPbAnalyses', upb_analysis_ids)
+            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_analysis_ids}")
+            self.updated = True
+            release_savepoint('before_update')
+        elif len(checked_ids) == 0 and len(partially_checked_ids) == 0:
+            logger_setup.get_logger().info(f"Updating all {table} to unchecked")
+            create_savepoint('before_update')
+            query = QtS.QSqlQuery()
+            if len(upb_analysis_ids) > 1:
+                query.prepare(
+                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID in {tuple(upb_analysis_ids)}")
+            if len(upb_analysis_ids) == 1:
+                query.prepare(
+                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID = {upb_analysis_ids[0]}")
+            if not query.exec():
+                logger_setup.get_logger().critical(f"Failed to update {field} to Null for UPbAnalysisID {upb_analysis_ids}: {query.lastError().text()}")
+                rollback_savepoint('before_update')
+                return
+            update_modified_timestamp('UPbAnalyses', upb_analysis_ids)
+            logger_setup.get_logger().info(f"Updated {field} to Null for UPbAnalysisID {upb_analysis_ids}")
             self.updated = True
             release_savepoint('before_update')
 
@@ -646,16 +712,6 @@ class SampleInformation(QtW.QDialog):
             self.close_by_dialog = True
             self.close()
             self.close_by_dialog = False
-
-    def rollback(self, savepoint_name: str):
-        query = QtS.QSqlQuery()
-        if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
-            logger_setup.get_logger().critical(f"Failed to rollback to savepoint {savepoint_name}: {query.lastError().text()}")
-        else:
-            self.reject()
-        self.close_by_dialog = True
-        self.close()
-        self.close_by_dialog = False
 
     def commit(self):
         release_savepoint('before_edit')

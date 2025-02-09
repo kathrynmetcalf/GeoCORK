@@ -10,7 +10,6 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
-import Functions.Errors as Er
 from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
 from Functions.Table_classes import ReadableProxyModel
 import Functions.Text_manipulations as TxM

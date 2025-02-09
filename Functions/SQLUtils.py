@@ -762,6 +762,20 @@ view_attributes_dict = {
     ]
 }
 
+view_setting_dict = {
+            'SampleView': 'sample_view_columns',
+            'SampleEditView': 'sample_edit_columns',
+            'AliquotView': 'aliquot_view_columns',
+            'AliquotEditView': 'aliquot_edit_columns',
+            'SpotView': 'spot_view_columns',
+            'SpotEditView': 'spot_edit_columns',
+            'UPbAnalysisView': 'upb_analysis_view_columns',
+            'UPbAnalysisEditView': 'upb_analysis_edit_columns',
+            'ColumnView': 'column_view_columns',
+            'ColumnEditView': 'column_edit_columns',
+            'ReferenceView': 'reference_view_columns',
+        }
+
 
 upb_possible_database_input_fields = [
     'SpotID',

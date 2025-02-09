@@ -12,7 +12,6 @@ from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
-import Functions.Errors as Er
 import Functions.Table_classes as TbC
 import Functions.Alter_database as Alter_db
 from ui.AddTags import AddTags

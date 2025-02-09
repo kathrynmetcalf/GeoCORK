@@ -12,7 +12,6 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
-import Functions.Errors as Er
 from Functions.Table_classes import set_table
 import Functions.Check_triggers as Ct
 

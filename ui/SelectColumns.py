@@ -19,7 +19,7 @@ from Functions.SQLUtils import views
 from Functions.Settings_manager import settings
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import SQLUtils
-from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox, name_column, set_table
+from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox, name_column, set_table, get_view_name_column
 from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel
 
 class SelectColumns(QWidget):
@@ -33,19 +33,7 @@ class SelectColumns(QWidget):
         if 'SampleIfNullView' in self.view_dict:
             self.view_dict.pop('SampleIfNullView')
 
-        self.view_setting_dict = {
-            'SampleView': 'sample_view_columns',
-            'SampleEditView': 'sample_edit_columns',
-            'AliquotView': 'aliquot_view_columns',
-            'AliquotEditView': 'aliquot_edit_columns',
-            'SpotView': 'spot_view_columns',
-            'SpotEditView': 'spot_edit_columns',
-            'UPbAnalysisView': 'upb_analysis_view_columns',
-            'UPbAnalysisEditView': 'upb_analysis_edit_columns',
-            'ColumnView': 'column_view_columns',
-            'ColumnEditView': 'column_edit_columns',
-            'ReferenceView': 'reference_view_columns',
-        }
+        self.view_setting_dict = SQLUtils.view_setting_dict
 
         self.columnselection_comboBox.addItems(self.view_dict.keys())
         self.populate_stack()
@@ -82,21 +70,19 @@ class SelectColumns(QWidget):
             # But do figure out which header should be the permanent one
             if column == field_items[0]:
                 if 'Sample' in column:
-                    table = 'Samples'
+                    view = 'Samples'
                 elif 'Aliquot' in column:
-                    table = 'Aliquots'
+                    view = 'Aliquots'
                 elif 'Spot' in column:
-                    table = 'Spots'
+                    view = 'Spots'
                 elif 'UPbAnalysis' in column:
-                    table = 'UPbAnalyses'
+                    view = 'UPbAnalyses'
                 elif 'Column' in column:
-                    table = 'Columns'
+                    view = 'Columns'
                 elif 'Reference' in column:
-                    table = 'References'
-                name_col = name_column(table)
-                table_model = QSqlTableModel()
-                set_table(table_model, table)
-                model.set_permanent_header(table_model.headerData(name_col, QtCore.Qt.Orientation.Horizontal))
+                    view = 'References'
+                view_name_col = get_view_name_column(view)
+                model.set_permanent_header(settings_columns[view_name_col])
             else:
                 item = QStandardItem(column)
                 item.setDragEnabled(True)

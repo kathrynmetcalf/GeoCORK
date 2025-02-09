@@ -74,7 +74,7 @@ class AgeFields(QtW.QWidget):
         self.age_constraint_tree.setSourceModel(self.age_constraint_model)
         set_table(self.age_interpretation_model, 'AgeInterpretations')
         self.age_interpretation_tree.setSourceModel(self.age_interpretation_model)
-        self.age_reference_model.setQuery('SELECT * FROM "References"')
+        self.age_reference_model.setQuery('SELECT * FROM ReferenceView')
 
         self.edit_age_comboBox: CheckableComboBox
         self.edit_age_comboBox.setModel(self.sample_age_model)
@@ -92,7 +92,7 @@ class AgeFields(QtW.QWidget):
         self.age_constraint_comboBox.setModel(self.age_constraint_tree)
         self.age_interpretation_comboBox.setModel(self.age_interpretation_tree)
         self.age_reference_comboBox.setModel(self.age_reference_model)
-        self.age_reference_comboBox.setModelColumn(name_column('"References"'))
+        self.age_reference_comboBox.setModelColumn(name_column('References'))
 
     def populate_age_dropdown(self):
         samples_sampleage_model = QtS.QSqlTableModel()

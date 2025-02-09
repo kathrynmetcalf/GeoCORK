@@ -10,7 +10,6 @@ from Functions.Savepoint_manager import SavepointManager, create_savepoint, rele
 from Functions.Database_manager import update_database
 from Functions.Table_classes import set_table
 import Functions.Text_manipulations as TxM
-import Functions.Errors as Er
 import Functions.Tree_classes as TrC
 from ui.AddTreeTags import AddTreeTags
 
