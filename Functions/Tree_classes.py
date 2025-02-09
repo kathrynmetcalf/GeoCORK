@@ -4,13 +4,15 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtSql import QSqlTableModel, QSqlDatabase
+from PyQt6.QtSql import QSqlTableModel, QSqlDatabase, QSqlQueryModel
 from PyQt6 import QtTest as QtT
 from numpy import integer
 from qtpy.QtGui import QAction
 
+import logger_setup
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Table_classes import SQLiteTableModel, name_column, show_column
 import Functions.Text_manipulations as TxM
 import Functions.Check_triggers as Ct
 
@@ -141,11 +143,11 @@ class TreeModel(QtC.QAbstractProxyModel):
         super().__init__(parent)
 
         self.source_model = source_model
-        self.tableName = ""
         self.base_filter = ""
         self.base_filter_sql = ""
-        self.db = QSqlDatabase()
-        self.table = ''
+        self.base_query = ""
+        self.base_query_sql = ""
+        self.table = ""
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.rootItem = TreeItem(QtS.QSqlRecord(), None)
@@ -159,16 +161,40 @@ class TreeModel(QtC.QAbstractProxyModel):
     def sourceModel(self):
         return self.source_model
 
-    def setSourceModel(self, source_model: QSqlTableModel):
-        self.source_model = source_model
-        self.db = self.source_model.database()
-        self.table = self.source_model.tableName()
-        self.tableName = self.source_model.tableName()
-        self.base_filter = f"{self.source_model.filter()}"
-        if len(self.base_filter) > 0:
-            self.base_filter_sql = f"{self.base_filter} AND "
-        else:
-            self.base_filter_sql = self.base_filter
+    def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
+        logger_setup.get_logger().info(f'Setting source model for tree model...')
+        self.table = source_model.tableName()
+        if isinstance(source_model, QSqlTableModel):
+            self.base_filter = f"{source_model.filter()}"
+            if len(self.base_filter) > 0:
+                self.base_filter_sql = f"{self.base_filter} AND "
+                self.base_query = f"SELECT * FROM {self.table} WHERE {self.base_filter}"
+                self.base_query_sql = f"{self.base_query} AND "
+            else:
+                self.base_filter_sql = self.base_filter
+                self.base_query = f"SELECT * FROM {self.table}"
+                self.base_query_sql = f"{self.base_query} WHERE "
+        elif isinstance(source_model, QSqlQueryModel):
+            query_object = source_model.query()
+            self.base_query = f"{query_object.lastQuery()}"
+            if len(self.base_query) > 0:
+                if ' WHERE ' in self.base_query:
+                    self.base_query_sql = f"{self.base_query} AND "
+                else:
+                    self.base_query_sql = f"{self.base_query} WHERE "
+            else:
+                self.base_query_sql = self.base_query
+        elif isinstance(source_model, SQLiteTableModel):
+            self.base_query = source_model.query_text
+            if len(self.base_query) > 0:
+                if ' WHERE ' in self.base_query:
+                    self.base_query_sql = f"{self.base_query} AND "
+                else:
+                    self.base_query_sql = f"{self.base_query} WHERE "
+            else:
+                self.base_query_sql = self.base_query
+        self.source_model = QtS.QSqlQueryModel()
+        self.source_model.setQuery(self.base_query)
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
@@ -177,11 +203,13 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.parentItem = TreeItem(QtS.QSqlRecord(), None)
         self.childItem = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
-        self.source_model.setFilter(self.base_filter)
+        self.source_model.setQuery(self.base_query)
+        logger_setup.get_logger().info(f'Built the {self.table} tree...')
 
     def setup_model_data(self):
         # Add all nodes to the tree model
         # start with root item, look for children
+        logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
         root_id = 0
         child_ids = self.find_children(root_id)
         # add each child to model with parent (root)
@@ -192,9 +220,8 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def find_children(self, parent_id: int):
         # Find children of a given ID using the source_model's filtered data
-        self.source_model.setFilter(f"{self.base_filter_sql}  "
+        self.source_model.setQuery(f"{self.base_query_sql}  "
                                     f"{self.parent_id_header} is {parent_id if parent_id != 0 else 'NULL'}")
-        # print(self.source_model.filter())
         child_ids = []
         for row in range(self.source_model.rowCount()):
             child_ids.append(self.source_model.record(row).value(0))
@@ -205,7 +232,7 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def add_to_tree(self, child_ids: list, parent: TreeItem):
         for child_id in child_ids:
-            self.source_model.setFilter(f"{self.base_filter_sql} {self.id_header} is {child_id}")
+            self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
             if self.source_model.rowCount() > 0:
                 record = self.source_model.record(0)
 
@@ -350,7 +377,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         if role == QtC.Qt.ItemDataRole.EditRole:
             sourceIndex = self.mapToSource(index)
             if sourceIndex.isValid():
-                # update the source model
+                logger_setup.get_logger().info(f'Setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
                 treeItem = self.getItem(index)
                 if index.column() == 0:
                     # Show name in first column
@@ -367,46 +394,48 @@ class TreeModel(QtC.QAbstractProxyModel):
                 else:
                     dataCol = index.column()
                 # Get the updated modified timestamp
-                mcol = self.source_model.columnCount() - 1
-                sourcemIndex = self.source_model.index(sourceIndex.row(), mcol, QtC.QModelIndex())
-                proxymIndex = self.mapFromSource(sourcemIndex)
-                if proxymIndex.isValid() and sourcemIndex.isValid():
+                modified_col = self.source_model.columnCount() - 1
+                source_modified_index = self.source_model.index(sourceIndex.row(), modified_col, QtC.QModelIndex())
+                proxy_modified_index = self.mapFromSource(source_modified_index)
+                if proxy_modified_index.isValid() and source_modified_index.isValid():
                     # If the changed data index and the modified timestamp index are valid for both models, change the data
                     try:
                         self.source_model.setData(sourceIndex, value, role)
                     except:
+                        logger_setup.get_logger().critical(f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
                         # print(f'Error setting data in source model at {sourceIndex.row()},{sourceIndex.column()}')
                         return False
-                    modified = self.source_model.data(sourcemIndex, QtC.Qt.ItemDataRole.DisplayRole)
+                    modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
                     treeItem.setData(dataCol, value)
                     self.dataChanged.emit(index, index)
-                    treeItem.setData(mcol, modified)
+                    treeItem.setData(modified_col, modified)
                     self.dataChanged.emit(index, index)
+                    logger_setup.get_logger().info(f'Successfully set data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()} to {value}')
                     return True
                 else:
-                    # print(f'Error setting data in proxy model at {index.row()},{index.column()}')
+                    logger_setup.get_logger().error(f'Invalid indices for setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
                     return False
         return False
 
-    def moveItem(self, itemID: int, row: int, pID: str):
+    def moveItem(self, item_id: int, row: int, p_id: str):
         """
         Move an item to a new parent and parent row
-        @param itemID: unique ID of the item to move
+        @param item_id: unique ID of the item to move
         @param row: new parent row number for the item
-        @param pID: new parent ID for the item, represented by a string to use in the setFilter method, either 'IS NULL' or 'is parentID'
+        @param p_id: new parent ID for the item, represented by a string to use in the setFilter method, either 'IS NULL' or 'is parentID'
         @return: True if the item was successfully moved, None if there was an error
         """
         # Try making change to database, then reset the tree model
-        if pID == 'IS NULL':
+        if p_id == 'IS NULL':
             parentID = 'NULL'
         else:
-            parentID = int(pID[2:])
-        self.source_model.setFilter(f"{self.base_filter_sql}  {self.id_header} is {itemID} AND {self.parent_id_header} {pID} AND {self.parent_row_header} is {row}")
+            parentID = int(p_id[2:])
+        self.source_model.setQuery(f"{self.base_query_sql}  {self.id_header} is {item_id} AND {self.parent_id_header} {p_id} AND {self.parent_row_header} is {row}")
         if self.source_model.rowCount() > 0:
             # If the item is already in the correct place, do nothing
             # print(f'No change in parent or row for item {itemID}')
             return None
-        self.source_model.setFilter(f"{self.base_filter_sql}  {self.id_header} is {itemID}")  # Only one record for each item ID
+        self.source_model.setQuery(f"{self.base_query_sql}  {self.id_header} is {item_id}")  # Only one record for each item ID
         oldParentID = self.source_model.record(0).value(1)  # Get the current parent
         # ID
         if isinstance(oldParentID, int):
@@ -417,74 +446,74 @@ class TreeModel(QtC.QAbstractProxyModel):
         oldParentRow = self.source_model.record(0).value(2)  # Get the current parent row
         # Look for children of the new parent at and below the point of insertion, order them by parent row from largest to smallest
         filtered_model = QtS.QSqlQueryModel()
-        filtered_model.setQuery(f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {pID} AND {self.parent_row_header} >= {row} ORDER BY {self.parent_row_header} DESC")
-        childCount = filtered_model.rowCount()
-        if childCount > 0:
+        filtered_model.setQuery(f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} AND {self.parent_row_header} >= {row} ORDER BY {self.parent_row_header} DESC")
+        child_count = filtered_model.rowCount()
+        if child_count > 0:
             # If the parent already has children and the new one is replacing an existing row, update their parent rows
-            for child in range(childCount):  # Starting with the last child
+            for child in range(child_count):  # Starting with the last child
                 # increase the parent row by 1 for each child after the target row
                 childID = filtered_model.record(child).value(0)
                 currentParentRow = filtered_model.record(child).value(2)
                 newParentRow = currentParentRow + 1
-                self.source_model.setFilter(self.base_filter)  # Reset the filter
+                self.source_model.setQuery(self.base_query)  # Reset the filter
                 if not self.update_parent_info(childID, parentID, newParentRow):
                     return None
                 if currentParentRow == row:
                     # Now update the moved item into the new space
-                    self.source_model.setFilter(self.base_filter)  # Reset the filter
-                    if not self.update_parent_info(itemID, parentID, row):
+                    self.source_model.setQuery(self.base_query)  # Reset the filter
+                    if not self.update_parent_info(item_id, parentID, row):
                         return None
         else: # no children to update
-            self.source_model.setFilter(self.base_filter)  # Reset the filter
-            if not self.update_parent_info(itemID, parentID, row):
+            self.source_model.setQuery(self.base_query)  # Reset the filter
+            if not self.update_parent_info(item_id, parentID, row):
                 return None
         # Look for remaining children of the old parent whose parent rows need to be updated, order them by parent row from smallest to largest
-        self.source_model.setFilter(
-            f"{self.base_filter_sql}  {self.parent_id_header} {opID} AND {self.parent_row_header} > {oldParentRow} ORDER BY {self.parent_row_header} ASC")
-        childCount = self.source_model.rowCount()
-        if childCount > 0:
-            currentRows = []
-            childIDs = []
-            for child in range(childCount):  # Starting with the first child to update, save important values before the model filter is reset
+        self.source_model.setQuery(
+            f"{self.base_query_sql}  {self.parent_id_header} {opID} AND {self.parent_row_header} > {oldParentRow} ORDER BY {self.parent_row_header} ASC")
+        child_count = self.source_model.rowCount()
+        if child_count > 0:
+            current_rows = []
+            child_ids = []
+            for child in range(child_count):  # Starting with the first child to update, save important values before the model filter is reset
                 # decrease the parent row by 1 for each child after the old parent row
-                currentRows.append(self.source_model.record(child).value(2))
-                childIDs.append(self.source_model.record(child).value(0))
-            for child in range(childCount):
-                newParentRow = currentRows[child] - 1
-                self.source_model.setFilter(self.base_filter)  # Reset the filter
-                if not self.update_parent_info(childIDs[child], oldParentID, newParentRow):
+                current_rows.append(self.source_model.record(child).value(2))
+                child_ids.append(self.source_model.record(child).value(0))
+            for child in range(child_count):
+                newParentRow = current_rows[child] - 1
+                self.source_model.setQuery(self.base_query)  # Reset the filter
+                if not self.update_parent_info(child_ids[child], oldParentID, newParentRow):
                     return None
-        self.source_model.setFilter(self.base_filter)  # Reset the filter
+        self.source_model.setQuery(self.base_query)  # Reset the filter
         return True
 
-    def update_parent_info(self, itemID: int, parentID, parentRow: int):
+    def update_parent_info(self, item_id: int, parent_id, parent_row: int):
         # Update the parent ID and parent row for a given item ID
-        query = QtS.QSqlQuery(self.db)
-        query.prepare(f'UPDATE {self.table} SET {self.parent_id_header} = :parentID, {self.parent_row_header} = :parentRow WHERE {self.id_header} = :itemID')
-        if parentID == 'NULL':
-            query.bindValue(':parentID', QtC.QVariant())
+        query = QtS.QSqlQuery()
+        query.prepare(f'UPDATE {self.table} SET {self.parent_id_header} = :parent_id, {self.parent_row_header} = :parent_row WHERE {self.id_header} = :item_id')
+        if parent_id == 'NULL':
+            query.bindValue(':parent_id', QtC.QVariant())
         else:
-            query.bindValue(':parentID', parentID)
-        query.bindValue(':parentRow', parentRow)
-        query.bindValue(':itemID', itemID)
+            query.bindValue(':parent_id', parent_id)
+        query.bindValue(':parent_row', parent_row)
+        query.bindValue(':item_id', item_id)
         if not query.exec():
-            # print(f'Error updating parent for {itemID}')
+            # print(f'Error updating parent for {item_id}')
             return None
         else:
-            Ct.update_modified_timestamp(self.table, [itemID])
-            # print(f'Successfully updated parent for {itemID}')
+            Ct.update_modified_timestamp(self.table, [item_id])
+            # print(f'Successfully updated parent for {item_id}')
             return True
 
-    def insertItem(self, itemName: str, itemDescription: str, parentID = None, parentRow = None):
+    def insertItem(self, item_name: str, item_description: str, parent_id = None, parent_row = None):
         # Add a new item to the database, first as a top-level item, then move it to the correct parent and row
         query = QtS.QSqlQuery()
-        pID = 'IS NULL'
-        self.source_model.setFilter(f"{self.base_filter_sql} {self.sourceHeaders[1]} {pID}")
-        childCount = self.source_model.rowCount()
-        query.prepare(f'INSERT INTO {self.table}({self.parent_row_header}, {self.item_name_header}, {self.item_description_header}) VALUES(:parentRow, :itemName, :itemDescription)')
-        query.bindValue(':parentRow', childCount)
-        query.bindValue(':itemName', itemName)
-        query.bindValue(':itemDescription', itemDescription)
+        p_id = 'IS NULL'
+        self.source_model.setQuery(f"{self.base_query_sql} {self.sourceHeaders[1]} {p_id}")
+        child_count = self.source_model.rowCount()
+        query.prepare(f'INSERT INTO {self.table}({self.parent_row_header}, {self.item_name_header}, {self.item_description_header}) VALUES(:parent_row, :item_name, :item_description)')
+        query.bindValue(':parent_row', child_count)
+        query.bindValue(':item_name', item_name)
+        query.bindValue(':item_description', item_description)
         create_savepoint('before_insert')
         if not query.exec():
             # print(f'Error inserting new item {itemName}')
@@ -492,19 +521,19 @@ class TreeModel(QtC.QAbstractProxyModel):
             return None
         else:
             # print(f'Successfully inserted new item {itemName}')
-            if parentID:
-                pID = f'= {parentID}'
+            if parent_id:
+                p_id = f'= {parent_id}'
             else:
-                pID = 'IS NULL'
-            if parentRow is None:
+                p_id = 'IS NULL'
+            if parent_row is None:
                 # If no parent row is given, the item is added to the end of the list
-                self.source_model.setFilter(f"{self.base_filter_sql} {self.parent_id_header} {pID}")
-                childCount = self.source_model.rowCount()
-                parentRow = childCount
-            self.source_model.setFilter(f"{self.base_filter_sql} {self.item_name_header} is '{itemName}'")
-            itemID = self.source_model.record(0).value(0)
-            if not self.moveItem(itemID, parentRow, pID):
-                self.rollback()
+                self.source_model.setQuery(f"{self.base_query_sql} {self.parent_id_header} {p_id}")
+                child_count = self.source_model.rowCount()
+                parent_row = child_count
+            self.source_model.setQuery(f"{self.base_query_sql} {self.item_name_header} is '{item_name}'")
+            item_id = self.source_model.record(0).value(0)
+            if not self.moveItem(item_id, parent_row, p_id):
+                rollback_savepoint('before_insert')
                 return None
             release_savepoint('before_insert')
             self.dataEdited.emit()
@@ -517,7 +546,6 @@ class TreeModel(QtC.QAbstractProxyModel):
             # Find all children of a given parent ID
             filtered_model = QtS.QSqlQueryModel()
             filtered_model.setQuery(f"SELECT * FROM {self.table} WHERE {self.parent_id_header} = {parentID}")
-            # self.source_model.setFilter(f"{self.parent_id_header} = {parentID}")
             for row in range(filtered_model.rowCount()):
                 record = filtered_model.record(row)
                 del_ids.append(record.value(0))
@@ -527,8 +555,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         del_ids = find_child_ids(itemID, del_ids)
         del_join = ', '.join([str(i) for i in del_ids])
         del_string = f'({del_join})'
-        self.source_model.setFilter(self.base_filter)  # Reset the filter
-        query = QtS.QSqlQuery(self.db)
+        self.source_model.setQuery(self.base_query)  # Reset the filter
+        query = QtS.QSqlQuery()
         query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} IN {del_string}')
         create_savepoint('before_delete')
         if not query.exec(): # if item and children not deleted, rollback
@@ -552,7 +580,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 childID = filtered_model.record(child).value(0)
                 currentParentRow = filtered_model.record(child).value(2)
                 newParentRow = currentParentRow - 1
-                self.source_model.setFilter(self.base_filter)  # Reset the filter
+                self.source_model.setQuery(self.base_query)  # Reset the filter
                 if not self.update_parent_info(childID, parentID, newParentRow):
                     # print(f'Error updating parent row for child {childID}')
                     rollback_savepoint('before_delete')
@@ -566,7 +594,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         if not proxy_index.isValid() or not self.source_model:
             # print("proxy root maps to source root")
             return QtC.QModelIndex()
-        if not isinstance(self.source_model, QtS.QSqlTableModel):
+        if not isinstance(self.source_model, QtS.QSqlQueryModel):
             QtC.qWarning("QSortFilterProxyModel: index from wrong model passed to mapToSource")
             return QtC.QModelIndex()
         proxyCol = proxy_index.column()
@@ -700,7 +728,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             itemIDs.append(stream.readInt32())
             if row == -1:
                 # If the row is -1, the item is being moved to the end of the list
-                self.source_model.setFilter(f"{self.base_filter_sql} {self.sourceHeaders[1]} {pID}")
+                self.source_model.setQuery(f"{self.base_query_sql} {self.sourceHeaders[1]} {pID}")
                 childCount = self.source_model.rowCount()
                 row = childCount
             rows.append(row)
@@ -711,7 +739,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 rollback_savepoint('drop_mime_data')
                 return False
         # All moves were successful
-        self.source_model.setFilter(self.base_filter)  # Reset the filter
+        self.source_model.setQuery(self.base_query)  # Reset the filter
         release_savepoint('drop_mime_data')
         # Emit signal so that the view can rebuild the tree model
         self.dataEdited.emit()
@@ -867,15 +895,40 @@ class CheckableTreeModel(TreeModel):
             # If a table model with a valid table was passed, set the source model and create the tree
             self.setSourceModel(self.source_model)
 
-    def setSourceModel(self, source_model: QSqlTableModel):
-        self.source_model = source_model
-        self.db = self.source_model.database()
-        self.table = self.source_model.tableName()
-        self.base_filter = f"{self.source_model.filter()}"
-        if len(self.base_filter) > 0:
-            self.base_filter_sql = f"{self.base_filter} AND "
-        else:
-            self.base_filter_sql = self.base_filter
+    def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
+        logger_setup.get_logger().info(f'Setting source model for tree model...')
+        self.table = source_model.tableName()
+        if isinstance(source_model, QSqlTableModel):
+            self.base_filter = f"{source_model.filter()}"
+            if len(self.base_filter) > 0:
+                self.base_filter_sql = f"{self.base_filter} AND "
+                self.base_query = f"SELECT * FROM {self.table} WHERE {self.base_filter}"
+                self.base_query_sql = f"{self.base_query} AND "
+            else:
+                self.base_filter_sql = self.base_filter
+                self.base_query = f"SELECT * FROM {self.table}"
+                self.base_query_sql = f"{self.base_query} WHERE "
+        elif isinstance(source_model, QSqlQueryModel):
+            query_object = source_model.query()
+            self.base_query = f"{query_object.lastQuery()}"
+            if len(self.base_query) > 0:
+                if ' WHERE ' in self.base_query:
+                    self.base_query_sql = f"{self.base_query} AND "
+                else:
+                    self.base_query_sql = f"{self.base_query} WHERE "
+            else:
+                self.base_query_sql = self.base_query
+        elif isinstance(source_model, SQLiteTableModel):
+            self.base_query = source_model.query_text
+            if len(self.base_query) > 0:
+                if ' WHERE ' in self.base_query:
+                    self.base_query_sql = f"{self.base_query} AND "
+                else:
+                    self.base_query_sql = f"{self.base_query} WHERE "
+            else:
+                self.base_query_sql = self.base_query
+        self.source_model = QtS.QSqlQueryModel()
+        self.source_model.setQuery(self.base_query)
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
@@ -884,11 +937,11 @@ class CheckableTreeModel(TreeModel):
         self.parentItem = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.childItem = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
-        self.source_model.setFilter(self.base_filter)
+        self.source_model.setQuery(self.base_query)
 
     def add_to_tree(self, child_ids: list, parent: CheckableTreeItem):
         for child_id in child_ids:
-            self.source_model.setFilter(f"{self.base_filter_sql} {self.id_header} is {child_id}")
+            self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
             if self.source_model.rowCount() > 0:
                 record = self.source_model.record(0)
 
@@ -900,7 +953,7 @@ class CheckableTreeModel(TreeModel):
     def set_sample(self, sample_ID: int):
         self.sample_ID = sample_ID
         item_IDs = []
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         query.prepare(f"SELECT * FROM SAMPLES_{self.table} WHERE SampleID = {self.sample_ID}")
         if query.exec():
             while query.next():
@@ -918,6 +971,15 @@ class CheckableTreeModel(TreeModel):
             item = self.getItem(index)
         if index.column() == 0 and role == QtC.Qt.ItemDataRole.CheckStateRole:
             return item.getCheckState()
+        elif index.column() == 0 and role == QtC.Qt.ItemDataRole.ToolTipRole:
+            description_col = None
+            for header_col in range(self.columnCount()):
+                header = self.headerData(header_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Description' in header:
+                    description_col = header_col
+                    break
+            if description_col is not None:
+                return super().data(self.index(index.row(), description_col), QtC.Qt.ItemDataRole.DisplayRole)
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
@@ -932,6 +994,7 @@ class CheckableTreeModel(TreeModel):
         return super().setData(index, value, role)
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
+        # name_col = name_column(self.table)
         if index.column() == 0:
             # If the column is the name item, it is checkable
             # print(f"Checkable flag for ({index.row()},{index.column()})")
@@ -960,7 +1023,7 @@ class CheckableTreeModel(TreeModel):
         if not partially_checked_list:
             partially_checked_list = []
         current_IDs = []
-        query = QtS.QSqlQuery(self.db)
+        query = QtS.QSqlQuery()
         query.prepare(f"SELECT * FROM SAMPLES_{self.table} WHERE SampleID = {sample_ID}")
         if query.exec():
             while query.next():
@@ -997,7 +1060,7 @@ class CheckableTreeModel(TreeModel):
                 query.prepare(f"INSERT INTO SAMPLES_{self.table}(SampleID, {self.id_header}) VALUES({sample_ID}, {ID})")
                 if not query.exec():
                     print(f"Error adding {ID} to SAMPLES_{self.table}")
-                    self.rollback()
+                    rollback_savepoint('update_db')
                     return
                 else:
                     print(f"Added {sample_ID, ID} to SAMPLES_{self.table}")
@@ -1013,27 +1076,27 @@ class TreeCombobox(QtW.QComboBox):
         self.setView(self.treeView)
         self.treeView.viewport().installEventFilter(self)
 
-    def showPopup(self):
-        self.treeView.expandAll()
-        self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-        columns = self.model().columnCount()
-        width_hint = 0
-        for col in range(columns):
-            if 0 < col < 4 or col >= columns-2:
-                # Don't show ID, parent ID, parent row, created timestamp, or modified timestamp
-                self.treeView.hideColumn(col)
-            else:
-                # Add up the size hints for all the visible columns
-                width_hint += self.treeView.columnWidth(col)
-        self.treeView.setSortingEnabled(False)
-        width_c1 = self.treeView.sizeHintForColumn(0)
-        width_tree = self.treeView.sizeHint().width()
-        if width_hint < 2*width_c1:
-            size_hint = width_hint
-        else:
-            size_hint = 2*width_c1
-        self.treeView.setMinimumWidth(size_hint)
-        super().showPopup()
+    # def showPopup(self):
+    #     self.treeView.expandAll()
+    #     self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+    #     columns = self.model().columnCount()
+    #     width_hint = 0
+    #     for col in range(columns):
+    #         if 0 < col < 4 or col >= columns-2:
+    #             # Don't show ID, parent ID, parent row, created timestamp, or modified timestamp
+    #             self.treeView.hideColumn(col)
+    #         else:
+    #             # Add up the size hints for all the visible columns
+    #             width_hint += self.treeView.columnWidth(col)
+    #     self.treeView.setSortingEnabled(False)
+    #     width_c1 = self.treeView.sizeHintForColumn(0)
+    #     width_tree = self.treeView.sizeHint().width()
+    #     if width_hint < 2*width_c1:
+    #         size_hint = width_hint
+    #     else:
+    #         size_hint = 2*width_c1
+    #     self.treeView.setMinimumWidth(size_hint)
+    #     super().showPopup()
 
     def set_text(self, text):
         self.lineEdit().setText(text)
@@ -1074,6 +1137,7 @@ class CheckableTreeCombobox(TreeCombobox):
         super().setModel(model)
         if self.model():
             self.model().dataChanged.connect(self.update_line_edit)
+        show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal))
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -1191,54 +1255,7 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
         # If no column matches, reject this row
         return False
 
-class TreeContextMenu(QtW.QMenu):
-    def __init__(self, parent = None):
-        super().__init__(parent)
-        self.tree_view = None
-        self.model = None
-        self.indexes = None
 
-    def set_view(self, tree_view: QtW.QTreeView, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
-        self.tree_view = tree_view
-        self.model = self.tree_view.model()
-        self.indexes = self.tree_view.selectedIndexes()
-        item_ids, parent_ids, parent_rows = get_selected_ids(self.model, self.indexes)
-        if len(item_ids) == 1:  # only one item selected
-            self.add_single_tree_actions(delete_active, add_active, edit_active)
-        else:
-            self.add_multi_tree_actions(delete_active, add_active, edit_active)
-        self.add_expand_collapse_actions()
-
-    def add_single_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
-        if edit_active:
-            edit_action = self.addAction('Edit')
-        if delete_active:
-            delete_action = self.addAction('Delete')
-        if add_active:
-            add_menu = self.addMenu('Add')
-            insert_above_action = add_menu.addAction('Insert above')
-            insert_below_action = add_menu.addAction('Insert below')
-            add_child_action = add_menu.addAction('Add child')
-            add_parent_action = add_menu.addAction('Add parent')
-            add_end_action = add_menu.addAction('Add to end')
-
-    def add_multi_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
-        if edit_active:
-            edit_action = self.addAction('Edit')
-        if delete_active:
-            delete_action = self.addAction('Delete')
-        if add_active:
-            add_action = self.addAction('Add to end')
-
-    def add_expand_collapse_actions(self):
-        expand_menu = self.addMenu('Expand')
-        expand_children_action = expand_menu.addAction('Expand children')
-        expand_all_children_action = expand_menu.addAction('Expand all children')
-        expand_all_action = expand_menu.addAction('Expand all')
-        collapse_menu = self.addMenu('Collapse')
-        collapse_children_action = collapse_menu.addAction('Collapse children')
-        collapse_all_children_action = collapse_menu.addAction('Collapse all children')
-        collapse_all_action = collapse_menu.addAction('Collapse all')
 
 def expand_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):
     model = tree_view.model()
@@ -1280,17 +1297,5 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
     elif action.text() == 'Collapse all':
         tree_view.collapseAll()
 
-def get_selected_ids(selected_model: QtC.QAbstractItemModel | QtC.QAbstractProxyModel, indexes: list):
-    item_ids = []
-    parent_ids = []
-    parent_rows = []
-    for index in indexes:
-        if index.column() == 0:
-            item_id = selected_model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
-            parent_id = selected_model.data(index.siblingAtColumn(2), QtC.Qt.ItemDataRole.DisplayRole)
-            parent_row = selected_model.data(index.siblingAtColumn(3), QtC.Qt.ItemDataRole.DisplayRole)
-            item_ids.append(item_id)
-            parent_ids.append(parent_id)
-            parent_rows.append(parent_row)
-    return item_ids, parent_ids, parent_rows
+
 

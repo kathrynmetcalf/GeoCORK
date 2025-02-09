@@ -23,7 +23,7 @@ from Functions import Check_triggers
 from PyQt6.sip import delete
 from openpyxl.styles.builtins import total, calculation
 
-from Functions.Tree_classes import TreeContextMenu
+from Functions.Context_menus import TreeContextMenu
 
 # Map model column names back to database items
 table_model_cols = namedtuple('table_model_cols', ['model_col_name', 'reference_table', 'table_cols', 'tag_table'])
@@ -98,9 +98,10 @@ class SQLiteTableModel(QAbstractTableModel):
             conn.close()
 
         except sqlite3.Error as e:
-            print(f"Error opening database: {e}")
+            logger_setup.get_logger().critical(f"Error opening database: {e}")
         if not db.open():
-            print(f"Failed to open database {db_file}")
+            logger_setup.get_logger().critical(f"Failed to open database {db_file}")
+        self.query_text = query
         table = query.split('FROM ')[1].split(' ')[0]
         if 'View' in table:
             self.view = table

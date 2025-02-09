@@ -28,7 +28,8 @@ from Functions.Savepoint_manager import SavepointManager, create_savepoint, roll
 from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox, set_table, name_column
 import Functions.Table_classes as TbC
 from Functions.Settings_manager import settings
-from Functions.Tree_classes import CheckableTreeModel, CheckableTreeCombobox, save_expanded_state, restore_expanded_state, get_selected_ids
+from Functions.Tree_classes import CheckableTreeModel, CheckableTreeCombobox, save_expanded_state, restore_expanded_state
+from Functions.Context_menus import get_selected_ids
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
