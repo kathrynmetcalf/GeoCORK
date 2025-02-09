@@ -9,9 +9,7 @@ from PyQt6.QtWidgets import QAbstractItemView, QHeaderView
 
 import logger_setup
 from Functions.Settings_manager import settings
-from Functions.Database_views import AliquotViewQuery, SpotViewQuery, UPbViewQuery
-import Functions.Table_classes as TbC
-from Functions.Table_classes import SQLiteTableModel
+from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 
@@ -51,7 +49,7 @@ class ViewDataTab(QtW.QWidget):
 
             self.view.setWordWrap(True)
             self.view.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.view.setItemDelegate(TbC.WordWrapDelegate(self.view))
+            self.view.setItemDelegate(WordWrapDelegate(self.view))
 
             self.view.resizeRowsToContents()
             self.view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -98,7 +96,7 @@ class ViewDataTab(QtW.QWidget):
             table_query = None
         if table_query is not None:
             self.model = SQLiteTableModel(table_query)
-            self.proxy_model = TbC.ReadableProxyModel()
+            self.proxy_model = ReadableProxyModel()
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)
             self.view.setSortingEnabled(True)

@@ -2,7 +2,7 @@ import sqlite3
 import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
-from Functions import Table_classes as TbC
+from Functions.Widget_classes import get_headers, get_column_types
 
 def add_data(db_file):
     """
@@ -102,15 +102,14 @@ import sqlite3
 from random import randint, randrange
 
 from PyQt6 import QtSql as QtS
-import Functions.Table_classes as TbC
 
 def add_upb_data(db_file):
     db = QtS.QSqlDatabase.addDatabase('QSQLITE')
     db.setDatabaseName(db_file)
     if db.open():
         query = QtS.QSqlQuery()
-        headers = TbC.get_headers('UPbAnalyses')
-        header_types = TbC.get_column_types('UPbAnalyses')
+        headers = get_headers('UPbAnalyses')
+        header_types = get_column_types('UPbAnalyses')
         headers.pop(0)
         header_types.pop(0)
         quoted_headers = [f'"{header}"' for header in headers]

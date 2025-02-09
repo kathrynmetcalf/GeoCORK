@@ -25,11 +25,10 @@ from PyQt6.QtGui import QBrush, QColor, QFont, QAction
 from Functions import SQLUtils, Savepoint_manager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
 
-from Functions.Table_classes import CheckableComboBox, CheckableSqlTableModel, CheckableSampleTableView, SearchableComboBox, set_table, name_column
-import Functions.Table_classes as TbC
 from Functions.Settings_manager import settings
-from Functions.Tree_classes import CheckableTreeModel, CheckableTreeCombobox, save_expanded_state, restore_expanded_state
-from Functions.Context_menus import get_selected_ids
+from Functions.Widget_classes import (
+    get_selected_tree_ids, CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
+    CheckableTreeCombobox, save_expanded_state, name_column)
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
@@ -449,7 +448,7 @@ class ImportWizardDialog(QWidget):
 
         while query.next():
             item_id = query.value(0)
-            item_name = query.value(TbC.name_column(table_name))
+            item_name = query.value(name_column(table_name))
             data_map[item_name] = item_id  # Store in map
             list_widget.addItem(item_name)  # Display only name in list
 
@@ -687,7 +686,7 @@ class ImportWizardDialog(QWidget):
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.model(), combo.treeView())
             indexes = combo.treeView().selectedIndexes()
-            item_ids, parent_ids, parent_rows = get_selected_ids(combo.model(), indexes)
+            item_ids, parent_ids, parent_rows = get_selected_tree_ids(combo.model(), indexes)
             if action:
                 if action.text() == 'Insert above':
                     row = parent_rows[0]
@@ -879,7 +878,7 @@ class ImportWizardDialog(QWidget):
     #     self.right_table.setColumnWidth(column_index, 200)
 
     # def set_cell_combobox(self, model, row, column_index):
-    #     name_col = TbC.name_column(model.tableName())
+    #     name_col = WC.name_column(model.tableName())
     #
     #     field = self.right_table.horizontalHeaderItem(column_index).text().strip()
     #
@@ -1340,7 +1339,7 @@ class ImportWizardDialog(QWidget):
             table = model.tableName
         else:
             table = model.tableName()
-        name_column = TbC.name_column(table)
+        name_column = name_column(table)
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None

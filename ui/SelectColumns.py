@@ -19,8 +19,7 @@ from Functions.SQLUtils import views
 from Functions.Settings_manager import settings
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import SQLUtils
-from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox, name_column, set_table, get_view_name_column
-from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel
+from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column
 
 class SelectColumns(QWidget):
     def __init__(self, parent=None):

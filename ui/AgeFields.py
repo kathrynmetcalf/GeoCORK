@@ -3,9 +3,10 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
-from Functions.Table_classes import (set_table, SampleAgeTableModel, CheckableSqlTableModel, FontDelegate, name_column,
-                                     set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel, SQLiteTableModel)
-from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
+from Functions.Widget_classes import (
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, set_table, SampleAgeTableModel, CheckableSqlTableModel,
+    FontDelegate, name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel, SQLiteTableModel
+)
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp

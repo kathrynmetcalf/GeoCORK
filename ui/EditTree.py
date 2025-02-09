@@ -8,9 +8,10 @@ from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Database_manager import update_database
-from Functions.Table_classes import set_table
+from Functions.Widget_classes import (
+    set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state, restore_expanded_state
+)
 import Functions.Text_manipulations as TxM
-import Functions.Tree_classes as TrC
 from ui.AddTreeTags import AddTreeTags
 
 
@@ -26,7 +27,7 @@ class EditTree(QtW.QDialog):
         self.model = QtS.QSqlTableModel()
         set_table(self.model, table_name)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
-        self.tree_model = TrC.TreeModel(self.model)
+        self.tree_model = TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)
         self.tree_proxy_model = QtC.QSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -59,7 +60,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
-        TrC.restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
 
     def search(self):
         self.search_lineEdit: QtW.QLineEdit
@@ -72,8 +73,8 @@ class EditTree(QtW.QDialog):
         indexes = self.edit_treeView.selectedIndexes()
         if not indexes:
             return
-        item_ids, parent_ids, parent_rows = TrC.get_selected_ids(self.tree_proxy_model, indexes)
-        menu = TrC.TreeContextMenu()
+        item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.tree_proxy_model, indexes)
+        menu = TreeContextMenu()
         menu.set_view(self.edit_treeView)
         action = menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if action and action.text() == 'Insert above':
@@ -98,18 +99,18 @@ class EditTree(QtW.QDialog):
                     self.tree_model.removeItem(item_id, parent_row, parent_id)
                     n_item += 1
         elif action and ('Expand' in action.text() or 'Collapse' in action.text()):
-            TrC.expand_collapse(self.edit_treeView, action)
+            expand_collapse(self.edit_treeView, action)
 
     def update_proxy(self):
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
-        self.tree_model = TrC.TreeModel(self.model)
+        self.tree_model = TreeModel(self.model)
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tree()
 
     def add_popup(self, item_ID = None, parent_id = None, parent_row = None, add_item: str = 'child', *argv):
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         if add_item == 'parent':
             new_child_ids = argv[0]
             new_parent_rows = argv[1]
@@ -120,7 +121,6 @@ class EditTree(QtW.QDialog):
         self.update_proxy()
 
     def add_parent(self, item_ids: list, parent_ids: list, parent_rows: list):
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         n_item = 0
         new_child_ids = []
         new_parent_rows = []
@@ -139,7 +139,7 @@ class EditTree(QtW.QDialog):
         self.add_popup(None, parent_id, row, 'parent', new_child_ids, new_parent_rows)
 
     def delete_question(self):
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
         msg_box.setText('Are you sure you want to delete these items and all children?')
@@ -165,15 +165,15 @@ class EditTree(QtW.QDialog):
 
     def rollback(self):
         rollback_savepoint('before_edit')
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
 
     def commit(self):
         release_savepoint('before_edit')
+        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         update_database()
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

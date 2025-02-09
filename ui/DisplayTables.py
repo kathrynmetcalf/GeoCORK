@@ -10,14 +10,16 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView
 
 from PyQt6.uic import loadUi
-import Functions.Table_classes as TbC
-import Functions.Tree_classes as TrC
+from Functions.Widget_classes import (
+    TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
+    save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
+    ReadableProxyModel
+)
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
-from Functions.Tree_classes import TreeSortFilterProxyModel
 # from Functions.Widget_classes import add_popup_dialog
 from ui.EditSampleTable import EditSampleTable
 from ui.EditTable import EditTable
@@ -57,11 +59,11 @@ class DisplayTables(QtW.QWidget):
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
 
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
-        self.model = TbC.DisplayRoundedModel()
-        self.query_model = TbC.DisplayRoundedQueryModel()
-        self.tree_model = TrC.TreeModel()
+        self.model = DisplayRoundedModel()
+        self.query_model = DisplayRoundedQueryModel()
+        self.tree_model = TreeModel()
         self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
-        self.table_proxy_model = TbC.ReadableProxyModel()
+        self.table_proxy_model = ReadableProxyModel()
         self.table = ''
         self.show_cols = []
         self.switch_to_table()
@@ -127,7 +129,7 @@ class DisplayTables(QtW.QWidget):
         self.table = TxM.remove_spaces(table)
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
-            TrC.save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
         self.previous_table = self.table
 
         if self.table in self.dbtree_list:
@@ -137,7 +139,7 @@ class DisplayTables(QtW.QWidget):
             self.model.setTable(table)
             self.model.select()
 
-            self.tree_model = TrC.TreeModel(self.model, None)
+            self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
 
@@ -149,15 +151,15 @@ class DisplayTables(QtW.QWidget):
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            TrC.restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
+            restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
             self.dbTable_treeView: QTreeView
         elif self.table in self.dbtable_list:
             self.switch_to_table()
             if self.table == 'Samples':
                 self.show_cols = settings.value('sample_view_columns')
                 self.show_cols = ', '.join(self.show_cols)
-                model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView')
-                # model = TbC.SQLiteTableModel(f'SELECT * FROM SampleView')
+                model = SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView')
+                # model = SQLiteTableModel(f'SELECT * FROM SampleView')
 
                 self.table_proxy_model.setSourceModel(model)
                 self.edit_samples_pushButton.show()
@@ -168,14 +170,14 @@ class DisplayTables(QtW.QWidget):
                 if self.table == 'Columns':
                     self.show_cols = settings.value('column_view_columns')
                     self.show_cols = ', '.join(self.show_cols)
-                    model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM ColumnView')
-                    # model = TbC.SQLiteTableModel(f'SELECT * FROM ColumnView')
+                    model = SQLiteTableModel(f'SELECT {self.show_cols} FROM ColumnView')
+                    # model = SQLiteTableModel(f'SELECT * FROM ColumnView')
                     self.table_proxy_model.setSourceModel(model)
                 elif self.table == 'References':
                     self.show_cols = settings.value('reference_view_columns')
                     self.show_cols = ', '.join(self.show_cols)
-                    model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM ReferenceView')
-                    # model = TbC.SQLiteTableModel(f'SELECT * FROM ReferenceView')
+                    model = SQLiteTableModel(f'SELECT {self.show_cols} FROM ReferenceView')
+                    # model = SQLiteTableModel(f'SELECT * FROM ReferenceView')
                     self.table_proxy_model.setSourceModel(model)
                 else:
                     self.model.setTable(table)
@@ -188,7 +190,7 @@ class DisplayTables(QtW.QWidget):
 
             self.dbTable_tableView.setWordWrap(True)
             self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.dbTable_tableView.setItemDelegate(TbC.WordWrapDelegate(self.dbTable_tableView))
+            self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
 
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
@@ -254,7 +256,7 @@ class DisplayTables(QtW.QWidget):
         """
         self.dbTable_tableView: QtW.QTableView
         self.dbTable_treeView: QtW.QTreeView
-        tree_menu = TrC.TreeContextMenu()
+        tree_menu = TreeContextMenu()
         table_menu = QtW.QMenu()
         edit_action = table_menu.addAction('Edit')
         add_action = table_menu.addAction('Add')
@@ -307,7 +309,7 @@ class DisplayTables(QtW.QWidget):
         elif 'Add' in action.text() or 'Insert' in action.text():
             self.add_popup(action)
         elif 'Expand' in action.text() or 'Collapse' in action.text():
-            TrC.expand_collapse(self.dbTable_treeView, action)
+            expand_collapse(self.dbTable_treeView, action)
 
     def table_context_menu(self, action: QtG.QAction):
         """
@@ -329,7 +331,7 @@ class DisplayTables(QtW.QWidget):
         elif self.table == 'Aliquots' or self.table == 'Spots' or self.table == 'UPbData':
             return
         elif self.table in self.dbtree_list:
-            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
             dlg = EditTree(self.table)
         else:
             dlg = EditTable(self.table)
@@ -357,9 +359,9 @@ class DisplayTables(QtW.QWidget):
         dlg = None
         dlg_args = None
         if self.table in self.dbtree_list:
-            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
             indexes = self.dbTable_treeView.selectedIndexes()
-            item_ids, parent_ids, parent_rows = TrC.get_selected_ids(self.tree_proxy_model, indexes)
+            item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.tree_proxy_model, indexes)
             if action:
                 if action.text() == 'Insert above':
                     row = parent_rows[0]
@@ -388,6 +390,6 @@ class DisplayTables(QtW.QWidget):
 
     def closeEvent(self, event):
         if self.table in self.dbtree_list:
-            TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
         event.accept()
         super().closeEvent(event)

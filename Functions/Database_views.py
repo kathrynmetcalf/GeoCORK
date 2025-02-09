@@ -6,7 +6,7 @@ from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.SQLUtils import gps_column_join
-from Functions.Table_classes import set_table, get_headers
+from Functions.Widget_classes import set_table, get_headers
 import time
 
 

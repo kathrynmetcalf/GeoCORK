@@ -7,7 +7,7 @@ from PyQt6.QtCore import QPoint, QSize
 
 from PyQt6.uic import loadUi
 import Functions.Database_views as DB_views
-import Functions.Table_classes as TbC
+import Functions.Widget_classes as WC
 import logger_setup
 from Functions import SQLUtils
 from Functions import Savepoint_manager
@@ -28,7 +28,7 @@ import time
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
 
-class GeoChron(QtW.QMainWindow):
+class GeoCORK(QtW.QMainWindow):
     def __init__(self, landingpage):
         super().__init__()
         logger_setup.get_logger().info("Starting the main window")
@@ -123,11 +123,11 @@ class GeoChron(QtW.QMainWindow):
         self.tabWidget: PartiallyCloseableTabWidget
         for p_id in parent_id:
             if parent_type == 'Sample':
-                parent_name = TbC.get_name_from_id('Samples', p_id)
+                parent_name = WC.get_name_from_id('Samples', p_id)
             elif parent_type == 'Aliquot':
-                parent_name = TbC.get_name_from_id('Aliquots', p_id)
+                parent_name = WC.get_name_from_id('Aliquots', p_id)
             elif parent_type == 'Spot':
-                parent_name = TbC.get_name_from_id('Spots', p_id)
+                parent_name = WC.get_name_from_id('Spots', p_id)
             else:
                 print("Error: Invalid parent type")
                 return

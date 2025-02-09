@@ -10,18 +10,18 @@ from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
-from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
-from Functions.Table_classes import ReadableProxyModel
+from Functions.Widget_classes import (
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, ReadableProxyModel, DisplayRoundedModel
+)
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
 from ui.AddTags import AddTags
-import Functions.Table_classes as TbC
 
 class EditSampleTable(QtW.QDialog):
-    def __init__(self, sample_model: TbC.DisplayRoundedModel):
+    def __init__(self, sample_model: DisplayRoundedModel):
         super().__init__()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))

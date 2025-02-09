@@ -1,4 +1,4 @@
-from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtSql import QSqlDatabase, QSqlTableModel
 
 import Functions.Database_views as DB_views
 import logger_setup
@@ -17,10 +17,16 @@ def update_database():
     start_time = time.time()
     logger_setup.get_logger().info("Updating database")
     # Check if the database exists and all tables are present
-    db = QSqlDatabase()
-    db.commit()
-    db.close()
-    db.open()
+    model = QSqlTableModel()
+    db = model.database()
+    if not db.commit():
+        if 'no transaction is active' not in db.lastError().text():
+            logger_setup.get_logger().critical(f"Error committing database: {db.lastError().text()}")
+    if not db.close():
+        if 'no transaction is active' not in db.lastError().text():
+            logger_setup.get_logger().critical(f"Error closing database: {db.lastError().text()}")
+    if not db.open():
+        logger_setup.get_logger().critical(f"Error opening database: {db.lastError().text()}")
 
     Create_db.create_tables()
     Create_indexes.create_indexes()

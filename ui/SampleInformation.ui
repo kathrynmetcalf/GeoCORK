@@ -532,12 +532,12 @@
   <customwidget>
    <class>CheckableTreeCombobox</class>
    <extends>QComboBox</extends>
-   <header>Functions/Tree_classes.h</header>
+   <header>Functions/Widget_classes.h</header>
   </customwidget>
   <customwidget>
    <class>CheckableComboBox</class>
    <extends>QComboBox</extends>
-   <header location="global">Functions/Table_classes.h</header>
+   <header location="global">Functions/Widget_classes.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

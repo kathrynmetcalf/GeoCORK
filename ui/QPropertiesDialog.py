@@ -16,7 +16,7 @@ class QPropertiesDialog(QDialog):
         sources_ui_file = os.path.join(base_path, "ui_Settings.ui")
         loadUi(sources_ui_file, self)
 
-        self.settings = QSettings("CSUF", "GeoChron")
+        self.settings = QSettings("CSUF", "GeoCORK")
         self.loadWindowState()
 
         self.buttonBox: QDialogButtonBox

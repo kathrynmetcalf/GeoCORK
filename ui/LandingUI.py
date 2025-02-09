@@ -71,15 +71,15 @@ class LandingPage(QWidget):
             settings_dialog.display_tab(2)
             settings_dialog.exec()
 
-    def open_geo_chron(self):
+    def open_geo_cork(self):
         if not self.test_database_lock():
-            from ui.GeoCORKMain import GeoChron
+            from ui.GeoCORKMain import GeoCORK
             self.hide()
-            geo_chron = GeoChron(self)
-            geo_chron.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            geo_cork = GeoCORK(self)
+            geo_cork.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             loop = QEventLoop()
 
-            geo_chron.destroyed.connect(loop.quit)
+            geo_cork.destroyed.connect(loop.quit)
             loop.exec()
             self.show()
         else:
@@ -126,7 +126,7 @@ class LandingPage(QWidget):
 
     def clicked_file(self):
         self.selected_files = self.listWidget.currentItem().text()
-        self.open_geo_chron()
+        self.open_geo_cork()
 
 
     def new_database_dialog(self):
@@ -154,7 +154,7 @@ class LandingPage(QWidget):
                 self.list_recents.append(self.selected_files)
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.open_about_db()
-            self.open_geo_chron()
+            self.open_geo_cork()
             self.setVisible(False)
 
     def open_github(self):
@@ -172,7 +172,7 @@ class LandingPage(QWidget):
                 self.list_recents.append(self.selected_files)
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.hide()
-            self.open_geo_chron()
+            self.open_geo_cork()
 
     def recents_context_menu(self, pos):
         item = self.listWidget.itemAt(pos)

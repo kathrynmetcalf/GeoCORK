@@ -8,12 +8,13 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 
+import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Tree_classes import TreeModel
+from Functions.Widget_classes import TreeModel, TreeContextMenu, expand_collapse, save_expanded_state, restore_expanded_state
 import Functions.Text_manipulations as TxM
-import Functions.Tree_classes as TrC
+import Functions.Widget_classes as WC
 import Functions.Check_triggers as Ct
 
 class AddTreeTags(QtW.QDialog):
@@ -68,7 +69,7 @@ class AddTreeTags(QtW.QDialog):
                 query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parentID}')
                 if not query.exec():
-                    print(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().error(f'Error selecting {self.id_header} {self.parentID}: {query.lastError().text()}')
                     return
                 query.next()
                 parent_name = query.value(3)
@@ -78,7 +79,7 @@ class AddTreeTags(QtW.QDialog):
                 query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.itemID}')
                 if not query.exec():
-                    print(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().error(f'Error selecting {self.id_header} {self.itemID}: {query.lastError().text()}')
                     return
                 query.next()
                 item_name = query.value(3)
@@ -90,7 +91,7 @@ class AddTreeTags(QtW.QDialog):
                 row_name = 'new row'
             self.adding_label.setText(f'Adding {item_name} to {parent_name} at {row_name}')
         else:
-            self.adding_laebl.setText('Adding new parent item')
+            self.adding_label.setText('Adding new parent item')
 
     def display_tags(self):
         self.tags_treeView.setModel(self.tree_proxy_model)
@@ -99,16 +100,16 @@ class AddTreeTags(QtW.QDialog):
         self.tags_treeView.hideColumn(1)  # Don't show ID column
         self.tags_treeView.hideColumn(2)  # Don't show parent ID column
         self.tags_treeView.hideColumn(3)  # Don't show parent row column
-        TrC.restore_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
+        restore_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
         self.add_label()
 
     def show_context_menu(self, pos):
-        menu = TrC.TreeContextMenu()
+        menu = TreeContextMenu()
         # Only allow expanding and collapsing, no delete, add, or edit
         menu.set_view(self.tags_treeView, False, False, False)
         action = menu.exec(self.tags_treeView.viewport().mapToGlobal(pos))
         if action and ('Expand' in action.text() or 'Collapse' in action.text()):
-            TrC.expand_collapse(self.tags_treeView, action)
+            expand_collapse(self.tags_treeView, action)
 
     def clear_warning(self):
         self.warning_label.hide()
@@ -134,7 +135,7 @@ class AddTreeTags(QtW.QDialog):
             query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.item_name_header} = "{name}"')
             if not query.exec():
-                print(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().error(f'Error selecting {self.item_name_header} {name}: {query.lastError().text()}')
                 return
             query.next()
             new_parent_id = query.value(0)
@@ -151,10 +152,10 @@ class AddTreeTags(QtW.QDialog):
         return True
 
     def update_proxy(self):
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
+        # save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
-        self.tree_model = TrC.TreeModel(self.source_model)
+        self.tree_model = TreeModel(self.source_model)
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tags()
@@ -183,8 +184,11 @@ class AddTreeTags(QtW.QDialog):
             if not self.add_tree_tag():
                 return False
         release_savepoint('before_add')
-        TrC.save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
-        update_database()
+        logger_setup.get_logger().info(f'Changes committed to {self.table}')
+        save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
+        # Check if there is another existing savepoint. If not, go ahead and update the database
+        if not SavepointManager.get_instance().active_savepoints():
+            update_database()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

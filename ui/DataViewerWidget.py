@@ -9,13 +9,10 @@ from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton
 from PyQt6.uic import loadUi
 
-import Functions.Table_classes as TbC
 import Functions.Text_manipulations as TxM
-import Functions.Tree_classes as TrC
 from Functions.Database_manager import update_database
 from Functions import SQLUtils
-from Functions.Table_classes import SQLiteTableModel
-from Functions.Tree_classes import TreeSortFilterProxyModel
+from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import settings
 from ui.EditTable import EditTable
@@ -490,7 +487,7 @@ class DataViewerWidget(QWidget):
                             f'SELECT {table}.* FROM {table} '
                             f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
                             f'SELECT {table[0:-1]}ID FROM ParentTree) ')
-            tree_model = TrC.TreeModel(model, None)
+            tree_model = TreeModel(model, None)
 
             dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             dbTable_treeView.hideColumn(1)  # don't show ID column
@@ -572,7 +569,7 @@ class DataViewerWidget(QWidget):
         elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Analyses':
             return
         elif table_name in SQLUtils.user_viewable_trees:
-            TrC.save_expanded_state(table_name, tree_proxy_model, dbTable_treeView)
+            save_expanded_state(table_name, tree_proxy_model, dbTable_treeView)
             dlg = EditTree(dbTable_treeView, table_name)
         else:
             dlg = EditTable(table_name)

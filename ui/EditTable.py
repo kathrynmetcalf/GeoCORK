@@ -12,7 +12,7 @@ from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
-import Functions.Table_classes as TbC
+from Functions.Widget_classes import SQLiteTableModel, VerifiableSqlTableModel, VerifiableSqlViewModel, set_table
 import Functions.Alter_database as Alter_db
 from ui.AddTags import AddTags
 from ui.GPSDialog import GPSDialog
@@ -40,25 +40,25 @@ class EditTable(QtW.QDialog):
                 self.show_cols = settings.value('spot_edit_columns')
             elif self.table == 'UPbAnalyses':
                 self.show_cols = settings.value('upb_analysis_edit_columns')
-            self.model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.table} WHERE {self.parent_id_header} = {self.parent_id}')
+            self.model = SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.table} WHERE {self.parent_id_header} = {self.parent_id}')
         elif self.table in SQLUtils.trigger_tables:
             if self.table == 'Columns':
                 self.view = 'ColumnEditView'
                 self.show_cols = settings.value('column_edit_view_columns')
-                self.model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
+                self.model = SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
             elif self.table == 'Samples':
                 self.view = 'SampleView'
                 self.show_cols = settings.value('sample_view_columns')
-                self.model = TbC.SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
+                self.model = SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
             else:
-                self.model = TbC.VerifiableSqlTableModel()
-                TbC.set_table(self.model, self.table)
+                self.model = VerifiableSqlTableModel()
+                set_table(self.model, self.table)
             self.edit_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
             self.edit_tableView.doubleClicked.connect(self.display_widget)
         else:
             self.model = QtS.QSqlTableModel()
-            TbC.set_table(self.model, self.table)
+            set_table(self.model, self.table)
         self.view_headers = []
         self.table_headers = []
         self.get_headers()
@@ -138,11 +138,11 @@ class EditTable(QtW.QDialog):
     def get_headers(self):
         for col in range(self.model.columnCount()):
             self.table_headers.append(self.model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-        if isinstance(self.model, TbC.VerifiableSqlViewModel):
+        if isinstance(self.model, VerifiableSqlViewModel):
             self.view_headers = self.table_headers
             self.table_headers = []
             column_model = QtS.QSqlTableModel()
-            TbC.set_table(column_model, 'Columns')
+            set_table(column_model, 'Columns')
             for col in range(column_model.columnCount()):
                 self.table_headers.append(column_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
@@ -271,7 +271,7 @@ class EditTable(QtW.QDialog):
         self.combo_index = selected_index
         self.combo = QtW.QComboBox()
         self.combo_model = QtS.QSqlTableModel()
-        TbC.set_table(self.combo_model, dropdown_table)
+        set_table(self.combo_model, dropdown_table)
         self.combo.setModel(self.combo_model)
         for col in range(1,self.combo_model.columnCount()):
             header = self.combo_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -358,13 +358,13 @@ class EditTable(QtW.QDialog):
 
         # Check if the row has changed and if the model has been edited
         if selected.row() != deselected.row():
-            if isinstance(self.model, TbC.VerifiableSqlTableModel | TbC.VerifiableSqlViewModel):
+            if isinstance(self.model, VerifiableSqlTableModel | VerifiableSqlViewModel):
                 if not self.model.edited_indexes:
                     # No uncommitted changes, so nothing to do
                     return True
             if not self.model.submit():
                 # There was an error submitting the changes
-                if isinstance(self.model, TbC.VerifiableSqlTableModel | TbC.VerifiableSqlViewModel):
+                if isinstance(self.model, VerifiableSqlTableModel | VerifiableSqlViewModel):
                     if self.model.submitError != '':
                         errtxt = f'Failed to save changes to {self.table}: {self.model.submitError}'
                         header_to_select = self.model.headerToFix

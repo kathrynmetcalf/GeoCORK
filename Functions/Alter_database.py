@@ -8,7 +8,7 @@ from Functions.Settings_manager import settings
 
 import pyproj
 import Functions.Create_database as Create_db
-from Functions.Table_classes import set_table, get_columns
+from Functions.Widget_classes import set_table, get_columns
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.GPS_conversions as GPS # gps conversions
 

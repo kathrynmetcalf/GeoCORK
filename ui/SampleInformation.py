@@ -10,15 +10,15 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 
 import logger_setup
-import Functions.Table_classes as TbC
-import Functions.Tree_classes as TrC
 
 import Functions.Database_views as DB_views
 import Functions.SQLUtils as SQLUtils
 
-from Functions.Table_classes import CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, \
-    SQLiteTableModel, CheckableSqlQueryModel, CheckableSqlTableModel, name_column, get_view_name_column
-from Functions.Tree_classes import TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView
+from Functions.Widget_classes import (
+    CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
+    CheckableSqlTableModel, name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
+    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_sub_items, delete_samples
+)
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import settings
@@ -178,9 +178,9 @@ class SampleInformation(QtW.QDialog):
 
         self.column_name_comboBox.model_modifiable = True
         self.column_name_comboBox.setModel(self.column_model)
-        TbC.show_column(self.column_name_comboBox, 'ColumnName')
+        show_column(self.column_name_comboBox, 'ColumnName')
         self.height_depth_unit_comboBox.setModel(self.column_unit_model)
-        TbC.show_column(self.height_depth_unit_comboBox, 'DistanceUnitAbbreviation')
+        show_column(self.height_depth_unit_comboBox, 'DistanceUnitAbbreviation')
         self.sample_context_comboBox.setModel(self.sample_context_tree)
         self.sampling_method_comboBox.setModel(self.sampling_method_tree)
         self.unit_comboBox.setModel(self.unit_tree)
@@ -190,7 +190,7 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_comboBox.setModel(self.age_signature_tree)
         self.reference_comboBox.model_modifiable = True
         self.reference_comboBox.setModel(self.reference_model)
-        TbC.show_column(self.reference_comboBox, 'ReferenceDisplay')
+        show_column(self.reference_comboBox, 'ReferenceDisplay')
         self.analysis_method_comboBox.model_modifiable = True
         self.analysis_method_comboBox.setModel(self.analysis_method_tree)
         self.lab_facility_comboBox.model_modifiable = True
@@ -302,13 +302,13 @@ class SampleInformation(QtW.QDialog):
                 elif 'IGSN' in header:
                     self.sample_igsn_lineEdit.setText(f"{text_values[headers.index(header)]}")
                 elif 'ColumnName' in header:
-                    TbC.set_comboBox_text(self.column_name_comboBox, text_values[headers.index(header)])
+                    set_comboBox_text(self.column_name_comboBox, text_values[headers.index(header)])
                 elif 'HeightDepthError' in header:
                     self.height_depth_error_lineEdit.setText(f"{text_values[headers.index(header)]}")
                 elif 'HeightDepth' in header:
                     self.height_depth_lineEdit.setText(f"{text_values[headers.index(header)]}")
                 elif 'HeightDepthUnit' in header:
-                    TbC.set_comboBox_text(self.height_depth_unit_comboBox, text_values[headers.index(header)])
+                    set_comboBox_text(self.height_depth_unit_comboBox, text_values[headers.index(header)])
                 elif 'SampleDescription' in header:
                     self.sample_description_lineEdit.setText(f"{text_values[headers.index(header)]}")
 
@@ -357,11 +357,11 @@ class SampleInformation(QtW.QDialog):
             for row in range(table_model.rowCount()):
                 if tree is not None:
                     model = tree
-                    col = TbC.name_column(table_model.tableName())
+                    col = name_column(table_model.tableName())
                     model_index = tree.mapFromSource(table_model.index(row, col))
                 else:
                     model = table_model
-                    col = TbC.name_column(table_model.tableName())
+                    col = name_column(table_model.tableName())
                     model_index = table_model.index(row, col)
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
                 if model.lastError().text():
@@ -376,29 +376,31 @@ class SampleInformation(QtW.QDialog):
                 many_to_many_model.setFilter(f"SampleID = {self.checked_sample_list[0]} AND {tag_id_header} = {tag_id}")
             if tree is not None:
                 model = tree
-                col = TbC.name_column(table_model.tableName())
+                col = name_column(table_model.tableName())
                 model_index = tree.mapFromSource(table_model.index(row, col))
+                error_text = model.source_model.lastError().text()
             else:
                 model = table_model
-                col = TbC.name_column(table_model.tableName())
+                col = name_column(table_model.tableName())
                 model_index = table_model.index(row, col)
+                error_text = model.lastError().text()
             if many_to_many_model.rowCount() == len(self.selected_sample_list):
                 # All samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if model.lastError().text():
-                    logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {model.lastError().text()}")
+                if error_text:
+                    logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {error_text}")
                 items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             elif many_to_many_model.rowCount() > 0:
                 # Some samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if model.lastError().text():
-                    logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {model.lastError().text()}")
+                if error_text:
+                    logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {error_text}")
                 items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 # No samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if model.lastError().text():
-                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
+                if error_text:
+                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {error_text}")
         text = ", ".join(items)
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
         return text
@@ -410,9 +412,9 @@ class SampleInformation(QtW.QDialog):
         table = table_model.tableName()
         try:
             view = table_model.tableView()
-            col = TbC.get_view_name_column(view)
+            col = get_view_name_column(view)
         except AttributeError:
-            col = TbC.name_column(table)
+            col = name_column(table)
         tag_id_header = table_model.record().fieldName(0)
         if len(self.checked_sample_list) == 0:
             logger_setup.get_logger().info("No samples selected, so unchecking everything")
@@ -423,7 +425,7 @@ class SampleInformation(QtW.QDialog):
                     logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
             logger_setup.get_logger().info("Unchecked everything")
             return text
-        aliquot_ids, spot_ids, upb_analysis_ids = TbC.find_sub_items(self.checked_sample_list)
+        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(self.checked_sample_list)
         if len(upb_analysis_ids) > 0:
             for row in range(table_model.rowCount()):
                 tag_id = table_model.index(row, 0).data()
@@ -465,7 +467,7 @@ class SampleInformation(QtW.QDialog):
             self.uncheck_all_samples()
         elif action == delete_action:
             if self.delete_question():
-                TbC.delete_samples(selected_indexes)
+                delete_samples(selected_indexes)
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
@@ -525,7 +527,7 @@ class SampleInformation(QtW.QDialog):
 
     def update_subfield_id(self, model: CheckableSqlTableModel | CheckableSqlQueryModel, field: str):
         logger_setup.get_logger().info(f"update_subfield_id called with {model.tableName()} and {field}")
-        aliquot_ids, spot_ids, upb_analysis_ids = TbC.find_sub_items(self.checked_sample_list)
+        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(self.checked_sample_list)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If nothing is fully checked, then nothing should be updated
         checked_item_id = None  # Should only be one
@@ -567,8 +569,8 @@ class SampleInformation(QtW.QDialog):
         else:
             logger_setup.get_logger().info("No UPbAnalyses for selected samples")
 
-    def update_sample_tags(self, model: TrC.CheckableTreeModel, table: str):
-        logger_setup.get_logger().info(f"update_tags called with {model.source_model.tableName()} and {table}")
+    def update_sample_tags(self, model: CheckableTreeModel, table: str):
+        logger_setup.get_logger().info(f"update_tags called with {model.table} and {table}")
         many_to_many_model = QtS.QSqlTableModel()
         set_table(many_to_many_model, f"Samples_{table}")
 
@@ -588,10 +590,10 @@ class SampleInformation(QtW.QDialog):
         else:
             logger_setup.get_logger().info("No samples selected")
 
-    def update_sub_tags(self, model: TrC.CheckableTreeModel, table: str):
+    def update_sub_tags(self, model: CheckableTreeModel, table: str):
         logger_setup.get_logger().info(f"update_tags called with {model.source_model.tableName()} and {table}")
         field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        aliquot_ids, spot_ids, upb_analysis_ids = TbC.find_sub_items(self.checked_sample_list)
+        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(self.checked_sample_list)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If there are still partial checks, then nothing should be updated
         checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
@@ -643,7 +645,7 @@ class SampleInformation(QtW.QDialog):
         if table in SQLUtils.user_viewable_trees:
             model = combo.model()
             # view = combo.view()
-            # TrC.save_expanded_state(table, model, view)
+            # save_expanded_state(table, model, view)
             # dlg = AddTreeTags(table, action, view)
         elif table == '"References"' or table == 'References':
             dlg = NewReference()
@@ -656,7 +658,7 @@ class SampleInformation(QtW.QDialog):
         # Update the model
         if isinstance(combo.model(), QtS.QSqlTableModel):
             combo.model().select()
-        # elif isinstance(model, TrC.CheckableTreeModel):
+        # elif isinstance(model, CheckableTreeModel):
         #     model.source_model.select()
         #     model.setSourceModel(model.source_model)
 
@@ -714,10 +716,11 @@ class SampleInformation(QtW.QDialog):
             self.close_by_dialog = False
 
     def commit(self):
+        # todo: figure out why the savepoint is missing
         release_savepoint('before_edit')
         # Edit occurred in the dialog, so update the database
         update_database()
-        # TrC.save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        # save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

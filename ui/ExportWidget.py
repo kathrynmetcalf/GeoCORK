@@ -20,7 +20,7 @@ from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase
 from Functions import FilterDatabase
 from Functions import SQLUtils
-from Functions.Table_classes import CheckableSqlTableModel, CheckableComboBox
+from Functions.Widget_classes import CheckableSqlTableModel, CheckableComboBox
 from ui import Filters
 
 
@@ -48,7 +48,7 @@ class ExportWidget(QWidget):
             if widget.inherits("QMainWindow"):
                 self.db_file = widget.db_file
 
-        self.settings = QSettings("CSUF", "GeoChron")
+        self.settings = QSettings("CSUF", "GeoCORK")
 
         self.samplesincluded_comboBox: CheckableComboBox()
 
