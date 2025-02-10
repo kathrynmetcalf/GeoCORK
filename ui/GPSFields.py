@@ -10,6 +10,8 @@ from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 import Functions.Database_views as DB_views
+import time
+import logger_setup
 
 class GPSFields(QtW.QWidget):
     def __init__(self, table: str, item_ids: list | None, parent=None):
@@ -64,6 +66,7 @@ class GPSFields(QtW.QWidget):
         self.connect_signals()
 
     def populate_dropdowns(self):
+        start_populate_dropdowns_time = time.time()
         set_table(self.gps_format_model, 'GPSFormats')
         set_table(self.gps_location_model, 'GPSLocations')
         set_table(self.direction_unit_model, 'DirectionUnits')
@@ -85,6 +88,8 @@ class GPSFields(QtW.QWidget):
         self.elevation_unit_comboBox.setModel(self.elevation_unit_model)
         self.elevation_unit_comboBox.setModelColumn(self.elevation_unit_model.record().indexOf('DistanceUnitAbbreviation'))
         self.elevation_unit_comboBox.setCurrentIndex(elevation_unit_id - 1)
+        end_populate_dropdowns_time = time.time()
+        logger_setup.get_logger().info(f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
     def connect_signals(self):
         self.gps_format_comboBox.currentTextChanged.connect(self.display_gps)
@@ -105,6 +110,7 @@ class GPSFields(QtW.QWidget):
             pass
 
     def populate_fields(self):
+        start_populate_fields_time = time.time()
         if len(self.item_ids) > 1:
             item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} in {tuple(self.item_ids)}')
         elif len(self.item_ids) == 1:
@@ -200,6 +206,8 @@ class GPSFields(QtW.QWidget):
                     set_comboBox_text(self.elevation_unit_comboBox, text_values[headers.index(header)])
                 elif 'GPSFormat' in header:
                     set_comboBox_text(self.gps_format_comboBox, text_values[headers.index(header)])
+        end_populate_fields_time = time.time()
+        logger_setup.get_logger().info(f"Populated GPS fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         self.display_gps()
 
     def display_gps(self):

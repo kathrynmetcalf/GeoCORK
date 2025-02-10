@@ -13,7 +13,8 @@ from Functions.Check_triggers import validate_insert, validate_update, update_mo
 import Functions.Database_views as DB_views
 from ui.EditTree import EditTree
 from ui.EditTable import EditTable
-
+import logger_setup
+import time
 
 
 class AgeFields(QtW.QWidget):
@@ -63,6 +64,7 @@ class AgeFields(QtW.QWidget):
         self.connect_signals()
 
     def populate_dropdowns(self):
+        start_populate_dropdowns_time = time.time()
         set_table(self.item_model, self.table)
         self.item_id_header = self.item_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         self.sample_age_model.setQuery('SELECT * FROM SampleAges')
@@ -94,8 +96,11 @@ class AgeFields(QtW.QWidget):
         self.age_interpretation_comboBox.setModel(self.age_interpretation_tree)
         self.age_reference_comboBox.setModel(self.age_reference_model)
         self.age_reference_comboBox.setModelColumn(name_column('References'))
+        end_populate_dropdowns_time = time.time()
+        logger_setup.get_logger().info(f"Populated age dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
     def populate_age_dropdown(self):
+        start_populate_age_dropdown_time = time.time()
         samples_sampleage_model = QtS.QSqlTableModel()
         set_table(samples_sampleage_model, 'Samples_SampleAges')
         if len(self.checked_sample_list) > 1:
@@ -117,6 +122,8 @@ class AgeFields(QtW.QWidget):
                 self.sample_age_model.make_bold(self.sample_age_model.index(row, 0))
             else:
                 self.sample_age_model.make_not_bold(self.sample_age_model.index(row, 0))
+        end_populate_age_dropdown_time = time.time()
+        logger_setup.get_logger().info(f"Populated age dropdowns in {end_populate_age_dropdown_time - start_populate_age_dropdown_time} seconds")
 
     def connect_signals(self):
         # Connect signals and slots

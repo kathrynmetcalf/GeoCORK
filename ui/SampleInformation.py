@@ -17,7 +17,7 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
-    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_sub_items, delete_samples
+    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_samples
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -36,12 +36,15 @@ class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
         super().__init__(parent=parent_window)
         logger_setup.get_logger().info("Starting the sample information dialog")
+        start_init_time = time.time()
         self.parent_window = parent_window
         self.savepoint_manager = SavepointManager.get_instance()
         # self.loadWindowState()
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
+        self.selected_sample_label: QtW.QLabel
+        self.selected_sample_label.setWordWrap(True)
         self.gps = GPSFields('Samples', sample_id_list)
         self.selected_gps_column_verticalLayout: QtW.QVBoxLayout
         self.selected_gps_column_verticalLayout.insertWidget(2, self.gps)
@@ -63,7 +66,14 @@ class SampleInformation(QtW.QDialog):
         self.checked_sample_list = []
         self.checked_sample_names = ""
         self.default_age_ids = []
+        self.upb_analysis_ids = None
+
         self.updated = False
+        # self.init_progress_dialog = QtW.QProgressDialog(
+        #     f"Loading information for {len(sample_id_list)} samples...", "Cancel", 0, 6, self
+        # )
+        # self.load_progress_dialog = QtW.QProgressDialog()
+        # self.update_progress_dialog = QtW.QProgressDialog()
 
         # Sample information models
         self.samples_table = None
@@ -99,14 +109,19 @@ class SampleInformation(QtW.QDialog):
         self.msg = QtW.QMessageBox(self)
         create_savepoint('before_edit')
         self.close_by_dialog = False
+        # self.increment_progress_dialog(self.init_progress_dialog)
 
         # Fill in information based on selected samples
         self.populate_dropdowns()
+        # self.increment_progress_dialog(self.init_progress_dialog)
         self.check_all_samples()
+        # self.increment_progress_dialog(self.init_progress_dialog)
         self.sample_name_comboBox.setModel(self.sample_names_model)
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
 
         self.installEventFilter(self)
+        end_init_time = time.time()
+        logger_setup.get_logger().info(f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
 
     def check_all_samples(self):
         logger_setup.get_logger().info("Checking all samples")
@@ -127,6 +142,7 @@ class SampleInformation(QtW.QDialog):
 
     def update_sample_list(self):
         logger_setup.get_logger().info("Updating the sample list")
+        start_update_sample_list_time = time.time()
         self.checked_sample_list = []
         checked_sample_names = []
         self.checked_sample_names = ""
@@ -145,12 +161,33 @@ class SampleInformation(QtW.QDialog):
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
+        self.upb_analysis_ids = find_upb_from_samples(self.checked_sample_list)
+        end_update_sample_list_time = time.time()
+        logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names} in {end_update_sample_list_time - start_update_sample_list_time} seconds")
+        if self.checked_sample_list == 0:
+            QtW.QMessageBox.warning(self, "No Samples Selected", "There are no samples to show information for")
+            return
+
         self.disconnect_text_signals()
-        # self.populate_age_dropdown()
+        # self.increment_progress_dialog(self.init_progress_dialog)
         self.populate_fields()
+        # self.increment_progress_dialog(self.init_progress_dialog)
         self.connect_signals()
+        # self.increment_progress_dialog(self.init_progress_dialog)
+
+    def increment_progress_dialog(self, progress_dialog: QtW.QProgressDialog):
+        step = progress_dialog.value()
+        progress_dialog.setValue(step + 1)
+        # Let the event loop process the dialog's updates
+        QtW.QApplication.processEvents()
+        # If the user clicked "Cancel", we can break out
+        if progress_dialog.wasCanceled():
+            rollback_savepoint('before_edit')
+            self.close_by_dialog = True
+            self.close()
 
     def populate_dropdowns(self):
+        start_populate_dropdown_time = time.time()
         logger_setup.get_logger().info("Populating dropdowns")
         self.column_model = set_table(self.column_model, 'Columns')
         self.column_unit_model = set_table(self.column_unit_model, 'DistanceUnits')
@@ -201,6 +238,8 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox: CheckableTreeCombobox
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
+        end_populate_dropdown_time = time.time()
+        logger_setup.get_logger().info(f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
         logger_setup.get_logger().info("Dropdowns populated")
 
     def connect_signals(self):
@@ -208,9 +247,8 @@ class SampleInformation(QtW.QDialog):
         # Connect signals and slots
         self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.discard_question)
-        self.sample_names_model.dataChanged.connect(self.update_sample_list)
+        self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'"{self.sample_igsn_lineEdit.text()}"'))
-        # self.location_groupBox.focusLost.connect(self.update_gps)
         self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('SampleColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
         # self.column_name_comboBox.add_triggered.connect(self.add_popup)
         # self.column_name_comboBox.edit_triggered.connect(self.edit_popup)
@@ -265,6 +303,7 @@ class SampleInformation(QtW.QDialog):
 
     def populate_fields(self):
         logger_setup.get_logger().info("Populating fields")
+        start_populate_fields_time = time.time()
         sample_ifnull_query = DB_views.SampleIfNullQuery()
         if len(self.checked_sample_list) > 1:
             self.samples_table = SQLiteTableModel(f'{sample_ifnull_query} WHERE Samples.SampleID in {tuple(self.checked_sample_list)}')
@@ -342,10 +381,13 @@ class SampleInformation(QtW.QDialog):
 
             self.gps.update_list(self.checked_sample_list)
             self.age.update_list(self.checked_sample_list)
+        end_populate_fields_time = time.time()
+        logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         logger_setup.get_logger().info("Fields populated")
 
     def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
         logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
+        start_populate_checks_time = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(many_to_many_table)
         many_to_many_model.select()
@@ -402,11 +444,14 @@ class SampleInformation(QtW.QDialog):
                 if error_text:
                     logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {error_text}")
         text = ", ".join(items)
+        end_populate_checks_time = time.time()
+        logger_setup.get_logger().info(f"Populated checks for {many_to_many_table} in {end_populate_checks_time - start_populate_checks_time} seconds")
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
         return text
 
     def populate_upb_checks(self, table_model):
         logger_setup.get_logger().info(f"Populating UPb checks for {table_model.tableName()}")
+        start_populate_upb_checks_time = time.time()
         items = []
         text = ""
         table = table_model.tableName()
@@ -425,13 +470,12 @@ class SampleInformation(QtW.QDialog):
                     logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
             logger_setup.get_logger().info("Unchecked everything")
             return text
-        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(self.checked_sample_list)
-        if len(upb_analysis_ids) > 0:
+        if len(self.upb_analysis_ids) > 0:
             for row in range(table_model.rowCount()):
                 tag_id = table_model.index(row, 0).data()
-                upb_analysis_table = SQLiteTableModel(f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID in {tuple(upb_analysis_ids)} AND {tag_id_header} = {tag_id}")
+                upb_analysis_table = SQLiteTableModel(f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)} AND {tag_id_header} = {tag_id}")
                 index = table_model.index(row, col)
-                if upb_analysis_table.rowCount() == len(upb_analysis_ids):
+                if upb_analysis_table.rowCount() == len(self.upb_analysis_ids):
                     # All analyses have this tag
                     table_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                     if table_model.lastError().text():
@@ -450,6 +494,8 @@ class SampleInformation(QtW.QDialog):
                         logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
             if items:
                 text = ", ".join(map(str, items))
+        end_populate_upb_checks_time = time.time()
+        logger_setup.get_logger().info(f"Populated UPb checks for {table_model.tableName()} in {end_populate_upb_checks_time - start_populate_upb_checks_time} seconds")
         logger_setup.get_logger().info(f"Populated UPb checks for {table_model.tableName()}")
         return text
 
@@ -471,6 +517,7 @@ class SampleInformation(QtW.QDialog):
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
+        start_update_field_time = time.time()
         if text != "-":
             if len(self.checked_sample_list) > 0:
                 logger_setup.get_logger().info(f"Updating {field} to {text} for {len(self.checked_sample_list)} samples")
@@ -491,13 +538,18 @@ class SampleInformation(QtW.QDialog):
                             return
                         update_modified_timestamp('Samples', [sample_id])
                 self.updated = True
+                end_update_field_time = time.time()
+                logger_setup.get_logger().info(
+                    f"Updated field in {end_update_field_time - start_update_field_time} seconds")
                 logger_setup.get_logger().info(f"Updated {field} to {text} for {len(self.checked_sample_list)} samples")
                 release_savepoint('before_update')
             else:
                 logger_setup.get_logger().info("No samples selected")
 
+
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
         logger_setup.get_logger().info(f'update_id called with {id_field}, {name_field}, {text}, {table}')
+        start_update_id_time = time.time()
         table_model = QtS.QSqlTableModel()
         table_model.setTable(table)
         table_model.select()
@@ -520,18 +572,21 @@ class SampleInformation(QtW.QDialog):
                         return
             update_modified_timestamp('Samples', self.checked_sample_list)
             self.updated = True
+            end_update_id_time = time.time()
+            logger_setup.get_logger().info(f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples in {end_update_id_time - start_update_id_time} seconds")
             logger_setup.get_logger().info(f"Updated {id_field} to {item_id} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
         else:
             logger_setup.get_logger().info("No samples selected")
 
+
     def update_subfield_id(self, model: CheckableSqlTableModel | CheckableSqlQueryModel, field: str):
         logger_setup.get_logger().info(f"update_subfield_id called with {model.tableName()} and {field}")
-        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(self.checked_sample_list)
+        start_update_subfield_id_time = time.time()
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If nothing is fully checked, then nothing should be updated
         checked_item_id = None  # Should only be one
-        if len(upb_analysis_ids) > 0:
+        if len(self.upb_analysis_ids) > 0:
             try:
                 view = model.tableView()
                 column = get_view_name_column(view)
@@ -543,34 +598,35 @@ class SampleInformation(QtW.QDialog):
                 if model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
                     checked_item_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
                     break
-            # todo: optimize update for thousands of analysis IDs
-            # todo: figure out what other transaction is going on before beginning one for the updates
-            logger_setup.get_logger().info(f"Updating {field} to {checked_item_id} for {len(upb_analysis_ids)} UPb Analyses")
+            logger_setup.get_logger().info(f"Updating {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses")
             create_savepoint('before_update')
             query_start_time = time.time()
             query = QtS.QSqlQuery()
             query.setForwardOnly(True)
             if checked_item_id is None:
                 checked_item_id = 'Null'
-            if len(upb_analysis_ids) > 1:
-                upb_analysis_ids.sort()
-                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(upb_analysis_ids)}"):
-                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for {len(upb_analysis_ids)} UPb Analyses: {query.lastError().text()}")
-                update_modified_timestamp('UPbAnalyses', upb_analysis_ids)
+            if len(self.upb_analysis_ids) > 1:
+                self.upb_analysis_ids.sort()
+                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}"):
+                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses: {query.lastError().text()}")
+                update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
             else:
-                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID = {upb_analysis_ids[0]}"):
-                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {upb_analysis_ids[0]}: {query.lastError().text()}")
-                update_modified_timestamp('UPbAnalyses', upb_analysis_ids[0])
+                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}"):
+                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {self.upb_analysis_ids[0]}: {query.lastError().text()}")
+                update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids[0])
             query_end_time = time.time()
             logger_setup.get_logger().info(f"Query time: {query_end_time - query_start_time}")
             self.updated = True
-            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(upb_analysis_ids)} UPb Analyses")
+            end_update_subfield_id = time.time()
+            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses in {end_update_subfield_id - start_update_subfield_id_time} seconds")
+            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses")
             release_savepoint('before_update')
         else:
             logger_setup.get_logger().info("No UPbAnalyses for selected samples")
 
     def update_sample_tags(self, model: CheckableTreeModel, table: str):
         logger_setup.get_logger().info(f"update_tags called with {model.table} and {table}")
+        start_update_sample_tags = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         set_table(many_to_many_model, f"Samples_{table}")
 
@@ -585,6 +641,8 @@ class SampleInformation(QtW.QDialog):
                     rollback_savepoint('before_update')
                     return
             self.updated = True
+            end_update_sample_tags_time = time.time()
+            logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
             logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
         else:
@@ -592,8 +650,8 @@ class SampleInformation(QtW.QDialog):
 
     def update_sub_tags(self, model: CheckableTreeModel, table: str):
         logger_setup.get_logger().info(f"update_tags called with {model.source_model.tableName()} and {table}")
+        start_update_sub_tags_time = time.time()
         field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(self.checked_sample_list)
         # UPbAnalayses have only one value for each field, so only one value should be checked
         # If there are still partial checks, then nothing should be updated
         checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
@@ -603,40 +661,45 @@ class SampleInformation(QtW.QDialog):
             logger_setup.get_logger().critical(f"More than one checked value for {field}")
         elif len(checked_ids) == 1:
             # Should only be one checked value
-            logger_setup.get_logger().info(f"Updating {field} to {checked_ids[0]} for {len(upb_analysis_ids)} UPb Analyses")
+            logger_setup.get_logger().info(f"Updating {field} to {checked_ids[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
             create_savepoint('before_update')
             query = QtS.QSqlQuery()
-            if len(upb_analysis_ids) > 1:
+            if len(self.upb_analysis_ids) > 1:
                 query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID in {tuple(upb_analysis_ids)}")
-            if len(upb_analysis_ids) == 1:
+                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}")
+            if len(self.upb_analysis_ids) == 1:
                 query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {upb_analysis_ids[0]}")
+                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}")
             if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update {field} to {checked_ids[0]} for UPbAnalysisID {upb_analysis_ids}: {query.lastError().text()}")
+                logger_setup.get_logger().critical(f"Failed to update {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids}: {query.lastError().text()}")
                 rollback_savepoint('before_update')
                 return
-            update_modified_timestamp('UPbAnalyses', upb_analysis_ids)
-            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {upb_analysis_ids}")
+            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
             self.updated = True
+            end_update_sub_tags_time = time.time()
+            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
+            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids}")
             release_savepoint('before_update')
         elif len(checked_ids) == 0 and len(partially_checked_ids) == 0:
             logger_setup.get_logger().info(f"Updating all {table} to unchecked")
             create_savepoint('before_update')
             query = QtS.QSqlQuery()
-            if len(upb_analysis_ids) > 1:
+            if len(self.upb_analysis_ids) > 1:
                 query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID in {tuple(upb_analysis_ids)}")
-            if len(upb_analysis_ids) == 1:
+                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}")
+            if len(self.upb_analysis_ids) == 1:
                 query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID = {upb_analysis_ids[0]}")
+                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}")
             if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update {field} to Null for UPbAnalysisID {upb_analysis_ids}: {query.lastError().text()}")
+                logger_setup.get_logger().critical(f"Failed to update {field} to Null for UPbAnalysisID {self.upb_analysis_ids}: {query.lastError().text()}")
                 rollback_savepoint('before_update')
                 return
-            update_modified_timestamp('UPbAnalyses', upb_analysis_ids)
-            logger_setup.get_logger().info(f"Updated {field} to Null for UPbAnalysisID {upb_analysis_ids}")
+            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
             self.updated = True
+            end_update_sub_tags_time = time.time()
+            logger_setup.get_logger().info(
+                f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
+            logger_setup.get_logger().info(f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids}")
             release_savepoint('before_update')
 
     def add_popup(self, action: QtG.QAction | None = None):
@@ -716,7 +779,6 @@ class SampleInformation(QtW.QDialog):
             self.close_by_dialog = False
 
     def commit(self):
-        # todo: figure out why the savepoint is missing
         release_savepoint('before_edit')
         # Edit occurred in the dialog, so update the database
         update_database()

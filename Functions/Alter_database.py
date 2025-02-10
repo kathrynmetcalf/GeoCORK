@@ -120,15 +120,15 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
 def populate_generated_columns():
     create_savepoint('before_populate')
     # Retrieve the settings
-    age_unit_id = settings.value('age_unit_id') #default to Ma
-    elevation_unit_id = settings.value('elevation_unit_id') # default to m
-    gps_format_id = settings.value('gps_format_id') # default to DD +/-
-    heightdepth_unit_id = settings.value('heightdepth_unit_id') # default to m
-    spotsize_unit_id = settings.value('spotsize_unit_id') # default to um
-    age_error_format_id = settings.value('age_error_format_id') # default to 1 sigma abs
-    ratio_error_format_id = settings.value('ratio_error_format_id') # default to 1 sigma abs
-    concordance_format_id = settings.value('concordance_format_id') # default conc ratio
-    reference_format = settings.value('reference_format')
+    age_unit_id = settings._instance.value('age_unit_id') #default to Ma
+    elevation_unit_id = settings._instance.value('elevation_unit_id') # default to m
+    gps_format_id = settings._instance.value('gps_format_id') # default to DD +/-
+    heightdepth_unit_id = settings._instance.value('heightdepth_unit_id') # default to m
+    spotsize_unit_id = settings._instance.value('spotsize_unit_id') # default to um
+    age_error_format_id = settings._instance.value('age_error_format_id') # default to 1 sigma abs
+    ratio_error_format_id = settings._instance.value('ratio_error_format_id') # default to 1 sigma abs
+    concordance_format_id = settings._instance.value('concordance_format_id') # default conc ratio
+    reference_format = settings._instance.value('reference_format')
 
     # Affected list format: [[table1, [unit/type ID headers], column1, column2, ...], [table2, [unit/type ID headers], column1, column2, ...], ...]
     # Save age errors to handle both age unit and age error type
@@ -391,8 +391,8 @@ def update_generated_columns(table: str):
         drop_virtual_columns(tables_affected, table)
         create_savepoint('before_populate')
         # Retrieve the settings
-        elevation_unit_id = settings.value('elevation_unit_id')
-        gps_format_id = settings.value('gps_format_id')
+        elevation_unit_id = settings._instance.value('elevation_unit_id')
+        gps_format_id = settings._instance.value('gps_format_id')
         # Convert the columns and catch any errors
         elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
         gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
@@ -411,8 +411,8 @@ def update_generated_columns(table: str):
         drop_virtual_columns(tables_affected, table)
         create_savepoint('before_populate')
         # Retrieve the settings
-        age_unit_id = settings.value('age_unit_id')
-        age_error_type_id = settings.value('age_error_type_id')
+        age_unit_id = settings._instance.value('age_unit_id')
+        age_error_type_id = settings._instance.value('age_error_type_id')
         # Convert the columns and catch any errors
         age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge']]
         age_error_type_affected = [['SampleAges', ['DirectAgeErrorFormatID','DirectAgeUnitID'], 'DirectAgeError']]
@@ -431,11 +431,11 @@ def update_generated_columns(table: str):
         drop_virtual_columns(tables_affected, table)
         create_savepoint('before_populate')
         # Retrieve the settings
-        age_unit_id = settings.value('age_unit_id')
-        spotsize_unit_id = settings.value('spotsize_unit_id')
-        ratio_error_format_id = settings.value('ratio_error_type_id')
-        age_error_format_id = settings.value('age_error_type_id')
-        concordance_format_id = settings.value('concordance_format_id')
+        age_unit_id = settings._instance.value('age_unit_id')
+        spotsize_unit_id = settings._instance.value('spotsize_unit_id')
+        ratio_error_format_id = settings._instance.value('ratio_error_type_id')
+        age_error_format_id = settings._instance.value('age_error_type_id')
+        concordance_format_id = settings._instance.value('concordance_format_id')
 
         # Collect the tables and columns to be converted
         age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge'],
@@ -489,7 +489,7 @@ def update_generated_columns(table: str):
         drop_virtual_columns(tables_affected, table)
         create_savepoint('before_populate')
         # Retrieve the settings
-        reference_format = settings.value('reference_format')
+        reference_format = settings._instance.value('reference_format')
         # Convert the columns and catch any errors
         output = generate_reference_column(table, 'ReferenceID', reference_format)
         if output == "error":
@@ -502,7 +502,7 @@ def update_generated_columns(table: str):
         drop_virtual_columns(tables_affected, table)
         create_savepoint('before_populate')
         # Retrieve the settings
-        heightdepth_unit_id = settings.value('heightdepth_unit_id')
+        heightdepth_unit_id = settings._instance.value('heightdepth_unit_id')
         # Convert the columns and catch any errors
         heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError']]
         output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
@@ -516,8 +516,8 @@ def update_generated_columns(table: str):
         drop_virtual_columns(tables_affected, table)
         create_savepoint('before_populate')
         # Retrieve the settings
-        heightdepth_unit_id = settings.value('heightdepth_unit_id')
-        column_total_heightdepth_unit_id = settings.value('column_total_heightdepth_unit_id')
+        heightdepth_unit_id = settings._instance.value('heightdepth_unit_id')
+        column_total_heightdepth_unit_id = settings._instance.value('column_total_heightdepth_unit_id')
         # Convert the columns and catch any errors
         heightdepth_unit_affected = [['Columns', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError']]
         column_total_heightdepth_unit_affected = [['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]

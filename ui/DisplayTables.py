@@ -352,7 +352,6 @@ class DisplayTables(QtW.QWidget):
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
-        update_database()
         self.display_table()
 
     def add_popup(self, action: QtG.QAction | None = None):
