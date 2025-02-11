@@ -17,7 +17,7 @@ local_timezone = get_localzone()
 current_time = datetime.now(local_timezone)
 
 # Format the timestamp
-formatted_timestamp = current_time.strftime('%Y-%m-%d %H-%M-%S')
+formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
 
 # Global references to the logger and queue listener
 _logger = None
@@ -28,11 +28,21 @@ class CustomLogger(logging.getLoggerClass()):
     """Custom logger that captures critical errors and shows a PyQt6 message box."""
 
     def critical(self, msg, *args, exc_info=None, stack_info=False, stacklevel=1, extra=None):
-        QMessageBox.critical(None, 'Unexpected Critical Error', msg, QMessageBox.StandardButton.Ok)
+        button = QMessageBox.critical(None,
+                                      "Unexpected Critical Error",
+                                      f"{msg}",
+                                      buttons=QMessageBox.StandardButton.Ok,
+                                      defaultButton=QMessageBox.StandardButton.Ok)
+
         super().critical(msg, *args, exc_info=exc_info, stack_info=stack_info, stacklevel=stacklevel, extra=extra)
 
     def error(self, msg, *args, exc_info=None, stack_info=False, stacklevel=1, extra=None):
-        QMessageBox.critical(None, 'Error', msg, QMessageBox.StandardButton.Ok)
+        button = QMessageBox.critical(None,
+                                      "Error",
+                                      f"{msg}",
+                                      buttons=QMessageBox.StandardButton.Ok,
+                                      defaultButton=QMessageBox.StandardButton.Ok)
+
         super().error(msg, *args, exc_info=exc_info, stack_info=stack_info, stacklevel=stacklevel, extra=extra)
 
 
@@ -43,7 +53,10 @@ def setup_async_logger():
     """
     global _logger, _queue_listener
     LOGGER_NAME = "GeoCORKLogger"
-    LOG_FILE = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) + f"/logs/{formatted_timestamp}.log"  # The file to which we log
+    LOG_FILE = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.AppDataLocation) + f"/logs/{formatted_timestamp}.log"  # The file to which we log
+
+    # Ensure the directory exists
     log_dir = os.path.dirname(LOG_FILE)
     print("Log directory can be found at: ", log_dir)
     if log_dir and not os.path.exists(log_dir):
@@ -104,7 +117,6 @@ def set_logger_level(level_str: str):
     global _logger
 
     # Update QSettings
-    settings = QSettings("MyCompany", "MyApp")
     settings.setValue("debug_level", level_str)
 
     # Convert string to numeric level
