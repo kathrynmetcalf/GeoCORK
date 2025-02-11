@@ -1974,6 +1974,28 @@ class CheckableTreeModel(TreeModel):
             logger_setup.get_logger().error(
                 f"Error updating Samples_{self.table} for sample {sample_ID}: {query.lastError().text()}")
 
+class TreeListToolTipProxyModel(QtC.QSortFilterProxyModel):
+    # todo: add tooltip for other tables, implement the model in combo boxes
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.column = 0
+
+    def filterAcceptsColumn(self, source_column, source_parent):
+        return source_column == self.column
+
+    def data(self, index: QtC.QModelIndex, role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return QtC.QVariant()
+        if role == QtC.Qt.ItemDataRole.ToolTipRole:
+            if self.sourceModel().table == 'Ages':
+                # For the Ages table, the tooltip is the age range
+                oldest_age = self.sourceModel().data(index.siblingAtColumn(4), QtC.Qt.ItemDataRole.DisplayRole)
+                youngest_age = self.sourceModel().data(index.siblingAtColumn(5), QtC.Qt.ItemDataRole.DisplayRole)
+                return f'{oldest_age}-{youngest_age} Ma'
+        elif role == QtC.Qt.ItemDataRole.DisplayRole:
+            source_index = self.mapToSource(index)
+            return self.sourceModel().data(source_index, role)
+        return super().data(index, role)
 
 class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self, parent=None, view=None):
@@ -2024,6 +2046,25 @@ def get_selected_tree_ids(selected_model: QtC.QAbstractItemModel | QtC.QAbstract
             parent_ids.append(parent_id)
             parent_rows.append(parent_row)
     return item_ids, parent_ids, parent_rows
+
+def find_tree_model(model):
+    # Dig down through any proxy models to find the tree model and retrieve the table name
+    tree_model = None
+    while tree_model is None:
+        if isinstance(model, CheckableTreeModel | TreeModel):
+            tree_model = model
+            return tree_model
+        else:
+            try:
+                source_model = model.sourceModel()
+                find_tree_model(source_model)
+            except AttributeError:
+                try:
+                    source_model = model.source_model
+                    find_tree_model(source_model)
+                except AttributeError:
+                    return None
+
 
 # ---------------------------
 #    Widget Classes
@@ -2376,6 +2417,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.context_menu = False
         self.name_col = None
         self.table = ''
+        self.popup_shown = False
 
         self.view().viewport().installEventFilter(self)
 
@@ -2402,7 +2444,7 @@ class CheckableComboBox(QtW.QComboBox):
         else:
             self.table = model.tableName()
             self.name_col = name_column(model.tableName())
-        show_column(self, model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal))
+        show_column(self, model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -2450,9 +2492,15 @@ class CheckableComboBox(QtW.QComboBox):
                 f"Changed {self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)} state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}"
             )
 
+    def showPopup(self):
+        super().showPopup()
+        self.popup_shown = True
+
     def hidePopup(self):
-        super().hidePopup()
-        self.closing.emit()
+        if self.popup_shown:
+            super().hidePopup()
+            self.closing.emit()
+            self.popup_shown = False
 
     def eventFilter(self, obj, event):
         if obj == self.lineEdit():
@@ -2564,7 +2612,24 @@ class CheckableTreeView(QtW.QTreeView):
         self.hideColumn(3)  # don't show parent row column
         self.setSortingEnabled(False)
         self.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        self.model_edited = False
         # self.clicked.connect(self.toggle_check_state)
+
+    def setModel(self, model):
+        super().setModel(model)
+        self.connect_edited_signal()
+
+    def connect_edited_signal(self):
+        self.model().dataChanged.connect(lambda: self.toggle_edited(True))
+
+    def disconnect_edited_signal(self):
+        try:
+            self.model().dataChanged.disconnect(lambda: self.toggle_edited(True))
+        except TypeError:
+            pass
+
+    def toggle_edited(self, edited: bool):
+        self.model_edited = edited
 
     def toggle_check_state(self, index: QtC.QModelIndex):
         if self.model():
@@ -2573,24 +2638,20 @@ class CheckableTreeView(QtW.QTreeView):
                 new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
                 self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
 
-    # def mouseReleaseEvent(self, event):
-    #     index = self.indexAt(event.pos())
-    #     if not index.isValid():
-    #         super().mouseReleaseEvent(event)
-    #     # Define the rectangle for the item and the expand/collapse button
-    #     item_rect = self.visualRect(index)
-    #     option = QtW.QStyleOptionViewItem()
-    #     option.rect = item_rect
-    #     option.state = QtW.QStyle.StateFlag.State_Enabled
-    #     if self.model().hasChildren(index):
-    #         option.state |= QtW.QStyle.StateFlag.State_Children
-    #     if self.isExpanded(index):
-    #         option.state |= QtW.QStyle.StateFlag.State_Open
-    #
-    #     expand_button_rect = self.style().subElementRect(QtW.QStyle.SubElement.SE_TreeViewDisclosureItem, option, self)
-    #     if expand_button_rect.contains(event.pos()):
-    #         self.setExpanded(index, not self.isExpanded(index))
-    #         return
+    def expand_all_checked(self):
+        tree_model = find_tree_model(self.model())
+        checked_items, partially_checked_items, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
+
+        def expand_parents(item_index: QtC.QModelIndex):
+            parent = item_index.parent()
+            while parent.isValid():
+                self.expand(parent)
+                parent = parent.parent()
+
+        for index in checked_indices:
+            expand_parents(index)
+        for index in partially_checked_indices:
+            expand_parents(index)
 
 class TreeCombobox(QtW.QComboBox):
     def __init__(self, parent=None):
@@ -2599,33 +2660,33 @@ class TreeCombobox(QtW.QComboBox):
         self.lineEdit().setReadOnly(True)
         self.treeView = QtW.QTreeView()
         self.treeView.setRootIsDecorated(True)
+        self.checkable = False
+        self.popup_shown = False
         self.setView(self.treeView)
         self.treeView.viewport().installEventFilter(self)
 
-    # def showPopup(self):
-    #     self.treeView.expandAll()
-    #     self.treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-    #     columns = self.model().columnCount()
-    #     width_hint = 0
-    #     for col in range(columns):
-    #         if 0 < col < 4 or col >= columns-2:
-    #             # Don't show ID, parent ID, parent row, created timestamp, or modified timestamp
-    #             self.treeView.hideColumn(col)
-    #         else:
-    #             # Add up the size hints for all the visible columns
-    #             width_hint += self.treeView.columnWidth(col)
-    #     self.treeView.setSortingEnabled(False)
-    #     width_c1 = self.treeView.sizeHintForColumn(0)
-    #     width_tree = self.treeView.sizeHint().width()
-    #     if width_hint < 2*width_c1:
-    #         size_hint = width_hint
-    #     else:
-    #         size_hint = 2*width_c1
-    #     self.treeView.setMinimumWidth(size_hint)
-    #     super().showPopup()
-
     def set_text(self, text):
         self.lineEdit().setText(text)
+
+    def setModel(self, model):
+        super().setModel(model)
+        show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+
+    def showPopup(self):
+        super().showPopup()
+        self.popup_shown = True
+        combo_model = self.model()
+        model = find_tree_model(combo_model)
+        if model and not self.checkable:
+            restore_expanded_state(model.table, combo_model, self.treeView)
+
+    def hidePopup(self):
+        if self.popup_shown:
+            super().hidePopup()
+            model = find_tree_model(self.model())
+            if model and not self.checkable:
+                save_expanded_state(model.table, self.model(), self.treeView)
+            self.popup_shown = False
 
     def eventFilter(self, obj, event):
         if obj == self.treeView.viewport():
@@ -2650,8 +2711,10 @@ class CheckableTreeCombobox(TreeCombobox):
         self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.lineEdit().setPlaceholderText("Search")
         self.lineEdit().setCompleter(self.completer())
+        self.checkable = True
         self.single_click = False
         self.closedOnLineEditClick = False
+        self.edited = False
         self.treeView = CheckableTreeView()
         # show the empty root item in the combo box
         self.treeView.setRootIsDecorated(True)
@@ -2665,7 +2728,7 @@ class CheckableTreeCombobox(TreeCombobox):
         super().setModel(model)
         if self.model():
             self.model().dataChanged.connect(self.update_line_edit)
-        show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal))
+        show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -2683,21 +2746,19 @@ class CheckableTreeCombobox(TreeCombobox):
 
     def update_line_edit(self):
         current_line_edit_text = self.lineEdit().text()
-        text_items = current_line_edit_text.split(',')
-        if '' in text_items:
-            text_items.remove('')
-        index = self.treeView.currentIndex()
-        if index.isValid():
-            item_text = self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
-            current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
-            if current_state == QtC.Qt.CheckState.Checked:
-                if item_text not in text_items:
-                    text_items.append(item_text)
+        tree_model = find_tree_model(self.model())
+        checked_items, partially_checked_items, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
+            QtC.QModelIndex())
+        if partially_checked_indices:
+            # All items are fully checked and should be included in the list
+            new_line_edit_text = self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole)
+            if current_line_edit_text == '':
+                self.lineEdit().setText(new_line_edit_text)
             else:
-                if item_text in text_items:
-                    text_items.remove(item_text)
-            new_line_edit_text = ','.join(text_items)
-            self.lineEdit().setText(new_line_edit_text)
+                self.lineEdit().setText(f"{current_line_edit_text}, {new_line_edit_text}")
+        else:
+            # At least one item is partially checked, so the line edit should be a dash
+            self.lineEdit().setText('-')
 
     def show_context_menu(self, pos):
         menu = TreeContextMenu()
@@ -2721,9 +2782,17 @@ class CheckableTreeCombobox(TreeCombobox):
 
         traverse_tree(QtC.QModelIndex())
 
+    def showPopup(self):
+        super().showPopup()
+        self.popup_shown = True
+        self.treeView.expand_all_checked()
+        self.treeView.toggle_edited(False)
+
     def hidePopup(self):
-        super().hidePopup()
-        self.closing.emit()
+        if self.popup_shown:
+            super().hidePopup()
+            self.closing.emit()
+            self.popup_shown = False
 
     def eventFilter(self, obj, event):
         if obj == self.lineEdit():
@@ -2799,8 +2868,6 @@ class TreeContextMenu(QtW.QMenu):
     def add_single_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
         if edit_active:
             edit_action = self.addAction('Edit')
-        if delete_active:
-            delete_action = self.addAction('Delete')
         if add_active:
             add_menu = self.addMenu('Add')
             insert_above_action = add_menu.addAction('Insert above')
@@ -2808,6 +2875,8 @@ class TreeContextMenu(QtW.QMenu):
             add_child_action = add_menu.addAction('Add child')
             add_parent_action = add_menu.addAction('Add parent')
             add_end_action = add_menu.addAction('Add to end')
+        if delete_active:
+            delete_action = self.addAction('Delete')
 
     def add_multi_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
         if edit_active:
@@ -2815,7 +2884,7 @@ class TreeContextMenu(QtW.QMenu):
         if delete_active:
             delete_action = self.addAction('Delete')
         if add_active:
-            add_action = self.addAction('Add to end')
+            add_action = self.addAction('Add')
 
     def add_expand_collapse_actions(self):
         expand_menu = self.addMenu('Expand')
@@ -2840,11 +2909,19 @@ def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
 
 def show_column(comboBox: QtW.QComboBox, column: str):
     model = comboBox.model()
-    for col in range(model.columnCount()):
-        header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        if header == column:
-            comboBox.setModelColumn(col)
-            return
+    # if isinstance(model, TreeModel):
+    #     if column != model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole):
+    #         logger_setup.get_logger().info(f"Selected column {column} won't show expansion arrows")
+    #         return
+    #     else:
+    #         for col in range(1, model.columnCount()):
+    #             comboBox.view()
+    if model:
+        for col in range(model.columnCount()):
+            header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            if header == column:
+                comboBox.setModelColumn(col)
+                return
 
 def comboBox_display_table(comboBox):
     comboBox.tableView.resizeColumnsToContents()
@@ -2879,7 +2956,7 @@ def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
     '''
     Save the expanded state of the tree view to the settings
     @param table: Name of table with parent-child relationships
-    @param model: The model to save the state from, some kind of QSqlTableModel or QSortFilterProxyModel
+    @param model: The model to save the state from, some kind of QSqlQueryModel or QSortFilterProxyModel
     @param treeView: The view displaying the model
     @return:
     '''

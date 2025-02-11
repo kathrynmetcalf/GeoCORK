@@ -127,9 +127,11 @@ class AddTreeTags(QtW.QDialog):
         if self.parentID == 'Null':
             if not self.tree_model.insertItem(name, description, None, self.parentRow):
                 return False
+            logger_setup.get_logger().info(f'Added {name} to top level of {self.table}')
         else:
             if not self.tree_model.insertItem(name, description, self.parentID, self.parentRow):
                 return False
+            logger_setup.get_logger().info(f'Added {name} to {self.parentID} in {self.table}')
         if self.add_item == 'parent': # Need to update the parent of all new child ids to the newly-added item
             query = QtS.QSqlQuery()
             query.prepare(
@@ -146,6 +148,7 @@ class AddTreeTags(QtW.QDialog):
             for child in range(len(self.new_child_ids)):
                 if not self.tree_model.moveItem(self.new_child_ids[child], self.new_parent_rows[child], pID):
                     return False
+            logger_setup.get_logger().info(f'Updated parent of {self.new_child_ids} to {new_parent_id} in {self.table}')
         self.update_proxy()
         self.newName_lineEdit.clear()
         self.newDescription_lineEdit.clear()
@@ -188,6 +191,7 @@ class AddTreeTags(QtW.QDialog):
         save_expanded_state(self.table, self.tree_proxy_model, self.tags_treeView)
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
+            logger_setup.get_logger().info('No active save points - updating the database')
             update_database()
         self.close_by_dialog = True
         self.close()
@@ -198,5 +202,6 @@ class AddTreeTags(QtW.QDialog):
             self.discard_question()
             event.ignore()
         else:
+            logger_setup.get_logger().info(f'Closing {self.table} add dialog')
             event.accept()
 

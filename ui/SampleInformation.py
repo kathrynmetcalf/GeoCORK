@@ -17,7 +17,8 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
-    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_samples
+    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_samples,
+    find_tree_model, CheckableComboBox, get_selected_tree_ids
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -25,11 +26,12 @@ from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
-# from ui.EditTable import EditTable
-# from ui.EditTree import EditTree
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
 from ui.New_reference import NewReference
-# from ui.AddTreeTags import AddTreeTags
+from ui.EditUPbTags import EditUPbTags
 
 
 class SampleInformation(QtW.QDialog):
@@ -39,18 +41,17 @@ class SampleInformation(QtW.QDialog):
         start_init_time = time.time()
         self.parent_window = parent_window
         self.savepoint_manager = SavepointManager.get_instance()
-        # self.loadWindowState()
+        self.setWindowTitle("Edit Sample Information")
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
         self.selected_sample_label: QtW.QLabel
         self.selected_sample_label.setWordWrap(True)
         self.gps = GPSFields('Samples', sample_id_list)
-        self.selected_gps_column_verticalLayout: QtW.QVBoxLayout
-        self.selected_gps_column_verticalLayout.insertWidget(2, self.gps)
+        self.top_horizontalLayout: QtW.QHBoxLayout
+        self.top_horizontalLayout.addWidget(self.gps)
         self.age = AgeFields('Samples', sample_id_list)
-        self.name_igsn_age_verticalLayout = QtW.QVBoxLayout()
-        self.gridLayout_2.addWidget(self.age, 2, 0, 2, 4)
+        self.top_horizontalLayout.addWidget(self.age)
 
         # Sample names table
         self.sample_names_model = CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
@@ -66,14 +67,8 @@ class SampleInformation(QtW.QDialog):
         self.checked_sample_list = []
         self.checked_sample_names = ""
         self.default_age_ids = []
-        self.upb_analysis_ids = None
 
         self.updated = False
-        # self.init_progress_dialog = QtW.QProgressDialog(
-        #     f"Loading information for {len(sample_id_list)} samples...", "Cancel", 0, 6, self
-        # )
-        # self.load_progress_dialog = QtW.QProgressDialog()
-        # self.update_progress_dialog = QtW.QProgressDialog()
 
         # Sample information models
         self.samples_table = None
@@ -95,33 +90,23 @@ class SampleInformation(QtW.QDialog):
         self.setting_tree = CheckableTreeModel()
         self.age_signature_model = QtS.QSqlTableModel()
         self.age_signature_tree = CheckableTreeModel()
-        self.analysis_method_model = QtS.QSqlTableModel()
-        self.analysis_method_tree = CheckableTreeModel()
-        self.instrument_model = CheckableSqlTableModel()
-        self.lab_facility_model = CheckableSqlTableModel()
-        self.rejection_reason_model = QtS.QSqlTableModel()
-        self.reference_model = CheckableSqlQueryModel()
-        self.upb_analysis_method_model = QtS.QSqlTableModel()
-        self.concordance_type_model = QtS.QSqlTableModel()
 
         self.gps_location_ids = ""
 
         self.msg = QtW.QMessageBox(self)
         create_savepoint('before_edit')
         self.close_by_dialog = False
-        # self.increment_progress_dialog(self.init_progress_dialog)
 
         # Fill in information based on selected samples
         self.populate_dropdowns()
-        # self.increment_progress_dialog(self.init_progress_dialog)
         self.check_all_samples()
-        # self.increment_progress_dialog(self.init_progress_dialog)
         self.sample_name_comboBox.setModel(self.sample_names_model)
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
 
         self.installEventFilter(self)
         end_init_time = time.time()
         logger_setup.get_logger().info(f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
+        self.showMaximized()
 
     def check_all_samples(self):
         logger_setup.get_logger().info("Checking all samples")
@@ -161,30 +146,16 @@ class SampleInformation(QtW.QDialog):
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
-        self.upb_analysis_ids = find_upb_from_samples(self.checked_sample_list)
         end_update_sample_list_time = time.time()
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names} in {end_update_sample_list_time - start_update_sample_list_time} seconds")
-        if self.checked_sample_list == 0:
-            QtW.QMessageBox.warning(self, "No Samples Selected", "There are no samples to show information for")
-            return
+        self.update_fields()
 
+    def update_fields(self):
+        logger_setup.get_logger().info("Updating fields")
         self.disconnect_text_signals()
-        # self.increment_progress_dialog(self.init_progress_dialog)
         self.populate_fields()
-        # self.increment_progress_dialog(self.init_progress_dialog)
         self.connect_signals()
-        # self.increment_progress_dialog(self.init_progress_dialog)
-
-    def increment_progress_dialog(self, progress_dialog: QtW.QProgressDialog):
-        step = progress_dialog.value()
-        progress_dialog.setValue(step + 1)
-        # Let the event loop process the dialog's updates
-        QtW.QApplication.processEvents()
-        # If the user clicked "Cancel", we can break out
-        if progress_dialog.wasCanceled():
-            rollback_savepoint('before_edit')
-            self.close_by_dialog = True
-            self.close()
+        logger_setup.get_logger().info("Fields updated")
 
     def populate_dropdowns(self):
         start_populate_dropdown_time = time.time()
@@ -205,39 +176,30 @@ class SampleInformation(QtW.QDialog):
         self.setting_tree.setSourceModel(self.setting_model)
         self.age_signature_model = set_table(self.age_signature_model, 'AgeSignatures')
         self.age_signature_tree.setSourceModel(self.age_signature_model)
-        self.reference_model.setQuery(f'SELECT * FROM ReferenceView')
-        if self.reference_model.lastError().text():
-            logger_setup.get_logger().critical(f"Error setting reference model query: {self.reference_model.lastError().text()}")
-        self.analysis_method_model = set_table(self.analysis_method_model, 'UPbAnalysisMethods')
-        self.analysis_method_tree.setSourceModel(self.analysis_method_model)
-        self.lab_facility_model = set_table(self.lab_facility_model, 'LabFacilities')
-        self.instrument_model = set_table(self.instrument_model, 'Instruments')
 
         self.column_name_comboBox.model_modifiable = True
         self.column_name_comboBox.setModel(self.column_model)
         show_column(self.column_name_comboBox, 'ColumnName')
         self.height_depth_unit_comboBox.setModel(self.column_unit_model)
         show_column(self.height_depth_unit_comboBox, 'DistanceUnitAbbreviation')
+        self.sample_context_comboBox.enable_context_menu(True)
         self.sample_context_comboBox.setModel(self.sample_context_tree)
+        self.sampling_method_comboBox.enable_context_menu(True)
         self.sampling_method_comboBox.setModel(self.sampling_method_tree)
+        self.unit_comboBox.enable_context_menu(True)
         self.unit_comboBox.setModel(self.unit_tree)
+        self.rock_type_comboBox.enable_context_menu(True)
         self.rock_type_comboBox.setModel(self.rock_type_tree)
+        self.region_comboBox.enable_context_menu(True)
         self.region_comboBox.setModel(self.region_tree)
+        self.setting_comboBox.enable_context_menu(True)
         self.setting_comboBox.setModel(self.setting_tree)
+        self.age_signature_comboBox.enable_context_menu(True)
         self.age_signature_comboBox.setModel(self.age_signature_tree)
-        self.reference_comboBox.model_modifiable = True
-        self.reference_comboBox.setModel(self.reference_model)
-        show_column(self.reference_comboBox, 'ReferenceDisplay')
-        self.analysis_method_comboBox.model_modifiable = True
-        self.analysis_method_comboBox.setModel(self.analysis_method_tree)
-        self.lab_facility_comboBox.model_modifiable = True
-        self.lab_facility_comboBox.setModel(self.lab_facility_model)
-        self.instrument_comboBox.model_modifiable = True
-        self.instrument_comboBox.setModel(self.instrument_model)
 
         self.sample_name_comboBox: CheckableTreeCombobox
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-        self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
+        self.column_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         end_populate_dropdown_time = time.time()
         logger_setup.get_logger().info(f"Populated dropdowns in {end_populate_dropdown_time - start_populate_dropdown_time} seconds")
         logger_setup.get_logger().info("Dropdowns populated")
@@ -245,35 +207,40 @@ class SampleInformation(QtW.QDialog):
     def connect_signals(self):
         logger_setup.get_logger().info("Connecting signals")
         # Connect signals and slots
+        self.upb_analysis_pushButton.clicked.connect(self.edit_upb_popup)
         self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
+        self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'"{self.sample_igsn_lineEdit.text()}"'))
         self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('SampleColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
-        # self.column_name_comboBox.add_triggered.connect(self.add_popup)
-        # self.column_name_comboBox.edit_triggered.connect(self.edit_popup)
+        self.column_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.height_depth_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepth', self.height_depth_lineEdit.text()))
         self.height_depth_error_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepthError', self.height_depth_error_lineEdit.text()))
         self.height_depth_unit_comboBox.currentTextChanged.connect(lambda: self.update_id('HeightDepthUnitID', 'DistanceUnitAbbreviation', self.height_depth_unit_comboBox.currentText(), 'DistanceUnits'))
-        self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_tree, 'SampleContexts'))
-        self.sampling_method_comboBox.closing.connect(lambda: self.update_sample_tags(self.sampling_method_tree, 'SamplingMethods'))
-        self.unit_comboBox.closing.connect(lambda: self.update_sample_tags(self.unit_tree, 'Units'))
-        self.rock_type_comboBox.closing.connect(lambda: self.update_sample_tags(self.rock_type_tree, 'RockTypes'))
-        self.region_comboBox.closing.connect(lambda: self.update_sample_tags(self.region_tree, 'Regions'))
-        self.setting_comboBox.closing.connect(lambda: self.update_sample_tags(self.setting_tree, 'Settings'))
-        self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_tree, 'AgeSignatures'))
-        self.reference_comboBox.closing.connect(lambda: self.update_subfield_id(self.reference_model, 'ReferenceID'))
-        self.reference_comboBox.add_triggered.connect(self.add_popup)
-        # self.reference_comboBox.edit_triggered.connect(self.edit_popup)
-        # self.analysis_method_comboBox.closing.connect(lambda: self.update_subfield_id(self.analysis_method_model, 'UPbAnalysisMethodID'))
-        self.lab_facility_comboBox.closing.connect(lambda: self.update_subfield_id(self.lab_facility_model, 'LabFacilityID'))
-        self.lab_facility_comboBox.add_triggered.connect(self.add_popup)
-        # self.lab_facility_comboBox.edit_triggered.connect(self.edit_popup)
-        self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id(self.instrument_model, 'InstrumentID'))
-        self.instrument_comboBox.add_triggered.connect(self.add_popup)
-        # self.instrument_comboBox.edit_triggered.connect(self.edit_popup)
+        self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_tree))
+        self.sample_context_comboBox.add_triggered.connect(self.add_popup)
+        self.sample_context_comboBox.edit_triggered.connect(self.edit_popup)
+        self.sampling_method_comboBox.closing.connect(lambda: self.update_sample_tags(self.sampling_method_tree))
+        self.sampling_method_comboBox.add_triggered.connect(self.add_popup)
+        self.sampling_method_comboBox.edit_triggered.connect(self.edit_popup)
+        self.unit_comboBox.closing.connect(lambda: self.update_sample_tags(self.unit_tree))
+        self.unit_comboBox.add_triggered.connect(self.add_popup)
+        self.unit_comboBox.edit_triggered.connect(self.edit_popup)
+        self.rock_type_comboBox.closing.connect(lambda: self.update_sample_tags(self.rock_type_tree))
+        self.rock_type_comboBox.add_triggered.connect(self.add_popup)
+        self.rock_type_comboBox.edit_triggered.connect(self.edit_popup)
+        self.region_comboBox.closing.connect(lambda: self.update_sample_tags(self.region_tree))
+        self.region_comboBox.add_triggered.connect(self.add_popup)
+        self.region_comboBox.edit_triggered.connect(self.edit_popup)
+        self.setting_comboBox.closing.connect(lambda: self.update_sample_tags(self.setting_tree))
+        self.setting_comboBox.add_triggered.connect(self.add_popup)
+        self.setting_comboBox.edit_triggered.connect(self.edit_popup)
+        self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_tree))
+        self.age_signature_comboBox.add_triggered.connect(self.add_popup)
+        self.age_signature_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'"{self.sample_description_lineEdit.text()}"'))
         logger_setup.get_logger().info("Signals connected")
 
@@ -336,48 +303,58 @@ class SampleInformation(QtW.QDialog):
                 text_values.append(text)
         if len(text_values) > 0:
             for header in headers:
+                text = text_values[headers.index(header)]
                 if 'SampleName' in header:
-                    self.sample_name_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                    if not text:
+                        self.sample_name_lineEdit.setText(self.sample_name_lineEdit.placeholderText())
+                    else:
+                        self.sample_name_lineEdit.setText(f"{text}")
                 elif 'IGSN' in header:
-                    self.sample_igsn_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                    if not text:
+                        self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
+                    else:
+                        self.sample_igsn_lineEdit.setText(f"{text}")
                 elif 'ColumnName' in header:
-                    set_comboBox_text(self.column_name_comboBox, text_values[headers.index(header)])
+                    if not text:
+                        set_comboBox_text(self.column_name_comboBox, self.column_name_comboBox.placeholderText())
+                    else:
+                        set_comboBox_text(self.column_name_comboBox, text)
                 elif 'HeightDepthError' in header:
-                    self.height_depth_error_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                    if not text:
+                        self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
+                    else:
+                        self.height_depth_error_lineEdit.setText(f"{text}")
                 elif 'HeightDepth' in header:
-                    self.height_depth_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                    if not text:
+                        self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
+                    else:
+                        self.height_depth_lineEdit.setText(f"{text}")
                 elif 'HeightDepthUnit' in header:
-                    set_comboBox_text(self.height_depth_unit_comboBox, text_values[headers.index(header)])
+                    if not text:
+                        set_comboBox_text(self.height_depth_unit_comboBox, self.height_depth_unit_comboBox.placeholderText())
+                    else:
+                        set_comboBox_text(self.height_depth_unit_comboBox, text)
                 elif 'SampleDescription' in header:
-                    self.sample_description_lineEdit.setText(f"{text_values[headers.index(header)]}")
+                    if not text:
+                        self.sample_description_lineEdit.setText(self.sample_description_lineEdit.placeholderText())
+                    else:
+                        self.sample_description_lineEdit.setText(f"{text}")
 
             # Sample tags
-            text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_tree)
+            text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_comboBox)
             self.sample_context_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_SamplingMethods', self.sampling_method_model, self.sampling_method_tree)
+            text = self.populate_checks('Samples_SamplingMethods', self.sampling_method_model, self.sampling_method_comboBox)
             self.sampling_method_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_Units', self.unit_model, self.unit_tree)
+            text = self.populate_checks('Samples_Units', self.unit_model, self.unit_comboBox)
             self.unit_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_RockTypes', self.rock_type_model, self.rock_type_tree)
+            text = self.populate_checks('Samples_RockTypes', self.rock_type_model, self.rock_type_comboBox)
             self.rock_type_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_Regions', self.region_model, self.region_tree)
+            text = self.populate_checks('Samples_Regions', self.region_model, self.region_comboBox)
             self.region_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_Settings', self.setting_model, self.setting_tree)
+            text = self.populate_checks('Samples_Settings', self.setting_model, self.setting_comboBox)
             self.setting_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_AgeSignatures', self.age_signature_model, self.age_signature_tree)
+            text = self.populate_checks('Samples_AgeSignatures', self.age_signature_model, self.age_signature_comboBox)
             self.age_signature_comboBox.setCurrentText(text)
-            text = self.populate_upb_checks(self.reference_model)
-            self.reference_comboBox.set_single_click(True)
-            self.reference_comboBox.setCurrentText(text)
-            text = self.populate_upb_checks(self.analysis_method_model)
-            self.analysis_method_comboBox.set_single_click(True)
-            self.analysis_method_comboBox.setCurrentText(text)
-            text = self.populate_upb_checks(self.lab_facility_model)
-            self.lab_facility_comboBox.set_single_click(True)
-            self.lab_facility_comboBox.setCurrentText(text)
-            text = self.populate_upb_checks(self.instrument_model)
-            self.instrument_comboBox.set_single_click(True)
-            self.instrument_comboBox.setCurrentText(text)
 
             self.gps.update_list(self.checked_sample_list)
             self.age.update_list(self.checked_sample_list)
@@ -385,22 +362,24 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         logger_setup.get_logger().info("Fields populated")
 
-    def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree: CheckableTreeModel = None):
+    def populate_checks(self, many_to_many_table: str, table_model: QtS.QSqlTableModel, tree_combo: CheckableTreeCombobox = None):
         logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
         start_populate_checks_time = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(many_to_many_table)
         many_to_many_model.select()
         tag_id_header = table_model.record().fieldName(0)
-        items = []
+        all_items = []
+        some_items = []
         text = ""
         if len(self.checked_sample_list) == 0:
             logger_setup.get_logger().info("No samples selected, so unchecking everything")
             for row in range(table_model.rowCount()):
-                if tree is not None:
-                    model = tree
+                if tree_combo:
+                    model = find_tree_model(tree_combo.model())
                     col = name_column(table_model.tableName())
-                    model_index = tree.mapFromSource(table_model.index(row, col))
+                    model_index = model.mapFromSource(table_model.index(row, col))
+                    tree_combo.treeView.disconnect_edited_signal()
                 else:
                     model = table_model
                     col = name_column(table_model.tableName())
@@ -409,6 +388,8 @@ class SampleInformation(QtW.QDialog):
                 if model.lastError().text():
                     logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
             logger_setup.get_logger().info("Unchecked everything")
+            if tree_combo:
+                tree_combo.treeView.connect_edited_signal()
             return text
         for row in range(table_model.rowCount()):
             tag_id = table_model.index(row, 0).data()
@@ -416,10 +397,11 @@ class SampleInformation(QtW.QDialog):
                 many_to_many_model.setFilter(f"SampleID in {tuple(self.checked_sample_list)} AND {tag_id_header} = {tag_id}")
             else:
                 many_to_many_model.setFilter(f"SampleID = {self.checked_sample_list[0]} AND {tag_id_header} = {tag_id}")
-            if tree is not None:
-                model = tree
+            if tree_combo is not None:
+                model = find_tree_model(tree_combo.model())
                 col = name_column(table_model.tableName())
-                model_index = tree.mapFromSource(table_model.index(row, col))
+                model_index = model.mapFromSource(table_model.index(row, col))
+                tree_combo.treeView.disconnect_edited_signal()
                 error_text = model.source_model.lastError().text()
             else:
                 model = table_model
@@ -431,82 +413,54 @@ class SampleInformation(QtW.QDialog):
                 model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                 if error_text:
                     logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {error_text}")
-                items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
+                all_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             elif many_to_many_model.rowCount() > 0:
                 # Some samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
                 if error_text:
                     logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {error_text}")
-                items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
+                some_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 # No samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
                 if error_text:
                     logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {error_text}")
-        text = ", ".join(items)
+        if not all_items and not some_items:
+            # No samples have these tags
+            text = ""
+        elif not some_items:
+            # All samples have the same tags
+            text = ', '.join(all_items)
+        else:
+            # Samples have different tags
+            text = "-"
+        if tree_combo:
+            if not text:
+                text = tree_combo.placeholderText()
+            tree_combo.treeView.connect_edited_signal()
         end_populate_checks_time = time.time()
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table} in {end_populate_checks_time - start_populate_checks_time} seconds")
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
         return text
 
-    def populate_upb_checks(self, table_model):
-        logger_setup.get_logger().info(f"Populating UPb checks for {table_model.tableName()}")
-        start_populate_upb_checks_time = time.time()
-        items = []
-        text = ""
-        table = table_model.tableName()
-        try:
-            view = table_model.tableView()
-            col = get_view_name_column(view)
-        except AttributeError:
-            col = name_column(table)
-        tag_id_header = table_model.record().fieldName(0)
-        if len(self.checked_sample_list) == 0:
-            logger_setup.get_logger().info("No samples selected, so unchecking everything")
-            for row in range(table_model.rowCount()):
-                index = table_model.index(row, col)
-                table_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if table_model.lastError().text():
-                    logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
-            logger_setup.get_logger().info("Unchecked everything")
-            return text
-        if len(self.upb_analysis_ids) > 0:
-            for row in range(table_model.rowCount()):
-                tag_id = table_model.index(row, 0).data()
-                upb_analysis_table = SQLiteTableModel(f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)} AND {tag_id_header} = {tag_id}")
-                index = table_model.index(row, col)
-                if upb_analysis_table.rowCount() == len(self.upb_analysis_ids):
-                    # All analyses have this tag
-                    table_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if table_model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting checked for {table_model.tableName()}: {table_model.lastError().text()}")
-                    items.append(table_model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                elif upb_analysis_table.rowCount() > 0:
-                    # Some samples have this tag
-                    table_model.setData(index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if table_model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting partial checked for {table_model.tableName()}: {table_model.lastError().text()}")
-                    items.append(table_model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                else:
-                    # No samples have this tag
-                    table_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if table_model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
-            if items:
-                text = ", ".join(map(str, items))
-        end_populate_upb_checks_time = time.time()
-        logger_setup.get_logger().info(f"Populated UPb checks for {table_model.tableName()} in {end_populate_upb_checks_time - start_populate_upb_checks_time} seconds")
-        logger_setup.get_logger().info(f"Populated UPb checks for {table_model.tableName()}")
-        return text
-
     def show_context_menu(self, pos: QtC.QPoint):
+        combo = self.sender()
         logger_setup.get_logger().info("Showing context menu")
         menu = QtW.QMenu()
-        selected_indexes = self.sample_name_comboBox.view().selectedIndexes()
-        select_action = menu.addAction("Select all")
-        unselect_action = menu.addAction("Unselect all")
-        delete_action = menu.addAction("Delete selected")
-        action = menu.exec(self.sample_name_comboBox.view().mapToGlobal(pos))
+        selected_indexes = combo.view().selectedIndexes()
+        if isinstance(combo, CheckableComboBox) and not combo.single_click:
+            select_action = menu.addAction("Select all")
+            unselect_action = menu.addAction("Unselect all")
+            delete_action = menu.addAction("Delete selected")
+            add_action = None
+            edit_action = None
+        else:
+            add_action = menu.addAction("Add")
+            edit_action = menu.addAction("Edit")
+            select_action = None
+            unselect_action = None
+            delete_action = None
+        action = menu.exec(combo.view().mapToGlobal(pos))
         if action == select_action:
             self.check_all_samples()
         elif action == unselect_action:
@@ -514,6 +468,10 @@ class SampleInformation(QtW.QDialog):
         elif action == delete_action:
             if self.delete_question():
                 delete_samples(selected_indexes)
+        elif action == add_action:
+            self.add_popup(action, combo)
+        elif action == edit_action:
+            self.edit_popup(combo)
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
@@ -545,7 +503,6 @@ class SampleInformation(QtW.QDialog):
                 release_savepoint('before_update')
             else:
                 logger_setup.get_logger().info("No samples selected")
-
 
     def update_id(self, id_field: str, name_field:str, text: str, table: str):
         logger_setup.get_logger().info(f'update_id called with {id_field}, {name_field}, {text}, {table}')
@@ -579,58 +536,21 @@ class SampleInformation(QtW.QDialog):
         else:
             logger_setup.get_logger().info("No samples selected")
 
-
-    def update_subfield_id(self, model: CheckableSqlTableModel | CheckableSqlQueryModel, field: str):
-        logger_setup.get_logger().info(f"update_subfield_id called with {model.tableName()} and {field}")
-        start_update_subfield_id_time = time.time()
-        # UPbAnalayses have only one value for each field, so only one value should be checked
-        # If nothing is fully checked, then nothing should be updated
-        checked_item_id = None  # Should only be one
-        if len(self.upb_analysis_ids) > 0:
-            try:
-                view = model.tableView()
-                column = get_view_name_column(view)
-            except AttributeError:
-                column = name_column(model.tableName())
-            for row in range(model.rowCount()):
-                name_index = model.index(row, column)
-                id_index = model.index(row, 0)
-                if model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                    checked_item_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
-                    break
-            logger_setup.get_logger().info(f"Updating {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses")
-            create_savepoint('before_update')
-            query_start_time = time.time()
-            query = QtS.QSqlQuery()
-            query.setForwardOnly(True)
-            if checked_item_id is None:
-                checked_item_id = 'Null'
-            if len(self.upb_analysis_ids) > 1:
-                self.upb_analysis_ids.sort()
-                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}"):
-                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses: {query.lastError().text()}")
-                update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
-            else:
-                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}"):
-                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {self.upb_analysis_ids[0]}: {query.lastError().text()}")
-                update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids[0])
-            query_end_time = time.time()
-            logger_setup.get_logger().info(f"Query time: {query_end_time - query_start_time}")
-            self.updated = True
-            end_update_subfield_id = time.time()
-            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses in {end_update_subfield_id - start_update_subfield_id_time} seconds")
-            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses")
-            release_savepoint('before_update')
-        else:
-            logger_setup.get_logger().info("No UPbAnalyses for selected samples")
-
-    def update_sample_tags(self, model: CheckableTreeModel, table: str):
-        logger_setup.get_logger().info(f"update_tags called with {model.table} and {table}")
+    def update_sample_tags(self, model: CheckableTreeModel):
+        logger_setup.get_logger().info(f"update_tags called with {model.table}")
+        table = model.table
+        combo = self.sender()
+        if not combo.treeView.model_edited:
+            logger_setup.get_logger().info(f"No changes to {table}")
+            return
         start_update_sample_tags = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         set_table(many_to_many_model, f"Samples_{table}")
 
-        if len(self.checked_sample_list) > 0:
+        if len(self.checked_sample_list) == 0:
+            logger_setup.get_logger().info("No samples selected")
+            return
+        else:
             checked_ids , partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtC.QModelIndex())
             logger_setup.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
             create_savepoint('before_update')
@@ -645,85 +565,63 @@ class SampleInformation(QtW.QDialog):
             logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
             logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
+
+    def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
+        if isinstance(combo.model(), TreeModel):
+            table = combo.model().table
         else:
-            logger_setup.get_logger().info("No samples selected")
-
-    def update_sub_tags(self, model: CheckableTreeModel, table: str):
-        logger_setup.get_logger().info(f"update_tags called with {model.source_model.tableName()} and {table}")
-        start_update_sub_tags_time = time.time()
-        field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        # UPbAnalayses have only one value for each field, so only one value should be checked
-        # If there are still partial checks, then nothing should be updated
-        checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
-        if len(partially_checked_ids) > 0:
-            logger_setup.get_logger().info(f"No changes made to {table}")
-        elif len(checked_ids) > 1:
-            logger_setup.get_logger().critical(f"More than one checked value for {field}")
-        elif len(checked_ids) == 1:
-            # Should only be one checked value
-            logger_setup.get_logger().info(f"Updating {field} to {checked_ids[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
-            create_savepoint('before_update')
-            query = QtS.QSqlQuery()
-            if len(self.upb_analysis_ids) > 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}")
-            if len(self.upb_analysis_ids) == 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}")
-            if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids}: {query.lastError().text()}")
-                rollback_savepoint('before_update')
-                return
-            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
-            self.updated = True
-            end_update_sub_tags_time = time.time()
-            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
-            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids}")
-            release_savepoint('before_update')
-        elif len(checked_ids) == 0 and len(partially_checked_ids) == 0:
-            logger_setup.get_logger().info(f"Updating all {table} to unchecked")
-            create_savepoint('before_update')
-            query = QtS.QSqlQuery()
-            if len(self.upb_analysis_ids) > 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}")
-            if len(self.upb_analysis_ids) == 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}")
-            if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update {field} to Null for UPbAnalysisID {self.upb_analysis_ids}: {query.lastError().text()}")
-                rollback_savepoint('before_update')
-                return
-            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
-            self.updated = True
-            end_update_sub_tags_time = time.time()
-            logger_setup.get_logger().info(
-                f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
-            logger_setup.get_logger().info(f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids}")
-            release_savepoint('before_update')
-
-    def add_popup(self, action: QtG.QAction | None = None):
-        combo = self.sender()
-        table = combo.model().tableName()
+            table = combo.model().tableName()
+        dlg_args = None
+        dlg = None
         if table in SQLUtils.user_viewable_trees:
-            model = combo.model()
-            # view = combo.view()
-            # save_expanded_state(table, model, view)
-            # dlg = AddTreeTags(table, action, view)
-        elif table == '"References"' or table == 'References':
-            dlg = NewReference()
+            indexes = combo.view().selectedIndexes()
+            item_ids, parent_ids, parent_rows = get_selected_tree_ids(combo.model(), indexes)
+            if action:
+                if action.text() == 'Insert above':
+                    row = parent_rows[0]
+                    parent_id = parent_ids[0]
+                    dlg_args = (table, parent_id, row)
+                elif action.text() == 'Insert below':
+                    row = parent_rows[0] + 1
+                    parent_id = parent_ids[0]
+                    dlg_args = (None, parent_id, row)
+                elif action.text() == 'Add child':
+                    parent_id = item_ids[0]
+                    dlg_args = (None, parent_id)
+                elif action.text() == 'Add parent':
+                    dlg_args = (item_ids, parent_ids, parent_rows)
+                elif action.text() == 'Add to end' or action.text() == 'Add':
+                    dlg_args = (None, None)
+            if dlg_args:
+                dlg = AddTreeTags(table, *dlg_args)
         else:
             dlg = AddTags(table)
+        if not dlg:
+            return
+        logger_setup.get_logger().info(f"Showing {table} add dialog")
+        dlg.exec()
+        self.update_fields()
+
+    def edit_popup(self):
+        combo = self.sender()
+        if isinstance(combo.model(), TreeModel):
+            table = combo.model().table
+        else:
+            table = combo.model().tableName()
+        if table in SQLUtils.user_viewable_trees:
+            dlg = EditTree(table)
+        else:
+            dlg = EditTable(table)
         if dlg is None:
             return
+        logger_setup.get_logger().info(f"Showing {table} edit dialog")
         dlg.exec()
+        self.update_fields()
 
-        # Update the model
-        if isinstance(combo.model(), QtS.QSqlTableModel):
-            combo.model().select()
-        # elif isinstance(model, CheckableTreeModel):
-        #     model.source_model.select()
-        #     model.setSourceModel(model.source_model)
+    def edit_upb_popup(self):
+        logger_setup.get_logger().info("Edit U-Pb popup called")
+        dlg = EditUPbTags(self, self.checked_sample_list)
+        dlg.exec()
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()
@@ -738,12 +636,14 @@ class SampleInformation(QtW.QDialog):
             return False
 
     def discard_question(self):
+        logger_setup.get_logger().info("Discard question called")
         if self.updated or self.gps.updated or self.age.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)
             msg_box.setText('Are you sure you want to discard all changes?')
             msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
             msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            logger_setup.get_logger().info("Showing discard question")
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
                 logger_setup.get_logger().info("Discarding changes")
@@ -793,6 +693,8 @@ class SampleInformation(QtW.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
+                logger_setup.get_logger().info("Closing SampleInformation dialog")
                 event.accept()
         else:
+            logger_setup.get_logger().info("Closing SampleInformation dialog")
             event.accept()
