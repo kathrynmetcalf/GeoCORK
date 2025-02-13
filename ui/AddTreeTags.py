@@ -39,6 +39,7 @@ class AddTreeTags(QtW.QDialog):
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.table_name = TxM.add_spaces_camel(self.table)
         self.selectTags_label.setText(self.table_name)
+        self.cancel_pushButton.setAutoDefault(False)
 
         self.msg = QtW.QMessageBox(self)
         self.add_item = add_item

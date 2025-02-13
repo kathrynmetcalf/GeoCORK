@@ -172,25 +172,9 @@
             </widget>
            </item>
            <item>
-            <spacer name="horizontalSpacer_4">
-             <property name="orientation">
-              <enum>Qt::Horizontal</enum>
-             </property>
-             <property name="sizeType">
-              <enum>QSizePolicy::Fixed</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>40</width>
-               <height>20</height>
-              </size>
-             </property>
-            </spacer>
-           </item>
-           <item>
-            <widget class="QComboBox" name="direct_age_error_type_comboBox">
+            <widget class="QComboBox" name="direct_age_error_format_comboBox">
              <property name="placeholderText">
-              <string>Error type</string>
+              <string>Error format</string>
              </property>
             </widget>
            </item>

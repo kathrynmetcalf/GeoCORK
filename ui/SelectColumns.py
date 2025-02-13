@@ -69,19 +69,20 @@ class SelectColumns(QWidget):
             # But do figure out which header should be the permanent one
             if column == field_items[0]:
                 if 'Sample' in column:
-                    view = 'Samples'
+                    view = 'SampleView'
                 elif 'Aliquot' in column:
-                    view = 'Aliquots'
+                    view = 'AliquotView'
                 elif 'Spot' in column:
-                    view = 'Spots'
+                    view = 'SpotView'
                 elif 'UPbAnalysis' in column:
-                    view = 'UPbAnalyses'
+                    view = 'UPbView'
                 elif 'Column' in column:
-                    view = 'Columns'
+                    view = 'ColumnView'
                 elif 'Reference' in column:
-                    view = 'References'
+                    view = 'ReferenceView'
                 view_name_col = get_view_name_column(view)
-                model.set_permanent_header(settings_columns[view_name_col])
+                if view_name_col:
+                    model.set_permanent_header(settings_columns[view_name_col])
             else:
                 item = QStandardItem(column)
                 item.setDragEnabled(True)

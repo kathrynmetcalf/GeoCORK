@@ -66,8 +66,10 @@ class SampleInformation(QtW.QDialog):
                 self.sample_names_model.setFilter(f"SampleID = {self.selected_sample_list[0]}")
         self.checked_sample_list = []
         self.checked_sample_names = ""
-        self.default_age_ids = []
 
+        self.upb_analysis_pushButton.setAutoDefault(False)
+        self.commit_pushButton.setAutoDefault(False)
+        self.cancel_pushButton.setAutoDefault(False)
         self.updated = False
 
         # Sample information models
@@ -271,93 +273,84 @@ class SampleInformation(QtW.QDialog):
     def populate_fields(self):
         logger_setup.get_logger().info("Populating fields")
         start_populate_fields_time = time.time()
-        sample_ifnull_query = DB_views.SampleIfNullQuery()
+        info_model = SQLiteTableModel('PRAGMA table_info(SampleEditView)')
+        column_names = info_model.column_as_list('name')
         if len(self.checked_sample_list) > 1:
-            self.samples_table = SQLiteTableModel(f'{sample_ifnull_query} WHERE Samples.SampleID in {tuple(self.checked_sample_list)}')
+            self.samples_table = SQLiteTableModel(
+                f'SELECT * FROM SampleEditView WHERE SampleID in {tuple(self.checked_sample_list)}')
         elif len(self.checked_sample_list) == 1:
-            self.samples_table = SQLiteTableModel(f'{sample_ifnull_query} WHERE Samples.SampleID = {self.checked_sample_list[0]}')
+            self.samples_table = SQLiteTableModel(
+                f'SELECT * FROM SampleEditView WHERE SampleID = {self.checked_sample_list[0]}')
         else:
-            self.samples_table = SQLiteTableModel(f'{sample_ifnull_query}')
+                self.samples_table = SQLiteTableModel(f'SELECT * FROM SampleEditView')
         if self.samples_table.rowCount() == 0:
-            if len(self.checked_sample_names) > 5:
-                logger_setup.get_logger().critical(f'Unable to retrieve sample information for {len(self.checked_sample_names)} samples: {", ".join(self.checked_sample_names[0:5])}...')
-            else:
-                logger_setup.get_logger().critical(f'Unable to retrieve sample information for {", ".join(self.checked_sample_names)}')
+            logger_setup.get_logger().info("No samples to populate")
             return
-        text_values = []
-        headers = []
-        for col in range(self.samples_table.columnCount()):
-            # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
-            text = self.samples_table._data[0][col]
-            header = self.samples_table._headers[col]
-            header = header.split('ifnull(')[1].split(',"Null')[0]
-            headers.append(header)
-            if ',' in text:
-                if 'Description' in header:
-                    text_values.append(text)
-                else:
-                    text_values.append('-')
-            elif text == 'Null':
-                text_values.append('')
+        for header in column_names:
+            values = self.samples_table.column_as_list(header)
+            if len(set(values)) == 1 and not values[0]:
+                # If all values are the same and empty, add an empty string
+                text = ""
+            elif len(set(values)) == 1 and values[0]:
+                # If all values are the same and not empty, add the value
+                text = values[0]
             else:
-                text_values.append(text)
-        if len(text_values) > 0:
-            for header in headers:
-                text = text_values[headers.index(header)]
-                if 'SampleName' in header:
-                    if not text:
-                        self.sample_name_lineEdit.setText(self.sample_name_lineEdit.placeholderText())
-                    else:
-                        self.sample_name_lineEdit.setText(f"{text}")
-                elif 'IGSN' in header:
-                    if not text:
-                        self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
-                    else:
-                        self.sample_igsn_lineEdit.setText(f"{text}")
-                elif 'ColumnName' in header:
-                    if not text:
-                        set_comboBox_text(self.column_name_comboBox, self.column_name_comboBox.placeholderText())
-                    else:
-                        set_comboBox_text(self.column_name_comboBox, text)
-                elif 'HeightDepthError' in header:
-                    if not text:
-                        self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
-                    else:
-                        self.height_depth_error_lineEdit.setText(f"{text}")
-                elif 'HeightDepth' in header:
-                    if not text:
-                        self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
-                    else:
-                        self.height_depth_lineEdit.setText(f"{text}")
-                elif 'HeightDepthUnit' in header:
-                    if not text:
-                        set_comboBox_text(self.height_depth_unit_comboBox, self.height_depth_unit_comboBox.placeholderText())
-                    else:
-                        set_comboBox_text(self.height_depth_unit_comboBox, text)
-                elif 'SampleDescription' in header:
-                    if not text:
-                        self.sample_description_lineEdit.setText(self.sample_description_lineEdit.placeholderText())
-                    else:
-                        self.sample_description_lineEdit.setText(f"{text}")
+                # If values are different, add '-'
+                text = "-"
+            if 'SampleName' in header:
+                if not text:
+                    self.sample_name_lineEdit.setText(self.sample_name_lineEdit.placeholderText())
+                else:
+                    self.sample_name_lineEdit.setText(f"{text}")
+            elif 'IGSN' in header:
+                if not text:
+                    self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
+                else:
+                    self.sample_igsn_lineEdit.setText(f"{text}")
+            elif 'ColumnName' in header:
+                if not text:
+                    set_comboBox_text(self.column_name_comboBox, self.column_name_comboBox.placeholderText())
+                else:
+                    set_comboBox_text(self.column_name_comboBox, text)
+            elif 'HeightDepthError' in header:
+                if not text:
+                    self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
+                else:
+                    self.height_depth_error_lineEdit.setText(f"{text}")
+            elif 'HeightDepth' in header:
+                if not text:
+                    self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
+                else:
+                    self.height_depth_lineEdit.setText(f"{text}")
+            elif 'HeightDepthUnit' in header:
+                if not text:
+                    set_comboBox_text(self.height_depth_unit_comboBox, settings.value('heightdepth_unit_abbreviation'))
+                else:
+                    set_comboBox_text(self.height_depth_unit_comboBox, text)
+            elif 'SampleDescription' in header:
+                if not text:
+                    self.sample_description_lineEdit.setText(self.sample_description_lineEdit.placeholderText())
+                else:
+                    self.sample_description_lineEdit.setText(f"{text}")
 
-            # Sample tags
-            text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_comboBox)
-            self.sample_context_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_SamplingMethods', self.sampling_method_model, self.sampling_method_comboBox)
-            self.sampling_method_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_Units', self.unit_model, self.unit_comboBox)
-            self.unit_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_RockTypes', self.rock_type_model, self.rock_type_comboBox)
-            self.rock_type_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_Regions', self.region_model, self.region_comboBox)
-            self.region_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_Settings', self.setting_model, self.setting_comboBox)
-            self.setting_comboBox.setCurrentText(text)
-            text = self.populate_checks('Samples_AgeSignatures', self.age_signature_model, self.age_signature_comboBox)
-            self.age_signature_comboBox.setCurrentText(text)
+        # Sample tags
+        text = self.populate_checks('Samples_SampleContexts', self.sample_context_model, self.sample_context_comboBox)
+        self.sample_context_comboBox.setCurrentText(text)
+        text = self.populate_checks('Samples_SamplingMethods', self.sampling_method_model, self.sampling_method_comboBox)
+        self.sampling_method_comboBox.setCurrentText(text)
+        text = self.populate_checks('Samples_Units', self.unit_model, self.unit_comboBox)
+        self.unit_comboBox.setCurrentText(text)
+        text = self.populate_checks('Samples_RockTypes', self.rock_type_model, self.rock_type_comboBox)
+        self.rock_type_comboBox.setCurrentText(text)
+        text = self.populate_checks('Samples_Regions', self.region_model, self.region_comboBox)
+        self.region_comboBox.setCurrentText(text)
+        text = self.populate_checks('Samples_Settings', self.setting_model, self.setting_comboBox)
+        self.setting_comboBox.setCurrentText(text)
+        text = self.populate_checks('Samples_AgeSignatures', self.age_signature_model, self.age_signature_comboBox)
+        self.age_signature_comboBox.setCurrentText(text)
 
-            self.gps.update_list(self.checked_sample_list)
-            self.age.update_list(self.checked_sample_list)
+        self.gps.update_list(self.checked_sample_list)
+        self.age.update_list(self.checked_sample_list)
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         logger_setup.get_logger().info("Fields populated")
@@ -385,7 +378,11 @@ class SampleInformation(QtW.QDialog):
                     col = name_column(table_model.tableName())
                     model_index = table_model.index(row, col)
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if model.lastError().text():
+                if tree_combo:
+                    err = model.source_model.lastError().text()
+                else:
+                    err = model.lastError().text()
+                if err:
                     logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
             logger_setup.get_logger().info("Unchecked everything")
             if tree_combo:
@@ -661,6 +658,9 @@ class SampleInformation(QtW.QDialog):
             self.close_by_dialog = False
 
     def commit_question(self):
+        logger_setup.get_logger().info("Commit question called")
+        self.age.check_focus()
+        self.gps.check_focus()
         if self.updated or self.gps.updated or self.age.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)

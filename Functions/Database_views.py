@@ -97,6 +97,7 @@ def SampleEditViewQuery():
                     {SQLUtils.qigsn},
                     {SQLUtils.qsample_name},
                     {SQLUtils.qsample_description},
+                    {SQLUtils.qsample_gps_id},
                     {SQLUtils.qgps_display},
                     {SQLUtils.qsample_elev_display},
                     {SQLUtils.qsample_elev_unit},
@@ -392,7 +393,7 @@ def UPbViewQuery():
     headers = get_headers('UPbAnalyses')
     columns = []
     for header in headers:
-        if f'UPbAnalyses."{header}"' in columns:
+        if f'UPbAnalyses."{header}" AS "{header}"' in columns:
             continue
         if 'Calculated' in header:
             columns.append(f'UPbAnalyses."{header}" AS "{header}"')
@@ -446,7 +447,7 @@ def UPbEditViewQuery():
     headers = get_headers('UPbAnalyses')
     columns = []
     for header in headers:
-        if f'UPbAnalyses."{header}"' in columns:
+        if f'UPbAnalyses."{header}" AS "{header}"' in columns:
             continue
         elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
             pass
@@ -523,6 +524,7 @@ def ColumnEditViewQuery():
                         {SQLUtils.qcolumn_name},
                         {SQLUtils.qcolumn_total_height_depth},
                         {SQLUtils.qcolumn_total_height_depth_unit},
+                        {SQLUtils.qcolumn_gps_id},
                         {SQLUtils.qcolumn_gps_display},
                         {SQLUtils.qcolumn_elev_display},
                         {SQLUtils.qcolumn_elev_unit},
@@ -680,6 +682,7 @@ def create_spot_edit_view():
 
 def create_upb_view():
     upb_query = UPbViewQuery()
+    print(upb_query)
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbView AS {upb_query}'
     query = QtS.QSqlQuery()
     logger_setup.get_logger().info(f'Creating UPbView')

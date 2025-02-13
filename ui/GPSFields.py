@@ -23,27 +23,28 @@ class GPSFields(QtW.QWidget):
         if self.table == 'Columns':
             self.table_gps_id_header = 'ColumnBaseGPSID'
             self.item_id_header = 'ColumnID'
-            self.item_ifnull_query = DB_views.ColumnIfNullQuery()
+            self.item_edit_view = 'ColumnEditView'
+            self.item_view_gps_header = 'ColumnGPSLocationID'
             self.other_table = 'Samples'
             self.other_table_gps_id_header = 'SampleGPSLocationID'
             self.other_table_id_header = 'SampleID'
-            self.other_ifnull_view = 'SampleIfNullView'
+            self.other_edit_view = 'SampleEditView'
         elif self.table == 'Samples':
             self.table_gps_id_header = 'SampleGPSLocationID'
             self.item_id_header = 'SampleID'
-            self.item_ifnull_query = DB_views.SampleIfNullQuery()
+            self.item_edit_view = 'SampleEditView'
+            self.item_view_gps_header = 'SampleGPSLocationID'
             self.other_table = 'Columns'
             self.other_table_gps_id_header = 'ColumnBaseGPSID'
             self.other_table_id_header = 'ColumnID'
-            self.other_ifnull_view = 'ColumnIfNullView'
+            self.other_edit_view = 'ColumnEditView'
         else:
             raise ValueError('Table must be either "Columns" or "Samples"')
         self.item_ids = item_ids
         self.updated = False
         self.errmsg = QtW.QMessageBox(self)
 
-        self.item_model = QtS.QSqlTableModel()
-        self.full_item_model = QtS.QSqlTableModel()
+        self.item_model = QtS.QSqlQueryModel()
         self.gps_format_model = QtS.QSqlTableModel()
         self.gps_location_model = QtS.QSqlTableModel()
         self.direction_unit_model = QtS.QSqlTableModel()
@@ -67,6 +68,7 @@ class GPSFields(QtW.QWidget):
 
     def populate_dropdowns(self):
         start_populate_dropdowns_time = time.time()
+        self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}')
         set_table(self.gps_format_model, 'GPSFormats')
         set_table(self.gps_location_model, 'GPSLocations')
         set_table(self.direction_unit_model, 'DirectionUnits')
@@ -91,6 +93,14 @@ class GPSFields(QtW.QWidget):
         end_populate_dropdowns_time = time.time()
         logger_setup.get_logger().info(f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
+    def check_focus(self):
+        if self.latlon_groupBox.any_child_has_focus() and self.latlon_groupBox.edited:
+            self.latlon_groupBox.focusLost.emit()
+        elif self.utm_groupBox.any_child_has_focus() and self.utm_groupBox.edited:
+            self.utm_groupBox.focusLost.emit()
+        elif self.elev_groupBox.any_child_has_focus() and self.elev_groupBox.edited:
+            self.elev_groupBox.focusLost.emit()
+
     def connect_signals(self):
         self.gps_format_comboBox.currentTextChanged.connect(self.display_gps)
         self.latlon_groupBox.connect_child_signals()
@@ -110,102 +120,157 @@ class GPSFields(QtW.QWidget):
             pass
 
     def populate_fields(self):
+        logger_setup.get_logger().info('Populating GPS fields')
         start_populate_fields_time = time.time()
+        reset_fields = False  # Reset the GPS fields if there are no samples to populate
+        info_model = SQLiteTableModel('PRAGMA table_info(GPSLocations)')
+        column_names = info_model.column_as_list('name')
         if len(self.item_ids) > 1:
-            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} in {tuple(self.item_ids)}')
+            self.item_model.setQuery(
+                f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}')
         elif len(self.item_ids) == 1:
-            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query} WHERE {self.table}.{self.item_id_header} = {self.item_ids[0]}')
+            self.item_model.setQuery(
+                f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}')
         else:
-            item_ifnull_model = SQLiteTableModel(f'{self.item_ifnull_query}')
-        if item_ifnull_model.rowCount() == 0:
-            self.errmsg.setText(f'Error: No GPS location found for the selected {self.table.lower()}')
-            self.errmsg.exec()
-            return
-        text_values = []
-        headers = []
-        for col in range(item_ifnull_model.columnCount()):
-            # If there is only one value concatenated in the column, add it to the list, otherwise add '-'
-            text = item_ifnull_model._data[0][col]
-            header = item_ifnull_model._headers[col]
-            header = header.split('ifnull(')[1].split(',"Null')[0]
-            headers.append(header)
-            if ',' in text:
-                if 'Description' in header:
-                    text_values.append(text)
-                else:
-                    text_values.append('-')
-            elif text == 'Null':
-                text_values.append('')
+            self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}')
+        if self.item_model.rowCount() == 0:
+            logger_setup.get_logger().info("No samples to populate")
+            reset_fields = True
+        if not reset_fields:
+            gps_ids = []
+            for row in range(self.item_model.rowCount()):
+                id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if id_value and isinstance(id_value, int) and id_value not in gps_ids:
+                    gps_ids.append(self.item_model.index(row, 0).data())
+            if len(gps_ids) == 0:
+                logger_setup.get_logger().info("No GPS locations associated with the samples, so reset fields")
+                reset_fields = True
+            elif len(set(gps_ids)) == 1:
+                self.gps_location_model.setFilter(f"GPSLocationID = {gps_ids[0]}")
+            elif len(set(gps_ids)) > 1:
+                self.gps_location_model.setFilter(f"GPSLocationID in {tuple(gps_ids)}")
+            self.gps_location_model.select()
+            if self.gps_location_model.rowCount() == 0:
+                logger_setup.get_logger().info(f"Could not find GPS location with ID {gps_ids}, so reset fields")
+                reset_fields = True
+        for header in column_names:
+            if reset_fields:
+                text = ""
             else:
-                text_values.append(text)
-        if len(text_values) > 0 and self.table == 'Columns':
-            for header in headers:
-                if 'GPSLocationID' in header:
-                    self.gps_location_ids = text_values[headers.index(header)]
-                elif 'LatDeg' in header:
-                    self.lat_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LatMin' in header:
-                    self.lat_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LatSec' in header:
-                    self.lat_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LatDir' in header:
-                    set_comboBox_text(self.lat_comboBox, text_values[headers.index(header)])
-                elif 'LonDeg' in header:
-                    self.lon_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LonMin' in header:
-                    self.lon_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LonSec' in header:
-                    self.lon_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LonDir' in header:
-                    set_comboBox_text(self.lon_comboBox, text_values[headers.index(header)])
-                elif 'UTMZone' in header:
-                    self.utm_zone_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'UTMN' in header:
-                    self.utm_n_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'UTME' in header:
-                    self.utm_e_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'ElevError' in header:
-                    self.elevation_error_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'ElevationUnit' in header:
-                    set_comboBox_text(self.elevation_unit_comboBox, text_values[headers.index(header)])
-                elif 'Elev' in header:
-                    self.elevation_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'GPSFormat' in header:
-                    set_comboBox_text(self.gps_format_comboBox, text_values[headers.index(header)])
-        elif len(text_values) > 0 and self.table == 'Samples':
-            for header in headers:
-                if 'GPSLocationID' in header:
-                    self.gps_location_ids = text_values[headers.index(header)]
-                elif 'LatDeg' in header:
-                    self.lat_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LatMin' in header:
-                    self.lat_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LatSec' in header:
-                    self.lat_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LatDir' in header:
-                    set_comboBox_text(self.lat_comboBox, text_values[headers.index(header)])
-                elif 'LonDeg' in header:
-                    self.lon_deg_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LonMin' in header:
-                    self.lon_min_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LonSec' in header:
-                    self.lon_sec_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'LonDir' in header:
-                    set_comboBox_text(self.lon_comboBox, text_values[headers.index(header)])
-                elif 'UTMZone' in header:
-                    self.utm_zone_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'UTMN' in header:
-                    self.utm_n_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'UTME' in header:
-                    self.utm_e_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'ElevError' in header:
-                    self.elevation_error_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'Elev' in header:
-                    self.elevation_lineEdit.setText(f"{text_values[headers.index(header)]}")
-                elif 'ElevationUnit' in header:
-                    set_comboBox_text(self.elevation_unit_comboBox, text_values[headers.index(header)])
-                elif 'GPSFormat' in header:
-                    set_comboBox_text(self.gps_format_comboBox, text_values[headers.index(header)])
+                values = []
+                for row in range(self.gps_location_model.rowCount()):
+                    values.append(self.gps_location_model.index(row, self.gps_location_model.record().indexOf(header)).data())
+                if len(set(values)) == 1 and not values[0]:
+                    # If all values are the same and empty, text is an empty string
+                    text = ""
+                elif len(set(values)) == 1 and values[0]:
+                    # If all values are the same and not empty, text is the value
+                    text = values[0]
+                else:
+                    # If values are different, text is '-'
+                    text = "-"
+            if 'GPSLocationID' in header:
+                if text:
+                    self.gps_location_ids = text
+            elif 'LatDeg' in header:
+                if not text:
+                    self.lat_deg_lineEdit.setText('')
+                else:
+                    self.lat_deg_lineEdit.setText(f"{text}")
+            elif 'LatMin' in header:
+                if not text:
+                    self.lat_min_lineEdit.setText('')
+                else:
+                    self.lat_min_lineEdit.setText(f"{text}")
+            elif 'LatSec' in header:
+                if not text:
+                    self.lat_sec_lineEdit.setText('')
+                else:
+                    self.lat_sec_lineEdit.setText(f"{text}")
+            elif 'LatDir' in header:
+                if not text:
+                    set_comboBox_text(self.lat_comboBox, '')
+                else:
+                    # text is the ID, so we need to get the index in the model
+                    combo_index = self.lat_comboBox.currentIndex()
+                    for row in range(self.lat_direction_model.rowCount()):
+                        if self.lat_direction_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                            combo_index = row
+                            break
+                    self.lat_comboBox.setCurrentIndex(combo_index)
+            elif 'LonDeg' in header:
+                if not text:
+                    self.lon_deg_lineEdit.setText('')
+                else:
+                    self.lon_deg_lineEdit.setText(f"{text}")
+            elif 'LonMin' in header:
+                if not text:
+                    self.lon_min_lineEdit.setText('')
+                else:
+                    self.lon_min_lineEdit.setText(f"{text}")
+            elif 'LonSec' in header:
+                if not text:
+                    self.lon_sec_lineEdit.setText('')
+                else:
+                    self.lon_sec_lineEdit.setText(f"{text}")
+            elif 'LonDir' in header:
+                if not text:
+                    set_comboBox_text(self.lon_comboBox, '')
+                else:
+                    # text is the ID, so we need to get the index in the model
+                    combo_index = self.lon_comboBox.currentIndex()
+                    for row in range(self.lon_direction_model.rowCount()):
+                        if self.lon_direction_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                            combo_index = row
+                            break
+                    self.lon_comboBox.setCurrentIndex(combo_index)
+            elif 'UTMZone' in header:
+                if not text:
+                    self.utm_zone_lineEdit.setText('')
+                else:
+                    self.utm_zone_lineEdit.setText(f"{text}")
+            elif 'UTMN' in header:
+                if not text:
+                    self.utm_n_lineEdit.setText('')
+                else:
+                    self.utm_n_lineEdit.setText(f"{text}")
+            elif 'UTME' in header:
+                if not text:
+                    self.utm_e_lineEdit.setText('')
+                else:
+                    self.utm_e_lineEdit.setText(f"{text}")
+            elif 'ElevError' in header:
+                if not text:
+                    self.elevation_error_lineEdit.setText('')
+                else:
+                    self.elevation_error_lineEdit.setText(f"{text}")
+            elif 'ElevUnit' in header:
+                if not text:
+                    set_comboBox_text(self.elevation_unit_comboBox, settings.value('elevation_unit_abbreviation'))
+                else:
+                    # text is the ID, so we need to get the index in the model
+                    combo_index = self.elevation_unit_comboBox.currentIndex()
+                    for row in range(self.elevation_unit_model.rowCount()):
+                        if self.elevation_unit_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                            combo_index = row
+                            break
+                    self.elevation_unit_comboBox.setCurrentIndex(combo_index)
+            elif 'Elev' in header:
+                if not text:
+                    self.elevation_lineEdit.setText('')
+                else:
+                    self.elevation_lineEdit.setText(f"{text}")
+            elif 'GPSFormat' in header:
+                if not text:
+                    set_comboBox_text(self.gps_format_comboBox, settings.value('gps_format_abbreviation'))
+                else:
+                    # text is the ID, so we need to get the index in the model
+                    combo_index = self.gps_format_comboBox.currentIndex()
+                    for row in range(self.gps_format_model.rowCount()):
+                        if self.gps_format_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                            combo_index = row
+                            break
+                    self.gps_format_comboBox.setCurrentIndex(combo_index)
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated GPS fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         self.display_gps()
@@ -268,7 +333,7 @@ class GPSFields(QtW.QWidget):
                 self.lon_comboBox.show()
 
     def update_gps(self):
-        print('Update_gps called')
+        logger_setup.get_logger().info('Update_gps called. Collecting input values.')
         if len(self.item_ids) > 0:
             create_savepoint('before_update')
             gps_format_abbreviation = self.gps_format_comboBox.currentText()
@@ -277,13 +342,25 @@ class GPSFields(QtW.QWidget):
             self.gps_format_model.setFilter('')  # Clear the filter
             if 'D' in gps_format_abbreviation:
                 lat_deg = self.lat_deg_lineEdit.text()
+                if not lat_deg:
+                    lat_deg = 'Null'
                 lon_deg = self.lon_deg_lineEdit.text()
+                if not lon_deg:
+                    lon_deg = 'Null'
                 if 'M' in gps_format_abbreviation:
                     lat_min = self.lat_min_lineEdit.text()
+                    if not lat_min:
+                        lat_min = 'Null'
                     lon_min = self.lon_min_lineEdit.text()
+                    if not lon_min:
+                        lon_min = 'Null'
                     if 'S' in gps_format_abbreviation:
                         lat_sec = self.lat_sec_lineEdit.text()
+                        if not lat_sec:
+                            lat_sec = 'Null'
                         lon_sec = self.lon_sec_lineEdit.text()
+                        if not lon_sec:
+                            lon_sec = 'Null'
                     else:
                         lat_sec = 'Null'
                         lon_sec = 'Null'
@@ -298,10 +375,16 @@ class GPSFields(QtW.QWidget):
                 elif ' NSEW' in gps_format_abbreviation:
                     lat_dir = self.lat_comboBox.currentText()
                     lon_dir = self.lon_comboBox.currentText()
-                    self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
-                    lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-                    self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
-                    lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+                    if not lat_dir:
+                        lat_dir = 'Null'
+                    else:
+                        self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
+                        lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+                    if not lon_dir:
+                        lon_dir = 'Null'
+                    else:
+                        self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
+                        lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
                 utm_zone = 'Null'
                 utm_n = 'Null'
                 utm_e = 'Null'
@@ -315,15 +398,21 @@ class GPSFields(QtW.QWidget):
                 lon_sec = 'Null'
                 lon_dir = 'Null'
                 utm_zone = self.utm_zone_lineEdit.text()
+                if not utm_zone:
+                    utm_zone = 'Null'
                 utm_n = self.utm_n_lineEdit.text()
+                if not utm_n:
+                    utm_n = 'Null'
                 utm_e = self.utm_e_lineEdit.text()
+                if not utm_e:
+                    utm_e = 'Null'
             elevation = self.elevation_lineEdit.text()
-            elevation_error = self.elevation_error_lineEdit.text()
-            elevation_unit = self.elevation_unit_comboBox.currentText()
             if not elevation:
                 elevation = 'Null'
+            elevation_error = self.elevation_error_lineEdit.text()
             if not elevation_error:
                 elevation_error = 'Null'
+            elevation_unit = self.elevation_unit_comboBox.currentText()
             if not elevation_unit:
                 elevation_unit = 'Null'
             else:
@@ -331,13 +420,14 @@ class GPSFields(QtW.QWidget):
                 elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
 
             if len(self.item_ids) > 1:
-                self.item_model.setFilter(f"{self.item_id_header} in {tuple(self.item_ids)}")
+                self.item_model.setQuery(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}")
             elif len(self.item_ids) == 1:
-                self.item_model.setFilter(f"{self.item_id_header} = {self.item_ids[0]}")
+                self.item_model.setQuery(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}")
             gps_ids = []
             for row in range(self.item_model.rowCount()):
-                if self.item_model.index(row, 3).data() != 'Null':
-                    gps_ids.append(self.item_model.index(row, 3).data())
+                id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if id_value and isinstance(id_value, int) and id_value not in gps_ids:
+                    gps_ids.append(self.item_model.index(row, 0).data())
             query = QtS.QSqlQuery()
             gps_columns = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin',
                            'GPSLonSec', 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'GPSElev',
@@ -350,86 +440,101 @@ class GPSFields(QtW.QWidget):
             gps_to_delete = []
             gps_to_update = []
             if len(gps_ids) > 0:
+                logger_setup.get_logger().info(f"Checking {len(gps_ids)} GPS locations associated with the {self.table}")
                 for gps in gps_ids:
-                    self.item_model.setFilter(f"{self.table_gps_id_header} = {gps}")
-                    other_item_model = QtS.QSqlTableModel()
-                    other_item_model.setFilter(f"{self.other_table_gps_id_header} = {gps}")
+                    self.item_model.setQuery(f"SELECT {self.item_id_header} FROM {self.item_edit_view} WHERE {self.table_gps_id_header} = {gps}")
+                    other_item_model = QtS.QSqlQueryModel()
+                    other_item_model.setQuery(f"SELECT {self.other_table_id_header} FROM {self.other_edit_view} WHERE {self.other_table_gps_id_header} = {gps}")
                     items_with_gps = []
                     for row in range(self.item_model.rowCount()):
                         if self.item_model.index(row, 0).data() not in self.item_ids:
                             items_with_gps.append(self.item_model.index(row, 0).data())
                     if len(items_with_gps) == 0 and other_item_model.rowCount() == 0:
-                        # There are no other samples or columns with this GPS location
+                        logger_setup.get_logger().info(f"GPS location {gps} is not associated with any other samples or columns")
                         if len(gps_to_update) == 0:
                             # Choose the first GPS location to update and delete the rest that will be unused
                             gps_to_update.append(gps)
                         else:
                             gps_to_delete.append(gps)
                 if len(gps_to_update) == 0:
-                    # All gps are associated with other samples or columns, so create a new one
+                    logger_setup.get_logger().info(f"No GPS locations associated with the {self.table}. Adding a new one.")
                     error, header = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
                     if error:
-                        errtxt = error
-                        print(errtxt)
+                        logger_setup.get_logger().error(f"Invalid GPS input: {error}")
                         rollback_savepoint('before_update')
                         return
                     if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) = (qgps_values)'''):
-                        errtxt = query.lastError().text()
-                        print(errtxt)
-                        rollback_savepoint('before_update')
-                        return
+                        if 'UNIQUE constraint failed' in query.lastError().text():
+                            logger_setup.get_logger().error(f"GPS location with these values already exists")
+                        else:
+                            logger_setup.get_logger().error(f"Error inserting GPS location: {query.lastError().text()}")
+                            rollback_savepoint('before_update')
+                            return
+                    logger_setup.get_logger().info(f"Inserted new GPS location")
                     gps_id = query.lastInsertId()
                 else:
                     if not query.exec(f"SELECT {qgps_columns} FROM GPSLocations WHERE GPSLocationID = {gps_to_update[0]}"):
-                        errtxt = query.lastError().text()
-                        self.errmsg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
+                        logger_setup.get_logger().error(f"Error selecting GPSLocationID {gps_to_update[0]}: {query.lastError().text()}")
                         return
                     query.next()
                     existing_values = [query.value(i) for i in range(query.record().count())]
+                    for s in existing_values:
+                        index = existing_values.index(s)
+                        if not s:
+                            s = 'Null'
+                            existing_values[index] = s
                     if existing_values != gps_values:
-                        error, header = validate_update('GPSLocations', gps_columns, gps_values, gps_format_id)
+                        logger_setup.get_logger().info(f"GPS location {gps_to_update[0]} has different values than the input. Updating.")
+                        error, header = validate_update('GPSLocations', gps_columns, gps_values, f'GPSFormatID = {gps_format_id}')
                         if error:
-                            errtxt = error
-                            print(errtxt)
+                            logger_setup.get_logger().error(f"Invalid GPS input: {error}")
                             rollback_savepoint('before_update')
                             return
+                        logger_setup.get_logger().info(f"Valid GPS information")
                         if not query.exec(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({qgps_values}) WHERE GPSLocationID = {gps_to_update[0]}'''):
-                            errtxt = query.lastError().text()
-                            print(errtxt)
-                            rollback_savepoint('before_update')
-                            return
+                            if 'UNIQUE constraint failed' in query.lastError().text():
+                                logger_setup.get_logger().error(f"GPS location with these values already exists")
+                            else:
+                                logger_setup.get_logger().error(f"Error updating GPSLocationID {gps_to_update[0]}: {query.lastError().text()}")
+                                rollback_savepoint('before_update')
+                                return
                         update_modified_timestamp('GPSLocations', gps_to_update)
+                        logger_setup.get_logger().info(f"Updated GPSLocationID {gps_to_update[0]}")
                         gps_id = gps_to_update[0]
                     else:
                         gps_id = gps_to_update[0]
                     if len(gps_to_delete) > 0:
                         if not query.exec(f'DELETE FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
-                            errtxt = query.lastError().text()
-                            print(errtxt)
+                            logger_setup.get_logger().error(f"Error deleting GPSLocationIDs {gps_to_delete}: {query.lastError().text()}")
                             rollback_savepoint('before_update')
-                        return
+                            return
+                        logger_setup.get_logger().info(f"Deleted unused GPSLocationIDs {gps_to_delete}")
             else:
-                # There are no GPS locations associated with the samples or columns
+                logger_setup.get_logger().info(f"No GPS locations associated with the {self.table}. Adding a new one.")
                 error, header = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
                 if error:
-                    errtxt = error
-                    print(errtxt)
+                    logger_setup.get_logger().error(f"Invalid GPS input: {error}")
                     rollback_savepoint('before_update')
                     return
+                logger_setup.get_logger().info(f"Valid GPS input")
                 if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) VALUES({qgps_values})'''):
-                    errtxt = query.lastError().text()
-                    print(errtxt)
-                    rollback_savepoint('before_update')
-                    return
+                    if 'UNIQUE constraint failed' in query.lastError().text():
+                        logger_setup.get_logger().error(f"GPS location with these values already exists")
+                    else:
+                        logger_setup.get_logger().error(f"Error inserting GPS location: {query.lastError().text()}")
+                        rollback_savepoint('before_update')
+                        return
+                logger_setup.get_logger().info(f"Inserted new GPS location")
                 gps_id = query.lastInsertId()
             for item_id in self.item_ids:
                 if not query.exec(f'''UPDATE {self.table} SET {self.table_gps_id_header} = {gps_id} WHERE {self.item_id_header} = {item_id}'''):
-                    errtxt = query.lastError().text()
-                    print(errtxt)
+                    logger_setup.get_logger().error(f"Error updating {self.table} {self.item_id_header} {item_id}: {query.lastError().text()}")
                     rollback_savepoint('before_update')
                     return
                 update_modified_timestamp(self.table, [item_id])
+                logger_setup.get_logger().info(f"Updated {self.item_id_header} {item_id} with GPSLocationID {gps_id}")
             self.updated = True
+            logger_setup.get_logger().info('Update_gps finished')
             release_savepoint('before_update')
             return True
 

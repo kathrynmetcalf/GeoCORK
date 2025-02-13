@@ -1,5 +1,5 @@
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtSql as QtS
+from PyQt6 import QtCore as QtC
 
 
 def update_modified_timestamp(table: str, record_ids: list):
@@ -7,7 +7,7 @@ def update_modified_timestamp(table: str, record_ids: list):
     Update the ModifiedTimestamp field for the given records
     @param table: table to be updated
     @param record_ids: list of record ids to be updated
-    @return: Nothing if successful, error message if not
+    @return: None if successful, error message if not
     """
     # Get the header for the first column, the ID column
     table_model = QtS.QSqlTableModel()
@@ -33,10 +33,10 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
     @param columns: list of names of columns to be inserted into
     @param values: list of values to be inserted into the columns
     @param GPSFormatID: the id of the GPS format to be used for the GPS location, if applicable
-    @return: Nothing if successful, error message if not
+    @return: None if successful, error message if not
     """
     if len(columns) != len(values):
-        return "Number of columns to set does not match number of values given"
+        return "Number of columns to set does not match number of values given", None
     pairs = []
     for index in range(len(columns)):
         pairs.append([columns[index], values[index]])
@@ -131,10 +131,10 @@ def validate_update(table: str, columns: list, values: list, where: str):
     @param columns: the columns to be updated
     @param values: the string values to be entered into the database. Null values should be 'Null'
     @param where: the text that would come after WHERE in a sql statement
-    @return: Nothing if successful, error message if not
+    @return: None if successful, error message if not
     """
     if len(columns) != len(values):
-        return "Number of columns to set does not match number of values given"
+        return "Number of columns to set does not match number of values given", None
     query = QtS.QSqlQuery()
     column_str = ", ".join(columns)
     value_str = ", ".join([str(value) for value in values])
@@ -174,7 +174,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
         error, header = check_update_units(all_records, 'DirectAgeError', 'DirectAgeErrorFormatID')
         if error:
             if error != 'DirectAgeErrorFormatID missing DirectAgeError':
-                return "Direct age error given without error type"
+                return "Direct age error given without error type", 'DirectAgeErrorFormatID'
         error, header = check_update_pairs(all_records, 'DirectAgeError', 'DirectAge')
         if error:
             if error != 'DirectAge missing DirectAgeError':
@@ -189,20 +189,20 @@ def validate_update(table: str, columns: list, values: list, where: str):
         if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
             youngest_unit_error = None
         if unit_error or oldest_unit_error or youngest_unit_error:
-            return "Direct age missing units"
+            return "Direct age missing units", 'DirectAgeUnitID'
     if table == 'Samples':
         error, header = check_update_pairs(all_records, 'HeightDepth', 'HeightDepthUnitID')
         if error:
             if error != 'HeightDepthUnitID missing HeightDepth':
-                return "Height/depth value missing units"
+                return "Height/depth value missing units", header
         error, header = check_update_pairs(all_records, 'HeightDepthError', 'HeightDepth')
         if error:
             if error != 'HeightDepth missing HeightDepthError':
-                return "Height/depth error given without value"
+                return "Height/depth error given without value", header
         error, header = check_update_pairs(all_records, 'HeightDepth', 'SampleColumnID')
         if error:
             if error != 'SampleColumnID missing HeightDepth':
-                return "Height/depth value missing column"
+                return "Height/depth value missing column", header
     if table == 'UPbAnalyses':
         ratio_error_list = []
         age_error_list = []
@@ -217,28 +217,28 @@ def validate_update(table: str, columns: list, values: list, where: str):
             error, header = check_update_pairs(all_records, ratio_error_list[index], ratio_list[index])
             if error:
                 if error != f'{ratio_list[index]} missing {ratio_error_list[index]}':
-                    return f'{ratio_error_list[index]} missing {ratio_list[index]}'
+                    return f'{ratio_error_list[index]} missing {ratio_list[index]}', header
             error, header = check_update_pairs(all_records, ratio_error_list[index], 'RatioErrorFormatID')
             if error:
                 if error != 'RatioErrorFormatID missing RatioError':
-                    return "Ratio error given without error format"
+                    return "Ratio error given without error format", header
         for index in range(len(age_error_list)):
             error, header = check_update_pairs(all_records, age_error_list[index], age_list[index])
             if error:
                 if error != f'{age_list[index]} missing {age_error_list[index]}':
-                    return f'{age_error_list[index]} missing {age_list[index]}'
+                    return f'{age_error_list[index]} missing {age_list[index]}', header
             error, header = check_update_pairs(all_records, age_error_list[index], 'AgeErrorFormatID')
             if error:
                 if error != 'AgeErrorFormatID missing AgeError':
-                    return "Age error given without error format"
+                    return "Age error given without error format", header
         error, header = check_update_pairs(all_records, 'Concordance', 'ConcordanceFormatID')
         if error:
             if error != 'ConcordanceFormatID missing Concordance':
-                return "Concordance/discordance given without format"
+                return "Concordance/discordance given without format", header
         error, header = check_update_pairs(all_records, 'SpotSize', 'SpotSizeUnitID')
         if error:
             if error != 'SpotSizeUnitID missing SpotSize':
-                return "Spot size given without units"
+                return "Spot size given without units", header
     return None, None
 
 def check_update_units(all_records: list, value_col: str, unit_id_col: str):
@@ -358,9 +358,9 @@ def check_gps_format_insert(pairs: list, format_id: int):
             return 'Missing degrees lon in degree format', 'GPSLonDeg'
         if new_latdeg == 'Null' and new_londeg != 'Null':
             return 'Missing degrees lat in degree format', 'GPSLatDeg'
-        if float(new_latdeg) < -90 or float(new_latdeg) > 90:
+        if new_latdeg != 'Null' and (float(new_latdeg) < -90 or float(new_latdeg) > 90):
             return 'Latitude must be between -90 and 90', 'GPSLatDeg'
-        if float(new_londeg) < -180 or float(new_londeg) > 180:
+        if new_londeg != 'Null' and (float(new_londeg) < -180 or float(new_londeg) > 180):
             return 'Longitude must be between -180 and 180', 'GPSLonDeg'
         if 'DD ' in gps_format_abbreviation:
             # DD
@@ -378,9 +378,9 @@ def check_gps_format_insert(pairs: list, format_id: int):
                 return 'Minutes given without degrees in degree format', 'GPSLatDeg'
             if new_londeg == 'Null' and new_lonmin != 'Null':
                 return 'Minutes given without degrees in degree format', 'GPSLonDeg'
-            if float(new_latmin) < 0 or float(new_latmin) >= 60:
+            if new_latmin != 'Null' and (float(new_latmin) < 0 or float(new_latmin) >= 60):
                 return 'Minutes must be between 0 and 59', 'GPSLatMin'
-            if float(new_lonmin) < 0 or float(new_lonmin) >= 60:
+            if new_lonmin != 'Null' and (float(new_lonmin) < 0 or float(new_lonmin) >= 60):
                 return 'Minutes must be between 0 and 59', 'GPSLonMin'
             if 'DDM ' in gps_format_abbreviation:
                 if new_latsec != 'Null':
@@ -396,9 +396,9 @@ def check_gps_format_insert(pairs: list, format_id: int):
                     return 'Seconds given without minutes in DMS format', 'GPSLatMin'
                 if new_lonmin == 'Null' and new_lonsec != 'Null':
                     return 'Seconds given without minutes in DMS format', 'GPSLonMin'
-                if float(new_latsec) < 0 or float(new_latsec) >= 60:
+                if new_latsec != 'Null' and (float(new_latsec) < 0 or float(new_latsec) >= 60):
                     return 'Seconds must be between 0 and 59', 'GPSLatSec'
-                if float(new_lonsec) < 0 or float(new_lonsec) >= 60:
+                if new_lonsec != 'Null' and (float(new_lonsec) < 0 or float(new_lonsec) >= 60):
                     return 'Seconds must be between 0 and 59', 'GPSLonSec'
         if '+/-' in gps_format_abbreviation:
             if new_latdir != 'Null':

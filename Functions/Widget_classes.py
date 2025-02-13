@@ -98,7 +98,10 @@ class SQLiteTableModel(QAbstractTableModel):
         # if not db.open():
         #     logger_setup.get_logger().critical(f"Failed to open database {db_file}")
         self.query_text = query
-        table = query.split('FROM ')[1].split(' ')[0]
+        if 'table_info' in query:
+            table = 'table_info'
+        else:
+            table = query.split('FROM ')[1].split(' ')[0]
         if 'View' in table:
             self.view = table
             if 'Sample' in table:
@@ -160,6 +163,15 @@ class SQLiteTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
             return self._headers[section] if section < len(self._headers) else None
         return None
+
+    def column_as_list(self, col):
+        if isinstance(col, str):
+            column = self._headers.index(col)
+        elif isinstance(col, int):
+            column = col
+        else:
+            return
+        return [row[column] for row in self._data]
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
     def __init__(self):
@@ -495,8 +507,8 @@ class CheckableSqlTableModel(DisplayRoundedModel):
     def __init__(self):
         super().__init__()
         self.primary_key_column = 0
-        self.checked_data = {}
-        self.partially_checked_data = {}
+        self.checked_ids = []
+        self.partially_checked_ids = []
 
     def flags(self, index):
         flags = super().flags(index)
@@ -510,9 +522,9 @@ class CheckableSqlTableModel(DisplayRoundedModel):
             return False
         col = name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
-            if index.row() in self.checked_data.keys():
+            if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
                 return QtC.Qt.CheckState.Checked
-            elif index.row() in self.partially_checked_data.keys():
+            elif self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.partially_checked_ids:
                 return QtC.Qt.CheckState.PartiallyChecked
             else:
                 return QtC.Qt.CheckState.Unchecked
@@ -531,14 +543,14 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         col = name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
-                self.checked_data[index.row()] = value
+                self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             elif value == QtC.Qt.CheckState.PartiallyChecked:
-                self.partially_checked_data[index.row()] = value
+                self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             else:
-                if index.row() in self.checked_data.keys():
-                    self.checked_data.pop(index.row())
-                if index.row() in self.partially_checked_data.keys():
-                    self.partially_checked_data.pop(index.row())
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
+                    self.checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.partially_checked_ids:
+                    self.partially_checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             self.dataChanged.emit(index, index, [role])
             return True
         return super().setData(index, value, role)
@@ -546,8 +558,8 @@ class CheckableSqlTableModel(DisplayRoundedModel):
 class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def __init__(self):
         super().__init__()
-        self.checked_data = {}
-        self.partially_checked_data = {}
+        self.checked_ids = []
+        self.partially_checked_ids = []
 
     def flags(self, index):
         flags = super().flags(index)
@@ -564,10 +576,10 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
             col = get_view_name_column(view)
         except AttributeError:
             col = name_column(self.tableName())
-        if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
-            if index.row() in self.checked_data.keys():
+        if role == QtC.Qt.ItemDataRole.CheckStateRole:
+            if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
                 return QtC.Qt.CheckState.Checked
-            elif index.row() in self.partially_checked_data.keys():
+            elif self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.partially_checked_ids:
                 return QtC.Qt.CheckState.PartiallyChecked
             else:
                 return QtC.Qt.CheckState.Unchecked
@@ -585,30 +597,39 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
         try:
             view = self.tableView()
-            col = get_view_name_column(view)
+            if view == '':
+                col = name_column(self.tableName())
+            else:
+                col = get_view_name_column(view)
         except AttributeError:
             col = name_column(self.tableName())
+
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
-                self.checked_data[index.row()] = value
+                self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             elif value == QtC.Qt.CheckState.PartiallyChecked:
-                self.partially_checked_data[index.row()] = value
+                self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             else:
-                if index.row() in self.checked_data.keys():
-                    self.checked_data.pop(index.row())
-                if index.row() in self.partially_checked_data.keys():
-                    self.partially_checked_data.pop(index.row())
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
+                    self.checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.partially_checked_ids:
+                    self.partially_checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             self.dataChanged.emit(index, index, [role])
             return True
         return super().setData(index, value, role)
 
-class SampleAgeTableModel(QtS.QSqlQueryModel):
+    def return_checked_ids(self):
+        return self.checked_ids, self.partially_checked_ids
+
+class SampleAgeTableModel(CheckableSqlQueryModel):
     def __init__(self):
         super().__init__()
         self.bolded_rows = []
-        self.default_query = '''SELECT SampleAgeID, SampleAgeDisplay, DirectAge, DirectAgeError, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, DirectAgeUnitID, 
-                        OldestAgeID, YoungestAgeID, SampleAgeDescription, SampleAgeCreated, SampleAgeModified FROM SampleAges'''
+        self.default_query = '''SELECT * FROM SampleAges'''
         self.setQuery(self.default_query)
+
+    def tableName(self):
+        return 'SampleAges'
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -718,9 +739,7 @@ def get_view_name_column(view: str):
     table_name_col = name_column(table)
     if table_name_col is not None:
         # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
-        query_model = QtS.QSqlQueryModel()
-        query_model.setQuery(f'SELECT * FROM "{table}"')
-        name_header = query_model.headerData(table_name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        name_header = get_headers(table)[table_name_col]
         view_column_settings = SQLUtils.view_setting_dict[view]
         view_columns = settings.value(view_column_settings)
         if name_header in view_columns:
@@ -1032,8 +1051,8 @@ class TreeItem:
         """
         Deletes all children of deleted item
         """
-        for child in self.childItems:
-            del child
+        for child_tree_item in self.childItems:
+            del child_tree_item
         del self.childItems
 
     def appendChild(self, child_item):
@@ -1345,6 +1364,20 @@ class TreeModel(QtC.QAbstractProxyModel):
                 return item.data(2)
             else:
                 return item.data(index.column())
+        elif index.column() == 0 and role == QtC.Qt.ItemDataRole.ToolTipRole:
+            if self.table == 'Ages':
+                # For the Ages table, the tooltip is the age range
+                oldest_age = self.data(index.siblingAtColumn(4), QtC.Qt.ItemDataRole.DisplayRole)
+                youngest_age = self.data(index.siblingAtColumn(5), QtC.Qt.ItemDataRole.DisplayRole)
+                return f'{oldest_age}-{youngest_age} Ma'
+            description_col = None
+            for header_col in range(self.columnCount()):
+                header = self.headerData(header_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if 'Description' in header:
+                    description_col = header_col
+                    break
+            if description_col is not None:
+                return super().data(self.index(index.row(), description_col, index.parent()), QtC.Qt.ItemDataRole.DisplayRole)
         return None
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
@@ -1866,15 +1899,7 @@ class CheckableTreeModel(TreeModel):
             item = self.getItem(index)
         if index.column() == 0 and role == QtC.Qt.ItemDataRole.CheckStateRole:
             return item.getCheckState()
-        elif index.column() == 0 and role == QtC.Qt.ItemDataRole.ToolTipRole:
-            description_col = None
-            for header_col in range(self.columnCount()):
-                header = self.headerData(header_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-                if 'Description' in header:
-                    description_col = header_col
-                    break
-            if description_col is not None:
-                return super().data(self.index(index.row(), description_col, index.parent()), QtC.Qt.ItemDataRole.DisplayRole)
+
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
@@ -1974,8 +1999,7 @@ class CheckableTreeModel(TreeModel):
             logger_setup.get_logger().error(
                 f"Error updating Samples_{self.table} for sample {sample_ID}: {query.lastError().text()}")
 
-class TreeListToolTipProxyModel(QtC.QSortFilterProxyModel):
-    # todo: add tooltip for other tables, implement the model in combo boxes
+class TreeListProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.column = 0
@@ -1986,13 +2010,7 @@ class TreeListToolTipProxyModel(QtC.QSortFilterProxyModel):
     def data(self, index: QtC.QModelIndex, role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return QtC.QVariant()
-        if role == QtC.Qt.ItemDataRole.ToolTipRole:
-            if self.sourceModel().table == 'Ages':
-                # For the Ages table, the tooltip is the age range
-                oldest_age = self.sourceModel().data(index.siblingAtColumn(4), QtC.Qt.ItemDataRole.DisplayRole)
-                youngest_age = self.sourceModel().data(index.siblingAtColumn(5), QtC.Qt.ItemDataRole.DisplayRole)
-                return f'{oldest_age}-{youngest_age} Ma'
-        elif role == QtC.Qt.ItemDataRole.DisplayRole:
+        if role == QtC.Qt.ItemDataRole.DisplayRole:
             source_index = self.mapToSource(index)
             return self.sourceModel().data(source_index, role)
         return super().data(index, role)
@@ -2075,13 +2093,13 @@ class FocusGroupBox(QGroupBox):
     def __init__(self, parent=None):
         super(FocusGroupBox, self).__init__(parent)
         self.setFocusPolicy(QtC.Qt.FocusPolicy.NoFocus)
-        self.installEventFilter(self)
-        self.install_children_event_filter()
         self.focus_lost_timer = QtC.QTimer(self)
         self.focus_lost_timer.setSingleShot(True)
         self.focus_lost_timer.timeout.connect(self.check_focus_state)
         self.initial_values = []
         self.edited = False
+        self.installEventFilter(self)
+        # self.install_children_event_filter()
 
     def connect_child_signals(self):
         self.initial_values = []
@@ -2098,6 +2116,8 @@ class FocusGroupBox(QGroupBox):
                     child.currentIndexChanged.disconnect(self.set_edited)
                 except TypeError:
                     pass
+                # logger_setup.get_logger().info(
+                #     f'Connecting signals for {child.objectName()}, child of {child.parent().objectName()}')
                 self.initial_values.append([child, child.currentIndex()])
                 child.currentIndexChanged.connect(lambda ch=child: self.set_edited(ch))
             elif isinstance(child, QtW.QCheckBox):
@@ -2105,8 +2125,12 @@ class FocusGroupBox(QGroupBox):
                     child.stateChanged.disconnect(self.set_edited)
                 except TypeError:
                     pass
+                # logger_setup.get_logger().info(
+                #     f'Connecting signals for {child.objectName()}, child of {child.parent().objectName()}')
                 self.initial_values.append([child, child.isChecked()])
                 child.stateChanged.connect(lambda ch=child: self.set_edited(ch))
+        for child in self.findChildren(QtW.QWidget):
+            child.installEventFilter(self)
 
     def disconnect_child_signals(self):
         for child in self.findChildren(QtW.QWidget):
@@ -2125,15 +2149,15 @@ class FocusGroupBox(QGroupBox):
                     child.stateChanged.disconnect(self.set_edited)
                 except TypeError:
                     pass
-
-    def install_children_event_filter(self):
         for child in self.findChildren(QtW.QWidget):
-            child.installEventFilter(self)
+            child.removeEventFilter(self)
+
+
 
     def set_edited(self, child: QtW.QWidget):
         try: child.objectName()
         except AttributeError: return
-        logger_setup.get_logger().info(f'{child.objectName()} called set_edited')
+        # logger_setup.get_logger().info(f'{child.objectName()} called set_edited')
         initial_value = None
         for pair in self.initial_values:
             if pair[0] == child:
@@ -2142,7 +2166,7 @@ class FocusGroupBox(QGroupBox):
             return
         if isinstance(child, QtW.QLineEdit):
             if child.text() != initial_value:
-                logger_setup.get_logger().info(f'{child.objectName()} was edited')
+                # logger_setup.get_logger().info(f'{child.objectName()} was edited')
                 self.edited = True
         elif isinstance(child, QtW.QComboBox):
             if child.currentIndex() != initial_value:
@@ -2152,6 +2176,8 @@ class FocusGroupBox(QGroupBox):
                 self.edited = True
 
     def eventFilter(self, obj, event):
+        if event.type() == QtC.QEvent.Type.MouseButtonPress:
+            pass
         if event.type() == QtC.QEvent.Type.FocusOut:
             self.focus_lost_timer.start(100)
         return super().eventFilter(obj, event)
@@ -2311,27 +2337,29 @@ class ColumnListProxyModel(QtC.QSortFilterProxyModel):
                 elif 'ConcordanceFormat' in header:
                     header = 'Concordance Format'
             if 'GPSLocationConverted' in header:
+                header = 'Converted GPS Location'
+            elif 'GPSLocationDisplay' in header:
                 header = 'GPS Location'
             elif 'SampleElevationCalculated' in header:
-                header = f'Sample Elevation ({settings.value('elevation_unit_abbreviation')})'
+                header = f'Calculated Sample Elevation ({settings.value('elevation_unit_abbreviation')})'
             elif 'SampleElevation' in header:
                 header = f'Sample Elevation'
             elif 'ColumnElevationCalculated' in header:
-                header = f'Column Elevation ({settings.value('elevation_unit_abbreviation')})'
+                header = f'Calculated Column Elevation ({settings.value('elevation_unit_abbreviation')})'
             elif 'ColumnElevation' in header:
                 header = f'Column Elevation'
             elif 'TotalHeightDepthCalculated' in header:
-                header = f'Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+                header = f'Calculated Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
             elif 'TotalHeightDepth' in header:
                 header = f'Total Height/Depth'
             elif 'HeightDepthCalculated' in header:
-                header = f'Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+                header = f'Calculated Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
             elif 'HeightDepth' in header:
                 header = f'Height/Depth'
             elif 'AgeCalculated' in header:
-                header = f'Age ({settings.value('age_unit_abbreviation')})'
+                header = f'Calculated Age ({settings.value('age_unit_abbreviation')})'
             elif 'SpotSizeCalculated' in header:
-                header = f'Spot Size ({settings.value('spotsize_unit_abbreviation')})'
+                header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
             if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
                 header = header.replace('Name', '')
                 if header.endswith('y'):
@@ -2343,7 +2371,7 @@ class ColumnListProxyModel(QtC.QSortFilterProxyModel):
             if 'Display' in header:
                 header = header.replace('Display', '')
             if 'Calculated' in header:
-                header = header.replace('Calculated', '')
+                header = header.replace('Calculated', 'Converted')
             if 'ppm' in header:
                 header = header.replace('ppm', '(ppm)')
             if 'cps' in header:
@@ -2516,9 +2544,11 @@ class CheckableComboBox(QtW.QComboBox):
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 if self.single_click:
                     # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
-                    if self.currentIndex() in self.model().checked_data.keys():
+                    clicked_id = self.model().index(self.view().currentIndex().row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if clicked_id in self.model().checked_ids:
                         self.view().setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
+                    self.model().setData(self.view().currentIndex(), QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                     self.set_line_edit_text(self.view().currentIndex().data())
                     self.hidePopup()
                     return True
@@ -2611,6 +2641,8 @@ class CheckableTreeView(QtW.QTreeView):
         self.hideColumn(2)  # don't show parent ID column
         self.hideColumn(3)  # don't show parent row column
         self.setSortingEnabled(False)
+        self.setHeaderHidden(False)
+
         self.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.model_edited = False
         # self.clicked.connect(self.toggle_check_state)
@@ -2654,6 +2686,10 @@ class CheckableTreeView(QtW.QTreeView):
             expand_parents(index)
 
 class TreeCombobox(QtW.QComboBox):
+    closing = QtC.pyqtSignal()
+    edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
+    add_triggered = QtC.pyqtSignal(QtW.QComboBox, QAction)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
@@ -2662,47 +2698,99 @@ class TreeCombobox(QtW.QComboBox):
         self.treeView.setRootIsDecorated(True)
         self.checkable = False
         self.popup_shown = False
+        self.context_menu = False
         self.setView(self.treeView)
         self.treeView.viewport().installEventFilter(self)
+        self.treeView.setWindowFlags(QtC.Qt.WindowType.Popup)
 
     def set_text(self, text):
         self.lineEdit().setText(text)
 
     def setModel(self, model):
         super().setModel(model)
-        show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+        # Hide all but the first column
+        for column in range(1, model.columnCount()):
+            self.treeView.hideColumn(column)
+
+    def enable_context_menu(self, show_context_menu: bool):
+        self.context_menu = show_context_menu
+        if self.context_menu:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+            self.customContextMenuRequested.connect(self.show_context_menu)
+        else:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
+
+    def show_context_menu(self, pos):
+        menu = TreeContextMenu()
+        menu.set_view(self.treeView, False)
+        action = menu.exec(self.mapToGlobal(pos))
+        if action:
+            if action.text() == 'Edit':
+                self.edit_triggered.emit(self)
+            elif 'Add' in action.text() or 'Insert' in action.text():
+                self.add_triggered.emit(self, action)
+            elif 'Expand' in action.text() or 'Collapse' in action.text():
+                expand_collapse(self.treeView, action)
 
     def showPopup(self):
+        # combo_model = self.model()
+        # model = find_tree_model(combo_model)
+        # if model and not self.checkable:
+        #     restore_expanded_state(model.table, combo_model, self.treeView)
+        self.treeView.resizeColumnToContents(0)
+        total_width = self.treeView.columnWidth(0) + self.treeView.verticalScrollBar().sizeHint().width()
+        self.treeView.setFixedWidth(total_width)
         super().showPopup()
         self.popup_shown = True
-        combo_model = self.model()
-        model = find_tree_model(combo_model)
-        if model and not self.checkable:
-            restore_expanded_state(model.table, combo_model, self.treeView)
 
     def hidePopup(self):
         if self.popup_shown:
             super().hidePopup()
-            model = find_tree_model(self.model())
-            if model and not self.checkable:
-                save_expanded_state(model.table, self.model(), self.treeView)
+            # model = find_tree_model(self.model())
+            # if model and not self.checkable:
+            #     save_expanded_state(model.table, self.model(), self.treeView)
             self.popup_shown = False
+            self.closing.emit()
 
     def eventFilter(self, obj, event):
         if obj == self.treeView.viewport():
             if event.type() == QtC.QEvent.Type.MouseButtonRelease:
-                self.treeView.setCurrentIndex(self.treeView.selectedIndexes()[0])
-                self.lineEdit().setText(
-                    self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole))
-                self.hidePopup()
-                return True
+                # If the user clicks on the expand/collapse button, do not select the item, only expand/collapse
+
+                index = self.treeView.indexAt(event.pos())
+                if not index.isValid():
+                    super().eventFilter(obj, event)
+                # Define the rectangle for the item and the expand/collapse button
+                item_rect = self.treeView.visualRect(index)
+                option = QtW.QStyleOptionViewItem()
+                option.initFrom(self.treeView)
+                option.rect = item_rect
+                option.state = QtW.QStyle.StateFlag.State_Enabled
+                if self.treeView.model().hasChildren(index):
+                    option.state |= QtW.QStyle.StateFlag.State_Children
+                if self.treeView.isExpanded(index):
+                    option.state |= QtW.QStyle.StateFlag.State_Open
+
+                expand_button_rect = self.treeView.style().subElementRect(
+                    QtW.QStyle.SubElement.SE_TreeViewDisclosureItem,
+                    option, self.treeView)
+                if expand_button_rect.contains(event.pos()):
+                    self.lineEdit().setText(
+                        self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole))
+                    self.hidePopup()
+                    return True
+                else:
+                    if self.treeView.isExpanded(index):
+                        self.treeView.collapse(index)
+                    else:
+                        self.treeView.expand(index)
+                    self.showPopup()
+                    return True
             return super().eventFilter(obj, event)
         return super().eventFilter(obj, event)
 
 class CheckableTreeCombobox(TreeCombobox):
     closing = QtC.pyqtSignal()
-    edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
-    add_triggered = QtC.pyqtSignal(QtW.QComboBox, QAction)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -2730,14 +2818,6 @@ class CheckableTreeCombobox(TreeCombobox):
             self.model().dataChanged.connect(self.update_line_edit)
         show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
-    def enable_context_menu(self, show_context_menu: bool):
-        self.context_menu = show_context_menu
-        if self.context_menu:
-            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-            self.customContextMenuRequested.connect(self.show_context_menu)
-        else:
-            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
-
     def set_single_click(self, single_click):
         self.single_click = single_click
 
@@ -2760,18 +2840,6 @@ class CheckableTreeCombobox(TreeCombobox):
             # At least one item is partially checked, so the line edit should be a dash
             self.lineEdit().setText('-')
 
-    def show_context_menu(self, pos):
-        menu = TreeContextMenu()
-        menu.set_view(self.treeView, False)
-        action = menu.exec(self.mapToGlobal(pos))
-        if action:
-            if action.text() == 'Edit':
-                self.edit_triggered.emit(self)
-            elif 'Add' in action.text() or 'Insert' in action.text():
-                self.add_triggered.emit(self, action)
-            elif 'Expand' in action.text() or 'Collapse' in action.text():
-                expand_collapse(self.treeView, action)
-
     def clear_all_checks(self):
         # traverse the tree and uncheck all items
         def traverse_tree(parent: QtC.QModelIndex):
@@ -2791,7 +2859,6 @@ class CheckableTreeCombobox(TreeCombobox):
     def hidePopup(self):
         if self.popup_shown:
             super().hidePopup()
-            self.closing.emit()
             self.popup_shown = False
 
     def eventFilter(self, obj, event):
@@ -2830,6 +2897,7 @@ class CheckableTreeCombobox(TreeCombobox):
                         if self.currentIndex() in checked_items:
                             self.treeView.setCurrentIndex(QtC.QModelIndex())
                         self.clear_all_checks()
+                        self.model().setData(self.treeView.currentIndex(), QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                         self.set_line_edit_text(self.treeView.currentIndex().data())
                     self.treeView.toggle_check_state(self.treeView.currentIndex())
                     self.showPopup()

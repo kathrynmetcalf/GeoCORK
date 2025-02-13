@@ -174,7 +174,7 @@
        <item>
         <widget class="FocusGroupBox" name="column_groupBox">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+          <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -620,6 +620,28 @@
    <header location="global">Functions/Widget_classes.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>scrollArea</tabstop>
+  <tabstop>sample_name_comboBox</tabstop>
+  <tabstop>sample_name_lineEdit</tabstop>
+  <tabstop>sample_igsn_lineEdit</tabstop>
+  <tabstop>column_name_comboBox</tabstop>
+  <tabstop>height_depth_lineEdit</tabstop>
+  <tabstop>height_depth_error_lineEdit</tabstop>
+  <tabstop>height_depth_unit_comboBox</tabstop>
+  <tabstop>sample_context_comboBox</tabstop>
+  <tabstop>sampling_method_comboBox</tabstop>
+  <tabstop>unit_comboBox</tabstop>
+  <tabstop>rock_type_comboBox</tabstop>
+  <tabstop>region_comboBox</tabstop>
+  <tabstop>setting_comboBox</tabstop>
+  <tabstop>age_signature_comboBox</tabstop>
+  <tabstop>upb_analysis_pushButton</tabstop>
+  <tabstop>scrollArea_2</tabstop>
+  <tabstop>sample_description_lineEdit</tabstop>
+  <tabstop>cancel_pushButton</tabstop>
+  <tabstop>commit_pushButton</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>
