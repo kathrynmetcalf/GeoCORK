@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButt
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
+import logger_setup
 from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel
@@ -177,11 +178,11 @@ class DataViewerWidget(QWidget):
                     sample_filter,
                     table_type)
             else:
-                print("Record ID not found.")
+                logger_setup.get_logger().critical(f"Record ID not found: {record_id}")
         except ValueError:
-            print("Invalid record ID.")
+            logger_setup.get_logger().critical(f"Invalid Record ID: {record_id}")
 
-    def get_total_records_1(self):
+    def get_total_records_1(self) -> int:
         """
         Get the total number of records in the Samples table
         """
@@ -198,9 +199,13 @@ class DataViewerWidget(QWidget):
             sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.ids_to_show}"
 
         # Execute the query
+        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.table_type}')
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             # Handle query execution error
-            print("Failed to execute query:", query.lastError().text())
+            logger_setup.get_logger().critical(
+                f'Error fetching total records: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             return 0
 
         # Fetch the count
@@ -209,7 +214,7 @@ class DataViewerWidget(QWidget):
 
         return 0
 
-    def get_total_records_2(self, dbTable_comboBox):
+    def get_total_records_2(self, dbTable_comboBox) -> int:
         """
         Get the total number of records in the Samples table
         """
@@ -227,9 +232,13 @@ class DataViewerWidget(QWidget):
             sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.id_condition}"
 
         # Execute the query
+        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.table_type}')
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             # Handle query execution error
-            print("Failed to execute query:", query.lastError().text())
+            logger_setup.get_logger().critical(
+                f'Error fetching total records: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             return 0
 
         # Fetch the count
@@ -262,10 +271,14 @@ class DataViewerWidget(QWidget):
         query.prepare(sql_query)
         query.bindValue(":record_id", record_id)
 
+        logger_setup.get_logger().info('Getting the record index for record ID: {record_id}')
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         # Execute the query
         if not query.exec():
             # Handle query execution error
-            print("Failed to execute query:", query.lastError().text())
+            logger_setup.get_logger().critical(
+                f'Error fetching records index: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             return -1
 
         # Fetch the result
@@ -297,7 +310,6 @@ class DataViewerWidget(QWidget):
         """
         table_name = dbTable_comboBox.currentText()
         self.total_records_1 = self.get_total_records_1()
-        print(self.total_records_1)
 
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
@@ -441,7 +453,6 @@ class DataViewerWidget(QWidget):
                 sql = f'SELECT DISTINCT {table}.* FROM Samples '
                 sql += SQLUtils.get_join_from_table([table])
                 sql += SQLUtils.get_join_from_table([table_type])
-                print(sql)
                 if condition_ids:
                     if table_type == 'Samples':
                         table_condition = f" WHERE Samples.SampleID IN ({', '.join(condition_ids)})"
@@ -456,22 +467,24 @@ class DataViewerWidget(QWidget):
                 sql += table_condition
                 query = QSqlQuery()
                 ids_to_show = []
-                print(sql)
                 # Execute the query
+                logger_setup.get_logger().info(
+                    f'Displaying table with selection-based filter')
+                logger_setup.get_logger().debug(f'SQL command: {sql}')
                 if query.exec(sql):
                     while query.next():  # Iterate through all results
                         row_id = query.value(0)
-                        if row_id is not None and row_id is not '':
+                        if row_id is not None and row_id != '':
                             ids_to_show.append(str(row_id))
                 else:
-                    print(sql)
-                    print("Failed to execute query:", query.lastError().text())
+                    logger_setup.get_logger().critical(
+                        f'Error in displaying table with selection-based filter: {query.lastError().text()}')
+                    logger_setup.get_logger().critical(f'SQL command: {sql}')
 
                 # Update the id_condition attribute
 
                 self.id_condition = f'({", ".join(ids_to_show)}'
                 self.id_condition = self.id_condition + ')'
-                print(f'id condition: {self.id_condition}')
 
         if table in SQLUtils.user_viewable_trees:
             self.switch_to_tree(db_stackedWidget)
@@ -516,7 +529,6 @@ class DataViewerWidget(QWidget):
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE UPbAnalysisID IN {self.id_condition} ORDER BY UPbAnalysisID LIMIT {self.rows_per_page_2} OFFSET {offset}")
             else:
-                print(f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
             for col in range(model.columnCount()):
@@ -536,14 +548,7 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, table_proxy_model))
 
         else:
-            print(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
-
-        # self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
-        # # Update page info label
-        # start_record = offset + 1
-        # end_record = min(offset + self.rows_per_page_2, self.total_records_2)
-        # self.page_info_label_2.setText(f"Showing records {start_record} - {end_record} of {self.total_records_2}")
-        # edit_pushButton.setText(f"Edit {table_name}")
+            logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 
 
     def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):

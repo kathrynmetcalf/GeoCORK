@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
+import logger_setup
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase
 from Functions import FilterDatabase
@@ -557,13 +558,18 @@ class ExportWidget(QWidget):
             query = QSqlQuery()
 
             # Execute the query
+            logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec(sql_query):
-                # Handle query execution error
-                print("Failed to execute query:", query.lastError().text())
-
+                logger_setup.get_logger().critical(
+                    f'Error fetching distinct UPbAnalysisID using Filter ID: {filter_id}: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+            logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
             # Fetch all results
             while query.next():
                 ids.append(query.value(0))
+
+        logger_setup.get_logger().info(f'Number of UPbAnalyis IDs Found: {len(ids)}')
 
         if len(self.checked_filter_list) == 1:
             ids = f"({', '.join(map(str, ids))})"
@@ -576,17 +582,18 @@ class ExportWidget(QWidget):
             ids = f"({', '.join(map(str, ids_more_than_once))})"
         # todo Maybe change to pagination
 
-        if len(self.checked_sample_names) > 1:
+        if len(self.checked_sample_names) > 2:
             if len(filtered_where_clause) > 0:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
             else:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
         else:
             if len(filtered_where_clause) > 0:
-                query_str = f"SELECT {'DISTINT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} UPbAnalysisID IN {ids} LIMIT 250"
+                query_str = f"SELECT {'DISTINT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE UPbAnalysisID IN {ids} LIMIT 250"
             else:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
 
+        logger_setup.get_logger().debug(f'Final TableView SQL command: {query_str}')
         # code to transform the query into a pivot table
         if self.worksheet_tabs_dict[current_worksheet_name]['pivot']:
             query_str = query_str.replace('LIMIT 250', '')
@@ -597,31 +604,40 @@ class ExportWidget(QWidget):
             db.open()
 
             drop_table_qry = QSqlQuery()
+            logger_setup.get_logger().info('Dropping TempPivotTable')
             if not drop_table_qry.exec('DROP TABLE IF EXISTS TempPivotTable'):
-                print("Failed to execute query:", drop_table_qry.lastError().text())
-                errmsg = QErrorMessage()
-                errmsg.setWindowTitle('Error')
-                errmsg.showMessage(drop_table_qry.lastError().text())
-                errmsg.exec()
+                logger_setup.get_logger().critical(
+                    f'Error dropping TempPivotTable: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
 
             create_table_qry = QSqlQuery()
-            if not create_table_qry.exec('CREATE TEMP TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'):
-                print("Failed to execute query:", create_table_qry.lastError().text())
+            sql_temptable_create = 'CREATE TEMP TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
+            logger_setup.get_logger().info('Creating table TempPivotTable')
+            if not create_table_qry.exec(sql_temptable_create):
+                logger_setup.get_logger().critical(
+                    f'Error fetching total records: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                return
+            logger_setup.get_logger().info('Created table TempPivotTable successfully')
 
             first_tuple = next(iter(ordered_columns))
             pivot_col = first_tuple[1]
 
             distinct_first_column_query = QSqlQuery()
             first_column_list = []
-            if distinct_first_column_query.exec(f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'):
+            sql_distinct_first_column = f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'
+            if distinct_first_column_query.exec(sql_distinct_first_column):
                 if distinct_first_column_query.next():
                     while distinct_first_column_query.isValid():
                         first_column_list.append(distinct_first_column_query.value(0))
                         distinct_first_column_query.next()
                 else:
-                    print("No rows returned.")
+                    logger_setup.get_logger().critical('No rows returned for distinct first column')
             else:
-                print("Failed to execute query:", distinct_first_column_query.lastError().text())
+                logger_setup.get_logger().critical(
+                    f'Error selecting distinct values in table: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                return
             case_expressions = []
 
             for name in first_column_list:
@@ -632,6 +648,7 @@ class ExportWidget(QWidget):
 
             case_list_sql = '\n, '.join(case_expressions)
 
+
             query_str = (f"""With cte AS (SELECT {columns_str}, ROW_NUMBER() OVER (
             PARTITION BY {pivot_col}
             ORDER BY rowid) AS RowNum
@@ -641,7 +658,6 @@ class ExportWidget(QWidget):
             GROUP BY c.RowNum
             ORDER BY c.RowNum""")
 
-        # print(query_str)
 
         model = QSqlQueryModel()
         model.setQuery(query_str)
@@ -669,8 +685,6 @@ class ExportWidget(QWidget):
         #     model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
-
-        # QSqlDatabase().commit()
 
 
     def export_button(self):

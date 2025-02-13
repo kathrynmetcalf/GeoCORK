@@ -239,9 +239,8 @@ class Filters(QWidget):
         self.horizontalLayout_2.addWidget(self.querybuilder)
 
 class InsertFilterGroupDialog(QDialog):
-    def __init__(self, sql_structure, db_file, parent=None):
+    def __init__(self, sql_structure, parent=None):
         super().__init__(parent)
-        self.db_file = db_file
         self.sql_structure = sql_structure
 
         self.setWindowTitle("Insert New Filter Group")
@@ -294,13 +293,6 @@ class InsertFilterGroupDialog(QDialog):
         color = getattr(self, 'color', '#FFFFFF')
         description = self.description_input.toPlainText()
 
-        # db = QSqlDatabase.database()
-        # if not db.isOpen():
-        #     self.warning_label.show()
-        #     self.warning_label.setText('<font color="red">Database is not open</font>')
-        #     self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        #     return
-
         query = QSqlQuery()
 
         check_query = "SELECT FilterGroupName FROM FilterGroups WHERE FilterGroupName = :name"
@@ -330,12 +322,11 @@ class InsertFilterGroupDialog(QDialog):
             query.bindValue(":description", description)
 
             if not query.exec():
-                self.warning_label.show()
-                self.warning_label.setText('<font color="red">Failed to insert data</font>')
-                self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                logger_setup.get_logger().critical(
+                    f'Error could not add filter: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {check_query}')
             else:
                 self.accept()
-        # db.commit()
 
 
 class FocusWheelComboBox(QComboBox):
@@ -761,10 +752,13 @@ class QueryBuilder(QWidget):
                 """
             query.prepare(sql_query)
             query.bindValue(":filter_name", item.text())
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec():
-                print("Failed to execute query:", query.lastError().text())
+                logger_setup.get_logger().critical(
+                    f'Could not delete filter: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             else:
-                print(f"Filter group '{item.text()}' successfully deleted.")
+                logger_setup.get_logger().info(f'Filter {item.text()} deleted')
 
     def populate_filters(self, filter_name):
         query = QSqlQuery()
@@ -775,11 +769,10 @@ class QueryBuilder(QWidget):
             """
         query.prepare(sql_query)
         query.bindValue(":filter_name", filter_name.text())
-
+        logger_setup.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name.text()}')
         if query.exec():
             if query.next():
                 sql_query_result = query.value(0)
-                filter_group_name = query.value(1)
 
                 # Rebuild UI
                 self.main_group_box.deleteLater()
@@ -789,14 +782,18 @@ class QueryBuilder(QWidget):
                 self.scrollarea.setWidget(self.main_group_box)
                 self.show()
             else:
-                print("No matching filter group found.")
+                logger_setup.get_logger().critical(
+                    f'No matching filter group for: {filter_name.text()}')
         else:
-            print("Failed to execute query:", query.lastError().text())
+            logger_setup.get_logger().critical(
+                f'Error in populating existing Filters: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
 
     def view_analysis(self):
         filtered_ids = self.get_filtered_ids('UPbAnalyses')
         if filtered_ids is None:
-            self.display_no_ids_error('upb data')
+            logger_setup.get_logger().critical(
+                f'No matching UPb Analyses for given filter(s)')
             return
         dataviewer = DataViewerWidget(filtered_ids, 'UPbAnalyses')
         dataviewer.setWindowTitle("Filtered Analysis View")
@@ -808,7 +805,8 @@ class QueryBuilder(QWidget):
     def view_spots(self):
         filtered_ids = self.get_filtered_ids('Spots')
         if filtered_ids is None:
-            self.display_no_ids_error('Spots')
+            logger_setup.get_logger().critical(
+                f'No matching Spots for given filter(s)')
             return
         dataviewer = DataViewerWidget(filtered_ids, 'Spots')
         dataviewer.setWindowTitle("Filtered Spot View")
@@ -820,7 +818,8 @@ class QueryBuilder(QWidget):
     def view_aliquots(self):
         filtered_ids = self.get_filtered_ids('Aliquots')
         if filtered_ids is None:
-            self.display_no_ids_error('Aliquots')
+            logger_setup.get_logger().critical(
+                f'No matching Aliquots for given filter(s)')
             return
         dataviewer = DataViewerWidget(filtered_ids, 'Aliquots')
         dataviewer.setWindowTitle("Filtered Aliquot View")
@@ -832,7 +831,8 @@ class QueryBuilder(QWidget):
     def view_samples(self):
         filtered_ids = self.get_filtered_ids('Samples')
         if filtered_ids is None:
-            self.display_no_ids_error('Samples')
+            logger_setup.get_logger().critical(
+                f'No matching Samples for given filter(s)')
             return
         dataviewer = DataViewerWidget(filtered_ids, 'Samples')
         dataviewer.setWindowTitle("Filtered Sample View")
@@ -844,14 +844,18 @@ class QueryBuilder(QWidget):
     def get_filtered_ids(self, type):
         sql_query = self.get_sql(type)
         query = QSqlQuery()
+        logger_setup.get_logger().info('Gathering filtered ids')
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
-            print("Failed to execute query:", query.lastError().text())
+            logger_setup.get_logger().critical(f'Failed to get filtered ids: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             return None
 
         results = []
         while query.next():
             results.append(tuple(query.value(i) for i in range(query.record().count())))
-
+        logger_setup.get_logger().debug(f'Filtered ids: {results}')
+        logger_setup.get_logger().info('Gathered filtered ids successfully')
         return results if results else None
 
     def get_sql(self, type=None):
@@ -859,8 +863,9 @@ class QueryBuilder(QWidget):
         where_clause = process_group(structure)
         join = ""
         join += SQLUtils.get_join_from_table(self.main_group_box.get_tables())
-        print('join is, ', join)
-
+        logger_setup.get_logger().debug(f'Filtered SQL structure: {structure}')
+        logger_setup.get_logger().debug(f'Filtered SQL where_clause: {where_clause}')
+        logger_setup.get_logger().debug(f'Filtered SQL join: {join}')
 
         if type == 'Samples':
             sql_query = (
@@ -897,14 +902,12 @@ class QueryBuilder(QWidget):
                 f"WHERE UPbAnalysisID IS NOT NULL;"
             )
         else:
-            print("Unknown Type Given")
+            logger_setup.get_logger().critical(f'Unknown Type Given: {type}')
             return None
 
-        print(sql_query)
+        logger_setup.get_logger().debug(f'Filtered SQL command: {sql_query}')
         return sql_query
 
-    def display_no_ids_error(self, type):
-        QMessageBox.critical(self, "No IDs Found", f"No {type} IDs were found matching the criteria.")
 
     def update_filter_list(self):
         self.listWidget.clear()

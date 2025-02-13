@@ -66,6 +66,7 @@ def setup_async_logger():
         return
 
     # 1) Load the preferred log level from QSettings (default=INFO)
+    settings.setValue("debug_level", "DEBUG")
     saved_level_str = settings.value("debug_level", "DEBUG")
     numeric_level = getattr(logging, saved_level_str.upper(), logging.DEBUG)
 
