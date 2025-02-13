@@ -63,11 +63,11 @@ class DataViewerWidget(QWidget):
 
         # Pagination variables
         self.current_page_1 = 0
-        self.rows_per_page_1 = 255
+        self.rows_per_page_1 = 2000
         self.total_records_1 = self.get_total_records_1()
 
         self.current_page_2 = 0
-        self.rows_per_page_2 = 255
+        self.rows_per_page_2 = 2000
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
 
         # display sample table information first time
