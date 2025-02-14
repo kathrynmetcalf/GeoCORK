@@ -18,7 +18,7 @@ from Functions.Widget_classes import (
     CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
     CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_samples,
-    find_tree_model, CheckableComboBox, get_selected_tree_ids
+    find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -42,6 +42,7 @@ class SampleInformation(QtW.QDialog):
         self.parent_window = parent_window
         self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit Sample Information")
+        self.setModal(True)
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
@@ -222,25 +223,25 @@ class SampleInformation(QtW.QDialog):
         self.height_depth_error_lineEdit.editingFinished.connect(
             lambda: self.update_field('HeightDepthError', self.height_depth_error_lineEdit.text()))
         self.height_depth_unit_comboBox.currentTextChanged.connect(lambda: self.update_id('HeightDepthUnitID', 'DistanceUnitAbbreviation', self.height_depth_unit_comboBox.currentText(), 'DistanceUnits'))
-        self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_tree))
+        self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_comboBox))
         self.sample_context_comboBox.add_triggered.connect(self.add_popup)
         self.sample_context_comboBox.edit_triggered.connect(self.edit_popup)
-        self.sampling_method_comboBox.closing.connect(lambda: self.update_sample_tags(self.sampling_method_tree))
+        self.sampling_method_comboBox.closing.connect(lambda: self.update_sample_tags(self.sampling_method_comboBox))
         self.sampling_method_comboBox.add_triggered.connect(self.add_popup)
         self.sampling_method_comboBox.edit_triggered.connect(self.edit_popup)
-        self.unit_comboBox.closing.connect(lambda: self.update_sample_tags(self.unit_tree))
+        self.unit_comboBox.closing.connect(lambda: self.update_sample_tags(self.unit_comboBox))
         self.unit_comboBox.add_triggered.connect(self.add_popup)
         self.unit_comboBox.edit_triggered.connect(self.edit_popup)
-        self.rock_type_comboBox.closing.connect(lambda: self.update_sample_tags(self.rock_type_tree))
+        self.rock_type_comboBox.closing.connect(lambda: self.update_sample_tags(self.rock_type_comboBox))
         self.rock_type_comboBox.add_triggered.connect(self.add_popup)
         self.rock_type_comboBox.edit_triggered.connect(self.edit_popup)
-        self.region_comboBox.closing.connect(lambda: self.update_sample_tags(self.region_tree))
+        self.region_comboBox.closing.connect(lambda: self.update_sample_tags(self.region_comboBox))
         self.region_comboBox.add_triggered.connect(self.add_popup)
         self.region_comboBox.edit_triggered.connect(self.edit_popup)
-        self.setting_comboBox.closing.connect(lambda: self.update_sample_tags(self.setting_tree))
+        self.setting_comboBox.closing.connect(lambda: self.update_sample_tags(self.setting_comboBox))
         self.setting_comboBox.add_triggered.connect(self.add_popup)
         self.setting_comboBox.edit_triggered.connect(self.edit_popup)
-        self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_tree))
+        self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_comboBox))
         self.age_signature_comboBox.add_triggered.connect(self.add_popup)
         self.age_signature_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'"{self.sample_description_lineEdit.text()}"'))
@@ -273,8 +274,7 @@ class SampleInformation(QtW.QDialog):
     def populate_fields(self):
         logger_setup.get_logger().info("Populating fields")
         start_populate_fields_time = time.time()
-        info_model = SQLiteTableModel('PRAGMA table_info(SampleEditView)')
-        column_names = info_model.column_as_list('name')
+        headers = get_headers('SampleEditView')
         if len(self.checked_sample_list) > 1:
             self.samples_table = SQLiteTableModel(
                 f'SELECT * FROM SampleEditView WHERE SampleID in {tuple(self.checked_sample_list)}')
@@ -286,7 +286,7 @@ class SampleInformation(QtW.QDialog):
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             return
-        for header in column_names:
+        for header in headers:
             values = self.samples_table.column_as_list(header)
             if len(set(values)) == 1 and not values[0]:
                 # If all values are the same and empty, add an empty string
@@ -365,17 +365,20 @@ class SampleInformation(QtW.QDialog):
         all_items = []
         some_items = []
         text = ""
+        if tree_combo:
+            model = find_tree_model(tree_combo.model())
+            col = name_column(table_model.tableName())
+            model.blockSignals(True)
+        else:
+            model = table_model
+            col = name_column(table_model.tableName())
         if len(self.checked_sample_list) == 0:
             logger_setup.get_logger().info("No samples selected, so unchecking everything")
             for row in range(table_model.rowCount()):
                 if tree_combo:
-                    model = find_tree_model(tree_combo.model())
-                    col = name_column(table_model.tableName())
                     model_index = model.mapFromSource(table_model.index(row, col))
-                    tree_combo.treeView.disconnect_edited_signal()
+                    # tree_combo.treeView.disconnect_edited_signal()
                 else:
-                    model = table_model
-                    col = name_column(table_model.tableName())
                     model_index = table_model.index(row, col)
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
                 if tree_combo:
@@ -386,7 +389,7 @@ class SampleInformation(QtW.QDialog):
                     logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
             logger_setup.get_logger().info("Unchecked everything")
             if tree_combo:
-                tree_combo.treeView.connect_edited_signal()
+                model.blockSignals(False)
             return text
         for row in range(table_model.rowCount()):
             tag_id = table_model.index(row, 0).data()
@@ -395,33 +398,39 @@ class SampleInformation(QtW.QDialog):
             else:
                 many_to_many_model.setFilter(f"SampleID = {self.checked_sample_list[0]} AND {tag_id_header} = {tag_id}")
             if tree_combo is not None:
-                model = find_tree_model(tree_combo.model())
-                col = name_column(table_model.tableName())
                 model_index = model.mapFromSource(table_model.index(row, col))
-                tree_combo.treeView.disconnect_edited_signal()
-                error_text = model.source_model.lastError().text()
+                # tree_combo.treeView.disconnect_edited_signal()
             else:
-                model = table_model
-                col = name_column(table_model.tableName())
                 model_index = table_model.index(row, col)
-                error_text = model.lastError().text()
             if many_to_many_model.rowCount() == len(self.selected_sample_list):
                 # All samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if error_text:
-                    logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {error_text}")
+                if tree_combo:
+                    err = model.source_model.lastError().text()
+                else:
+                    err = model.lastError().text()
+                if err:
+                    logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {err}")
                 all_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             elif many_to_many_model.rowCount() > 0:
                 # Some samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if error_text:
-                    logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {error_text}")
+                if tree_combo:
+                    err = model.source_model.lastError().text()
+                else:
+                    err = model.lastError().text()
+                if err:
+                    logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {err}")
                 some_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 # No samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if error_text:
-                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {error_text}")
+                if tree_combo:
+                    err = model.source_model.lastError().text()
+                else:
+                    err = model.lastError().text()
+                if err:
+                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {err}")
         if not all_items and not some_items:
             # No samples have these tags
             text = ""
@@ -434,6 +443,7 @@ class SampleInformation(QtW.QDialog):
         if tree_combo:
             if not text:
                 text = tree_combo.placeholderText()
+            model.blockSignals(False)
             tree_combo.treeView.connect_edited_signal()
         end_populate_checks_time = time.time()
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table} in {end_populate_checks_time - start_populate_checks_time} seconds")
@@ -533,13 +543,21 @@ class SampleInformation(QtW.QDialog):
         else:
             logger_setup.get_logger().info("No samples selected")
 
-    def update_sample_tags(self, model: CheckableTreeModel):
-        logger_setup.get_logger().info(f"update_tags called with {model.table}")
-        table = model.table
-        combo = self.sender()
+    def update_sample_tags(self, combo: CheckableTreeCombobox):
+        logger_setup.get_logger().info(f"update_age_tags called with {combo.objectName()}")
+        if not isinstance(combo, CheckableTreeCombobox):
+            logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox")
+            return False
+        model = find_tree_model(combo.model())
+        if model:
+            table = model.table
+            id_header = get_headers(table)[0]
+        else:
+            logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}")
+            return False
         if not combo.treeView.model_edited:
             logger_setup.get_logger().info(f"No changes to {table}")
-            return
+            return True
         start_update_sample_tags = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         set_table(many_to_many_model, f"Samples_{table}")
@@ -558,6 +576,7 @@ class SampleInformation(QtW.QDialog):
                     rollback_savepoint('before_update')
                     return
             self.updated = True
+            combo.treeView.toggle_edited(False)
             end_update_sample_tags_time = time.time()
             logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
             logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
@@ -571,32 +590,20 @@ class SampleInformation(QtW.QDialog):
         dlg_args = None
         dlg = None
         if table in SQLUtils.user_viewable_trees:
-            indexes = combo.view().selectedIndexes()
-            item_ids, parent_ids, parent_rows = get_selected_tree_ids(combo.model(), indexes)
-            if action:
-                if action.text() == 'Insert above':
-                    row = parent_rows[0]
-                    parent_id = parent_ids[0]
-                    dlg_args = (table, parent_id, row)
-                elif action.text() == 'Insert below':
-                    row = parent_rows[0] + 1
-                    parent_id = parent_ids[0]
-                    dlg_args = (None, parent_id, row)
-                elif action.text() == 'Add child':
-                    parent_id = item_ids[0]
-                    dlg_args = (None, parent_id)
-                elif action.text() == 'Add parent':
-                    dlg_args = (item_ids, parent_ids, parent_rows)
-                elif action.text() == 'Add to end' or action.text() == 'Add':
-                    dlg_args = (None, None)
+            save_expanded_state(table, combo.model(), combo.view())
+            dlg_args = add_tree_popup(combo.view(), combo.model(), action)
             if dlg_args:
-                dlg = AddTreeTags(table, *dlg_args)
+                dlg = AddTreeTags(table, **dlg_args)
         else:
             dlg = AddTags(table)
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
-        dlg.exec()
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
+            # Update the view for this combo box
+            combo.model().setSourceModel(combo.model().sourceModel())
+            combo.setModel(combo.model())
         self.update_fields()
 
     def edit_popup(self):

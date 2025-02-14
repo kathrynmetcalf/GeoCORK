@@ -6,10 +6,12 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
+import logger_setup
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Database_manager import update_database
 from Functions.Widget_classes import (
-    set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state, restore_expanded_state
+    set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
+    restore_expanded_state, add_tree_popup
 )
 import Functions.Text_manipulations as TxM
 from ui.AddTreeTags import AddTreeTags
@@ -23,12 +25,15 @@ class EditTree(QtW.QDialog):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTree.ui")
         loadUi(sources_ui_file, self)
+        self.setModal(True)
+        self.updated = False
 
         self.model = QtS.QSqlTableModel()
         set_table(self.model, table_name)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TreeModel(self.model)
         self.table = TxM.remove_spaces(table_name)
+        self.setWindowTitle(f'Edit {TxM.add_spaces_camel(self.table)}')
         self.tree_proxy_model = QtC.QSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
@@ -42,6 +47,7 @@ class EditTree(QtW.QDialog):
 
         self.close_by_dialog = False
         self.search_lineEdit.textChanged.connect(self.search)
+        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView))
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
@@ -70,38 +76,35 @@ class EditTree(QtW.QDialog):
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
 
     def show_context_menu(self, pos):
-        indexes = self.edit_treeView.selectedIndexes()
-        if not indexes:
-            return
-        item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.tree_proxy_model, indexes)
-        menu = TreeContextMenu()
-        menu.set_view(self.edit_treeView)
-        action = menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
-        if action and action.text() == 'Insert above':
-            row = parent_rows[0]
-            parent_id = parent_ids[0]
-            self.add_popup(None, parent_id, row)
-        elif action and action.text() == 'Insert below':
-            row = parent_rows[0]+1
-            parent_id = parent_ids[0]
-            self.add_popup(None, parent_id, row)
-        elif action and action.text() == 'Add child':
-            parent_id = item_ids[0]
-            self.add_popup(None, parent_id)
-        elif action and action.text() == 'Add parent':
-            self.add_parent(item_ids, parent_ids, parent_rows)
-        elif action and action.text() == 'Delete':
-            if self.delete_question() is True:
-                n_item = 0
-                for item_id in item_ids:
-                    parent_id = parent_ids[n_item]
-                    parent_row = parent_rows[n_item]
-                    self.tree_model.removeItem(item_id, parent_row, parent_id)
-                    n_item += 1
-        elif action and ('Expand' in action.text() or 'Collapse' in action.text()):
+        """
+        Show a context menu when right-clicking on a table or tree view
+        :param pos: The position of the mouse click
+        :return:
+        """
+        self.edit_treeView: QtW.QTreeView
+        tree_menu = TreeContextMenu()
+        if self.table == 'Ages':
+            tree_menu.set_view(self.edit_treeView, False, False, False)
+        else:
+            tree_menu.set_view(self.edit_treeView, False, True, False)
+        action = tree_menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
+        if action:
+            self.tree_context_menu(action)
+
+    def tree_context_menu(self, action: QtG.QAction):
+        """
+        Context menu for tree views
+        :param action: The action selected from the context menu
+        :return:
+        """
+        if 'Add' in action.text() or 'Insert' in action.text():
+            self.add_popup(action)
+        elif 'Expand' in action.text() or 'Collapse' in action.text():
             expand_collapse(self.edit_treeView, action)
 
     def update_proxy(self):
+        if self.sender() == self.tree_model:
+            self.updated = True
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.model)
@@ -109,15 +112,17 @@ class EditTree(QtW.QDialog):
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.display_tree()
 
-    def add_popup(self, item_ID = None, parent_id = None, parent_row = None, add_item: str = 'child', *argv):
+    def add_popup(self, action: QtG.QAction | None = None):
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
-        if add_item == 'parent':
-            new_child_ids = argv[0]
-            new_parent_rows = argv[1]
-            dlg = AddTreeTags(self.table, add_item, item_ID, parent_id, parent_row, new_child_ids, new_parent_rows)
+        dlg_args = add_tree_popup(self.edit_treeView, self.tree_model, action)
+        if dlg_args:
+            dlg = AddTreeTags(self.table, **dlg_args)
         else:
-            dlg = AddTreeTags(self.table, add_item, item_ID, parent_id, parent_row)
-        dlg.exec()
+            dlg = AddTreeTags(self.table)
+        if not dlg:
+            return
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
         self.update_proxy()
 
     def add_parent(self, item_ids: list, parent_ids: list, parent_rows: list):
@@ -166,6 +171,7 @@ class EditTree(QtW.QDialog):
     def rollback(self):
         rollback_savepoint('before_edit')
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        self.reject()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
@@ -173,21 +179,23 @@ class EditTree(QtW.QDialog):
     def commit(self):
         release_savepoint('before_edit')
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
-        update_database()
+        # Check if there is another existing savepoint. If not, go ahead and update the database
+        if not SavepointManager.get_instance().active_savepoints():
+            update_database()
+        self.accept()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
 
     def closeEvent(self, event: QtG.QCloseEvent):
         if not self.close_by_dialog:
-            self.discard_question()
-            event.ignore()
+            if self.updated:
+                self.discard_question()
+                event.ignore()
+            else:
+                logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+                event.accept()
         else:
+            logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
             event.accept()
 
-if __name__ == '__main__':
-    # only run these commands if this script is run
-    # Can't be run when used as a library for another script
-    app = QtW.QDialog(sys.argv)  # pass command line arguments
-    w = EditTree()
-    sys.exit(app.exec())  # runs event loop, pass exit status to the system

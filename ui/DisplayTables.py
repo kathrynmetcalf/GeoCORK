@@ -13,7 +13,7 @@ from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
-    ReadableProxyModel
+    ReadableProxyModel, add_tree_popup
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -359,26 +359,9 @@ class DisplayTables(QtW.QWidget):
         dlg_args = None
         if self.table in self.dbtree_list:
             save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
-            indexes = self.dbTable_treeView.selectedIndexes()
-            item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.tree_proxy_model, indexes)
-            if action:
-                if action.text() == 'Insert above':
-                    row = parent_rows[0]
-                    parent_id = parent_ids[0]
-                    dlg_args = (self.table, parent_id, row)
-                elif action.text() == 'Insert below':
-                    row = parent_rows[0] + 1
-                    parent_id = parent_ids[0]
-                    dlg_args = (None, parent_id, row)
-                elif action.text() == 'Add child':
-                    parent_id = item_ids[0]
-                    dlg_args = (None, parent_id)
-                elif action.text() == 'Add parent':
-                    dlg_args = (item_ids, parent_ids, parent_rows)
-                elif action.text() == 'Add to end':
-                    dlg_args = (None, None)
+            add_tree_popup(self.dbTable_treeView, self.tree_model, action)
             if dlg_args:
-                dlg = AddTreeTags(self.table, *dlg_args)
+                dlg = AddTreeTags(self.table, **dlg_args)
         else:
             dlg = AddTags(self.table)
         if not dlg:

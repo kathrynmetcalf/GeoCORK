@@ -356,12 +356,12 @@ class AgeFields(QtW.QWidget):
 
         # Age tags
         text = self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_model,
-                                    self.age_constraint_comboBox)
+                                    self.age_constraint_comboBox, sample_age_id)
         self.age_constraint_comboBox.setCurrentText(text)
         text = self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_model,
-                                    self.age_interpretation_comboBox)
+                                    self.age_interpretation_comboBox, sample_age_id)
         self.age_interpretation_comboBox.setCurrentText(text)
-        text = self.populate_checks('SampleAges_References', self.age_reference_model)
+        text = self.populate_checks('SampleAges_References', self.age_reference_model, None, sample_age_id)
         self.age_reference_comboBox.setCurrentText(text)
 
         end_populate_fields_time = time.time()
@@ -377,48 +377,59 @@ class AgeFields(QtW.QWidget):
         tag_id_header = table_model.record().fieldName(0)
         items = []
         text = ""
+        if tree_combo:
+            model = find_tree_model(tree_combo.model())
+            col = name_column(table_model.tableName())
+            model.blockSignals(True)
+        else:
+            model = table_model
+            col = name_column(table_model.tableName())
         if not sample_age_id:
             logger_setup.get_logger().info("No items selected, so uncheck everything")
             for row in range(table_model.rowCount()):
                 if tree_combo:
-                    model = find_tree_model(tree_combo.model())
-                    col = name_column(table_model.tableName())
                     model_index = model.mapFromSource(table_model.index(row, col))
-                    tree_combo.treeView.disconnect_edited_signal()
+                    # tree_combo.treeView.disconnect_edited_signal()
                 else:
-                    model = table_model
-                    col = name_column(table_model.tableName())
                     model_index = table_model.index(row, col)
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if tree_combo:
+                    err = model.source_model.lastError().text()
+                else:
+                    err = model.lastError().text()
+                if err:
+                    logger_setup.get_logger().critical(f"Error unchecking {model.tableName()}: {err}")
+                    return text
             logger_setup.get_logger().info("Unchecked everything")
             if tree_combo:
-                tree_combo.treeView.connect_edited_signal()
+                model.blockSignals(False)
             return text
         for row in range(table_model.rowCount()):
             tag_id = table_model.index(row, 0).data()
             many_to_many_model.setFilter(f"SampleAgeID = {sample_age_id} AND {tag_id_header} = {tag_id}")
             if tree_combo is not None:
-                model = find_tree_model(tree_combo.model())
-                col = name_column(table_model.tableName())
                 model_index = model.mapFromSource(table_model.index(row, col))
-                tree_combo.treeView.disconnect_edited_signal()
-                error_text = model.source_model.lastError().text()
             else:
-                model = table_model
-                col = name_column(table_model.tableName())
                 model_index = table_model.index(row, col)
-                error_text = model.lastError().text()
             if many_to_many_model.rowCount() > 0:
                 # Selected sample age has this tag
                 model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if error_text:
-                    logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {error_text}")
+                if tree_combo:
+                    err = model.source_model.lastError().text()
+                else:
+                    err = model.lastError().text()
+                if err:
+                    logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {err}")
                 items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 # No samples have this tag
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                if error_text:
-                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {error_text}")
+                if tree_combo:
+                    err = model.source_model.lastError().text()
+                else:
+                    err = model.lastError().text()
+                if err:
+                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {err}")
         if not items:
             # Sample age does not have these tags
             text = ""
@@ -428,6 +439,7 @@ class AgeFields(QtW.QWidget):
         if tree_combo:
             if not text:
                 text = tree_combo.placeholderText()
+            model.blockSignals(False)
             tree_combo.treeView.connect_edited_signal()
         end_populate_checks_time = time.time()
         logger_setup.get_logger().info(
@@ -538,11 +550,11 @@ class AgeFields(QtW.QWidget):
                     return
                 update_modified_timestamp('SampleAges', [sample_age_id])
                 logger_setup.get_logger().info(f"Updated age information for SampleAgeID {sample_age_id}")
-            if not self.update_age_tags(sample_age_id, self.age_constraint_tree):
+            if not self.update_age_tags(sample_age_id, self.age_constraint_comboBox):
                 return
-            if not self.update_age_tags(sample_age_id, self.age_interpretation_tree):
+            if not self.update_age_tags(sample_age_id, self.age_interpretation_comboBox):
                 return
-            if not self.update_age_tags(sample_age_id, self.age_reference_model):
+            if not self.update_age_tags(sample_age_id, self.age_reference_comboBox):
                 return
             for sample_id in self.item_ids:
                 samples_sampleages_model = QtS.QSqlTableModel()
@@ -581,18 +593,26 @@ class AgeFields(QtW.QWidget):
             release_savepoint('before_update')
             self.populate_age_dropdown()
 
-    def update_age_tags(self, sample_age_id: int, model: CheckableTreeModel | CheckableSqlQueryModel):
-        logger_setup.get_logger().info(f"update_age_tags called with {model.table}")
-        if not isinstance(model, CheckableTreeModel) and not isinstance(model, CheckableSqlQueryModel):
-            logger_setup.get_logger().critical(f"Model is not CheckableTreeModel or CheckableSqlQueryModel")
+    def update_age_tags(self, sample_age_id: int, combo: CheckableTreeCombobox | CheckableComboBox):
+        logger_setup.get_logger().info(f"update_age_tags called with {combo.objectName()}")
+        if not isinstance(combo, CheckableTreeCombobox) and not isinstance(combo, CheckableComboBox):
+            logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox or CheckableComboBox")
             return False
-        table = model.table
-        id_header = get_headers(table)[0]
-        combo = self.sender()
         if isinstance(combo, CheckableTreeCombobox):
+            model = find_tree_model(combo.model())
+            if model:
+                table = model.table
+                id_header = get_headers(table)[0]
+            else:
+                logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}")
+                return False
             if not combo.treeView.model_edited:
                 logger_setup.get_logger().info(f"No changes to {table}")
                 return True
+        elif isinstance(combo, CheckableComboBox):
+            model = combo.model()
+            table = model.table
+            id_header = get_headers(table)[0]
         start_update_age_tags = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         set_table(many_to_many_model, f"SampleAges_{table}")
@@ -617,6 +637,20 @@ class AgeFields(QtW.QWidget):
                 logger_setup.get_logger().info(f"Deleted {table} for SampleAgeID {sample_age_id}")
             else:
                 many_to_many_model.setFilter(f"SampleAgeID = {sample_age_id}")
+                if many_to_many_model.rowCount() == 0:
+                    for age_id in checked_ids:
+                        # If the age is checked, insert it if it doesn't exist
+                        if not query.exec(
+                                f'''INSERT INTO SampleAges_{table} (SampleAgeID, {id_header}) VALUES ({sample_age_id}, {age_id})'''):
+                            if 'UNIQUE constraint failed' in query.lastError().text():
+                                logger_setup.get_logger().info(
+                                    f"{id_header} {age_id} already associated with SampleAgeID {sample_age_id}")
+                            else:
+                                logger_setup.get_logger().critical(
+                                    f'Unable to insert checked {id_header} {age_id}: {query.lastError().text()}')
+                                rollback_savepoint('before_update')
+                                return False
+                        logger_setup.get_logger().info(f"Inserted {id_header} {age_id} for SampleAgeID {sample_age_id}")
                 for row in range(many_to_many_model.rowCount()):
                     age_id = many_to_many_model.data(many_to_many_model.index(row, 1), QtC.Qt.ItemDataRole.DisplayRole)
                     if age_id in checked_ids:
@@ -628,12 +662,14 @@ class AgeFields(QtW.QWidget):
                                 logger_setup.get_logger().critical(f'Unable to insert checked {id_header} {age_id}: {query.lastError().text()}')
                                 rollback_savepoint('before_update')
                                 return False
+                        logger_setup.get_logger().info(f"Inserted {id_header} {age_id} for SampleAgeID {sample_age_id}")
                     elif age_id not in partially_checked_ids:
                         # If the age is unchecked, delete it if it exists
                         if not query.exec(f'''DELETE FROM SampleAges_{table} WHERE SampleAgeID = {sample_age_id} AND {id_header} = {age_id}'''):
                             logger_setup.get_logger().critical(f'Unable to delete unchecked {id_header} {age_id}: {query.lastError().text()}')
                             rollback_savepoint('before_update')
                             return False
+                        logger_setup.get_logger().info(f"Deleted {id_header} {age_id} for SampleAgeID {sample_age_id}")
         end_update_age_tags = time.time()
         logger_setup.get_logger().info(f"Updated {table} in {end_update_age_tags - start_update_age_tags} seconds")
         return True

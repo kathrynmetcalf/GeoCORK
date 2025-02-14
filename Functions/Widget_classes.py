@@ -720,6 +720,13 @@ def name_column(table: str) -> int | None:
     else:
         return None
 
+def description_column(table: str) -> int | None:
+    headers = get_headers(table)
+    for header in headers:
+        if 'Description' in header:
+            return headers.index(header)
+    return None
+
 def get_table_from_view(view: str):
     if 'Sample' in view:
         return 'Samples'
@@ -1144,6 +1151,7 @@ class TreeItem:
 
 class TreeModel(QtC.QAbstractProxyModel):
     dataEdited = QtC.pyqtSignal()
+    save_state = QtC.pyqtSignal()
 
     def __init__(self, source_model=QSqlTableModel(), parent=None):
         # todo: change sqltablemodel to sqlquerymodel and table name passed in as a parameter
@@ -1172,6 +1180,7 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
         logger_setup.get_logger().info(f'Setting source model for tree model...')
+        print('rebuild the tree')
         self.table = source_model.tableName()
         if isinstance(source_model, QSqlTableModel):
             self.base_filter = f"{source_model.filter()}"
@@ -1533,6 +1542,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         query.bindValue(':item_name', item_name)
         query.bindValue(':item_description', item_description)
         create_savepoint('before_insert')
+        self.save_state.emit()
         if not query.exec():
             logger_setup.get_logger().error(f'Error inserting new item {item_name}: {query.lastError().text()}')
             rollback_savepoint('before_insert')
@@ -1580,6 +1590,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         query = QtS.QSqlQuery()
         query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} IN {del_string}')
         create_savepoint('before_delete')
+        self.save_state.emit()
         if not query.exec():  # if item and children not deleted, rollback
             logger_setup.get_logger().error(f'Error deleting {del_ids} from {self.table}: {query.lastError().text()}')
             rollback_savepoint('before_delete')
@@ -1739,6 +1750,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         else:  # If the parent ID is not an integer
             pID = 'IS NULL'
         create_savepoint('drop_mime_data')
+        self.save_state.emit()
         while not stream.atEnd():
             itemIDs.append(stream.readInt32())
             if row == -1:
@@ -1852,7 +1864,7 @@ class CheckableTreeModel(TreeModel):
                     self.base_query_sql = f"{self.base_query} WHERE "
             else:
                 self.base_query_sql = self.base_query
-        self.source_model = QtS.QSqlQueryModel()
+        self.source_model = VerifiableSqlViewModel()
         self.source_model.setQuery(self.base_query)
         self.sourceHeaders = []
         self.proxyHeaders = []
@@ -1907,9 +1919,11 @@ class CheckableTreeModel(TreeModel):
             return False
         if index.column() == 0 and role == QtC.Qt.ItemDataRole.CheckStateRole:
             tree_item = self.getItem(index)
-            tree_item.setCheckState(value)
-            self.dataChanged.emit(index, index, [role])
-            return True
+            if tree_item.getCheckState() != value:
+                tree_item.setCheckState(value)
+                # print(f"Setting check state for {tree_item.data(0)} to {value}")
+                self.dataChanged.emit(index, index, [role])
+                return True
         return super().setData(index, value, role)
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
@@ -1925,54 +1939,40 @@ class CheckableTreeModel(TreeModel):
         checked_indices = []
         partially_checked_indices = []
         for row in range(self.rowCount(parent)):
-            index = self.index(row, 0, parent)
-            if self.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                checked_items.append(self.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                checked_indices.append(index)
-            elif self.data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.PartiallyChecked:
-                partially_checked_items.append(self.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                partially_checked_indices.append(index)
-            child_checked_item, child_partially_checked_items, child_checked_indices, child_partially_checked_indices = self.traverse_checkable_tree(index)
+            name_index = self.index(row, 0, parent)
+            id_index = self.index(row, 1, parent)
+            if self.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                checked_items.append(self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
+                checked_indices.append(name_index)
+            elif self.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.PartiallyChecked:
+                partially_checked_items.append(self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
+                partially_checked_indices.append(name_index)
+            child_checked_item, child_partially_checked_items, child_checked_indices, child_partially_checked_indices = self.traverse_checkable_tree(name_index)
             checked_items.extend(child_checked_item)
             partially_checked_items.extend(child_partially_checked_items)
             checked_indices.extend(child_checked_indices)
             partially_checked_indices.extend(child_partially_checked_indices)
         return checked_items, partially_checked_items, checked_indices, partially_checked_indices
 
-    def update_db(self, checked_list: list, partially_checked_list=None, sample_ID=None):
+    def update_db(self, checked_IDs: list, partially_checked_IDs=None, sample_ID=None):
         if not sample_ID:
             sample_ID = self.sample_ID
-        if not partially_checked_list:
-            partially_checked_list = []
+        if not partially_checked_IDs:
+            partially_checked_IDs = []
         current_IDs = []
         query = QtS.QSqlQuery()
         query.prepare(f"SELECT * FROM Samples_{self.table} WHERE SampleID = {sample_ID}")
         if query.exec():
             while query.next():
                 current_IDs.append(query.value(1))
-            checked_IDs = []
-            if len(checked_list) > 1:
-                checked = tuple(checked_list)
-            elif len(checked_list) == 0:
-                checked = "()"
-            else:
-                checked = f"('{checked_list[0]}')"
-            query.prepare(f"SELECT * FROM {self.table} WHERE {self.item_name_header} in {checked}")
-            if query.exec():
-                while query.next():
-                    checked_IDs.append(query.value(0))
-            else:
-                logger_setup.get_logger().error(
-                    f"Error selecting {checked} from {self.table}: {query.lastError().text()}")
-                return
             create_savepoint('update_db')
             to_remove = []
             to_add = []
             for ID in current_IDs:
-                if ID not in checked_IDs and ID not in partially_checked_list:
+                if ID not in checked_IDs and ID not in partially_checked_IDs:
                     to_remove.append(ID)
             for ID in checked_IDs:
-                if ID not in current_IDs and ID not in partially_checked_list:
+                if ID not in current_IDs and ID not in partially_checked_IDs:
                     to_add.append(ID)
             for ID in to_remove:
                 query.prepare(
@@ -1982,8 +1982,7 @@ class CheckableTreeModel(TreeModel):
                         f"Error removing {sample_ID, ID} {ID} from Samples_{self.table}: {query.lastError().text()}")
                     rollback_savepoint('update_db')
                     return
-                else:
-                    logger_setup.get_logger().info(f"Removed {sample_ID, ID} from Samples_{self.table}")
+                logger_setup.get_logger().info(f"Removed {sample_ID, ID} from Samples_{self.table}")
             for ID in to_add:
                 query.prepare(f"INSERT INTO Samples_{self.table}(SampleID, {self.id_header}) VALUES({sample_ID}, {ID})")
                 if not query.exec():
@@ -1991,8 +1990,7 @@ class CheckableTreeModel(TreeModel):
                         f"Error adding {sample_ID, ID} to Samples_{self.table}: {query.lastError().text()}")
                     rollback_savepoint('update_db')
                     return
-                else:
-                    logger_setup.get_logger().info(f"Added {sample_ID, ID} to Samples_{self.table}")
+                logger_setup.get_logger().info(f"Added {sample_ID, ID} to Samples_{self.table}")
             logger_setup.get_logger().info(f"Successfully updated Samples_{self.table} for sample {sample_ID}")
             release_savepoint('update_db')
         else:
@@ -2549,7 +2547,7 @@ class CheckableComboBox(QtW.QComboBox):
                         self.view().setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
                     self.model().setData(self.view().currentIndex(), QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    self.set_line_edit_text(self.view().currentIndex().data())
+                    self.set_line_edit_text(self.view().currentIndex().data(QtC.Qt.ItemDataRole.DisplayRole))
                     self.hidePopup()
                     return True
                 else:
@@ -2647,7 +2645,7 @@ class CheckableTreeView(QtW.QTreeView):
         self.model_edited = False
         # self.clicked.connect(self.toggle_check_state)
 
-    def setModel(self, model):
+    def setModel(self, model: TreeModel):
         super().setModel(model)
         self.connect_edited_signal()
 
@@ -2662,6 +2660,7 @@ class CheckableTreeView(QtW.QTreeView):
 
     def toggle_edited(self, edited: bool):
         self.model_edited = edited
+        # print(f'{self.model().table} edited {edited}')
 
     def toggle_check_state(self, index: QtC.QModelIndex):
         if self.model():
@@ -2704,7 +2703,8 @@ class TreeCombobox(QtW.QComboBox):
         self.treeView.setWindowFlags(QtC.Qt.WindowType.Popup)
 
     def set_text(self, text):
-        self.lineEdit().setText(text)
+        if not self.checkable:
+            self.lineEdit().setText(text)
 
     def setModel(self, model):
         super().setModel(model)
@@ -2733,22 +2733,21 @@ class TreeCombobox(QtW.QComboBox):
                 expand_collapse(self.treeView, action)
 
     def showPopup(self):
-        # combo_model = self.model()
-        # model = find_tree_model(combo_model)
-        # if model and not self.checkable:
-        #     restore_expanded_state(model.table, combo_model, self.treeView)
+        tree_model = find_tree_model(self.model())
+        if tree_model:
+            restore_expanded_state(tree_model.table, tree_model, self.treeView)
         self.treeView.resizeColumnToContents(0)
-        total_width = self.treeView.columnWidth(0) + self.treeView.verticalScrollBar().sizeHint().width()
-        self.treeView.setFixedWidth(total_width)
+        # total_width = self.treeView.columnWidth(0) + self.treeView.verticalScrollBar().sizeHint().width()
+        # self.treeView.setFixedWidth(total_width)
         super().showPopup()
         self.popup_shown = True
 
     def hidePopup(self):
         if self.popup_shown:
             super().hidePopup()
-            # model = find_tree_model(self.model())
-            # if model and not self.checkable:
-            #     save_expanded_state(model.table, self.model(), self.treeView)
+            model = find_tree_model(self.model())
+            if model:
+                save_expanded_state(model.table, self.model(), self.treeView)
             self.popup_shown = False
             self.closing.emit()
 
@@ -2775,8 +2774,7 @@ class TreeCombobox(QtW.QComboBox):
                     QtW.QStyle.SubElement.SE_TreeViewDisclosureItem,
                     option, self.treeView)
                 if expand_button_rect.contains(event.pos()):
-                    self.lineEdit().setText(
-                        self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole))
+                    self.set_text(index.data(QtC.Qt.ItemDataRole.DisplayRole))
                     self.hidePopup()
                     return True
                 else:
@@ -2830,15 +2828,20 @@ class CheckableTreeCombobox(TreeCombobox):
         checked_items, partially_checked_items, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
             QtC.QModelIndex())
         if partially_checked_indices:
-            # All items are fully checked and should be included in the list
-            new_line_edit_text = self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole)
-            if current_line_edit_text == '':
-                self.lineEdit().setText(new_line_edit_text)
-            else:
-                self.lineEdit().setText(f"{current_line_edit_text}, {new_line_edit_text}")
-        else:
             # At least one item is partially checked, so the line edit should be a dash
             self.lineEdit().setText('-')
+        elif checked_indices:
+            # At least some items are fully checked and should be included in the list
+            new_line_edit_text = self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole)
+            if current_line_edit_text == '' or current_line_edit_text == '-':
+                self.lineEdit().setText(new_line_edit_text)
+            else:
+                if new_line_edit_text not in current_line_edit_text:
+                    text = ', '.join([current_line_edit_text, new_line_edit_text])
+                    self.lineEdit().setText(text)
+        else:
+            # No items are checked, so the line edit should be blank
+            self.lineEdit().setText('')
 
     def clear_all_checks(self):
         # traverse the tree and uncheck all items
@@ -2854,7 +2857,6 @@ class CheckableTreeCombobox(TreeCombobox):
         super().showPopup()
         self.popup_shown = True
         self.treeView.expand_all_checked()
-        self.treeView.toggle_edited(False)
 
     def hidePopup(self):
         if self.popup_shown:
@@ -2897,8 +2899,8 @@ class CheckableTreeCombobox(TreeCombobox):
                         if self.currentIndex() in checked_items:
                             self.treeView.setCurrentIndex(QtC.QModelIndex())
                         self.clear_all_checks()
-                        self.model().setData(self.treeView.currentIndex(), QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        self.set_line_edit_text(self.treeView.currentIndex().data())
+                        self.treeView.toggle_check_state(self.treeView.currentIndex())
+                        self.set_line_edit_text(self.treeView.currentIndex().data(QtC.Qt.ItemDataRole.DisplayRole))
                     self.treeView.toggle_check_state(self.treeView.currentIndex())
                     self.showPopup()
                     return True
@@ -3020,6 +3022,28 @@ def comboBox_display_table(comboBox):
     else:
         comboBox.tableView.setFixedHeight(total_height)
 
+def add_tree_popup(tree_view: QtW.QTreeView, tree_model: TreeModel, action: QtG.QAction | None = None):
+    dlg_args = None
+    indexes = tree_view.selectedIndexes()
+    item_ids, parent_ids, parent_rows = get_selected_tree_ids(tree_model, indexes)
+    if action:
+        if action.text() == 'Insert above':
+            row = parent_rows[0]
+            parent_id = parent_ids[0]
+            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
+        elif action.text() == 'Insert below':
+            row = parent_rows[0] + 1
+            parent_id = parent_ids[0]
+            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
+        elif action.text() == 'Add child':
+            parent_id = item_ids[0]
+            dlg_args = {'parent_id' : parent_id}
+        elif action.text() == 'Add parent':
+            dlg_args = {'add_item': 'parent', 'item_ids': item_ids, 'new_child_ids': parent_ids, 'new_parent_rows': parent_rows}
+        elif action.text() == 'Add to end':
+            dlg_args = None
+    return dlg_args
+
 def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
     '''
     Save the expanded state of the tree view to the settings
@@ -3033,7 +3057,7 @@ def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
 
     def save_state(index):
         if index.isValid() and treeView.isExpanded(index):
-            item_id = model.data(index.siblingAtColumn(1))
+            item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
             expanded_ids.append(item_id)
         for i in range(model.rowCount(index)):
             save_state(model.index(i, 0, index))
@@ -3054,12 +3078,17 @@ def restore_expanded_state(table: str, model, treeView: QtW.QTreeView):
     expanded_ids = settings.value(f'expanded_ids_{table}', [])
 
     def restore_state(index):
-        item_id = model.data(index.siblingAtColumn(1))
+        item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
         if item_id in expanded_ids:
             treeView.setExpanded(index, True)
+        else:
+            treeView.setExpanded(index, False)
         for i in range(model.rowCount(index)):
             restore_state(model.index(i, 0, index))
 
+    root_index = QtC.QModelIndex()
+    for i in range(model.rowCount(root_index)):
+        restore_state(model.index(i, 0, root_index))
     restore_state(QtC.QModelIndex())
 
 def expand_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):

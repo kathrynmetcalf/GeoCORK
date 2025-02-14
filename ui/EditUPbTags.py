@@ -36,6 +36,7 @@ class EditUPbTags(QtW.QDialog):
         self.parent_window = parent_window
         self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit U-Pb Information")
+        self.setModal(True)
         # self.loadWindowState()
 
         sources_ui_file = "ui/EditUPbTags.ui"

@@ -12,7 +12,7 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
-from Functions.Widget_classes import set_table
+from Functions.Widget_classes import set_table, get_headers, name_column, description_column
 import Functions.Check_triggers as Ct
 
 class AddTags(QtW.QDialog):
@@ -23,6 +23,9 @@ class AddTags(QtW.QDialog):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "AddTags.ui")
         loadUi(sources_ui_file, self)
+        self.setModal(True)
+        self.setWindowTitle(f'Add tags to {TxM.add_spaces_camel(table)}')
+        self.updated = False
 
         self.table = table
         self.model = QtS.QSqlTableModel()
@@ -38,9 +41,9 @@ class AddTags(QtW.QDialog):
         self.filter_proxy_model.setFilterKeyColumn(1)
         self.newName_lineEdit.textChanged.connect(self.filter_proxy_model.setFilterRegularExpression)
 
-        self.columns = []
-        self.name_column = ''
-        self.description_column = ''
+        self.columns = get_headers(self.table)
+        self.name_column = self.columns[name_column(self.table)]
+        self.description_column = self.columns[description_column(self.table)]
         self.existing_names = []
 
         self.close_by_dialog = False
@@ -58,27 +61,10 @@ class AddTags(QtW.QDialog):
         self.tags_tableView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
         query = QtS.QSqlQuery()
 
-        # Get a list of column names for the selected table
-        sql = f'PRAGMA table_info({self.table})'
-        query.prepare(sql)
-        logger_setup.get_logger().info(f'Getting list of column names for {self.table}')
-        logger_setup.get_logger().debug(f'SQL command: {sql}')
-        if not query.exec():
-            error = query.lastError().text()
-            self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
-            return False
-        while query.next():
-            self.columns.append(query.value(1))
-            if 'Name' in query.value(1):
-                self.name_column = query.value(1)
-            elif 'Description' in query.value(1):
-                self.description_column = query.value(1)
-
         # Get a list of the existing tag names
         query.prepare(f'SELECT {self.name_column} FROM {self.table}')
         if not query.exec():
-            error = query.lastError().text()
-            self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+            logger_setup.get_logger().critical(f'Error selecting display column from {self.table}: {query.lastError().text()}')
             return False
         while query.next():
             self.existing_names.append(query.value(0))
@@ -144,6 +130,7 @@ class AddTags(QtW.QDialog):
     def rollback(self):
         rollback_savepoint('before_add')
         # self.model.revertAll()
+        self.reject()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
@@ -156,6 +143,7 @@ class AddTags(QtW.QDialog):
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
             update_database()
+        self.accept()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

@@ -6,6 +6,8 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QModelIndex
 from PyQt6.uic import loadUi
+
+import logger_setup
 # from pandas.plotting import table
 
 from Functions.Database_manager import update_database
@@ -28,6 +30,9 @@ class EditTable(QtW.QDialog):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
         loadUi(sources_ui_file, self)
+        self.setModal(True)
+        self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
+        self.updated = False
 
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox(self)
@@ -382,6 +387,7 @@ class EditTable(QtW.QDialog):
                 QtC.QTimer.singleShot(0, highlight_error)
                 return False
             else:
+                self.updated = True
                 return True
 
     def add_popup(self):
@@ -395,27 +401,30 @@ class EditTable(QtW.QDialog):
         #     pass
         if self.table == '"References"' or self.table == 'References':
             dlg = NewReference()
-            dlg.exec()
         else:
             dlg = AddTags(self.model, self.table)
-            dlg.exec()
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
         self.display_table()
 
     def rollback(self):
         rollback_savepoint('before_edit')
+        self.reject()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
-        self.reject()
 
     def commit(self):
         if self.edit_tableView.currentIndex().isValid() and not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
             # There is a valid index selected and the row change failed
-            self.msg.critical(self, 'Error', 'Failed to save changes', QtW.QMessageBox.StandardButton.Ok)
+            logger_setup.get_logger().critical('Failed to save changes')
             return
         else:
             release_savepoint('before_edit')
-            update_database()
+            # Check if there is another existing savepoint. If not, go ahead and update the database
+            if not SavepointManager.get_instance().active_savepoints():
+                update_database()
+            self.accept()
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True
             self.close()
@@ -433,7 +442,12 @@ class EditTable(QtW.QDialog):
 
     def closeEvent(self, event: QtG.QCloseEvent):
         if not self.close_by_dialog:
-            self.discard_question()
-            event.ignore()
+            if self.updated:
+                self.discard_question()
+                event.ignore()
+            else:
+                logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+                event.accept()
         else:
+            logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
             event.accept()

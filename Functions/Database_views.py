@@ -682,7 +682,6 @@ def create_spot_edit_view():
 
 def create_upb_view():
     upb_query = UPbViewQuery()
-    print(upb_query)
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbView AS {upb_query}'
     query = QtS.QSqlQuery()
     logger_setup.get_logger().info(f'Creating UPbView')
