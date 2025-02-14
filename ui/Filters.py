@@ -27,18 +27,18 @@ def process_json_to_sql(json_string, scope):
     where = process_group(group)
 
     table_names = process_table_names(group)
-    join = SQLUtils.get_join_from_table(table_names)
+    join = SQLUtils.get_join_from_table("", table_names)
     sql = None
     if scope == 'Samples':
         sql = f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'Aliquots':
-        join += SQLUtils.get_join_from_table(['Aliquots'])
+        join = SQLUtils.get_join_from_table(join, ['Aliquots'])
         sql = f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'Spots':
-        join += SQLUtils.get_join_from_table(['Spots'])
+        join = SQLUtils.get_join_from_table(join, ['Spots'])
         sql = f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'UPbAnalyses':
-        join += SQLUtils.get_join_from_table(['UPbAnalyses'])
+        join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
         sql = f"SELECT * FROM Samples {join} WHERE {where};"
     else:
         logger_setup.get_logger().critical(f"Unknown scope: {scope}")
@@ -256,7 +256,7 @@ class InsertFilterGroupDialog(QDialog):
 
         self.color_label = QLabel("Default Color:")
         self.color_display = QLabel(" ")
-        self.color_display.setStyleSheet("background-color: white;")
+        self.color_display.setStyleSheet("background-color: transparent;")
         self.color_picker_button = QPushButton("Pick Color")
         # todo set default color to be transparent so it shows regardless of user dark/light mode
         self.color_picker_button.clicked.connect(self.pick_color)
@@ -360,7 +360,7 @@ class RuleWidget(QWidget):
 
         # Table combo
         self.table_combo = FocusWheelComboBox()
-        self.table_combo.addItems(SQLUtils.user_viewable_tables)
+        self.table_combo.addItems(SQLUtils.table_attributes_dict.keys())
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
         self.table_combo.currentIndexChanged.connect(self.table_switcher)
@@ -853,7 +853,7 @@ class QueryBuilder(QWidget):
 
         results = []
         while query.next():
-            results.append(tuple(query.value(i) for i in range(query.record().count())))
+            results.append(query.value(0))
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
         logger_setup.get_logger().info('Gathered filtered ids successfully')
         return results if results else None
@@ -861,8 +861,7 @@ class QueryBuilder(QWidget):
     def get_sql(self, type=None):
         structure = self.main_group_box.get_structure()
         where_clause = process_group(structure)
-        join = ""
-        join += SQLUtils.get_join_from_table(self.main_group_box.get_tables())
+        join = SQLUtils.get_join_from_table("", self.main_group_box.get_tables())
         logger_setup.get_logger().debug(f'Filtered SQL structure: {structure}')
         logger_setup.get_logger().debug(f'Filtered SQL where_clause: {where_clause}')
         logger_setup.get_logger().debug(f'Filtered SQL join: {join}')
@@ -875,7 +874,7 @@ class QueryBuilder(QWidget):
                 f"WHERE {where_clause});"
             )
         elif type == 'Aliquots':
-            join += SQLUtils.get_join_from_table(['Aliquots'])
+            join = SQLUtils.get_join_from_table("", ['Aliquots'])
             sql_query = (
                 f"SELECT DISTINCT AliquotID FROM ("
                 f"SELECT Aliquots.AliquotID, {self.main_group_box.get_selects()} "
@@ -884,7 +883,7 @@ class QueryBuilder(QWidget):
                 f"WHERE AliquotID IS NOT NULL;"
             )
         elif type == 'Spots':
-            join += SQLUtils.get_join_from_table(['Spots'])
+            join = SQLUtils.get_join_from_table("", ['Spots'])
             sql_query = (
                 f"SELECT DISTINCT SpotID FROM ("
                 f"SELECT Spots.SpotID, {self.main_group_box.get_selects()} "
@@ -893,7 +892,7 @@ class QueryBuilder(QWidget):
                 f"WHERE SpotID IS NOT NULL;"
             )
         elif type == 'UPbAnalyses':
-            join += SQLUtils.get_join_from_table(['UPbAnalyses'])
+            join = SQLUtils.get_join_from_table("", ['UPbAnalyses'])
             sql_query = (
                 f"SELECT DISTINCT UPbAnalysisID FROM ("
                 f"SELECT UPbAnalyses.UPbAnalysisID, {self.main_group_box.get_selects()} "

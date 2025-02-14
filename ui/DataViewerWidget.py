@@ -31,7 +31,7 @@ class DataViewerWidget(QWidget):
         # can be either from Samples, Aliquots, Spots, or UPbData
         if len(ids_to_show) > 0:
             for sample in ids_to_show:
-                self.ids_to_show += str(sample[0]) + ", "
+                self.ids_to_show += str(sample) + ", "
             self.ids_to_show = self.ids_to_show[0:-2]
             self.ids_to_show += ")"
 
@@ -451,8 +451,7 @@ class DataViewerWidget(QWidget):
 
                 table_condition = ''
                 sql = f'SELECT DISTINCT {table}.* FROM Samples '
-                sql += SQLUtils.get_join_from_table([table])
-                sql += SQLUtils.get_join_from_table([table_type])
+                sql += SQLUtils.get_join_from_table("", [table] + [table_type])
                 if condition_ids:
                     if table_type == 'Samples':
                         table_condition = f" WHERE Samples.SampleID IN ({', '.join(condition_ids)})"

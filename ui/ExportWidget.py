@@ -532,6 +532,7 @@ class ExportWidget(QWidget):
 
         # Build the SQL query
         tables = set()
+        tables.add('UPbAnalyses')
         columns_str = ''
         for table, field in ordered_columns:
             tables.add(table)
@@ -542,7 +543,7 @@ class ExportWidget(QWidget):
 
         tables.add('Samples')
 
-        join = SQLUtils.get_join_from_table(list(tables))
+        join = SQLUtils.get_join_from_table("", list(tables))
 
         filtered_where_clause = ''
         ids = []
@@ -552,7 +553,7 @@ class ExportWidget(QWidget):
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = ''
-            join += SQLUtils.get_join_from_table(['UPbAnalyses'])
+            # join += SQLUtils.get_join_from_table(['UPbAnalyses'])
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
             query = QSqlQuery()
@@ -568,8 +569,9 @@ class ExportWidget(QWidget):
             # Fetch all results
             while query.next():
                 ids.append(query.value(0))
+        logger_setup.get_logger().info(f'Number of Filtered UPbAnalyis IDs Found: {len(ids)}')
 
-        logger_setup.get_logger().info(f'Number of UPbAnalyis IDs Found: {len(ids)}')
+
 
         if len(self.checked_filter_list) == 1:
             ids = f"({', '.join(map(str, ids))})"
@@ -589,7 +591,7 @@ class ExportWidget(QWidget):
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
         else:
             if len(filtered_where_clause) > 0:
-                query_str = f"SELECT {'DISTINT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE UPbAnalysisID IN {ids} LIMIT 250"
+                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE UPbAnalysisID IN {ids} LIMIT 250"
             else:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
 
@@ -615,7 +617,7 @@ class ExportWidget(QWidget):
             logger_setup.get_logger().info('Creating table TempPivotTable')
             if not create_table_qry.exec(sql_temptable_create):
                 logger_setup.get_logger().critical(
-                    f'Error fetching total records: {query.lastError().text()}')
+                    f'Error creating TempPivotTable: {query.lastError().text()}')
                 logger_setup.get_logger().critical(f'SQL command: {sql_query}')
                 return
             logger_setup.get_logger().info('Created table TempPivotTable successfully')
@@ -663,22 +665,27 @@ class ExportWidget(QWidget):
         model.setQuery(query_str)
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 
-        # # Remove LIMIT 250 from the original query string and build the COUNT query
-        # counter_sql_query = f"SELECT COUNT(*) FROM ({query_str.replace('LIMIT 250', '')}) AS SubQuery"
-        #
-        # # Prepare and execute the query
-        # counter_query = QSqlQuery()
-        # if not counter_query.exec(counter_sql_query):
-        #     # Handle query execution error
-        #     print("Failed to execute query:", counter_query.lastError().text())
-        # else:
-        #     # Move to the first record to retrieve the count
-        #     if counter_query.next():
-        #         count = counter_query.value(0)
-        #         self.workbook_tabs[current_worksheet_name]['label'].setText(f"Number of Rows: {count}")
-        #     else:
-        #         # Handle case where query doesn't return a result
-        #         print("Query executed successfully but returned no results.")
+        # Remove LIMIT 250 from the original query string and build the COUNT query
+        counter_sql_query = f"SELECT COUNT('UPbAnalyses') FROM ({query_str.replace('LIMIT 250', '')}) AS SubQuery"
+
+        # Prepare and execute the query
+        counter_query = QSqlQuery()
+        if not counter_query.exec(counter_sql_query):
+            logger_setup.get_logger().critical(
+                f'Error fetching total records: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+            return
+        else:
+            # Move to the first record to retrieve the count
+            if counter_query.next():
+                count = counter_query.value(0)
+                if count >= 250:
+                    self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Showing 250/{count} rows")
+                else:
+                    self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Showing {count} rows")
+            else:
+                # Handle case where query doesn't return a result
+                self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Number of Rows: 0")
 
         # for col, (table, field) in enumerate(ordered_columns):
         #     header = f"{table}.{field}"

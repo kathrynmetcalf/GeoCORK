@@ -880,9 +880,7 @@ upb_possible_user_input_fields = {
 }
 
 
-def get_join_from_table(tables: list[str]) -> str:
-    join = ""
-
+def get_join_from_table(join, tables: list[str]) -> str:
     for table in tables:
         match table:
             case 'AgeConstraints':

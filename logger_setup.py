@@ -27,7 +27,7 @@ _queue_listener = None
 class CustomLogger(logging.getLoggerClass()):
     """Custom logger that captures critical errors and shows a PyQt6 message box."""
 
-    def critical(self, msg, *args, exc_info=None, stack_info=False, stacklevel=1, extra=None):
+    def critical(self, msg, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
         button = QMessageBox.critical(None,
                                       "Unexpected Critical Error",
                                       f"{msg}",
@@ -36,7 +36,7 @@ class CustomLogger(logging.getLoggerClass()):
 
         super().critical(msg, *args, exc_info=exc_info, stack_info=stack_info, stacklevel=stacklevel, extra=extra)
 
-    def error(self, msg, *args, exc_info=None, stack_info=False, stacklevel=1, extra=None):
+    def error(self, msg, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
         button = QMessageBox.critical(None,
                                       "Error",
                                       f"{msg}",
