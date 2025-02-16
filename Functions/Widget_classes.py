@@ -1086,6 +1086,15 @@ class TreeItem:
             self.childItems.remove(row)
             return True
 
+    def clear(self):
+        """
+        Recursively remove all children
+        """
+        # remove all children
+        for child_tree_item in self.childItems:
+            child_tree_item.clear()
+        self.childItems.clear()
+
     def child(self, row: int):
         """
         Return the # row child of the item, or none if the row is invalid or there are no children
@@ -1109,7 +1118,7 @@ class TreeItem:
     def row(self):
         # row of item in its parent's list of children
         if self.parentItem:
-            # return self.parentItem.childItems.indexOf(TreeItem(self))
+            # return self.parent_item.childItems.indexOf(TreeItem(self))
             return self.parentItem.childItems.index(self)
         return 0
 
@@ -1167,8 +1176,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.root_item = TreeItem(QtS.QSqlRecord(), None)
-        self.parentItem = TreeItem(QtS.QSqlRecord(), None)
-        self.childItem = TreeItem(QtS.QSqlRecord(), None)
+        self.parent_item = TreeItem(QtS.QSqlRecord(), None)
+        self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.lastError = QtS.QSqlError()
 
         if self.source_model.tableName():
@@ -1180,7 +1189,7 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
         logger_setup.get_logger().info(f'Setting source model for tree model...')
-        print('rebuild the tree')
+        # print('rebuild the tree')
         self.table = source_model.tableName()
         if isinstance(source_model, QSqlTableModel):
             self.base_filter = f"{source_model.filter()}"
@@ -1211,15 +1220,17 @@ class TreeModel(QtC.QAbstractProxyModel):
                     self.base_query_sql = f"{self.base_query} WHERE "
             else:
                 self.base_query_sql = self.base_query
-        self.source_model = QtS.QSqlQueryModel()
+        self.source_model = DisplayRoundedQueryModel()
         self.source_model.setQuery(self.base_query)
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
         self.header_variables()
+        if self.root_item.childCount() > 0:
+            self.root_item.clear()
         self.root_item = TreeItem(QtS.QSqlRecord(), None)
-        self.parentItem = TreeItem(QtS.QSqlRecord(), None)
-        self.childItem = TreeItem(QtS.QSqlRecord(), None)
+        self.parent_item = TreeItem(QtS.QSqlRecord(), None)
+        self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
         self.source_model.setQuery(self.base_query)
         logger_setup.get_logger().info(f'Built the {self.table} tree...')
@@ -1418,11 +1429,15 @@ class TreeModel(QtC.QAbstractProxyModel):
                 proxy_modified_index = self.mapFromSource(source_modified_index)
                 if proxy_modified_index.isValid() and source_modified_index.isValid():
                     # If the changed data index and the modified timestamp index are valid for both models, change the data
-                    try:
-                        self.source_model.setData(sourceIndex, value, role)
-                    except:
+                    # todo: figure out why it is not setting the value...
+                    name_header = self.source_model.headerData(sourceIndex.column(), QtC.Qt.Orientation.Horizontal)
+                    query = QtS.QSqlQuery()
+                    query.prepare(f"UPDATE {self.table} SET {name_header}=:value WHERE {self.id_header}=:id")
+                    query.bindValue(":value", value)
+                    query.bindValue(":id", self.source_model.data(sourceIndex.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole))
+                    if not query.exec():
                         logger_setup.get_logger().critical(
-                            f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
+                            f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}: {query.lastError().text()}')
                         return False
                     modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
                     treeItem.setData(dataCol, value)
@@ -1824,9 +1839,9 @@ class CheckableTreeModel(TreeModel):
     def __init__(self, source_model=QSqlTableModel(), parent=None):
         # database table
         super().__init__(source_model, parent)
-        self.rootItem = CheckableTreeItem(QtS.QSqlRecord(), None)
-        self.parentItem = CheckableTreeItem(QtS.QSqlRecord(), None)
-        self.childItem = CheckableTreeItem(QtS.QSqlRecord(), None)
+        self.root_item = CheckableTreeItem(QtS.QSqlRecord(), None)
+        self.parent_item = CheckableTreeItem(QtS.QSqlRecord(), None)
+        self.child_item = CheckableTreeItem(QtS.QSqlRecord(), None)
 
         if self.source_model.tableName():
             # If a table model with a valid table was passed, set the source model and create the tree
@@ -1864,15 +1879,20 @@ class CheckableTreeModel(TreeModel):
                     self.base_query_sql = f"{self.base_query} WHERE "
             else:
                 self.base_query_sql = self.base_query
-        self.source_model = VerifiableSqlViewModel()
+        self.source_model = DisplayRoundedQueryModel()
         self.source_model.setQuery(self.base_query)
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
         self.header_variables()
-        self.rootItem = CheckableTreeItem(QtS.QSqlRecord(), None)
-        self.parentItem = CheckableTreeItem(QtS.QSqlRecord(), None)
-        self.childItem = CheckableTreeItem(QtS.QSqlRecord(), None)
+        if self.root_item.childCount() > 0:
+            logger_setup.get_logger().info(f'Clearing previous values from the tree model...')
+            self.beginResetModel()
+            self.root_item.clear()
+            self.endResetModel()
+        self.root_item = CheckableTreeItem(QtS.QSqlRecord(), None)
+        self.parent_item = CheckableTreeItem(QtS.QSqlRecord(), None)
+        self.child_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
         self.source_model.setQuery(self.base_query)
 
@@ -1906,7 +1926,7 @@ class CheckableTreeModel(TreeModel):
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
-            item = self.rootItem
+            item = self.root_item
         else:
             item = self.getItem(index)
         if index.column() == 0 and role == QtC.Qt.ItemDataRole.CheckStateRole:
@@ -2450,6 +2470,10 @@ class CheckableComboBox(QtW.QComboBox):
     def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel):
         super().setModel(model)
         column = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        if isinstance(column, int):
+            self.table = None
+            self.name_col = None
+            return
         # If it is not a table model, it is a view, get the name of the table
         if not isinstance(model, QtS.QSqlTableModel) and 'SampleAge' not in column:
             if 'Sample' in column:
@@ -2470,7 +2494,8 @@ class CheckableComboBox(QtW.QComboBox):
         else:
             self.table = model.tableName()
             self.name_col = name_column(model.tableName())
-        show_column(self, model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+        if self.name_col:
+            show_column(self, model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -2599,7 +2624,7 @@ class SearchableComboBox(QtW.QComboBox):
 
         self.lineEdit().editingFinished.connect(self.validate_input)
 
-    def addItem(self, text):
+    def addItem(self, text: str):
         super().addItem(text)
         # Set the default text to blank
         self.lineEdit().setText(None)
@@ -2692,7 +2717,11 @@ class TreeCombobox(QtW.QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
-        self.lineEdit().setReadOnly(True)
+        self.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.lineEdit().setPlaceholderText("Search")
+        self.lineEdit().setCompleter(self.completer())
+        self.lineEdit().setReadOnly(False)
         self.treeView = QtW.QTreeView()
         self.treeView.setRootIsDecorated(True)
         self.checkable = False
@@ -2967,6 +2996,66 @@ class TreeContextMenu(QtW.QMenu):
         collapse_all_action = collapse_menu.addAction('Collapse all')
 
 
+class FrozenTableView(QtW.QTableView):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.frozen_table_view = QtW.QTableView()
+        self.frozen_table_view.setFocusPolicy(QtC.Qt.FocusPolicy.NoFocus)
+        self.frozen_table_view.verticalHeader().hide()
+        self.frozen_table_view.horizontalHeader().setSectionResizeMode(QtW.QHeaderView.ResizeMode.Fixed)
+
+        layout = QtW.QVBoxLayout(self)
+        layout.addWidget(self.frozen_table_view)
+
+        self.viewport().stackUnder(self.frozen_table_view)
+
+        self.frozen_table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.frozen_table_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        self.frozen_table_view.show()
+        self.update_frozen_table_geometry()
+
+        self.verticalHeader().sectionResized.connect(self.update_section_height)
+        self.horizontalHeader().sectionResized.connect(self.update_section_width)
+        self.verticalScrollBar().valueChanged.connect(self.frozen_table_view.verticalScrollBar().setValue)
+        self.frozen_table_view.verticalScrollBar().valueChanged.connect(self.verticalScrollBar().setValue)
+
+    def setModel(self, model):
+        super().setModel(model)
+        self.frozen_table_view.setModel(model)
+        self.frozen_table_view.setSelectionModel(self.selectionModel())
+        for col in range(model.columnCount()):
+            if col != 1:
+                self.frozen_table_view.hideColumn(col)
+
+    def update_section_height(self, logicalIndex, oldSize, newSize):
+        self.frozen_table_view.setRowHeight(logicalIndex, self.rowHeight(logicalIndex))
+
+    def update_section_width(self, logicalIndex, oldSize, newSize):
+        self.frozen_table_view.setColumnWidth(logicalIndex, self.columnWidth(logicalIndex))
+        self.update_frozen_table_geometry()
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self.update_frozen_table_geometry()
+
+    def moveCursor(self, cursorAction, modifiers):
+        current = super().moveCursor(cursorAction, modifiers)
+        if cursorAction == QtW.QAbstractItemView.CursorAction.MoveLeft and current.column() > 1 and self.visualRect(current).topLeft().x() < self.frozen_table_view.columnWidth(1):
+            new_value = self.horizontalScrollBar().value() + self.visualRect(current).topLeft().x() - self.frozen_table_view.columnWidth(1)
+            self.horizontalScrollBar().setValue(new_value)
+        return current
+
+    def scrollTo(self, index, hint = ...):
+        if index.column() > 1:
+            super().scrollTo(index, hint)
+
+    def update_frozen_table_geometry(self):
+        self.frozen_table_view.setGeometry(self.verticalHeader().width() + self.frameWidth() - 1,
+                                           self.frameWidth() - 1, self.columnWidth(1),
+                                           self.viewport().height() + self.horizontalHeader().height())
+        self.frozen_table_view.setColumnWidth(1, self.columnWidth(1))
+
 # ---------------------------
 #    Widget Methods
 # ---------------------------
@@ -3131,4 +3220,53 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
     elif action.text() == 'Collapse all':
         tree_view.collapseAll()
 
+def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
+    table: str = None
+    query: str = None
+    column: str = None
+    for key, value in kwargs.items():
+        if key == 'table':
+            table = TxM.remove_spaces(value)  # ensure there are no spaces in the table name
+            if table == 'References':
+                table = '"Referebces"'
+        elif key == 'query':
+            query = value
+        elif key == 'column':
+            column = value
+    if query:
+        model = DisplayRoundedQueryModel()
+        model.setQuery(query)
+        table = model.tableName()
+    elif 'View' in table:
+        model = DisplayRoundedQueryModel()
+        model.setQuery(f"SELECT * FROM {table}")
+        table = model.tableName()
+    else:
+        model = DisplayRoundedModel()
+        set_table(model, table)
+    if table in SQLUtils.user_viewable_trees:
+        if isinstance(comboBox, CheckableTreeCombobox):
+            tree_model = CheckableTreeModel()
+            tree_model.setSourceModel(model)
+            comboBox.setModel(tree_model)
+        else:
+            tree_model = TreeModel()
+            tree_model.setSourceModel(model)
+            comboBox.setModel(tree_model)
+        if column:
+            show_column(comboBox, column)
+        else:
+            show_column(comboBox, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+    else:
+        if isinstance(comboBox, CheckableComboBox):
+            checkable_model = CheckableSqlTableModel()
+            set_table(checkable_model, table)
+            comboBox.setModel(checkable_model)
+        else:
+            comboBox.setModel(model)
+        if column:
+            show_column(comboBox, column)
+        else:
+            name_col = name_column(table)
+            show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 

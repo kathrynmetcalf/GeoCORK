@@ -35,7 +35,7 @@ class TreeItem:
     def row(self):
         # row of item in its parent's list of children
         if self.parentItem:
-            # return self.parentItem.childItems.indexOf(TreeItem(self))
+            # return self.parent_item.childItems.indexOf(TreeItem(self))
             return self.parentItem.childItems.index(self)
         return 0
 

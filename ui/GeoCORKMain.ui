@@ -57,55 +57,6 @@
     </item>
    </layout>
   </widget>
-  <widget class="QMenuBar" name="menubar">
-   <property name="geometry">
-    <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>1159</width>
-     <height>21</height>
-    </rect>
-   </property>
-   <widget class="QMenu" name="menuFile">
-    <property name="title">
-     <string>File</string>
-    </property>
-    <addaction name="actionNew"/>
-    <addaction name="actionOpen"/>
-    <addaction name="actionRecent"/>
-    <addaction name="actionImport"/>
-    <addaction name="separator"/>
-    <addaction name="actionSettings"/>
-    <addaction name="separator"/>
-    <addaction name="actionSave"/>
-    <addaction name="actionSave_as"/>
-    <addaction name="actionCreate_backup"/>
-    <addaction name="actionRestore_backup"/>
-    <addaction name="actionExport"/>
-    <addaction name="separator"/>
-    <addaction name="actionClose"/>
-   </widget>
-   <widget class="QMenu" name="menuEdit">
-    <property name="title">
-     <string>Edit</string>
-    </property>
-    <addaction name="actionSources"/>
-    <addaction name="actionRegions"/>
-    <addaction name="actionRock_types"/>
-    <addaction name="actionUnits"/>
-    <addaction name="actionAge_signatures"/>
-   </widget>
-   <widget class="QMenu" name="menuHelp">
-    <property name="title">
-     <string>Help</string>
-    </property>
-    <addaction name="actionHelp"/>
-    <addaction name="actionCurrent_window_help"/>
-   </widget>
-   <addaction name="menuFile"/>
-   <addaction name="menuEdit"/>
-   <addaction name="menuHelp"/>
-  </widget>
   <action name="actionNew">
    <property name="text">
     <string>New</string>

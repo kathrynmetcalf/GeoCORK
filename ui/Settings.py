@@ -16,9 +16,12 @@ settings_list = [
     'gps_format_abbreviation', 'heightdepth_unit_id', 'heightdepth_unit_abbreviation', 'spotsize_unit_id',
     'spotsize_unit_abbreviation', 'age_error_format_id', 'age_error_format_abbreviation', 'ratio_error_format_id',
     'ratio_error_format_abbreviation', 'concordance_format_id', 'concordance_format_abbreviation', 'reference_format',
-    'decimals_to_show', 'sample_view_columns', 'sample_edit_columns', 'aliquot_view_columns', 'aliquot_edit_columns',
-    'spot_view_columns', 'spot_edit_columns', 'upb_analysis_view_columns', 'upb_analysis_edit_columns',
-    'column_view_columns', 'column_edit_columns', 'reference_view_columns', 'checkable_combobox_height_scaler',
+    'decimals_to_show', 'sample_view_columns', 'sample_view_freeze', 'sample_edit_columns', 'sample_edit_freeze',
+    'aliquot_view_columns', 'aliquot_view_freeze', 'aliquot_edit_columns', 'aliquot_edit_freeze',
+    'spot_view_columns', 'spot_view_freeze', 'spot_edit_columns', 'spot_edit_freeze',
+    'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
+    'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
+    'reference_view_freeze', 'checkable_combobox_height_scaler',
     'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level'
 ]
 

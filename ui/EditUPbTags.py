@@ -16,7 +16,7 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, name_column, get_view_name_column, CheckableTreeModel, TreeModel,
-    show_column, set_comboBox_text, find_upb_from_samples
+    show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox, find_tree_model
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -70,15 +70,15 @@ class EditUPbTags(QtW.QDialog):
         label_text = label_text.replace("#", str(len(self.upb_analysis_ids)))
         self.label.setText(label_text)
 
-        self.reference_model = CheckableSqlQueryModel()
-        self.analysis_method_model = QtS.QSqlTableModel()
-        self.analysis_method_tree = CheckableTreeModel()
-        self.lab_facility_model = CheckableSqlTableModel()
-        self.instrument_model = CheckableSqlTableModel()
-        self.ratio_error_format_model = CheckableSqlTableModel()
-        self.age_error_format_model = CheckableSqlTableModel()
-        self.concordance_format_model = CheckableSqlTableModel()
-        self.spot_size_unit_model = CheckableSqlTableModel()
+        # self.reference_model = CheckableSqlQueryModel()
+        # self.analysis_method_model = QtS.QSqlTableModel()
+        # self.analysis_method_tree = CheckableTreeModel()
+        # self.lab_facility_model = CheckableSqlTableModel()
+        # self.instrument_model = CheckableSqlTableModel()
+        # self.ratio_error_format_model = CheckableSqlTableModel()
+        # self.age_error_format_model = CheckableSqlTableModel()
+        # self.concordance_format_model = CheckableSqlTableModel()
+        # self.spot_size_unit_model = CheckableSqlTableModel()
 
         self.msg = QtW.QMessageBox(self)
         create_savepoint('before_upb_edit')
@@ -94,32 +94,35 @@ class EditUPbTags(QtW.QDialog):
         self.updated = False
 
     def populate_dropdowns(self):
-        self.reference_model.setQuery(f'SELECT * FROM ReferenceView')
-        if self.reference_model.lastError().text():
-            logger_setup.get_logger().critical(
-                f"Error setting reference model query: {self.reference_model.lastError().text()}")
-        self.analysis_method_model = set_table(self.analysis_method_model, 'UPbAnalysisMethods')
-        self.analysis_method_tree.setSourceModel(self.analysis_method_model)
-        self.lab_facility_model = set_table(self.lab_facility_model, 'LabFacilities')
-        self.instrument_model = set_table(self.instrument_model, 'Instruments')
-        self.ratio_error_format_model = set_table(self.ratio_error_format_model, 'ErrorFormats')
-        self.age_error_format_model = set_table(self.age_error_format_model, 'ErrorFormats')
-        self.concordance_format_model = set_table(self.concordance_format_model, 'ConcordanceFormats')
-        self.spot_size_unit_model = set_table(self.spot_size_unit_model, 'DistanceUnits')
+        # self.reference_model.setQuery(f'SELECT * FROM ReferenceView')
+        # if self.reference_model.lastError().text():
+        #     logger_setup.get_logger().critical(
+        #         f"Error setting reference model query: {self.reference_model.lastError().text()}")
+        # self.analysis_method_model = set_table(self.analysis_method_model, 'UPbAnalysisMethods')
+        # self.analysis_method_tree.setSourceModel(self.analysis_method_model)
+        # self.lab_facility_model = set_table(self.lab_facility_model, 'LabFacilities')
+        # self.instrument_model = set_table(self.instrument_model, 'Instruments')
+        # self.ratio_error_format_model = set_table(self.ratio_error_format_model, 'ErrorFormats')
+        # self.age_error_format_model = set_table(self.age_error_format_model, 'ErrorFormats')
+        # self.concordance_format_model = set_table(self.concordance_format_model, 'ConcordanceFormats')
+        # self.spot_size_unit_model = set_table(self.spot_size_unit_model, 'DistanceUnits')
 
         self.reference_comboBox.model_modifiable = True
-        self.reference_comboBox.setModel(self.reference_model)
-        show_column(self.reference_comboBox, 'ReferenceDisplay')
+        self.reference_comboBox.enable_context_menu(True)
+        populate_combo_box(self.reference_comboBox, **{'table': 'ReferenceView'})
         self.analysis_method_comboBox.model_modifiable = True
-        self.analysis_method_comboBox.setModel(self.analysis_method_tree)
+        self.analysis_method_comboBox.enable_context_menu(True)
+        populate_combo_box(self.analysis_method_comboBox, **{'table': 'UPbAnalysisMethods'})
         self.lab_facility_comboBox.model_modifiable = True
-        self.lab_facility_comboBox.setModel(self.lab_facility_model)
+        self.lab_facility_comboBox.enable_context_menu(True)
+        populate_combo_box(self.lab_facility_comboBox, **{'table': 'LabFacilities'})
         self.instrument_comboBox.model_modifiable = True
-        self.instrument_comboBox.setModel(self.instrument_model)
-        self.ratio_error_format_comboBox.setModel(self.ratio_error_format_model)
-        self.age_error_format_comboBox.setModel(self.age_error_format_model)
-        self.concordance_format_comboBox.setModel(self.concordance_format_model)
-        self.spot_size_unit_comboBox.setModel(self.spot_size_unit_model)
+        self.instrument_comboBox.enable_context_menu(True)
+        populate_combo_box(self.instrument_comboBox, **{'table': 'Instruments'})
+        populate_combo_box(self.ratio_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
+        populate_combo_box(self.age_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
+        populate_combo_box(self.concordance_format_comboBox, **{'table': 'ConcordanceFormats', 'column': 'ConcordanceFormatAbbreviation'})
+        populate_combo_box(self.spot_size_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
         
 
     def connect_signals(self):
@@ -167,54 +170,91 @@ class EditUPbTags(QtW.QDialog):
         self.instrument_comboBox.set_single_click(True)
         self.instrument_comboBox.setCurrentText(text)
         
-    def populate_upb_checks(self, table_model):
-        logger_setup.get_logger().info(f"Populating UPb checks for {table_model.tableName()}")
+    def populate_upb_checks(self, combo: QtW.QComboBox):
         start_populate_upb_checks_time = time.time()
         all_items = []
         some_items = []
         text = ""
-        table = table_model.tableName()
-        try:
-            view = table_model.tableView()
-            col = get_view_name_column(view)
-        except AttributeError:
-            col = name_column(table)
-        tag_id_header = table_model.record().fieldName(0)
-        if len(self.upb_analysis_ids) > 0:
-            for row in range(table_model.rowCount()):
-                tag_id = table_model.index(row, 0).data()
+        if isinstance(combo, CheckableTreeCombobox):
+            model = find_tree_model(combo.model())
+            table = model.table
+            col = 0  # Name column is always placed in the first column
+            tag_id_header = model.source_model.record().fieldName(0)
+            id_col = 1  # ID column is always placed in the second column
+        else:
+            model = combo.model()
+            table = model.tableName()
+            try:
+                view = model.tableView()
+                col = get_view_name_column(view)
+            except AttributeError:
+                col = name_column(model.tableName())
+            tag_id_header = model.record().fieldName(0)
+            id_col = 0  # ID column is always in the first column
+        logger_setup.get_logger().info(f"Populating UPb checks for {table}")
+        # Already checked if no analyses are selected
+        if isinstance(combo, CheckableTreeCombobox):
+            model.blockSignals(True)
+            # recursively check data
+            def check_data(model: CheckableTreeModel, index: QtC.QModelIndex):
+                for row in range(model.rowCount(index)):
+                    model_index = model.index(row, col, index)
+                    id_index = model.index(row, id_col, index)
+                    tag_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
+                    upb_analysis_table = SQLiteTableModel(
+                        f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)} AND {tag_id_header} = {tag_id}")
+                    if upb_analysis_table.rowCount() == len(self.upb_analysis_ids):
+                        # All samples have this tag
+                        model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                        all_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
+                    elif upb_analysis_table.rowCount() > 0:
+                        # Some samples have this tag
+                        model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked,
+                                      QtC.Qt.ItemDataRole.CheckStateRole)
+                        some_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
+                    else:
+                        # No samples have this tag
+                        model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    check_data(model, model_index)
+            check_data(model, QtC.QModelIndex())
+        else:
+            for row in range(model.rowCount()):
+                tag_id = model.index(row, 0).data()
                 upb_analysis_table = SQLiteTableModel(f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)} AND {tag_id_header} = {tag_id}")
-                index = table_model.index(row, col)
+                index = model.index(row, col)
                 if upb_analysis_table.rowCount() == len(self.upb_analysis_ids):
                     # All analyses have this tag
-                    table_model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if table_model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting checked for {table_model.tableName()}: {table_model.lastError().text()}")
-                    all_items.append(table_model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+                    model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if model.lastError().text():
+                        logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {model.lastError().text()}")
+                    all_items.append(model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
                 elif upb_analysis_table.rowCount() > 0:
                     # Some samples have this tag
-                    table_model.setData(index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if table_model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting partial checked for {table_model.tableName()}: {table_model.lastError().text()}")
-                    some_items.append(table_model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
+                    model.setData(index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if model.lastError().text():
+                        logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {model.lastError().text()}")
+                    some_items.append(model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
                 else:
                     # No samples have this tag
-                    table_model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if table_model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting unchecked for {table_model.tableName()}: {table_model.lastError().text()}")
-            if not all_items and not some_items:
-                # No samples have these tags
-                text = ""
-            elif not some_items:
-                # All samples have the same tags
-                text = ', '.join(all_items)
-            else:
-                # Samples have different tags
-                text = "-"
+                    model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if model.lastError().text():
+                        logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
+        if not all_items and not some_items:
+            # No samples have these tags
+            text = ""
+        elif not some_items:
+            # All samples have the same tags
+            text = ', '.join(all_items)
+        else:
+            # Samples have different tags
+            text = "-"
+        if isinstance(combo, CheckableTreeCombobox):
+            model.blockSignals(False)
+        if text == "":
+            text = combo.placeholderText()
+        combo.setCurrentText(text)
         end_populate_upb_checks_time = time.time()
-        logger_setup.get_logger().info(f"Populated UPb checks for {table_model.tableName()} in {end_populate_upb_checks_time - start_populate_upb_checks_time} seconds")
-        logger_setup.get_logger().info(f"Populated UPb checks for {table_model.tableName()}")
-        return text
+        logger_setup.get_logger().info(f"Populated UPb checks for {model.tableName()} in {end_populate_upb_checks_time - start_populate_upb_checks_time} seconds")
 
     def update_subfield_id(self, model: CheckableSqlTableModel | CheckableSqlQueryModel, field: str):
         logger_setup.get_logger().info(f"update_subfield_id called with {model.tableName()} and {field}")

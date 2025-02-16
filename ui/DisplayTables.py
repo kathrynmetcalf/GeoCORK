@@ -13,7 +13,7 @@ from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
-    ReadableProxyModel, add_tree_popup
+    ReadableProxyModel, add_tree_popup, FrozenTableView
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -28,11 +28,13 @@ from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.New_reference import NewReference
 from ui.SampleInformation import  SampleInformation
+import logger_setup
 import time
 
 class DisplayTables(QtW.QWidget):
     def __init__(self, parent):
         super().__init__(parent)
+        logger_setup.get_logger().info("Starting the display tables window")
 
         # Load the ui file
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -66,7 +68,11 @@ class DisplayTables(QtW.QWidget):
         self.table_proxy_model = ReadableProxyModel()
         self.table = ''
         self.show_cols = []
-        self.switch_to_table()
+        self.db_stackedWidget: QtW.QStackedWidget
+        logger_setup.get_logger().info("Adding the frozen table view")
+        self.dbFrozen_tableView = FrozenTableView()
+        self.db_stackedWidget.addWidget(self.dbFrozen_tableView)
+        self.switch_to_frozen_table()
         self.display_table_list()
 
         self.connect_signals()
@@ -102,6 +108,14 @@ class DisplayTables(QtW.QWidget):
         self.db_stackedWidget: QtW.QStackedWidget
         self.db_stackedWidget.setCurrentWidget(self.db_tree)
 
+    def switch_to_frozen_table(self):
+        """
+        Sets the current widget to a frozen table view
+        :return:
+        """
+        self.db_stackedWidget: QtW.QStackedWidget
+        self.db_stackedWidget.setCurrentWidget(self.dbFrozen_tableView)
+
     def display_table_list(self):
         """
         Populates the tables combo box with the editable tables
@@ -127,12 +141,14 @@ class DisplayTables(QtW.QWidget):
         self.case_checkBox: QtW.QCheckBox
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
+        logger_setup.get_logger().info(f'Displaying {self.table}')
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
             save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
         self.previous_table = self.table
 
         if self.table in self.dbtree_list:
+            logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
             self.model = QtS.QSqlTableModel()
@@ -154,8 +170,9 @@ class DisplayTables(QtW.QWidget):
             restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
             self.dbTable_treeView: QTreeView
         elif self.table in self.dbtable_list:
-            self.switch_to_table()
             if self.table == 'Samples':
+                logger_setup.get_logger().info(f'Switching to frozen table view for {self.table}')
+                self.switch_to_frozen_table()
                 self.show_cols = settings.value('sample_view_columns')
                 self.show_cols = ', '.join(self.show_cols)
                 model = SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView')
@@ -163,10 +180,14 @@ class DisplayTables(QtW.QWidget):
 
                 self.table_proxy_model.setSourceModel(model)
                 self.edit_samples_pushButton.show()
+                table_view = self.dbFrozen_tableView
                 # # Signal for double-clicked on table-view
                 # self.dbTable_tableView.doubleClicked.connect(self.edit_samples_popup('double-clicked'))
             else:
+                logger_setup.get_logger().info(f'Switching to table view for {self.table}')
+                self.switch_to_table()
                 self.edit_samples_pushButton.hide()
+                table_view = self.dbTable_tableView
                 if self.table == 'Columns':
                     self.show_cols = settings.value('column_view_columns')
                     self.show_cols = ', '.join(self.show_cols)
@@ -188,17 +209,17 @@ class DisplayTables(QtW.QWidget):
             # else:
             #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
 
-            self.dbTable_tableView.setWordWrap(True)
-            self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
+            table_view.setWordWrap(True)
+            table_view.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
+            table_view.setItemDelegate(WordWrapDelegate(table_view))
 
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
-            self.dbTable_tableView.setModel(self.table_proxy_model)
-            self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            self.dbTable_tableView.resizeColumnsToContents()
-            self.dbTable_tableView.setSortingEnabled(True)
-            self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.dbTable_tableView.verticalHeader().hide()
+            table_view.setModel(self.table_proxy_model)
+            table_view.hideColumn(0)  # don't show ID column
+            table_view.resizeColumnsToContents()
+            table_view.setSortingEnabled(True)
+            table_view.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            table_view.verticalHeader().hide()
 
             # Optimize window resizing
             self.resize_timer = QTimer()
@@ -206,8 +227,8 @@ class DisplayTables(QtW.QWidget):
             self.resize_timer.timeout.connect(self.resizeRowsOptimized)
 
             # Connect resizing events
-            self.dbTable_tableView.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
-            self.dbTable_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
+            table_view.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
+            table_view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
         else:
             print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
 

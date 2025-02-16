@@ -3,6 +3,8 @@ import sys
 
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
+from PyQt6 import QtCore as QtC
+from PyQt6 import QtGui as QtG
 from PyQt6.QtCore import QPoint, QSize
 
 from PyQt6.uic import loadUi
@@ -35,6 +37,29 @@ class GeoCORK(QtW.QMainWindow):
         # Define any variables here
         self.landingpage = landingpage
 
+        menu_bar = self.menuBar()
+        file_menu = menu_bar.addMenu('File')
+        actionNew = QtG.QAction('New', self)
+        actionNew.setShortcut(QtG.QKeySequence('Ctrl+N'))
+        actionOpen = QtG.QAction('Open', self)
+        actionOpen.setShortcut(QtG.QKeySequence('Ctrl+O'))
+        actionRecent = QtG.QAction('Recent', self)
+        actionImport = QtG.QAction('Import', self)
+        actionImport.setShortcut(QtG.QKeySequence('Ctrl+I'))
+        actionSettings = QtG.QAction('Settings', self)
+        actionSettings.setShortcut(QtG.QKeySequence('Ctrl+,'))
+        actionSettings.setMenuRole(QtG.QAction.MenuRole.PreferencesRole)
+        actionCreateBackup = QtG.QAction('Create Backup', self)
+        actionRestoreBackup = QtG.QAction('Restore Backup', self)
+        actionExport = QtG.QAction('Export', self)
+        actionQuit = QtG.QAction('Quit', self)
+        actionQuit.setShortcut(QtG.QKeySequence('Ctrl+Q'))
+        file_menu.addActions([actionNew, actionOpen, actionRecent, actionImport, actionSettings,
+                                   actionCreateBackup, actionRestoreBackup, actionExport, actionQuit])
+        file_menu.insertSeparator(actionSettings)
+        file_menu.insertSeparator(actionCreateBackup)
+        file_menu.insertSeparator(actionQuit)
+
         self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         self.db_file = self.landingpage.get_filename()
 
@@ -43,6 +68,10 @@ class GeoCORK(QtW.QMainWindow):
         self.db.setDatabaseName(self.db_file)
         if self.db.open():
             logger_setup.get_logger().info(f"Database opened successfully")
+            if '/' in self.db_file:
+                self.setWindowTitle(f"GeoCORK - {self.db_file.split('/')[-1]}")
+            elif '\\' in self.db_file:
+                self.setWindowTitle(f"GeoCORK - {self.db_file.split('\\')[-1]}")
         else:
             logger_setup.get_logger().critical('Database could not be opened')
             return
@@ -59,14 +88,9 @@ class GeoCORK(QtW.QMainWindow):
         savepoint_manager = Savepoint_manager.SavepointManager()
         self.savepoint_manager = savepoint_manager.get_instance()
         self.msg = QtW.QMessageBox(self)
-        # self.switch_to_table()
 
         # self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
         update_database()
-
-        self.actionImport.triggered.connect(self.show_import_wizard_dialog)
-        self.actionSettings.triggered.connect(self.show_settings_dialog)
-        self.actionNew.triggered.connect(self.show_settings_dialog)
 
         self.tabWidget: PartiallyCloseableTabWidget
         self.tabWidget.set_permanent_tabs(['Data Tables', 'Filters', 'Export'])
@@ -77,6 +101,15 @@ class GeoCORK(QtW.QMainWindow):
         # todo: figure out how to add a divider between the permanent tabs and the user-added tabs
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
+
+        actionOpen.triggered.connect(self.landingpage.showFileDialog)
+        actionRecent.triggered.connect(self.landingpage.new_database_dialog)
+        # actionCreateBackup.triggered.connect(self.create_backup)
+        # actionRestoreBackup.triggered.connect(self.restore_backup)
+        actionImport.triggered.connect(self.show_import_wizard_dialog)
+        actionSettings.triggered.connect(self.show_settings_dialog)
+        actionExport.triggered.connect(ExportWidget)
+        actionQuit.triggered.connect(self.close)
 
         self.show()
 
