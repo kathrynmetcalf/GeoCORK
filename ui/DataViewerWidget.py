@@ -6,7 +6,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer
 from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton
+from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton, QPlainTextEdit
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -69,6 +69,9 @@ class DataViewerWidget(QWidget):
         self.current_page_2 = 0
         self.rows_per_page_2 = 2000
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+
+        self.goto_line_edit.textChanged.connect(self.go_to_record_1)
+        self.goto_line_edit_2.textChanged.connect(self.go_to_record_2)
 
         # display sample table information first time
         self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
@@ -162,21 +165,19 @@ class DataViewerWidget(QWidget):
         except ValueError:
             print("Invalid record ID.")
 
-    def go_to_record_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
-                       sample_filter, table_type):
+    def go_to_record_2(self):
         """
         Slot to go to a specific record ID for the filter table
         """
         # todo fix, this slot is not connected to a signal
         try:
             record_id = int(self.goto_line_edit_2.text())
-            index = self.get_record_index(record_id, dbTable_comboBox)
+            index = self.get_record_index(record_id, self.dbTable_comboBox_2)
             if index != -1:
                 self.current_page_2 = index // self.rows_per_page_2
-                self.display_table_with_sample_filter(
-                    db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
-                    sample_filter,
-                    table_type)
+                self.display_table_with_sample_filter(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
+                                      self.dbTable_comboBox_2,
+                                      self.edit_pushButton_2, self.dbTable_tableView, self.table_type)
             else:
                 logger_setup.get_logger().critical(f"Record ID not found: {record_id}")
         except ValueError:
@@ -450,7 +451,7 @@ class DataViewerWidget(QWidget):
                     condition_ids.append(str(condition_id))
 
                 table_condition = ''
-                sql = f'SELECT DISTINCT {table}.* FROM Samples '
+                sql = f'SELECT DISTINCT {table if table!='"References"' else "UPbReferences"}.* FROM Samples '
                 sql += SQLUtils.get_join_from_table("", [table] + [table_type])
                 if condition_ids:
                     if table_type == 'Samples':
@@ -464,6 +465,8 @@ class DataViewerWidget(QWidget):
                     # "(19,39,58)"
 
                 sql += table_condition
+                logger_setup.get_logger().debug(f'Distinct Filtered Selection SQL Command: {sql}')
+
                 query = QSqlQuery()
                 ids_to_show = []
                 # Execute the query
@@ -514,7 +517,7 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit_2.textChanged.connect(
                 lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
 
-        elif table in SQLUtils.user_viewable_tables:
+        elif table in SQLUtils.user_viewable_tables or table=='"References"':
             self.switch_to_table(db_stackedWidget)
 
             model = QtS.QSqlQueryModel()
@@ -527,9 +530,15 @@ class DataViewerWidget(QWidget):
             elif table == "UPbAnalyses":
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE UPbAnalysisID IN {self.id_condition} ORDER BY UPbAnalysisID LIMIT {self.rows_per_page_2} OFFSET {offset}")
+            elif table == '"References"' or table =='References' or table=='UPbReferences':
+                print( f'SELECT * FROM "References" WHERE ReferenceID IN {self.id_condition} ORDER BY ReferenceID LIMIT {self.rows_per_page_2} OFFSET {offset}')
+                model.setQuery(
+                    f'SELECT * FROM "References" WHERE ReferenceID IN {self.id_condition} ORDER BY ReferenceID LIMIT {self.rows_per_page_2} OFFSET {offset}')
             else:
                 model.setQuery(
                     f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
+
+            # logger_setup.get_logger().info(f'Setting the model query: {model.query().lastQuery()}')
             for col in range(model.columnCount()):
                 header = TxM.add_spaces_camel(
                     model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
@@ -545,7 +554,7 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, table_proxy_model))
-
+            logger_setup.get_logger().info('Sucessfully displayed table with selection-based filter')
         else:
             logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 

@@ -2,7 +2,7 @@
 import signal
 import sys
 
-from PyQt6.QtWidgets import QApplication, QErrorMessage
+from PyQt6.QtWidgets import QApplication, QErrorMessage, QStyleFactory
 
 import logger_setup
 from ui.LandingUI import LandingPage
@@ -12,6 +12,8 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 if __name__ == "__main__":
+    #force app to always load in light mode
+    sys.argv += ['-platform', 'windows:darkmode=1']
     app = QApplication(sys.argv)
     app.setApplicationName("GeoCORK")
 

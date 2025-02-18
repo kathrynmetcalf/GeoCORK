@@ -339,6 +339,15 @@ sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON Di
                         LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID=SampleAges_References.SampleAgeID
                         LEFT JOIN "References" AS AgeReferences ON AgeReferences.ReferenceID=SampleAges_References.ReferenceID'''
 
+sample_sampleage_join = '''LEFT JOIN Samples_SampleAges ON Samples.DefaultSampleAgeID=Samples_SampleAges.SampleAgeID
+                        LEFT JOIN SampleAges ON SampleAges.SampleAgeID=Samples_SampleAges.SampleAgeID'''
+
+sampleage_age_constraint_join ='''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID=SampleAges_AgeConstraints.SampleAgeID
+                        LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID'''
+sampleage_age_interpretations_join ='''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
+                        LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
+
+
 # GPSLocation joins
 gps_sample_join = '''LEFT JOIN GPSLocations AS GPSLocations ON Samples.SampleGPSLocationID=GPSLocations.GPSLocationID'''
 gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON SampleLatDirections.DirectionUnitID=GPSLocations.GPSLatDirectionID
@@ -884,21 +893,21 @@ def get_join_from_table(join, tables: list[str]) -> str:
     for table in tables:
         match table:
             case 'AgeConstraints':
-                continue
-                if default_sample_age_join not in join:
-                    join += default_sample_age_join + '\n'
-                if age_constraint_join not in join:
-                    join += age_constraint_join + '\n'
+                if sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
+                if sampleage_age_constraint_join not in join:
+                    join += sampleage_age_constraint_join + '\n'
             case 'AgeInterpretations':
-                continue
-                if default_sample_age_join not in join:
-                    join += default_sample_age_join + '\n'
-                if age_interpretation_join not in join:
-                    join += age_interpretation_join + '\n'
+                if sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
+                if sampleage_age_interpretations_join not in join:
+                    join += sampleage_age_interpretations_join + '\n'
             case 'AgeSignatures':
                 if age_signature_join not in join:
                     join += age_signature_join + '\n'
             case 'Ages':
+                if sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
                 if sample_age_join not in join:
                     join += sample_age_join + '\n'
             case 'AgeSignatures':
@@ -934,6 +943,15 @@ def get_join_from_table(join, tables: list[str]) -> str:
                 if upb_instruments_join not in join:
                     join += upb_instruments_join + '\n'
             case 'References':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_reference_join not in join:
+                    join += upb_reference_join + '\n'
+            case '"References"':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
                 if aliquot_spot_join not in join:

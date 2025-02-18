@@ -4,7 +4,7 @@ import json
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEventLoop, QRegularExpression
 from PyQt6.QtGui import QFontMetrics, QColor, QAction, QRegularExpressionValidator, \
-    QDoubleValidator
+    QDoubleValidator, QGuiApplication
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QGroupBox, QLabel,
@@ -256,9 +256,13 @@ class InsertFilterGroupDialog(QDialog):
 
         self.color_label = QLabel("Default Color:")
         self.color_display = QLabel(" ")
-        self.color_display.setStyleSheet("background-color: transparent;")
+        if QGuiApplication.styleHints().colorScheme() is Qt.ColorScheme.Dark:
+            self.color_display.setStyleSheet("background-color: white;")
+        elif QGuiApplication.styleHints().colorScheme() is Qt.ColorScheme.Light:
+            self.color_display.setStyleSheet("background-color: black;")
+        else:
+            self.color_display.setStyleSheet("background-color: black;")
         self.color_picker_button = QPushButton("Pick Color")
-        # todo set default color to be transparent so it shows regardless of user dark/light mode
         self.color_picker_button.clicked.connect(self.pick_color)
         color_layout = QHBoxLayout()
         color_layout.addWidget(self.color_display)
@@ -874,7 +878,7 @@ class QueryBuilder(QWidget):
                 f"WHERE {where_clause});"
             )
         elif type == 'Aliquots':
-            join = SQLUtils.get_join_from_table("", ['Aliquots'])
+            join = SQLUtils.get_join_from_table(join, ['Aliquots'])
             sql_query = (
                 f"SELECT DISTINCT AliquotID FROM ("
                 f"SELECT Aliquots.AliquotID, {self.main_group_box.get_selects()} "
@@ -883,7 +887,7 @@ class QueryBuilder(QWidget):
                 f"WHERE AliquotID IS NOT NULL;"
             )
         elif type == 'Spots':
-            join = SQLUtils.get_join_from_table("", ['Spots'])
+            join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = (
                 f"SELECT DISTINCT SpotID FROM ("
                 f"SELECT Spots.SpotID, {self.main_group_box.get_selects()} "
@@ -892,7 +896,7 @@ class QueryBuilder(QWidget):
                 f"WHERE SpotID IS NOT NULL;"
             )
         elif type == 'UPbAnalyses':
-            join = SQLUtils.get_join_from_table("", ['UPbAnalyses'])
+            join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
             sql_query = (
                 f"SELECT DISTINCT UPbAnalysisID FROM ("
                 f"SELECT UPbAnalyses.UPbAnalysisID, {self.main_group_box.get_selects()} "
