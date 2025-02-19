@@ -40,7 +40,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QPlainTextEdit" name="goto_line_edit_2">
+        <widget class="QLineEdit" name="goto_line_edit_2">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -84,7 +84,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QPlainTextEdit" name="goto_line_edit">
+        <widget class="QLineEdit" name="goto_line_edit">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
            <horstretch>0</horstretch>

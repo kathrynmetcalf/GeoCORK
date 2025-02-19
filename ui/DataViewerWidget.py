@@ -46,8 +46,8 @@ class DataViewerWidget(QWidget):
         self.current_selection = []
         self.current_table = ""
 
-        self.switch_to_table(self.db_stackedWidget)
-        self.switch_to_table(self.db_stackedWidget_2)
+        # self.switch_to_table(self.db_stackedWidget)
+        # self.switch_to_table(self.db_stackedWidget_2)
 
         self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
 
@@ -150,20 +150,30 @@ class DataViewerWidget(QWidget):
 
     def go_to_record_1(self):
         """
-        Slot to go to a specific record ID for the sample table
+        Slot to go to a specific record ID for the sample table.
         """
-        # todo fix, this slot is not connected to a signal
+        # todo connect this to a new button.
         try:
-            record_id = int(self.goto_line_edit_1.text())
+            text = self.goto_line_edit.text().strip()
+            if not text:
+                # QMessageBox.warning(self, "Input Error", "Please enter a record ID.")
+                return
+
+            record_id = int(text)
             index = self.get_record_index(record_id, self.dbTable_comboBox)
+
             if index != -1:
                 self.current_page_1 = index // self.rows_per_page_1
                 self.display_sample_table(
-                    self.db_stackedWidget, self.dbTable_tableView, self.dbTable_comboBox, self.edit_pushButton)
+                    self.db_stackedWidget,
+                    self.dbTable_tableView,
+                    self.dbTable_comboBox,
+                    self.edit_pushButton
+                )
             else:
-                print("Record ID not found.")
+                logger_setup.get_logger().critical(f"Record ID not found: {record_id}")
         except ValueError:
-            print("Invalid record ID.")
+            logger_setup.get_logger().critical(f"Invalid Record ID: {record_id}")
 
     def go_to_record_2(self):
         """
@@ -171,7 +181,7 @@ class DataViewerWidget(QWidget):
         """
         # todo fix, this slot is not connected to a signal
         try:
-            record_id = int(self.goto_line_edit_2.text())
+            record_id = int(self.goto_line_edit_2.plainText())
             index = self.get_record_index(record_id, self.dbTable_comboBox_2)
             if index != -1:
                 self.current_page_2 = index // self.rows_per_page_2
@@ -336,6 +346,7 @@ class DataViewerWidget(QWidget):
             # Signal for search bar
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Aliquots':
+            # todo make aliquots a tree model
             self.switch_to_table(db_stackedWidget)
 
             query = SQLiteTableModel(

@@ -1335,6 +1335,7 @@ class ImportWizardDialog(QWidget):
             field (str): The field name (e.g., 'Reference', 'Instrument').
             value (str): The value to set.
         """
+        # todo crashing on closing of drop down
         if isinstance(model.tableName, str):
             table = model.tableName
         else:

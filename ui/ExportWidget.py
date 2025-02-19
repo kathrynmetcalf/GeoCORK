@@ -11,7 +11,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
     QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QErrorMessage,
-    QGroupBox, QScrollArea
+    QGroupBox, QScrollArea, QHeaderView
 )
 from PyQt6.uic import loadUi
 from openpyxl import Workbook
@@ -199,7 +199,8 @@ class ExportWidget(QWidget):
             'pivot': False,
             'selected_columns': {},
             'ordered_columns': {},
-            'label': counter_label
+            'label': counter_label,
+            'sql': ''
         }
 
         self.workbooktabs.blockSignals(True)
@@ -249,6 +250,7 @@ class ExportWidget(QWidget):
 
         # Create a new tableView
         new_tableView = QTableView()
+        new_tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
 
         # Create a new data model for the new tableView
         model = QSqlQueryModel()
@@ -292,7 +294,8 @@ class ExportWidget(QWidget):
             'pivot': pivot,
             'selected_columns': selected_columns,
             'ordered_columns': ordered_columns,
-            'label': counter_label
+            'label': counter_label,
+            'sql': ''
         }
         self.workbooktabs.blockSignals(True)
         self.workbooktabs.addTab(new_tab, worksheet_name)
@@ -503,7 +506,7 @@ class ExportWidget(QWidget):
             current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         else:
             current_worksheet_name = worksheet_name
-        tableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
+        tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
 
         if deleted:
             self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
@@ -516,9 +519,6 @@ class ExportWidget(QWidget):
             # Get the selected columns for the current workbook
             selected_columns = self.worksheet_tabs_dict[current_worksheet_name].get('selected_columns', {})
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
-
-            # print('selected columns', selected_columns)
-            # print('ordered columns', ordered_columns)
 
             if Counter(selected_columns) != Counter(ordered_columns):
                 ordered_columns = selected_columns
@@ -569,7 +569,7 @@ class ExportWidget(QWidget):
             # Fetch all results
             while query.next():
                 ids.append(query.value(0))
-        logger_setup.get_logger().info(f'Number of Filtered UPbAnalyis IDs Found: {len(ids)}')
+        logger_setup.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(ids)}')
 
 
 
@@ -663,6 +663,7 @@ class ExportWidget(QWidget):
 
         model = QSqlQueryModel()
         model.setQuery(query_str)
+        self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace('LIMIT 250', '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 
         # Remove LIMIT 250 from the original query string and build the COUNT query
@@ -692,6 +693,11 @@ class ExportWidget(QWidget):
         #     model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
+        tableView.horizontalHeader().resizeSections(QHeaderView.ResizeMode.ResizeToContents)
+        tableView.verticalHeader().resizeSections(QHeaderView.ResizeMode.ResizeToContents)
+
+        tableView.viewport().update()
+        tableView.verticalHeader().update()
 
 
     def export_button(self):
@@ -756,7 +762,7 @@ class ExportWidget(QWidget):
 
         for sheet_name, info in self.worksheet_tabs_dict.items():
             self.update_table_view(worksheet_name=sheet_name)
-            model = info['model']
+            sql = info['sql']
             if first_sheet:
                 ws = wb.active
                 ws.title = sheet_name
@@ -764,19 +770,27 @@ class ExportWidget(QWidget):
             else:
                 ws = wb.create_sheet(title=sheet_name)
 
-            # Write headers
-            headers = []
-            for col in range(model.columnCount()):
-                header_text = model.headerData(col, QtCore.Qt.Orientation.Horizontal)
-                headers.append(header_text if header_text is not None else "")
+            query = QSqlQuery()
+            query.prepare(sql)
+
+            if not query.exec():
+                print(f"Query execution failed: {query.lastError().text()}")
+                return
+
+            # Retrieve column names
+            column_count = query.record().count()
+            headers = [query.record().fieldName(i) for i in range(column_count)]
+
+            # Write headers to the first row
             for col_idx, header in enumerate(headers, start=1):
                 ws.cell(row=1, column=col_idx, value=header)
 
             # Write data rows
-            for row in range(model.rowCount()):
-                for col in range(model.columnCount()):
-                    cell_value = model.data(model.index(row, col), QtCore.Qt.ItemDataRole.DisplayRole)
-                    ws.cell(row=row + 2, column=col + 1, value=cell_value)
+            row_idx = 2  # Start from the second row
+            while query.next():
+                for col in range(column_count):
+                    ws.cell(row=row_idx, column=col + 1, value=query.value(col))
+                row_idx += 1
 
         # Attempt to save the workbook
         try:
