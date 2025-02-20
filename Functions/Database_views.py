@@ -14,76 +14,179 @@ def SampleViewQuery():
     # Select columns
 
     sample_query = f'''
-            SELECT
-                    {SQLUtils.qsample_id},
-                    {SQLUtils.qigsn},
-                    {SQLUtils.qsample_name},
-                    {SQLUtils.qsample_description},
-                    {SQLUtils.qgps},
-                    {SQLUtils.qsample_elev},
-                    {SQLUtils.qsample_age},
-                    {SQLUtils.qsample_age_constraint},
-                    {SQLUtils.qsample_age_interpretation},
-                    {SQLUtils.qsample_age_references},
-                    {SQLUtils.qcolumn_name},
-                    {SQLUtils.qsample_column_data},
-                    {SQLUtils.qage_signature},
-                    {SQLUtils.qregions},
-                    {SQLUtils.qrock_types},
-                    {SQLUtils.qsample_context},
-                    {SQLUtils.qsampling_methods},
-                    {SQLUtils.qsettings},
-                    {SQLUtils.qunits},
-                    {SQLUtils.qaliquots},
-                    {SQLUtils.qaliquot_contexts},
-                    {SQLUtils.qspot_count},
-                    {SQLUtils.qspot_compositions},
-                    {SQLUtils.qspot_contexts},
-                    {SQLUtils.qupb_count},
-                    {SQLUtils.qupb_lab_facilities},
-                    {SQLUtils.qupb_analysis_methods},
-                    {SQLUtils.qupb_ratio_error_formats},
-                    {SQLUtils.qupb_age_units},
-                    {SQLUtils.qupb_age_error_formats},
-                    {SQLUtils.qconcordance_formats},
-                    {SQLUtils.qspot_sizes},
-                    {SQLUtils.qupb_rejection_reasons},
-                    {SQLUtils.qupb_references},
-                    {SQLUtils.qsample_created},
-                    {SQLUtils.qsample_modified}
-                FROM Samples
-                {SQLUtils.age_signature_join}
-                {SQLUtils.column_join}
-                {SQLUtils.region_join}
-                {SQLUtils.rock_type_join}
-                {SQLUtils.sample_context_join}
-                {SQLUtils.sample_sampleage_join}
-                {SQLUtils.sampling_method_join}
-                {SQLUtils.setting_join}
-                {SQLUtils.unit_join}
-                {SQLUtils.sample_age_join}
-                {SQLUtils.sample_age_left_joins}
-                {SQLUtils.gps_sample_join}
-                {SQLUtils.gps_column_join}
-                {SQLUtils.sample_aliquot_join}
-                {SQLUtils.aliquot_context_join}
-                {SQLUtils.aliquot_spot_join}
-                {SQLUtils.spot_composition_join}
-                {SQLUtils.spot_context_join}
-                {SQLUtils.spot_upb_analysis_join}
-                {SQLUtils.upb_reference_join}
-                {SQLUtils.upb_labs_join}
-                {SQLUtils.upb_instruments_join}
-                {SQLUtils.upb_method_join}
-                {SQLUtils.upb_ratio_error_format_join}
-                {SQLUtils.upb_age_error_format_join}
-                {SQLUtils.upb_age_unit_join}
-                {SQLUtils.upb_concordance_format_join}
-                {SQLUtils.upb_spot_size_unit_join}
-                {SQLUtils.upb_rejection_reason_join}
-                GROUP BY Samples.SampleName
-                ORDER BY Samples.SampleID
-                '''
+    WITH SampleData AS (
+        SELECT
+            {SQLUtils.qsample_id},
+            {SQLUtils.qigsn},
+            {SQLUtils.qsample_name},
+            {SQLUtils.qsample_description},
+            {SQLUtils.qgps},
+            {SQLUtils.qsample_elev},
+            {SQLUtils.qsample_age},
+            {SQLUtils.qsample_column_data},
+            {SQLUtils.qsample_created},
+            {SQLUtils.qsample_modified}
+        FROM Samples
+        {SQLUtils.gps_sample_join}
+        {SQLUtils.sample_sampleage_join}
+    ),
+    SampleTags AS (
+        SELECT
+            {SQLUtils.qage_signature},
+            {SQLUtils.qregions},
+            {SQLUtils.qrock_types},
+            {SQLUtils.qsample_context},
+            {SQLUtils.qsampling_methods},
+            {SQLUtils.qsettings},
+            {SQLUtils.qunits}
+        FROM Samples
+        {SQLUtils.age_signature_join}
+        {SQLUtils.region_join}
+        {SQLUtils.rock_type_join}
+        {SQLUtils.sample_context_join}
+        {SQLUtils.sampling_method_join}
+        {SQLUtils.setting_join}
+        {SQLUtils.unit_join}
+    ),
+    JoinedData AS (
+        SELECT
+            {SQLUtils.qsample_id},
+            {SQLUtils.qsample_age_constraint},
+            {SQLUtils.qsample_age_interpretation},
+            {SQLUtils.qsample_age_references},
+            {SQLUtils.qcolumn_name},
+            {SQLUtils.qage_signature},
+            {SQLUtils.qregions},
+            {SQLUtils.qrock_types},
+            {SQLUtils.qsample_context},
+            {SQLUtils.qsampling_methods},
+            {SQLUtils.qsettings},
+            {SQLUtils.qunits},
+            {SQLUtils.qaliquots},
+            {SQLUtils.qaliquot_contexts},
+            {SQLUtils.qspot_count},
+            {SQLUtils.qspot_compositions},
+            {SQLUtils.qspot_contexts},
+            {SQLUtils.qupb_count},
+            {SQLUtils.qupb_lab_facilities},
+            {SQLUtils.qupb_analysis_methods},
+            {SQLUtils.qupb_ratio_error_formats},
+            {SQLUtils.qupb_age_units},
+            {SQLUtils.qupb_age_error_formats},
+            {SQLUtils.qconcordance_formats},
+            {SQLUtils.qspot_sizes},
+            {SQLUtils.qupb_rejection_reasons},
+            {SQLUtils.qupb_references}
+        FROM Samples
+        {SQLUtils.age_signature_join}
+        {SQLUtils.column_join}
+        {SQLUtils.region_join}
+        {SQLUtils.rock_type_join}
+        {SQLUtils.sample_context_join}
+        {SQLUtils.sample_sampleage_join}
+        {SQLUtils.sampling_method_join}
+        {SQLUtils.setting_join}
+        {SQLUtils.unit_join}
+        {SQLUtils.sample_age_join}
+        {SQLUtils.sampleage_age_constraint_join}
+        {SQLUtils.sampleage_age_interpretation_join}
+        {SQLUtils.sampleage_age_reference_join}
+        {SQLUtils.gps_column_join}
+        {SQLUtils.sample_aliquot_join}
+        {SQLUtils.aliquot_context_join}
+        {SQLUtils.aliquot_spot_join}
+        {SQLUtils.spot_composition_join}
+        {SQLUtils.spot_context_join}
+        {SQLUtils.spot_upb_analysis_join}
+        {SQLUtils.upb_reference_join}
+        {SQLUtils.upb_labs_join}
+        {SQLUtils.upb_instruments_join}
+        {SQLUtils.upb_method_join}
+        {SQLUtils.upb_ratio_error_format_join}
+        {SQLUtils.upb_age_error_format_join}
+        {SQLUtils.upb_age_unit_join}
+        {SQLUtils.upb_concordance_format_join}
+        {SQLUtils.upb_spot_size_unit_join}
+        {SQLUtils.upb_rejection_reason_join}
+        GROUP BY Samples.SampleID
+    )
+    SELECT SampleData.*, JoinedData.*
+    FROM SampleData
+    JOIN JoinedData on JoinedData.SampleID = SampleData.SampleID
+    ORDER BY SampleData.SampleID
+    '''
+
+    # sample_query = f'''
+    #         SELECT
+    #                 {SQLUtils.qsample_id},
+    #                 {SQLUtils.qigsn},
+    #                 {SQLUtils.qsample_name},
+    #                 {SQLUtils.qsample_description},
+    #                 {SQLUtils.qgps},
+    #                 {SQLUtils.qsample_elev},
+    #                 {SQLUtils.qsample_age},
+    #                 {SQLUtils.qsample_age_constraint},
+    #                 {SQLUtils.qsample_age_interpretation},
+    #                 {SQLUtils.qsample_age_references},
+    #                 {SQLUtils.qcolumn_name},
+    #                 {SQLUtils.qsample_column_data},
+    #                 {SQLUtils.qage_signature},
+    #                 {SQLUtils.qregions},
+    #                 {SQLUtils.qrock_types},
+    #                 {SQLUtils.qsample_context},
+    #                 {SQLUtils.qsampling_methods},
+    #                 {SQLUtils.qsettings},
+    #                 {SQLUtils.qunits},
+    #                 {SQLUtils.qaliquots},
+    #                 {SQLUtils.qaliquot_contexts},
+    #                 {SQLUtils.qspot_count},
+    #                 {SQLUtils.qspot_compositions},
+    #                 {SQLUtils.qspot_contexts},
+    #                 {SQLUtils.qupb_count},
+    #                 {SQLUtils.qupb_lab_facilities},
+    #                 {SQLUtils.qupb_analysis_methods},
+    #                 {SQLUtils.qupb_ratio_error_formats},
+    #                 {SQLUtils.qupb_age_units},
+    #                 {SQLUtils.qupb_age_error_formats},
+    #                 {SQLUtils.qconcordance_formats},
+    #                 {SQLUtils.qspot_sizes},
+    #                 {SQLUtils.qupb_rejection_reasons},
+    #                 {SQLUtils.qupb_references},
+    #                 {SQLUtils.qsample_created},
+    #                 {SQLUtils.qsample_modified}
+    #             FROM Samples
+    #             {SQLUtils.age_signature_join}
+    #             {SQLUtils.column_join}
+    #             {SQLUtils.region_join}
+    #             {SQLUtils.rock_type_join}
+    #             {SQLUtils.sample_context_join}
+    #             {SQLUtils.sample_sampleage_join}
+    #             {SQLUtils.sampling_method_join}
+    #             {SQLUtils.setting_join}
+    #             {SQLUtils.unit_join}
+    #             {SQLUtils.sample_age_join}
+    #             {SQLUtils.sample_age_left_joins}
+    #             {SQLUtils.gps_sample_join}
+    #             {SQLUtils.gps_column_join}
+    #             {SQLUtils.sample_aliquot_join}
+    #             {SQLUtils.aliquot_context_join}
+    #             {SQLUtils.aliquot_spot_join}
+    #             {SQLUtils.spot_composition_join}
+    #             {SQLUtils.spot_context_join}
+    #             {SQLUtils.spot_upb_analysis_join}
+    #             {SQLUtils.upb_reference_join}
+    #             {SQLUtils.upb_labs_join}
+    #             {SQLUtils.upb_instruments_join}
+    #             {SQLUtils.upb_method_join}
+    #             {SQLUtils.upb_ratio_error_format_join}
+    #             {SQLUtils.upb_age_error_format_join}
+    #             {SQLUtils.upb_age_unit_join}
+    #             {SQLUtils.upb_concordance_format_join}
+    #             {SQLUtils.upb_spot_size_unit_join}
+    #             {SQLUtils.upb_rejection_reason_join}
+    #             GROUP BY Samples.SampleID
+    #             ORDER BY Samples.SampleID
+    #             '''
 
     # print(sample_query)
     return sample_query
@@ -127,7 +230,8 @@ def SampleEditViewQuery():
                     {SQLUtils.qupb_age_units},
                     {SQLUtils.qupb_age_error_formats},
                     {SQLUtils.qconcordance_formats},
-                    {SQLUtils.qspot_sizes},
+                    {SQLUtils.qspot_size},
+                    {SQLUtils.qspot_size_unit},
                     {SQLUtils.qupb_rejection_reasons},
                     {SQLUtils.qupb_references},
                     {SQLUtils.qsample_created},
@@ -165,7 +269,7 @@ def SampleEditViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
-                GROUP BY Samples.SampleName
+                GROUP BY Samples.SampleID
                 ORDER BY Samples.SampleID
                 '''
 
@@ -294,7 +398,7 @@ def AliquotViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
-                GROUP BY AliquotName
+                GROUP BY AliquotID
                 '''
 
     return aliquot_query
@@ -315,7 +419,7 @@ def AliquotEditViewQuery():
                 FROM Aliquots
                 {SQLUtils.aliquot_sample_join}
                 {SQLUtils.aliquot_context_join}
-                GROUP BY AliquotName
+                GROUP BY AliquotID
                 '''
 
     return aliquot_query
@@ -327,10 +431,10 @@ def SpotViewQuery():
                     {SQLUtils.qspot_id},
                     {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
-                    {SQLUtils.qspots},
+                    {SQLUtils.qspot},
                     {SQLUtils.qsample_name},
                     {SQLUtils.qaliquot},
-                    {SQLUtils.qspot_compositions},
+                    {SQLUtils.qspot_composition},
                     {SQLUtils.qspot_contexts},
                     {SQLUtils.qupb_lab_facilities},
                     {SQLUtils.qupb_analysis_methods},
@@ -360,7 +464,7 @@ def SpotViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
-                GROUP BY SpotName
+                GROUP BY SpotID
                 '''
 
     return spot_query
@@ -372,10 +476,10 @@ def SpotEditViewQuery():
                     {SQLUtils.qspot_id},
                     {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_id},
-                    {SQLUtils.qspots},
+                    {SQLUtils.qspot},
                     {SQLUtils.qsample_name},
                     {SQLUtils.qaliquot},
-                    {SQLUtils.qspot_compositions},
+                    {SQLUtils.qspot_composition},
                     {SQLUtils.qspot_contexts},
                     {SQLUtils.qspot_created},
                     {SQLUtils.qspot_modified}
@@ -384,7 +488,7 @@ def SpotEditViewQuery():
                 {SQLUtils.aliquot_sample_join}
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
-                GROUP BY SpotName
+                GROUP BY SpotID
                 '''
 
     return spot_query
@@ -473,6 +577,11 @@ def UPbEditViewQuery():
                     {SQLUtils.qupb_instruments},
                     {SQLUtils.qupb_analysis_methods},
                     {query_columns},
+                    {SQLUtils.qupb_ratio_error_formats},
+                    {SQLUtils.qupb_age_units},
+                    {SQLUtils.qupb_age_error_formats},
+                    {SQLUtils.qconcordance_formats},
+                    {SQLUtils.qspot_size_unit},
                     {SQLUtils.qupb_rejected},
                     {SQLUtils.qupb_rejection_reasons},
                     {SQLUtils.qupb_created},
@@ -510,7 +619,7 @@ def ColumnViewQuery():
                     {SQLUtils.qcolumn_modified}
                 FROM Columns
                 {gps_column_join}
-                GROUP BY ColumnName
+                GROUP BY ColumnID
                 '''
     return column_query
 
@@ -535,7 +644,7 @@ def ColumnEditViewQuery():
                     {SQLUtils.column_units_join}
                     {SQLUtils.gps_column_join}
                     {SQLUtils.gps_column_left_joins}
-                    GROUP BY ColumnName
+                    GROUP BY ColumnID
                     '''
     # print(column_query)
     return column_query

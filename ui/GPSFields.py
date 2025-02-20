@@ -5,10 +5,11 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
-from Functions.Widget_classes import set_table, set_comboBox_text, SQLiteTableModel
+from Functions.Widget_classes import set_table, set_comboBox_text, SQLiteTableModel, populate_combo_box, get_headers
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+from Functions.Alter_database import convert_gps_location
 import Functions.Database_views as DB_views
 import time
 import logger_setup
@@ -17,6 +18,7 @@ class GPSFields(QtW.QWidget):
     def __init__(self, table: str, item_ids: list | None, parent=None):
         super().__init__(parent)
 
+        logger_setup.get_logger().info('Starting GPSFields')
         gps_ui_file = "ui/GPSFields.ui"
         loadUi(gps_ui_file, self)
         self.table = table
@@ -68,7 +70,12 @@ class GPSFields(QtW.QWidget):
 
     def populate_dropdowns(self):
         start_populate_dropdowns_time = time.time()
-        self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}')
+        # todo: figure out why this is slow for large number of samples and how to speed it up. Try a SQLiteTableModel instead?
+        query = QtS.QSqlQuery()
+        # if not query.exec(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}'):
+        #     logger_setup.get_logger().error(f"Error selecting {self.item_view_gps_header} from {self.item_edit_view}: {query.lastError().text()}")
+        #     return
+        # self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}')
         set_table(self.gps_format_model, 'GPSFormats')
         set_table(self.gps_location_model, 'GPSLocations')
         set_table(self.direction_unit_model, 'DirectionUnits')
@@ -78,18 +85,15 @@ class GPSFields(QtW.QWidget):
         self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
         self.elevation_unit_model = set_table(self.elevation_unit_model, 'DistanceUnits')
 
-        elevation_unit_id = settings.value('elevation_unit_id')
-        gps_format_id = settings.value('gps_format_id')
-        self.gps_format_comboBox.setModel(self.gps_format_model)
-        self.gps_format_comboBox.setModelColumn(self.gps_format_model.record().indexOf('GPSFormatAbbreviation'))
-        self.gps_format_comboBox.setCurrentIndex(gps_format_id - 1)
-        self.lat_comboBox.setModel(self.lat_direction_model)
-        self.lat_comboBox.setModelColumn(self.lat_direction_model.record().indexOf('DirectionUnitAbbreviation'))
-        self.lon_comboBox.setModel(self.lon_direction_model)
-        self.lon_comboBox.setModelColumn(self.lon_direction_model.record().indexOf('DirectionUnitAbbreviation'))
-        self.elevation_unit_comboBox.setModel(self.elevation_unit_model)
-        self.elevation_unit_comboBox.setModelColumn(self.elevation_unit_model.record().indexOf('DistanceUnitAbbreviation'))
-        self.elevation_unit_comboBox.setCurrentIndex(elevation_unit_id - 1)
+        elevation_unit_abbreviation = settings.value('elevation_unit_abbreviation')
+        gps_format_abbreviation = settings.value('gps_format_abbreviation')
+
+        populate_combo_box(self.gps_format_comboBox, **{'table': 'GPSFormats', 'column': 'GPSFormatAbbreviation'})
+        self.gps_format_comboBox.setCurrentText(gps_format_abbreviation)
+        populate_combo_box(self.lat_comboBox, **{'table': 'DirectionUnits', 'column': 'DirectionUnitAbbreviation'})
+        populate_combo_box(self.lon_comboBox, **{'table': 'DirectionUnits', 'column': 'DirectionUnitAbbreviation'})
+        populate_combo_box(self.elevation_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
+        self.elevation_unit_comboBox.setCurrentText(elevation_unit_abbreviation)
         end_populate_dropdowns_time = time.time()
         logger_setup.get_logger().info(f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
@@ -123,8 +127,7 @@ class GPSFields(QtW.QWidget):
         logger_setup.get_logger().info('Populating GPS fields')
         start_populate_fields_time = time.time()
         reset_fields = False  # Reset the GPS fields if there are no samples to populate
-        info_model = SQLiteTableModel('PRAGMA table_info(GPSLocations)')
-        column_names = info_model.column_as_list('name')
+        column_names = get_headers('GPSLocations')
         if len(self.item_ids) > 1:
             self.item_model.setQuery(
                 f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}')
@@ -526,6 +529,10 @@ class GPSFields(QtW.QWidget):
                         return
                 logger_setup.get_logger().info(f"Inserted new GPS location")
                 gps_id = query.lastInsertId()
+            if not convert_gps_location(gps_id):
+                logger_setup.get_logger().error(f"Error converting GPS location {gps_id}")
+                rollback_savepoint('before_update')
+                return
             for item_id in self.item_ids:
                 if not query.exec(f'''UPDATE {self.table} SET {self.table_gps_id_header} = {gps_id} WHERE {self.item_id_header} = {item_id}'''):
                     logger_setup.get_logger().error(f"Error updating {self.table} {self.item_id_header} {item_id}: {query.lastError().text()}")

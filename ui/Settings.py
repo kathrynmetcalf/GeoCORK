@@ -67,9 +67,9 @@ def default_settings():
 
     # Column display settings
     settings.setValue('default_sample_view_columns', [
-        'SampleID', 'SampleIGSN', 'SampleName', 'SampleDescription', 'GPSSampleLocationCalculated',
+        'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'GPSSampleLocationCalculated',
         'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraint', 'SampleAgeInterpretation',
-        'SampleAgeReference', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignature', 'RegionName',
+        'SampleAgeReference', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName', 'RegionName',
         'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName',
         'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalayses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
@@ -77,10 +77,10 @@ def default_settings():
         'UPbReference', 'SampleCreated', 'SampleModified'
     ])
     settings.setValue('default_sample_edit_columns', [
-        'SampleID', 'SampleIGSN', 'SampleName', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
-        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraint', 'SampleAgeInterpretation',
+        'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
+        'SampleElevationUnitAbbreviation', 'SampleAge', 'SampleAgeConstraint', 'SampleAgeInterpretation',
         'SampleAgeReference', 'ColumnName', 'ColumnHeightDepth', 'ColumnHeightDepthUnitAbbreviation',
-        'SampleAgeSignature', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName',
+        'SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName',
         'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
         '"Accepted/TotalUPbAnalayses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
@@ -108,8 +108,8 @@ def default_settings():
         'SpotContextName', 'SpotCreated', 'SpotModified'
     ])
     settings.setValue('default_upb_analysis_view_columns', [
-        '"UPbAnalysisID"', '"SampleID"', '"AliquotID"', '"SpotID"', '"SpotName"', '"AliquotName"', '"SampleName"', '"UPbReference"',
-        '"LabFacilityName"', '"InstrumentName"', '"UPbAnalysisMethodName"', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
+        'UPbAnalysisID', 'SampleID', 'AliquotID', 'SpotID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
+        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
         '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
         '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"', '"Calculated207Pb/206PbError"',
         '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"', '"Calculated235U/207Pb"', '"Calculated235U/207PbError"',
@@ -131,26 +131,25 @@ def default_settings():
         '"Calculated238U/232ThError"', '"Calculated232Th/238UError"', '"Calculated204Pb/238UError"',
         '"Calculated238U/204PbError"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206PbError"',
         '"Calculated207Pb/204PbError"', '"Calculated204Pb/207PbError"', '"Calculated208Pb/204PbError"',
-        '"Calculated204Pb/208PbError"', '"Rejected"', '"RejectionReasonName"', '"UPbAnalysisCreated"', '"UPbAnalysisModified"'
+        '"Calculated204Pb/208PbError"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
     settings.setValue('default_upb_analysis_edit_columns', [
-        '"UPbAnalysisID"', '"SampleID"', '"AliquotID"', '"SpotID"', '"SpotName"', '"AliquotName"', '"SampleName"', '"UPbReference"',
-        '"LabFacilityName"', '"InstrumentName"', '"UPbAnalysisMethodName"', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
-        '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"', '"206Pb/207Pb"', '"206Pb/207PbError"',
-        '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"', '"207Pb/206PbError"', '"207Pb/235U"', '"207Pb/235UError"',
-        '"207Pb/235UError"', '"235U/207Pb"', '"235U/207PbError"', '"235U/207PbError"', '"206Pb/238U"', '"206Pb/238UError"',
-        '"206Pb/238UError"', '"238U/206Pb"', '"238U/206PbError"', '"238U/206PbError"', '"208Pb/232Th"', '"208Pb/232ThError"',
-        '"208Pb/232ThError"', '"232Th/208Pb"', '"232Th/208PbError"', '"232Th/208PbError"', '"238U/232Th"', '"238U/232ThError"',
-        '"238U/232ThError"', '"232Th/238U"', '"232Th/238UError"', '"232Th/238UError"', '"204Pb/238U"', '"204Pb/238UError"',
-        '"204Pb/238UError"', '"238U/204Pb"', '"238U/204PbError"', '"238U/204PbError"', '"206Pb/204Pb"', '"206Pb/204PbError"',
-        '"206Pb/204PbError"', '"204Pb/206Pb"', '"204Pb/206PbError"', '"204Pb/206PbError"', '"207Pb/204Pb"',
-        '"207Pb/204PbError"', '"207Pb/204PbError"', '"204Pb/207Pb"', '"204Pb/207PbError"', '"204Pb/207PbError"',
-        '"208Pb/204Pb"', '"208Pb/204PbError"', '"208Pb/204PbError"', '"204Pb/208Pb"', '"204Pb/208PbError"',
-        '"204Pb/208PbError"', '"ErrorCorr/Rho"', '"207Pb/206PbAge"', '"207Pb/206PbAgeError"', '"207Pb/206PbAgeError"',
-        '"207Pb/235UAge"', '"207Pb/235UAgeError"', '"207Pb/235UAgeError"', '"206Pb/238UAge"', '"206Pb/238UAgeError"',
-        '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"', '"208Pb/232ThAgeError"', '"BestAge"',
-        '"BestAgeError"', '"BestAgeError"', '"Concordance"', '"SpotSize"', '"Rejected"', '"RejectionReasonName"',
-        '"UPbAnalysisCreated"', '"UPbAnalysisModified"'
+        'UPbAnalysisID', 'SampleID', 'AliquotID', 'SpotID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
+        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
+        '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
+        '"206Pb/207Pb"', '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"',
+        '"207Pb/235U"', '"207Pb/235UError"', '"235U/207Pb"', '"235U/207PbError"',
+        '"206Pb/238U"', '"206Pb/238UError"', '"238U/206Pb"', '"238U/206PbError"',
+        '"208Pb/232Th"', '"208Pb/232ThError"', '"232Th/208Pb"', '"232Th/208PbError"',
+        '"238U/232Th"', '"238U/232ThError"', '"232Th/238U"', '"232Th/238UError"',
+        '"204Pb/238U"', '"204Pb/238UError"', '"238U/204Pb"', '"238U/204PbError"',
+        '"206Pb/204Pb"', '"206Pb/204PbError"', '"204Pb/206Pb"', '"204Pb/206PbError"',
+        '"207Pb/204Pb"', '"207Pb/204PbError"', '"204Pb/207Pb"', '"204Pb/207PbError"',
+        '"208Pb/204Pb"', '"208Pb/204PbError"', '"204Pb/208Pb"', '"204Pb/208PbError"',
+        '"204Pb/208PbError"', 'RatioErrorFormatAbbreviation', '"ErrorCorr/Rho"', '"207Pb/206PbAge"', '"207Pb/206PbAgeError"',
+        '"207Pb/235UAge"', '"207Pb/235UAgeError"', '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
+        '"BestAge"', '"BestAgeError"', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"', 'ConcordanceFormatAbbreviation',
+        '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
     settings.setValue('default_column_view_columns', [
         'ColumnID', 'ColumnName', 'ColumnTotalHeightDepthCalculated', 'ColumnGPSLocationCalculated',
@@ -175,7 +174,10 @@ def reset_to_default_settings():
     # get the default settings from the QSettings object
     if settings.value('default_settings') == 'true':
         for setting in settings_list:
-            settings.setValue(setting, settings.value(f'default_{setting}'))
+            if setting == 'default_settings':
+                pass
+            else:
+                settings.setValue(setting, settings.value(f'default_{setting}'))
 
         # Apply the stylesheet to the active QApplication object
         app = QtW.QApplication.instance()
@@ -245,6 +247,7 @@ settings_ids_tables = [['age_unit_id', 'AgeUnits'], ['elevation_unit_id', 'Dista
 class SettingsDialog(QtW.QDialog):
     def __init__(self):
         super().__init__()
+        logger_setup.get_logger().info('Opening settings dialog')
         settings_ui_file = "ui/Settings.ui"
         loadUi(settings_ui_file, self)
         self.setWindowTitle('Settings')
@@ -280,7 +283,7 @@ class SettingsDialog(QtW.QDialog):
         self.settings_tabWidget.setCurrentIndex(index)
 
     def populate_fields(self):
-
+        logger_setup.get_logger().info('Populating fields with the current settings')
         decimals = [str(i) for i in range(0, 10)]
         self.decimals_comboBox.addItems(decimals)
         self.decimals_comboBox.setCurrentText(str(settings.value('decimals_to_show')))
@@ -327,8 +330,10 @@ class SettingsDialog(QtW.QDialog):
         self.db_created_by_lineEdit.setText(self.about_db_model.record(0).value('CreatedBy'))
         self.db_reference_lineEdit.setText(self.about_db_model.record(0).value('Citation'))
 
+        self.select_columns.populate_stack()
+
         self.combobox_height_scaler_spinbox.setValue(float(settings.value('checkable_combobox_height_scaler')))
-        print(float(settings.value('checkable_combobox_height_scaler')))
+        # print(float(settings.value('checkable_combobox_height_scaler')))
         self.combobox_width_scaler_spinbox.setValue(float(settings.value('checkable_combobox_width_scaler')))
 
         # List of font sizes to populate the font size comboboxes
@@ -348,6 +353,7 @@ class SettingsDialog(QtW.QDialog):
 
     def update_settings(self):
         # No longer using default settings
+        logger_setup.get_logger().info('Updating settings')
         settings.setValue('default_settings', 'false')
 
         # Save the settings to the QSettings object
@@ -406,6 +412,7 @@ class SettingsDialog(QtW.QDialog):
         self.close()
 
     def restore_defaults(self):
+        logger_setup.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')
         reset_to_default_settings()
         self.populate_fields()

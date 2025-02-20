@@ -15,6 +15,7 @@ from Functions import SQLUtils
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+from Functions.Alter_database import convert_sample_age
 import Functions.Database_views as DB_views
 from ui.EditTree import EditTree
 from ui.EditTable import EditTable
@@ -27,6 +28,8 @@ import time
 class AgeFields(QtW.QWidget):
     def __init__(self, table: str, sample_ids: list):
         super().__init__()
+
+        logger_setup.get_logger().info('Starting AgeFileds')
         age_ui_file = "ui/AgeFields.ui"
         loadUi(age_ui_file, self)
         self.table = table
@@ -574,6 +577,9 @@ class AgeFields(QtW.QWidget):
                     return
                 update_modified_timestamp('SampleAges', [sample_age_id])
                 logger_setup.get_logger().info(f"Updated age information for SampleAgeID {sample_age_id}")
+                if not convert_sample_age(sample_age_id):
+                    rollback_savepoint('before_update')
+                    return
             if not self.update_age_tags(sample_age_id, self.age_constraint_comboBox):
                 return
             if not self.update_age_tags(sample_age_id, self.age_interpretation_comboBox):

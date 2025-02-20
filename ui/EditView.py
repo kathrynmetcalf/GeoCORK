@@ -1,33 +1,35 @@
 import os
 import sys
+import time
+from operator import index
+
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import QModelIndex
+from PyQt6.QtCore import QPoint, QSize
 from PyQt6.uic import loadUi
-
-import logger_setup
-# from pandas.plotting import table
-
-from Functions.Database_manager import update_database
-from Functions.Settings_manager import settings
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
-from Functions.Widget_classes import (SQLiteTableModel, VerifiableSqlTableModel, VerifiableSqlViewModel, set_table, get_headers,
-                                      ReadableProxyModel)
-import Functions.Alter_database as Alter_db
+import logger_setup
+import difflib
+from Functions.Widget_classes import (
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, ReadableProxyModel, DisplayRoundedModel,
+    SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, name_column,
+    set_table, VerifiableSqlTableModel, VerifiableSqlViewModel
+)
+from Functions import SQLUtils
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
+from Functions.Settings_manager import settings
+from Functions.Database_manager import update_database
 from ui.AddTags import AddTags
 from ui.GPSDialog import GPSDialog
-import Functions.SQLUtils as SQLUtils
 from ui.New_reference import NewReference
+from ui.AgeDialog import AgeDialog
 
-
-class EditTable(QtW.QDialog):
+class EditView(QtW.QDialog):
     def __init__(self, table_name, parent_id: int=None, parent_type: str=None):
         super().__init__()
-
-        # Define any widgets here
+        logger_setup.get_logger().info(f'Creating a new EditView for {table_name}')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
         loadUi(sources_ui_file, self)
@@ -38,17 +40,16 @@ class EditTable(QtW.QDialog):
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox(self)
         self.view = None
+        self.model = None
+        self.show_cols = []
+        self.where = ''
         if self.table in SQLUtils.trigger_tables:
             if self.table == 'Columns':
                 self.view = 'ColumnEditView'
-                self.show_cols = settings.value('column_edit_view_columns')
-                where = ''
-                self.model = SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
+                self.show_cols = settings.value('column_edit_columns')
             elif self.table == 'Samples':
                 self.view = 'SampleEditView'
-                self.show_cols = settings.value('sample_view_columns')
-                where = ''
-                self.model = SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view}')
+                self.show_cols = settings.value('sample_edit_columns')
             elif self.table == 'Spots' or self.table == 'UPbAnalyses':
                 self.parent_id = parent_id
                 self.parent_type = parent_type
@@ -56,20 +57,22 @@ class EditTable(QtW.QDialog):
                 if self.table == 'Spots':
                     self.view = 'SpotEditView'
                     self.show_cols = settings.value('spot_edit_columns')
-                    where = f' WHERE {self.parent_id_header} = {self.parent_id}'
                 elif self.table == 'UPbAnalyses':
                     self.view = 'UPbEditView'
                     self.show_cols = ', '.join(settings.value('upb_analysis_edit_columns'))
-                self.model = SQLiteTableModel(f'SELECT {self.show_cols} FROM {self.view} WHERE {self.parent_id_header} = {self.parent_id}')
-            else:
-                self.model = VerifiableSqlTableModel()
-                set_table(self.model, self.table)
-                self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
-            self.edit_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.edit_tableView.doubleClicked.connect(self.display_widget)
-        else:
-            self.model = QtS.QSqlTableModel()
-            set_table(self.model, self.table)
+                self.where = f' WHERE {self.parent_id_header} = {self.parent_id}'
+            elif self.table == 'References':
+                self.view = 'ReferenceEditView'
+                self.show_cols = settings.value('reference_edit_columns')
+            self.update_model()
+        self.tree_combo = None
+        self.combo = None
+        self.combo_index = QtC.QModelIndex()
+        self.combo_model = None
+        self.lineEdit = None
+        # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
+        self.msg = QtW.QMessageBox(self)
+        self.close_by_dialog = False
         self.view_headers = []
         if self.view is not None:
             self.view_headers = get_headers(self.view)
@@ -77,22 +80,18 @@ class EditTable(QtW.QDialog):
         self.proxy_model = ReadableProxyModel()
         self.proxy_model.setSourceModel(self.model)
         self.display_table()
-        # self.model.submitAll()
         create_savepoint('before_edit')
 
-        self.close_by_dialog = False
-        self.lineEdit = None
-        self.edit_index = QModelIndex()
-        self.combo = None
-        self.combo_index = QModelIndex()
-        self.tabbed_from_editor = False
-        self.add_pushButton.clicked.connect(self.add_popup)
+        self.proxy_model.dataChanged.connect(self.update_model)
+        # self.combo.closing.connect(self.destroy_dropdown)
+        # self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
-        self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
-        # self.model.row_submitted.connect(Alter_db.settings_reset())
-        self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-        self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
+        self.edit_tableView.clicked.connect(self.display_widget)
+
+    def update_model(self):
+        self.model = SQLiteTableModel(f'SELECT {', '.join(self.show_cols)} FROM {self.view} {self.where}')
+
 
     def eventFilter(self, object, event):
         if self.combo:
@@ -160,22 +159,24 @@ class EditTable(QtW.QDialog):
         self.edit_tableView.setSortingEnabled(True)
 
     def display_widget(self):
+        logger_setup.get_logger().info('Displaying widget')
         selected_index = self.edit_tableView.selectedIndexes()[0]
         if not selected_index.isValid():
             return
         if self.lineEdit is not None:
             self.destroy_lineedit()
             if self.lineEdit is not None:
-                print('Error destroying line edit')
+                logger_setup.get_logger().info('Error destroying previous line edit')
                 return
         elif self.combo is not None:
             self.destroy_dropdown()
             if self.combo is not None:
-                print('Error destroying dropdown')
+                logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
         header = self.model.headerData(selected_index.column(), QtC.Qt.Orientation.Horizontal,
                                                     QtC.Qt.ItemDataRole.DisplayRole)
-        if 'GPS' in header:
+
+        if 'GPS' in header or 'Elevation' in header:
             if not self.tabbed_from_editor:
                 # Do not open the popup if tabbing here, only when double-clicking
                 if self.table == 'Samples':
@@ -192,15 +193,56 @@ class EditTable(QtW.QDialog):
                 self.display_table()
             else:
                 self.edit_tableView.setFocus()
-        elif 'Unit' in header or 'Format' in header:
-            self.edit_index = selected_index
-            self.display_dropdown()
-        elif 'Rejected' in header and 'Reasons' not in header:
-            self.edit_index = selected_index
-            self.display_dropdown()
+        elif 'SampleAgeCalculated' in header:
+            if not self.tabbed_from_editor:
+                if self.table == 'Samples':
+                    item_id_header = 'SampleID'
+                else:
+                    return
+                item_ids = []
+                row = selected_index.row()
+                item_ids.append(self.model.record(row).value(item_id_header))
+                dlg = AgeDialog(self.table, item_ids)
+                dlg.exec()
+                self.display_table()
+            else:
+                self.edit_tableView.setFocus()
         else:
-            if 'Created' not in header and 'Modified' not in header:
+            dropdown_table = ''
+            if 'Rejected' in header:
+                # todo: add functionality to change accepted/rejected status
+                dropdown_table = 'Rejected'
+            else:
+                for key, values in SQLUtils.many_editable.items():
+                    if key == self.table:
+                        for col_key in values.keys():
+                            if header == col_key:
+                                dropdown_table = values[header]
+                                break
+                        if dropdown_table == '':
+                            logger_setup.get_logger().info(f'No matches found for {header} in {key}')
+                            break
+                if dropdown_table == '':
+                    for key, values in SQLUtils.one_editable.items():
+                        if key == self.table:
+                            for col_key in values.keys():
+                                if header == col_key:
+                                    dropdown_table = values[header]
+                                    break
+                            if dropdown_table == '':
+                                logger_setup.get_logger().info(f'No matches found for {header} in {key}')
+                                break
+            if dropdown_table == '':
+                for key, values in SQLUtils.non_editable.items():
+                    if key == self.table:
+                        for col in values:
+                            if header == col:
+                                logger_setup.get_logger().info(f'{header} is non-editable')
+                                return
+                        break
                 self.display_lineedit()
+            else:
+                self.display_dropdown(dropdown_table)
 
     def display_lineedit(self):
         selected_index = self.edit_tableView.selectedIndexes()[0]
@@ -230,64 +272,39 @@ class EditTable(QtW.QDialog):
                 self.lineEdit.returnPressed.disconnect(self.destroy_lineedit)
                 self.edit_tableView.setIndexWidget(self.edit_index, None)
                 self.lineEdit = None
-                self.edit_index = QModelIndex()
+                self.edit_index = QtC.QModelIndex()
                 self.edit_tableView.setFocus()
             else:
                 errtxt = f'Failed to set data: {self.model.lastError().text()}'
                 self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
                 self.lineEdit.setFocus()
 
-    def display_dropdown(self):
+    def display_dropdown(self, dropdown_table: str):
+        logger_setup.get_logger().info(f'Displaying dropdown for {dropdown_table}')
         selected_index = self.edit_tableView.selectedIndexes()[0]
-        header = self.model.headerData(selected_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        # print(f"Clicked column: {header}")
-        header = TxM.remove_spaces(header)
-        dropdown_table = ''
-        for list in SQLUtils.many_editable:
-            if list[0] == self.table:
-                matches = []
-                for item in list:
-                    if header in item:
-                        matches.append(item)
-                if not matches:
-                    dropdown_table = ''
-                    print(f'No matches found for {header}')
-                elif len(matches) == 1:
-                    dropdown_table = matches[0]
-                else:
-                    # There is more than one match, so we have to figure it out
-                    print(f'More than one match for {header}: f{matches}')
-        if dropdown_table == '':
-            for list in SQLUtils.one_editable:
-                if list[0] == self.table:
-                    matches = []
-                    for item in list:
-                        if header in item:
-                            matches.append(item)
-                        elif ('Unit' in item and 'Unit' in header) or ('Format' in item and 'Format' in header):
-                            matches.append(item)
-                    if not matches:
-                        dropdown_table = ''
-                        print(f'No matches found for {header}')
-                    elif len(matches) == 1:
-                        dropdown_table = matches[0]
-                    else:
-                        # There is more than one match, so we have to figure it out
-                        print(f'More than one match for {header}: f{matches}')
-                    break
-            if 'Rejected' in header:
-                # todo: add functionality to change accepted/rejected status
-                dropdown_table = 'Rejected'
-                self.combo.addItem('Accepted')
-                self.combo.addItem('Rejected')
-        if dropdown_table == '':
-            return
         self.combo_index = selected_index
+        self.model = QtS.QSqlTableModel()
+        set_table(self.model, dropdown_table)
+        name_col = name_column(dropdown_table)
         self.combo = QtW.QComboBox()
-        if dropdown_table != 'Rejected':
-            self.combo_model = QtS.QSqlTableModel()
-            set_table(self.combo_model, dropdown_table)
+        if dropdown_table in SQLUtils.user_viewable_trees:
+            self.combo = CheckableTreeCombobox()
+            self.combo_model = CheckableTreeModel()
+            self.combo_model.setSourceModel(self.model)
+        elif dropdown_table == 'Rejected':
+            self.combo = QtW.QComboBox()
+            self.combo.addItem('Accepted')
+            self.combo.addItem('Rejected')
+        else:
+            if 'Abbreviation' in self.model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole):
+                self.combo = QtW.QComboBox()
+                self.combo_model = self.model
+            else:
+                self.combo = CheckableComboBox()
+                self.combo_model = CheckableSqlTableModel()
+                self.combo_model.setTable(dropdown_table)
             self.combo.setModel(self.combo_model)
+            self.combo.setModelColumn(name_column(dropdown_table))
             for col in range(1,self.combo_model.columnCount()):
                 header = self.combo_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
                 if 'Abbreviation' in header:
@@ -306,20 +323,24 @@ class EditTable(QtW.QDialog):
         self.combo.showPopup()
 
     def destroy_dropdown(self):
+        logger_setup.get_logger().info('Saving data from dropdown')
         self.edit_tableView: QtW.QTableView
         if self.combo is not None:
-            # print("Start destroying dropdown")
-            self.model.setData(self.combo_index, self.combo.currentText(), QtC.Qt.ItemDataRole.EditRole)
-            if self.model.lastError().text() != '':
-                print('Could not set data')
-            if self.edit_tableView.currentIndex() == self.combo_index:
-                self.tabbed_from_editor = False
-            self.combo.activated.disconnect(self.destroy_dropdown)
-            self.combo.removeEventFilter(self)
-            self.combo.view().removeEventFilter(self)
-            self.edit_tableView.setIndexWidget(self.combo_index, None)
+            combo = self.combo
+        elif self.tree_combo is not None:
+            combo = self.tree_combo
+        self.model.setData(self.combo_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole)
+        if self.edit_tableView.currentIndex() == self.combo_index:
+            self.tabbed_from_editor = False
+        combo.activated.disconnect(self.destroy_dropdown)
+        combo.removeEventFilter(self)
+        combo.view().removeEventFilter(self)
+        self.edit_tableView.setIndexWidget(self.combo_index, None)
+        if self.combo is not None:
             self.combo = None
-            self.combo_index = QtC.QModelIndex()
+        elif self.tree_combo is not None:
+            self.tree_combo = None
+        self.combo_index = QtC.QModelIndex()
 
     def advance_tab(self):
         currentIndex = self.edit_tableView.currentIndex()
@@ -375,7 +396,7 @@ class EditTable(QtW.QDialog):
         if selected.row() != deselected.row():
             if isinstance(self.model, SQLiteTableModel):
                 if self.view == 'SampleEditView':
-                    if not self.sample_submit():
+                    if not self.sample_submit(selected.row()):
                         return False
             if isinstance(self.model, VerifiableSqlTableModel | VerifiableSqlViewModel):
                 if not self.model.edited_indexes:
@@ -404,10 +425,129 @@ class EditTable(QtW.QDialog):
                 self.updated = True
                 return True
 
-    def sample_submit(self):
+    def sample_submit(self, row):
         logger_setup.get_logger().info('Submitting sample changes')
-        print('Submitting sample changes')
-        return False
+        row_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+        update_cols = {}
+        update_col_values = {}
+        where_col_ids = {}
+        for key in SQLUtils.one_editable.keys():
+            update_cols[key] = []
+            update_col_values[key] = []
+            where_col_ids[key] = []
+        update_tags = {}
+        update_tag_values = {}
+        # where_tag_ids = {}
+        for key in SQLUtils.many_editable.keys():
+            update_tags[key] = []
+            update_tag_values[key] = []
+            # where_tag_ids[key] = []
+        query = QtS.QSqlQuery()
+        for header in self.show_cols:
+            if 'GPS' in header or 'Elevation' in header:
+                continue
+            elif 'SampleAgeCalculated' in header:
+                continue
+            elif 'Rejected' in header:
+                text = self.model.index(row, self.model.fieldIndex(header)).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if text == 'Accepted':
+                    update_cols['UPbAnalyses'].append('Rejected')
+                    update_col_values['UPbAnalyses'].append(0)
+                elif text == 'Rejected':
+                    update_cols['UPbAnalyses'].append('Rejected')
+                    update_col_values['UPbAnalyses'].append(1)
+                else:
+                    update_cols['UPbAnalyses'].append('Rejected')
+                    update_col_values['UPbAnalyses'].append('Null')
+                if not query.exec(f'SELECT UPbAnalysisID FROM UPbEditView WHERE {self.show_cols[0]} = {row_id}'):
+                    logger_setup.get_logger().critical(f'Failed to get UPbAnalysisID for {row_id}: {query.lastError().text()}')
+                    return False
+                while query.next():
+                    where_col_ids['UPbAnalyses'].append(query.value(0))
+            else:
+                for key, values in SQLUtils.non_editable.items():
+                    if header in values:
+                        continue
+                for key, values in SQLUtils.many_editable.items():
+                    for col_key in values.keys():
+                        if header == col_key:
+                            text = self.model.index(row, self.model.fieldIndex(header)).data(QtC.Qt.ItemDataRole.DisplayRole)
+                            if text == '' or text is None:
+                                ids = 'Null'
+                            else:
+                                ids = self.retrieve_checked_ids(key, text.split(','))
+                                if not ids:
+                                    break
+                            update_tags[key].append(name_column(key))
+                            update_tag_values[key].append(ids)
+                            break
+                for key, values in SQLUtils.one_editable.items():
+                    for col_key in values.keys():
+                        if header == col_key:
+                            text = self.model.index(row, self.model.fieldIndex(header)).data(QtC.Qt.ItemDataRole.DisplayRole)
+                            if text == '' or text is None:
+                                id = 'Null'
+                            else:
+                                id = self.retrieve_id(key, text)
+                                if not id:
+                                    break
+                            update_cols[key].append(values[header])
+                            update_col_values[key].append(id)
+                            if key != self.table:
+                                # todo: figure out how to get the correct IDs for the where clause
+                                pass
+                            break
+        for table in update_cols.keys():
+            if update_col_values[table]:
+                sql_cols = ', '.join(update_cols[table])
+                sql_values = ', '.join(update_col_values[table])
+                table_headers = get_headers(table)
+                if table == self.table:
+                    item_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                else:
+                    for header in self.table_headers:
+                        if header in table_headers:
+                            edit_table_col = header
+                            break
+                        elif table_headers[0] in self.table_headers:
+                            edit_table_col = table_headers[0]
+                    edit_table_col
+                    item_id = self.retrieve_id(table, )
+                if not query.exec(f'UPDATE {table} SET {sql_cols} = {sql_values} WHERE {table_headers[0]} = {item_id}'):
+                    logger_setup.get_logger().critical(f'Failed to update {table}: {query.lastError().text()}')
+                    return False
+
+
+    def retrieve_id(self, table, value):
+        if value == '':
+            return 'Null'
+        table_headers = get_headers(table)
+        id_header = table_headers[0]
+        query = QtS.QSqlQuery()
+        if not query.exec(f'SELECT {id_header} FROM {table} WHERE {name_column(table)} = "{value}"'):
+            logger_setup.get_logger().critical(f'Failed to get ID for {value}: {query.lastError().text()}')
+            return None
+        if query.next():
+            return query.value(0)
+        else:
+            return None
+
+    def retrieve_checked_ids(self, table, values):
+        if not values:
+            return []
+        table_headers = get_headers(table)
+        id_header = table_headers[0]
+        query = QtS.QSqlQuery()
+        ids = []
+        for value in values:
+            if not query.exec(f'SELECT {id_header} FROM {table} WHERE {name_column(table)} = "{value}"'):
+                logger_setup.get_logger().critical(f'Failed to get {name_column(table)} for {value}: {query.lastError().text()}')
+                return None
+            if query.next():
+                ids.append(query.value(0))
+            else:
+                return None
+        return ids
 
     def add_popup(self):
         # if not self.add_pushButton.hasFocus():
@@ -470,3 +610,11 @@ class EditTable(QtW.QDialog):
         else:
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
             event.accept()
+
+    def saveWindowState(self):
+        settings.setValue("ui/EditSampleTable/pos", self.pos())
+        settings.setValue("ui/EditSampleTable/size", self.size())
+
+    def loadWindowState(self):
+        self.move(settings.value("ui/EditSampleTable/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/EditSampleTable/size", defaultValue=QSize(810, 569)))

@@ -30,13 +30,13 @@ qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName) AS SampleAgeC
 qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName) AS SampleAgeInterpretation'
 qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay) AS SampleAgeReference'
 qsample_description = 'Samples.SampleDescription AS SampleDescription'
-qage_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) AS SampleAgeSignature'
-qregions = 'GROUP_CONCAT(DISTINCT RegionName) AS RegionName'
-qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) AS RockTypeName'
-qsample_context = 'GROUP_CONCAT(DISTINCT SampleContextName) AS SampleContextName'
-qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) AS SamplingMethodName'
-qsettings = 'GROUP_CONCAT(DISTINCT SettingName) AS SettingName'
-qunits = 'GROUP_CONCAT(DISTINCT UnitName) AS UnitName'
+qage_signature = 'GROUP_CONCAT(AgeSignatureName) AS SampleAgeSignatureName'
+qregions = 'GROUP_CONCAT(RegionName) AS RegionName'
+qrock_types = 'GROUP_CONCAT(RockTypeName) AS RockTypeName'
+qsample_context = 'GROUP_CONCAT(SampleContextName) AS SampleContextName'
+qsampling_methods = 'GROUP_CONCAT(SamplingMethodName) AS SamplingMethodName'
+qsettings = 'GROUP_CONCAT(SettingName) AS SettingName'
+qunits = 'GROUP_CONCAT(UnitName) AS UnitName'
 qsample_created = 'Samples.SampleCreated AS SampleCreated'
 qsample_modified = 'Samples.SampleModified AS SampleModified'
 
@@ -104,7 +104,7 @@ qcolumn_names = 'GROUP_CONCAT(DISTINCT ColumnName) AS ColumnName'
 qcolumn_data = f'HeightDepth || "±" || HeightDepthError AS ColumnHeightDepth'
 qcolumn_gps = f'ColumnGPS.GPSLocationConverted AS ColumnGPSLocationCalculated'
 qcolumn_gps_display = 'ColumnGPS.GPSLocationDisplay AS ColumnGPSLocationDisplay'
-qcolumn_gps_id = 'Columns.ColumnGPSLocationID AS ColumnGPSLocationID'
+qcolumn_gps_id = 'Columns.ColumnBaseGPSID AS ColumnGPSLocationID'
 qcolumn_calc_total_height_depth = f'Columns.CalculatedColumnTotalHeightDepth AS ColumnTotalHeightDepthCalculated'
 qcolumn_total_height_depth = f'Columns.ColumnTotalHeightDepth AS ColumnTotalHeightDepth'
 qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation AS ColumnTotalHeightDepthUnitAbbreviation'
@@ -170,6 +170,7 @@ qaliquot_context_ifnull = 'GROUP_CONCAT(DISTINCT ifnull(AliquotContextName,"Null
 qspot_count = 'COUNT(DISTINCT Spots.SpotID) AS SpotCount'
 qspot = 'SpotName AS SpotName'
 qspots = 'GROUP_CONCAT(DISTINCT SpotName) AS SpotName'
+qspot_composition = 'SpotCompositionName AS SpotCompositionName'
 qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) AS SpotCompositionName'
 qspot_contexts = 'GROUP_CONCAT(DISTINCT SpotContextName) AS SpotContextName'
 qspot_created = 'SpotCreated AS SpotCreated'
@@ -302,7 +303,7 @@ qupb_calc_concordance = 'UPbAnalyses."CalculatedConcordance" AS "CalculatedConco
 qconcordance_formats = 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation) AS ConcordanceFormatAbbreviation'
 qspot_size = 'UPbAnalyses.SpotSize AS SpotSize'
 qspot_sizes = f'GROUP_CONCAT(DISTINCT CalculatedSpotSize) AS CalculatedSpotSize'
-qspot_size_unit = 'GROUP_CONCAT(DISTINCT SpotSizeUnit.DistanceUnitAbbreviation) AS SpotSizeUnitAbbreviation'
+qspot_size_unit = 'GROUP_CONCAT(DISTINCT SpotSizeUnits.DistanceUnitAbbreviation) AS SpotSizeUnitAbbreviation'
 qupb_rejected = 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END AS Rejected'
 qupb_rejection_reasons = 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName) AS RejectionReasonName'
 qupb_created = 'UPbAnalysisCreated AS UPbAnalysisCreated'
@@ -331,21 +332,13 @@ sample_age_join = 'LEFT JOIN Ages ON SampleAges.OldestAgeID=Ages.AgeID OR Sample
 sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON DirectAgeErrorFormats.ErrorFormatID=SampleAges.DirectAgeErrorFormatID
                         LEFT JOIN AgeUnits ON AgeUnits.AgeUnitID=SampleAges.DirectAgeUnitID
                         LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID=OldAge.AgeID
-                        LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID=YoungAge.AgeID
-                        LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID=SampleAges_AgeConstraints.SampleAgeID
-                        LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID
-                        LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
-                        LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID
-                        LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID=SampleAges_References.SampleAgeID
-                        LEFT JOIN "References" AS AgeReferences ON AgeReferences.ReferenceID=SampleAges_References.ReferenceID'''
-
-sample_sampleage_join = '''LEFT JOIN Samples_SampleAges ON Samples.DefaultSampleAgeID=Samples_SampleAges.SampleAgeID
-                        LEFT JOIN SampleAges ON SampleAges.SampleAgeID=Samples_SampleAges.SampleAgeID'''
-
+                        LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID=YoungAge.AgeID'''
 sampleage_age_constraint_join ='''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID=SampleAges_AgeConstraints.SampleAgeID
                         LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID'''
-sampleage_age_interpretations_join ='''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
+sampleage_age_interpretation_join ='''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
                         LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
+sampleage_age_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID=SampleAges_References.SampleAgeID
+                        LEFT JOIN "References" AS AgeReferences ON AgeReferences.ReferenceID=SampleAges_References.ReferenceID'''
 
 
 # GPSLocation joins
@@ -425,13 +418,36 @@ sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcol
                        qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_error_formats, qupb_age_units,
                        qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons]
 
-# Many-to-many tables related to table at the beginning of each list, populate multiple selection dropdowns
-many_editable = [['Samples', 'AgeSignatures', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'Units'],
-             ['Aliquots', 'AliquotContexts'], ['Spots', 'SpotCompositions', 'SpotContexts'], ['UPbAnalyses', 'RejectionReasons']]
-# One-to-many columns related to table at the beginning of each list, populate single selection dropdowns
-one_editable = [['Samples', 'SampleAges', 'Columns', 'DistanceUnits'],
-            ['Columns', 'DistanceUnits'], ['Aliquots', 'Samples'], ['Spots', 'Aliquots', 'SpotCompositions'],
-            ['UPbAnalyses', 'Spots', 'References', 'LabFacilities', 'Instruments', 'UPbAnalysisMethods', 'ErrorFormats', 'AgeUnits', 'AgeInterpretations', 'ConcordanceFormats', 'DistanceUnits']]
+# Many-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate multiple selection dropdowns
+many_editable = {
+    'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'RegionName': 'Regions', 'RockTypeName': 'RockTypes',
+                'SampleContexName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods', 'SettingName': 'Settings',
+                'UnitName': 'Units'},
+    'Aliquots': {'AliquotContextName': 'AliquotContexts'},
+    'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
+    'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons'}
+}
+# One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
+one_editable = {
+    'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges', 'ColumnName': 'Columns',
+                'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots'},
+    'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits', 'ColumnBaseGPSDisplay': 'GPSLocations'},
+    'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
+    'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
+    'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName':'Samples', 'UPbReference': 'References',
+                    'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments', 'UPbAnalysisMethodName': 'UPbAnalysisMethods',
+                    'RatioErrorFormatAbbreviation': 'ErrorFormats', 'AgeUnitAbbreviation': 'AgeUnits',
+                    'AgeErrorFormatAbbreviation': 'ErrorFormats', 'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
+                    'SpotSizeUnitAbbreviation': 'DistanceUnits'}
+}
+# Non-editable columns for each table key, key-value pairs for column in the view and table the to edit that information, populate single selection dropdowns
+non_editable = {
+    'Samples': ['SpotCount', 'Accepted/TotalUPbAnalyses', 'SampleCreated', 'SampleModified'],
+    'Columns': ['ColumnCreated', 'ColumnModified'],
+    'Aliquots': ['AliquotCreated', 'AliquotModified'],
+    'Spots': ['SpotCreated', 'SpotModified'],
+    'UPbAnalyses': ['UPbAnalysisCreated', 'UPbAnalysisModified']
+}
 
 
 
@@ -655,7 +671,7 @@ view_attributes_dict = {
         f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
         f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
         f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f'"{qupb_count.split('AS ')[1]}"', f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
+        f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", f"{qupb_age_error_formats.split('AS ')[1]}",
         f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
@@ -666,7 +682,7 @@ view_attributes_dict = {
         f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
         f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}", f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
         f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f'"{qupb_count.split('AS ')[1]}"', f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+        f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
         f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
         ],
@@ -680,7 +696,7 @@ view_attributes_dict = {
     ],
     'AliquotView': [
         f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}", f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qaliquot_sample.split('AS ')[1]}",
-        f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f'"{qupb_count.split('AS ')[1]}"',
+        f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qupb_count.split('AS ')[1]}",
         f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
@@ -699,7 +715,7 @@ view_attributes_dict = {
         f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}", f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
         f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
-    'UPbAnalysisView': [
+    'UPbView': [
         f"{qupb_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
         f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", '"Pb204cps"', '"Pb206cps"',
         '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"',
@@ -728,10 +744,11 @@ view_attributes_dict = {
         '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
         '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"',
         '"CalculatedBestAge"', '"CalculatedBestAgeError"', '"CalculatedSpotSize"',
-        '"CalculatedConcordance"', f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        '"CalculatedConcordance"',
+        f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ],
-    'UPbAnalysisEditView': [
+    'UPbEditView': [
         f"{qupb_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}", f"{qspot_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         '"Pb204cps"', '"Pb206cps"',
@@ -780,8 +797,8 @@ view_setting_dict = {
             'AliquotEditView': 'aliquot_edit_columns',
             'SpotView': 'spot_view_columns',
             'SpotEditView': 'spot_edit_columns',
-            'UPbAnalysisView': 'upb_analysis_view_columns',
-            'UPbAnalysisEditView': 'upb_analysis_edit_columns',
+            'UPbView': 'upb_analysis_view_columns',
+            'UPbEditView': 'upb_analysis_edit_columns',
             'ColumnView': 'column_view_columns',
             'ColumnEditView': 'column_edit_columns',
             'ReferenceView': 'reference_view_columns',
@@ -900,8 +917,8 @@ def get_join_from_table(join, tables: list[str]) -> str:
             case 'AgeInterpretations':
                 if sample_sampleage_join not in join:
                     join += sample_sampleage_join + '\n'
-                if sampleage_age_interpretations_join not in join:
-                    join += sampleage_age_interpretations_join + '\n'
+                if sampleage_age_interpretation_join not in join:
+                    join += sampleage_age_interpretation_join + '\n'
             case 'AgeSignatures':
                 if age_signature_join not in join:
                     join += age_signature_join + '\n'

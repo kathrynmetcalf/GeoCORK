@@ -8,7 +8,9 @@ from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QAbstractItemView, QHeaderView
 
 import logger_setup
+import time
 from Functions.Settings_manager import settings
+from Functions.Database_manager import update_database
 from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -17,6 +19,8 @@ from ui.EditTree import EditTree
 class ViewDataTab(QtW.QWidget):
     def __init__(self, parent_id: int, parent_type: str, child_type: str):
         super().__init__()
+        logger_setup.get_logger().info(f'Creating a new ViewDataTab for {child_type} with parent {parent_type} ID {parent_id}')
+        start_view_data_tab_time = time.time()
         self.parent_id = parent_id
         self.parent_type = parent_type
         self.child_type = child_type
@@ -31,6 +35,8 @@ class ViewDataTab(QtW.QWidget):
         self.v_layout.addLayout(self.h_layout)
         self.show_cols = []
         self.display_table()
+        end_view_data_tab_time = time.time()
+        logger_setup.get_logger().info(f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
@@ -42,6 +48,8 @@ class ViewDataTab(QtW.QWidget):
 
 
     def display_table(self):
+        logger_setup.get_logger().info(f'Displaying table for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
+        start_display_table_time = time.time()
         if self.child_type == 'Aliquot':
             self.view = QtW.QTreeView()
         else:
@@ -108,8 +116,11 @@ class ViewDataTab(QtW.QWidget):
             if self.child_type == 'UPbAnalysis':
                 self.view.hideColumn(2)
                 self.view.hideColumn(3)
+        end_display_table_time = time.time()
+        logger_setup.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')
 
     def edit_popup(self):
+        logger_setup.get_logger().info(f'Opening edit dialog for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         if self.child_type == 'Aliquot':
             table = 'Aliquots'
             dlg = EditTree(table, self.parent_id, self.parent_type)
@@ -117,9 +128,10 @@ class ViewDataTab(QtW.QWidget):
             table = 'Spots'
             dlg = EditTable(table, self.parent_id, self.parent_type)
         elif self.child_type == 'UPbAnalysis':
-            table = 'UPbAnalysis'
+            table = 'UPbAnalyses'
             dlg = EditTable(table, self.parent_id, self.parent_type)
         else:
             return
-        dlg.exec()
-        self.display_table()
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            update_database()
+            self.display_table()

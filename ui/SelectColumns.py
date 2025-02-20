@@ -14,12 +14,12 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.uic import loadUi
 from PyQt6.uic.Compiler.qtproxies import QtGui
-
+import logger_setup
 from Functions.SQLUtils import views
 from Functions.Settings_manager import settings
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import SQLUtils
-from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column
+from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column, get_headers
 
 class SelectColumns(QWidget):
     def __init__(self, parent=None):
@@ -34,17 +34,17 @@ class SelectColumns(QWidget):
 
         self.view_setting_dict = SQLUtils.view_setting_dict
 
+        # Columns that view selections must have but are always hidden: parent ID fields and tree structure fields
+        self.hidden_must_haves = ['SampleID', 'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SpotID', 'UPbAnalysisID']
+
         self.columnselection_comboBox.addItems(self.view_dict.keys())
-        self.populate_stack()
         self.load_list_states()
 
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
 
     def populate_stack(self):
-
+        logger_setup.get_logger().info('Populating column selection stack')
         for view_name in self.view_dict:
-            field_items = self.view_dict[view_name]
-            settings_columns = settings.value(self.view_setting_dict[view_name])
 
             # Create a QListView for each table
             column_list_view = QListView()
@@ -55,34 +55,32 @@ class SelectColumns(QWidget):
 
             # Create a QStandardItemModel to hold the column names and populate the checks and order from the settings
             # Apply a proxy model to make them readable
-            proxy_model = self.check_list_view(field_items, settings_columns)
+            proxy_model = self.check_list_view(view_name)
 
             column_list_view.setModel(proxy_model)
 
             # Add the QListView to the stack widget
             self.columnattributes_stack.addWidget(column_list_view)
 
-    def check_list_view(self, field_items, settings_columns):
+    def check_list_view(self, view_name: str):
+        logger_setup.get_logger().info(f'Populating checks for {view_name}')
         model = ColumnItemModel()
+        view_name_col = get_view_name_column(view_name)
+        field_items = self.view_dict[view_name]
+        settings_columns = settings.value(self.view_setting_dict[view_name])
+        if view_name_col:
+            # If there is a view name column, set it as the permanent header
+            name_header = settings_columns[view_name_col]
+            model.set_permanent_header(name_header)
         for column in settings_columns:
             # Do not bother to add the table ID field which must be present but is always hidden
-            # But do figure out which header should be the permanent one
+            # Same for any parent ID fields or tree structure fields
             if column == field_items[0]:
-                if 'Sample' in column:
-                    view = 'SampleView'
-                elif 'Aliquot' in column:
-                    view = 'AliquotView'
-                elif 'Spot' in column:
-                    view = 'SpotView'
-                elif 'UPbAnalysis' in column:
-                    view = 'UPbView'
-                elif 'Column' in column:
-                    view = 'ColumnView'
-                elif 'Reference' in column:
-                    view = 'ReferenceView'
-                view_name_col = get_view_name_column(view)
-                if view_name_col:
-                    model.set_permanent_header(settings_columns[view_name_col])
+                pass
+            elif column in self.hidden_must_haves or 'ID' in column:
+                pass
+            elif '"' in column and column.split('"')[1] in self.hidden_must_haves:
+                pass
             else:
                 item = QStandardItem(column)
                 item.setDragEnabled(True)
@@ -110,13 +108,17 @@ class SelectColumns(QWidget):
 
     def save_list_states(self):
         # Save the state of checkboxes for all tables
-
+        logger_setup.get_logger().info('Saving column selections')
         for index in range(self.columnattributes_stack.count()):
             view_widget = self.columnattributes_stack.widget(index)
             view_name = self.columnselection_comboBox.itemText(index)
-            field_names = self.view_dict[view_name]
-            view_columns = [field_names[0]]  # Always include the ID field
-            if view_widget:
+            # Always include the ID fields
+            if view_widget is not None and view_name != '':
+                field_names = self.view_dict[view_name]
+                view_columns = []
+                for field in field_names:
+                    if 'ID' in field or field in self.hidden_must_haves:
+                        view_columns.append(field)
                 source_model = view_widget.model().sourceModel()
                 for row in range(source_model.rowCount()):
                     item = source_model.item(row)
@@ -124,20 +126,18 @@ class SelectColumns(QWidget):
                         column_name = item.text()
                         view_columns.append(column_name)
 
-            # Store list of checked columns in the settings
-            settings.setValue(self.view_setting_dict[view_name], view_columns)
+                # Store list of checked columns in the settings
+                settings.setValue(self.view_setting_dict[view_name], view_columns)
         self.load_list_states()
 
 
     def load_list_states(self):
         # Load the state of checkboxes and order of fields for all tables from the settings
-
+        logger_setup.get_logger().info('Loading column selections')
         for index in range(self.columnattributes_stack.count()):
             view_widget = self.columnattributes_stack.widget(index)
             view_name = self.columnselection_comboBox.itemText(index)
-            field_names = self.view_dict[view_name]
-            settings_columns = settings.value(self.view_setting_dict[view_name])
-            if view_widget:
+            if view_widget is not None and view_name != '':
                 # Reset the model adding first the fields in the settings and then the rest
-                proxy_model = self.check_list_view(field_names, settings_columns)
+                proxy_model = self.check_list_view(view_name)
                 view_widget.setModel(proxy_model)

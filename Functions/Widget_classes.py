@@ -94,6 +94,8 @@ class SQLiteTableModel(QAbstractTableModel):
 
         except sqlite3.Error as e:
             logger_setup.get_logger().critical(f"Error opening database and executing query: {e.sqlite_errorname}")
+            logger_setup.get_logger().debug(f"Query: {query}")
+            logger_setup.get_logger().debug(f"Error: {e}")
             self.last_error = e
         # if not db.open():
         #     logger_setup.get_logger().critical(f"Failed to open database {db_file}")
@@ -187,9 +189,9 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
             if isinstance(value, str):
                 if f'({settings.value('age_unit_abbreviation')})' in header:
                     return display_age(value)
-                elif 'GPS' in header:
+                elif 'GPS' in header and 'Format' not in header:
                     return display_gps(value)
-                elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
+                elif 'Elevation' in header or 'Height' in header or 'Depth' in header and 'Unit' not in header:
                     return display_value_with_error(value)
             # if the value is a number but not an integer
             elif value is not None and isinstance(value, (int, float)):
@@ -734,6 +736,8 @@ def get_table_from_view(view: str):
         return 'Aliquots'
     elif 'Spot' in view:
         return 'Spots'
+    elif 'UPb' in view:
+        return 'UPbAnalyses'
     elif 'Column' in view:
         return 'Columns'
     elif 'Reference' in view:
@@ -741,7 +745,7 @@ def get_table_from_view(view: str):
     else:
         return view
 
-def get_view_name_column(view: str):
+def get_view_name_column(view: str) -> int | None:
     table = get_table_from_view(view)
     table_name_col = name_column(table)
     if table_name_col is not None:
@@ -2378,6 +2382,10 @@ class ColumnListProxyModel(QtC.QSortFilterProxyModel):
                 header = f'Calculated Age ({settings.value('age_unit_abbreviation')})'
             elif 'SpotSizeCalculated' in header:
                 header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
+            elif 'AgeError' in header:
+                header = header.replace('AgeError', f' {settings.value("age_unit_abbreviation")}')
+            elif 'Error' in header:
+                header = header.replace('Error', f' Error ({settings.value("ratio_error_format_abbreviation")})')
             if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
                 header = header.replace('Name', '')
                 if header.endswith('y'):
@@ -3000,7 +3008,7 @@ class FrozenTableView(QtW.QTableView):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.frozen_table_view = QtW.QTableView()
-        self.frozen_table_view.setFocusPolicy(QtC.Qt.FocusPolicy.NoFocus)
+        # self.frozen_table_view.setFocusPolicy(QtC.Qt.FocusPolicy.NoFocus)
         self.frozen_table_view.verticalHeader().hide()
         self.frozen_table_view.horizontalHeader().setSectionResizeMode(QtW.QHeaderView.ResizeMode.Fixed)
 
@@ -3020,6 +3028,8 @@ class FrozenTableView(QtW.QTableView):
         self.verticalScrollBar().valueChanged.connect(self.frozen_table_view.verticalScrollBar().setValue)
         self.frozen_table_view.verticalScrollBar().valueChanged.connect(self.verticalScrollBar().setValue)
 
+        # self.frozen_table_view.installEventFilter(self)
+
     def setModel(self, model):
         super().setModel(model)
         self.frozen_table_view.setModel(model)
@@ -3027,6 +3037,8 @@ class FrozenTableView(QtW.QTableView):
         for col in range(model.columnCount()):
             if col != 1:
                 self.frozen_table_view.hideColumn(col)
+
+        self.update_frozen_table_geometry
 
     def update_section_height(self, logicalIndex, oldSize, newSize):
         self.frozen_table_view.setRowHeight(logicalIndex, self.rowHeight(logicalIndex))
@@ -3051,10 +3063,19 @@ class FrozenTableView(QtW.QTableView):
             super().scrollTo(index, hint)
 
     def update_frozen_table_geometry(self):
+
         self.frozen_table_view.setGeometry(self.verticalHeader().width() + self.frameWidth() - 1,
-                                           self.frameWidth() - 1, self.columnWidth(1),
-                                           self.viewport().height() + self.horizontalHeader().height())
-        self.frozen_table_view.setColumnWidth(1, self.columnWidth(1))
+                                           self.frameWidth() - 1, self.columnWidth(1) + 1,
+                                           self.viewport().height() + self.horizontalHeader().height() + 1)
+        self.frozen_table_view.setColumnWidth(1, self.columnWidth(1) + 1)
+        logger_setup.get_logger().debug(f'Frozen column geometry: (x: {self.frozen_table_view.x()}, y: {self.frozen_table_view.y()}, width: {self.frozen_table_view.width()}, height: {self.frozen_table_view.height()})')
+        logger_setup.get_logger().debug(f'Table geometry: (x: {self.x()}, y: {self.y()}, width: {self.width()}, height: {self.height()})')
+        logger_setup.get_logger().debug(f'Viewport geometry: (x: {self.viewport().x()}, y: {self.viewport().y()}, width: {self.viewport().width()}, height: {self.viewport().height()})')
+
+    # def eventFilter(self, object, event):
+    #     if object == self.frozen_table_view.viewport():
+    #         object = self.viewport()
+    #     super().eventFilter(object, event)
 
 # ---------------------------
 #    Widget Methods
@@ -3228,7 +3249,7 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         if key == 'table':
             table = TxM.remove_spaces(value)  # ensure there are no spaces in the table name
             if table == 'References':
-                table = '"Referebces"'
+                table = '"References"'
         elif key == 'query':
             query = value
         elif key == 'column':

@@ -722,7 +722,7 @@ class SampleInformation(QtW.QDialog):
                 self.discard_question()
                 event.ignore()
             else:
-                self.saveWindowState()
+                # self.saveWindowState()
                 logger_setup.get_logger().info("Closing SampleInformation dialog")
                 event.accept()
         else:

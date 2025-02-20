@@ -531,3 +531,94 @@ def update_generated_columns(table: str):
         return True
     else:
         return
+
+def convert_gps_location(gps_id: int):
+    gps_model = QtS.QSqlTableModel()
+    set_table(gps_model, 'GPSLocations')
+    gps_model.setFilter(f'GPSLocationID={gps_id}')
+    if gps_model.lastError().text() != '':
+        logger_setup.get_logger().critical(f'Error getting GPSLocations: {gps_model.lastError().text()}')
+        return False
+    query = QtS.QSqlQuery()
+    column = 'GPSLocationConverted'
+    variables = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
+                 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'deg_symbol']
+    modules = ['GPS', 'pyproj']
+    global_vars = {name: globals()[name] for name in modules}
+    gps_format_id = gps_model.record(0).value('GPSFormatID')
+    GPSLatDeg = gps_model.record(0).value('GPSLatDeg')
+    GPSLatMin = gps_model.record(0).value('GPSLatMin')
+    GPSLatSec = gps_model.record(0).value('GPSLatSec')
+    GPSLatDirectionID = gps_model.record(0).value('GPSLatDirectionID')
+    GPSLonDeg = gps_model.record(0).value('GPSLonDeg')
+    GPSLonMin = gps_model.record(0).value('GPSLonMin')
+    GPSLonSec = gps_model.record(0).value('GPSLonSec')
+    GPSLonDirectionID = gps_model.record(0).value('GPSLonDirectionID')
+    GPSUTMZone = gps_model.record(0).value('GPSUTMZone')
+    GPSUTMN = gps_model.record(0).value('GPSUTMN')
+    GPSUTME = gps_model.record(0).value('GPSUTME')
+    deg_symbol = u'\N{DEGREE SIGN}'
+    local_vars = {name: locals()[name] for name in variables}
+    conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormatID', gps_format_id)
+    if conversions == "error":
+        return False
+    for conversion in conversions:
+        if conversion[0] == gps_format_id:
+            gps_code = conversion[1]
+            exec(gps_code, global_vars, locals())
+            gps_display = locals().get('converted')
+            sql_alter = f'UPDATE GPSLocations SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'
+            logger_setup.get_logger().info(f'Updating the calculated {column}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
+            create_savepoint('before_populate_gps')
+            if not query.exec(sql_alter):
+                logger_setup.get_logger().critical(
+                    f'Error adding the calculated column {column}: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+                rollback_savepoint('before_populate_gps')
+                return False
+            logger_setup.get_logger().info(f'Successfully updated GPS display')
+            break
+    release_savepoint('before_populate_gps')
+    return True
+
+def convert_sample_age(sample_age_id: int):
+    sample_age_model = QtS.QSqlTableModel()
+    set_table(sample_age_model, 'SampleAges')
+    sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
+    if sample_age_model.lastError().text() != '':
+        logger_setup.get_logger().critical(f'Error getting SampleAges: {sample_age_model.lastError().text()}')
+        return False
+    query = QtS.QSqlQuery()
+    column = 'SampleAgeDisplay'
+    variables = ['DirectAge', 'DirectAgeError', 'DirectAgeUnitID', 'OldestDirectAge', 'YoungestDirectAge']
+    modules = ['GPS', 'pyproj']
+    global_vars = {name: globals()[name] for name in modules}
+    DirectAge = sample_age_model.record(0).value('DirectAge')
+    DirectAgeError = sample_age_model.record(0).value('DirectAgeError')
+    DirectAgeUnitID = sample_age_model.record(0).value('DirectAgeUnitID')
+    OldestDirectAge = sample_age_model.record(0).value('OldestDirectAge')
+    YoungestDirectAge = sample_age_model.record(0).value('YoungestDirectAge')
+    local_vars = {name: locals()[name] for name in variables}
+    conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnitID', DirectAgeUnitID)
+    if conversions == "error":
+        return False
+    for conversion in conversions:
+        if conversion[0] == DirectAgeUnitID:
+            age_code = conversion[1]
+            exec(age_code, global_vars, locals())
+            age_display = locals().get('converted')
+            sql_alter = f'UPDATE SampleAges SET {column}="{age_display}" WHERE "SampleAgeID"={sample_age_id}'
+            logger_setup.get_logger().info(f'Updating the calculated {column}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
+            create_savepoint('before_populate_age')
+            if not query.exec(sql_alter):
+                logger_setup.get_logger().critical(
+                    f'Error adding the calculated column {column}: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+                rollback_savepoint('before_populate_age')
+                return False
+            logger_setup.get_logger().info(f'Successfully updated SampleAge display')
+            break
+    release_savepoint('before_populate_age')
+    return True

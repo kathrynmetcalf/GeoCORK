@@ -13,7 +13,7 @@ signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 if __name__ == "__main__":
     #force app to always load in light mode
-    sys.argv += ['-platform', 'windows:darkmode=1']
+    # sys.argv += ['-platform', 'windows:darkmode=1']
     app = QApplication(sys.argv)
     app.setApplicationName("GeoCORK")
 

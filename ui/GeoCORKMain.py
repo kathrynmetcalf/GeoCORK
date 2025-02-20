@@ -151,6 +151,8 @@ class GeoCORK(QtW.QMainWindow):
         :param child_type: The type of the child
         :return:
         """
+        logger_setup.get_logger().info(f'Opening tab with parent ID {parent_id} and parent type {parent_type} and child type {child_type}')
+        start_open_tab_time = time.time()
         if not parent_id:
             return
         self.tabWidget: PartiallyCloseableTabWidget
@@ -173,7 +175,10 @@ class GeoCORK(QtW.QMainWindow):
             else:
                 print("Error: Invalid child type")
                 return
-            self.tabWidget.addTab(ViewDataTab(p_id, parent_type, child_type), f'{parent_type} {parent_name}: {child_label}')
+            tab = ViewDataTab(p_id, parent_type, child_type)
+            self.tabWidget.addTab(tab, f'{parent_type} {parent_name}: {child_label}')
+        end_open_tab_time = time.time()
+        logger_setup.get_logger().info(f'Time to open tab: {end_open_tab_time - start_open_tab_time}')
 
     def close_tab(self, index):
         self.tabWidget: PartiallyCloseableTabWidget
