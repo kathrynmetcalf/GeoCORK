@@ -73,6 +73,8 @@ class EditView(QtW.QDialog):
         # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.msg = QtW.QMessageBox(self)
         self.close_by_dialog = False
+        self.tabbed_from_editor = False
+
         self.view_headers = []
         if self.view is not None:
             self.view_headers = get_headers(self.view)
@@ -160,7 +162,8 @@ class EditView(QtW.QDialog):
 
     def display_widget(self):
         logger_setup.get_logger().info('Displaying widget')
-        selected_index = self.edit_tableView.selectedIndexes()[0]
+        proxy_index = self.edit_tableView.selectedIndexes()[0]
+        selected_index = self.proxy_model.mapToSource(proxy_index)
         if not selected_index.isValid():
             return
         if self.lineEdit is not None:
@@ -179,32 +182,42 @@ class EditView(QtW.QDialog):
         if 'GPS' in header or 'Elevation' in header:
             if not self.tabbed_from_editor:
                 # Do not open the popup if tabbing here, only when double-clicking
-                if self.table == 'Samples':
-                    item_id_header = 'SampleID'
-                elif self.table == 'Columns':
-                    item_id_header = 'ColumnID'
-                else:
-                    return
                 item_ids = []
                 row = selected_index.row()
-                item_ids.append(self.model.record(row).value(item_id_header))
+                item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
                 dlg = GPSDialog(self.table, item_ids)
                 dlg.exec()
-                self.display_table()
+                logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
+                query = QtS.QSqlQuery()
+                gps_headers = []
+                for header in self.show_cols:
+                    if 'GPS' in header or 'Elevation' in header:
+                        gps_headers.append(header)
+                if not query.exec(f'SELECT {', '.join(gps_headers)} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
+                    logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
+                    return
+                if query.next():
+                    for header in gps_headers:
+                        col = self.show_cols.index(header)
+                        self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
+                        print(f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
             else:
                 self.edit_tableView.setFocus()
         elif 'SampleAgeCalculated' in header:
             if not self.tabbed_from_editor:
-                if self.table == 'Samples':
-                    item_id_header = 'SampleID'
-                else:
-                    return
                 item_ids = []
                 row = selected_index.row()
-                item_ids.append(self.model.record(row).value(item_id_header))
+                item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
                 dlg = AgeDialog(self.table, item_ids)
                 dlg.exec()
-                self.display_table()
+                logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
+                query = QtS.QSqlQuery()
+                if not query.exec(f'SELECT {header} FROM {self.table} WHERE {self.table_headers[0]} = {item_ids[0]}'):
+                    logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
+                    return
+                if query.next():
+                    index = self.model.fieldIndex(header)
+                    self.model.setData(self.model.index(row, index), query.value(header), QtC.Qt.ItemDataRole.EditRole)
             else:
                 self.edit_tableView.setFocus()
         else:
@@ -283,14 +296,14 @@ class EditView(QtW.QDialog):
         logger_setup.get_logger().info(f'Displaying dropdown for {dropdown_table}')
         selected_index = self.edit_tableView.selectedIndexes()[0]
         self.combo_index = selected_index
-        self.model = QtS.QSqlTableModel()
-        set_table(self.model, dropdown_table)
+        self.combo_model = QtS.QSqlTableModel()
+        set_table(self.combo_model, dropdown_table)
         name_col = name_column(dropdown_table)
         self.combo = QtW.QComboBox()
         if dropdown_table in SQLUtils.user_viewable_trees:
             self.combo = CheckableTreeCombobox()
-            self.combo_model = CheckableTreeModel()
-            self.combo_model.setSourceModel(self.model)
+            self.tree_model = CheckableTreeModel()
+            self.tree_model.setSourceModel(self.combo_model)
         elif dropdown_table == 'Rejected':
             self.combo = QtW.QComboBox()
             self.combo.addItem('Accepted')
@@ -298,19 +311,14 @@ class EditView(QtW.QDialog):
         else:
             if 'Abbreviation' in self.model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole):
                 self.combo = QtW.QComboBox()
-                self.combo_model = self.model
             else:
                 self.combo = CheckableComboBox()
                 self.combo_model = CheckableSqlTableModel()
                 self.combo_model.setTable(dropdown_table)
+        if self.combo.count() == 0:
+            # No items have been added yet
             self.combo.setModel(self.combo_model)
             self.combo.setModelColumn(name_column(dropdown_table))
-            for col in range(1,self.combo_model.columnCount()):
-                header = self.combo_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-                if 'Abbreviation' in header:
-                    # Only show the abbreviation column and hide all the others
-                    self.combo.setModelColumn(col)
-                    break
         selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
         self.combo.setCurrentText(selected_text)
         # print(f"Selected text: {selected_text}")
@@ -329,6 +337,8 @@ class EditView(QtW.QDialog):
             combo = self.combo
         elif self.tree_combo is not None:
             combo = self.tree_combo
+        else:
+            return
         self.model.setData(self.combo_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole)
         if self.edit_tableView.currentIndex() == self.combo_index:
             self.tabbed_from_editor = False
@@ -341,6 +351,7 @@ class EditView(QtW.QDialog):
         elif self.tree_combo is not None:
             self.tree_combo = None
         self.combo_index = QtC.QModelIndex()
+        logger_setup.get_logger().info('Data saved from dropdown')
 
     def advance_tab(self):
         currentIndex = self.edit_tableView.currentIndex()
@@ -425,8 +436,8 @@ class EditView(QtW.QDialog):
                 self.updated = True
                 return True
 
-    def sample_submit(self, row):
-        logger_setup.get_logger().info('Submitting sample changes')
+    def data_submit(self, row):
+        logger_setup.get_logger().info('Submitting changes')
         row_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
         update_cols = {}
         update_col_values = {}
@@ -445,8 +456,10 @@ class EditView(QtW.QDialog):
         query = QtS.QSqlQuery()
         for header in self.show_cols:
             if 'GPS' in header or 'Elevation' in header:
+                # Already handled in the GPSDialog
                 continue
             elif 'SampleAgeCalculated' in header:
+                # Already handled in the AgeDialog
                 continue
             elif 'Rejected' in header:
                 text = self.model.index(row, self.model.fieldIndex(header)).data(QtC.Qt.ItemDataRole.DisplayRole)

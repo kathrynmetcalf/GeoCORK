@@ -158,33 +158,43 @@ def populate_generated_columns():
     # Convert the columns and catch any errors
     output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'], [concordance_format_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'], ['ErrorFormat','AgeUnit'], [age_error_format_id, age_unit_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'], [ratio_error_format_id])
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = generate_reference_column('References', 'ReferenceID', reference_format)
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     output = generate_age_display_column('SampleAges', 'SampleAgeID')
     if output == "error":
+        rollback_savepoint('before_populate')
         return
     release_savepoint('before_populate')
 
@@ -237,7 +247,6 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
         logger_setup.get_logger().critical(f'Calculation: {calculation_col} and from columns:{from_id_col} not found')
-        rollback_savepoint('before_populate')
         return "error"
     conversions = []
     for row in range(unit_conversion_model.rowCount()):
@@ -559,7 +568,7 @@ def convert_gps_location(gps_id: int):
     GPSUTME = gps_model.record(0).value('GPSUTME')
     deg_symbol = u'\N{DEGREE SIGN}'
     local_vars = {name: locals()[name] for name in variables}
-    conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormatID', gps_format_id)
+    conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormat', gps_format_id)
     if conversions == "error":
         return False
     for conversion in conversions:
@@ -578,8 +587,8 @@ def convert_gps_location(gps_id: int):
                 rollback_savepoint('before_populate_gps')
                 return False
             logger_setup.get_logger().info(f'Successfully updated GPS display')
+            release_savepoint('before_populate_gps')
             break
-    release_savepoint('before_populate_gps')
     return True
 
 def convert_sample_age(sample_age_id: int):
@@ -600,7 +609,7 @@ def convert_sample_age(sample_age_id: int):
     OldestDirectAge = sample_age_model.record(0).value('OldestDirectAge')
     YoungestDirectAge = sample_age_model.record(0).value('YoungestDirectAge')
     local_vars = {name: locals()[name] for name in variables}
-    conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnitID', DirectAgeUnitID)
+    conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', DirectAgeUnitID)
     if conversions == "error":
         return False
     for conversion in conversions:

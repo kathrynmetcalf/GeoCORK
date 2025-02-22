@@ -166,6 +166,23 @@ class SQLiteTableModel(QAbstractTableModel):
             return self._headers[section] if section < len(self._headers) else None
         return None
 
+    def setData(self, index, value, role = ...):
+        if role == Qt.ItemDataRole.EditRole:
+            data_list = list(self._data)
+            rows = []
+            for row in range(len(data_list)):
+                row_list = list(data_list[row])
+                if row == index.row():
+                    row_list[index.column()] = value
+                rows.append(row_list)
+
+            data_list = []
+            for row in rows:
+                data_list.append(tuple(row))
+            self._data = tuple(data_list)
+
+            return self._data[index.row()][index.column()] == value
+
     def column_as_list(self, col):
         if isinstance(col, str):
             column = self._headers.index(col)
