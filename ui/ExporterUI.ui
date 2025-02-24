@@ -7,13 +7,13 @@
     <x>0</x>
     <y>0</y>
     <width>1119</width>
-    <height>818</height>
+    <height>743</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>0</width>
-    <height>500</height>
+    <width>1000</width>
+    <height>700</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -80,13 +80,13 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>25</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -117,7 +117,7 @@
          </item>
          <item>
           <property name="text">
-           <string>DZStats - Sample Compare</string>
+           <string>DZStats - Two Sample Compare</string>
           </property>
          </item>
          <item>
@@ -162,13 +162,13 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>25</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -219,13 +219,13 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>25</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -286,20 +286,20 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>25</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
          <property name="currentText">
-          <string/>
+          <string>None</string>
          </property>
-         <property name="placeholderText">
+         <property name="placeholderText" stdset="0">
           <string>None</string>
          </property>
          <item>
@@ -347,17 +347,17 @@
          </property>
          <property name="minimumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>25</height>
           </size>
          </property>
          <property name="maximumSize">
           <size>
-           <width>150</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
-         <property name="placeholderText">
+         <property name="placeholderText" stdset="0">
           <string>None</string>
          </property>
          <item>
