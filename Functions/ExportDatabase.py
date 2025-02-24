@@ -2,6 +2,8 @@ from typing import List, Dict, Any, Set, Optional, Tuple
 
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
+import logger_setup
+
 
 def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
     """
@@ -18,19 +20,21 @@ def fetchall(query_str: str, db: QSqlDatabase, params: Optional[Tuple] = None) -
     Emulate a 'fetchall' using QSqlQuery. Returns rows as list of tuples.
     """
     result_rows = []
-    q = QSqlQuery(db)
-    q.prepare(query_str)
+    query = QSqlQuery(db)
+    query.prepare(query_str)
     if params:
         for i, val in enumerate(params):
-            q.bindValue(i, val)
-
-    if not q.exec():
-        print("Query failed:", q.lastError().text())
+            query.bindValue(i, val)
+    logger_setup.get_logger().debug(f'SQL Command: {query_str}')
+    if not query.exec():
+        logger_setup.get_logger().critical(
+            f'Error fetching total records: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {query_str}')
         return result_rows
 
-    while q.next():
+    while query.next():
         # build a tuple of the columns
-        row = tuple(q.value(col) for col in range(q.record().count()))
+        row = tuple(query.value(col) for col in range(query.record().count()))
         result_rows.append(row)
 
     return result_rows
@@ -51,13 +55,17 @@ def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], col_count:
     placeholders = ", ".join(["?"] * col_count)
     insert_stmt = f"INSERT INTO {table_name} VALUES ({placeholders})"
 
-    q = QSqlQuery(db)
+    query = QSqlQuery(db)
+    logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
     for row in rows:
-        q.prepare(insert_stmt)
+        query.prepare(insert_stmt)
         for i, val in enumerate(row):
-            q.bindValue(i, val)
-        if not q.exec():
-            print(f"Insert failed into {table_name}:", q.lastError().text())
+            query.bindValue(i, val)
+            print('bound value:', i)
+    if not query.exec():
+        logger_setup.get_logger().critical(
+            f'Error fetching total records: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
     # If desired, you can call db.commit() here or wrap in transactions as needed.
 
 
@@ -71,15 +79,42 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
     Ignores 'sqlite_' internal tables or views.
     """
     # Read all tables + their CREATE statements from the source
-    rows = fetchall(
+    table_rows = fetchall(
         "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         conn_source
     )
-    for table_name, create_sql in rows:
+    for table_name, create_sql in table_rows:
         if create_sql:
             success = execute_sql(create_sql, conn_target)
             if not success:
-                print(f"Failed to create table {table_name} in target DB.")
+                logger_setup.get_logger().critical(f'Error creating table {table_name}')
+                logger_setup.get_logger().critical(f'SQL command: {create_sql}')
+
+    # Copy Indexes (regular and unique)
+    index_rows = fetchall(
+        "SELECT name, sql FROM sqlite_master WHERE type='index' AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL",
+        conn_source
+    )
+    for index_name, create_index_sql in index_rows:
+        if create_index_sql:
+            success = execute_sql(create_index_sql, conn_target)
+            if not success:
+                logger_setup.get_logger().critical(f'Error creating index {index_name}')
+                logger_setup.get_logger().critical(f'SQL command: {create_index_sql}')
+
+    # Copy Views
+    view_rows = fetchall(
+        "SELECT name, sql FROM sqlite_master WHERE type='view' AND name NOT LIKE 'sqlite_%'",
+        conn_source
+    )
+    for view_name, create_view_sql in view_rows:
+        if create_view_sql:
+            success = execute_sql(create_view_sql, conn_target)
+            if not success:
+                logger_setup.get_logger().critical(f'Error creating view {view_name}')
+                logger_setup.get_logger().critical(f'SQL command: {create_view_sql}')
+
+
 
 ###############################################################################
 # 2. DETECTING MANY-TO-MANY BRIDGE TABLES
@@ -216,8 +251,8 @@ def subset_many_to_many_bridges(
         insert_rows(conn_target, other_table_name, other_rows, col_count_other)
 
 ###############################################################################
-# 3. KNOWN ONE-TO-MANY CHAIN: Samples -> Aliquots -> Spots -> UPbData
-#    AND references in UPbData to other tables
+# 3. KNOWN ONE-TO-MANY CHAIN: Samples -> Aliquots -> Spots -> UPbAnalyses
+#    AND references in UPbAnalyses to other tables
 ###############################################################################
 
 def subset_one_to_many_chain(
@@ -227,8 +262,8 @@ def subset_one_to_many_chain(
 ):
     """
     Hardcoded logic for the known chain:
-      Samples -> Aliquots -> Spots -> UPbData
-    Then from each UPbData row, gather foreign keys to:
+      Samples -> Aliquots -> Spots -> UPbAnalyses
+    Then from each UPbAnalyses row, gather foreign keys to:
       References, Instruments, LabFacilities, UPbAnalysisMethod
     """
     if not sample_ids:
@@ -279,20 +314,20 @@ def subset_one_to_many_chain(
                 spot_ids = {row[spot_id_idx] for row in spot_rows}
 
     # -------------------------------------------------------------------------
-    # C) UPbData referencing Spots
+    # C) UPbAnalyses referencing Spots
     # -------------------------------------------------------------------------
     if spot_ids:
         placeholder = ",".join(["?"] * len(spot_ids))
-        upbdata_rows = fetchall(
-            f"SELECT * FROM UPbData WHERE SpotID IN ({placeholder})",
+        UPbAnalyses_rows = fetchall(
+            f"SELECT * FROM UPbAnalyses WHERE SpotID IN ({placeholder})",
             conn_source,
             tuple(spot_ids)
         )
-        if upbdata_rows:
-            col_info_upb = fetchall("PRAGMA table_info('UPbData')", conn_source)
-            insert_rows(conn_target, "UPbData", upbdata_rows, len(col_info_upb))
+        if UPbAnalyses_rows:
+            col_info_upb = fetchall("PRAGMA table_info('UPbAnalyses')", conn_source)
+            insert_rows(conn_target, "UPbAnalyses", UPbAnalyses_rows, len(col_info_upb))
 
-            # Now handle the *foreign keys* in UPbData that reference:
+            # Now handle the *foreign keys* in UPbAnalyses that reference:
             #   References, Instruments, LabFacilities, UPbAnalysisMethod
             col_names_upb = [c[1] for c in col_info_upb]
 
@@ -311,7 +346,7 @@ def subset_one_to_many_chain(
             labfac_ids = set()
             method_ids = set()
 
-            for row in upbdata_rows:
+            for row in UPbAnalyses_rows:
                 if row[ref_idx]  is not None: reference_ids.add(row[ref_idx])
                 if row[inst_idx] is not None: instrument_ids.add(row[inst_idx])
                 if row[labf_idx] is not None: labfac_ids.add(row[labf_idx])
@@ -424,30 +459,32 @@ def subset_tree_table_downstream(
 ###############################################################################
 
 def subset_database(
-    source_db_path: str,
-    subset_db_path: str,
+    conn_source: QSqlDatabase,
+    conn_target: QSqlDatabase,
     sample_ids: list[int]
 ):
     """
     Creates a new subset DB that includes:
       - The specified SampleID row from 'Samples',
       - Dynamically discovered many-to-many references (bridge tables),
-      - Known one-to-many chain: Samples -> Aliquots -> Spots -> UPbData,
-      - The 'parent' references from UPbData,
+      - Known one-to-many chain: Samples -> Aliquots -> Spots -> UPbAnalyses,
+      - The 'parent' references from UPbAnalyses,
       - Any 'tree' tables that have 'Parent...' columns or self-reference,
         traversing them downward (schema-dependent).
     """
     # 1) Open source & target DBs via QSqlDatabase
-    conn_source = open_sqlite_db(source_db_path, "source_connection")
-    conn_target = open_sqlite_db(subset_db_path, "target_connection")
+    # conn_source = open_sqlite_db(source_db_path, "source_connection")
+    # conn_target = open_sqlite_db(subset_db_path, "target_connection")
 
     # 2) Copy schema
     copy_schema(conn_source, conn_target)
 
     for sample_id in sample_ids:
         # 3) Retrieve the requested Sample row from source
+        col_info_samples = fetchall("PRAGMA table_info('Samples')", conn_source)
+
         row = fetchall(
-            "SELECT * FROM Samples WHERE SampleID = ?",
+            f"SELECT {','.join([item[1] for item in col_info_samples])} FROM Samples WHERE SampleID = ?",
             conn_source,
             (sample_id,)
         )
@@ -458,7 +495,7 @@ def subset_database(
             return
 
         # Insert the sample row
-        col_info_samples = fetchall("PRAGMA table_info('Samples')", conn_source)
+
         insert_rows(conn_target, "Samples", row, len(col_info_samples))
 
         sample_ids = {sample_id}

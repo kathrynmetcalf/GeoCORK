@@ -12,7 +12,7 @@ from random import sample
 from collections import namedtuple
 
 from PyQt6.QtWidgets import QFileDialog, QMessageBox, QInputDialog, QCompleter, QComboBox, QTreeView, QListView, QTabBar, QGroupBox
-from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlRecord
+from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlRecord, QSqlDatabase
 from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt
 from PyQt6.QtGui import QTextOption, QFont, QAction
 
@@ -65,10 +65,13 @@ age = table_model_cols("Age (Ma)", "Samples", ["AverageAge", "AverageAgeError"],
 age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatureName"], "Samples_AgeSignatures")
 
 class SQLiteTableModel(QAbstractTableModel):
-    def __init__(self, query: str):
+    def __init__(self, query: str, database=None):
         from Functions.Settings_manager import settings
 
-        db_file = settings._instance.value('db_file', type=str)
+        if database is None:
+            db_file = settings._instance.value('db_file', type=str)
+        else:
+            db_file = database
         uri = f'file:{db_file}?mode=ro&immutable=1'
         self._data = []
         self._headers = []
@@ -193,8 +196,8 @@ class SQLiteTableModel(QAbstractTableModel):
         return [row[column] for row in self._data]
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, db=QSqlDatabase()):
+        super().__init__(db=db)
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -228,8 +231,9 @@ class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
         self.table = ''
         self.table_name_col = ''
 
-    def setQuery(self, query):
-        super().setQuery(query)
+
+    def setQuery(self, query, db=QSqlDatabase()):
+        super().setQuery(query, db)
         if self.lastError().text():
             logger_setup.get_logger().critical(f"Failed to set query '{query}': {self.lastError().text()}")
         else:
@@ -1183,12 +1187,15 @@ class TreeModel(QtC.QAbstractProxyModel):
     dataEdited = QtC.pyqtSignal()
     save_state = QtC.pyqtSignal()
 
-    def __init__(self, source_model=QSqlTableModel(), parent=None):
+    def __init__(self, source_model=None, parent=None, database=QSqlDatabase()):
         # todo: change sqltablemodel to sqlquerymodel and table name passed in as a parameter
         # database table
         super().__init__(parent)
 
-        self.source_model = source_model
+        if source_model is None:
+            self.source_model = QSqlTableModel(db=database)
+        else:
+            self.source_model = source_model
         self.base_filter = ""
         self.base_filter_sql = ""
         self.base_query = ""
@@ -1200,6 +1207,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.parent_item = TreeItem(QtS.QSqlRecord(), None)
         self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.lastError = QtS.QSqlError()
+        self.database = database
 
         if self.source_model.tableName():
             # If a table model with a valid table was passed, set the source model and create the tree
@@ -1210,7 +1218,6 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
         logger_setup.get_logger().info(f'Setting source model for tree model...')
-        # print('rebuild the tree')
         self.table = source_model.tableName()
         if isinstance(source_model, QSqlTableModel):
             self.base_filter = f"{source_model.filter()}"
@@ -1242,7 +1249,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             else:
                 self.base_query_sql = self.base_query
         self.source_model = DisplayRoundedQueryModel()
-        self.source_model.setQuery(self.base_query)
+        self.source_model.setQuery(self.base_query, db=self.database)
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
@@ -1253,7 +1260,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.parent_item = TreeItem(QtS.QSqlRecord(), None)
         self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
-        self.source_model.setQuery(self.base_query)
+        # self.source_model.setQuery(self.base_query, db=self.database)
         logger_setup.get_logger().info(f'Built the {self.table} tree...')
 
     def setup_model_data(self):

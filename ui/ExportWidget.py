@@ -18,6 +18,8 @@ from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
 import logger_setup
+from ui.DisplayTables import DisplayTables
+from ui.DisplayTablesSimplified import DisplayTablesSimplified
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase
 from Functions import FilterDatabase
@@ -735,13 +737,14 @@ class ExportWidget(QWidget):
                 self.export_to_csv()
             case 'DZStats - Two Sample Compare':
                 self.export_to_csv()
-                return
             case 'Database':
                 self.export_to_datbase()
-                pass
             case 'Custom':
-                self.export_to_excel()
-                pass
+                if self.fileformat_comboBox.currentText() == 'Excel (.xlsx)':
+                    self.export_to_excel()
+                elif self.fileformat_comboBox.currentText() == 'Comma-Separated Value (.csv)':
+                    self.export_to_csv()
+
     def export_to_datbase(self):
         fileName, _ = QFileDialog.getSaveFileName(
             None,
@@ -756,9 +759,12 @@ class ExportWidget(QWidget):
         if not fileName.lower().endswith(".db"):
             fileName += ".db"
 
-        ExportDatabase.subset_database(self.db_file, fileName, self.checked_sample_list)
+        src_db = QSqlDatabase()
+        tgt_db = QSqlDatabase.addDatabase('QSQLITE', 'target_connection')
+        tgt_db.setDatabaseName(fileName)
+        ExportDatabase.subset_database(src_db, tgt_db, self.checked_sample_list)
 
-        # QDesktopServices.openUrl(QtCore.QUrl(QtCore.QUrl.fromLocalFile(fileName).path().replace(fileName, '')[0:-1]))
+        QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(os.path.dirname(fileName)))
 
     def export_to_excel(self):
         # Prompt user for where to save the Excel file
@@ -983,41 +989,25 @@ class ExportWidget(QWidget):
                 tgt_db_file = "temp.db"
 
                 sample_id_to_subset = self.checked_sample_list
-                # if 'temp' in QSqlDatabase().addDatabase('QSQLITE', 'temp').connectionNames():
-                #     QSqlDatabase().removeDatabase('temp')
+                if 'temp' in QSqlDatabase().addDatabase('QSQLITE', 'temp').connectionNames():
+                    QSqlDatabase().removeDatabase('temp')
 
                 db_id_subset = FilterDatabase.gather_ids_for_subset(QSqlDatabase(), sample_id_to_subset)
 
-                # tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'temp')
-                # tgt_db.setDatabaseName(tgt_db_file)
-                # tgt_db.open()
+                tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'temp')
+                tgt_db.setDatabaseName(tgt_db_file)
+                tgt_db.open()
 
-                # Create a new tableView
+                src_db = QSqlDatabase()
+
+                ExportDatabase.subset_database(src_db, tgt_db, sample_id_to_subset)
 
                 # Create a new tab
-                new_tab = QWidget(self)
+                new_tab = DisplayTablesSimplified(self, tgt_db, tgt_db_file)
                 new_tab.setObjectName('database_tab')
                 tab_layout = QVBoxLayout(self)
                 new_tab.setLayout(tab_layout)
 
-                database_model = QSqlTableModel(parent=self)
-                database_model.setObjectName('database_QSqlTableModel')
-
-                table_filterproxy = QSortFilterProxyModel()
-                table_filterproxy.setSourceModel(database_model)
-
-                table_view = QTableView()
-                table_view.setModel(table_filterproxy)
-
-                table_swtcher_combobox = QComboBox(new_tab)
-                table_swtcher_combobox.addItems(SQLUtils.user_viewable_alltables)
-                table_swtcher_combobox.setObjectName('database_table_switcher')
-                table_swtcher_combobox.currentIndexChanged.connect(lambda: self.table_switcher(db_id_subset))
-
-                tab_layout.addWidget(table_swtcher_combobox)
-                database_model.setTable('Ages')
-                database_model.select()
-                tab_layout.addWidget(table_view)
 
                 self.workbooktabs.addTab(new_tab, 'Database')
 
