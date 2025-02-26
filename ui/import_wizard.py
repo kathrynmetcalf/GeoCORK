@@ -17,24 +17,24 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
-    QProgressDialog, QListWidget
+    QProgressDialog, QListWidget, QAbstractButton
 )
 from PyQt6.QtCore import Qt, QPoint, QSize, QEventLoop
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction
 
 from Functions import SQLUtils, Savepoint_manager
+from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
 
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (
     get_selected_tree_ids, CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
-    CheckableTreeCombobox, save_expanded_state, name_column)
+    CheckableTreeCombobox, save_expanded_state, get_name_column)
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from Functions.Widget_classes import CompleterInputDialog
-from ui.SampleInformation import SampleInformation
 
 CONFIG_FILE = 'column_mappings.json'
 
@@ -416,12 +416,52 @@ class ImportWizardDialog(QWidget):
         self.left_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.left_table.horizontalHeader().customContextMenuRequested.connect(self.show_left_header_context_menu)
 
+        self.conflict_mode = "skip"
+
+        self.deactivate_widgets()
+
     def closeEvent(self, a0):
         self.combo_reference_comboBox.disconnect()
         self.combo_instrument_comboBox.disconnect()
         self.combo_lab_facility_comboBox.disconnect()
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
+
+    def deactivate_widgets(self):
+        self.btn_save_mapping.setEnabled(False)
+        self.btn_load_mapping.setEnabled(False)
+        self.btn_import.setEnabled(False)
+        self.validate_button.setEnabled(False)
+        self.btn_add_column.setEnabled(False)
+        self.delimiter_edit.setEnabled(False)
+        self.delimiter_checkbox.setEnabled(False)
+        self.combo_reference_comboBox.setEnabled(False)
+        self.combo_instrument_comboBox.setEnabled(False)
+        self.combo_lab_facility_comboBox.setEnabled(False)
+        self.combo_upb_analysis_method_comboBox.setEnabled(False)
+        self.ratio_error_combobox.setEnabled(False)
+        self.age_error_combobox.setEnabled(False)
+        self.age_unit_combobox.setEnabled(False)
+        self.spot_size_unit_combobox.setEnabled(False)
+        self.conc_error_combobox.setEnabled(False)
+
+    def activate_widgets(self):
+        self.btn_save_mapping.setEnabled(True)
+        self.btn_load_mapping.setEnabled(True)
+        self.btn_import.setEnabled(True)
+        self.validate_button.setEnabled(True)
+        self.btn_add_column.setEnabled(True)
+        self.delimiter_edit.setEnabled(True)
+        self.delimiter_checkbox.setEnabled(True)
+        self.combo_reference_comboBox.setEnabled(True)
+        self.combo_instrument_comboBox.setEnabled(True)
+        self.combo_lab_facility_comboBox.setEnabled(True)
+        self.combo_upb_analysis_method_comboBox.setEnabled(True)
+        self.ratio_error_combobox.setEnabled(True)
+        self.age_error_combobox.setEnabled(True)
+        self.age_unit_combobox.setEnabled(True)
+        self.spot_size_unit_combobox.setEnabled(True)
+        self.conc_error_combobox.setEnabled(True)
 
     def on_cell_clicked(self, row, column):
         header_name = self.right_table.horizontalHeaderItem(column).text()
@@ -448,7 +488,7 @@ class ImportWizardDialog(QWidget):
 
         while query.next():
             item_id = query.value(0)
-            item_name = query.value(name_column(table_name))
+            item_name = query.value(get_name_column(table_name))
             data_map[item_name] = item_id  # Store in map
             list_widget.addItem(item_name)  # Display only name in list
 
@@ -1016,6 +1056,7 @@ class ImportWizardDialog(QWidget):
                 self.right_table.setItem(row, column_index, QTableWidgetItem(""))
             self.right_table.blockSignals(False)
             # self.right_table.hideColumn(col_index)
+            self.right_table.resizeColumnsToContents()
 
         # Notify the user only when method is initated from the user
         if field is None:
@@ -1170,6 +1211,8 @@ class ImportWizardDialog(QWidget):
                 # self.load_sheet(bypass=True)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to read Excel file:\n{e}")
+                return
+        self.activate_widgets()
 
     def load_sheet(self, bypass=False):
 
@@ -1340,7 +1383,7 @@ class ImportWizardDialog(QWidget):
             table = model.tableName
         else:
             table = model.tableName()
-        name_column = name_column(table)
+        name_column = get_name_column(table)
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None
@@ -1744,6 +1787,10 @@ class ImportWizardDialog(QWidget):
                 QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load mapping:\n{e}")
+            return
+        self.right_table.resizeColumnsToContents()
+
+    # todo: allow deleting mappings or changing name
 
     def check_empty_cells_in_left_table(self):
         empty_cells = []
@@ -1822,8 +1869,49 @@ class ImportWizardDialog(QWidget):
                 QMessageBox.information(self, "Review",
                                         "The empty cells have been filled with default values. Please review before clicking import again.")
         else:
-            # Step 4: Proceed with import
-            self.import_to_db()
+            # Step 4: Look for any existing analyses associated with existing spots and ask user how to handle conflicts
+            if self.check_for_conflicts():
+                # Step 5: Proceed with import
+                self.import_to_db()
+
+    def check_for_conflicts(self):
+        upb_matches = []
+        for row_idx in range(self.left_table.rowCount()):
+            sample_name = self.left_table.item(row_idx, 0).data(Qt.ItemDataRole.DisplayRole)
+            existing_sample = self.find_matching_id('Samples', 'SampleName', sample_name)
+            if existing_sample:
+                aliquot_name = self.left_table.item(row_idx, 1).data(Qt.ItemDataRole.DisplayRole)
+                existing_aliquot = self.find_matching_id('Aliquots', 'AliquotName', aliquot_name)
+                if existing_aliquot:
+                    spot_name = self.left_table.item(row_idx, 2).data(Qt.ItemDataRole.DisplayRole)
+                    existing_spot = self.find_matching_id('Spots', 'SpotName', spot_name)
+                    if existing_spot:
+                        query = QSqlQuery()
+                        query.prepare('SELECT * FROM UPbAnalyses WHERE SpotID=:spot_id')
+                        query.bindValue(":spot_id", existing_spot)
+                        if query.exec():
+                            if query.next():
+                                upb_matches.append((sample_name, aliquot_name, spot_name))
+        if upb_matches:
+            msg = f"{len(upb_matches)}/{self.left_table.rowCount()} existing UPb analyses found for spots being imported."
+            msg_box = QMessageBox()
+            msg_box.setWindowTitle("Existing Values")
+            msg_box.setText(msg)
+            msg_box.addButton(QMessageBox.StandardButton.Cancel)
+            skip_button = QPushButton("Skip duplicates")
+            msg_box.addButton(skip_button, QMessageBox.ButtonRole.NoRole)
+            overwrite_button = QPushButton("Overwrite duplicates")
+            msg_box.addButton(overwrite_button, QMessageBox.ButtonRole.YesRole)
+            msg_box.setDefaultButton(QMessageBox.StandardButton.Cancel)
+            msg_box.exec()
+            if msg_box.clickedButton() == QMessageBox.StandardButton.Cancel:
+                return False
+            elif msg_box.clickedButton() == skip_button:
+                self.conflict_mode = 'skip'
+                return True
+            elif msg_box.clickedButton() == overwrite_button:
+                self.conflict_mode = 'overwrite'
+                return True
 
     # ---------------------------
     #      Import to DB
@@ -1938,7 +2026,7 @@ class ImportWizardDialog(QWidget):
                         # found matching spot name in database, will use that spot ID
                         record["SpotID"] = spot_query.value(0)
                     else:
-                        # no matching samplename in database, will create new one.
+                        # no matching spot name in database, will create new one.
                         create_spot = QSqlQuery()
 
                         create_spot.prepare(
@@ -1957,6 +2045,25 @@ class ImportWizardDialog(QWidget):
 
 
                 # by this point a valid Sample, Aliquot, and Spot should be created.
+                # Check if the spot already has a UPbAnalysis, if so, skip or overwrite
+                upb_match = False
+                upb_query = QSqlQuery()
+                upb_query.prepare('SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID=:spot_id')
+                upb_query.bindValue(":spot_id", record["SpotID"])
+                if upb_query.exec():
+                    if upb_query.next():
+                        upb_match = True
+
+                if upb_match and self.conflict_mode == 'skip':
+                    continue
+                elif upb_match and self.conflict_mode == 'overwrite':
+                    # delete existing UPbAnalysis
+                    delete_query = QSqlQuery()
+                    delete_query.prepare('DELETE FROM UPbAnalyses WHERE SpotID=:spot_id')
+                    delete_query.bindValue(":spot_id", record["SpotID"])
+                    if not delete_query.exec():
+                        print("Failed to execute query:", delete_query.lastError().text())
+
 
                 field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
 
@@ -2064,8 +2171,19 @@ class ImportWizardDialog(QWidget):
         QSqlDatabase().commit()
         release_savepoint('before_upb_import')
         QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
+        update_database()
         self.data_imported.emit(self.sample_ids)
         self.close()
+
+    def find_matching_id(self, table, field_name, value):
+        query = QSqlQuery()
+        id_field = f"{table.strip('s')}ID"
+        query.prepare(f"SELECT {id_field} FROM {table} WHERE {field_name}=:value COLLATE NOCASE")
+        query.bindValue(":value", value)
+        if query.exec():
+            if query.next():
+                return query.value(0)
+        return None
 
     def close(self):
         self.saveWindowState()

@@ -14,7 +14,7 @@ import logger_setup
 import difflib
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, ReadableProxyModel, DisplayRoundedModel,
-    SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, name_column,
+    SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
     set_table, VerifiableSqlTableModel, VerifiableSqlViewModel, populate_combo_checks, populate_model_checks,
     WordWrapDelegate, get_columns
 )
@@ -363,7 +363,7 @@ class EditView(QtW.QDialog):
                     self.combo_model = CheckableSqlTableModel()
                     set_table(self.combo_model, dropdown_table)
                 self.combo.setModel(self.combo_model)
-            self.combo.setModelColumn(name_column(dropdown_table))
+            self.combo.setModelColumn(get_name_column(dropdown_table))
             if dropdown_table in SQLUtils.many_editable[self.table].values():
                 many_to_many_table = f'{self.table}_{dropdown_table}'
                 selected_id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -734,13 +734,13 @@ class EditView(QtW.QDialog):
         table_headers = get_headers(table)
         id_header = table_headers[0]
         query = QtS.QSqlQuery()
-        if not query.exec(f'SELECT {id_header} FROM {table} WHERE {table_headers[name_column(table)]} = "{value}"'):
+        if not query.exec(f'SELECT {id_header} FROM {table} WHERE {table_headers[get_name_column(table)]} = "{value}"'):
             logger_setup.get_logger().critical(f'Failed to get ID for {value}: {query.lastError().text()}')
             return None
         if query.next():
             return query.value(0)
         else:
-            logger_setup.get_logger().critical(f'{name_column(table)} {value} not found in {table}')
+            logger_setup.get_logger().critical(f'{get_name_column(table)} {value} not found in {table}')
             return None
 
     def retrieve_checked_ids(self, table, values):
@@ -751,8 +751,8 @@ class EditView(QtW.QDialog):
         query = QtS.QSqlQuery()
         ids = []
         for value in values:
-            if not query.exec(f'SELECT {id_header} FROM {table} WHERE {name_column(table)} = "{value}"'):
-                logger_setup.get_logger().critical(f'Failed to get {name_column(table)} for {value}: {query.lastError().text()}')
+            if not query.exec(f'SELECT {id_header} FROM {table} WHERE {get_name_column(table)} = "{value}"'):
+                logger_setup.get_logger().critical(f'Failed to get {get_name_column(table)} for {value}: {query.lastError().text()}')
                 return None
             if query.next():
                 ids.append(query.value(0))

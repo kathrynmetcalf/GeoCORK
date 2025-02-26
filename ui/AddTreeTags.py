@@ -13,8 +13,8 @@ from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state, restore_expanded_state,
-    get_headers, name_column, description_column
-)
+                                      get_headers, get_name_column, description_column
+                                      )
 import Functions.Text_manipulations as TxM
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 
@@ -57,7 +57,7 @@ class AddTreeTags(QtW.QDialog):
         if 'add_item' not in kwargs.keys():
             self.add_item = 'child'
         self.columns = get_headers(self.table)
-        self.name_column = self.columns[name_column(self.table)]
+        self.name_column = self.columns[get_name_column(self.table)]
         self.description_column = self.columns[description_column(self.table)]
         self.existing_names = []
 

@@ -276,7 +276,6 @@ class EditTable(QtW.QDialog):
                         print(f'More than one match for {header}: f{matches}')
                     break
             if 'Rejected' in header:
-                # todo: add functionality to change accepted/rejected status
                 dropdown_table = 'Rejected'
                 self.combo = QtW.QComboBox()
                 self.combo.addItem('Accepted')

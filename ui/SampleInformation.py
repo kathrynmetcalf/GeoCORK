@@ -16,7 +16,7 @@ import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
     CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
-    CheckableSqlTableModel, name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
+    CheckableSqlTableModel, get_name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
     CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_samples,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
     DisplayRoundedQueryModel, populate_combo_box
@@ -369,7 +369,7 @@ class SampleInformation(QtW.QDialog):
             id_col = 1  # ID column is always placed in the second column
         else:
             model = combo.model()
-            col = name_column(model.tableName())
+            col = get_name_column(model.tableName())
             tag_id_header = model.record().fieldName(0)
             id_col = 0  # ID column is always in the first column
         if len(self.checked_sample_list) == 0:

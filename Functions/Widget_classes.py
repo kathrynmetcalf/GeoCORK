@@ -112,11 +112,11 @@ class SQLiteTableModel(QAbstractTableModel):
                 self.table = 'Columns'
             elif 'Reference' in table:
                 self.table = 'References'
-            self.table_name_col = name_column(self.table)
+            self.table_name_col = get_name_column(self.table)
             self.view_name_col = get_view_name_column(self.view)
         else:
             self.table = table
-            self.table_name_col = name_column(self.table)
+            self.table_name_col = get_name_column(self.table)
         self.edited_indexes = []
         super().__init__()
 
@@ -246,11 +246,11 @@ class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
                     self.table = 'Columns'
                 elif 'Reference' in table:
                     self.table = 'References'
-                self.table_name_col = name_column(self.table)
+                self.table_name_col = get_name_column(self.table)
                 self.view_name_col = get_view_name_column(self.view)
             else:
                 self.table = table
-                self.table_name_col = name_column(self.table)
+                self.table_name_col = get_name_column(self.table)
 
     def tableName(self):
         return self.table
@@ -533,7 +533,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
 
     def flags(self, index):
         flags = super().flags(index)
-        col = name_column(self.tableName())
+        col = get_name_column(self.tableName())
         if index.column() == col:
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
         return flags
@@ -541,7 +541,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
             return False
-        col = name_column(self.tableName())
+        col = get_name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
                 return QtC.Qt.CheckState.Checked
@@ -561,7 +561,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...) -> bool:
-        col = name_column(self.tableName())
+        col = get_name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
                 self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
@@ -643,7 +643,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
 
     def flags(self, index):
         flags = super().flags(index)
-        col = name_column(self.table)
+        col = get_name_column(self.table)
         if index.column() == col:
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable
         return flags
@@ -655,7 +655,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
             view = self.tableView()
             col = get_view_name_column(view)
         except AttributeError:
-            col = name_column(self.tableName())
+            col = get_name_column(self.tableName())
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
             if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
                 return QtC.Qt.CheckState.Checked
@@ -678,11 +678,11 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         try:
             view = self.tableView()
             if view == '':
-                col = name_column(self.tableName())
+                col = get_name_column(self.tableName())
             else:
                 col = get_view_name_column(view)
         except AttributeError:
-            col = name_column(self.tableName())
+            col = get_name_column(self.tableName())
 
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
@@ -785,7 +785,7 @@ def get_columns(table: str):
             virtual.append(f'"{query.value(1)}"')
     return query, virtual, stored, columns
 
-def name_column(table: str) -> int | None:
+def get_name_column(table: str) -> int | None:
     if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
         return 3
     elif 'Format' in table or 'Unit' in table:
@@ -825,7 +825,7 @@ def get_table_from_view(view: str):
 
 def get_view_name_column(view: str) -> int | None:
     table = get_table_from_view(view)
-    table_name_col = name_column(table)
+    table_name_col = get_name_column(table)
     if table_name_col is not None:
         # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
         name_header = get_headers(table)[table_name_col]
@@ -838,7 +838,7 @@ def get_view_name_column(view: str) -> int | None:
 def get_name_from_id(table: str, item_id: int):
     query = QtS.QSqlQuery()
     headers = get_headers(table)
-    if not query.exec(f'SELECT {headers[name_column(table)]} FROM {table} WHERE {headers[0]}={item_id}'):
+    if not query.exec(f'SELECT {headers[get_name_column(table)]} FROM {table} WHERE {headers[0]}={item_id}'):
         logger_setup.get_logger().error(f"Failed to get name for {item_id} in {table}: {query.lastError().text()}")
         return None
     query.next()
@@ -847,7 +847,7 @@ def get_name_from_id(table: str, item_id: int):
 def get_id_from_name(table: str, name: str):
     query = QtS.QSqlQuery()
     headers = get_headers(table)
-    if not query.exec(f'SELECT {headers[0]} FROM {table} WHERE {headers[name_column(table)]}="{name}"'):
+    if not query.exec(f'SELECT {headers[0]} FROM {table} WHERE {headers[get_name_column(table)]}="{name}"'):
         logger_setup.get_logger().error(f"Failed to get ID for {name} in {table}: {query.lastError().text()}")
         return None
     query.next()
@@ -871,7 +871,7 @@ def foreign_key_columns(table: str):
         return foreign_keys
     while query.next():
         foreign_table = query.value(2)
-        table_display_column = name_column(foreign_table)
+        table_display_column = get_name_column(foreign_table)
         foreign_query = QtS.QSqlQuery()
         if not foreign_query.exec(f'PRAGMA table_info("{foreign_table}")'):
             logger_setup.get_logger().error(f"Failed to get columns for {foreign_table}: {foreign_query.lastError().text()}")
@@ -1245,7 +1245,6 @@ class TreeModel(QtC.QAbstractProxyModel):
     save_state = QtC.pyqtSignal()
 
     def __init__(self, source_model=None, parent=None, database=QSqlDatabase()):
-        # todo: change sqltablemodel to sqlquerymodel and table name passed in as a parameter
         # database table
         super().__init__(parent)
 
@@ -1514,7 +1513,6 @@ class TreeModel(QtC.QAbstractProxyModel):
                 proxy_modified_index = self.mapFromSource(source_modified_index)
                 if proxy_modified_index.isValid() and source_modified_index.isValid():
                     # If the changed data index and the modified timestamp index are valid for both models, change the data
-                    # todo: figure out why it is not setting the value...
                     name_header = self.source_model.headerData(sourceIndex.column(), QtC.Qt.Orientation.Horizontal)
                     query = QtS.QSqlQuery()
                     query.prepare(f"UPDATE {self.table} SET {name_header}=:value WHERE {self.id_header}=:id")
@@ -2366,7 +2364,6 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
         self.setMovable(True)
 
     def set_permanent_tabs(self, names: list):
-        # todo: try tracking by name instead of index
         self.permanent_tabs = names
         self.tabBar.update_permanent_tabs(self.permanent_tabs)
         self.update_close_buttons()
@@ -2602,7 +2599,7 @@ class CheckableComboBox(QtW.QComboBox):
         # If it is just a table or SampleAge query, use the table name
         else:
             self.table = model.tableName()
-            self.name_col = name_column(model.tableName())
+            self.name_col = get_name_column(model.tableName())
         if self.name_col:
             show_column(self, model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
@@ -2725,7 +2722,7 @@ class SearchableSQLComboBox(QtW.QComboBox):
     def setModel(self, model: QtS.QSqlTableModel | VerifiableSqlViewModel):
         self.proxy_model.setSourceModel(model)
         super().setModel(self.proxy_model)
-        self.setModelColumn(name_column(model.tableName()))
+        self.setModelColumn(get_name_column(model.tableName()))
 
     def search_items(self, text):
         self.proxy_model.setFilterFixedString(text)
@@ -3426,7 +3423,7 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         if column:
             show_column(comboBox, column)
         else:
-            name_col = name_column(table)
+            name_col = get_name_column(table)
             show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
 def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids, item_table: str=None):
@@ -3449,7 +3446,7 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         for row in range(model.rowCount()):
             id_index = model.index(row, 0)
             if id_index.data(QtC.Qt.ItemDataRole.DisplayRole) == id:
-                name_index = model.index(row, name_column(model.tableName()))
+                name_index = model.index(row, get_name_column(model.tableName()))
                 model.setData(name_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                 break
 
@@ -3470,7 +3467,7 @@ def populate_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_t
         id_col = 1  # ID column is always placed in the second column
     else:
         model = combo.model()
-        col = name_column(model.tableName())
+        col = get_name_column(model.tableName())
         tag_id_header = model.record().fieldName(0)
         id_col = 0  # ID column is always in the first column
 

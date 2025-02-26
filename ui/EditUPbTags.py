@@ -15,7 +15,7 @@ import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
     set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
-    CheckableSqlTableModel, name_column, get_view_name_column, CheckableTreeModel, TreeModel,
+    CheckableSqlTableModel, get_name_column, get_view_name_column, CheckableTreeModel, TreeModel,
     show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox, find_tree_model
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
@@ -188,7 +188,7 @@ class EditUPbTags(QtW.QDialog):
                 view = model.tableView()
                 col = get_view_name_column(view)
             except AttributeError:
-                col = name_column(model.tableName())
+                col = get_name_column(model.tableName())
             tag_id_header = model.record().fieldName(0)
             id_col = 0  # ID column is always in the first column
         logger_setup.get_logger().info(f"Populating UPb checks for {table}")
@@ -267,7 +267,7 @@ class EditUPbTags(QtW.QDialog):
                 view = model.tableView()
                 column = get_view_name_column(view)
             except AttributeError:
-                column = name_column(model.tableName())
+                column = get_name_column(model.tableName())
             for row in range(model.rowCount()):
                 name_index = model.index(row, column)
                 id_index = model.index(row, 0)

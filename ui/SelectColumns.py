@@ -114,7 +114,7 @@ class SelectColumns(QWidget):
             view_name = self.columnselection_comboBox.itemText(index)
             # Always include the ID fields
             if view_widget is not None and view_name != '':
-                field_names = self.view_dict[view_name]
+                field_names = settings.value(f'default_{self.view_setting_dict[view_name]}')
                 view_columns = []
                 for field in field_names:
                     if 'ID' in field or field in self.hidden_must_haves:

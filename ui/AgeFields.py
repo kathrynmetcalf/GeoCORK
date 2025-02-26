@@ -8,7 +8,7 @@ from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, set_table, SampleAgeTableModel, CheckableSqlTableModel,
-    FontDelegate, name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel, SQLiteTableModel,
+    FontDelegate, get_name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel, SQLiteTableModel,
     get_selected_tree_ids, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state, restore_expanded_state
 )
 from Functions import SQLUtils
@@ -166,7 +166,7 @@ class AgeFields(QtW.QWidget):
             self.sample_age_model.checked_ids = [selected_id]
             if selected_id not in self.default_age_ids:
                 self.default_age_ids.append(selected_id)
-        display_col = name_column('SampleAges')
+        display_col = get_name_column('SampleAges')
         for row in range(self.sample_age_model.rowCount()):
             if self.sample_age_model.index(row, 0).data() in self.default_age_ids:
                 # Make the text at that row bold
@@ -395,7 +395,7 @@ class AgeFields(QtW.QWidget):
             id_col = 1  # ID column is always placed in the second column
         else:
             model = combo.model()
-            col = name_column(model.tableName())
+            col = get_name_column(model.tableName())
             tag_id_header = model.record().fieldName(0)
             id_col = 0  # ID column is always in the first column
         if not sample_age_id:

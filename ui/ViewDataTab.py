@@ -77,11 +77,11 @@ class ViewDataTab(QtW.QWidget):
             self.v_layout.addWidget(self.view)
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             # Columns to select from the view
-            self.show_cols = settings.value('aliquot_columns')
+            self.show_cols = settings.value('aliquot_edit_columns')
             self.show_cols = ', '.join(self.show_cols)
             table_query = f'SELECT {self.show_cols} FROM AliquotView WHERE SampleID = {self.parent_id}'
         elif self.child_type == 'Spot':
-            self.show_cols = settings.value('spot_columns')
+            self.show_cols = settings.value('spot_view_columns')
             self.show_cols = ', '.join(self.show_cols)
             if self.parent_type == 'Aliquot':
                 table_query = f'SELECT {self.show_cols} FROM SpotView WHERE AliquotID = {self.parent_id}'

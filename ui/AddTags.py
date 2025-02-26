@@ -12,7 +12,7 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
-from Functions.Widget_classes import set_table, get_headers, name_column, description_column
+from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column
 import Functions.Check_triggers as Ct
 
 class AddTags(QtW.QDialog):
@@ -42,7 +42,7 @@ class AddTags(QtW.QDialog):
         self.newName_lineEdit.textChanged.connect(self.filter_proxy_model.setFilterRegularExpression)
 
         self.columns = get_headers(self.table)
-        self.name_column = self.columns[name_column(self.table)]
+        self.name_column = self.columns[get_name_column(self.table)]
         self.description_column = self.columns[description_column(self.table)]
         self.existing_names = []
 
