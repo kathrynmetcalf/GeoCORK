@@ -30,9 +30,8 @@ class DataViewerWidget(QWidget):
         # ids_to_show is a filtered list of ids to show in the table
         # can be either from Samples, Aliquots, Spots, or UPbData
         if len(ids_to_show) > 0:
-            for sample in ids_to_show:
-                self.ids_to_show += str(sample) + ", "
-            self.ids_to_show = self.ids_to_show[0:-2]
+            id_str = ", ".join([str(i) for i in ids_to_show])
+            self.ids_to_show += id_str
             self.ids_to_show += ")"
 
         self.loadWindowState()
