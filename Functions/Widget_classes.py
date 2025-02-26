@@ -76,13 +76,6 @@ class SQLiteTableModel(QAbstractTableModel):
         self._data = []
         self._headers = []
         self.last_error = None
-        # model = QtS.QSqlTableModel()
-        # db = model.database()
-        # if db.isOpen():
-        #     if not db.commit():
-        #         if 'no transaction is active' not in db.lastError().text():
-        #             logger_setup.get_logger().critical(db.lastError().text())
-        #     db.close()
         try:
             conn = sqlite3.connect(uri, uri=True)
             with conn:
@@ -100,8 +93,6 @@ class SQLiteTableModel(QAbstractTableModel):
             logger_setup.get_logger().debug(f"Query: {query}")
             logger_setup.get_logger().debug(f"Error: {e}")
             self.last_error = e
-        # if not db.open():
-        #     logger_setup.get_logger().critical(f"Failed to open database {db_file}")
         self.query_text = query
         if 'table_info' in query:
             table = 'table_info'
@@ -126,6 +117,7 @@ class SQLiteTableModel(QAbstractTableModel):
         else:
             self.table = table
             self.table_name_col = name_column(self.table)
+        self.edited_indexes = []
         super().__init__()
 
 
@@ -171,6 +163,9 @@ class SQLiteTableModel(QAbstractTableModel):
 
     def setData(self, index, value, role = ...):
         if role == Qt.ItemDataRole.EditRole:
+            if self._data[index.row()][index.column()] == value:
+                # No change
+                return True
             data_list = list(self._data)
             rows = []
             for row in range(len(data_list)):
@@ -183,7 +178,7 @@ class SQLiteTableModel(QAbstractTableModel):
             for row in rows:
                 data_list.append(tuple(row))
             self._data = tuple(data_list)
-
+            self.edited_indexes.append(index)
             return self._data[index.row()][index.column()] == value
 
     def column_as_list(self, col):
@@ -237,7 +232,7 @@ class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
         if self.lastError().text():
             logger_setup.get_logger().critical(f"Failed to set query '{query}': {self.lastError().text()}")
         else:
-            logger_setup.get_logger().info(f"Query set to '{query}'")
+            logger_setup.get_logger().debug(f"Query set to '{query}'")
             table = query.split('FROM ')[1].split(' ')[0]
             if 'View' in table:
                 self.view = table
@@ -526,6 +521,9 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             return header
         super().headerData(section, orientation, role)
 
+    def mapFromSource(self, sourceIndex):
+        return super().mapFromSource(sourceIndex)
+
 class CheckableSqlTableModel(DisplayRoundedModel):
     def __init__(self):
         super().__init__()
@@ -577,6 +575,65 @@ class CheckableSqlTableModel(DisplayRoundedModel):
             self.dataChanged.emit(index, index, [role])
             return True
         return super().setData(index, value, role)
+
+    def update_many_db(self, many_to_many: str, item_ids: list):
+        if not item_ids:
+            logger_setup.get_logger().error(f'No item IDs given for {self.many_to_many}')
+            return False
+        first_table = many_to_many.split('_')[0]
+        first_table_id_header = get_headers(first_table)[0]
+        second_table_id_header = get_headers(self.tableName())[0]
+        current_ids = []
+        query = QtS.QSqlQuery()
+        if len(item_ids) > 1:
+            query_where_str = f'in {tuple(item_ids)}'
+        elif len(item_ids) == 1:
+            query_where_str = f'= {item_ids[0]}'
+        else:
+            logger_setup.get_logger().error(f'No item IDs given for {first_table}')
+            return False
+        query.prepare(f"SELECT * FROM {many_to_many} WHERE {first_table_id_header} {query_where_str}")
+        if query.exec():
+            while query.next():
+                current_ids.append(query.value(1))
+            create_savepoint('update_db')
+            to_remove = []
+            to_add = []
+            for id in current_ids:
+                if id not in self.checked_ids and id not in self.partially_checked_ids:
+                    to_remove.append(id)
+            for id in self.checked_ids:
+                if id not in current_ids and id not in self.partially_checked_ids:
+                    to_add.append(id)
+            for id in to_remove:
+                query.prepare(
+                    f"DELETE FROM {many_to_many} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
+                if not query.exec():
+                    logger_setup.get_logger().error(
+                        f"Error removing {id} associated with item IDs from {many_to_many}: {query.lastError().text()}")
+                    rollback_savepoint('update_db')
+                    return False
+                logger_setup.get_logger().info(f"Removed {id} associated with item IDs from {many_to_many}")
+            for id in to_add:
+                query.prepare(
+                    f"INSERT INTO {many_to_many}({first_table_id_header}, {second_table_id_header}) VALUES(?, ?)")
+                for item_id in item_ids:
+                    query.addBindValue(item_id)
+                    query.addBindValue(id)
+                    if not query.exec():
+                        logger_setup.get_logger().error(
+                            f"Error adding {item_ids, id} to {many_to_many}: {query.lastError().text()}")
+                        rollback_savepoint('update_db')
+                        return False
+                logger_setup.get_logger().info(f"Added {id} associated with item IDs to {many_to_many}")
+            logger_setup.get_logger().info(
+                f"Successfully updated {many_to_many} for {first_table_id_header} {item_ids}")
+            release_savepoint('update_db')
+            return True
+        else:
+            logger_setup.get_logger().error(
+                f"Error updating {many_to_many} for {first_table_id_header} ({item_ids}): {query.lastError().text()}")
+            return False
 
 class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def __init__(self):
@@ -734,7 +791,7 @@ def name_column(table: str) -> int | None:
     elif 'Format' in table or 'Unit' in table:
         # return the column for the abbreviation
         return 2
-    elif table == 'References':
+    elif table == 'References' or table == '"References"':
         return 9
     elif table == 'SampleAges':
         return 16
@@ -1870,7 +1927,8 @@ class CheckableTreeModel(TreeModel):
         self.root_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.parent_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.child_item = CheckableTreeItem(QtS.QSqlRecord(), None)
-
+        self.item_ids = None
+        self.many_to_many = None
         if self.source_model.tableName():
             # If a table model with a valid table was passed, set the source model and create the tree
             self.setSourceModel(self.source_model)
@@ -1935,22 +1993,28 @@ class CheckableTreeModel(TreeModel):
                 new_child_ids = self.find_children(child_id)
                 self.add_to_tree(new_child_ids, item)
 
-    def set_sample(self, sample_ID: int):
-        self.sample_ID = sample_ID
-        item_IDs = []
+    def set_item(self, item_ids: list, man_to_many: str):
+        self.item_ids = item_ids
+        self.many_to_many = man_to_many  # Many-to-many table name
+        first_table = self.many_to_many.split('_')[0]
+        first_table_id_header = get_headers(first_table)[0]
+        item_ids = []
         query = QtS.QSqlQuery()
-        query.prepare(f"SELECT * FROM Samples_{self.table} WHERE SampleID = {self.sample_ID}")
+        if len(self.item_ids) >= 1:
+            query.prepare(f"SELECT * FROM {self.many_to_many} WHERE {first_table_id_header} in {tuple(self.item_ids)}")
+        if len(self.item_ids) == 1:
+            query.prepare(f"SELECT * FROM {self.many_to_many} WHERE {first_table_id_header} = {self.item_ids[0]}")
         if query.exec():
             while query.next():
-                item_IDs.append(query.value(1))
-            for item_ID in item_IDs:
-                item = self.find_id_in_tree(item_ID)
+                item_ids.append(query.value(1))
+            for item_id in item_ids:
+                item = self.find_id_in_tree(item_id)
                 if item:
                     item.setCheckState(QtC.Qt.CheckState.Checked)
-            logger_setup.get_logger().info(f'Successfully set sample {self.sample_ID} for table Samples_{self.table}')
+            logger_setup.get_logger().info(f'Successfully set {first_table} {self.item_ids} for table {self.many_to_many}')
         else:
             logger_setup.get_logger().error(
-                f'Error setting sample {self.sample_ID} for table Samples_{self.table}: {query.lastError().text()}')
+                f'Error setting {first_table} {self.item_ids} for table {self.many_to_many}: {query.lastError().text()}')
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -2002,48 +2066,63 @@ class CheckableTreeModel(TreeModel):
             partially_checked_indices.extend(child_partially_checked_indices)
         return checked_items, partially_checked_items, checked_indices, partially_checked_indices
 
-    def update_db(self, checked_IDs: list, partially_checked_IDs=None, sample_ID=None):
-        if not sample_ID:
-            sample_ID = self.sample_ID
-        if not partially_checked_IDs:
-            partially_checked_IDs = []
-        current_IDs = []
+    def update_db(self, many_to_many: str, checked_ids: list, partially_checked_ids: list | None, item_ids: list | None):
+        self.many_to_many = many_to_many
+        if not item_ids:
+            item_ids = self.item_ids
+        if not partially_checked_ids:
+            partially_checked_ids = []
+        first_table = self.many_to_many.split('_')[0]
+        first_table_id_header = get_headers(first_table)[0]
+        current_ids = []
         query = QtS.QSqlQuery()
-        query.prepare(f"SELECT * FROM Samples_{self.table} WHERE SampleID = {sample_ID}")
+        if len(item_ids) > 1:
+            query_where_str = f'in {tuple(item_ids)}'
+        elif len(item_ids) == 1:
+            query_where_str = f'= {item_ids[0]}'
+        else:
+            logger_setup.get_logger().error(f'No item IDs given for {first_table}')
+            return False
+        query.prepare(f"SELECT * FROM {self.many_to_many} WHERE {first_table_id_header} {query_where_str}")
         if query.exec():
             while query.next():
-                current_IDs.append(query.value(1))
+                current_ids.append(query.value(1))
             create_savepoint('update_db')
             to_remove = []
             to_add = []
-            for ID in current_IDs:
-                if ID not in checked_IDs and ID not in partially_checked_IDs:
-                    to_remove.append(ID)
-            for ID in checked_IDs:
-                if ID not in current_IDs and ID not in partially_checked_IDs:
-                    to_add.append(ID)
-            for ID in to_remove:
+            for id in current_ids:
+                if id not in checked_ids and id not in partially_checked_ids:
+                    to_remove.append(id)
+            for id in checked_ids:
+                if id not in current_ids and id not in partially_checked_ids:
+                    to_add.append(id)
+            for id in to_remove:
                 query.prepare(
-                    f"DELETE FROM Samples_{self.table} WHERE SampleID = {sample_ID} AND {self.id_header} = {ID}")
+                    f"DELETE FROM {self.many_to_many} WHERE {first_table_id_header} {query_where_str} AND {self.id_header} = {id}")
                 if not query.exec():
                     logger_setup.get_logger().error(
-                        f"Error removing {sample_ID, ID} {ID} from Samples_{self.table}: {query.lastError().text()}")
+                        f"Error removing {id} associated with item IDs from {self.many_to_many}: {query.lastError().text()}")
                     rollback_savepoint('update_db')
-                    return
-                logger_setup.get_logger().info(f"Removed {sample_ID, ID} from Samples_{self.table}")
-            for ID in to_add:
-                query.prepare(f"INSERT INTO Samples_{self.table}(SampleID, {self.id_header}) VALUES({sample_ID}, {ID})")
-                if not query.exec():
-                    logger_setup.get_logger().error(
-                        f"Error adding {sample_ID, ID} to Samples_{self.table}: {query.lastError().text()}")
-                    rollback_savepoint('update_db')
-                    return
-                logger_setup.get_logger().info(f"Added {sample_ID, ID} to Samples_{self.table}")
-            logger_setup.get_logger().info(f"Successfully updated Samples_{self.table} for sample {sample_ID}")
+                    return False
+                logger_setup.get_logger().info(f"Removed {id} associated with item IDs from {self.many_to_many}")
+            for id in to_add:
+                query.prepare(f"INSERT INTO {self.many_to_many}({first_table_id_header}, {self.id_header}) VALUES(?, ?)")
+                for item_id in item_ids:
+                    query.addBindValue(item_id)
+                    query.addBindValue(id)
+                    if not query.exec():
+                        logger_setup.get_logger().error(
+                            f"Error adding {item_ids, id} to {self.many_to_many}: {query.lastError().text()}")
+                        rollback_savepoint('update_db')
+                        return False
+                logger_setup.get_logger().info(f"Added {id} associated with item IDs to {self.many_to_many}")
+            logger_setup.get_logger().info(f"Successfully updated {self.many_to_many} for {first_table_id_header} {item_ids}")
             release_savepoint('update_db')
+            return True
         else:
             logger_setup.get_logger().error(
-                f"Error updating Samples_{self.table} for sample {sample_ID}: {query.lastError().text()}")
+                f"Error updating {self.many_to_many} for {first_table_id_header} ({item_ids}): {query.lastError().text()}")
+            return False
 
 class TreeListProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self, parent=None):
@@ -2489,7 +2568,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setCompleter(self.completer())
         self.model_modifiable = False
         self.single_click = False
-        # self.tableView = CheckableSampleTableView()
+        # self.tableView = QtW.QTableView()
         # self.setView(self.tableView)
         self.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContentsOnFirstShow)
         self.context_menu = False
@@ -2507,7 +2586,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.name_col = None
             return
         # If it is not a table model, it is a view, get the name of the table
-        if not isinstance(model, QtS.QSqlTableModel) and 'SampleAge' not in column:
+        if not isinstance(model, QtS.QSqlTableModel) and 'SampleAge' not in column and 'Reference' not in column:
             if 'Sample' in column:
                 self.table = 'Samples'
             elif 'Aliquot' in column:
@@ -2518,8 +2597,6 @@ class CheckableComboBox(QtW.QComboBox):
                 self.table = 'UPbAnalyses'
             elif 'Column' in column:
                 self.table = 'Columns'
-            elif 'Reference' in column:
-                self.table = 'References'
             view = model.tableView()
             self.name_col = get_view_name_column(view)
         # If it is just a table or SampleAge query, use the table name
@@ -2533,19 +2610,23 @@ class CheckableComboBox(QtW.QComboBox):
         self.context_menu = show_context_menu
         if self.context_menu and self.model_modifiable:
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-            # self.customContextMenuRequested.connect(self.show_context_menu)
+            # self.customContextMenuRequested.connect(self.contextMenuEvent)
         else:
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
 
     def contextMenuEvent(self, event):
         menu = TreeContextMenu()
+        if self.table == '"References"':
+            table = 'References'
+        else:
+            table = self.table
         if self.model().rowCount() !=0:
-            edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(self.table)}")
-            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.table)}")
+            edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
+            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = menu.addAction("Clear All Checks")
         else:
             edit_action = None
-            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(self.table)}")
+            add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = None
         action = menu.exec(self.mapToGlobal(event.pos()))
         if action == edit_action:
@@ -2577,6 +2658,9 @@ class CheckableComboBox(QtW.QComboBox):
 
     def showPopup(self):
         super().showPopup()
+        # self.view().resizeColumnToContents(self.name_col)
+        self.view().setFixedWidth(self.view().sizeHintForColumn(self.name_col))
+        self.view().setFixedHeight(self.view().sizeHint().height())
         self.popup_shown = True
 
     def hidePopup(self):
@@ -2596,7 +2680,7 @@ class CheckableComboBox(QtW.QComboBox):
             return super().eventFilter(obj, event)
 
         if obj == self.view().viewport():
-            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.LeftButton:
                 if self.single_click:
                     # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
                     clicked_id = self.model().index(self.view().currentIndex().row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -2614,7 +2698,17 @@ class CheckableComboBox(QtW.QComboBox):
                         self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
                     elif self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Unchecked:
                         self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    checked_ids = self.model().checked_ids
+                    checked_names = []
+                    for id in checked_ids:
+                        checked_names.append(get_name_from_id(self.table, id))
+                    text = ', '.join(checked_names)
+                    self.set_line_edit_text(text)
                     self.showPopup()
+                    return True
+            elif event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.RightButton:
+                if self.context_menu:
+                    self.contextMenuEvent(event)
                     return True
             return super().eventFilter(obj, event)
 
@@ -2706,6 +2800,10 @@ class CheckableTreeView(QtW.QTreeView):
         super().setModel(model)
         self.connect_edited_signal()
 
+    def resizeColumnsToContents(self):
+        for column in range(self.model().columnCount()):
+            self.resizeColumnToContents(column)
+
     def connect_edited_signal(self):
         self.model().dataChanged.connect(lambda: self.toggle_edited(True))
 
@@ -2772,6 +2870,8 @@ class TreeCombobox(QtW.QComboBox):
         # Hide all but the first column
         for column in range(1, model.columnCount()):
             self.treeView.hideColumn(column)
+        self.treeView.resizeColumnToContents(1)
+        self.treeView.setMinimumWidth(self.treeView.sizeHint().width())
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -2798,7 +2898,20 @@ class TreeCombobox(QtW.QComboBox):
         if tree_model:
             restore_expanded_state(tree_model.table, tree_model, self.treeView)
         self.treeView.resizeColumnToContents(0)
-        # total_width = self.treeView.columnWidth(0) + self.treeView.verticalScrollBar().sizeHint().width()
+        self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
+        self.treeView.setFixedHeight(self.treeView.sizeHint().height())
+        # font_metrics = QtG.QFontMetrics(self.treeView.font())
+        # max_text_width = 0
+        # def get_max_text_width(model, parent, max_text_width):
+        #     for row in range(model.rowCount(parent)):
+        #         index = model.index(row, 0, parent)
+        #         text = index.data(QtC.Qt.ItemDataRole.DisplayRole)
+        #         width = font_metrics.horizontalAdvance(text)
+        #         if width > max_text_width:
+        #             max_text_width = width
+        #         get_max_text_width(model, index, max_text_width)
+        # get_max_text_width(self.model(), QtC.QModelIndex(), max_text_width)
+        # total_width = max_text_width + self.treeView.verticalScrollBar().sizeHint().width()
         # self.treeView.setFixedWidth(total_width)
         super().showPopup()
         self.popup_shown = True
@@ -2876,6 +2989,7 @@ class CheckableTreeCombobox(TreeCombobox):
         if self.model():
             self.model().dataChanged.connect(self.update_line_edit)
         show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+        self.treeView.resizeColumnsToContents()
 
     def set_single_click(self, single_click):
         self.single_click = single_click
@@ -3315,3 +3429,94 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             name_col = name_column(table)
             show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
+def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids, item_table: str=None):
+    table_id_header = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+    item_id_header = get_headers(item_table)[0]
+    query = QtS.QSqlQuery()
+    if len(item_ids) > 1:
+        query_where_str = f'in {tuple(item_ids)}'
+    elif len(item_ids) == 1:
+        query_where_str = f'= {item_ids[0]}'
+    else:
+        logger_setup.get_logger().error(f'No item IDs given for {model.tableName()}')
+        return False
+    query.prepare(f"SELECT {table_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str}")
+    if not query.exec():
+        logger_setup.get_logger().error(f'Error getting {model.tableName()} checks for {model.tableName()}: {query.lastError().text()}')
+        return False
+    while query.next():
+        id = query.value(0)
+        for row in range(model.rowCount()):
+            id_index = model.index(row, 0)
+            if id_index.data(QtC.Qt.ItemDataRole.DisplayRole) == id:
+                name_index = model.index(row, name_column(model.tableName()))
+                model.setData(name_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                break
+
+
+def populate_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_table_id: int):
+    logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
+    many_to_many_model = QtS.QSqlTableModel()
+    many_to_many_model.setTable(many_to_many_table)
+    many_to_many_model.select()
+    first_table = many_to_many_table.split('_')[0]
+    first_table_id_header = get_headers(first_table)[0]
+    items = []
+    text = ""
+    if isinstance(combo, CheckableTreeCombobox):
+        model = find_tree_model(combo.model())
+        col = 0  # Name column is always placed in the first column
+        tag_id_header = model.source_model.record().fieldName(0)
+        id_col = 1  # ID column is always placed in the second column
+    else:
+        model = combo.model()
+        col = name_column(model.tableName())
+        tag_id_header = model.record().fieldName(0)
+        id_col = 0  # ID column is always in the first column
+
+    logger_setup.get_logger().info(f"Checking {many_to_many_table}")
+    if isinstance(combo, CheckableTreeCombobox):
+        # recursively check data
+        def check_data(model: CheckableTreeModel, index: QtC.QModelIndex):
+            for row in range(model.rowCount(index)):
+                model_index = model.index(row, col, index)
+                id_index = model.index(row, id_col, index)
+                tag_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
+                many_to_many_model.setFilter(
+                        f"{first_table_id_header} = {first_table_id} AND {tag_id_header} = {tag_id}")
+                if many_to_many_model.rowCount() == 0:
+                    # The item does not have this tag
+                    model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if model.lastError.isValid():
+                        logger_setup.get_logger().error(model.lastError.text())
+                elif many_to_many_model.rowCount() > 0:
+                    # The item has this tag
+                    model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    if model.lastError.isValid():
+                        logger_setup.get_logger().error(model.lastError.text())
+                    items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
+                check_data(model, model_index)
+        check_data(model, QtC.QModelIndex())
+    else:
+        for row in range(model.rowCount()):
+            tag_id = model.index(row, id_col).data()
+            many_to_many_model.setFilter(f"{first_table_id_header} = {first_table_id} AND {tag_id_header} = {tag_id}")
+            model_index = model.index(row, col)
+            if many_to_many_model.rowCount() == 0:
+                # The item does not have this tag
+                model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if model.lastError().isValid():
+                    logger_setup.get_logger().error(model.lastError().text())
+            elif many_to_many_model.rowCount() > 0:
+                # The item has this tag
+                model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                if model.lastError().isValid():
+                    logger_setup.get_logger().error(model.lastError().text())
+                items.append(model_index.data(QtC.Qt.ItemDataRole.DisplayRole))
+    if items:
+        # Some items are checked
+        text = ', '.join(items)
+    if not text:
+        text = combo.placeholderText()
+    # combo.setCurrentText(text)
+    logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")

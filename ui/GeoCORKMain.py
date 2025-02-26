@@ -101,6 +101,7 @@ class GeoCORK(QtW.QMainWindow):
         # todo: figure out how to add a divider between the permanent tabs and the user-added tabs
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
+        self.tabWidget.currentChanged.connect(self.on_tab_changed)
 
         actionOpen.triggered.connect(self.landingpage.showFileDialog)
         actionRecent.triggered.connect(self.landingpage.new_database_dialog)
@@ -142,6 +143,16 @@ class GeoCORK(QtW.QMainWindow):
         dlg = SampleInformation(self, sample_ids)
         dlg.exec()
 
+    def on_tab_changed(self, index):
+        """
+        When the tab is changed, check if the tab is a temporary table
+        If it is, refresh the table
+        :param index: The index of the tab that was changed
+        :return:
+        """
+        logger_setup.get_logger().debug(f'Tab changed to {self.tabWidget.tabText(index)}')
+        if self.tabWidget.tabText(index) not in self.tabWidget.permanent_tabs:
+            self.tabWidget.widget(index).display_table()
 
     def open_tab(self, parent_id: list[int], parent_type: str, child_type: str):
         """

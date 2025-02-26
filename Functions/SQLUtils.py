@@ -26,17 +26,17 @@ qage_range = 'COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(Calcul
 qage_range_display = 'COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " ") AS SampleAgeRange'
 qage_unit = 'DirectAgeUnitAbbreviation AS SampleAgeUnitAbbreviation'
 qage_error_format = 'DirectAgeErrorFormatAbbreviation AS SampleAgeErrorFormatAbbreviation'
-qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName) AS SampleAgeConstraint'
-qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName) AS SampleAgeInterpretation'
-qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay) AS SampleAgeReference'
+qsample_age_constraint = 'GROUP_CONCAT(DISTINCT AgeConstraintName) AS SampleAgeConstraintName'
+qsample_age_interpretation = 'GROUP_CONCAT(DISTINCT AgeInterpretationName) AS SampleAgeInterpretationName'
+qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay) AS SampleAgeReferenceDisplay'
 qsample_description = 'Samples.SampleDescription AS SampleDescription'
-qage_signature = 'GROUP_CONCAT(AgeSignatureName) AS SampleAgeSignatureName'
-qregions = 'GROUP_CONCAT(RegionName) AS RegionName'
-qrock_types = 'GROUP_CONCAT(RockTypeName) AS RockTypeName'
-qsample_context = 'GROUP_CONCAT(SampleContextName) AS SampleContextName'
-qsampling_methods = 'GROUP_CONCAT(SamplingMethodName) AS SamplingMethodName'
-qsettings = 'GROUP_CONCAT(SettingName) AS SettingName'
-qunits = 'GROUP_CONCAT(UnitName) AS UnitName'
+qage_signature = 'GROUP_CONCAT(DISTINCT AgeSignatureName) AS SampleAgeSignatureName'
+qregions = 'GROUP_CONCAT(DISTINCT RegionName) AS RegionName'
+qrock_types = 'GROUP_CONCAT(DISTINCT RockTypeName) AS RockTypeName'
+qsample_context = 'GROUP_CONCAT(DISTINCT SampleContextName) AS SampleContextName'
+qsampling_methods = 'GROUP_CONCAT(DISTINCT SamplingMethodName) AS SamplingMethodName'
+qsettings = 'GROUP_CONCAT(DISTINCT SettingName) AS SettingName'
+qunits = 'GROUP_CONCAT(DISTINCT UnitName) AS UnitName'
 qsample_created = 'Samples.SampleCreated AS SampleCreated'
 qsample_modified = 'Samples.SampleModified AS SampleModified'
 
@@ -304,7 +304,9 @@ qconcordance_formats = 'GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceForm
 qspot_size = 'UPbAnalyses.SpotSize AS SpotSize'
 qspot_sizes = f'GROUP_CONCAT(DISTINCT CalculatedSpotSize) AS CalculatedSpotSize'
 qspot_size_unit = 'GROUP_CONCAT(DISTINCT SpotSizeUnits.DistanceUnitAbbreviation) AS SpotSizeUnitAbbreviation'
-qupb_rejected = 'CASE WHEN UPbAnalyses.Rejected = 1 THEN "Rejected" ELSE "Accepted" END AS Rejected'
+rejected_text = "'Rejected'"
+accepted_text = "'Accepted'"
+qupb_rejected = f'(CASE WHEN UPbAnalyses.Rejected = 1 THEN {rejected_text} ELSE {accepted_text} END) AS Rejected'
 qupb_rejection_reasons = 'GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName) AS RejectionReasonName'
 qupb_created = 'UPbAnalysisCreated AS UPbAnalysisCreated'
 qupb_modified = 'UPbAnalysisModified AS UPbAnalysisModified'
@@ -430,7 +432,7 @@ many_editable = {
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
 one_editable = {
     'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges', 'ColumnName': 'Columns',
-                'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots'},
+                'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots', 'UPbReference': 'References'},
     'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits', 'ColumnBaseGPSDisplay': 'GPSLocations'},
     'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
     'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
@@ -442,14 +444,12 @@ one_editable = {
 }
 # Non-editable columns for each table key, key-value pairs for column in the view and table the to edit that information, populate single selection dropdowns
 non_editable = {
-    'Samples': ['SpotCount', 'Accepted/TotalUPbAnalyses', 'SampleCreated', 'SampleModified'],
+    'Samples': ['SpotCount', 'Accepted/TotalUPbAnalyses', 'RejectionReasonName', 'SampleCreated', 'SampleModified'],
     'Columns': ['ColumnCreated', 'ColumnModified'],
     'Aliquots': ['AliquotCreated', 'AliquotModified'],
     'Spots': ['SpotCreated', 'SpotModified'],
     'UPbAnalyses': ['UPbAnalysisCreated', 'UPbAnalysisModified']
 }
-
-
 
 user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                         'Columns', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',

@@ -278,13 +278,14 @@ class EditTable(QtW.QDialog):
             if 'Rejected' in header:
                 # todo: add functionality to change accepted/rejected status
                 dropdown_table = 'Rejected'
+                self.combo = QtW.QComboBox()
                 self.combo.addItem('Accepted')
                 self.combo.addItem('Rejected')
         if dropdown_table == '':
             return
         self.combo_index = selected_index
-        self.combo = QtW.QComboBox()
         if dropdown_table != 'Rejected':
+            self.combo = QtW.QComboBox()
             self.combo_model = QtS.QSqlTableModel()
             set_table(self.combo_model, dropdown_table)
             self.combo.setModel(self.combo_model)
@@ -307,10 +308,11 @@ class EditTable(QtW.QDialog):
 
     def destroy_dropdown(self):
         self.edit_tableView: QtW.QTableView
+        self.model: SQLiteTableModel
         if self.combo is not None:
             # print("Start destroying dropdown")
             self.model.setData(self.combo_index, self.combo.currentText(), QtC.Qt.ItemDataRole.EditRole)
-            if self.model.lastError().text() != '':
+            if self.model.last_error is not None and self.model.last_error != '':
                 print('Could not set data')
             if self.edit_tableView.currentIndex() == self.combo_index:
                 self.tabbed_from_editor = False

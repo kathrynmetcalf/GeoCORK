@@ -68,8 +68,8 @@ def default_settings():
     # Column display settings
     settings.setValue('default_sample_view_columns', [
         'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'GPSSampleLocationCalculated',
-        'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraint', 'SampleAgeInterpretation',
-        'SampleAgeReference', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName', 'RegionName',
+        'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
+        'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName', 'RegionName',
         'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName',
         'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalayses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
@@ -78,12 +78,12 @@ def default_settings():
     ])
     settings.setValue('default_sample_edit_columns', [
         'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
-        'SampleElevationUnitAbbreviation', 'SampleAge', 'SampleAgeConstraint', 'SampleAgeInterpretation',
-        'SampleAgeReference', 'ColumnName', 'ColumnHeightDepth', 'ColumnHeightDepthUnitAbbreviation',
+        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
+        'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth', 'ColumnHeightDepthUnitAbbreviation',
         'SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName',
         'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
         '"Accepted/TotalUPbAnalayses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
+        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize',
         'RejectionReasonName', 'UPbReference', 'SampleCreated', 'SampleModified'
     ])
     settings.setValue('default_aliquot_view_columns', [

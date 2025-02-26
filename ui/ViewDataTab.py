@@ -14,6 +14,7 @@ from Functions.Database_manager import update_database
 from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
+from ui.EditView import EditView
 
 
 class ViewDataTab(QtW.QWidget):
@@ -34,7 +35,8 @@ class ViewDataTab(QtW.QWidget):
         self.h_layout.addStretch(6)
         self.v_layout.addLayout(self.h_layout)
         self.show_cols = []
-        self.display_table()
+        self.view = None
+        # self.display_table()
         end_view_data_tab_time = time.time()
         logger_setup.get_logger().info(f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
 
@@ -50,28 +52,29 @@ class ViewDataTab(QtW.QWidget):
     def display_table(self):
         logger_setup.get_logger().info(f'Displaying table for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         start_display_table_time = time.time()
-        if self.child_type == 'Aliquot':
-            self.view = QtW.QTreeView()
-        else:
-            self.view = QtW.QTableView()
+        if not self.view:
+            if self.child_type == 'Aliquot':
+                self.view = QtW.QTreeView()
+            else:
+                self.view = QtW.QTableView()
 
-            self.view.setWordWrap(True)
-            self.view.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-            self.view.setItemDelegate(WordWrapDelegate(self.view))
+                self.view.setWordWrap(True)
+                self.view.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
+                self.view.setItemDelegate(WordWrapDelegate(self.view))
 
-            self.view.resizeRowsToContents()
-            self.view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+                self.view.resizeRowsToContents()
+                self.view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
-            # Optimize window resizing
-            self.resize_timer = QTimer()
-            self.resize_timer.setSingleShot(True)
-            self.resize_timer.timeout.connect(self.resizeRowsOptimized)
+                # Optimize window resizing
+                self.resize_timer = QTimer()
+                self.resize_timer.setSingleShot(True)
+                self.resize_timer.timeout.connect(self.resizeRowsOptimized)
 
-            # Connect resizing events
-            self.view.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
-            self.view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
+                # Connect resizing events
+                self.view.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
+                self.view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
 
-        self.v_layout.addWidget(self.view)
+            self.v_layout.addWidget(self.view)
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             # Columns to select from the view
             self.show_cols = settings.value('aliquot_columns')
@@ -108,6 +111,7 @@ class ViewDataTab(QtW.QWidget):
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)
             self.view.setSortingEnabled(True)
+            self.view.resizeColumnsToContents()
             # Hide the ID columns
             self.view.hideColumn(0)
             self.view.hideColumn(1)
@@ -126,10 +130,10 @@ class ViewDataTab(QtW.QWidget):
             dlg = EditTree(table, self.parent_id, self.parent_type)
         elif self.child_type == 'Spot':
             table = 'Spots'
-            dlg = EditTable(table, self.parent_id, self.parent_type)
+            dlg = EditView(table, self.parent_id, self.parent_type)
         elif self.child_type == 'UPbAnalysis':
             table = 'UPbAnalyses'
-            dlg = EditTable(table, self.parent_id, self.parent_type)
+            dlg = EditView(table, self.parent_id, self.parent_type)
         else:
             return
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:

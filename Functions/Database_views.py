@@ -247,8 +247,12 @@ def SampleEditViewQuery():
                 {SQLUtils.sampling_method_join}
                 {SQLUtils.setting_join}
                 {SQLUtils.unit_join}
+                {SQLUtils.default_sample_age_join}
                 {SQLUtils.sample_age_join}
                 {SQLUtils.sample_age_left_joins}
+                {SQLUtils.sampleage_age_constraint_join}
+                {SQLUtils.sampleage_age_interpretation_join}
+                {SQLUtils.sampleage_age_reference_join}
                 {SQLUtils.gps_sample_join}
                 {SQLUtils.gps_sample_left_joins}
                 {SQLUtils.gps_column_join}
@@ -398,7 +402,7 @@ def AliquotViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
-                GROUP BY AliquotID
+                GROUP BY Aliquots.AliquotID
                 '''
 
     return aliquot_query
@@ -419,7 +423,7 @@ def AliquotEditViewQuery():
                 FROM Aliquots
                 {SQLUtils.aliquot_sample_join}
                 {SQLUtils.aliquot_context_join}
-                GROUP BY AliquotID
+                GROUP BY Aliquots.AliquotID
                 '''
 
     return aliquot_query
@@ -464,7 +468,7 @@ def SpotViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
-                GROUP BY SpotID
+                GROUP BY Spots.SpotID
                 '''
 
     return spot_query
@@ -488,7 +492,7 @@ def SpotEditViewQuery():
                 {SQLUtils.aliquot_sample_join}
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
-                GROUP BY SpotID
+                GROUP BY Spots.SpotID
                 '''
 
     return spot_query
@@ -619,7 +623,7 @@ def ColumnViewQuery():
                     {SQLUtils.qcolumn_modified}
                 FROM Columns
                 {gps_column_join}
-                GROUP BY ColumnID
+                GROUP BY Columns.ColumnID
                 '''
     return column_query
 
@@ -644,7 +648,7 @@ def ColumnEditViewQuery():
                     {SQLUtils.column_units_join}
                     {SQLUtils.gps_column_join}
                     {SQLUtils.gps_column_left_joins}
-                    GROUP BY ColumnID
+                    GROUP BY Columns.ColumnID
                     '''
     # print(column_query)
     return column_query
