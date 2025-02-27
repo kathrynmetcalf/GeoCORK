@@ -6,7 +6,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QPushButton, QTreeView
 from PyQt6.uic import loadUi
 
@@ -26,6 +26,8 @@ class DisplayTablesSimplified(QtW.QWidget):
         super().__init__(parent)
         # logger_setup.get_logger().info("Starting the display tables window")
         self.database = database
+        self.database.open()
+
         self.db_file = db_file
         # Load the ui file
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -41,8 +43,8 @@ class DisplayTablesSimplified(QtW.QWidget):
 
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = DisplayRoundedModel(db=self.database)
-        self.query_model = DisplayRoundedQueryModel()
-        self.tree_model = TreeModel(database=self.database)
+        self.query_model = DisplayRoundedQueryModel(db=self.database)
+        self.tree_model = TreeModel(db=self.database)
         self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
         self.table_proxy_model = ReadableProxyModel()
         self.table = ''
@@ -108,11 +110,13 @@ class DisplayTablesSimplified(QtW.QWidget):
         if self.table in self.dbtree_list:
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
-            self.model = QtS.QSqlTableModel(db=self.database)
+            print('connection name is: ' + self.database.connectionName())
+
+            self.model = QtS.QSqlTableModel(parent=self, db=self.database)
             self.model.setTable(table)
             self.model.select()
 
-            self.tree_model = TreeModel(self.model, None, self.database)
+            self.tree_model = TreeModel(source_model=self.model, db=self.database)
             self.tree_proxy_model.setSourceModel(self.tree_model)
 
             self.dbTable_treeView.setModel(self.tree_proxy_model)

@@ -98,6 +98,7 @@ class LandingPage(QWidget):
     def test_database_lock(self):
         logger_setup.get_logger().info("Testing Database Lock...")
         database_path = self.get_filename()
+        # todo add file not found error,
         try:
             # Attempt to connect and perform a simple query
             connection = sqlite3.connect(database_path, timeout=1)  # Set timeout to 1 second

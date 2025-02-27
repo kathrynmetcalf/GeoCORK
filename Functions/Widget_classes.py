@@ -219,16 +219,16 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
         return super().data(index, role)
 
 class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
-    def __init__(self):
+    def __init__(self, db=QSqlDatabase()):
         super().__init__()
         self.view = ''
         self.view_name_col = ''
         self.table = ''
         self.table_name_col = ''
+        self.db = db
 
-
-    def setQuery(self, query, db=QSqlDatabase()):
-        super().setQuery(query, db)
+    def setQuery(self, query):
+        super().setQuery(query, self.db)
         if self.lastError().text():
             logger_setup.get_logger().critical(f"Failed to set query '{query}': {self.lastError().text()}")
         else:
@@ -1244,12 +1244,13 @@ class TreeModel(QtC.QAbstractProxyModel):
     dataEdited = QtC.pyqtSignal()
     save_state = QtC.pyqtSignal()
 
-    def __init__(self, source_model=None, parent=None, database=QSqlDatabase()):
+    def __init__(self, source_model=None, parent=None, db=QSqlDatabase()):
         # database table
         super().__init__(parent)
 
         if source_model is None:
-            self.source_model = QSqlTableModel(db=database)
+            self.source_model = QSqlTableModel(db=db)
+
         else:
             self.source_model = source_model
         self.base_filter = ""
@@ -1263,7 +1264,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.parent_item = TreeItem(QtS.QSqlRecord(), None)
         self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.lastError = QtS.QSqlError()
-        self.database = database
+        self.db = db
 
         if self.source_model.tableName():
             # If a table model with a valid table was passed, set the source model and create the tree
@@ -1304,8 +1305,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                     self.base_query_sql = f"{self.base_query} WHERE "
             else:
                 self.base_query_sql = self.base_query
-        self.source_model = DisplayRoundedQueryModel()
-        self.source_model.setQuery(self.base_query, db=self.database)
+        self.source_model = DisplayRoundedQueryModel(db=self.db)
+        self.source_model.setQuery(self.base_query)
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()

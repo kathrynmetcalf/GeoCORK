@@ -989,7 +989,7 @@ class ExportWidget(QWidget):
                 tgt_db_file = "temp.db"
 
                 sample_id_to_subset = self.checked_sample_list
-                if 'temp' in QSqlDatabase().addDatabase('QSQLITE', 'temp').connectionNames():
+                if 'temp' in QSqlDatabase().connectionNames():
                     QSqlDatabase().removeDatabase('temp')
 
                 db_id_subset = FilterDatabase.gather_ids_for_subset(QSqlDatabase(), sample_id_to_subset)

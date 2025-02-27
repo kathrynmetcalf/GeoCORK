@@ -1,6 +1,12 @@
+import os
+import sqlite3
+import sys
 from typing import List, Dict, Any, Set, Optional, Tuple
 
+from PyQt6 import QtSql
+from PyQt6.QtCore import QCoreApplication
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtWidgets import QApplication
 
 import logger_setup
 
@@ -22,14 +28,18 @@ def fetchall(query_str: str, db: QSqlDatabase, params: Optional[Tuple] = None) -
     result_rows = []
     query = QSqlQuery(db)
     query.prepare(query_str)
+    print(query_str)
     if params:
         for i, val in enumerate(params):
             query.bindValue(i, val)
-    logger_setup.get_logger().debug(f'SQL Command: {query_str}')
+            print('binding value for:', i, val)
+    # logger_setup.get_logger().debug(f'SQL Command: {query_str}')
+    print(f"SQL Command: {query_str}")
     if not query.exec():
-        logger_setup.get_logger().critical(
-            f'Error fetching total records: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {query_str}')
+        print(query.lastError().text())
+        # logger_setup.get_logger().critical(
+        #     f'Error fetching total records: {query.lastError().text()}')
+        # logger_setup.get_logger().critical(f'SQL command: {query_str}')
         return result_rows
 
     while query.next():
@@ -43,8 +53,11 @@ def execute_sql(statement: str, db: QSqlDatabase) -> bool:
     """
     Helper to execute a single SQL statement (without parameters).
     """
-    q = QSqlQuery(db)
-    return q.exec(statement)
+    query = QSqlQuery(db)
+    if not query.exec(statement):
+        # logger_setup.get_logger().critical(f'Error executing SQL: {query.lastError().text()}')
+        return False
+    return True
 
 def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], col_count: int):
     """
@@ -56,16 +69,16 @@ def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], col_count:
     insert_stmt = f"INSERT INTO {table_name} VALUES ({placeholders})"
 
     query = QSqlQuery(db)
-    logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
+    # logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
     for row in rows:
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
             query.bindValue(i, val)
-            print('bound value:', i)
-    if not query.exec():
-        logger_setup.get_logger().critical(
-            f'Error fetching total records: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
+        if not query.exec():
+            print('Error', insert_stmt)
+            # logger_setup.get_logger().critical(
+            #     f'Error fetching total records: {query.lastError().text()}')
+            # logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
     # If desired, you can call db.commit() here or wrap in transactions as needed.
 
 
@@ -140,7 +153,7 @@ def find_bridge_tables(conn: QSqlDatabase, samples_table_name="Samples") -> List
         # PRAGMA result shape: (id, seq, table, from_col, to_col, on_update, on_delete, match)
 
         # We want exactly 2 foreign keys, one referencing 'Samples'
-        if len(fk_list) == 2:
+        if any(fk[2] == samples_table_name for fk in fk_list):
             ref_data = []
             for fk in fk_list:
                 ref_data.append({
@@ -393,7 +406,7 @@ def find_tree_tables(conn: QSqlDatabase) -> List[Dict[str, Any]]:
     for table_name in table_names:
         # Check columns
         col_info = fetchall(f"PRAGMA table_info('{table_name}')", conn)
-        parent_cols = [c[1] for c in col_info if c[1].startswith("Parent")]
+        parent_cols = [c[1] for c in col_info if c[1].lower().startswith("parent")]
 
         # Check foreign keys
         fk_list = fetchall(f"PRAGMA foreign_key_list('{table_name}')", conn)
@@ -472,9 +485,6 @@ def subset_database(
       - Any 'tree' tables that have 'Parent...' columns or self-reference,
         traversing them downward (schema-dependent).
     """
-    # 1) Open source & target DBs via QSqlDatabase
-    # conn_source = open_sqlite_db(source_db_path, "source_connection")
-    # conn_target = open_sqlite_db(subset_db_path, "target_connection")
 
     # 2) Copy schema
     copy_schema(conn_source, conn_target)
@@ -555,20 +565,35 @@ def subset_database(
                         root_ids=root_ids
                     )
 
-    # Close DBs
-    conn_source.close()
-    conn_target.close()
+    QSqlDatabase.removeDatabase(conn_source.connectionName())
+    QSqlDatabase.removeDatabase(conn_target.connectionName())
 
 
 # EXAMPLE USAGE
 if __name__ == "__main__":
-    import os
-    src_db = "/Users/jarrodburges/Downloads/newschema.db"
-    if os.path.isfile("test.db"):
-        os.remove("test.db")
-    tgt_db_file = "test.db"
+    app = QCoreApplication(sys.argv)
 
-    sample_id_to_subset = [1]  # Provide the SampleID you want to subset
+    src_db_file = "C:\\Users\\jburges\\Downloads\\GeoChronDB\\GeoChron.db"
 
-    subset_database(src_db, tgt_db_file, sample_id_to_subset)
+    if os.path.isfile("C:\\Users\\jburges\\Downloads\\GeoChronDB\\test.db"):
+        os.remove("C:\\Users\\jburges\\Downloads\\GeoChronDB\\test.db")
 
+    tgt_db_file = "C:\\Users\\jburges\\Downloads\\GeoChronDB\\test.db"
+    conn = sqlite3.connect(tgt_db_file)
+
+    # Close the connection (creates an empty database file)
+    conn.close()
+
+    sample_id_to_subset = [191]  # Provide the SampleID you want to subset
+    # sample id 191 should get rocktype id 100
+    srcDatabase = QtSql.QSqlDatabase.addDatabase('QSQLITE', 'src')
+    srcDatabase.setDatabaseName(src_db_file)
+
+    tgtDatabase = QtSql.QSqlDatabase.addDatabase('QSQLITE', 'tgt')
+    tgtDatabase.setDatabaseName(tgt_db_file)
+
+    srcDatabase.open()
+    tgtDatabase.open()
+
+    print('Subsetting db')
+    subset_database(srcDatabase, tgtDatabase, sample_id_to_subset)
