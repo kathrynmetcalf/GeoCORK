@@ -127,13 +127,16 @@ class ViewDataTab(QtW.QWidget):
         logger_setup.get_logger().info(f'Opening edit dialog for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         if self.child_type == 'Aliquot':
             table = 'Aliquots'
-            dlg = EditTree(table, self.parent_id, self.parent_type)
+            dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
+            dlg = EditTree(table, **dlg_args)
         elif self.child_type == 'Spot':
             table = 'Spots'
-            dlg = EditView(table, self.parent_id, self.parent_type)
+            dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
+            dlg = EditView(table, **dlg_args)
         elif self.child_type == 'UPbAnalysis':
             table = 'UPbAnalyses'
-            dlg = EditView(table, self.parent_id, self.parent_type)
+            dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
+            dlg = EditView(table, **dlg_args)
         else:
             return
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:

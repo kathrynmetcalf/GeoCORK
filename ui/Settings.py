@@ -125,15 +125,8 @@ def default_settings():
         '"ErrorCorr/Rho"', '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"', '"Calculated206Pb/238UAge"',
         '"Calculated206Pb/238UAgeError"', '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
         '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAge"', '"CalculatedBestAgeError"',
-        '"CalculatedSpotSize"', '"CalculatedConcordance"', '"Calculated207Pb/206PbAgeError"',
-        '"Calculated207Pb/235UAgeError"', '"Calculated206Pb/238UAgeError"', '"Calculated208Pb/232ThAgeError"',
-        '"CalculatedBestAgeError"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206PbError"',
-        '"Calculated207Pb/235UError"', '"Calculated235U/207PbError"', '"Calculated206Pb/238UError"',
-        '"Calculated238U/206PbError"', '"Calculated208Pb/232ThError"', '"Calculated232Th/208PbError"',
-        '"Calculated238U/232ThError"', '"Calculated232Th/238UError"', '"Calculated204Pb/238UError"',
-        '"Calculated238U/204PbError"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206PbError"',
-        '"Calculated207Pb/204PbError"', '"Calculated204Pb/207PbError"', '"Calculated208Pb/204PbError"',
-        '"Calculated204Pb/208PbError"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
+        '"CalculatedSpotSize"', '"CalculatedConcordance"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated',
+        'UPbAnalysisModified'
     ])
     settings.setValue('default_upb_analysis_edit_columns', [
         'UPbAnalysisID', 'SampleID', 'AliquotID', 'SpotID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',

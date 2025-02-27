@@ -586,12 +586,11 @@ class SampleInformation(QtW.QDialog):
             checked_ids , partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtC.QModelIndex())
             logger_setup.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
             create_savepoint('before_update')
-            for sample_id in self.checked_sample_list:
-                update = model.update_db(checked_ids, partially_checked_ids, sample_id)
-                if update is False:
-                    logger_setup.get_logger().critical(f"Failed to update {table} for SampleID {sample_id}")
-                    rollback_savepoint('before_update')
-                    return
+            update = model.update_db(f"Samples_{table}", checked_ids, partially_checked_ids, self.checked_sample_list)
+            if update is False:
+                logger_setup.get_logger().critical(f"Failed to update {table} for selected Samples")
+                rollback_savepoint('before_update')
+                return
             self.updated = True
             combo.treeView.toggle_edited(False)
             end_update_sample_tags_time = time.time()

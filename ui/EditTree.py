@@ -18,7 +18,7 @@ from ui.AddTreeTags import AddTreeTags
 
 
 class EditTree(QtW.QDialog):
-    def __init__(self, table_name):
+    def __init__(self, table_name, **kwargs):
         super().__init__()
 
         # Define any widgets here
@@ -28,6 +28,11 @@ class EditTree(QtW.QDialog):
         self.setModal(True)
         self.updated = False
 
+        self.table_item_ids: list = []
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+
+        # Set the model and table
         self.model = QtS.QSqlTableModel()
         set_table(self.model, table_name)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)

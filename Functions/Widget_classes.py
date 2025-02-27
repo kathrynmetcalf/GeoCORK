@@ -181,6 +181,16 @@ class SQLiteTableModel(QAbstractTableModel):
             self.edited_indexes.append(index)
             return self._data[index.row()][index.column()] == value
 
+    def removeRows(self, ids_to_remove: list):
+        self.beginRemoveRows(QtC.QModelIndex(), 0, len(self._data) - 1)
+        ids_to_remove.sort(reverse=False)
+        for id in ids_to_remove:
+            for row in self._data:
+                if id in row:
+                    self._data.remove(row)
+                    break
+        self.endRemoveRows()
+
     def column_as_list(self, col):
         if isinstance(col, str):
             column = self._headers.index(col)
@@ -458,67 +468,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
         if role == QtC.Qt.ItemDataRole.DisplayRole and orientation == QtC.Qt.Orientation.Horizontal:
             header = super().headerData(section, orientation, role)
-            if 'ID' in header or 'Abbreviation' in header:
-                if 'Elev' in header:
-                    header = 'Elevation Unit'
-                elif 'AgeUnit' in header:
-                    header = 'Age Unit'
-                elif 'RatioErrorFormat' in header:
-                    header = 'Ratio Error Format'
-                elif 'AgeErrorFormat' in header:
-                    header = 'Age Error Format'
-                elif 'Height' in header:
-                    header = 'Height/Depth Unit'
-                elif 'GPSFormat' in header:
-                    header = 'GPS Format'
-                elif 'SpotSize' in header:
-                    header = 'Spot Size Unit'
-                elif 'ConcordanceFormat' in header:
-                    header = 'Concordance Format'
-            if 'GPSLocationConverted' in header:
-                header = 'GPS Location'
-            elif 'SampleElevationCalculated' in header:
-                header = f'Sample Elevation ({settings.value('elevation_unit_abbreviation')})'
-            elif 'SampleElevation' in header:
-                header = f'Sample Elevation'
-            elif 'ColumnElevationCalculated' in header:
-                header = f'Column Elevation ({settings.value('elevation_unit_abbreviation')})'
-            elif 'ColumnElevation' in header:
-                header = f'Column Elevation'
-            elif 'TotalHeightDepthCalculated' in header:
-                header = f'Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
-            elif 'TotalHeightDepth' in header:
-                header = f'Total Height/Depth'
-            elif 'HeightDepthCalculated' in header:
-                header = f'Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
-            elif 'HeightDepth' in header:
-                header = f'Height/Depth'
-            elif 'AgeCalculated' in header:
-                header = f'Age ({settings.value('age_unit_abbreviation')})'
-            elif 'SpotSizeCalculated' in header:
-                header = f'Spot Size ({settings.value('spotsize_unit_abbreviation')})'
-            if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
-                header = header.replace('Name', '')
-                if header.endswith('y'):
-                    header = header[:-1] + 'ies'
-                elif header.endswith('is'):
-                    header = header[:-2] + 'es'
-                else:
-                    header += 's'
-            if 'Display' in header:
-                header = header.replace('Display', '')
-            if 'Calculated' in header:
-                header = header.replace('Calculated', '')
-            if 'ppm' in header:
-                header = header.replace('ppm', '(ppm)')
-            if 'cps' in header:
-                header = header.replace('cps', '(cps)')
-            if '"' in header:
-                header = header.replace('"', '')
-            header = TxM.add_spaces_camel(header)
-            if 'U Pb' in header:
-                header = header.replace('U Pb', 'U-Pb')
-            return header
+            readable_header = get_readable_header(header)
+            return readable_header
         super().headerData(section, orientation, role)
 
     def mapFromSource(self, sourceIndex):
@@ -1009,13 +960,15 @@ def return_rounded(value: str | float | int):
     decimal_places = settings.value('decimals_to_show')
     if isinstance(value, str):
         if '.' in value:
-            if float(value): # value is numbers, not text
+            if float(value): # value is float, not text
                 if value.split('.')[1] != '0':
                     rounded_value = f'{float(value):.{decimal_places}f}'
                 else: # value is an integer
                     rounded_value = int(float(value))
             else:
                 rounded_value = value
+        elif int(value):  # value is integer, not text
+            rounded_value = int(value)
         else:
             rounded_value = value
     elif isinstance(value, float):
@@ -2442,73 +2395,8 @@ class ColumnListProxyModel(QtC.QSortFilterProxyModel):
     def data(self, index: QtC.QModelIndex, role: int = ...):
         if role == QtC.Qt.ItemDataRole.DisplayRole:
             header = super().data(index, role)
-            if 'ID' in header or 'Abbreviation' in header:
-                if 'Elev' in header:
-                    header = 'Elevation Unit'
-                elif 'AgeUnit' in header:
-                    header = 'Age Unit'
-                elif 'RatioErrorFormat' in header:
-                    header = 'Ratio Error Format'
-                elif 'AgeErrorFormat' in header:
-                    header = 'Age Error Format'
-                elif 'Height' in header:
-                    header = 'Height/Depth Unit'
-                elif 'GPSFormat' in header:
-                    header = 'GPS Format'
-                elif 'SpotSize' in header:
-                    header = 'Spot Size Unit'
-                elif 'ConcordanceFormat' in header:
-                    header = 'Concordance Format'
-            if 'GPSLocationConverted' in header:
-                header = 'Converted GPS Location'
-            elif 'GPSLocationDisplay' in header:
-                header = 'GPS Location'
-            elif 'SampleElevationCalculated' in header:
-                header = f'Calculated Sample Elevation ({settings.value('elevation_unit_abbreviation')})'
-            elif 'SampleElevation' in header:
-                header = f'Sample Elevation'
-            elif 'ColumnElevationCalculated' in header:
-                header = f'Calculated Column Elevation ({settings.value('elevation_unit_abbreviation')})'
-            elif 'ColumnElevation' in header:
-                header = f'Column Elevation'
-            elif 'TotalHeightDepthCalculated' in header:
-                header = f'Calculated Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
-            elif 'TotalHeightDepth' in header:
-                header = f'Total Height/Depth'
-            elif 'HeightDepthCalculated' in header:
-                header = f'Calculated Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
-            elif 'HeightDepth' in header:
-                header = f'Height/Depth'
-            elif 'AgeCalculated' in header:
-                header = f'Calculated Age ({settings.value('age_unit_abbreviation')})'
-            elif 'SpotSizeCalculated' in header:
-                header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
-            elif 'AgeError' in header:
-                header = header.replace('AgeError', f' {settings.value("age_unit_abbreviation")}')
-            elif 'Error' in header:
-                header = header.replace('Error', f' Error ({settings.value("ratio_error_format_abbreviation")})')
-            if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
-                header = header.replace('Name', '')
-                if header.endswith('y'):
-                    header = header[:-1] + 'ies'
-                elif header.endswith('is'):
-                    header = header[:-2] + 'es'
-                else:
-                    header += 's'
-            if 'Display' in header:
-                header = header.replace('Display', '')
-            if 'Calculated' in header:
-                header = header.replace('Calculated', 'Converted')
-            if 'ppm' in header:
-                header = header.replace('ppm', '(ppm)')
-            if 'cps' in header:
-                header = header.replace('cps', '(cps)')
-            if '"' in header:
-                header = header.replace('"', '')
-            header = TxM.add_spaces_camel(header)
-            if 'U Pb' in header:
-                header = header.replace('U Pb', 'U-Pb')
-            return header
+            readable_header = get_readable_header(header)
+            return readable_header
         return super().data(index, role)
 
 class ColumnItemModel(QtG.QStandardItemModel):
@@ -3518,3 +3406,74 @@ def populate_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_t
         text = combo.placeholderText()
     # combo.setCurrentText(text)
     logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
+
+def get_readable_header(header: str):
+    if 'ID' in header or 'Abbreviation' in header:
+        if 'Elev' in header:
+            header = 'Elevation Unit'
+        elif 'AgeUnit' in header:
+            header = 'Age Unit'
+        elif 'RatioErrorFormat' in header:
+            header = 'Ratio Error Format'
+        elif 'AgeErrorFormat' in header:
+            header = 'Age Error Format'
+        elif 'Height' in header:
+            header = 'Height/Depth Unit'
+        elif 'GPSFormat' in header:
+            header = 'GPS Format'
+        elif 'SpotSize' in header:
+            header = 'Spot Size Unit'
+        elif 'ConcordanceFormat' in header:
+            header = 'Concordance Format'
+    if 'GPSLocationConverted' in header:
+        header = 'Converted GPS Location'
+    elif 'GPSLocationDisplay' in header:
+        header = 'GPS Location'
+    elif 'SampleElevationCalculated' in header:
+        header = f'Calculated Sample Elevation ({settings.value('elevation_unit_abbreviation')})'
+    elif 'SampleElevation' in header:
+        header = f'Sample Elevation'
+    elif 'ColumnElevationCalculated' in header:
+        header = f'Calculated Column Elevation ({settings.value('elevation_unit_abbreviation')})'
+    elif 'ColumnElevation' in header:
+        header = f'Column Elevation'
+    elif 'TotalHeightDepthCalculated' in header:
+        header = f'Calculated Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+    elif 'TotalHeightDepth' in header:
+        header = f'Total Height/Depth'
+    elif 'HeightDepthCalculated' in header:
+        header = f'Calculated Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
+    elif 'HeightDepth' in header:
+        header = f'Height/Depth'
+    elif 'AgeCalculated' in header:
+        header = f'Calculated Age ({settings.value('age_unit_abbreviation')})'
+    elif 'SpotSizeCalculated' in header:
+        header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
+    elif 'AgeError' in header:
+        header += f' ({settings.value("age_error_format_abbreviation")})'
+    elif 'Age' in header:
+        header += f' ({settings.value("age_unit_abbreviation")})'
+    elif 'Error' in header:
+        header = header.replace('Error', f' Error ({settings.value("ratio_error_format_abbreviation")})')
+    if 'Name' in header and (header != 'SampleName' and header != 'AliquotName' and header != 'SpotName'):
+        header = header.replace('Name', '')
+        if header.endswith('y'):
+            header = header[:-1] + 'ies'
+        elif header.endswith('is'):
+            header = header[:-2] + 'es'
+        else:
+            header += 's'
+    if 'Display' in header:
+        header = header.replace('Display', '')
+    if 'Calculated' in header:
+        header = header.replace('Calculated', 'Converted')
+    if 'ppm' in header:
+        header = header.replace('ppm', '(ppm)')
+    if 'cps' in header:
+        header = header.replace('cps', '(cps)')
+    if '"' in header:
+        header = header.replace('"', '')
+    header = TxM.add_spaces_camel(header)
+    if 'U Pb' in header:
+        header = header.replace('U Pb', 'U-Pb')
+    return header

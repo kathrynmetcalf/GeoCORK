@@ -462,7 +462,7 @@ user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'GPSLocations', 'SampleAges', 'Samples', 'SampleView', 'ColumnEditView', 'UPbAnalyses', 'UPbAnalysesView', 'UPbAnalysesEditView']
+trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView']
 
 views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView', 'UPbEditView', 'ColumnView', 'ColumnEditView']
 

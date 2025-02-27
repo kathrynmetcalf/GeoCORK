@@ -18,6 +18,7 @@ from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import settings
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
+from ui.EditView import EditView
 
 
 class DataViewerWidget(QWidget):
@@ -326,9 +327,9 @@ class DataViewerWidget(QWidget):
         offset = self.current_page_1 * self.rows_per_page_1
         if table == 'Samples':
             self.switch_to_table(db_stackedWidget)
-
+            show_cols = ', '.join(settings.value('sample_view_columns'))
             query = SQLiteTableModel(
-                f'SELECT * FROM SampleView WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM SampleView WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             sample_proxy_model = QtC.QSortFilterProxyModel()
             sample_proxy_model.setSourceModel(query)
@@ -347,9 +348,9 @@ class DataViewerWidget(QWidget):
         elif table == 'Aliquots':
             # todo make aliquots a tree model
             self.switch_to_table(db_stackedWidget)
-
+            show_cols = ', '.join(settings.value('aliquot_view_columns'))
             query = SQLiteTableModel(
-                f'SELECT * FROM AliquotView WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM AliquotView WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             aliquot_proxy_model = QtC.QSortFilterProxyModel()
             aliquot_proxy_model.setSourceModel(query)
@@ -361,35 +362,38 @@ class DataViewerWidget(QWidget):
             aliquot_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(aliquot_proxy_model)
             dbTable_tableView.hideColumn(0)  # don't show ID column
+            dbTable_tableView.hideColumn(1)  # don't show SampleID column
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'Spots':
             self.switch_to_table(db_stackedWidget)
-
+            show_cols = ', '.join(settings.value('spot_view_columns'))
             query = SQLiteTableModel(
-                f'SELECT * FROM SpotView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM SpotView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             spot_proxy_model = QtC.QSortFilterProxyModel()
             spot_proxy_model.setSourceModel(query)
 
             self.edit_pushButton.clicked.connect(
-                lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, sample_proxy_model,
+                lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, spot_proxy_model,
                                         self.dbTable_comboBox))
 
             spot_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(spot_proxy_model)
             dbTable_tableView.hideColumn(0)  # don't show ID column
+            dbTable_tableView.hideColumn(1)  # don't show SampleID column
+            dbTable_tableView.hideColumn(2)  # don't show AliquotID column
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'UPbAnalyses':
             self.switch_to_table(db_stackedWidget)
-
+            show_cols = settings.value('upb_analysis_view_columns')
             query = SQLiteTableModel(
-                f'SELECT * FROM UPbView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM UPbView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             upb_proxy_model = QtC.QSortFilterProxyModel()
             upb_proxy_model.setSourceModel(query)
@@ -586,16 +590,19 @@ class DataViewerWidget(QWidget):
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         # todo fix this for working with new sample edit view
-        if table_name == 'Samples':
-            self.edit_samples_popup(table_name, dbTable_tableView)
-            return
-        elif table_name == 'Aliquots' or table_name == 'Spots' or table_name == 'UPb Analyses':
-            return
-        elif table_name in SQLUtils.user_viewable_trees:
+        if table_name == 'Samples' or table_name == 'Spots' or table_name == 'UPb Analyses':
+            id_str = self.ids_to_show.replace('(', '').replace(')', '')
+            ids = id_str.split(', ')
+            ids = list(map(int, ids))  # Convert all IDs to integers
+            dlg_args = {'table_item_ids': ids}
+            dlg = EditView(table, **dlg_args)
+        elif table_name == 'Aliquots':
+            pass
+        elif table in SQLUtils.user_viewable_trees:
             save_expanded_state(table_name, tree_proxy_model, dbTable_treeView)
-            dlg = EditTree(dbTable_treeView, table_name)
+            dlg = EditTree(table)
         else:
-            dlg = EditTable(table_name)
+            dlg = EditTable(table)
         dlg.exec()
         update_database()
 

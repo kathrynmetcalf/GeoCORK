@@ -1912,6 +1912,7 @@ class ImportWizardDialog(QWidget):
             elif msg_box.clickedButton() == overwrite_button:
                 self.conflict_mode = 'overwrite'
                 return True
+        return True
 
     # ---------------------------
     #      Import to DB
