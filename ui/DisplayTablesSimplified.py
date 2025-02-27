@@ -26,7 +26,6 @@ class DisplayTablesSimplified(QtW.QWidget):
         super().__init__(parent)
         # logger_setup.get_logger().info("Starting the display tables window")
         self.database = database
-        self.database.open()
 
         self.db_file = db_file
         # Load the ui file

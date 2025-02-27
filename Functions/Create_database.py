@@ -166,7 +166,7 @@ CREATE_COLUMNS_TABLE = '''CREATE TABLE IF NOT EXISTS Columns(
                         ON DELETE SET NULL
                     )'''
 
-CREATE_CONCORDANCE_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceFormats(
+CREATE_CONCORDANCE_FORMATS_TABLE = '''CREATE TABLE IF NOT EXISTS ConcordanceFormats(
                     ConcordanceFormatID INTEGER PRIMARY KEY,
                     ConcordanceFormatName TEXT NOT NULL CHECK(ConcordanceFormatName <> ''),
                     ConcordanceFormatAbbreviation TEXT NOT NULL CHECK(ConcordanceFormatAbbreviation <> ''),
@@ -228,7 +228,7 @@ CREATE_DISTANCE_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS DistanceUnitCo
                         ON DELETE CASCADE
                     )'''
 
-CREATE_ERROR_TYPES_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormats(
+CREATE_ERROR_FORMATS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormats(
                     ErrorFormatID INTEGER PRIMARY KEY,
                     ErrorFormatName TEXT NOT NULL CHECK(ErrorFormatName <> ''),
                     ErrorFormatAbbreviation TEXT NOT NULL CHECK(ErrorFormatAbbreviation <> ''),
@@ -958,7 +958,7 @@ def create_tables():
     Connect to the database and execute the sql strings defined above to create the database tables
     Only creates tables that do not already exist - does not overwrite existing tables
     If the Ages table is empty, it will fill it from the Geologic timescale xml file
-    Populates the units, types, and conversion tables
+    Populates the units, formats, and conversion tables
     Uses the default database connection
     """
     logger_setup.get_logger().info('Creating database tables')
@@ -971,14 +971,14 @@ def create_tables():
         logger_setup.get_logger().critical(f'SQL command: {CREATE_ABOUT_TABLE}')
         return
 
-    # Create unit and type tables
+    # Create unit and formats tables
     if not query.exec(CREATE_AGE_UNITS_TABLE):
         logger_setup.get_logger().critical(f'Error creating Age Units table: {query.lastError().text()}')
         logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_UNITS_TABLE}')
         return
-    if not query.exec(CREATE_CONCORDANCE_TYPES_TABLE):
+    if not query.exec(CREATE_CONCORDANCE_FORMATS_TABLE):
         logger_setup.get_logger().critical(f'Error creating ConcordanceFormats table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_CONCORDANCE_TYPES_TABLE}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_CONCORDANCE_FORMATS_TABLE}')
         return
     if not query.exec(CREATE_DIRECTION_UNITS_TABLE):
         logger_setup.get_logger().critical(f'Error creating DirectionUnits table: {query.lastError().text()}')
@@ -988,9 +988,9 @@ def create_tables():
         logger_setup.get_logger().critical(f'Error creating DistanceUnits table: {query.lastError().text()}')
         logger_setup.get_logger().critical(f'SQL command: {CREATE_DISTANCE_UNITS_TABLE}')
         return
-    if not query.exec(CREATE_ERROR_TYPES_TABLE):
+    if not query.exec(CREATE_ERROR_FORMATS_TABLE):
         logger_setup.get_logger().critical(f'Error creating ErrorFormats table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ERROR_TYPES_TABLE}')
+        logger_setup.get_logger().critical(f'SQL command: {CREATE_ERROR_FORMATS_TABLE}')
         return
 
     # Create conversion tables
@@ -1218,7 +1218,7 @@ def populate_tables():
         populate_age_units()  # populate it
     populate_age_conversions()
 
-    # Populate the concordance type table during initiation
+    # Populate the concordance format table during initiation
     sql = '''SELECT * FROM ConcordanceFormats'''
     if not query.exec(sql):
         logger_setup.get_logger().critical(
@@ -1256,7 +1256,7 @@ def populate_tables():
         populate_distance_units()  # populate it
     populate_distance_conversions()
 
-    # Populate the error type table during initiation
+    # Populate the error format table during initiation
     sql = '''SELECT * FROM ErrorFormats'''
     if not query.exec(sql):
         logger_setup.get_logger().critical(
@@ -1357,7 +1357,7 @@ def populate_age_conversions():
 
 def populate_concordance_formats():
     """
-        Connect to the database and add the default concordance types
+        Connect to the database and add the default concordance formats
         """
 
     query = QtS.QSqlQuery()
@@ -1378,21 +1378,21 @@ def populate_concordance_conversions():
         for format2 in range(len(concordance_formats)):
             if format2 > format1:
                 if concordance_formats[format1][1][-1] == '%' and concordance_formats[format2][1][-1] == '%':
-                    # Both types are percent
+                    # Both formats are percent
                     conversion1to2 = '100-x'
                     conversion2to1 = '100-x'
                 elif concordance_formats[format1][1][-1] != '%' and concordance_formats[format2][1][-1] != '%':
-                    # Both types are ratio
+                    # Both formats are ratio
                     conversion1to2 = '1-x'
                     conversion2to1 = '1-x'
                 elif concordance_formats[format1][1][-1] != '%':
-                    # First type is ratio and second type is percent
+                    # First format is ratio and second format is percent
                     if (concordance_formats[format1][1] == 'Con' and concordance_formats[format2][1] == 'Con%') or (concordance_formats[format1][1] == 'Dis' and concordance_formats[format2][1] == 'Dis%'):
-                        # Both types are concordance or discordance
+                        # Both formats are concordance or discordance
                         conversion1to2 = 'x*100'
                         conversion2to1 = 'x/100'
                     elif concordance_formats[format1][1] == 'Con' and concordance_formats[format2][1] == 'Dis%':
-                        # First type is concordance ratio and second type is discordance percent
+                        # First format is concordance ratio and second format is discordance percent
                         conversion1to2 = '100*(1-x)'
                         conversion2to1 = '1-(x/100)'
                 concordance_conversion_model.setFilter(f'FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}")')
@@ -1497,7 +1497,7 @@ def populate_distance_conversions():
 
 def populate_error_formats():
     """
-    Connect to the database and add the default error types
+    Connect to the database and add the default error formats
     """
 
     query = QtS.QSqlQuery()
@@ -1518,14 +1518,14 @@ def populate_error_conversions():
         for format2 in range(len(error_formats)):
             if format2 > format1:
                 if (error_formats[format1][1][-1] == '%' and error_formats[format2][1][-1] == '%') or (error_formats[format1][1][-1] != '%' and error_formats[format2][1][-1] != '%'):
-                    # Both are the same type, percent or absolute
+                    # Both are the same format, percent or absolute
                     conversion1to2 = 'x*2'
                     conversion2to1 = 'x/2'
                 elif error_formats[format1][1][-1] != '%':
-                    # First type is absolute and second type is percent
+                    # First format is absolute and second format is percent
                     if (error_formats[format1][1][0] == '2' and error_formats[format2][1][0] == '2') or (
                             error_formats[format1][1][0] == '1' and error_formats[format2][1][0] == '1'):
-                        # Both types are 1 sigma or 2 sigma, x is the databased error and y is the value it is an error of
+                        # Both formats are 1 sigma or 2 sigma, x is the databased error and y is the value it is an error of
                         conversion1to2 = '(x/y)*100'
                         conversion2to1 = '(x/100)*y'
                     else:

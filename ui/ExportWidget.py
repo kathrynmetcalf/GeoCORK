@@ -1002,6 +1002,8 @@ class ExportWidget(QWidget):
 
                 ExportDatabase.subset_database(src_db, tgt_db, sample_id_to_subset)
 
+                tgt_db.open()
+                print(QSqlDatabase.connectionNames())
                 # Create a new tab
                 new_tab = DisplayTablesSimplified(self, tgt_db, tgt_db_file)
                 new_tab.setObjectName('database_tab')

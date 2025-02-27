@@ -5,15 +5,19 @@ import webbrowser
 from pathlib import Path
 
 import qtawesome
-from PyQt6 import QtCore, QtWidgets
+from PyQt6 import QtCore, QtWidgets, QtSql
 from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize
 from PyQt6.QtGui import QPixmap, QAction
+from PyQt6.QtSql import QSqlDatabase
 # from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
     QListWidget, QListWidgetItem
 from PyQt6.uic import loadUi
 
 import logger_setup
+from Functions import Savepoint_manager
+from Functions.Create_database import create_tables
+from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 # from Functions.Create_database import create_tables
 # from ui.Settings import SettingsDialog, settings_ids
@@ -27,6 +31,8 @@ class LandingPage(QWidget):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file =os.path.join(base_path,  "landingpage.ui")
         loadUi(sources_ui_file, self)
+
+        self.db = None
 
         self.loadWindowState()
 
@@ -55,6 +61,7 @@ class LandingPage(QWidget):
         scaled_pixmap = pixmap.scaled(500, 100, Qt.AspectRatioMode.KeepAspectRatio,
                                       Qt.TransformationMode.SmoothTransformation)
         self.label.setPixmap(scaled_pixmap)
+
         self.show()
 
     def closeEvent(self, a0):
@@ -68,12 +75,18 @@ class LandingPage(QWidget):
             from ui.Settings import SettingsDialog
             settings_dialog = SettingsDialog()
             # Set the current tab to the About Database tab
-            settings_dialog.display_tab(2)
             settings_dialog.exec()
 
-    def open_geo_cork(self):
+    def open_geo_cork(self, skip_update=False):
         if not self.test_database_lock():
             from ui.GeoCORKMain import GeoCORK
+            if self.db is None:
+                self.db = QSqlDatabase.addDatabase("QSQLITE")
+                self.db.setDatabaseName(self.get_filename())
+                self.db.open()
+                Savepoint_manager.SavepointManager()
+            if not skip_update:
+                update_database()
             self.hide()
             geo_cork = GeoCORK(self)
             geo_cork.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
@@ -81,9 +94,8 @@ class LandingPage(QWidget):
 
             geo_cork.destroyed.connect(loop.quit)
             loop.exec()
-            self.show()
-        else:
-            self.show()
+
+        self.show()
 
         self.listWidget: QListWidget
 
@@ -147,20 +159,21 @@ class LandingPage(QWidget):
                 file_name = file_name.split('.')[0] + ".db"
 
         if file_name:
-            # QSqlDatabase.addDatabase("QSQLITE")
-            # QSqlDatabase.database().setDatabaseName(file_name)
-            # create_tables()
+            self.selected_files = file_name
+            self.db = QSqlDatabase.addDatabase("QSQLITE")
+            self.db.setDatabaseName(self.get_filename())
+            self.db.open()
+            Savepoint_manager.SavepointManager()
+            update_database()
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
                 self.list_recents.append(self.selected_files)
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.open_about_db()
-            self.open_geo_cork()
-            self.setVisible(False)
+            self.open_geo_cork(skip_update=True)
 
     def open_github(self):
         webbrowser.open('http://github.com')
-
 
     def showFileDialog(self):
         file_dialog = QFileDialog(self, 'Open Database File', str(Path.home()), 'Database Files(*.db)')

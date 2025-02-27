@@ -43,7 +43,7 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX = '''
 CREATE_COLUMNS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Columns_ColumnID ON Columns(ColumnID)'''
 
-CREATE_CONCORDANCE_TYPES_INDEX = '''
+CREATE_CONCORDANCE_FORMATS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_ConcordanceFormats_ConcordanceFormatID ON ConcordanceFormats(ConcordanceFormatID)'''
 
 CREATE_CONCORDANCE_CONVERSIONS_INDEX = '''
@@ -58,7 +58,7 @@ CREATE_DISTANCE_UNITS_INDEX = '''
 CREATE_DISTANCE_CONVERSIONS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_DistanceUnitConversions_FromDistanceUnitID ON DistanceUnitConversions(FromDistanceUnitID)'''
 
-CREATE_ERROR_TYPES_INDEX = '''
+CREATE_ERROR_FORMATS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_ErrorFormats_ErrorFormatID ON ErrorFormats(ErrorFormatID)'''
 
 CREATE_ERROR_CONVERSIONS_INDEX = '''
@@ -174,7 +174,7 @@ def create_indexes():
     Connect to the database and execute the sql strings defined above to create the database tables
     Only creates tables that do not already exist - does not overwrite existing tables
     If the Ages table is empty, it will fill it from the Geologic timescale xml file
-    Populates the units, types, and conversion tables
+    Populates the units, formats, and conversion tables
     Uses the default database connection
     """
     start_time = time.time()
@@ -182,12 +182,12 @@ def create_indexes():
     query = QtSql.QSqlQuery()
 
 
-    # Create unit and type tables
+    # Create unit and format tables
     query.exec(CREATE_AGE_UNITS_INDEX)
-    query.exec(CREATE_CONCORDANCE_TYPES_INDEX)
+    query.exec(CREATE_CONCORDANCE_FORMATS_INDEX)
     query.exec(CREATE_DIRECTION_UNITS_INDEX)
     query.exec(CREATE_DISTANCE_UNITS_INDEX)
-    query.exec(CREATE_ERROR_TYPES_INDEX)
+    query.exec(CREATE_ERROR_FORMATS_INDEX)
 
     # Create conversion tables
     query.exec(CREATE_AGE_CONVERSIONS_INDEX)
