@@ -42,9 +42,10 @@ class DisplayTablesSimplified(QtW.QWidget):
 
 
         # List of all user-viewable tables in the database
-        self.user_view_tables = SQLUtils.user_viewable_tables
+        self.user_view_tables = SQLUtils.export_database_tables_viewable
         # List of tables to display as a tree structure
         self.dbtree_list = SQLUtils.user_viewable_trees
+        self.dbtree_list.append('Aliquots')
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
 
         self.sample_proxy_model = QtC.QSortFilterProxyModel()
@@ -117,8 +118,8 @@ class DisplayTablesSimplified(QtW.QWidget):
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
             self.database.open()
-            print('connection name is: ' + self.database.connectionName())
-
+            # if self.table == 'Aliquots':
+            #     table = 'AliquotView'
             self.model = QtS.QSqlTableModel(parent=self, db=self.database)
             self.model.setTable(table)
             self.model.select()
@@ -142,6 +143,18 @@ class DisplayTablesSimplified(QtW.QWidget):
                 self.show_cols = settings.value('sample_view_columns')
                 self.show_cols = ', '.join(self.show_cols)
                 model = SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView', database=self.db_file)
+
+                self.table_proxy_model.setSourceModel(model)
+            elif self.table == 'Spots':
+                self.show_cols = settings.value('spot_view_columns')
+                self.show_cols = ', '.join(self.show_cols)
+                model = SQLiteTableModel(f'SELECT {self.show_cols} FROM SpotView', database=self.db_file)
+
+                self.table_proxy_model.setSourceModel(model)
+            elif self.table == 'UPbAnalyses':
+                self.show_cols = settings.value('upb_analysis_view_columns')
+                self.show_cols = ', '.join(self.show_cols)
+                model = SQLiteTableModel(f'SELECT {self.show_cols} FROM UPbView', database=self.db_file)
 
                 self.table_proxy_model.setSourceModel(model)
             else:

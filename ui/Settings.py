@@ -366,16 +366,20 @@ class SettingsDialog(QtW.QDialog):
         settings.setValue('reference_format', self.update_reference_format())
 
         query = QSqlQuery()
-        query.prepare('''UPDATE About SET (Name, Authors, Description, Citation, CreatedBy, Citation) = (?, ?, ?, ?, ?, ?)
-                            WHERE AboutID = 1''' )
-        query.bindValue(0, self.db_name_lineEdit.text())
-        query.bindValue(1, self.db_authors_lineEdit.text())
-        query.bindValue(2, self.db_description_lineEdit.text())
-        query.bindValue(3, self.db_reference_link_lineEdit.text())
-        query.bindValue(4, self.db_created_by_lineEdit.text())
-        query.bindValue(5, self.db_reference_lineEdit.text())
+        about_qry = f"""UPDATE About SET (Name, Authors, Description, Citation, CreatedBy, Citation) = 
+            ('{self.db_name_lineEdit.text()}', 
+            '{self.db_authors_lineEdit.text()}', 
+            '{self.db_description_lineEdit.text()}', 
+            '{self.db_reference_link_lineEdit.text()}', 
+            '{self.db_created_by_lineEdit.text()}', 
+            '{self.db_reference_lineEdit.text()}') WHERE AboutID = 1"""
+
+        query.prepare(about_qry)
+        logger_setup.get_logger().debug(f'SQL command: {about_qry}')
         if not query.exec():
-            print(query.lastError().text())
+            logger_setup.get_logger().critical(
+                f'Error updating About table: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {about_qry}')
 
         self.select_columns.save_list_states()
 

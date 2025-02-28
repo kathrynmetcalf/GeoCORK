@@ -28,18 +28,14 @@ def fetchall(query_str: str, db: QSqlDatabase, params: Optional[Tuple] = None) -
     result_rows = []
     query = QSqlQuery(db)
     query.prepare(query_str)
-    print(query_str)
     if params:
         for i, val in enumerate(params):
             query.bindValue(i, val)
-            print('binding value for:', i, val)
-    # logger_setup.get_logger().debug(f'SQL Command: {query_str}')
-    print(f"SQL Command: {query_str}")
+    logger_setup.get_logger().debug(f'SQL Command: {query_str}')
     if not query.exec():
-        print(query.lastError().text())
-        # logger_setup.get_logger().critical(
-        #     f'Error fetching total records: {query.lastError().text()}')
-        # logger_setup.get_logger().critical(f'SQL command: {query_str}')
+        logger_setup.get_logger().critical(
+            f'Error fetching total records: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'SQL command: {query_str}')
         return result_rows
 
     while query.next():
@@ -59,29 +55,31 @@ def execute_sql(statement: str, db: QSqlDatabase) -> bool:
         return False
     return True
 
-def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], col_count: int):
+def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], insert_cols: List[str]):
     """
     Inserts multiple rows into the given table. Equivalent to 'executemany'.
     """
     if not rows:
         return
-    placeholders = ", ".join(["?"] * col_count)
+
+    insert_cols = [f"[{item}]" for item in insert_cols]
+
     table_name = table_name.replace('_old', '')
-    insert_stmt = f"INSERT INTO {table_name} VALUES ({placeholders})"
+    insert_stmt = f"INSERT INTO '{table_name}' ({','.join(insert_cols)}) VALUES ({", ".join(["?"] * len(insert_cols))})"
 
     query = QSqlQuery(db)
-    # logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
+    logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
     for row in rows:
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
             if val is '':
-                query.bindValue(i, None)
-            else:
-                query.bindValue(i, val)
+                val = None
+            logger_setup.get_logger().debug(f'{table_name}: Binding value {i}:{val}')
+            query.bindValue(i, val)
         if not query.exec():
-            # logger_setup.get_logger().critical(
-            #     f'Error fetching total records: {query.lastError().text()}')
-            # logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
+            logger_setup.get_logger().critical(
+                f'Error fetching total records: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
             pass
     # If desired, you can call db.commit() here or wrap in transactions as needed.
 
@@ -176,19 +174,6 @@ def find_bridge_tables(conn: QSqlDatabase, samples_table_name="Samples") -> List
 
     return bridge_tables_info
 
-# def insert_rows(conn_target: sqlite3.Connection, table_name: str, rows: List[tuple], col_count: int):
-#     """
-#     Utility to insert multiple rows into a table with a given column count.
-#     """
-#     if not rows:
-#         return
-#     placeholders = ", ".join(["?"] * col_count)
-#     conn_target.executemany(
-#         f"INSERT INTO {table_name} VALUES ({placeholders})",
-#         rows
-#     )
-#     conn_target.commit()
-
 def subset_many_to_many_bridges(
     conn_source: QSqlDatabase,
     conn_target: QSqlDatabase,
@@ -225,10 +210,18 @@ def subset_many_to_many_bridges(
         # 1) Fetch bridging rows for these sample_ids
         if not sample_ids:
             continue
+
+        col_info_bridge = fetchall(f"PRAGMA table_info('{bridge_table}')", conn_source)
+        insert_cols_bridge = [c[1] for c in col_info_bridge]
+        # insert_cols_bridge = [f"[{item}]" for item in insert_cols_bridge]
+
         placeholder = ",".join(["?"] * len(sample_ids))
+
+        bridge_table = bridge_table.replace('_old', '')
+
         bridge_rows = fetchall(
             f"""
-            SELECT * FROM {bridge_table}
+            SELECT {','.join([f"[{item}]" for item in insert_cols_bridge])} FROM {bridge_table}
             WHERE {sample_fk_col} IN ({placeholder})
             """,
             conn_source,
@@ -239,9 +232,8 @@ def subset_many_to_many_bridges(
             continue
 
         # Insert bridging rows into subset DB
-        col_info_bridge = fetchall(f"PRAGMA table_info('{bridge_table}')", conn_source)
-        col_count_bridge = len(col_info_bridge)
-        insert_rows(conn_target, bridge_table, bridge_rows, col_count_bridge)
+
+        insert_rows(conn_target, bridge_table, bridge_rows, insert_cols_bridge)
 
         # 2) Gather 'other' IDs from these bridging rows
         col_names_bridge = [c[1] for c in col_info_bridge]
@@ -251,10 +243,18 @@ def subset_many_to_many_bridges(
             continue
 
         # 3) Fetch the matching rows from the other table
+        # Insert them into the subset DB
+        col_info_other = fetchall(f"PRAGMA table_info('{other_table_name}')", conn_source)
+        insert_cols_other = [c[1] for c in col_info_other]
+        # insert_cols_other = [f"[{item}]" for item in insert_cols_other]
+
         placeholder_2 = ",".join(["?"] * len(other_ids))
+
+        other_table_name = other_table_name.replace('_old', '')
+
         other_rows = fetchall(
             f"""
-            SELECT * FROM {other_table_name}
+            SELECT {','.join([f"[{item}]" for item in insert_cols_other])} FROM {other_table_name}
             WHERE {other_pk_col} IN ({placeholder_2})
             """,
             conn_source,
@@ -263,10 +263,7 @@ def subset_many_to_many_bridges(
         if not other_rows:
             continue
 
-        # Insert them into the subset DB
-        col_info_other = fetchall(f"PRAGMA table_info('{other_table_name}')", conn_source)
-        col_count_other = len(col_info_other)
-        insert_rows(conn_target, other_table_name, other_rows, col_count_other)
+        insert_rows(conn_target, other_table_name, other_rows, insert_cols_other)
 
 ###############################################################################
 # 3. KNOWN ONE-TO-MANY CHAIN: Samples -> Aliquots -> Spots -> UPbAnalyses
@@ -290,21 +287,21 @@ def subset_one_to_many_chain(
     # -------------------------------------------------------------------------
     # A) Aliquots referencing Samples
     # -------------------------------------------------------------------------
+    col_info_aliq = fetchall("PRAGMA table_info('Aliquots')", conn_source)
+    insert_cols_info_aliq = [c[1] for c in col_info_aliq]
+
     placeholder = ",".join(["?"] * len(sample_ids))
     aliq_rows = fetchall(
-        f"SELECT * FROM Aliquots WHERE SampleID IN ({placeholder})",
+        f"SELECT {','.join([f"[{item}]" for item in insert_cols_info_aliq])} FROM Aliquots WHERE SampleID IN ({placeholder})",
         conn_source,
         tuple(sample_ids)
     )
-    print(aliq_rows)
 
     if aliq_rows:
-        col_info_aliq = fetchall("PRAGMA table_info('Aliquots')", conn_source)
-        insert_rows(conn_target, "Aliquots", aliq_rows, len(col_info_aliq))
+        insert_rows(conn_target, 'Aliquots', aliq_rows, insert_cols_info_aliq)
 
     # Collect AliquotIDs
-    col_names_aliq = [c[1] for c in fetchall("PRAGMA table_info('Aliquots')", conn_source)]
-    aliquot_id_idx = col_names_aliq.index("AliquotID") if "AliquotID" in col_names_aliq else None
+    aliquot_id_idx = insert_cols_info_aliq.index("AliquotID") if "AliquotID" in insert_cols_info_aliq else None
     aliquot_ids = set()
 
     if aliq_rows and aliquot_id_idx is not None:
@@ -315,49 +312,46 @@ def subset_one_to_many_chain(
     # -------------------------------------------------------------------------
     spot_ids = set()
     if aliquot_ids:
+        col_info_spots = fetchall("PRAGMA table_info('Spots')", conn_source)
+        insert_cols_info_spots = [c[1] for c in col_info_spots]
+
         placeholder = ",".join(["?"] * len(aliquot_ids))
         spot_rows = fetchall(
-            f"SELECT * FROM Spots WHERE AliquotID IN ({placeholder})",
+            f"SELECT {','.join([f"[{item}]" for item in insert_cols_info_spots])} FROM Spots WHERE AliquotID IN ({placeholder})",
             conn_source,
             tuple(aliquot_ids)
         )
         if spot_rows:
-            col_info_spots = fetchall("PRAGMA table_info('Spots')", conn_source)
-            insert_rows(conn_target, "Spots", spot_rows, len(col_info_spots))
+            insert_rows(conn_target, "Spots", spot_rows, insert_cols_info_spots)
 
-            # Collect SpotIDs
-            col_names_spots = [c[1] for c in col_info_spots]
-            spot_id_idx = col_names_spots.index("SpotID") if "SpotID" in col_names_spots else None
-            if spot_id_idx is not None:
-                spot_ids = {row[spot_id_idx] for row in spot_rows}
+        # Collect SpotIDs
+        spot_id_idx = insert_cols_info_spots.index("SpotID") if "SpotID" in insert_cols_info_spots else None
+        if spot_id_idx is not None:
+            spot_ids = {row[spot_id_idx] for row in spot_rows}
 
     # -------------------------------------------------------------------------
     # C) UPbAnalyses referencing Spots
     # -------------------------------------------------------------------------
     if spot_ids:
+        col_info_upb = fetchall("PRAGMA table_info('UPbAnalyses')", conn_source)
+        insert_cols_info_upb = [c[1] for c in col_info_upb]
+
         placeholder = ",".join(["?"] * len(spot_ids))
         UPbAnalyses_rows = fetchall(
-            f"SELECT * FROM UPbAnalyses WHERE SpotID IN ({placeholder})",
+            f"SELECT {','.join([f"[{item}]" for item in insert_cols_info_upb])} FROM UPbAnalyses WHERE SpotID IN ({placeholder})",
             conn_source,
             tuple(spot_ids)
         )
         if UPbAnalyses_rows:
-            col_info_upb = fetchall("PRAGMA table_info('UPbAnalyses')", conn_source)
-            insert_rows(conn_target, "UPbAnalyses", UPbAnalyses_rows, len(col_info_upb))
-
-            # Now handle the *foreign keys* in UPbAnalyses that reference:
-            #   References, Instruments, LabFacilities, UPbAnalysisMethod
-            col_names_upb = [c[1] for c in col_info_upb]
+            insert_rows(conn_target, "UPbAnalyses", UPbAnalyses_rows, insert_cols_info_upb)
 
             # Try to locate these columns
-            try:
-                ref_idx  = col_names_upb.index("SourceID")
-                inst_idx = col_names_upb.index("InstrumentID")
-                labf_idx = col_names_upb.index("LabFacilityID")
-                meth_idx = col_names_upb.index("UPbAnalysisMethodID")
-            except ValueError:
-                # If any column doesn't exist, skip
-                return
+
+            ref_idx  = insert_cols_info_upb.index("ReferenceID")
+            inst_idx = insert_cols_info_upb.index("InstrumentID")
+            labf_idx = insert_cols_info_upb.index("LabFacilityID")
+            meth_idx = insert_cols_info_upb.index("UPbAnalysisMethodID")
+
 
             reference_ids = set()
             instrument_ids = set()
@@ -374,20 +368,22 @@ def subset_one_to_many_chain(
             def fetch_and_insert(table_name, pk_col, pk_values):
                 if not pk_values:
                     return
+                cols_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
+                insert_cols_info = [c[1] for c in cols_info]
+
                 ph = ",".join(["?"] * len(pk_values))
                 results = fetchall(
-                    f"SELECT * FROM {table_name} WHERE {pk_col} IN ({ph})",
+                    f'SELECT {','.join([f"[{item}]" for item in insert_cols_info])} FROM "{table_name}" WHERE {pk_col} IN ({ph})',
                     conn_source,
                     tuple(pk_values)
                 )
                 if results:
-                    cols_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
-                    insert_rows(conn_target, table_name, results, len(cols_info))
+                    insert_rows(conn_target, table_name, results, insert_cols_info)
 
-            fetch_and_insert("Sources",        "SourceID",       reference_ids)
-            fetch_and_insert("Instruments",       "InstrumentID",       instrument_ids)
-            fetch_and_insert("LabFacilities",     "LabFacilityID",      labfac_ids)
-            fetch_and_insert("UPbAnalysisMethod", "UPbAnalysisMethodID",   method_ids)
+            fetch_and_insert("References", "ReferenceID", reference_ids)
+            fetch_and_insert("Instruments", "InstrumentID", instrument_ids)
+            fetch_and_insert("LabFacilities", "LabFacilityID", labfac_ids)
+            fetch_and_insert("UPbAnalysisMethods", "UPbAnalysisMethodID", method_ids)
 
 ###############################################################################
 # 4. DETECTING 'TREE' TABLES (HIERARCHIES)
@@ -441,7 +437,6 @@ def subset_tree_table_downstream(
     Prevents looping upward (only moves downward).
     """
     col_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
-    col_count = len(col_info)
     col_names = [c[1] for c in col_info]
 
     if parent_col not in col_names or child_col not in col_names:
@@ -459,12 +454,12 @@ def subset_tree_table_downstream(
 
         # Find rows where parent_col == current_id
         rows = fetchall(
-            f"SELECT * FROM {table_name} WHERE {parent_col} = ?",
+            f"SELECT {','.join([f"[{item}]" for item in col_names])} FROM {table_name} WHERE {parent_col} = ?",
             conn_source,
             (current_id,)
         )
         if rows:
-            insert_rows(conn_target, table_name, rows, col_count)
+            insert_rows(conn_target, table_name, rows, col_names)
 
             # Gather child IDs
             child_idx = col_names.index(child_col)
@@ -510,9 +505,8 @@ def subset_database(
             return
 
         # Insert the sample row
-
-        insert_rows(conn_target, "Samples", row, len(col_info_samples))
-
+        insert_cols_info_samples = [c[1] for c in col_info_samples]
+        insert_rows(conn_target, "Samples", row, insert_cols_info_samples)
         sample_ids = {sample_id}
 
         # 4) Dynamically find bridging (many-to-many) tables referencing Samples
@@ -537,6 +531,7 @@ def subset_database(
 
         for tinfo in tree_tables:
             tbl_name = tinfo["table_name"]
+            tbl_name = tbl_name.replace("_old", " ")
             parent_cols = tinfo["parent_cols"]
             # Suppose we want "ParentID" and "TreeID"
             # (In practice, adapt to your actual child column name)

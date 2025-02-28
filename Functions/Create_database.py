@@ -971,6 +971,18 @@ def create_tables():
         logger_setup.get_logger().critical(f'SQL command: {CREATE_ABOUT_TABLE}')
         return
 
+    if not query.exec('SELECT * FROM About'):
+        logger_setup.get_logger().critical(f"Failed to query About table: {query.lastError().text()}")
+        logger_setup.get_logger().critical(f'SQL command: SELECT * FROM About')
+    else:
+        if not query.next():  # No rows found
+            # insert fully blank row into about
+            if not query.exec("INSERT INTO About VALUES (1, 'Name','Authors','Citation','ReferenceLink','Version','Description','CreatedBy',NULL,NULL)"):
+                logger_setup.get_logger().critical(
+                    f"Failed to insert default values into About table: {query.lastError().text()}")
+            else:
+                logger_setup.get_logger().info('About table empty, populated with default values')
+
     # Create unit and formats tables
     if not query.exec(CREATE_AGE_UNITS_TABLE):
         logger_setup.get_logger().critical(f'Error creating Age Units table: {query.lastError().text()}')

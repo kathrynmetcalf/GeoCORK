@@ -6,7 +6,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.QtCore import QPoint, QSize
-from PyQt6.QtSql import QSqlDatabase
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from PyQt6.uic import loadUi
 import Functions.Database_views as DB_views
@@ -36,7 +36,24 @@ class GeoCORK(QtW.QMainWindow):
         super().__init__()
         logger_setup.get_logger().info("Starting the main window")
         # Define any variables here
+        blank_schema_file = "Reference/GeoCORK_v1-0.db"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        base_path = os.path.normpath(base_path)
+        sources_ui_file = fr'{os.path.join(base_path, "GeoCORKMain.ui")}'
+        sources_ui_file = os.path.normpath(sources_ui_file)
+        self.loadWindowState()
+        loadUi(sources_ui_file, self)
+
+
         self.landingpage = landingpage
+        self.db = QSqlDatabase()
+        # self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
+        # self.db.setDatabaseName(self.db_file)
+        self.db_file = self.landingpage.get_filename()
+        query = QSqlQuery('Select Name From About WHERE AboutID=1')
+        if query.exec():
+            if query.next():
+                self.setWindowTitle(f'GeoCORK Database: {query.value(0)}')
 
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
@@ -61,11 +78,6 @@ class GeoCORK(QtW.QMainWindow):
         file_menu.insertSeparator(actionCreateBackup)
         file_menu.insertSeparator(actionQuit)
 
-        self.db = QSqlDatabase()
-        # self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-        # self.db.setDatabaseName(self.db_file)
-        self.db_file = self.landingpage.get_filename()
-
         settings.setValue('db_file', self.db_file)
         logger_setup.get_logger().info(f"Setting database file to: {self.db_file}")
         if self.db.isOpen():
@@ -81,15 +93,6 @@ class GeoCORK(QtW.QMainWindow):
                 return
         else:
             logger_setup.get_logger().info(f"Database already opened")
-
-
-        blank_schema_file = "Reference/GeoCORK_v1-0.db"
-        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        base_path = os.path.normpath(base_path)
-        sources_ui_file = fr'{os.path.join(base_path, "GeoCORKMain.ui")}'
-        sources_ui_file = os.path.normpath(sources_ui_file)
-        self.loadWindowState()
-        loadUi(sources_ui_file, self)
 
         self.savepoint_manager = Savepoint_manager.SavepointManager().get_instance()
         self.msg = QtW.QMessageBox(self)

@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1119</width>
-    <height>743</height>
+    <width>1000</width>
+    <height>700</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -23,21 +23,9 @@
    <item>
     <layout class="QVBoxLayout" name="verticalLayout_9">
      <item>
-      <layout class="QFormLayout" name="formLayout">
-       <property name="fieldGrowthPolicy">
-        <enum>QFormLayout::ExpandingFieldsGrow</enum>
-       </property>
-       <property name="labelAlignment">
-        <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-       </property>
-       <property name="formAlignment">
-        <set>Qt::AlignCenter</set>
-       </property>
-       <property name="horizontalSpacing">
-        <number>16</number>
-       </property>
-       <property name="verticalSpacing">
-        <number>10</number>
+      <layout class="QGridLayout" name="gridLayout" columnminimumwidth="0,0">
+       <property name="sizeConstraint">
+        <enum>QLayout::SetDefaultConstraint</enum>
        </property>
        <property name="topMargin">
         <number>6</number>
@@ -45,10 +33,13 @@
        <property name="bottomMargin">
         <number>10</number>
        </property>
+       <property name="spacing">
+        <number>10</number>
+       </property>
        <item row="0" column="0">
         <widget class="QLabel" name="label_2">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -61,7 +52,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>16777215</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -130,7 +121,7 @@
        <item row="1" column="0">
         <widget class="QLabel" name="label">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -143,7 +134,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>16777215</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -187,7 +178,7 @@
        <item row="2" column="0">
         <widget class="QLabel" name="label_3">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -200,7 +191,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>16777215</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -254,7 +245,7 @@
        <item row="3" column="0">
         <widget class="QLabel" name="label_4">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -267,7 +258,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>16777215</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -312,7 +303,7 @@
        <item row="4" column="0">
         <widget class="QLabel" name="label_5">
          <property name="sizePolicy">
-          <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+          <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
@@ -325,7 +316,7 @@
          </property>
          <property name="maximumSize">
           <size>
-           <width>16777215</width>
+           <width>250</width>
            <height>35</height>
           </size>
          </property>
@@ -333,7 +324,7 @@
           <string>Step 3 (optional): Select Additional Filters</string>
          </property>
          <property name="wordWrap">
-          <bool>true</bool>
+          <bool>false</bool>
          </property>
         </widget>
        </item>
@@ -372,14 +363,14 @@
      <item>
       <widget class="QLabel" name="label_7">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Expanding" vsizetype="Preferred">
+        <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
        <property name="maximumSize">
         <size>
-         <width>16777215</width>
+         <width>500</width>
          <height>30</height>
         </size>
        </property>
@@ -407,7 +398,7 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>16777215</width>
+         <width>500</width>
          <height>16777215</height>
         </size>
        </property>
@@ -429,7 +420,7 @@
        </property>
        <property name="maximumSize">
         <size>
-         <width>16777215</width>
+         <width>500</width>
          <height>16777215</height>
         </size>
        </property>
@@ -443,6 +434,12 @@
      </item>
      <item>
       <widget class="QPushButton" name="editorder_pushbutton">
+       <property name="maximumSize">
+        <size>
+         <width>500</width>
+         <height>16777215</height>
+        </size>
+       </property>
        <property name="text">
         <string>Edit Column Order</string>
        </property>
@@ -450,6 +447,12 @@
      </item>
      <item>
       <widget class="QPushButton" name="export_pushbutton">
+       <property name="maximumSize">
+        <size>
+         <width>500</width>
+         <height>16777215</height>
+        </size>
+       </property>
        <property name="text">
         <string>Export</string>
        </property>
