@@ -5,7 +5,7 @@ from collections import Counter
 
 import pandas
 from PyQt6 import QtCore
-from PyQt6.QtCore import QSettings, QSortFilterProxyModel
+from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QTimer
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -985,12 +985,13 @@ class ExportWidget(QWidget):
                     return
 
                 if os.path.isfile("temp.db"):
-                    os.remove("temp.db")
+                    if 'temp' in QSqlDatabase().connectionNames():
+                        QSqlDatabase.database('temp').close()
+                        QSqlDatabase().removeDatabase('temp')
+                        os.remove("temp.db")
                 tgt_db_file = "temp.db"
 
                 sample_id_to_subset = self.checked_sample_list
-                if 'temp' in QSqlDatabase().connectionNames():
-                    QSqlDatabase().removeDatabase('temp')
 
                 db_id_subset = FilterDatabase.gather_ids_for_subset(QSqlDatabase(), sample_id_to_subset)
 
@@ -1001,23 +1002,15 @@ class ExportWidget(QWidget):
                 src_db = QSqlDatabase()
 
                 ExportDatabase.subset_database(src_db, tgt_db, sample_id_to_subset)
+                tgt_db.commit()
+                tgt_db.close()
 
-                tgt_db.open()
-                print(QSqlDatabase.connectionNames())
                 # Create a new tab
-                new_tab = DisplayTablesSimplified(self, tgt_db, tgt_db_file)
-                new_tab.setObjectName('database_tab')
+                new_tab = DisplayTablesSimplified(self, tgt_db_file)
                 tab_layout = QVBoxLayout(self)
                 new_tab.setLayout(tab_layout)
 
-
                 self.workbooktabs.addTab(new_tab, 'Database')
-
-                # todo create combobox changer, connect to new table view switcher
-                # merge over exporter code to this
-                # add logic to ensure db is closed/not locked
-                # temp file save to memory
-                # populate table view based on combobox selection
 
                 pass
             case 'Custom':
@@ -1040,22 +1033,29 @@ class ExportWidget(QWidget):
 
     def update_step_2_list(self):
         # self.samplesincluded_comboBox.disconnect()
+
+        self.updatetimer = QTimer()
+        self.updatetimer.setSingleShot(True)
+
         self.samplesincluded_comboBox.setEnabled(True)
         if self.selectionscope_comboBox.currentText() == 'Samples':
             self.samplesincluded_comboBox.setModel(self.samples_model)
-            self.samples_model.dataChanged.connect(lambda: self.update_sample_list(self.samples_model))
+            self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.samples_model))
+            self.samples_model.dataChanged.connect(lambda: self.updatetimer.start(1500))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.samples_model, 'Samples'))
             self.update_checked_list(self.samples_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Aliquots':
             self.samplesincluded_comboBox.setModel(self.aliquots_model)
-            self.aliquots_model.dataChanged.connect(lambda: self.update_sample_list(self.aliquots_model))
+            self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.aliquots_model))
+            self.aliquots_model.dataChanged.connect(lambda: self.updatetimer.start(1500))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.aliquots_model, 'Samples'))
             self.update_checked_list(self.aliquots_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Spots':
             self.samplesincluded_comboBox.setModel(self.spots_model)
-            self.spots_model.dataChanged.connect(lambda: self.update_sample_list(self.spots_model))
+            self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.spots_model))
+            self.spots_model.dataChanged.connect(lambda: self.updatetimer.start(1500))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.spots_model, 'Samples'))
             self.update_checked_list(self.spots_model, 'Samples')
@@ -1107,7 +1107,6 @@ class ExportWidget(QWidget):
 
             self.checked_spot_names = f"({', '.join(map(str, self.checked_spot_list))})"
         if self.exportformat_comboBox.currentText() != 'Database':
-
             self.update_table_view()
         else:
             self.export_format()

@@ -22,12 +22,19 @@ from Functions.Widget_classes import (
 
 
 class DisplayTablesSimplified(QtW.QWidget):
-    def __init__(self, parent, database: QSqlDatabase, db_file: str):
+    def __init__(self, parent, db_file: str):
         super().__init__(parent)
         # logger_setup.get_logger().info("Starting the display tables window")
-        self.database = database
+        self.setObjectName('database_tab')
 
         self.db_file = db_file
+
+        if 'temp' in QSqlDatabase().connectionNames():
+            QSqlDatabase().removeDatabase('temp')
+
+        self.database = QSqlDatabase().addDatabase('QSQLITE', 'temp')
+        self.database.setDatabaseName(self.db_file)
+        self.database.open()
         # Load the ui file
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "DisplayTablesSimplified.ui")
@@ -109,6 +116,7 @@ class DisplayTablesSimplified(QtW.QWidget):
         if self.table in self.dbtree_list:
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
+            self.database.open()
             print('connection name is: ' + self.database.connectionName())
 
             self.model = QtS.QSqlTableModel(parent=self, db=self.database)

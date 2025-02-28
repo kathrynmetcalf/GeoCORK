@@ -3,8 +3,8 @@ import sqlite3
 import sys
 from typing import List, Dict, Any, Set, Optional, Tuple
 
-from PyQt6 import QtSql
-from PyQt6.QtCore import QCoreApplication
+from PyQt6 import QtSql, QtCore
+from PyQt6.QtCore import QCoreApplication, QVariant, QMetaType
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QApplication
 
@@ -66,6 +66,7 @@ def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], col_count:
     if not rows:
         return
     placeholders = ", ".join(["?"] * col_count)
+    table_name = table_name.replace('_old', '')
     insert_stmt = f"INSERT INTO {table_name} VALUES ({placeholders})"
 
     query = QSqlQuery(db)
@@ -73,12 +74,15 @@ def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], col_count:
     for row in rows:
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
-            query.bindValue(i, val)
+            if val is '':
+                query.bindValue(i, None)
+            else:
+                query.bindValue(i, val)
         if not query.exec():
-            print('Error', insert_stmt)
             # logger_setup.get_logger().critical(
             #     f'Error fetching total records: {query.lastError().text()}')
             # logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
+            pass
     # If desired, you can call db.commit() here or wrap in transactions as needed.
 
 
@@ -149,15 +153,16 @@ def find_bridge_tables(conn: QSqlDatabase, samples_table_name="Samples") -> List
 
     for table_name in all_tables:
         # Check foreign key list
+        table_name = table_name.replace('_old', '')
         fk_list = fetchall(f"PRAGMA foreign_key_list('{table_name}')", conn)
         # PRAGMA result shape: (id, seq, table, from_col, to_col, on_update, on_delete, match)
 
         # We want exactly 2 foreign keys, one referencing 'Samples'
-        if any(fk[2] == samples_table_name for fk in fk_list):
+        if any(fk[2].replace('_old', '') == samples_table_name.replace('_old', '') for fk in fk_list):
             ref_data = []
             for fk in fk_list:
                 ref_data.append({
-                    "parent_table": fk[2],  # the table referenced
+                    "parent_table": fk[2].replace('_old', ''),  # the table referenced
                     "child_col":    fk[3],  # column in this table
                     "parent_col":   fk[4],  # column in parent_table
                 })

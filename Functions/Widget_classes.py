@@ -242,7 +242,7 @@ class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
         if self.lastError().text():
             logger_setup.get_logger().critical(f"Failed to set query '{query}': {self.lastError().text()}")
         else:
-            logger_setup.get_logger().debug(f"Query set to '{query}'")
+            logger_setup.get_logger().debug(f"DB: {self.db.connectionName()}: Query set to '{query}'")
             table = query.split('FROM ')[1].split(' ')[0]
             if 'View' in table:
                 self.view = table

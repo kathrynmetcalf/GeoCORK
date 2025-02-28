@@ -1,4 +1,4 @@
-
+import os
 import signal
 import sys
 import platform
@@ -23,6 +23,8 @@ if __name__ == "__main__":
     logger = logger_setup.get_logger()
 
     logger.info("Starting GeoCORK...")
+    if os.path.isfile("temp.db"):
+        os.remove("temp.db")
 
     # Make sure that the default settings values are set
     default_settings()
