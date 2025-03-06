@@ -310,10 +310,22 @@ class InsertFilterGroupDialog(QDialog):
             logger_setup.get_logger().critical(f'SQL command: {check_query}')
             return
 
+        update_saved = False
         if query.next():
-            self.warning_label.show()
-            self.warning_label.setText('<font color="red">Name must be unique</font>')
-            self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setText(f"Filter {name} already exists. Do you want to update it?")
+            msg.setWindowTitle("Warning")
+            msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg.setDefaultButton(QMessageBox.StandardButton.No)
+            reply = msg.exec()
+            if reply == QMessageBox.StandardButton.Yes:
+                update_saved = True
+            else:
+                return
+            # self.warning_label.show()
+            # self.warning_label.setText('<font color="red">Name must be unique</font>')
+            # self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         else:
             insert_query = """
                 INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
@@ -328,6 +340,25 @@ class InsertFilterGroupDialog(QDialog):
             if not query.exec():
                 logger_setup.get_logger().critical(
                     f'Error could not add filter: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {check_query}')
+            else:
+                self.accept()
+
+        if update_saved:
+            update_query = """
+                UPDATE FilterGroups
+                SET SQLQuery = :sql_query, DefaultColor = :color, FilterGroupDescription = :description
+                WHERE FilterGroupName = :name
+            """
+            query.prepare(update_query)
+            query.bindValue(":name", name)
+            query.bindValue(":sql_query", f'\'{self.sql_structure}\'')
+            query.bindValue(":color", color)
+            query.bindValue(":description", description)
+
+            if not query.exec():
+                logger_setup.get_logger().critical(
+                    f'Error could not update filter: {query.lastError().text()}')
                 logger_setup.get_logger().critical(f'SQL command: {check_query}')
             else:
                 self.accept()

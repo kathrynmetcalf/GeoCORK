@@ -410,7 +410,7 @@ class DataViewerWidget(QWidget):
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         else:
-            print(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
+            logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree...")
 
         # Update page info label
         start_record = offset + 1

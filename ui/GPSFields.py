@@ -70,20 +70,14 @@ class GPSFields(QtW.QWidget):
 
     def populate_dropdowns(self):
         start_populate_dropdowns_time = time.time()
-        # todo: figure out why this is slow for large number of samples and how to speed it up. Try a SQLiteTableModel instead?
-        query = QtS.QSqlQuery()
-        # if not query.exec(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}'):
-        #     logger_setup.get_logger().error(f"Error selecting {self.item_view_gps_header} from {self.item_edit_view}: {query.lastError().text()}")
-        #     return
-        # self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}')
         set_table(self.gps_format_model, 'GPSFormats')
         set_table(self.gps_location_model, 'GPSLocations')
         set_table(self.direction_unit_model, 'DirectionUnits')
         set_table(self.lat_direction_model, 'DirectionUnits')
         self.lat_direction_model.setFilter('DirectionUnitAbbreviation = "N" OR DirectionUnitAbbreviation = "S"')
-        self.lon_direction_model = set_table(self.lon_direction_model, 'DirectionUnits')
+        set_table(self.lon_direction_model, 'DirectionUnits')
         self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
-        self.elevation_unit_model = set_table(self.elevation_unit_model, 'DistanceUnits')
+        set_table(self.elevation_unit_model, 'DistanceUnits')
 
         elevation_unit_abbreviation = settings.value('elevation_unit_abbreviation')
         gps_format_abbreviation = settings.value('gps_format_abbreviation')

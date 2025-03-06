@@ -5,6 +5,7 @@ from PyQt6.uic import loadUi
 import ui.AgeFields
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import settings
+from ui.AgeFields import AgeFields
 
 
 class AgeDialog(QtW.QDialog):
@@ -69,8 +70,14 @@ class AgeDialog(QtW.QDialog):
 
     def close(self):
         self.saveWindowState()
-        if not self.close_by_dialog:
+        if not self.age_fields.update_age():
+            print('Error updating age fields')
             self.discard_question()
+        elif self.age_fields.updated:
+            if not self.close_by_dialog:
+                self.discard_question()
+            else:
+                super().close()
         else:
             super().close()
 

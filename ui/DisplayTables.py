@@ -234,7 +234,7 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_tableView.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
             self.dbTable_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
         else:
-            print("Error: Tried to switch to a table with no table or tree..Don't know how it got here")
+            logger_setup.get_logger().error(f"Error {table}: Tried to switch to a table with no table or tree...")
 
         self.edit_pushButton.setText(f"Edit {table}")
 
@@ -368,7 +368,7 @@ class DisplayTables(QtW.QWidget):
         self.display_table()
 
     def edit_samples_popup(self, text=None):
-        print(f'edit_samples_popup called with {text}')
+        # print(f'edit_samples_popup called with {text}')
         if self.table != 'Samples':
             return
         selected_samples = []

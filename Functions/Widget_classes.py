@@ -527,6 +527,13 @@ class CheckableSqlTableModel(DisplayRoundedModel):
             return True
         return super().setData(index, value, role)
 
+    def return_checked_ids(self):
+        return self.checked_ids, self.partially_checked_ids
+
+    def clear_checks(self):
+        self.checked_ids = []
+        self.partially_checked_ids = []
+
     def update_many_db(self, many_to_many: str, item_ids: list):
         if not item_ids:
             logger_setup.get_logger().error(f'No item IDs given for {self.many_to_many}')
@@ -652,12 +659,15 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def return_checked_ids(self):
         return self.checked_ids, self.partially_checked_ids
 
+    def clear_checks(self):
+        self.checked_ids = []
+        self.partially_checked_ids = []
+
 class SampleAgeTableModel(CheckableSqlQueryModel):
     def __init__(self):
         super().__init__()
         self.bolded_rows = []
-        self.default_query = '''SELECT * FROM SampleAges'''
-        self.setQuery(self.default_query)
+        self.default_query = 'SELECT * FROM SampleAges'
 
     def tableName(self):
         return 'SampleAges'
@@ -913,16 +923,16 @@ def display_gps(string: str):
         lon_sec = string.split('°')[1].split('\'')[1].split('"')[1]
         rounded_lat_sec = return_rounded(lat_sec)
         rounded_lon_sec = return_rounded(lon_sec)
-        string = string.replace(lat_sec, rounded_lat_sec)
-        string = string.replace(lon_sec, rounded_lon_sec)
+        string = string.replace(lat_sec, f'{rounded_lat_sec}')
+        string = string.replace(lon_sec, f'{rounded_lon_sec}')
     if "'" in string:
         # DM format, (lat_deg°lat_min' lat_dir, lon_deg°lon_min' lon_dir) or (lat_deg°lat_min', lon_deg°lon_min')
         lat_min = string.split('°')[1].split('\'')[0]
         lon_min = string.split('°')[1].split('\'')[1]
         rounded_lat_min = return_rounded(lat_min)
         rounded_lon_min = return_rounded(lon_min)
-        string = string.replace(lat_min, rounded_lat_min)
-        string = string.replace(lon_min, rounded_lon_min)
+        string = string.replace(lat_min, f'{rounded_lat_min}')
+        string = string.replace(lon_min, f'{rounded_lon_min}')
     if '°' in string:
         # D format, (lat_deg° lat_dir, lon_deg° lon_dir)
         lat_deg = string.split('°')[0]
@@ -939,8 +949,8 @@ def display_gps(string: str):
         utm_n_m = utm_northing.split('m')[0]
         rounded_northing = ' ' + return_rounded(utm_n_m)
         rounded_easting = ' ' + return_rounded(utm_e_m)
-        string = string.replace(utm_n_m, rounded_northing)
-        string = string.replace(utm_e_m, rounded_easting)
+        string = string.replace(utm_n_m, f'{rounded_northing}')
+        string = string.replace(utm_e_m, f'{rounded_easting}')
     else:
         # No GPS given, return ''
         string = ''
@@ -1997,6 +2007,12 @@ class CheckableTreeModel(TreeModel):
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
         return super().flags(index)
 
+    def clear_checks(self, parent: QtC.QModelIndex):
+        for row in range(self.rowCount(parent)):
+            name_index = self.index(row, 0, parent)
+            self.setData(name_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            self.clear_checks(name_index)
+
     def traverse_checkable_tree(self, parent: QtC.QModelIndex):
         checked_items = []
         partially_checked_items = []
@@ -2544,6 +2560,8 @@ class CheckableComboBox(QtW.QComboBox):
 
     def showPopup(self):
         super().showPopup()
+        if self.model().rowCount() == 0:
+            return
         # self.view().resizeColumnToContents(self.name_col)
         self.view().setFixedWidth(self.view().sizeHintForColumn(self.name_col))
         self.view().setFixedHeight(self.view().sizeHint().height())
@@ -2783,6 +2801,10 @@ class TreeCombobox(QtW.QComboBox):
         tree_model = find_tree_model(self.model())
         if tree_model:
             restore_expanded_state(tree_model.table, tree_model, self.treeView)
+        else:
+            return
+        if tree_model.rowCount(QtC.QModelIndex()) == 0:
+            return
         self.treeView.resizeColumnToContents(0)
         self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
         self.treeView.setFixedHeight(self.treeView.sizeHint().height())
@@ -3451,7 +3473,7 @@ def get_readable_header(header: str):
         header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
     elif 'AgeError' in header:
         header += f' ({settings.value("age_error_format_abbreviation")})'
-    elif 'Age' in header:
+    elif 'Age' in header and not any(s in header for s in ['Name', 'Reference', 'Unit', 'Format']):
         header += f' ({settings.value("age_unit_abbreviation")})'
     elif 'Error' in header:
         header = header.replace('Error', f' Error ({settings.value("ratio_error_format_abbreviation")})')

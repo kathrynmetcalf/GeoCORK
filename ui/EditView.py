@@ -125,6 +125,8 @@ class SetSelectedValues(QtW.QDialog):
 class EditView(QtW.QDialog):
     def __init__(self, table_name, **kwargs):
         super().__init__()
+        self.loadWindowState()
+
         logger_setup.get_logger().info(f'Creating a new EditView for {table_name}')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
@@ -132,6 +134,10 @@ class EditView(QtW.QDialog):
         self.setModal(True)
         self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
         self.updated = False
+
+        self.add_pushButton.setAutoDefault(False)
+        self.commit_pushButton.setAutoDefault(False)
+        self.cancel_pushButton.setAutoDefault(False)
 
         self.parent_id: int = None
         self.parent_type: str = None
@@ -203,8 +209,7 @@ class EditView(QtW.QDialog):
         self.edit_tableView.selectionModel().currentChanged.connect(self.on_index_change)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
-        # self.combo.closing.connect(self.destroy_dropdown)
-        # self.add_pushButton.clicked.connect(self.add_popup)
+        self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
@@ -348,7 +353,7 @@ class EditView(QtW.QDialog):
                 logger_setup.get_logger().info('Error destroying previous line edit')
                 return
         elif self.combo is not None:
-            self.destroy_dropdown()
+            self.save_dropdown_data()
             if self.combo is not None:
                 logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
@@ -377,7 +382,7 @@ class EditView(QtW.QDialog):
                         col = self.show_cols.index(header)
                         self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
                         self.updated_timestamp = time.time()
-                        print(f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
+                        logger_setup.get_logger().info(f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
             else:
                 self.edit_tableView.setFocus()
         elif 'SampleAge' in header and 'AgeSignature' not in header:
@@ -389,12 +394,12 @@ class EditView(QtW.QDialog):
                 dlg.exec()
                 logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
                 query = QtS.QSqlQuery()
-                if not query.exec(f'SELECT {header} FROM {self.table} WHERE {self.table_headers[0]} = {item_ids[0]}'):
+                if not query.exec(f'SELECT {header} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
                     logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
                     return
                 if query.next():
-                    index = self.model.fieldIndex(header)
-                    self.model.setData(self.model.index(row, index), query.value(header), QtC.Qt.ItemDataRole.EditRole)
+                    col = self.show_cols.index(header)
+                    self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
                     self.updated_timestamp = time.time()
             else:
                 self.edit_tableView.setFocus()
@@ -446,55 +451,35 @@ class EditView(QtW.QDialog):
             self.lineEdit.setText(str(model_index.data(QtC.Qt.ItemDataRole.DisplayRole)))
             self.lineEdit.selectAll()
         self.lineEdit.installEventFilter(self)
-        self.lineEdit.returnPressed.connect(self.destroy_lineedit)
-        self.lineEdit.editingFinished.connect(self.destroy_lineedit)
+        self.lineEdit.returnPressed.connect(self.save_lineedit_data)
+        self.lineEdit.editingFinished.connect(self.save_lineedit_data)
         self.edit_tableView.setIndexWidget(self.edit_tableView.selectedIndexes()[0], self.lineEdit)
         self.lineEdit.setFocus()
 
-    def destroy_lineedit(self):
+    def save_lineedit_data(self):
         logger_setup.get_logger().info('Saving data from line edit')
         if self.lineEdit is not None:
             value = self.lineEdit.text()
-            # todo: actually save the value to the database
-            # print(f'Typed: {value}')
             model_index = self.proxy_model.mapToSource(self.edit_index)
-            view_header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            edit_table = ''
-            for table in ["Samples", "UPbAnalyses", "Columns"]:
-                if edit_table == '':
-                    if view_header in get_headers(table):
-                        edit_table = table
-                        table_value_header = view_header
-                        table_id_header = get_headers(table)[0]
-                else:
-                    break
-            if edit_table == '':
-                # todo: figure out how to identify the table and column to update
-                return
-            query = QtS.QSqlQuery()
-            query.prepare(f'UPDATE {table} SET {table_value_header} = :value WHERE {table_id_header} = :id')
-            query.bindValue(':value', value)
-            query.bindValue(':id', self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-            if not query.exec():
-                logger_setup.get_logger().critical(f'Failed to set data {value}: {query.lastError().text()}')
-                self.lineEdit.setFocus()
-                return
-            logger_setup.get_logger().info(f'Set {value} for {table_value_header} in {edit_table}')
             if self.model.setData(model_index, value, QtC.Qt.ItemDataRole.EditRole):
                 self.updated_timestamp = time.time()
                 if self.edit_tableView.currentIndex() == self.edit_index:
                     self.tabbed_from_editor = False
-                self.lineEdit.removeEventFilter(self)
-                self.lineEdit.editingFinished.disconnect(self.destroy_lineedit)
-                self.lineEdit.returnPressed.disconnect(self.destroy_lineedit)
-                self.edit_tableView.setIndexWidget(self.edit_index, None)
-                self.lineEdit = None
-                self.edit_index = QtC.QModelIndex()
-                self.edit_tableView.setFocus()
+                    self.destroy_lineedit()
             else:
                 logger_setup.get_logger().critical(f'Failed to set data: {self.model.lastError().text()}')
-                self.lineEdit.setFocus()
-        logger_setup.get_logger().info('Data saved from line edit')
+                self.destroy_lineedit()
+                return
+            logger_setup.get_logger().info('Data saved from line edit')
+
+    def destroy_lineedit(self):
+        self.lineEdit.removeEventFilter(self)
+        self.lineEdit.editingFinished.disconnect(self.save_lineedit_data)
+        self.lineEdit.returnPressed.disconnect(self.save_lineedit_data)
+        self.edit_tableView.setIndexWidget(self.edit_index, None)
+        self.lineEdit = None
+        self.edit_index = QtC.QModelIndex()
+        self.edit_tableView.setFocus()
 
     def display_dropdown(self, dropdown_table: str):
         logger_setup.get_logger().info(f'Displaying dropdown for {dropdown_table}')
@@ -575,12 +560,12 @@ class EditView(QtW.QDialog):
         self.combo.closedOnLineEditClick = False
         if dropdown_table != 'Rejected':
             self.combo.enable_context_menu(True)
-        # self.combo.activated.connect(self.destroy_dropdown)
+        # self.combo.activated.connect(self.save_dropdown_data)
         self.combo.setFocus()
         # print("showing popup")
         self.combo.showPopup()
 
-    def destroy_dropdown(self):
+    def save_dropdown_data(self):
         logger_setup.get_logger().info('Saving data from dropdown')
         self.edit_tableView: QtW.QTableView
         if self.combo is not None:
@@ -590,7 +575,8 @@ class EditView(QtW.QDialog):
         model_index = self.proxy_model.mapToSource(self.combo_index)
         header = self.model.headerData(self.combo_index.column(), QtC.Qt.Orientation.Horizontal,
                                        QtC.Qt.ItemDataRole.DisplayRole)
-        # If this is a many-to-many relationship, update the database
+        create_savepoint('before_dropdown_edit')
+        # If this is a many-to-many relationship (tree or table), update the database
         if isinstance(combo, CheckableTreeCombobox):
             combo: CheckableTreeCombobox
             self.combo_model: CheckableTreeModel
@@ -612,12 +598,18 @@ class EditView(QtW.QDialog):
                                     QtC.Qt.ItemDataRole.DisplayRole)
                             else:
                                 logger_setup.get_logger().critical(f'Could not find {other_id_header} in {self.view}')
+                                self.destroy_dropdown(combo)
+                                rollback_savepoint('before_dropdown_edit')
+                                return
                         if item_id:
                             update = self.tree_model.update_db(many_table, checked_items, partially_checked_items,
                                                                [item_id])
                             if update is False:
                                 logger_setup.get_logger().critical(
                                     f"Failed to update {many_table} for {self.table_headers[0]} {item_id}")
+                                self.destroy_dropdown(combo)
+                                rollback_savepoint('before_dropdown_edit')
+                                return
                             else:
                                 logger_setup.get_logger().info(
                                     f"Updated {many_table} for {self.table_headers[0]} {item_id}")
@@ -642,27 +634,39 @@ class EditView(QtW.QDialog):
                                         QtC.Qt.ItemDataRole.DisplayRole)
                                 else:
                                     logger_setup.get_logger().critical(f'Could not find {other_id_header} in {self.view}')
+                                    self.destroy_dropdown(combo)
+                                    rollback_savepoint('before_dropdown_edit')
+                                    return
                             if item_id:
                                 update = self.combo_model.update_many_db(many_table, [item_id])
                                 if update is False:
                                     logger_setup.get_logger().critical(
                                         f"Failed to update {many_table} for {self.table_headers[0]} {item_id}")
+                                    self.destroy_dropdown(combo)
+                                    rollback_savepoint('before_dropdown_edit')
+                                    return
                                 else:
                                     logger_setup.get_logger().info(
                                         f"Updated {many_table} for {self.table_headers[0]} {item_id}")
+        release_savepoint('before_dropdown_edit')
         if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
             logger_setup.get_logger().critical(f'Failed to set data: {self.model.last_error}')
+            return
         self.updated_timestamp = time.time()
         if self.edit_tableView.currentIndex() == self.combo_index:
             self.tabbed_from_editor = False
-        # combo.activated.disconnect(self.destroy_dropdown)
+        self.destroy_dropdown(combo)
+        release_savepoint('before_dropdown_edit')
+        logger_setup.get_logger().info('Data saved from dropdown')
+
+    def destroy_dropdown(self, combo):
+        # combo.activated.disconnect(self.save_dropdown_data)
         combo.removeEventFilter(self)
         combo.view().removeEventFilter(self)
         self.edit_tableView.setIndexWidget(self.combo_index, None)
         if self.combo is not None:
             self.combo = None
         self.combo_index = QtC.QModelIndex()
-        logger_setup.get_logger().info('Data saved from dropdown')
 
     def set_selected_value_dialog(self, table, indexes):
         # Get the selected value from the indexes
@@ -711,16 +715,16 @@ class EditView(QtW.QDialog):
     def on_index_change(self, selected, deselected):
         # Close and save the data from any open widgets
         if self.combo is not None:
-            self.destroy_dropdown()
+            self.save_dropdown_data()
         if self.lineEdit is not None:
             self.destroy_lineedit()
 
     def on_row_change(self, selected, deselected):
         # Close and save the data from any open widgets
         if self.combo is not None:
-            self.destroy_dropdown()
+            self.save_dropdown_data()
         if self.lineEdit is not None:
-            self.destroy_lineedit()
+            self.save_lineedit_data()
         if deselected.row() == -1:
             # No previous row was selected, so no changes to save
             return True
@@ -744,17 +748,17 @@ class EditView(QtW.QDialog):
             if not self.model.edited_indexes:
                 logger_setup.get_logger().info('No changes to save')
                 return True
-            if not self.data_submit(deselected.row()):
+            if not self.data_submit():
                 # There was an error submitting the changes
-
                 QtC.QTimer.singleShot(0, highlight_error)
                 return False
             else:
                 self.updated = True
                 return True
 
-    def data_submit(self, row):
+    def data_submit(self):
         logger_setup.get_logger().info('Submitting changes')
+        row = self.model.edited_indexes[0].row()
         row_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
         row_id_header = self.table_headers[0]
         update_cols = {}
@@ -898,7 +902,9 @@ class EditView(QtW.QDialog):
                     query.addBindValue(update_col_values[table][i])
                 if not query.exec():
                     logger_setup.get_logger().critical(f'Failed to update {table}: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'Failed query: {query.lastQuery()}')
                     return False
+                logger_setup.get_logger().info(f'Updated {sql_cols} to {', '.join(str(val) for val in update_col_values[table])} in {table} where {table_headers[0]} = {item_id}')
         logger_setup.get_logger().info('Changes submitted')
         self.model.edited_indexes = []
         return True
@@ -962,8 +968,7 @@ class EditView(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
-        if self.edit_tableView.currentIndex().isValid() and not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
-            # There is a valid index selected and the row change failed
+        if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
             logger_setup.get_logger().critical('Failed to save changes')
             return
         else:
@@ -987,22 +992,22 @@ class EditView(QtW.QDialog):
         else:
             pass
 
-    def closeEvent(self, event: QtG.QCloseEvent):
+    def close(self):
+        self.saveWindowState()
         if not self.close_by_dialog:
-            if self.updated:
+            if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
+                logger_setup.get_logger().critical('Failed to save changes')
                 self.discard_question()
-                event.ignore()
-            else:
-                logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
-                event.accept()
+            elif self.updated:
+                self.discard_question()
         else:
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
-            event.accept()
+            super().close()
 
     def saveWindowState(self):
-        settings.setValue("ui/EditSampleTable/pos", self.pos())
-        settings.setValue("ui/EditSampleTable/size", self.size())
+        settings.setValue("ui/EditView/pos", self.pos())
+        settings.setValue("ui/EditView/size", self.size())
 
     def loadWindowState(self):
-        self.move(settings.value("ui/EditSampleTable/pos", defaultValue=QPoint(410, 241)))
-        self.resize(settings.value("ui/EditSampleTable/size", defaultValue=QSize(810, 569)))
+        self.move(settings.value("ui/EditView/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/EditView/size", defaultValue=QSize(810, 569)))

@@ -36,6 +36,7 @@ class ViewDataTab(QtW.QWidget):
         self.v_layout.addLayout(self.h_layout)
         self.show_cols = []
         self.view = None
+        self.resize_timer = QTimer()
         # self.display_table()
         end_view_data_tab_time = time.time()
         logger_setup.get_logger().info(f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
@@ -66,7 +67,6 @@ class ViewDataTab(QtW.QWidget):
                 self.view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
                 # Optimize window resizing
-                self.resize_timer = QTimer()
                 self.resize_timer.setSingleShot(True)
                 self.resize_timer.timeout.connect(self.resizeRowsOptimized)
 

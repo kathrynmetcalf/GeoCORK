@@ -8,7 +8,7 @@ from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, set_table, SampleAgeTableModel, CheckableSqlTableModel,
-    FontDelegate, get_name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel, SQLiteTableModel,
+    FontDelegate, get_name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel,
     get_selected_tree_ids, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state, restore_expanded_state
 )
 from Functions import SQLUtils
@@ -29,7 +29,7 @@ class AgeFields(QtW.QWidget):
     def __init__(self, table: str, sample_ids: list):
         super().__init__()
 
-        logger_setup.get_logger().info('Starting AgeFileds')
+        logger_setup.get_logger().info('Starting AgeFields')
         age_ui_file = "ui/AgeFields.ui"
         loadUi(age_ui_file, self)
         self.table = table
@@ -41,7 +41,6 @@ class AgeFields(QtW.QWidget):
 
         self.sample_model = QtS.QSqlTableModel()
         self.sample_age_model = SampleAgeTableModel()
-        # self.sample_age_model = CheckableSqlQueryModel()
         self.age_tree_view = QtW.QTreeView()
         self.age_model = QtS.QSqlTableModel()
         self.oldest_age_tree = TreeModel()
@@ -53,7 +52,6 @@ class AgeFields(QtW.QWidget):
         self.age_constraint_tree = CheckableTreeModel()
         self.age_interpretation_model = QtS.QSqlTableModel()
         self.age_interpretation_tree = CheckableTreeModel()
-        # self.age_reference_model = CheckableSqlTableModel()
         self.age_reference_model = CheckableSqlQueryModel()
         self.text_change_timer = QtC.QTimer()
         self.text_change_timer.setSingleShot(True)
@@ -61,11 +59,15 @@ class AgeFields(QtW.QWidget):
 
         self.sample_ages = []
         self.default_age_ids = []
-        self.sample_id_header = None
+        self.sample_id_header = get_headers(table)[0]
 
         self.add_age_pushButton.clicked.connect(self.add_age)
         self.direct_age_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
         self.direct_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
+
+        QtC.QTimer.singleShot(0, self.set_focus)
+
+        self.update_list(self.sample_ids)
 
     def update_age_unit(self):
         sender = self.sender()
@@ -76,7 +78,7 @@ class AgeFields(QtW.QWidget):
             if self.direct_unit_comboBox.currentIndex() != self.direct_age_unit_comboBox.currentIndex():
                 self.direct_age_unit_comboBox.setCurrentIndex(self.direct_unit_comboBox.currentIndex())
         else:
-            print(sender.objectName())
+            return
 
     def update_list(self, sample_ids):
         logger_setup.get_logger().info(f"Populating age fields for {self.table} with sample IDs {self.sample_ids}")
@@ -93,11 +95,9 @@ class AgeFields(QtW.QWidget):
         self.disconnect_signals()
         set_table(self.sample_model, self.table)
         self.sample_id_header = self.sample_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-
-        self.sample_age_model.setQuery('SELECT * FROM SampleAges')
         set_table(self.age_model, 'Ages')
-        # set_table(self.direct_age_unit_model, 'AgeUnits')
-        # set_table(self.direct_age_error_model, 'ErrorFormats')
+        set_table(self.direct_age_unit_model, 'AgeUnits')
+        set_table(self.direct_age_error_model, 'ErrorFormats')
         # self.oldest_age_tree.setSourceModel(self.age_model)
         # self.youngest_age_tree.setSourceModel(self.age_model)
         # set_table(self.age_constraint_model, 'AgeConstraints')
@@ -142,10 +142,10 @@ class AgeFields(QtW.QWidget):
             samples_sampleage_model.setFilter('')
             sample_model.setQuery(f'SELECT DefaultSampleAgeID FROM {self.table}')
         if samples_sampleage_model.rowCount() == 0:
-            logger_setup.get_logger().info("No samples to populate")
+            logger_setup.get_logger().info(f"No ages for selected samples {self.sample_ids}")
             self.sample_ages = []
             self.default_age_ids = []
-            self.sample_age_model = CheckableSqlQueryModel()
+            self.sample_age_model = SampleAgeTableModel()
             self.edit_age_comboBox.setModel(self.sample_age_model)
             return
         self.sample_ages = []
@@ -187,6 +187,12 @@ class AgeFields(QtW.QWidget):
             self.relative_age_groupBox.focusLost.emit()
         elif self.age_information_groupBox.any_child_has_focus() and self.age_information_groupBox.edited:
             self.age_information_groupBox.focusLost.emit()
+
+    def set_focus(self):
+        if self.sample_age_model.rowCount() == 0:
+            self.disable_groups()
+            self.add_age_pushButton.setFocus()
+            self.add_age_pushButton.setAutoDefault(True)
 
     def connect_signals(self):
         # Connect signals and slots
@@ -477,151 +483,158 @@ class AgeFields(QtW.QWidget):
         logger_setup.get_logger().info("Updating age")
         if len(self.sample_ids) == 0:
             logger_setup.get_logger().info("No samples selected to update")
-            return
-        elif len(self.sample_ids) > 0:
-            logger_setup.get_logger().info("Collecting input age information")
-            default_age = self.default_age_checkBox.isChecked()
-            direct_age = self.direct_age_lineEdit.text()
-            if not direct_age or direct_age == '':
-                direct_age = 'Null'
-            direct_age_error = self.direct_age_error_lineEdit.text()
-            if not direct_age_error or direct_age_error == '':
-                direct_age_error = 'Null'
-            direct_age_unit = self.direct_age_unit_comboBox.currentText()
-            direct_age_error_type = self.direct_age_error_format_comboBox.currentText()
-            oldest_direct = self.oldest_direct_lineEdit.text()
-            if not oldest_direct or oldest_direct == '':
-                oldest_direct = 'Null'
-            youngest_direct = self.youngest_direct_lineEdit.text()
-            if not youngest_direct or youngest_direct == '':
-                youngest_direct = 'Null'
-            oldest_rel = self.oldest_rel_comboBox.currentText()
-            youngest_rel = self.youngest_rel_comboBox.currentText()
-            age_description = self.age_description_lineEdit.text()
-            if not age_description or age_description == '':
-                age_description = 'Null'
+            return True
+        row = self.edit_age_comboBox.currentIndex()
+        sample_age_id = self.sample_age_model.data(self.sample_age_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if not sample_age_id:
+            logger_setup.get_logger().info("No age selected to update")
+            return False
 
-            row = self.edit_age_comboBox.currentIndex()
-            sample_age_id = self.sample_age_model.data(self.sample_age_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            old_sample_age_id = sample_age_id
-            if direct_age_unit == '':
-                direct_age_unit_id = 'Null'
-            else:
-                self.direct_age_unit_model.setFilter(f"AgeUnitAbbreviation = '{direct_age_unit}'")
-                direct_age_unit_id = self.direct_age_unit_model.data(self.direct_age_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if direct_age_error_type == '':
-                direct_age_error_format_id = 'Null'
-            else:
-                self.direct_age_error_model.setFilter(f"ErrorFormatAbbreviation = '{direct_age_error_type}'")
-                direct_age_error_format_id = self.direct_age_error_model.data(self.direct_age_error_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if oldest_rel == '':
-                oldest_rel_id = 'Null'
-            else:
-                self.age_model.setFilter(f"AgeName = '{oldest_rel}'")
-                oldest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            if youngest_rel == '':
-                youngest_rel_id = 'Null'
-            else:
-                self.age_model.setFilter(f"AgeName = '{youngest_rel}'")
-                youngest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        logger_setup.get_logger().info("Collecting input age information")
+        default_age = self.default_age_checkBox.isChecked()
+        direct_age = self.direct_age_lineEdit.text()
+        if not direct_age or direct_age == '':
+            direct_age = 'Null'
+        direct_age_error = self.direct_age_error_lineEdit.text()
+        if not direct_age_error or direct_age_error == '':
+            direct_age_error = 'Null'
+        direct_age_unit = self.direct_age_unit_comboBox.currentText()
+        direct_age_error_type = self.direct_age_error_format_comboBox.currentText()
+        oldest_direct = self.oldest_direct_lineEdit.text()
+        if not oldest_direct or oldest_direct == '':
+            oldest_direct = 'Null'
+        youngest_direct = self.youngest_direct_lineEdit.text()
+        if not youngest_direct or youngest_direct == '':
+            youngest_direct = 'Null'
+        oldest_rel = self.oldest_rel_comboBox.currentText()
+        youngest_rel = self.youngest_rel_comboBox.currentText()
+        age_description = self.age_description_lineEdit.text()
+        if not age_description or age_description == '':
+            age_description = 'Null'
+        old_sample_age_id = sample_age_id
+        if direct_age_unit == '':
+            direct_age_unit_id = 'Null'
+        else:
+            self.direct_age_unit_model.setFilter(f"AgeUnitAbbreviation = '{direct_age_unit}'")
+            direct_age_unit_id = self.direct_age_unit_model.data(self.direct_age_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if direct_age_error_type == '':
+            direct_age_error_format_id = 'Null'
+        else:
+            self.direct_age_error_model.setFilter(f"ErrorFormatAbbreviation = '{direct_age_error_type}'")
+            direct_age_error_format_id = self.direct_age_error_model.data(self.direct_age_error_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if oldest_rel == '':
+            oldest_rel_id = 'Null'
+        else:
+            self.age_model.setFilter(f"AgeName = '{oldest_rel}'")
+            oldest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if youngest_rel == '':
+            youngest_rel_id = 'Null'
+        else:
+            self.age_model.setFilter(f"AgeName = '{youngest_rel}'")
+            youngest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
 
-            logger_setup.get_logger().info(f"Updating age information for SampleAgeID {sample_age_id}")
-            create_savepoint('before_update')
+        logger_setup.get_logger().info(f"Updating age information for SampleAgeID {sample_age_id}")
+        create_savepoint('before_update')
+        samples_sampleages_model = QtS.QSqlTableModel()
+        set_table(samples_sampleages_model, 'Samples_SampleAges')
+        samples_sampleages_model.setFilter(f"SampleAgeID = {sample_age_id}")
+        if samples_sampleages_model.rowCount() > 0:
+            for row in range(samples_sampleages_model.rowCount()):
+                if samples_sampleages_model.index(row, 0).data() not in self.sample_ids:
+                    logger_setup.get_logger().info(f"SampleAgeID {sample_age_id} is not associated with all selected samples")
+                    self.msg.setIcon(QtW.QMessageBox.Icon.Question)
+                    self.msg.setText(f"SampleAgeID {sample_age_id} is not associated with all selected samples. Do you want to associate it with all selected samples?")
+                    self.msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+                    response = self.msg.exec()
+                    if response == QtW.QMessageBox.StandardButton.Yes:
+                        logger_setup.get_logger().info("User chose to associate SampleAgeID with all selected samples")
+                    else:
+                        logger_setup.get_logger().info("User chose not to associate SampleAgeID with all selected samples")
+                        return False
+        age_columns = ['DirectAge', 'DirectAgeError', 'DirectAgeUnitID', 'DirectAgeErrorFormatID', 'OldestDirectAge', 'YoungestDirectAge',
+        'OldestAgeID', 'YoungestAgeID', 'SampleAgeDescription']
+        qage_columns = ', '.join(age_columns)
+        age_values = [f'{direct_age}', f'{direct_age_error}', f'{direct_age_unit_id}', f'{direct_age_error_format_id}', f'{oldest_direct}',
+                      f'{youngest_direct}', f'{oldest_rel_id}', f'{youngest_rel_id}', f'{age_description}']
+        query = QtS.QSqlQuery()
+        if not query.exec(f"SELECT {qage_columns} FROM SampleAges WHERE SampleAgeID = {sample_age_id}"):
+            logger_setup.get_logger().critical(f'Unable to get SampleAges: {query.lastError().text()}')
+            return False
+        if not query.next():
+            logger_setup.get_logger().critical(f'No results for SampleAgeID {sample_age_id}')
+            return False
+        existing_values = [query.value(i) for i in range(query.record().count())]
+        for s in existing_values:
+            index = existing_values.index(s)
+            if not s:
+                s = 'Null'
+                existing_values[index] = s
+        if existing_values == age_values:
+            logger_setup.get_logger().info("No changes to age information")
+        elif existing_values != age_values:
+            logger_setup.get_logger().info("Changes to age information")
+            error, header = validate_update('SampleAges', age_columns, age_values, f'SampleAgeID = {sample_age_id}')
+            if error:
+                logger_setup.get_logger().error(f'Invalid age input: {error}')
+                rollback_savepoint('before_update')
+                return False
+            logger_setup.get_logger().info(f"Valid age information")
+            sql_placeholders = ', '.join(['?' for col in age_columns])
+            query.prepare(f'''UPDATE SampleAges SET ({qage_columns}) = ({sql_placeholders}) WHERE SampleAgeID = {sample_age_id}''')
+            for i in range(len(age_values)):
+                query.bindValue(i, age_values[i])
+            if not query.exec():
+                logger_setup.get_logger().critical(f'Unable to update SampleAges: {query.lastError().text()}')
+                rollback_savepoint('before_update')
+                return False
+            update_modified_timestamp('SampleAges', [sample_age_id])
+            logger_setup.get_logger().info(f"Updated age information for SampleAgeID {sample_age_id}")
+            if not convert_sample_age(sample_age_id):
+                rollback_savepoint('before_update')
+                return False
+        if not self.update_age_tags(sample_age_id, self.age_constraint_comboBox):
+            return False
+        if not self.update_age_tags(sample_age_id, self.age_interpretation_comboBox):
+            return False
+        if not self.update_age_tags(sample_age_id, self.age_reference_comboBox):
+            return False
+        for sample_id in self.sample_ids:
             samples_sampleages_model = QtS.QSqlTableModel()
             set_table(samples_sampleages_model, 'Samples_SampleAges')
-            samples_sampleages_model.setFilter(f"SampleAgeID = {sample_age_id}")
-            if samples_sampleages_model.rowCount() > 0:
-                for row in range(samples_sampleages_model.rowCount()):
-                    if samples_sampleages_model.index(row, 0).data() not in self.sample_ids:
-                        logger_setup.get_logger().info(f"SampleAgeID {sample_age_id} is not associated with all selected samples")
-                        self.msg.setIcon(QtW.QMessageBox.Icon.Question)
-                        self.msg.setText(f"SampleAgeID {sample_age_id} is not associated with all selected samples. Do you want to associate it with all selected samples?")
-                        self.msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-                        response = self.msg.exec()
-                        if response == QtW.QMessageBox.StandardButton.Yes:
-                            logger_setup.get_logger().info("User chose to associate SampleAgeID with all selected samples")
-                        else:
-                            logger_setup.get_logger().info("User chose not to associate SampleAgeID with all selected samples")
-                            return
-            age_columns = ['DirectAge', 'DirectAgeError', 'DirectAgeUnitID', 'DirectAgeErrorFormatID', 'OldestDirectAge', 'YoungestDirectAge',
-            'OldestAgeID', 'YoungestAgeID', 'SampleAgeDescription']
-            qage_columns = ', '.join(age_columns)
-            age_values = [f'{direct_age}', f'{direct_age_error}', f'{direct_age_unit_id}', f'{direct_age_error_format_id}', f'{oldest_direct}',
-                          f'{youngest_direct}', f'{oldest_rel_id}', f'{youngest_rel_id}', f'{age_description}']
-            query = QtS.QSqlQuery()
-            if not query.exec(f"SELECT {qage_columns} FROM SampleAges WHERE SampleAgeID = {sample_age_id}"):
-                logger_setup.get_logger().critical(f'Unable to get SampleAges: {query.lastError().text()}')
-                return
-            query.next()
-            existing_values = [query.value(i) for i in range(query.record().count())]
-            for s in existing_values:
-                index = existing_values.index(s)
-                if not s:
-                    s = 'Null'
-                    existing_values[index] = s
-            if existing_values == age_values:
-                logger_setup.get_logger().info("No changes to age information")
-            elif existing_values != age_values:
-                logger_setup.get_logger().info("Changes to age information")
-                error, header = validate_update('SampleAges', age_columns, age_values, f'SampleAgeID = {sample_age_id}')
-                if error:
-                    logger_setup.get_logger().error(f'Invalid age input: {error}')
+            samples_sampleages_model.setFilter(f"SampleID = {sample_id} AND SampleAgeID = {sample_age_id}")
+            if samples_sampleages_model.rowCount() == 0:
+                if not query.exec(f'''INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES ({sample_id}, {sample_age_id})'''):
+                    logger_setup.get_logger().critical(f'Unable to insert Samples_SampleAges: {query.lastError().text()}')
                     rollback_savepoint('before_update')
-                    return
-                logger_setup.get_logger().info(f"Valid age information")
-                if not query.exec(f'''UPDATE SampleAges SET (DirectAge, DirectAgeError, DirectAgeUnitID, DirectAgeErrorFormatID, OldestDirectAge, YoungestDirectAge, OldestAgeID, YoungestAgeID, SampleAgeDescription) = 
-                    ({direct_age}, {direct_age_error}, {direct_age_unit_id}, {direct_age_error_format_id}, {oldest_direct}, {youngest_direct}, {oldest_rel_id}, {youngest_rel_id}, "{age_description}") 
-                    WHERE SampleAgeID = {sample_age_id}'''):
-                    logger_setup.get_logger().critical(f'Unable to update SampleAges: {query.lastError().text()}')
+                    return False
+                logger_setup.get_logger().info(f"Inserted SampleAgeID {sample_age_id} for SampleID {sample_id}")
+            if default_age:
+                if not query.exec(f'''UPDATE Samples SET DefaultSampleAgeID = {sample_age_id} WHERE SampleID = {sample_id}'''):
+                    logger_setup.get_logger().critical(f'Unable to update Sample default age: {query.lastError().text()}')
                     rollback_savepoint('before_update')
-                    return
-                update_modified_timestamp('SampleAges', [sample_age_id])
-                logger_setup.get_logger().info(f"Updated age information for SampleAgeID {sample_age_id}")
-                if not convert_sample_age(sample_age_id):
+                    return False
+                update_modified_timestamp('Samples', [sample_id])
+                logger_setup.get_logger().info(f"Updated DefaultSampleAgeID to {sample_age_id} for SampleID {sample_id}")
+            if old_sample_age_id != sample_age_id:
+                if not query.exec(f'''DELETE FROM Samples_SampleAges WHERE SampleID = {sample_id} AND SampleAgeID = {old_sample_age_id}'''):
+                    logger_setup.get_logger().critical(f'Unable to delete old SampleAgeID: {query.lastError().text()}')
                     rollback_savepoint('before_update')
-                    return
-            if not self.update_age_tags(sample_age_id, self.age_constraint_comboBox):
-                return
-            if not self.update_age_tags(sample_age_id, self.age_interpretation_comboBox):
-                return
-            if not self.update_age_tags(sample_age_id, self.age_reference_comboBox):
-                return
-            for sample_id in self.sample_ids:
-                samples_sampleages_model = QtS.QSqlTableModel()
-                set_table(samples_sampleages_model, 'Samples_SampleAges')
-                samples_sampleages_model.setFilter(f"SampleID = {sample_id} AND SampleAgeID = {sample_age_id}")
-                if samples_sampleages_model.rowCount() == 0:
-                    if not query.exec(f'''INSERT INTO Samples_SampleAges (SampleID, SampleAgeID) VALUES ({sample_id}, {sample_age_id})'''):
-                        logger_setup.get_logger().critical(f'Unable to insert Samples_SampleAges: {query.lastError().text()}')
-                        rollback_savepoint('before_update')
-                        return
-                    logger_setup.get_logger().info(f"Inserted SampleAgeID {sample_age_id} for SampleID {sample_id}")
-                if default_age:
-                    if not query.exec(f'''UPDATE Samples SET DefaultSampleAgeID = {sample_age_id} WHERE SampleID = {sample_id}'''):
-                        logger_setup.get_logger().critical(f'Unable to update Sample default age: {query.lastError().text()}')
-                        rollback_savepoint('before_update')
-                        return
-                    update_modified_timestamp('Samples', [sample_id])
-                    logger_setup.get_logger().info(f"Updated DefaultSampleAgeID to {sample_age_id} for SampleID {sample_id}")
-                if old_sample_age_id != sample_age_id:
-                    if not query.exec(f'''DELETE FROM Samples_SampleAges WHERE SampleID = {sample_id} AND SampleAgeID = {old_sample_age_id}'''):
-                        logger_setup.get_logger().critical(f'Unable to delete old SampleAgeID: {query.lastError().text()}')
-                        rollback_savepoint('before_update')
-                        return
-            self.default_age_ids = []
-            for sample_id in self.sample_ids:
-                self.sample_model.setFilter(f"{self.sample_id_header} = {sample_id}")
-                if self.sample_model.rowCount() > 0:
-                    if self.table == 'Samples':
-                        column = 8
-                    else:
-                        column = 1
-                    default_age_id = self.sample_model.index(0, column).data()
-                    if default_age_id not in self.default_age_ids:
-                        self.default_age_ids.append(default_age_id)
-            self.updated = True
-            release_savepoint('before_update')
-            self.populate_age_dropdown()
+                    return False
+        self.default_age_ids = []
+        for sample_id in self.sample_ids:
+            self.sample_model.setFilter(f"{self.sample_id_header} = {sample_id}")
+            if self.sample_model.rowCount() > 0:
+                if self.table == 'Samples':
+                    column = 8
+                else:
+                    column = 1
+                default_age_id = self.sample_model.index(0, column).data()
+                if default_age_id not in self.default_age_ids:
+                    self.default_age_ids.append(default_age_id)
+        self.updated = True
+        release_savepoint('before_update')
+        self.populate_age_dropdown()
+        return True
 
     def update_age_tags(self, sample_age_id: int, combo: CheckableTreeCombobox | CheckableComboBox):
         logger_setup.get_logger().info(f"update_age_tags called with {combo.objectName()}")
@@ -641,7 +654,7 @@ class AgeFields(QtW.QWidget):
                 return True
         elif isinstance(combo, CheckableComboBox):
             model = combo.model()
-            table = model.table
+            table = model.tableName()
             id_header = get_headers(table)[0]
         start_update_age_tags = time.time()
         many_to_many_model = QtS.QSqlTableModel()
@@ -649,57 +662,67 @@ class AgeFields(QtW.QWidget):
         if len(self.sample_ids) == 0:
             logger_setup.get_logger().info("No samples selected")
             return True
+        current_values = []
+        if len(self.sample_ids) > 1:
+            where_sql = f'IN {tuple(self.sample_ids)}'
         else:
-            logger_setup.get_logger().info(f"Updating {table} for {len(self.sample_ids)} sample ages")
-            query = QtS.QSqlQuery()
-            if isinstance(model, CheckableTreeModel):
-                checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
-                    QtC.QModelIndex())
-            elif isinstance(model, CheckableSqlQueryModel):
-                checked_ids, partially_checked_ids = model.return_checked_ids()
-            if len(checked_ids) == 0 and len(partially_checked_ids) == 0:
-                # None selected, so delete all associated with this SampleAgeID
-                logger_setup.get_logger().info(f"No {table} selected for SampleAgeID {sample_age_id}")
-                if not query.exec(f'''DELETE FROM SampleAges_{table} WHERE SampleAgeID = {sample_age_id}'''):
-                    logger_setup.get_logger().critical(f'Unable to delete unchecked {table}: {query.lastError().text()}')
-                    rollback_savepoint('before_update')
-                    return False
-                logger_setup.get_logger().info(f"Deleted {table} for SampleAgeID {sample_age_id}")
-            else:
-                many_to_many_model.setFilter(f"SampleAgeID = {sample_age_id}")
-                if many_to_many_model.rowCount() == 0:
-                    for age_id in checked_ids:
-                        # If the age is checked, insert it if it doesn't exist
-                        if not query.exec(
-                                f'''INSERT INTO SampleAges_{table} (SampleAgeID, {id_header}) VALUES ({sample_age_id}, {age_id})'''):
-                            if 'UNIQUE constraint failed' in query.lastError().text():
-                                logger_setup.get_logger().info(
-                                    f"{id_header} {age_id} already associated with SampleAgeID {sample_age_id}")
-                            else:
-                                logger_setup.get_logger().critical(
-                                    f'Unable to insert checked {id_header} {age_id}: {query.lastError().text()}')
-                                rollback_savepoint('before_update')
-                                return False
-                        logger_setup.get_logger().info(f"Inserted {id_header} {age_id} for SampleAgeID {sample_age_id}")
-                for row in range(many_to_many_model.rowCount()):
-                    age_id = many_to_many_model.data(many_to_many_model.index(row, 1), QtC.Qt.ItemDataRole.DisplayRole)
-                    if age_id in checked_ids:
-                        # If the age is checked, insert it if it doesn't exist
-                        if not query.exec(f'''INSERT INTO SampleAges_{table} (SampleAgeID, {id_header}) VALUES ({sample_age_id}, {age_id})'''):
-                            if 'UNIQUE constraint failed' in query.lastError().text():
-                                logger_setup.get_logger().info(f"{id_header} {age_id} already associated with SampleAgeID {sample_age_id}")
-                            else:
-                                logger_setup.get_logger().critical(f'Unable to insert checked {id_header} {age_id}: {query.lastError().text()}')
-                                rollback_savepoint('before_update')
-                                return False
-                        logger_setup.get_logger().info(f"Inserted {id_header} {age_id} for SampleAgeID {sample_age_id}")
-                    elif age_id not in partially_checked_ids:
-                        # If the age is unchecked, delete it if it exists
-                        if not query.exec(f'''DELETE FROM SampleAges_{table} WHERE SampleAgeID = {sample_age_id} AND {id_header} = {age_id}'''):
-                            logger_setup.get_logger().critical(f'Unable to delete unchecked {id_header} {age_id}: {query.lastError().text()}')
+            where_sql = f'= {self.sample_ids[0]}'
+        many_to_many_model.setFilter(f"SampleAgeID = {sample_age_id} AND {id_header} {where_sql}")
+        for row in range(many_to_many_model.rowCount()):
+            current_values.append(many_to_many_model.data(many_to_many_model.index(row, 1), QtC.Qt.ItemDataRole.DisplayRole))
+        logger_setup.get_logger().info(f"Updating {table} for {len(self.sample_ids)} sample ages")
+        query = QtS.QSqlQuery()
+        if isinstance(model, CheckableTreeModel):
+            checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
+                QtC.QModelIndex())
+        elif isinstance(model, CheckableSqlTableModel | CheckableSqlQueryModel):
+            checked_ids, partially_checked_ids = model.return_checked_ids()
+        if current_values == checked_ids:
+            logger_setup.get_logger().info(f"No changes to {table}")
+            return True
+        if len(checked_ids) == 0 and len(partially_checked_ids) == 0:
+            # None selected, so delete all associated with this SampleAgeID
+            logger_setup.get_logger().info(f"No {table} selected for SampleAgeID {sample_age_id}")
+            if not query.exec(f'''DELETE FROM SampleAges_{table} WHERE SampleAgeID = {sample_age_id}'''):
+                logger_setup.get_logger().critical(f'Unable to delete unchecked {table}: {query.lastError().text()}')
+                rollback_savepoint('before_update')
+                return False
+            logger_setup.get_logger().info(f"Deleted {table} for SampleAgeID {sample_age_id}")
+        else:
+            many_to_many_model.setFilter(f"SampleAgeID = {sample_age_id}")
+            if many_to_many_model.rowCount() == 0:
+                for age_id in checked_ids:
+                    # If the age is checked, insert it if it doesn't exist
+                    if not query.exec(
+                            f'''INSERT INTO SampleAges_{table} (SampleAgeID, {id_header}) VALUES ({sample_age_id}, {age_id})'''):
+                        if 'UNIQUE constraint failed' in query.lastError().text():
+                            logger_setup.get_logger().info(
+                                f"{id_header} {age_id} already associated with SampleAgeID {sample_age_id}")
+                        else:
+                            logger_setup.get_logger().critical(
+                                f'Unable to insert checked {id_header} {age_id}: {query.lastError().text()}')
                             rollback_savepoint('before_update')
                             return False
-                        logger_setup.get_logger().info(f"Deleted {id_header} {age_id} for SampleAgeID {sample_age_id}")
+                    logger_setup.get_logger().info(f"Inserted {id_header} {age_id} for SampleAgeID {sample_age_id}")
+            for row in range(many_to_many_model.rowCount()):
+                age_id = many_to_many_model.data(many_to_many_model.index(row, 1), QtC.Qt.ItemDataRole.DisplayRole)
+                if age_id in checked_ids:
+                    # If the age is checked, insert it if it doesn't exist
+                    if not query.exec(f'''INSERT INTO SampleAges_{table} (SampleAgeID, {id_header}) VALUES ({sample_age_id}, {age_id})'''):
+                        if 'UNIQUE constraint failed' in query.lastError().text():
+                            logger_setup.get_logger().info(f"{id_header} {age_id} already associated with SampleAgeID {sample_age_id}")
+                        else:
+                            logger_setup.get_logger().critical(f'Unable to insert checked {id_header} {age_id}: {query.lastError().text()}')
+                            rollback_savepoint('before_update')
+                            return False
+                    logger_setup.get_logger().info(f"Inserted {id_header} {age_id} for SampleAgeID {sample_age_id}")
+                elif age_id not in partially_checked_ids:
+                    # If the age is unchecked, delete it if it exists
+                    if not query.exec(f'''DELETE FROM SampleAges_{table} WHERE SampleAgeID = {sample_age_id} AND {id_header} = {age_id}'''):
+                        logger_setup.get_logger().critical(f'Unable to delete unchecked {id_header} {age_id}: {query.lastError().text()}')
+                        rollback_savepoint('before_update')
+                        return False
+                    logger_setup.get_logger().info(f"Deleted {id_header} {age_id} for SampleAgeID {sample_age_id}")
         end_update_age_tags = time.time()
         logger_setup.get_logger().info(f"Updated {table} in {end_update_age_tags - start_update_age_tags} seconds")
         return True
@@ -740,10 +763,10 @@ class AgeFields(QtW.QWidget):
                             logger_setup.get_logger().info(f"Found existing new age ID {new_sample_age_id} associated with samples")
                             sample_age_id = new_sample_age_id
                             break
-                    if sample_age_id is None:
-                        # If none of the new ages are associated with the samples, just pick the first one
-                        sample_age_id = new_sample_age_table.data(new_sample_age_table.index(0, 0),
-                                                               QtC.Qt.ItemDataRole.DisplayRole)
+                if sample_age_id is None:
+                    # If none of the new ages are associated with the samples, just pick the first one
+                    sample_age_id = new_sample_age_table.data(new_sample_age_table.index(0, 0),
+                                                           QtC.Qt.ItemDataRole.DisplayRole)
             logger_setup.get_logger().critical(f"Error adding age: {errtxt}")
             return
         else:
@@ -758,20 +781,26 @@ class AgeFields(QtW.QWidget):
                     logger_setup.get_logger().critical(f"Error adding age to sample {sample_id}: {errtxt}")
                     return
             logger_setup.get_logger().info(f"Added age {sample_age_id} to sample {sample_id}")
-            sample_table = SQLiteTableModel(f"SELECT DefaultSampleAgeID FROM {self.table} WHERE {self.sample_id_header} = {sample_id}")
-            if sample_table.rowCount() == 0:
+            query.prepare(f"SELECT DefaultSampleAgeID FROM {self.table} WHERE {self.sample_id_header} = :sample_id")
+            query.bindValue(':sample_id', sample_id)
+            if not query.exec():
+                logger_setup.get_logger().critical(f"Error getting default age for sample {sample_id}: {query.lastError().text()}")
+                return
+            if not query.next():
                 logger_setup.get_logger().critical(f"Sample {sample_id} not found")
                 return
-            default_age_id = sample_table.data(sample_table.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            default_age_id = query.value(0)
             if default_age_id is None:
                 if not query.exec(f'''UPDATE {self.table} SET DefaultSampleAgeID = {sample_age_id} WHERE {self.sample_id_header} = {sample_id}'''):
                     errtxt = query.lastError().text()
                     logger_setup.get_logger().critical(f"Error updating default age for sample {sample_id}: {errtxt}")
                     return
                 logger_setup.get_logger().info(f"Updated default age for sample {sample_id} to {sample_age_id}")
+                self.enable_groups()
                 self.default_age_checkBox.setChecked(True)
         logger_setup.get_logger().info(f"Updating age fields for {self.table} with sample IDs {self.sample_ids}")
         release_savepoint('before_add')
+        self.enable_groups()
         self.update_list(self.sample_ids)
         self.edit_age_comboBox.setCurrentIndex(self.sample_age_model.rowCount() - 1)
 
@@ -817,22 +846,37 @@ class AgeFields(QtW.QWidget):
         self.populate_dropdowns()
         self.populate_fields()
 
+    def disable_groups(self):
+        self.default_age_checkBox.setEnabled(False)
+        self.edit_age_comboBox.setEnabled(False)
+        self.direct_age_groupBox.setEnabled(False)
+        self.relative_age_groupBox.setEnabled(False)
+        self.age_information_groupBox.setEnabled(False)
+
+    def enable_groups(self):
+        self.default_age_checkBox.setEnabled(True)
+        self.edit_age_comboBox.setEnabled(True)
+        self.direct_age_groupBox.setEnabled(True)
+        self.relative_age_groupBox.setEnabled(True)
+        self.age_information_groupBox.setEnabled(True)
+
     def clear_fields(self):
         self.disconnect_signals()
         self.default_age_checkBox.setChecked(False)
-        self.edit_age_comboBox.setCurrentIndex(-1)
+        self.sample_age_model.clear_checks()
+        self.edit_age_comboBox.setCurrentText(self.edit_age_comboBox.placeholderText())
         self.direct_age_lineEdit.clear()
         self.direct_age_error_lineEdit.clear()
-        self.direct_age_error_format_comboBox.setCurrentIndex(-1)
+        self.direct_age_error_format_comboBox.setCurrentText(settings.value('age_error_format_abbreviation'))
         self.oldest_direct_lineEdit.clear()
         self.youngest_direct_lineEdit.clear()
-        self.direct_age_unit_comboBox.setCurrentIndex(-1)
-        self.oldest_rel_comboBox.setCurrentIndex(-1)
-        self.youngest_rel_comboBox.setCurrentIndex(-1)
+        self.direct_age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
+        self.oldest_rel_comboBox.setCurrentText(self.oldest_rel_comboBox.placeholderText())
+        self.youngest_rel_comboBox.setCurrentText(self.youngest_rel_comboBox.placeholderText())
         self.age_description_lineEdit.clear()
-        self.age_constraint_comboBox.setCurrentIndex(-1)
-        self.age_interpretation_comboBox.setCurrentIndex(-1)
-        self.age_reference_comboBox.setCurrentIndex(-1)
+        self.age_constraint_comboBox.setCurrentText(self.age_constraint_comboBox.placeholderText())
+        self.age_interpretation_comboBox.setCurrentText(self.age_interpretation_comboBox.placeholderText())
+        self.age_reference_comboBox.setCurrentText(self.age_reference_comboBox.placeholderText())
 
     def enable_context(self, combo_box: CheckableComboBox | CheckableTreeCombobox):
         combo_box.enable_context_menu(True)
@@ -858,7 +902,7 @@ class AgeFields(QtW.QWidget):
         elif isinstance(model, QtS.QSqlTableModel | QtS.QSqlQueryModel):
             dlg = EditTable(table)
         else:
-            print(f'Unknown model type: {type(model)}')
+            logger_setup.get_logger().info(f'Unknown model type: {type(model)}')
             return
         dlg.exec()
         self.populate_dropdowns()

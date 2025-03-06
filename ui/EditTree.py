@@ -192,15 +192,14 @@ class EditTree(QtW.QDialog):
         self.close()
         self.close_by_dialog = False
 
-    def closeEvent(self, event: QtG.QCloseEvent):
+    def close(self):
         if not self.close_by_dialog:
             if self.updated:
                 self.discard_question()
-                event.ignore()
             else:
                 logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
-                event.accept()
+                super().close()
         else:
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
-            event.accept()
+            super().close()
 

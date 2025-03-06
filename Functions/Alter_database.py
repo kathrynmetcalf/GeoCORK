@@ -571,6 +571,7 @@ def convert_gps_location(gps_id: int):
     conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormat', gps_format_id)
     if conversions == "error":
         return False
+    create_savepoint('before_populate_gps')
     for conversion in conversions:
         if conversion[0] == gps_format_id:
             gps_code = conversion[1]
@@ -579,7 +580,6 @@ def convert_gps_location(gps_id: int):
             sql_alter = f'UPDATE GPSLocations SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'
             logger_setup.get_logger().info(f'Updating the calculated {column}')
             logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
-            create_savepoint('before_populate_gps')
             if not query.exec(sql_alter):
                 logger_setup.get_logger().critical(
                     f'Error adding the calculated column {column}: {query.lastError().text()}')
@@ -587,8 +587,8 @@ def convert_gps_location(gps_id: int):
                 rollback_savepoint('before_populate_gps')
                 return False
             logger_setup.get_logger().info(f'Successfully updated GPS display')
-            release_savepoint('before_populate_gps')
             break
+    release_savepoint('before_populate_gps')
     return True
 
 def convert_sample_age(sample_age_id: int):
@@ -612,6 +612,7 @@ def convert_sample_age(sample_age_id: int):
     conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', DirectAgeUnitID)
     if conversions == "error":
         return False
+    create_savepoint('before_populate_age')
     for conversion in conversions:
         if conversion[0] == DirectAgeUnitID:
             age_code = conversion[1]
@@ -620,7 +621,6 @@ def convert_sample_age(sample_age_id: int):
             sql_alter = f'UPDATE SampleAges SET {column}="{age_display}" WHERE "SampleAgeID"={sample_age_id}'
             logger_setup.get_logger().info(f'Updating the calculated {column}')
             logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
-            create_savepoint('before_populate_age')
             if not query.exec(sql_alter):
                 logger_setup.get_logger().critical(
                     f'Error adding the calculated column {column}: {query.lastError().text()}')
