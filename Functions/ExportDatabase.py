@@ -1,6 +1,8 @@
 import os
 import sqlite3
 import sys
+from inspect import AGEN_SUSPENDED
+from tkinter.constants import UNITS
 from typing import List, Dict, Any, Set, Optional, Tuple
 
 from PyQt6 import QtSql, QtCore
@@ -9,6 +11,7 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QApplication
 
 import logger_setup
+from ui.GPSDialog import GPSDialog
 
 
 def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
@@ -20,6 +23,18 @@ def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
     if not db.open():
         raise RuntimeError(f"Could not open database at {db_path}: {db.lastError().text()}")
     return db
+
+
+def copy_table(table_name, conn_source, conn_target):
+    cols_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
+    insert_cols_info = [c[1] for c in cols_info]
+
+    results = fetchall(
+        f'SELECT {','.join([f"[{item}]" for item in insert_cols_info])} FROM "{table_name}"',
+        conn_source
+    )
+    if results:
+        insert_rows(conn_target, table_name, results, insert_cols_info)
 
 def fetchall(query_str: str, db: QSqlDatabase, params: Optional[Tuple] = None) -> List[tuple]:
     """
@@ -51,7 +66,7 @@ def execute_sql(statement: str, db: QSqlDatabase) -> bool:
     """
     query = QSqlQuery(db)
     if not query.exec(statement):
-        # logger_setup.get_logger().critical(f'Error executing SQL: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error executing SQL: {query.lastError().text()}')
         return False
     return True
 
@@ -77,12 +92,12 @@ def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], insert_col
             logger_setup.get_logger().debug(f'{table_name}: Binding value {i}:{val}')
             query.bindValue(i, val)
         if not query.exec():
-            logger_setup.get_logger().critical(
+            if "UNIQUE constraint failed: " in query.lastError().text():
+                logger_setup.get_logger().info(f'Record already in database, skipping: {query.lastError().text()}')
+            else:
+                logger_setup.get_logger().critical(
                 f'Error fetching total records: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
-            pass
-    # If desired, you can call db.commit() here or wrap in transactions as needed.
-
+                logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
 
 ###############################################################################
 # 1. SCHEMA COPY
@@ -130,6 +145,22 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
                 logger_setup.get_logger().critical(f'SQL command: {create_view_sql}')
 
 
+def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
+    static_tables = ['About',
+                     'AgeUnitConversions',
+                     'AgeUnits',
+                     'ConcordanceFormatConversions',
+                     'ConcordanceFormats',
+                     'DirectionUnits',
+                     'DistanceUnitConversions',
+                     'DistanceUnits',
+                     'ErrorFormatConversions',
+                     'ErrorFormats',
+                     'GPSFormatConversions',
+                     'GPSFormats']
+    for table in static_tables:
+        logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
+        copy_table(table, conn_source, conn_target)
 
 ###############################################################################
 # 2. DETECTING MANY-TO-MANY BRIDGE TABLES
@@ -363,7 +394,6 @@ def subset_one_to_many_chain(
                 if row[inst_idx] is not None: instrument_ids.add(row[inst_idx])
                 if row[labf_idx] is not None: labfac_ids.add(row[labf_idx])
                 if row[meth_idx] is not None: method_ids.add(row[meth_idx])
-                print(reference_ids)
 
             def fetch_and_insert(table_name, pk_col, pk_values):
                 if not pk_values:
@@ -489,6 +519,8 @@ def subset_database(
     # 2) Copy schema
     copy_schema(conn_source, conn_target)
 
+    copy_static_tables(conn_source, conn_target)
+
     for sample_id in sample_ids:
         # 3) Retrieve the requested Sample row from source
         col_info_samples = fetchall("PRAGMA table_info('Samples')", conn_source)
@@ -499,7 +531,6 @@ def subset_database(
             (sample_id,)
         )
         if not row:
-            print(f"No Samples found with SampleID={sample_id}")
             conn_source.close()
             conn_target.close()
             return

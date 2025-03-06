@@ -759,11 +759,27 @@ class ExportWidget(QWidget):
         if not fileName.lower().endswith(".db"):
             fileName += ".db"
 
-        src_db = QSqlDatabase()
-        tgt_db = QSqlDatabase.addDatabase('QSQLITE', 'target_connection')
-        tgt_db.setDatabaseName(fileName)
-        ExportDatabase.subset_database(src_db, tgt_db, self.checked_sample_list)
+        sample_id_to_subset = self.checked_sample_list
 
+        if 'target_connection' in QSqlDatabase().connectionNames():
+            QSqlDatabase.database('temp').close()
+            QSqlDatabase().removeDatabase('temp')
+            os.remove("temp.db")
+
+        tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'target_connection')
+        tgt_db.setDatabaseName(fileName)
+        tgt_db.open()
+
+        src_db = QSqlDatabase()
+
+        ExportDatabase.subset_database(src_db, tgt_db, sample_id_to_subset)
+        tgt_db.commit()
+        tgt_db.close()
+
+        QSqlDatabase().removeDatabase('target_connection')
+
+        msg = QMessageBox.information(self, "Database Export", "Database has exported successfully", None, buttons=QMessageBox.StandardButton.Ok)
+        msg.exec()
         QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(os.path.dirname(fileName)))
 
     def export_to_excel(self):
@@ -993,8 +1009,6 @@ class ExportWidget(QWidget):
 
                 sample_id_to_subset = self.checked_sample_list
 
-                db_id_subset = FilterDatabase.gather_ids_for_subset(QSqlDatabase(), sample_id_to_subset)
-
                 tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'temp')
                 tgt_db.setDatabaseName(tgt_db_file)
                 tgt_db.open()
@@ -1011,25 +1025,9 @@ class ExportWidget(QWidget):
                 new_tab.setLayout(tab_layout)
 
                 self.workbooktabs.addTab(new_tab, 'Database')
-
-                pass
             case 'Custom':
                 self.create_first_worksheet_tab()
                 pass
-
-    def table_switcher(self, db_id_subset):
-        table = self.findChild(QComboBox, 'database_table_switcher').currentText()
-        table = table.replace(' ', '')
-        tableView: QSqlTableModel = self.findChild(QSqlTableModel, 'database_QSqlTableModel')
-        tableView.setTable(table)
-        tableView.select()
-        db_id_subset= f"({', '.join(map(str, db_id_subset[table]))})"
-        if table == 'UPbData':
-            tableView.setFilter(f'UPbAnalysisID IN ' + db_id_subset)
-        elif table == 'LabFacilities':
-            tableView.setFilter(f'LabFacilityID IN ' + db_id_subset)
-        else:
-            tableView.setFilter(f'{table[0:-1]}ID IN ' + db_id_subset)
 
     def update_step_2_list(self):
         # self.samplesincluded_comboBox.disconnect()
