@@ -1,13 +1,16 @@
 import sqlite3
 import os
 import sys
+
+import qtawesome
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel, QTimer
 from PyQt6.QtSql import QSqlQuery
-from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView
+from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView, \
+    QStyle
 
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
@@ -46,6 +49,9 @@ class DisplayTables(QtW.QWidget):
             if widget.inherits("QMainWindow"):
                 self.main_window = widget
                 break
+
+
+
 
         # Retrieve the savepoint manager
         savepoint_manager = Savepoint_manager.SavepointManager()
@@ -93,6 +99,9 @@ class DisplayTables(QtW.QWidget):
         # self.dbFrozen_tableView.customContextMenuRequested.connect(self.show_context_menu)
         self.dbTable_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.dbTable_treeView.customContextMenuRequested.connect(self.show_context_menu)
+
+        self.refreshbutton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
+        self.refreshbutton.clicked.connect(self.display_table)
 
     def switch_to_table(self):
         """

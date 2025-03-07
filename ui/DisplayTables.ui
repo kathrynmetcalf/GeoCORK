@@ -57,7 +57,7 @@
           <property name="currentText">
            <string/>
           </property>
-          <property name="placeholderText">
+          <property name="placeholderText" stdset="0">
            <string/>
           </property>
          </widget>
@@ -100,6 +100,22 @@
           </property>
           <property name="text">
            <string>Edit Selected</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QPushButton" name="refreshbutton">
+          <property name="minimumSize">
+           <size>
+            <width>30</width>
+            <height>30</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>30</width>
+            <height>30</height>
+           </size>
           </property>
          </widget>
         </item>

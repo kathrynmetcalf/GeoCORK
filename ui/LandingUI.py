@@ -11,7 +11,7 @@ from PyQt6.QtGui import QPixmap, QAction
 from PyQt6.QtSql import QSqlDatabase
 # from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
-    QListWidget, QListWidgetItem
+    QListWidget, QListWidgetItem, QMainWindow, QApplication
 from PyQt6.uic import loadUi
 
 import logger_setup
@@ -47,7 +47,7 @@ class LandingPage(QWidget):
         self.opendatabase_button.clicked.connect(self.showFileDialog)
 
         self.github_button: QPushButton
-        self.github_button.setIcon(qtawesome.icon('fa.github', color='white', scale_factor=1.5))
+        self.github_button.setIcon(qtawesome.icon('fa6b.github', color='white', scale_factor=1.5))
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
 
@@ -81,6 +81,11 @@ class LandingPage(QWidget):
     def open_geo_cork(self, skip_update=False):
         if not self.test_database_lock():
             from ui.GeoCORKMain import GeoCORK
+            for widget in QApplication.allWidgets():
+                if widget.objectName() == 'GeoCORKMain':
+                    Savepoint_manager.SavepointManager.reset()
+                    widget.close()
+
             if self.db is None:
                 self.db = QSqlDatabase.addDatabase("QSQLITE")
                 self.db.setDatabaseName(self.get_filename())
@@ -177,6 +182,8 @@ class LandingPage(QWidget):
         webbrowser.open('http://github.com')
 
     def showFileDialog(self):
+        self.db = None
+
         file_dialog = QFileDialog(self, 'Open Database File', str(Path.home()), 'Database Files(*.db)')
         file_dialog.setOption(QFileDialog.Option.ShowDirsOnly, False)
         file_dialog.setFileMode(QFileDialog.FileMode.ExistingFiles)

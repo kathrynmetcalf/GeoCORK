@@ -6,7 +6,9 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.QtCore import QPoint, QSize
+from PyQt6.QtGui import QAction
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtWidgets import QMenu, QStatusBar
 
 from PyQt6.uic import loadUi
 import Functions.Database_views as DB_views
@@ -36,6 +38,7 @@ class GeoCORK(QtW.QMainWindow):
         super().__init__()
         logger_setup.get_logger().info("Starting the main window")
         # Define any variables here
+
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         base_path = os.path.normpath(base_path)
@@ -43,7 +46,7 @@ class GeoCORK(QtW.QMainWindow):
         sources_ui_file = os.path.normpath(sources_ui_file)
         self.loadWindowState()
         loadUi(sources_ui_file, self)
-
+        self.setObjectName('GeoCORKMain')
 
         self.landingpage = landingpage
         self.db = QSqlDatabase()
@@ -53,15 +56,17 @@ class GeoCORK(QtW.QMainWindow):
         query = QSqlQuery('Select Name From About WHERE AboutID=1')
         if query.exec():
             if query.next():
-                self.setWindowTitle(f'GeoCORK Database: {query.value(0)}')
-
+                self.setWindowTitle(f'GeoCORK Database: {query.value(0)}            file: {self.db_file}')
+        self.recent_files = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
+        self.recent_files = self.recent_files[-6:-1]
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
         actionNew = QtG.QAction('New', self)
         actionNew.setShortcut(QtG.QKeySequence('Ctrl+N'))
         actionOpen = QtG.QAction('Open', self)
         actionOpen.setShortcut(QtG.QKeySequence('Ctrl+O'))
-        actionRecent = QtG.QAction('Recent', self)
+        self.menuRecent = QMenu('Recent', self)
+        self.update_recent_files_menu()
         actionImport = QtG.QAction('Import', self)
         actionImport.setShortcut(QtG.QKeySequence('Ctrl+I'))
         actionSettings = QtG.QAction('Settings', self)
@@ -72,11 +77,15 @@ class GeoCORK(QtW.QMainWindow):
         actionExport = QtG.QAction('Export', self)
         actionQuit = QtG.QAction('Quit', self)
         actionQuit.setShortcut(QtG.QKeySequence('Ctrl+Q'))
-        file_menu.addActions([actionNew, actionOpen, actionRecent, actionImport, actionSettings,
-                                   actionCreateBackup, actionRestoreBackup, actionExport, actionQuit])
-        file_menu.insertSeparator(actionSettings)
-        file_menu.insertSeparator(actionCreateBackup)
-        file_menu.insertSeparator(actionQuit)
+        file_menu.addActions([actionNew, actionOpen, actionImport])
+        file_menu.addSeparator()
+        file_menu.addMenu(self.menuRecent)
+        file_menu.addSeparator()
+        file_menu.addAction(actionSettings)
+        file_menu.addSeparator()
+        file_menu.addActions([actionCreateBackup, actionRestoreBackup, actionExport])
+        file_menu.addSeparator()
+        file_menu.addAction(actionQuit)
 
         settings.setValue('db_file', self.db_file)
         logger_setup.get_logger().info(f"Setting database file to: {self.db_file}")
@@ -111,7 +120,6 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget.currentChanged.connect(self.on_tab_changed)
 
         actionOpen.triggered.connect(self.landingpage.showFileDialog)
-        actionRecent.triggered.connect(self.landingpage.new_database_dialog)
         # actionCreateBackup.triggered.connect(self.create_backup)
         # actionRestoreBackup.triggered.connect(self.restore_backup)
         actionImport.triggered.connect(self.show_import_wizard_dialog)
@@ -120,6 +128,25 @@ class GeoCORK(QtW.QMainWindow):
         actionQuit.triggered.connect(self.close)
 
         self.show()
+
+    def update_recent_files_menu(self):
+        """Refresh the recent files menu."""
+        self.menuRecent.clear()
+        if self.recent_files:
+            for file_path in self.recent_files:
+                action = QAction(file_path, self)
+                action.triggered.connect(lambda checked, path=file_path: self.open_recent_file(path))
+                self.menuRecent.addAction(action)
+        else:
+            empty_action = QAction("(No recent files)", self)
+            empty_action.setEnabled(False)
+            self.menuRecent.addAction(empty_action)
+
+    def open_recent_file(self, file_path):
+        """Simulate opening a recent file."""
+        self.landingpage.selected_files = file_path
+        self.landingpage.db = None
+        self.landingpage.open_geo_cork()
 
     def show_settings_dialog(self):
         dlg = SettingsDialog()
