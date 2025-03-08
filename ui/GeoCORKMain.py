@@ -127,6 +127,7 @@ class GeoCORK(QtW.QMainWindow):
         actionExport.triggered.connect(ExportWidget)
         actionQuit.triggered.connect(self.close)
 
+        self.showMaximized()
         self.show()
 
     def update_recent_files_menu(self):

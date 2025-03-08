@@ -508,6 +508,7 @@ gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees 
                    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
 
 
+
 table_attributes_dict = {
     'AgeConstraints': [
         "AgeConstraintName", "AgeConstraintDescription",

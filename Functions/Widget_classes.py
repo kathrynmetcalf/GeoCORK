@@ -534,64 +534,27 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         self.checked_ids = []
         self.partially_checked_ids = []
 
-    def update_many_db(self, many_to_many: str, item_ids: list):
-        if not item_ids:
-            logger_setup.get_logger().error(f'No item IDs given for {self.many_to_many}')
+    def update_table(self, other_table: str, other_ids: list):
+        # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
+        # want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
+        # method is useful when editing joined views, like editing the SpotComposition in the SampleEditView.
+        if not other_ids:
+            logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
-        first_table = many_to_many.split('_')[0]
-        first_table_id_header = get_headers(first_table)[0]
-        second_table_id_header = get_headers(self.tableName())[0]
-        current_ids = []
-        query = QtS.QSqlQuery()
-        if len(item_ids) > 1:
-            query_where_str = f'in {tuple(item_ids)}'
-        elif len(item_ids) == 1:
-            query_where_str = f'= {item_ids[0]}'
-        else:
-            logger_setup.get_logger().error(f'No item IDs given for {first_table}')
-            return False
-        query.prepare(f"SELECT * FROM {many_to_many} WHERE {first_table_id_header} {query_where_str}")
-        if query.exec():
-            while query.next():
-                current_ids.append(query.value(1))
-            create_savepoint('update_db')
-            to_remove = []
-            to_add = []
-            for id in current_ids:
-                if id not in self.checked_ids and id not in self.partially_checked_ids:
-                    to_remove.append(id)
-            for id in self.checked_ids:
-                if id not in current_ids and id not in self.partially_checked_ids:
-                    to_add.append(id)
-            for id in to_remove:
-                query.prepare(
-                    f"DELETE FROM {many_to_many} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
-                if not query.exec():
-                    logger_setup.get_logger().error(
-                        f"Error removing {id} associated with item IDs from {many_to_many}: {query.lastError().text()}")
-                    rollback_savepoint('update_db')
-                    return False
-                logger_setup.get_logger().info(f"Removed {id} associated with item IDs from {many_to_many}")
-            for id in to_add:
-                query.prepare(
-                    f"INSERT INTO {many_to_many}({first_table_id_header}, {second_table_id_header}) VALUES(?, ?)")
-                for item_id in item_ids:
-                    query.addBindValue(item_id)
-                    query.addBindValue(id)
-                    if not query.exec():
-                        logger_setup.get_logger().error(
-                            f"Error adding {item_ids, id} to {many_to_many}: {query.lastError().text()}")
-                        rollback_savepoint('update_db')
-                        return False
-                logger_setup.get_logger().info(f"Added {id} associated with item IDs to {many_to_many}")
-            logger_setup.get_logger().info(
-                f"Successfully updated {many_to_many} for {first_table_id_header} {item_ids}")
-            release_savepoint('update_db')
+        if update_table_with_checks(self.tableName(), self.checked_ids, self.partially_checked_ids, other_table, other_ids):
             return True
         else:
-            logger_setup.get_logger().error(
-                f"Error updating {many_to_many} for {first_table_id_header} ({item_ids}): {query.lastError().text()}")
             return False
+
+    def update_many_table(self, many_table: str, item_ids: list):
+        if not item_ids:
+            logger_setup.get_logger().error(f'No item IDs given for {many_table}')
+            return False
+        if update_many_table_with_checks(self.tableName(), self.checked_ids, self.partially_checked_ids, many_table, item_ids):
+            return True
+        else:
+            return False
+
 
 class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def __init__(self):
@@ -662,6 +625,27 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def clear_checks(self):
         self.checked_ids = []
         self.partially_checked_ids = []
+
+    def update_other_table(self, other_table: str, other_ids: list):
+        # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
+        # want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
+        # method is useful when editing joined views, like editing the SpotComposition in the SampleEditView.
+        if not other_ids:
+            logger_setup.get_logger().error(f'No item IDs given for {other_table}')
+            return False
+        if update_table_with_checks(self.table, self.checked_ids, self.partially_checked_ids, other_table, other_ids):
+            return True
+        else:
+            return False
+
+    def update_many_table(self, many_table: str, item_ids: list):
+        if not item_ids:
+            logger_setup.get_logger().error(f'No item IDs given for {many_table}')
+            return False
+        if update_many_table_with_checks(self.table, self.checked_ids, self.partially_checked_ids, many_table, item_ids):
+            return True
+        else:
+            return False
 
 class SampleAgeTableModel(CheckableSqlQueryModel):
     def __init__(self):
@@ -2034,62 +2018,40 @@ class CheckableTreeModel(TreeModel):
             partially_checked_indices.extend(child_partially_checked_indices)
         return checked_items, partially_checked_items, checked_indices, partially_checked_indices
 
-    def update_db(self, many_to_many: str, checked_ids: list, partially_checked_ids: list | None, item_ids: list | None):
-        self.many_to_many = many_to_many
-        if not item_ids:
-            item_ids = self.item_ids
-        if not partially_checked_ids:
-            partially_checked_ids = []
-        first_table = self.many_to_many.split('_')[0]
-        first_table_id_header = get_headers(first_table)[0]
-        current_ids = []
-        query = QtS.QSqlQuery()
-        if len(item_ids) > 1:
-            query_where_str = f'in {tuple(item_ids)}'
-        elif len(item_ids) == 1:
-            query_where_str = f'= {item_ids[0]}'
-        else:
-            logger_setup.get_logger().error(f'No item IDs given for {first_table}')
+    def update_other_table(self, other_table: str, other_ids: list):
+        # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
+        # want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
+        # method is useful when editing joined views, like editing the SpotComposition in the SampleEditView.
+        if not other_ids:
+            logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
-        query.prepare(f"SELECT * FROM {self.many_to_many} WHERE {first_table_id_header} {query_where_str}")
-        if query.exec():
-            while query.next():
-                current_ids.append(query.value(1))
-            create_savepoint('update_db')
-            to_remove = []
-            to_add = []
-            for id in current_ids:
-                if id not in checked_ids and id not in partially_checked_ids:
-                    to_remove.append(id)
-            for id in checked_ids:
-                if id not in current_ids and id not in partially_checked_ids:
-                    to_add.append(id)
-            for id in to_remove:
-                query.prepare(
-                    f"DELETE FROM {self.many_to_many} WHERE {first_table_id_header} {query_where_str} AND {self.id_header} = {id}")
-                if not query.exec():
-                    logger_setup.get_logger().error(
-                        f"Error removing {id} associated with item IDs from {self.many_to_many}: {query.lastError().text()}")
-                    rollback_savepoint('update_db')
-                    return False
-                logger_setup.get_logger().info(f"Removed {id} associated with item IDs from {self.many_to_many}")
-            for id in to_add:
-                query.prepare(f"INSERT INTO {self.many_to_many}({first_table_id_header}, {self.id_header}) VALUES(?, ?)")
-                for item_id in item_ids:
-                    query.addBindValue(item_id)
-                    query.addBindValue(id)
-                    if not query.exec():
-                        logger_setup.get_logger().error(
-                            f"Error adding {item_ids, id} to {self.many_to_many}: {query.lastError().text()}")
-                        rollback_savepoint('update_db')
-                        return False
-                logger_setup.get_logger().info(f"Added {id} associated with item IDs to {self.many_to_many}")
-            logger_setup.get_logger().info(f"Successfully updated {self.many_to_many} for {first_table_id_header} {item_ids}")
-            release_savepoint('update_db')
+        checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.traverse_checkable_tree(
+            QtC.QModelIndex())
+        checked_ids = []
+        partially_checked_ids = []
+        for index in checked_indices:
+            checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
+        for index in partially_checked_indices:
+            partially_checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
+        if update_table_with_checks(self.table, checked_ids, partially_checked_ids, other_table, other_ids):
             return True
         else:
-            logger_setup.get_logger().error(
-                f"Error updating {self.many_to_many} for {first_table_id_header} ({item_ids}): {query.lastError().text()}")
+            return False
+
+    def update_many_table(self, many_table: str, item_ids: list | None):
+        if not item_ids:
+            logger_setup.get_logger().error(f'No item IDs provided for updating many-to-many table {self.many_to_many}')
+            return False
+        checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.traverse_checkable_tree(QtC.QModelIndex())
+        checked_ids = []
+        partially_checked_ids = []
+        for index in checked_indices:
+            checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
+        for index in partially_checked_indices:
+            partially_checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
+        if update_many_table_with_checks(self.table, checked_ids, partially_checked_ids, many_table, item_ids):
+            return True
+        else:
             return False
 
 class TreeListProxyModel(QtC.QSortFilterProxyModel):
@@ -3195,7 +3157,7 @@ def add_tree_popup(tree_view: QtW.QTreeView, tree_model: TreeModel, action: QtG.
             parent_id = item_ids[0]
             dlg_args = {'parent_id' : parent_id}
         elif action.text() == 'Add parent':
-            dlg_args = {'add_item': 'parent', 'item_ids': item_ids, 'new_child_ids': parent_ids, 'new_parent_rows': parent_rows}
+            dlg_args = {'add_item': 'parent', 'update_ids': item_ids, 'new_child_ids': parent_ids, 'new_parent_rows': parent_rows}
         elif action.text() == 'Add to end':
             dlg_args = None
     return dlg_args
@@ -3362,7 +3324,9 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
                 break
 
 
-def populate_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_table_id: int):
+def populate_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_table_ids: list):
+    if not first_table_ids == []:
+        return
     logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
     many_to_many_model = QtS.QSqlTableModel()
     many_to_many_model.setTable(many_to_many_table)
@@ -3390,8 +3354,12 @@ def populate_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_t
                 model_index = model.index(row, col, index)
                 id_index = model.index(row, id_col, index)
                 tag_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
+                if len(first_table_ids) > 1:
+                    query_where_str = f'in {tuple(first_table_ids)}'
+                else:
+                    query_where_str = f'= {first_table_ids[0]}'
                 many_to_many_model.setFilter(
-                        f"{first_table_id_header} = {first_table_id} AND {tag_id_header} = {tag_id}")
+                        f"{first_table_id_header} {query_where_str} AND {tag_id_header} = {tag_id}")
                 if many_to_many_model.rowCount() == 0:
                     # The item does not have this tag
                     model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
@@ -3408,7 +3376,12 @@ def populate_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_t
     else:
         for row in range(model.rowCount()):
             tag_id = model.index(row, id_col).data()
-            many_to_many_model.setFilter(f"{first_table_id_header} = {first_table_id} AND {tag_id_header} = {tag_id}")
+            if len(first_table_ids) > 1:
+                query_where_str = f'in {tuple(first_table_ids)}'
+            else:
+                query_where_str = f'= {first_table_ids[0]}'
+            many_to_many_model.setFilter(
+                f"{first_table_id_header} {query_where_str} AND {tag_id_header} = {tag_id}")
             model_index = model.index(row, col)
             if many_to_many_model.rowCount() == 0:
                 # The item does not have this tag
@@ -3499,3 +3472,135 @@ def get_readable_header(header: str):
     if 'U Pb' in header:
         header = header.replace('U Pb', 'U-Pb')
     return header
+
+
+# ---------------------------
+#    Database Methods
+# ---------------------------
+
+def update_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, update_table: str, update_ids: list):
+    """
+    Take the checked ids from a table and update that field in another table. The relationship must be one-to-one or
+    one-to-many, so the checked ids should be complete. If the relationship is many-to-many, use update_many_table_with_checks.
+    :param table: table with checked data
+    :param checked_ids: ids of checked items in the table
+    :param partially_checked_ids: ids of partially checked items in the table
+    :param update_table: table to update
+    :param update_ids: ids to update in the update table
+    :return: True if successful or not needed, False if not
+    """
+    if not update_ids:
+        logger_setup.get_logger().error(f'No item IDs given for {update_table}')
+        return False
+    if partially_checked_ids:
+        # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
+        logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+        return True
+    id_header = get_headers(table)[0]
+    other_id_header = get_headers(update_table)[0]
+    current_ids = []
+    query = QtS.QSqlQuery()
+    if len(update_ids) > 1:
+        query_where_str = f'in {tuple(update_ids)}'
+    else:
+        query_where_str = f'= {update_ids[0]}'
+    query.prepare(f"SELECT {id_header} FROM {update_table} WHERE {other_id_header} {query_where_str}")
+    if not query.exec():
+        logger_setup.get_logger().error(
+            f'Failed to get {other_id_header} for {update_ids} from {update_table}: {query.lastError().text()}')
+        return False
+    while query.next():
+        current_id = query.value(0)
+        if current_id not in current_ids:
+            current_ids.append(current_id)
+    create_savepoint('update_other_table')
+    to_remove = []
+    to_add = []
+    for id in current_ids:
+        if id not in checked_ids and id != '':
+            # If the value is already Null, no need to change it
+            to_remove.append(id)
+    for id in checked_ids:
+        if id not in current_ids or '' in current_ids:
+            # If any current value is Null, replace it with the new checked value
+            to_add.append(id)
+    for id in to_remove:
+        if not query.exec(f'UPDATE {update_table} SET {id_header} = NULL WHERE {other_id_header} {query_where_str}'):
+            logger_setup.get_logger().error(f'Failed to remove {id} from {update_table}: {query.lastError().text()}')
+            rollback_savepoint('update_other_table')
+            return False
+    logger_setup.get_logger().info(f'Removed {id_header} {to_remove} from {update_table}')
+    for id in to_add:
+        if not query.exec(f'UPDATE {update_table} SET {id_header} = {id} WHERE {other_id_header} {query_where_str}'):
+            logger_setup.get_logger().error(
+                f'Failed to add {id_header} {id} to {update_table}: {query.lastError().text()}')
+            rollback_savepoint('update_other_table')
+            return False
+    logger_setup.get_logger().info(f'Added {id_header} {to_add} to {update_table}')
+    release_savepoint('update_other_table')
+    return True
+
+def update_many_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, many_table: str, first_table_ids: list):
+    """
+        Take the checked ids from a table and update that field in the second column of a many-to-many table with another table.
+        The relationship must be many-to-many, so the checked ids may be partial.
+        :param table: table with checked data
+        :param checked_ids: ids of checked items in the table
+        :param partially_checked_ids: ids of partially checked items in the table
+        :param many_table: first table in the manny-to-many table to update
+        :param first_table_ids: ids to update in the first table
+    """
+    first_table = many_table.split('_')[0]
+    first_table_id_header = get_headers(first_table)[0]
+    second_table_id_header = get_headers(table)[0]
+    current_ids = []
+    query = QtS.QSqlQuery()
+    if len(first_table_ids) > 1:
+        query_where_str = f'in {tuple(first_table_ids)}'
+    elif len(first_table_ids) == 1:
+        query_where_str = f'= {first_table_ids[0]}'
+    else:
+        logger_setup.get_logger().error(f'No item IDs given for {first_table}')
+        return False
+    query.prepare(f"SELECT * FROM {many_table} WHERE {first_table_id_header} {query_where_str}")
+    if query.exec():
+        while query.next():
+            current_ids.append(query.value(1))
+        create_savepoint('update_many_table')
+        to_remove = []
+        to_add = []
+        for id in current_ids:
+            if id not in checked_ids and id not in partially_checked_ids:
+                to_remove.append(id)
+        for id in checked_ids:
+            if id not in current_ids and id not in partially_checked_ids:
+                to_add.append(id)
+        for id in to_remove:
+            query.prepare(
+                f"DELETE FROM {many_table} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
+            if not query.exec():
+                logger_setup.get_logger().error(
+                    f"Error removing {id} associated with item IDs from {many_table}: {query.lastError().text()}")
+                rollback_savepoint('update_many_table')
+                return False
+        logger_setup.get_logger().info(f"Removed {to_remove} associated with item IDs {first_table_ids} from {many_table}")
+        for id in to_add:
+            query.prepare(
+                f"INSERT INTO {many_table}({first_table_id_header}, {second_table_id_header}) VALUES(?, ?)")
+            for item_id in first_table_ids:
+                query.addBindValue(item_id)
+                query.addBindValue(id)
+                if not query.exec():
+                    logger_setup.get_logger().error(
+                        f"Error adding {first_table_ids, id} to {many_table}: {query.lastError().text()}")
+                    rollback_savepoint('update_many_table')
+                    return False
+        logger_setup.get_logger().info(f"Added {to_add} associated with item IDs {first_table_ids} to {many_table}")
+        logger_setup.get_logger().info(
+            f"Successfully updated {many_table} for {first_table_id_header} {first_table_ids}")
+        release_savepoint('update_many_table')
+        return True
+    else:
+        logger_setup.get_logger().error(
+            f"Error updating {many_table} for {first_table_id_header} ({first_table_ids}): {query.lastError().text()}")
+        return False
