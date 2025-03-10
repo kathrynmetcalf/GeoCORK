@@ -15,7 +15,7 @@ from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 import Functions.Text_manipulations as TxM
 from Functions.Widget_classes import (SQLiteTableModel, VerifiableSqlTableModel, VerifiableSqlViewModel, set_table, get_headers,
-                                      ReadableProxyModel)
+                                      ReadableProxyModel, get_name_column)
 import Functions.Alter_database as Alter_db
 from ui.AddTags import AddTags
 from ui.GPSDialog import GPSDialog
@@ -27,7 +27,7 @@ class EditTable(QtW.QDialog):
     def __init__(self, table_name, **kwargs):
         super().__init__()
 
-        # Define any widgets here
+        logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
         loadUi(sources_ui_file, self)
@@ -38,12 +38,19 @@ class EditTable(QtW.QDialog):
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox(self)
 
-        self.model = QtS.QSqlTableModel()
-        set_table(self.model, self.table)
-        self.table_headers = get_headers(self.table)
+        # Pagination variables
+        self.show_per_page_comboBox: QtW.QComboBox
+        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.current_page = 0
+        self.rows_per_page = settings.value('show_per_page')
+        self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
+        self.total_records = 0
+
+        self.model = QtS.QSqlQueryModel()
         self.proxy_model = ReadableProxyModel()
-        self.proxy_model.setSourceModel(self.model)
-        self.display_table()
+        self.name_column = None
+        self.name_header = None
+
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
@@ -53,6 +60,46 @@ class EditTable(QtW.QDialog):
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
+
+    def create_model(self):
+        self.model.setQuery(f'SELECT * FROM {self.table}')
+        self.table_headers = get_headers(self.table)
+        self.proxy_model.setSourceModel(self.model)
+
+        self.name_column = get_name_column(self.table)
+        model_index = self.model.index(0, self.name_column)
+        proxy_index = self.proxy_model.mapFromSource(model_index)
+        proxy_name_column = proxy_index.column()
+        self.name_header = self.proxy_model.headerData(proxy_name_column, QtC.Qt.Orientation.Horizontal,
+                                                       QtC.Qt.ItemDataRole.DisplayRole)
+
+        # Sort the table by the name column
+        self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+        self.display_table()
+
+    def change_rows_per_page(self):
+        """
+        Slot to change the number of rows displayed per page
+        """
+        self.rows_per_page = int(self.show_per_page_comboBox.currentText())
+        self.current_page = 0
+        self.create_model()
+
+    def next_page(self):
+        """
+        Slot to move to the next page for the displayed table
+        """
+        if (self.current_page + 1) * self.rows_per_page < self.total_records:
+            self.current_page += 1
+            self.create_model()
+
+    def previous_page(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
+        """
+        Slot to move to the previous page for the displayed table
+        """
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.create_model()
 
     def show_context_menu(self, pos):
         indexes = self.edit_tableView.selectedIndexes()
@@ -85,6 +132,7 @@ class EditTable(QtW.QDialog):
                         logger_setup.get_logger().critical(f'Failed to delete row {row} from {self.table}: {self.model.lastError().text()}')
 
     def display_table(self):
+        logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.edit_tableView.setModel(self.proxy_model)
         # self.edit_tableView.setModel(self.filter_proxy_model)
         for column in range(self.proxy_model.columnCount()):
@@ -105,7 +153,7 @@ class EditTable(QtW.QDialog):
             dlg = AddTags(self.table)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
-        self.display_table()
+        self.create_model()
 
     def rollback(self):
         rollback_savepoint('before_edit')

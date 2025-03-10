@@ -230,7 +230,8 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget: PartiallyCloseableTabWidget
         if index not in self.tabWidget.permanent_tabs:
             self.tabWidget.removeTab(index)
-            self.tabWidget.setCurrentIndex(index-1)
+            if self.tabWidget.currentIndex() == index:
+                self.tabWidget.setCurrentIndex(index - 1)
 
     def saveWindowState(self):
         settings.setValue("ui/GeoChronMain/pos", self.pos())

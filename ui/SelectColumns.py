@@ -37,6 +37,8 @@ class SelectColumns(QWidget):
         # Columns that view selections must have but are always hidden: parent ID fields and tree structure fields
         self.hidden_must_haves = ['SampleID', 'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SpotID', 'UPbAnalysisID']
 
+        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox.setCurrentText(str(settings.value('show_per_page')))
         self.columnselection_comboBox.addItems(self.view_dict.keys())
         self.load_list_states()
 
@@ -107,6 +109,9 @@ class SelectColumns(QWidget):
         self.columnattributes_stack.setCurrentIndex(selected_view_index)
 
     def save_list_states(self):
+        # Save the number of rows to show per page
+        settings.setValue('show_per_page', int(self.show_per_page_comboBox.currentText()))
+
         # Save the state of checkboxes for all tables
         logger_setup.get_logger().info('Saving column selections')
         for index in range(self.columnattributes_stack.count()):

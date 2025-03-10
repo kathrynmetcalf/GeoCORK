@@ -24,7 +24,7 @@ settings_list = [
     'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
     'reference_view_freeze', 'checkable_combobox_height_scaler',
-    'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level'
+    'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page'
 ]
 
 def populate_app_defaults():
@@ -164,6 +164,7 @@ def default_settings():
     settings.setValue('default_checkable_combobox_width_scaler', 1.0)
 
     settings.setValue('default_debug_level', 'INFO')
+    settings.setValue('default_show_per_page', 100)
 
 def reset_to_default_settings():
     # get the default settings from the QSettings object

@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="settings_tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>1</number>
      </property>
      <widget class="QWidget" name="units_formats_tab">
       <attribute name="title">
@@ -227,7 +227,7 @@
        </sizepolicy>
       </property>
       <attribute name="title">
-       <string>Column Displays</string>
+       <string>Table Displays</string>
       </attribute>
       <layout class="QHBoxLayout" name="horizontalLayout_3">
        <item>

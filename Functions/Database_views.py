@@ -713,7 +713,7 @@ def create_sample_view():
     if not query.exec(sample_view):
         logger_setup.get_logger().critical(
             f'Error creating SampleView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sample_view}')
+        logger_setup.get_logger().debug(f'SQL command: {sample_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleView')
 
@@ -726,7 +726,7 @@ def create_sample_edit_view():
     if not query.exec(sample_view):
         logger_setup.get_logger().critical(
             f'Error creating SampleEditView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sample_view}')
+        logger_setup.get_logger().debug(f'SQL command: {sample_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleEditView')
 
@@ -739,7 +739,7 @@ def create_sample_ifnull_view():
     if not query.exec(sample_view):
         logger_setup.get_logger().critical(
             f'Error creating SampleIfNullView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sample_view}')
+        logger_setup.get_logger().debug(f'SQL command: {sample_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleIfNullView')
 
@@ -752,7 +752,7 @@ def create_aliquot_view():
     if not query.exec(aliquot_view):
         logger_setup.get_logger().critical(
             f'Error creating AliquotView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {aliquot_view}')
+        logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created AliquotView')
 
@@ -765,7 +765,7 @@ def create_aliquot_edit_view():
     if not query.exec(aliquot_view):
         logger_setup.get_logger().critical(
             f'Error creating AliquotEditView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {aliquot_view}')
+        logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created AliquotEditView')
 
@@ -778,7 +778,7 @@ def create_spot_view():
     if not query.exec(spot_view):
         logger_setup.get_logger().critical(
             f'Error creating SpotView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {spot_view}')
+        logger_setup.get_logger().debug(f'SQL command: {spot_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SpotView')
 
@@ -791,7 +791,7 @@ def create_spot_edit_view():
     if not query.exec(spot_view):
         logger_setup.get_logger().critical(
             f'Error creating SpotEditView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {spot_view}')
+        logger_setup.get_logger().debug(f'SQL command: {spot_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SpotEditView')
 
@@ -804,7 +804,7 @@ def create_upb_view():
     if not query.exec(upb_view):
         logger_setup.get_logger().critical(
             f'Error creating UPbView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {upb_view}')
+        logger_setup.get_logger().debug(f'SQL command: {upb_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created UPbView')
 
@@ -817,7 +817,7 @@ def create_upb_edit_view():
     if not query.exec(upb_view):
         logger_setup.get_logger().critical(
             f'Error creating UPbEditView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {upb_view}')
+        logger_setup.get_logger().debug(f'SQL command: {upb_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created UPbEditView')
 
@@ -830,7 +830,7 @@ def create_column_view():
     if not query.exec(column_view):
         logger_setup.get_logger().critical(
             f'Error creating ColumnView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {column_view}')
+        logger_setup.get_logger().debug(f'SQL command: {column_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created ColumnView')
 
@@ -843,7 +843,7 @@ def create_column_edit_view():
     if not query.exec(column_view):
         logger_setup.get_logger().critical(
             f'Error creating ColumnEditView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {column_view}')
+        logger_setup.get_logger().debug(f'SQL command: {column_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created ColumnEditView')
 
@@ -856,7 +856,7 @@ def create_reference_view():
     if not query.exec(reference_view):
         logger_setup.get_logger().critical(
             f'Error creating ReferenceView: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {reference_view}')
+        logger_setup.get_logger().debug(f'SQL command: {reference_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created ReferenceView')
 
@@ -886,7 +886,7 @@ def drop_view(view: str):
     if not query.exec(sql):
         logger_setup.get_logger().critical(
             f'Error dropping view: {view}: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().debug(f'SQL command: {sql}')
         return False
     logger_setup.get_logger().info(f'Successfully dropped view: {view}')
 
@@ -898,7 +898,7 @@ def drop_all_views():
     if not query.exec(sql):
         logger_setup.get_logger().critical(
             f'Error getting all views from database: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().debug(f'SQL command: {sql}')
         return False
     views = []
     while query.next():

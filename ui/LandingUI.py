@@ -86,6 +86,8 @@ class LandingPage(QWidget):
                     Savepoint_manager.SavepointManager.reset()
                     widget.close()
 
+            Savepoint_manager.SavepointManager.reset()
+            Savepoint_manager.SavepointManager().get_instance()
             if self.db is None:
                 self.db = QSqlDatabase.addDatabase("QSQLITE")
                 self.db.setDatabaseName(self.get_filename())
