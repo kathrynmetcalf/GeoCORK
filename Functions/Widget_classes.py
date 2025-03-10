@@ -245,7 +245,6 @@ class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
             logger_setup.get_logger().debug("Failed to set query: {self.lastError().text()}")
             logger_setup.get_logger().debug(f"Query: {query}")
         else:
-            logger_setup.get_logger().debug(f"DB: {self.db.connectionName()}: Query set to '{query}'")
             table = query.split('FROM ')[1].split(' ')[0]
             if 'View' in table:
                 self.view = table
@@ -1305,16 +1304,12 @@ class TreeModel(QtC.QAbstractProxyModel):
             self.base_query = f"{query_object.lastQuery()}"
         elif isinstance(source_model, SQLiteTableModel):
             self.base_query = source_model.query_text
-        if 'LIMIT' in self.base_query:
-            logger_setup.get_logger().error(f'Tree model cannot have a LIMIT clause')
-            logger_setup.get_logger().debug(f'Query: {self.base_query}')
-            return
         if len(self.base_query) > 0:
             if ' WHERE ' in self.base_query:
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        self.source_model = DisplayRoundedQueryModel(db=self.db)
+        self.source_model = DisplayRoundedQueryModel()
         self.source_model.setQuery(f'{self.base_query}')
         self.sourceHeaders = []
         self.proxyHeaders = []
@@ -1326,7 +1321,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.parent_item = TreeItem(QtS.QSqlRecord(), None)
         self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
-        logger_setup.get_logger().info(f'Built the {self.table} tree...')
 
     def setup_model_data(self):
         # Add all nodes to the tree model
@@ -1339,6 +1333,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         # look for children of those
         # add each child to the model with parent
         # etc. until there are no more children
+        self.source_model.setQuery(f"{self.base_query}")
+        logger_setup.get_logger().info(f'Finished building the {self.table} tree with {self.source_model.rowCount()} items')
 
     def find_children(self, parent_id: int):
         # Find children of a given ID using the source_model's filtered data
@@ -1359,9 +1355,9 @@ class TreeModel(QtC.QAbstractProxyModel):
             self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
             if self.source_model.rowCount() > 0:
                 record = self.source_model.record(0)
-
                 item = TreeItem(record, parent)
                 parent.appendChild(item)
+                logger_setup.get_logger().debug(f'Added {child_id} to the tree')
                 new_child_ids = self.find_children(child_id)
                 self.add_to_tree(new_child_ids, item)
 
@@ -2186,23 +2182,25 @@ def get_selected_tree_ids(selected_model: QtC.QAbstractItemModel | QtC.QAbstract
             parent_rows.append(parent_row)
     return item_ids, parent_ids, parent_rows
 
-def find_tree_model(model):
-    # Dig down through any proxy models to find the tree model and retrieve the table name
-    tree_model = None
-    while tree_model is None:
-        if isinstance(model, CheckableTreeModel | TreeModel):
-            tree_model = model
-            return tree_model
-        else:
+def find_tree_model(model, indexes: list | None):
+    # Dig down through any proxy models to find the tree model and retrieve the model and mapped indexes
+    if isinstance(model, CheckableTreeModel | TreeModel):
+        tree_model = model
+        tree_indexes = indexes
+        return tree_model, tree_indexes
+    else:
+        try:
+            source_model = model.sourceModel()
+            source_indexes = [model.mapToSource(index) for index in indexes]
+            tree_model, tree_indexes = find_tree_model(source_model, source_indexes)
+            return tree_model, tree_indexes
+        except AttributeError:
             try:
-                source_model = model.sourceModel()
-                find_tree_model(source_model)
+                source_model = model.source_model
+                source_indexes = [model.mapToSource(index) for index in indexes]
+                tree_model, tree_indexes = find_tree_model(source_model, source_indexes)
             except AttributeError:
-                try:
-                    source_model = model.source_model
-                    find_tree_model(source_model)
-                except AttributeError:
-                    return None
+                return None, None
 
 
 # ---------------------------
@@ -2757,7 +2755,7 @@ class CheckableTreeView(QtW.QTreeView):
                 self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
 
     def expand_all_checked(self):
-        tree_model = find_tree_model(self.model())
+        tree_model, indexes = find_tree_model(self.model(), None)
         checked_items, partially_checked_items, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
 
         def expand_parents(item_index: QtC.QModelIndex):
@@ -2826,7 +2824,7 @@ class TreeCombobox(QtW.QComboBox):
                 expand_collapse(self.treeView, action)
 
     def showPopup(self):
-        tree_model = find_tree_model(self.model())
+        tree_model, indexes = find_tree_model(self.model(), None)
         if tree_model:
             restore_expanded_state(tree_model.table, tree_model, self.treeView)
         else:
@@ -2855,7 +2853,7 @@ class TreeCombobox(QtW.QComboBox):
     def hidePopup(self):
         if self.popup_shown:
             super().hidePopup()
-            model = find_tree_model(self.model())
+            model, indexes = find_tree_model(self.model(), None)
             if model:
                 save_expanded_state(model.table, self.model(), self.treeView)
             self.popup_shown = False
@@ -2935,7 +2933,7 @@ class CheckableTreeCombobox(TreeCombobox):
 
     def update_line_edit(self):
         current_line_edit_text = self.lineEdit().text()
-        tree_model = find_tree_model(self.model())
+        tree_model, indexes = find_tree_model(self.model(), None)
         checked_items, partially_checked_items, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
             QtC.QModelIndex())
         if partially_checked_indices:
@@ -3037,8 +3035,7 @@ class TreeContextMenu(QtW.QMenu):
 
     def set_view(self, tree_view: QtW.QTreeView, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
         self.tree_view = tree_view
-        self.model = self.tree_view.model()
-        self.indexes = self.tree_view.selectedIndexes()
+        self.model, self.indexes = find_tree_model(self.tree_view.model(), self.tree_view.selectedIndexes())
         item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.model, self.indexes)
         if len(item_ids) == 1:  # only one item selected
             self.add_single_tree_actions(delete_active, add_active, edit_active)
@@ -3209,7 +3206,9 @@ def comboBox_display_table(comboBox):
 def add_tree_popup(tree_view: QtW.QTreeView, tree_model: TreeModel, action: QtG.QAction | None = None):
     dlg_args = None
     indexes = tree_view.selectedIndexes()
-    item_ids, parent_ids, parent_rows = get_selected_tree_ids(tree_model, indexes)
+    model = tree_view.model()
+    tree_model, tree_indexes = find_tree_model(model, indexes)
+    item_ids, parent_ids, parent_rows = get_selected_tree_ids(tree_model, tree_indexes)
     if action:
         if action.text() == 'Insert above':
             row = parent_rows[0]
@@ -3411,7 +3410,7 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
     text = ""
 
     if isinstance(combo, CheckableTreeCombobox):
-        model = find_tree_model(combo.model())
+        model, indexes = find_tree_model(combo.model(), None)
         col = 0  # Name column is always placed in the first column
         tag_id_header = model.source_model.record().fieldName(0)
         id_col = 1  # ID column is always placed in the second column

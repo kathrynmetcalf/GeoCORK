@@ -16,7 +16,8 @@ from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
-    ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records, get_record_index
+    ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records, get_record_index,
+    set_table
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -248,8 +249,8 @@ class DisplayTables(QtW.QWidget):
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
-            self.model = DisplayRoundedQueryModel()
-            self.model.setQuery(f'SELECT * FROM {self.table}')
+            self.model = QtS.QSqlTableModel()
+            set_table(self.model, self.table)
 
             self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -267,10 +268,7 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_treeView: QTreeView
 
             self.name_column = get_name_column(self.table)
-            model_index = self.tree_model.index(0, self.name_column, QtC.QModelIndex())
-            proxy_index = self.tree_proxy_model.mapFromSource(model_index)
-            proxy_name_column = proxy_index.column()
-            self.name_header = self.tree_proxy_model.headerData(proxy_name_column, QtC.Qt.Orientation.Horizontal,
+            self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                                  QtC.Qt.ItemDataRole.DisplayRole)
 
         elif self.table in self.dbtable_list:
@@ -498,10 +496,9 @@ class DisplayTables(QtW.QWidget):
 
     def add_popup(self, action: QtG.QAction | None = None):
         dlg = None
-        dlg_args = None
         if self.table in self.dbtree_list:
             save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
-            add_tree_popup(self.dbTable_treeView, self.tree_model, action)
+            dlg_args = add_tree_popup(self.dbTable_treeView, self.tree_model, action)
             if dlg_args:
                 dlg = AddTreeTags(self.table, **dlg_args)
         else:

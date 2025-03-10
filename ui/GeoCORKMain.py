@@ -253,5 +253,6 @@ class GeoCORK(QtW.QMainWindow):
                     logger_setup.get_logger().critical(
                         f'Database is open but a transaction is active: {self.db.lastError().text()}')
             self.db.close()
+        logger_setup.get_logger().info(f"{self.db_file} closed")
         self.landingpage.show()
         super().closeEvent(event)

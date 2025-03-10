@@ -13,7 +13,7 @@ from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state, restore_expanded_state,
-                                      get_headers, get_name_column, description_column
+                                      get_headers, get_name_column, description_column, set_table
                                       )
 import Functions.Text_manipulations as TxM
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -33,8 +33,7 @@ class AddTreeTags(QtW.QDialog):
 
         self.table = table
         self.source_model = QtS.QSqlTableModel()
-        self.source_model.setTable(self.table)
-        self.source_model.select()
+        set_table(self.source_model, self.table)
         self.id_header = self.source_model.record().fieldName(0)
         self.parent_id_header = self.source_model.record().fieldName(1)
         self.parent_row_header = self.source_model.record().fieldName(2)
