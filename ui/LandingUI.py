@@ -147,6 +147,7 @@ class LandingPage(QWidget):
 
     def clicked_file(self):
         self.selected_files = self.listWidget.currentItem().text()
+        self.db = None
         self.open_geo_cork()
 
 

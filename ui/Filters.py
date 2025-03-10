@@ -256,12 +256,7 @@ class InsertFilterGroupDialog(QDialog):
 
         self.color_label = QLabel("Default Color:")
         self.color_display = QLabel(" ")
-        if QGuiApplication.styleHints().colorScheme() is Qt.ColorScheme.Dark:
-            self.color_display.setStyleSheet("background-color: white;")
-        elif QGuiApplication.styleHints().colorScheme() is Qt.ColorScheme.Light:
-            self.color_display.setStyleSheet("background-color: black;")
-        else:
-            self.color_display.setStyleSheet("background-color: black;")
+        self.color_display.setStyleSheet("background-color: black;")
         self.color_picker_button = QPushButton("Pick Color")
         self.color_picker_button.clicked.connect(self.pick_color)
         color_layout = QHBoxLayout()
@@ -294,7 +289,7 @@ class InsertFilterGroupDialog(QDialog):
 
     def insert_data(self):
         name = self.name_input.text()
-        color = getattr(self, 'color', '#FFFFFF')
+        color = getattr(self, 'color', '#000000')
         description = self.description_input.toPlainText()
 
         query = QSqlQuery()

@@ -57,7 +57,7 @@ class ExportWidget(QWidget):
         self.samplesincluded_comboBox: CheckableComboBox()
 
         # Connect buttons to methods
-        self.add_workbook_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, None, False))
+        self.add_workbook_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, {}))
         self.remove_workbook_button.clicked.connect(self.remove_current_worksheet_tab)
         self.export_pushbutton.clicked.connect(self.export_button)
 
@@ -522,6 +522,8 @@ class ExportWidget(QWidget):
 
                         if (table_name, field_name) in values:
                             widget.setChecked(True)
+                        else:
+                            widget.setChecked(False)
         self.update_table_view()
 
     def update_table_view(self, deleted=False, worksheet_name=None):
@@ -535,6 +537,7 @@ class ExportWidget(QWidget):
         if deleted:
             self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
+            self.select_checkboxes(ordered_columns)
 
         else:
             # # update selected columns
@@ -658,9 +661,13 @@ class ExportWidget(QWidget):
                         first_column_list.append(distinct_first_column_query.value(0))
                         distinct_first_column_query.next()
                 else:
-                    logger_setup.get_logger().critical('No rows returned for distinct first column')
-                    model = QSqlQueryModel()
-                    tableView.setModel(model)
+                    if not (len(self.checked_sample_list) == 0 and
+                        len(self.checked_aliquot_list) == 0 and
+                        len(self.checked_spot_list) == 0):
+
+                        logger_setup.get_logger().critical('No rows returned for distinct first column')
+                        model = QSqlQueryModel()
+                        tableView.setModel(model)
                     return
             else:
                 logger_setup.get_logger().critical(
@@ -673,7 +680,7 @@ class ExportWidget(QWidget):
                 for table, field in ordered_columns:
                     if field == pivot_col:
                         continue
-                    case_expressions.append(f'MAX(CASE WHEN {pivot_col} = \'{name}\' THEN {field} END) AS [{name + "_" + field}]')
+                    case_expressions.append(f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field}] END) AS [{name + "_" + field}]')
 
             case_list_sql = '\n, '.join(case_expressions)
 
@@ -698,10 +705,11 @@ class ExportWidget(QWidget):
 
         # Prepare and execute the query
         counter_query = QSqlQuery()
+        logger_setup.get_logger().debug(f"SQL Command: {counter_sql_query}")
         if not counter_query.exec(counter_sql_query):
             logger_setup.get_logger().critical(
-                f'Error fetching total records: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                f'Error fetching total records: {counter_query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {counter_sql_query}')
             return
         else:
             # Move to the first record to retrieve the count
