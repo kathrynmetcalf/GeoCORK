@@ -395,7 +395,7 @@ class AgeFields(QtW.QWidget):
         samples = []
         text = ""
         if isinstance(combo, CheckableTreeCombobox):
-            model = find_tree_model(combo.model())
+            model, indexes = find_tree_model(combo.model(), None)
             col = 0  # Name column is always placed in the first column
             tag_id_header = model.source_model.record().fieldName(0)
             id_col = 1  # ID column is always placed in the second column
@@ -642,7 +642,7 @@ class AgeFields(QtW.QWidget):
             logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox or CheckableComboBox")
             return False
         if isinstance(combo, CheckableTreeCombobox):
-            model = find_tree_model(combo.model())
+            model, indexes = find_tree_model(combo.model(), None)
             if model:
                 table = model.table
                 id_header = get_headers(table)[0]

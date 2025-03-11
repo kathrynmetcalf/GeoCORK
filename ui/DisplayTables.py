@@ -16,8 +16,9 @@ from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
-    ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records, get_record_index,
-    set_table
+    ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
+    get_record_index,
+    set_table, MaxWidthDelegate
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -308,20 +309,23 @@ class DisplayTables(QtW.QWidget):
             self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView.setModel(self.table_proxy_model)
             self.dbTable_tableView.hideColumn(0)  # don't show ID column
-            self.dbTable_tableView.resizeColumnsToContents()
+            # self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.verticalHeader().hide()
-            # table_view.repaint()
 
             self.name_column = get_name_column(self.table)
-            model_index = self.model.index(0, self.name_column)
-            proxy_index = self.table_proxy_model.mapFromSource(model_index)
-            proxy_name_column = proxy_index.column()
-            self.name_header = self.table_proxy_model.headerData(proxy_name_column, QtC.Qt.Orientation.Horizontal,
+            self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                             QtC.Qt.ItemDataRole.DisplayRole)
             # Sort the table by the name column
-            self.table_proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+            proxy_name_column = None
+            for column in range(self.table_proxy_model.columnCount()):
+                header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if header == self.name_header:
+                    proxy_name_column = column
+                    break
+            if proxy_name_column:
+                self.table_proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
 
             # Optimize window resizing
             self.resize_timer = QTimer()
@@ -335,6 +339,12 @@ class DisplayTables(QtW.QWidget):
             self.total_records = get_total_records(self.table)
             self.page_info_label.setText(
                 f'{self.current_page * self.rows_per_page + 1}-{(self.current_page + 1) * self.rows_per_page} of {self.total_records}')
+
+            self.dbTable_tableView.resizeColumnsToContents()
+            for column in range(self.table_proxy_model.columnCount()):
+                if self.dbTable_tableView.columnWidth(column) > 400:
+                    self.dbTable_tableView.setColumnWidth(column, 400)
+
         else:
             logger_setup.get_logger().error(f"Error {self.table}: Tried to switch to a table with no table or tree...")
             return

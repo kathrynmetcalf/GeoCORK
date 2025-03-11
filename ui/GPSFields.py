@@ -236,7 +236,7 @@ class GPSFields(QtW.QWidget):
                     self.utm_e_lineEdit.setText('')
                 else:
                     self.utm_e_lineEdit.setText(f"{text}")
-            elif 'ElevError' in header:
+            elif 'ElevError' in header and 'Calculated' not in header:
                 if not text:
                     self.elevation_error_lineEdit.setText('')
                 else:
@@ -252,7 +252,7 @@ class GPSFields(QtW.QWidget):
                             combo_index = row
                             break
                     self.elevation_unit_comboBox.setCurrentIndex(combo_index)
-            elif 'Elev' in header:
+            elif 'Elev' in header and 'Calculated' not in header:
                 if not text:
                     self.elevation_lineEdit.setText('')
                 else:

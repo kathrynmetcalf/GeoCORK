@@ -220,7 +220,7 @@ class SampleInformation(QtW.QDialog):
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
-        self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'"{self.sample_igsn_lineEdit.text()}"'))
+        self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
         self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('SampleColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
         self.column_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.height_depth_lineEdit.editingFinished.connect(
@@ -249,7 +249,7 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_comboBox))
         self.age_signature_comboBox.add_triggered.connect(self.add_popup)
         self.age_signature_comboBox.edit_triggered.connect(self.edit_popup)
-        self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'"{self.sample_description_lineEdit.text()}"'))
+        self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'{self.sample_description_lineEdit.text()}'))
         logger_setup.get_logger().info("Signals connected")
 
     def disconnect_text_signals(self):
@@ -499,6 +499,9 @@ class SampleInformation(QtW.QDialog):
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
+        if 'before_edit_samples' not in self.savepoint_manager.savepoint_list:
+            # The edits were already saved and the save point released
+            return
         start_update_field_time = time.time()
         if text != "-":
             if len(self.checked_sample_list) > 0:
@@ -514,7 +517,10 @@ class SampleInformation(QtW.QDialog):
                         logger_setup.get_logger().info(f"Updating {field} to {text} for SampleID {sample_id}")
                         if text is None or text == '':
                             text = 'Null'
-                        if not query.exec(f"UPDATE Samples SET {field} = {text} WHERE SampleID = {sample_id}"):
+                        query.prepare(f"UPDATE Samples SET {field} = :text WHERE SampleID = :sample_id")
+                        query.bindValue(":text", text)
+                        query.bindValue(":sample_id", sample_id)
+                        if not query.exec():
                             logger_setup.get_logger().critical(f"Failed to update {field} to {text} for SampleID {sample_id}: {query.lastError().text()}")
                             rollback_savepoint('before_update')
                             return
@@ -586,7 +592,7 @@ class SampleInformation(QtW.QDialog):
             checked_ids , partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtC.QModelIndex())
             logger_setup.get_logger().info(f"Updating {table} for {len(self.checked_sample_list)} samples")
             create_savepoint('before_update')
-            update = model.update_db(f"Samples_{table}", checked_ids, partially_checked_ids, self.checked_sample_list)
+            update = model.update_many_table(f'Samples_{table}', self.checked_sample_list)
             if update is False:
                 logger_setup.get_logger().critical(f"Failed to update {table} for selected Samples")
                 rollback_savepoint('before_update')
@@ -648,6 +654,12 @@ class SampleInformation(QtW.QDialog):
         dlg = EditUPbTags(self, self.checked_sample_list)
         dlg.exec()
 
+    def check_focus(self):
+        if self.column_groupBox.any_child_has_focus() and self.column_groupBox.edited:
+            self.column_groupBox.focusLost.emit()
+        if self.sample_description_lineEdit.hasFocus():
+            self.sample_description_lineEdit.editingFinished.emit()
+
     def delete_question(self):
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
@@ -687,24 +699,30 @@ class SampleInformation(QtW.QDialog):
 
     def commit_question(self):
         logger_setup.get_logger().info("Commit question called")
-        self.age.check_focus()
-        self.gps.check_focus()
-        if self.updated or self.gps.updated or self.age.updated:
-            msg_box = QtW.QMessageBox()
-            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-            msg_box.setText('Are you sure you want to commit all changes to the database?')
-            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-            response = msg_box.exec()
-            if response == QtW.QMessageBox.StandardButton.Yes:
-                self.commit()
+
+        def after_timer():
+            self.age.check_focus()
+            self.gps.check_focus()
+            self.check_focus()
+            if self.updated or self.gps.updated or self.age.updated:
+                msg_box = QtW.QMessageBox()
+                msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+                msg_box.setText('Are you sure you want to commit all changes to the database?')
+                msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+                msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+                response = msg_box.exec()
+                if response == QtW.QMessageBox.StandardButton.Yes:
+                    self.commit()
+                else:
+                    pass
             else:
-                pass
-        else:
-            self.reject()
-            self.close_by_dialog = True
-            self.close()
-            self.close_by_dialog = False
+                self.reject()
+                self.close_by_dialog = True
+                self.close()
+                self.close_by_dialog = False
+
+        # Let all the focus shifts occur before asking the question
+        QtC.QTimer.singleShot(100, after_timer)
 
     def commit(self):
         release_savepoint('before_edit_samples')
