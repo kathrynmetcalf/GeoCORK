@@ -325,6 +325,7 @@ class DataViewerWidget(QWidget):
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
         offset = self.current_page_1 * self.rows_per_page_1
+
         if table == 'Samples':
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('sample_view_columns'))
@@ -391,7 +392,7 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
         elif table == 'UPbAnalyses':
             self.switch_to_table(db_stackedWidget)
-            show_cols = settings.value('upb_analysis_view_columns')
+            show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
             query = SQLiteTableModel(
                 f'SELECT {show_cols} FROM UPbView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 

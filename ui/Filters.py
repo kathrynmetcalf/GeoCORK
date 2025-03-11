@@ -82,7 +82,7 @@ def process_group(group):
     # Process conditions in the current group
     condition_strings = []
     for condition in group.get('conditions', []):
-        field, operator, value, unit = condition['field'].replace(' ', ''), condition['operator'], condition['value'], condition['unit']
+        field, operator, value, unit, datatype = condition['field'].replace(' ', ''), condition['operator'], condition['value'], condition['unit'], condition['datatype']
         if unit == 'None':
             pass
         elif unit == 'Ga':
@@ -96,54 +96,72 @@ def process_group(group):
 
         if operator.lower() == "is" or operator.lower() == "is on":
             operator = "="
+            if datatype == 'number':
+                condition_string = f"{field} {operator} {value}"
+            else:
+                condition_string = f"{field} {operator} '{value}'"
+            condition_strings.append(condition_string)
         elif operator.lower() == "is not" or operator.lower() == "is not on":
             operator = "!="
+            if datatype == 'number':
+                condition_string = f"{field} {operator} {value}"
+            else:
+                condition_string = f"{field} {operator} '{value}'"
+            condition_strings.append(condition_string)
         elif operator.lower() == "is greater than" or operator.lower() == "is after":
             operator = ">"
+            if datatype == 'number':
+                condition_string = f"{field} {operator} {value}"
+            else:
+                condition_string = f"{field} {operator} '{value}'"
+            condition_strings.append(condition_string)
         elif operator.lower() == "is less than" or operator.lower() == "is before":
             operator = "<"
+            if datatype == 'number':
+                condition_string = f"{field} {operator} {value}"
+            else:
+                condition_string = f"{field} {operator} '{value}'"
+            condition_strings.append(condition_string)
         elif operator.lower() == "is blank":
             operator = "IS NULL"
             condition_string = f"{field} {operator}"
             condition_strings.append(condition_string)
-            continue
         elif operator.lower() == "is not blank":
             operator = "NOT NULL"
             condition_string = f"{field} {operator}"
             condition_strings.append(condition_string)
-            continue
         elif operator.lower() == "contains":
             operator = "LIKE"
             condition_string = f"{field} {operator} '%{value}%'"
             condition_strings.append(condition_string)
-            continue
         elif operator.lower() == "does not contain":
             operator = "NOT LIKE"
             condition_string = f"{field} {operator} '%{value}%'"
             condition_strings.append(condition_string)
-            continue
         elif operator.lower() == "starts with":
             operator = "LIKE"
             condition_string = f"{field} {operator} '{value}%'"
             condition_strings.append(condition_string)
-            continue
         elif operator.lower() == "ends with":
             operator = "LIKE"
             condition_string = f"{field} {operator} '%{value}'"
             condition_strings.append(condition_string)
-            continue
         elif operator.lower() == "is between":
             operator = "BETWEEN"
             value1, value2 = value.split(',')
-            condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
+            if datatype != 'number':
+                condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
+            else:
+                condition_string = f"{field} {operator} {value1} AND {value2}"
             condition_strings.append(condition_string)
-            continue
         elif operator.lower() == "is not between":
             operator = "NOT BETWEEN"
             value1, value2 = value.split(',')
-            condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
+            if datatype != 'number':
+                condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
+            else:
+                condition_string = f"{field} {operator} {value1} AND {value2}"
             condition_strings.append(condition_string)
-            continue
 
         condition_string = f"{field} {operator} '{value}'"
         condition_strings.append(condition_string)
@@ -382,12 +400,13 @@ class RuleWidget(QWidget):
       - A unit combobox (Ga, Ma, ka)
       - A delete button
     """
-    def __init__(self, field=None, operator=None, value=None, unit=None):
+    def __init__(self, field=None, operator=None, value=None, unit=None, datatype=None):
         super().__init__()
         self.layout = QHBoxLayout(self)
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
         self.setMinimumSize(100, 50)
 
+        self.datatype = datatype
         # Table combo
         self.table_combo = FocusWheelComboBox()
         self.table_combo.addItems(SQLUtils.table_attributes_dict.keys())
@@ -399,12 +418,14 @@ class RuleWidget(QWidget):
         self.attribute_combo = FocusWheelComboBox()
         self.layout.addWidget(self.attribute_combo)
         self.table_switcher()
+        self.attribute_combo.setMinimumWidth(250)
         self.attribute_combo.currentIndexChanged.connect(self.attribute_switcher)
 
         # Operator combo
         self.operator_combo = FocusWheelComboBox()
-        self.attribute_switcher()
+        # self.attribute_switcher()
         self.layout.addWidget(self.operator_combo)
+        self.operator_combo.setMinimumWidth(150)
         self.operator_combo.currentIndexChanged.connect(self.lineedit_switcher)
 
         # Value input
@@ -447,88 +468,98 @@ class RuleWidget(QWidget):
 
         if 'between' in self.operator_combo.currentText():
             # Date-based fields
-            if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
-                date_range_regex = QRegularExpression(
-                    r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01]),"
-                    r"(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
-                )
-                date_range_validator = QRegularExpressionValidator(date_range_regex)
-                self.value_input.setValidator(date_range_validator)
-                self.value_input.setPlaceholderText("e.g. YYYY-MM-DD,YYYY-MM-DD")
-            else:
-                # Numeric fields
-                double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
-                double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
-                self.value_input.setValidator(double_comma_double_validator)
-                self.value_input.setPlaceholderText("e.g. 0.0,0.0")
-                # Because it's numeric, let's allow the user to pick units (e.g. for an age)
-                self.unit_combo.show()
+            match self.datatype:
+                case 'date':
+                    date_range_regex = QRegularExpression(
+                        r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01]),"
+                        r"(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
+                    )
+                    date_range_validator = QRegularExpressionValidator(date_range_regex)
+                    self.value_input.setValidator(date_range_validator)
+                    self.value_input.setPlaceholderText("e.g. YYYY-MM-DD,YYYY-MM-DD")
+                case 'number':
+                    # Numeric fields
+                    double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
+                    double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
+                    self.value_input.setValidator(double_comma_double_validator)
+                    self.value_input.setPlaceholderText("e.g. 0.0,0.0")
+                    # Because it's numeric, let's allow the user to pick units (e.g. for an age)
+                    self.unit_combo.show()
         else:
             # Single value conditions
-            if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
-                # Date-based
-                date_range_regex = QRegularExpression(
-                    r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
-                )
-                date_range_validator = QRegularExpressionValidator(date_range_regex)
-                self.value_input.setPlaceholderText("e.g. YYYY-MM-DD")
-                self.value_input.setValidator(date_range_validator)
-            elif (("Description" in self.attribute_combo.currentText() or
-                   "Name" in self.attribute_combo.currentText() or
-                   "ErrorSigma" in self.attribute_combo.currentText() or
-                   "Unit" in self.attribute_combo.currentText()) or
-                  self.table_combo.currentText() == '"References"'):
-                # Text-based
-                self.value_input.setPlaceholderText("e.g. abc123")
-                self.value_input.setValidator(None)  # No numeric validator
-            else:
-                # Numeric fields, e.g. Ages
-                float_validator = QDoubleValidator(
-                    bottom=-999999999999.0,
-                    top=999999999999.0,
-                    decimals=2
-                )
-                float_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
-                self.value_input.setPlaceholderText("e.g. 0.0")
-                self.value_input.setValidator(float_validator)
-                # Show units if it's numeric
-                if "Age" in self.attribute_combo.currentText():
-                    self.unit_combo.show()
+            match self.datatype:
+                case 'date':
+                    # Date-based
+                    date_range_regex = QRegularExpression(
+                        r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
+                    )
+                    date_range_validator = QRegularExpressionValidator(date_range_regex)
+                    self.value_input.setPlaceholderText("e.g. YYYY-MM-DD")
+                    self.value_input.setValidator(date_range_validator)
+                case 'string':
+                    # Text-based
+                    self.value_input.setPlaceholderText("e.g. abc123")
+                    self.value_input.setValidator(None)  # No numeric validator
+                case 'boolean':
+                    self.value_input.setPlaceholderText("e.g. True/False")
+                    self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(T rue|False)$")))
+                case 'number':
+                    # Numeric fields, e.g. Ages
+                    float_validator = QDoubleValidator(
+                        bottom=-999999999999.0,
+                        top=999999999999.0,
+                        decimals=2
+                    )
+                    float_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+                    self.value_input.setPlaceholderText("e.g. 0.0")
+                    self.value_input.setValidator(float_validator)
+                    # Show units if it's numeric
+                    if "Age" in self.attribute_combo.currentText():
+                        self.unit_combo.show()
 
     def attribute_switcher(self):
         """
         Based on the attribute selected, populate the operator combo.
         """
         if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
-            operator_items = [
-                "is on",
-                "is not on",
-                "is after",
-                "is before",
-                "is between",
-                "is not between"
-            ]
-            self.operator_combo.clear()
-            self.operator_combo.addItems(operator_items)
-            return
-        elif ("Description" in self.attribute_combo.currentText() or
+                operator_items = [
+                    "is on",
+                    "is not on",
+                    "is after",
+                    "is before",
+                    "is between",
+                    "is not between"
+                ]
+                self.operator_combo.clear()
+                self.operator_combo.addItems(operator_items)
+                self.datatype = "date"
+        elif (("Description" in self.attribute_combo.currentText() or
               "Name" in self.attribute_combo.currentText() or
               "ErrorSigma" in self.attribute_combo.currentText() or
-              "Unit" in self.attribute_combo.currentText() or
-              self.table_combo.currentText() == "Sources"):
-            operator_items = [
-                "is",
-                "is not",
-                "starts with",
-                "ends with",
-                "contains",
-                "does not contain",
-                "is blank",
-                "is not blank"
-            ]
-            self.operator_combo.clear()
-            self.operator_combo.addItems(operator_items)
-            return
+              "Unit" in self.attribute_combo.currentText()) or
+             self.table_combo.currentText() == '"References"'):
+                operator_items = [
+                    "is",
+                    "is not",
+                    "starts with",
+                    "ends with",
+                    "contains",
+                    "does not contain",
+                    "is blank",
+                    "is not blank"
+                ]
+                self.operator_combo.clear()
+                self.operator_combo.addItems(operator_items)
+                self.datatype = "string"
+        elif "Rejected" in self.attribute_combo.currentText():
+                # Numeric fields (e.g. Ages, numeric measurements)
+                operator_items = [
+                    "is",
+                    "is not"
+                ]
+                self.operator_combo.clear()
+                self.operator_combo.addItems(operator_items)
+                self.datatype = "boolean"
         else:
             # Numeric fields (e.g. Ages, numeric measurements)
             operator_items = [
@@ -543,7 +574,9 @@ class RuleWidget(QWidget):
             ]
             self.operator_combo.clear()
             self.operator_combo.addItems(operator_items)
-            return
+            self.datatype = 'number'
+        self.lineedit_switcher()
+
 
     def table_switcher(self):
         """
@@ -574,7 +607,7 @@ class GroupBox(QGroupBox):
         # Buttons to add rule or group
         buttons_layout = QHBoxLayout()
         self.add_rule_button = QPushButton('Add rule')
-        self.add_rule_button.clicked.connect(lambda: self.add_rule(None, None, None, None))
+        self.add_rule_button.clicked.connect(lambda: self.add_rule(None, None, None, None, None))
 
         self.add_group_button = QPushButton('Add group')
         self.add_group_button.clicked.connect(lambda: self.add_group(None))
@@ -598,11 +631,11 @@ class GroupBox(QGroupBox):
         if group is not None:
             self.group_operator_combo.setCurrentText(group['type'])
             for condition in group.get('conditions', []):
-                self.add_rule(condition['field'], condition['operator'], condition['value'], condition['unit'])
+                self.add_rule(condition['field'], condition['operator'], condition['value'], condition['unit'], condition['datatype'])
             for subgroup in group.get('subgroups', []):
                 self.add_group(subgroup)
         else:
-            self.add_rule(None, None, None, None)
+            self.add_rule(None, None, None, None, None)
 
     def mouseDoubleClickEvent(self, a0):
         super().mouseDoubleClickEvent(a0)
@@ -623,9 +656,9 @@ class GroupBox(QGroupBox):
         font.setBold(True)
         self.dummy_label.setFont(font)
 
-    def add_rule(self, field, operator, value, unit):
+    def add_rule(self, field, operator, value, unit, datatype):
         #todo not populating line edit with value
-        rule_widget = RuleWidget(field, operator, value, unit)
+        rule_widget = RuleWidget(field, operator, value, unit, datatype)
         self.layout.insertWidget(self.layout.count() - 1, rule_widget)
         self.conditions.append(rule_widget)
         rule_widget.delete_button.clicked.connect(lambda: self.delete_condition(rule_widget))
@@ -663,7 +696,8 @@ class GroupBox(QGroupBox):
                          + ']',
                 "operator": condition_widget.operator_combo.currentText(),
                 "value": condition_widget.value_input.text(),
-                "unit": condition_widget.unit_combo.currentText()
+                "unit": condition_widget.unit_combo.currentText(),
+                "datatype": condition_widget.datatype
             })
         return structure
 

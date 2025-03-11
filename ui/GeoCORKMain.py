@@ -53,10 +53,7 @@ class GeoCORK(QtW.QMainWindow):
         # self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
         # self.db.setDatabaseName(self.db_file)
         self.db_file = self.landingpage.get_filename()
-        query = QSqlQuery('Select Name From About WHERE AboutID=1')
-        if query.exec():
-            if query.next():
-                self.setWindowTitle(f'GeoCORK Database: {query.value(0)}            file: {self.db_file}')
+        self.update_window_title()
         self.recent_files = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
         self.recent_files = self.recent_files[-6:-1]
         menu_bar = self.menuBar()
@@ -149,10 +146,17 @@ class GeoCORK(QtW.QMainWindow):
         self.landingpage.db = None
         self.landingpage.open_geo_cork()
 
+    def update_window_title(self):
+        query = QSqlQuery('Select Name From About WHERE AboutID=1')
+        if query.exec():
+            if query.next():
+                self.setWindowTitle(f'GeoCORK Database: {query.value(0)}            file: {self.db_file}')
+
     def show_settings_dialog(self):
         dlg = SettingsDialog()
         dlg.exec()
         update_database()
+        self.update_window_title()
         # If the active tab is a data table, refresh it
         if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':
             self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()

@@ -4,7 +4,8 @@ import sys
 from collections import Counter
 
 import pandas
-from PyQt6 import QtCore
+import qtawesome
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QTimer
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
@@ -34,6 +35,9 @@ class ExportWidget(QWidget):
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "ExporterUI.ui")
         loadUi(sources_ui_file, self)
+
+        self.refreshbutton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
+        self.refreshbutton.clicked.connect(self.update_table_view)
 
         self.checked_filter_list = []
 
@@ -728,11 +732,6 @@ class ExportWidget(QWidget):
         #     model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
-        tableView.horizontalHeader().resizeSections(QHeaderView.ResizeMode.ResizeToContents)
-        tableView.verticalHeader().resizeSections(QHeaderView.ResizeMode.ResizeToContents)
-
-        tableView.viewport().update()
-        tableView.verticalHeader().update()
 
 
     def export_button(self):
@@ -902,7 +901,6 @@ class ExportWidget(QWidget):
         QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(directory))
 
 
-
     def export_format(self):
         self.delete_all_worksheet_tabs()
         self.selectionscope_comboBox.setEnabled(True)
@@ -1044,6 +1042,11 @@ class ExportWidget(QWidget):
         self.updatetimer.setSingleShot(True)
 
         self.samplesincluded_comboBox.setEnabled(True)
+        self.step_2_label.show()
+        self.samplesincluded_comboBox.show()
+        self.filters_label.show()
+        self.filters_label.setText("Select Additional Filters (optional):")
+        self.filters_label.setToolTip("Adds an additional filter to further refine selection.")
         if self.selectionscope_comboBox.currentText() == 'Samples':
             self.samplesincluded_comboBox.setModel(self.samples_model)
             self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.samples_model))
@@ -1066,7 +1069,20 @@ class ExportWidget(QWidget):
                 lambda: self.update_checked_list(self.spots_model, 'Samples'))
             self.update_checked_list(self.spots_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Filter Groups':
-            self.samplesincluded_comboBox.setEnabled(False)
+            self.step_2_label.hide()
+            self.samplesincluded_comboBox.hide()
+            self.samples_model.clear_checks()
+            self.checked_sample_list = []
+            for row in range(self.samples_model.rowCount()):
+                name_index = self.samples_model.index(row, 1, QtCore.QModelIndex())
+                if self.samples_model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                    # Add the sample ID to the list
+                    id_index = self.samples_model.index(row, 0, QtCore.QModelIndex())
+                    self.checked_sample_list.append(self.samples_model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
+
+            self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
+            self.filters_label.setText("Select Filters:")
+            self.filters_label.setToolTip("")
 
         self.update_checked_list(self.filter_model, 'FilterGroups')
 

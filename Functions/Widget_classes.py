@@ -818,7 +818,7 @@ def get_total_records(table: str) -> int:
     query = QSqlQuery()
 
     # Construct the query based on the table
-    sql_query = f"SELECT COUNT({id_header}) FROM {table}"
+    sql_query = f'SELECT COUNT({id_header}) FROM "{table}"'
 
     # Execute the query
     logger_setup.get_logger().info(f'Fetching total records for {table}')

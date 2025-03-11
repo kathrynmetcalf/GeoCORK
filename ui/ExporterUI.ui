@@ -57,7 +57,7 @@
           </size>
          </property>
          <property name="text">
-          <string>Step 1A: Choose Export Format:</string>
+          <string>Choose Export Format:</string>
          </property>
         </widget>
        </item>
@@ -139,7 +139,7 @@
           </size>
          </property>
          <property name="text">
-          <string>Step 1B: Choose File Format:</string>
+          <string>Choose File Format:</string>
          </property>
         </widget>
        </item>
@@ -196,7 +196,7 @@
           </size>
          </property>
          <property name="text">
-          <string>Step 2A: Select All by:</string>
+          <string>Select All By:</string>
          </property>
         </widget>
        </item>
@@ -227,23 +227,13 @@
          </item>
          <item>
           <property name="text">
-           <string>Aliquots</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
-           <string>Spots</string>
-          </property>
-         </item>
-         <item>
-          <property name="text">
            <string>Filter Groups</string>
           </property>
          </item>
         </widget>
        </item>
        <item row="3" column="0">
-        <widget class="QLabel" name="label_4">
+        <widget class="QLabel" name="step_2_label">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -263,7 +253,7 @@
           </size>
          </property>
          <property name="text">
-          <string>Step 2B: Select &lt;&gt;</string>
+          <string>Select Samples:</string>
          </property>
         </widget>
        </item>
@@ -301,7 +291,7 @@
         </widget>
        </item>
        <item row="4" column="0">
-        <widget class="QLabel" name="label_5">
+        <widget class="QLabel" name="filters_label">
          <property name="sizePolicy">
           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
            <horstretch>0</horstretch>
@@ -321,7 +311,7 @@
           </size>
          </property>
          <property name="text">
-          <string>Step 3 (optional): Select Additional Filters</string>
+          <string>Select Additional Filters (optional):</string>
          </property>
          <property name="wordWrap">
           <bool>false</bool>
@@ -471,6 +461,25 @@
      </item>
      <item>
       <layout class="QHBoxLayout" name="horizontalLayout_4">
+       <item>
+        <widget class="QPushButton" name="refreshbutton">
+         <property name="minimumSize">
+          <size>
+           <width>30</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>30</width>
+           <height>30</height>
+          </size>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
        <item>
         <widget class="QPushButton" name="add_workbook_button">
          <property name="text">
