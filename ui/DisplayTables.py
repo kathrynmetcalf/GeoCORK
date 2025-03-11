@@ -18,7 +18,7 @@ from Functions.Widget_classes import (
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
     get_record_index,
-    set_table, MaxWidthDelegate
+    set_table, MaxWidthDelegate, get_id_from_name
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -111,7 +111,7 @@ class DisplayTables(QtW.QWidget):
         self.dbTable_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.dbTable_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
-        self.goto_line_edit.textChanged.connect(self.go_to_record)
+        self.goto_line_edit.editingFinished.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
@@ -209,17 +209,18 @@ class DisplayTables(QtW.QWidget):
             # Find the record ID corresponding to the name column text
 
 
-            record_id = int(text)
-            index = self.get_record_index(record_id, self.dbTable_comboBox)
+            record_name = text
+            record_id = get_id_from_name(self.table, record_name)
+            index = get_record_index(self.table, record_id)
 
             if index != -1:
-                self.current_page_1 = index // self.rows_per_page_1
-                self.display_sample_table(
-                    self.db_stackedWidget,
-                    self.dbTable_tableView,
-                    self.dbTable_comboBox,
-                    self.edit_pushButton
-                )
+                self.current_page = index // self.rows_per_page
+                row_on_page = index % self.rows_per_page
+                self.display_table()
+                if self.table in self.dbtree_list:
+                    self.dbTable_treeView.scrollTo(self.tree_proxy_model.index(row_on_page, 0))
+                else:
+                    self.dbTable_tableView.scrollTo(self.table_proxy_model.index(row_on_page, 0))
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except ValueError:

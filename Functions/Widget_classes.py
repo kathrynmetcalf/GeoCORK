@@ -2063,6 +2063,8 @@ class CheckableTreeModel(TreeModel):
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
         # name_col = name_column(self.table)
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
         if index.column() == 0:
             # If the column is the name item, it is checkable
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsUserCheckable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
@@ -2880,6 +2882,7 @@ class TreeCombobox(QtW.QComboBox):
                 # If the user clicks on the expand/collapse button, do not select the item, only expand/collapse
 
                 index = self.treeView.indexAt(event.pos())
+                model, indexes = find_tree_model(self.model(), None)
                 if not index.isValid():
                     super().eventFilter(obj, event)
                 # Define the rectangle for the item and the expand/collapse button
@@ -2905,6 +2908,7 @@ class TreeCombobox(QtW.QComboBox):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
+                    save_expanded_state(model.table, model, self.treeView)
                     self.showPopup()
                     return True
             return super().eventFilter(obj, event)
@@ -2939,6 +2943,7 @@ class CheckableTreeCombobox(TreeCombobox):
             self.model().dataChanged.connect(self.update_line_edit)
         show_column(self, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
         self.treeView.resizeColumnsToContents()
+        self.treeView.expand_all_checked()
 
     def set_single_click(self, single_click):
         self.single_click = single_click
@@ -2980,7 +2985,6 @@ class CheckableTreeCombobox(TreeCombobox):
     def showPopup(self):
         super().showPopup()
         self.popup_shown = True
-        self.treeView.expand_all_checked()
 
     def hidePopup(self):
         if self.popup_shown:
@@ -3033,6 +3037,7 @@ class CheckableTreeCombobox(TreeCombobox):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
+                    save_expanded_state(self.model().table, self.model(), self.treeView)
                     self.showPopup()
                     return True
             elif event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.RightButton:
