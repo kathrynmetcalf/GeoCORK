@@ -125,5 +125,88 @@
         "44": {
             "field": "LabFacilityID"
         }
+    },
+    "ALC_2023": {
+        "44": {
+            "field": "Spot Name"
+        },
+        "28": {
+            "field": "Concordance"
+        },
+        "30": {
+            "field": "Rejection Reason"
+        },
+        "45": {
+            "field": "Uppm"
+        },
+        "46": {
+            "field": "Thppm"
+        },
+        "47": {
+            "field": "206Pb/204Pb"
+        },
+        "48": {
+            "field": "208Pb/204Pb"
+        },
+        "49": {
+            "field": "U/Th"
+        },
+        "50": {
+            "field": "206Pb/207Pb"
+        },
+        "51": {
+            "field": "206Pb/207PbError"
+        },
+        "52": {
+            "field": "208Pb/232Th"
+        },
+        "53": {
+            "field": "208Pb/232ThError"
+        },
+        "54": {
+            "field": "207Pb/235U"
+        },
+        "55": {
+            "field": "207Pb/235UError"
+        },
+        "56": {
+            "field": "206Pb/238U"
+        },
+        "57": {
+            "field": "206Pb/238UError"
+        },
+        "58": {
+            "field": "ErrorCorr/Rho"
+        },
+        "59": {
+            "field": "206Pb/238UAge"
+        },
+        "60": {
+            "field": "206Pb/238UAgeError"
+        },
+        "61": {
+            "field": "207Pb/235UAge"
+        },
+        "62": {
+            "field": "207Pb/235UAgeError"
+        },
+        "63": {
+            "field": "207Pb/206PbAge"
+        },
+        "64": {
+            "field": "207Pb/206PbAgeError"
+        },
+        "65": {
+            "field": "208Pb/232ThAge"
+        },
+        "66": {
+            "field": "208Pb/232ThAgeError"
+        },
+        "67": {
+            "field": "BestAge"
+        },
+        "68": {
+            "field": "BestAgeError"
+        }
     }
 }

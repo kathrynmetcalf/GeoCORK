@@ -14,6 +14,7 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import SQLUtils
+from Functions.Widget_classes import get_id_from_name
 from ui.DataViewerWidget import DataViewerWidget
 
 
@@ -257,11 +258,15 @@ class Filters(QWidget):
         self.horizontalLayout_2.addWidget(self.querybuilder)
 
 class InsertFilterGroupDialog(QDialog):
-    def __init__(self, sql_structure, parent=None):
+    def __init__(self, sql_structure, update_id=None, parent=None):
         super().__init__(parent)
         self.sql_structure = sql_structure
+        self.update_id = update_id
 
-        self.setWindowTitle("Insert New Filter Group")
+        if self.update_id:
+            self.setWindowTitle("Update Filter Group")
+        else:
+            self.setWindowTitle("Insert New Filter Group")
 
         layout = QVBoxLayout()
         self.name_label = QLabel("Filter Group Name:")
@@ -288,16 +293,51 @@ class InsertFilterGroupDialog(QDialog):
         layout.addWidget(self.description_label)
         layout.addWidget(self.description_input)
 
-        self.insert_button = QPushButton("Insert")
-        self.insert_button.clicked.connect(self.insert_data)
+        if self.update_id:
+            self.update_button = QPushButton("Update")
+            self.update_button.clicked.connect(self.update_data)
+        else:
+            self.insert_button = QPushButton("Insert")
+            self.insert_button.clicked.connect(self.insert_data)
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self.reject)
         buttons_layout = QHBoxLayout()
-        buttons_layout.addWidget(self.insert_button)
+        if self.update_id:
+            buttons_layout.addWidget(self.update_button)
+        else:
+            buttons_layout.addWidget(self.insert_button)
         buttons_layout.addWidget(self.cancel_button)
         layout.addLayout(buttons_layout)
 
         self.setLayout(layout)
+
+        if self.update_id:
+            self.populate_fields()
+
+    def populate_fields(self):
+        query = QSqlQuery()
+        sql_query = """
+            SELECT FilterGroupName, DefaultColor, FilterGroupDescription 
+            FROM FilterGroups 
+            WHERE FilterGroupID = :filter_id;
+        """
+        query.prepare(sql_query)
+        query.bindValue(":filter_id", self.update_id)
+        logger_setup.get_logger().info(f'Populating fields for filter: {self.update_id}')
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        if query.exec():
+            if query.next():
+                self.name_input.setText(query.value(0))
+                self.color_display.setStyleSheet(f"background-color: {query.value(1)};")
+                self.color = query.value(1)
+                self.description_input.setText(query.value(2))
+            else:
+                logger_setup.get_logger().critical(
+                    f'No matching filter group for: {self.update_id}')
+        else:
+            logger_setup.get_logger().critical(
+                f'Error in populating existing Filters: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
 
     def pick_color(self):
         color = QColorDialog.getColor()
@@ -323,17 +363,17 @@ class InsertFilterGroupDialog(QDialog):
             logger_setup.get_logger().critical(f'SQL command: {check_query}')
             return
 
-        update_saved = False
         if query.next():
             msg = QMessageBox()
-            msg.setIcon(QMessageBox.Icon.Warning)
+            msg.setIcon(QMessageBox.Icon.Question)
             msg.setText(f"Filter {name} already exists. Do you want to update it?")
-            msg.setWindowTitle("Warning")
+            msg.setWindowTitle("Duplicate Filter Name")
             msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             msg.setDefaultButton(QMessageBox.StandardButton.No)
             reply = msg.exec()
             if reply == QMessageBox.StandardButton.Yes:
-                update_saved = True
+                self.update_id = get_id_from_name('FilterGroups', name)
+                self.update_data()
             else:
                 return
             # self.warning_label.show()
@@ -355,26 +395,34 @@ class InsertFilterGroupDialog(QDialog):
                     f'Error could not add filter: {query.lastError().text()}')
                 logger_setup.get_logger().critical(f'SQL command: {check_query}')
             else:
+                logger_setup.get_logger().info(f'Filter {name} added')
                 self.accept()
 
-        if update_saved:
-            update_query = """
-                UPDATE FilterGroups
-                SET SQLQuery = :sql_query, DefaultColor = :color, FilterGroupDescription = :description
-                WHERE FilterGroupName = :name
-            """
-            query.prepare(update_query)
-            query.bindValue(":name", name)
-            query.bindValue(":sql_query", f'\'{self.sql_structure}\'')
-            query.bindValue(":color", color)
-            query.bindValue(":description", description)
+    def update_data(self):
+        name = self.name_input.text()
+        color = getattr(self, 'color', '#000000')
+        description = self.description_input.toPlainText()
 
-            if not query.exec():
-                logger_setup.get_logger().critical(
-                    f'Error could not update filter: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {check_query}')
-            else:
-                self.accept()
+        query = QSqlQuery()
+        update_query = """
+            UPDATE FilterGroups
+            SET FilterGroupName = :name, SQLQuery = :sql_query, DefaultColor = :color, FilterGroupDescription = :description
+            WHERE FilterGroupID = :id
+        """
+        query.prepare(update_query)
+        query.bindValue(":name", name)
+        query.bindValue(":sql_query", f'\'{self.sql_structure}\'')
+        query.bindValue(":color", color)
+        query.bindValue(":description", description)
+        query.bindValue(":id", self.update_id)
+        if not query.exec():
+            logger_setup.get_logger().critical(
+                f'Error could not update filter')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {update_query}')
+        else:
+            logger_setup.get_logger().info(f'Filter {name} updated')
+            self.accept()
 
 
 class FocusWheelComboBox(QComboBox):
@@ -989,7 +1037,28 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
     def save_filter(self):
-        InsertFilterGroupDialog(self.main_group_box.get_structure(), self).exec()
+        # if a filter is already selected to the left, ask if the user wants to update it or create a new filter
+        if self.listWidget.currentItem():
+            filter_name = self.listWidget.currentItem().text()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Question)
+            msg.setText(f"Update {filter_name} or create a new filter?")
+            msg.setWindowTitle("Update or New")
+            cancel_button = QPushButton("Cancel")
+            new_button = QPushButton("New")
+            update_button = QPushButton("Update")
+            msg.addButton(cancel_button, QMessageBox.ButtonRole.RejectRole)
+            msg.addButton(new_button, QMessageBox.ButtonRole.AcceptRole)
+            msg.addButton(update_button, QMessageBox.ButtonRole.AcceptRole)
+            msg.exec()
+            reply = msg.clickedButton()
+            if reply == cancel_button:
+                return
+            elif reply == new_button:
+                filter_id = None
+            elif reply == update_button:
+                filter_id = get_id_from_name('FilterGroups', filter_name)
+        InsertFilterGroupDialog(self.main_group_box.get_structure(), filter_id, self).exec()
 
         self.listWidget.clear()
         self.update_filter_list()

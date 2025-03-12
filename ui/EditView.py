@@ -16,7 +16,8 @@ from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, ReadableProxyModel, DisplayRoundedModel,
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
     set_table, VerifiableSqlTableModel, VerifiableSqlViewModel, populate_many_combo_checks, populate_model_checks,
-    WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index
+    WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
+    get_id_from_name
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -92,6 +93,8 @@ class EditView(QtW.QDialog):
         self.table_item_ids: list = None
         for key, value in kwargs.items():
             setattr(self, key, value)
+        if isinstance(self.parent_id, str):
+            self.parent_id = int(self.parent_id)
 
         # Pagination variables
         self.show_per_page_comboBox: QtW.QComboBox
@@ -190,18 +193,6 @@ class EditView(QtW.QDialog):
             OFFSET {self.current_page * self.rows_per_page}
                                       ''')
 
-        self.proxy_model = ReadableProxyModel()
-        self.proxy_model.setSourceModel(self.model)
-
-        self.name_column = get_name_column(self.table)
-        model_index = self.model.index(0, self.name_column)
-        proxy_index = self.proxy_model.mapFromSource(model_index)
-        proxy_name_column = proxy_index.column()
-        self.name_header = self.proxy_model.headerData(proxy_name_column, QtC.Qt.Orientation.Horizontal,
-                                                             QtC.Qt.ItemDataRole.DisplayRole)
-
-        # Sort the table by the name column
-        self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.display_table()
         self.updated_timestamp = time.time()
 
@@ -324,9 +315,22 @@ class EditView(QtW.QDialog):
                     logger_setup.get_logger().critical(f'Failed to delete selected rows from {self.table}: {query.lastError().text()}')
                     return
                 self.model.removeRows(ids_to_delete)
-                self.updated_timestamp = time.time()
+                self.display_table()
 
     def display_table(self):
+        self.proxy_model = ReadableProxyModel()
+        self.proxy_model.setSourceModel(self.model)
+        self.name_column = get_name_column(self.table)
+        proxy_name_column = None
+        if self.name_column:
+            self.name_header = get_headers(self.table)[self.name_column]
+            for column in range(self.proxy_model.columnCount()):
+                header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if header == self.name_header:
+                    proxy_name_column = column
+                    break
+        if proxy_name_column:
+            self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.edit_tableView.setModel(self.proxy_model)
         for column in range(self.proxy_model.columnCount()):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -627,8 +631,9 @@ class EditView(QtW.QDialog):
                 populate_many_combo_checks(edit_table, self.combo, edit_ids)
                 self.combo.single_click = False
             else:
-                populate_model_checks(self.combo_model, edit_ids, edit_table)
-                self.combo.single_click = True
+                if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
+                    populate_model_checks(self.combo_model, edit_ids, edit_table)
+                    self.combo.single_click = True
         selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
         self.combo.setCurrentText(selected_text)
         if self.combo.currentText() == '':
@@ -642,8 +647,10 @@ class EditView(QtW.QDialog):
         self.combo.view().installEventFilter(self)
         self.combo.model_modifiable = True
         self.combo.closedOnLineEditClick = False
-        if isinstance(self.combo.model(), QtS.QSqlTableModel | QtS.QSqlQueryModel | TreeModel):
-            # table is not 'Rejected'
+        if isinstance(self.combo, QtW.QComboBox):
+            pass
+        else:
+            # combo is a CheckableComboBox or CheckableTreeComboBox
             self.combo.enable_context_menu(True)
         # self.combo.activated.connect(self.save_dropdown_data)
         self.combo.setFocus()
@@ -713,10 +720,38 @@ class EditView(QtW.QDialog):
                         return False
                     updated = True
                 else:
-                    if not combo.model().update_table(edit_table, edit_ids):
-                        logger_setup.get_logger().critical(f'Failed to update {edit_table}')
-                        self.destroy_dropdown()
-                        return False
+                    if isinstance(self.combo_model,
+                                  CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
+                        if not combo.model().update_table(edit_table, edit_ids):
+                            logger_setup.get_logger().critical(f'Failed to update {edit_table}')
+                            self.destroy_dropdown()
+                            return False
+                    else:
+                        clicked_id = get_id_from_name(self.combo_model.tableName(), combo.currentText())
+                        if not clicked_id:
+                            logger_setup.get_logger().error(f'No ID found for {combo.currentText()}')
+                            self.destroy_dropdown()
+                            return False
+                        header = self.model.headerData(model_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
+                                                           QtC.Qt.ItemDataRole.DisplayRole)
+                        if 'Abbreviation' in header:
+                            header = header.replace('Abbreviation', 'ID')
+                        query = QtS.QSqlQuery()
+                        if len(edit_ids) == 1:
+                            sql_where_str = f'= {edit_ids[0]}'
+                        else:
+                            sql_where_str = f'IN {tuple(edit_ids)}'
+                        create_savepoint('before_edit_id')
+                        query.prepare(f'UPDATE {edit_table} SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
+                        query.bindValue(':clicked_id', clicked_id)
+                        if not query.exec():
+                            logger_setup.get_logger().critical(f'Failed to update {header} for {len(edit_ids)} {edit_table}')
+                            logger_setup.get_logger().debug(f'Query: {query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            rollback_savepoint('before_edit_id')
+                            self.destroy_dropdown()
+                            return False
+                        release_savepoint('before_edit_id')
                     updated = True
         for model_index in model_indexes:
             if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):

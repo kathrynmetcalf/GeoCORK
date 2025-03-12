@@ -1737,6 +1737,8 @@ class ImportWizardDialog(QWidget):
                                                          QMessageBox.StandardButton.No)
                             if reply != QMessageBox.StandardButton.Yes:
                                 return
+                        else:
+                            ok = True
                 else:
                     return
 

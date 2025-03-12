@@ -181,6 +181,9 @@ class GeoCORK(QtW.QMainWindow):
         """
         dlg = SampleInformation(self, sample_ids)
         dlg.exec()
+        if dlg.updated:
+            if self.tabWidget.currentIndex() == 0:
+                self.tabWidget.widget(0).display_table()
 
     def on_tab_changed(self, index):
         """
