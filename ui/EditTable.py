@@ -46,7 +46,8 @@ class EditTable(QtW.QDialog):
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
         self.total_records = 0
 
-        self.model = QtS.QSqlQueryModel()
+        # self.model = QtS.QSqlQueryModel()
+        self.model = QtS.QSqlTableModel()
         self.proxy_model = ReadableProxyModel()
         self.name_column = None
         self.name_header = None
@@ -62,7 +63,8 @@ class EditTable(QtW.QDialog):
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
 
     def create_model(self):
-        self.model.setQuery(f'SELECT * FROM {self.table}')
+        # self.model.setQuery(f'SELECT * FROM {self.table}')
+
         self.table_headers = get_headers(self.table)
         self.proxy_model.setSourceModel(self.model)
 

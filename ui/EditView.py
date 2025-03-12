@@ -690,9 +690,9 @@ class EditView(QtW.QDialog):
         elif self.dropdown_table == 'Rejected' and self.table == 'UPbAnalyses':
             # Only the UPb views have an editable Rejected column
             if combo.currentText() == 'Accepted':
-                value = 1
-            else:
                 value = 0
+            else:
+                value = 1
             query = QtS.QSqlQuery()
             if len(selected_ids) == 1:
                 sql_where_str = f'= {selected_ids[0]}'

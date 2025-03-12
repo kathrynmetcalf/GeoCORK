@@ -472,7 +472,7 @@ class DisplayTables(QtW.QWidget):
             self.add_popup(action)
 
     def edit_popup(self):
-        view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbData', 'Columns', 'References']
+        view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if self.table in view_tables:
             dlg = EditView(self.table)
         elif self.table in self.dbtree_list:

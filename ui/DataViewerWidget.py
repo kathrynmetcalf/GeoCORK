@@ -357,7 +357,7 @@ class DataViewerWidget(QWidget):
             aliquot_proxy_model.setSourceModel(query)
 
             self.edit_pushButton.clicked.connect(
-                lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, sample_proxy_model,
+                lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, aliquot_proxy_model,
                                         self.dbtable_comboBox))
 
             aliquot_proxy_model.setFilterKeyColumn(-1)  # search all columns
@@ -367,7 +367,7 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
-            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
+            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, aliquot_proxy_model))
         elif table == 'Spots':
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('spot_view_columns'))
@@ -389,19 +389,19 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
-            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
+            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, spot_proxy_model))
         elif table == 'UPbAnalyses':
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
             query = SQLiteTableModel(
-                f'SELECT {show_cols} FROM UPbView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM UPbView WHERE UPbAnalysisID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
             upb_proxy_model = QtC.QSortFilterProxyModel()
             upb_proxy_model.setSourceModel(query)
             upb_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
             self.edit_pushButton.clicked.connect(
-                lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, sample_proxy_model,
+                lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, upb_proxy_model,
                                         self.dbTable_comboBox))
 
             dbTable_tableView.setModel(upb_proxy_model)
@@ -409,7 +409,7 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
-            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, sample_proxy_model))
+            self.search_lineEdit.textChanged.connect(lambda: self.search(self.search_lineEdit, upb_proxy_model))
         else:
             logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree...")
 
@@ -465,8 +465,16 @@ class DataViewerWidget(QWidget):
                     condition_id = sample_filter.model().index(index.row(), 0).data()
                     condition_ids.append(str(condition_id))
 
+                if table in SQLUtils.as_table_dict.values():
+                    for key, value in SQLUtils.as_table_dict.items():
+                        if value == table:
+                            as_table = key
+                            break
+                else:
+                    as_table = table
+
                 table_condition = ''
-                sql = f'SELECT DISTINCT {table if table!='"References"' else "UPbReferences"}.* FROM Samples '
+                sql = f'SELECT DISTINCT {as_table if as_table!='"References"' else "UPbReferences"}.* FROM Samples '
                 sql += SQLUtils.get_join_from_table("", [table] + [table_type])
                 if condition_ids:
                     if table_type == 'Samples':
@@ -591,7 +599,8 @@ class DataViewerWidget(QWidget):
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
         # todo fix this for working with new sample edit view
-        if table_name == 'Samples' or table_name == 'Spots' or table_name == 'UPb Analyses':
+        view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
+        if table_name in view_tables:
             id_str = self.ids_to_show.replace('(', '').replace(')', '')
             ids = id_str.split(', ')
             ids = list(map(int, ids))  # Convert all IDs to integers

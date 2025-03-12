@@ -507,7 +507,28 @@ gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees 
                    ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
                    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
 
-
+as_table_dict = {
+    'DirectAgeErrorFormats': 'ErrorFormats',
+    'OldAge': 'Ages',
+    'YoungAge': 'Ages',
+    'AgeReferences': 'References',
+    'SampleLatDirections': 'DirectionUnits',
+    'SampleLonDirections': 'DirectionUnits',
+    'SampleElevationUnits': 'DistanceUnits',
+    'ColumnGPS' : 'GPSLocations',
+    'ColumnLatDirections': 'DirectionUnits',
+    'ColumnLonDirections': 'DirectionUnits',
+    'ColumnElevationUnits': 'DistanceUnits',
+    'ColumnGPSFormats': 'GPSFormats',
+    'ColumnHeightDepthUnits': 'DistanceUnits',
+    'UPbReferences': 'References',
+    'RatioErrorFormats': 'ErrorFormats',
+    'AgeErrorFormats': 'ErrorFormats',
+    'UPbAgeUnits': 'AgeUnits',
+    'UPbAgeInterpretations': 'AgeInterpretations',
+    'SpotSizeUnits': 'DistanceUnits',
+    'UPbRejectionReasons': 'RejectionReasons'
+}
 
 table_attributes_dict = {
     'AgeConstraints': [

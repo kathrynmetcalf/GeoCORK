@@ -1,5 +1,6 @@
 import ast
 import json
+import re
 
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEventLoop, QRegularExpression
@@ -163,9 +164,9 @@ def process_group(group):
             else:
                 condition_string = f"{field} {operator} {value1} AND {value2}"
             condition_strings.append(condition_string)
-
-        condition_string = f"{field} {operator} '{value}'"
-        condition_strings.append(condition_string)
+        else:
+            condition_string = f"{field} {operator} '{value}'"
+            condition_strings.append(condition_string)
 
     # Process subgroups recursively
     for subgroup in group.get('subgroups', []):
@@ -336,8 +337,9 @@ class InsertFilterGroupDialog(QDialog):
                     f'No matching filter group for: {self.update_id}')
         else:
             logger_setup.get_logger().critical(
-                f'Error in populating existing Filters: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                f'Error in populating existing Filters')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
     def pick_color(self):
         color = QColorDialog.getColor()
@@ -359,8 +361,9 @@ class InsertFilterGroupDialog(QDialog):
         logger_setup.get_logger().debug(f'SQL command: {check_query}')
         if not query.exec():
             logger_setup.get_logger().critical(
-                f'Error in checking for existing Filters: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {check_query}')
+                f'Error in checking for existing Filters')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {check_query}')
             return
 
         if query.next():
@@ -392,8 +395,9 @@ class InsertFilterGroupDialog(QDialog):
 
             if not query.exec():
                 logger_setup.get_logger().critical(
-                    f'Error could not add filter: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {check_query}')
+                    f'Error could not add filter')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {check_query}')
             else:
                 logger_setup.get_logger().info(f'Filter {name} added')
                 self.accept()
@@ -867,8 +871,9 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec():
                 logger_setup.get_logger().critical(
-                    f'Could not delete filter: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                    f'Could not delete filter')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             else:
                 logger_setup.get_logger().info(f'Filter {item.text()} deleted')
 
@@ -898,8 +903,9 @@ class QueryBuilder(QWidget):
                     f'No matching filter group for: {filter_name.text()}')
         else:
             logger_setup.get_logger().critical(
-                f'Error in populating existing Filters: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                f'Error in populating existing Filters')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
     def view_analysis(self):
         filtered_ids = self.get_filtered_ids('UPbAnalyses')
@@ -959,8 +965,9 @@ class QueryBuilder(QWidget):
         logger_setup.get_logger().info('Gathering filtered ids')
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
-            logger_setup.get_logger().critical(f'Failed to get filtered ids: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+            logger_setup.get_logger().critical(f'Failed to get filtered ids')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             return None
 
         results = []
@@ -977,11 +984,35 @@ class QueryBuilder(QWidget):
         logger_setup.get_logger().debug(f'Filtered SQL structure: {structure}')
         logger_setup.get_logger().debug(f'Filtered SQL where_clause: {where_clause}')
         logger_setup.get_logger().debug(f'Filtered SQL join: {join}')
+        selects = self.main_group_box.get_selects()
+
+        def extract_as_tables(join):
+            as_tables = None
+            select_tables = None
+            where_tables = None
+            if ' AS ' in join:
+                pattern = r'\s+\bAS\s+(\w+)'  # regex pattern to match ' AS ' and return the table name right after it
+                as_tables = re.findall(pattern, join)
+            if '.[' in selects:
+                pattern = r'\b(\w+)\.\['  # regex pattern to match the table name before '.['
+                select_tables = re.findall(pattern, selects)
+            if '.[' in where_clause:
+                pattern = r'\b(\w+)\.\['  # regex pattern to match the table name before '.['
+                where_tables = re.findall(pattern, where_clause)
+            return as_tables, select_tables, where_tables
+
+        as_tables, select_tables, where_tables = extract_as_tables(join)
+        for as_table in as_tables:
+            replace_table = SQLUtils.as_table_dict[as_table]
+            if replace_table in select_tables:
+                selects = selects.replace(replace_table, as_table)
+            if replace_table in where_tables:
+                where_clause = where_clause.replace(replace_table, as_table)
 
         if type == 'Samples':
             sql_query = (
                 f"SELECT DISTINCT SampleID FROM ("
-                f"SELECT Samples.SampleID, {self.main_group_box.get_selects()} "
+                f"SELECT Samples.SampleID, {selects} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause});"
             )
@@ -989,7 +1020,7 @@ class QueryBuilder(QWidget):
             join = SQLUtils.get_join_from_table(join, ['Aliquots'])
             sql_query = (
                 f"SELECT DISTINCT AliquotID FROM ("
-                f"SELECT Aliquots.AliquotID, {self.main_group_box.get_selects()} "
+                f"SELECT Aliquots.AliquotID, {selects} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause}) "
                 f"WHERE AliquotID IS NOT NULL;"
@@ -998,7 +1029,7 @@ class QueryBuilder(QWidget):
             join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = (
                 f"SELECT DISTINCT SpotID FROM ("
-                f"SELECT Spots.SpotID, {self.main_group_box.get_selects()} "
+                f"SELECT Spots.SpotID, {selects} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause}) "
                 f"WHERE SpotID IS NOT NULL;"
@@ -1007,7 +1038,7 @@ class QueryBuilder(QWidget):
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
             sql_query = (
                 f"SELECT DISTINCT UPbAnalysisID FROM ("
-                f"SELECT UPbAnalyses.UPbAnalysisID, {self.main_group_box.get_selects()} "
+                f"SELECT UPbAnalyses.UPbAnalysisID, {selects} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause}) "
                 f"WHERE UPbAnalysisID IS NOT NULL;"
@@ -1033,7 +1064,8 @@ class QueryBuilder(QWidget):
                 item.setText(query.value(1))     # FilterGroupName
                 self.listWidget.addItem(item)
         else:
-            logger_setup.get_logger().info(f'Failed to get all filters from the database: {query.lastError().text()}')
+            logger_setup.get_logger().info(f'Failed to get all filters from the database')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
     def save_filter(self):
