@@ -536,6 +536,7 @@ class DataViewerWidget(QWidget):
             tree_proxy_model = TreeSortFilterProxyModel(view=dbTable_treeView)
             tree_proxy_model.setSourceModel(tree_model)
             dbTable_treeView.setModel(tree_proxy_model)
+            dbTable_treeView.expandAll()
 
             self.search_lineEdit_2.textChanged.connect(
                 lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
