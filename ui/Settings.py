@@ -1,11 +1,11 @@
 import sys
 import re
-from PyQt6.QtCore import QSettings, QPoint, QSize
+from PyQt6.QtCore import QSettings, QPoint, QSize, QStandardPaths
 from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
-from PyQt6 import QtWidgets as QtW
-from PyQt6.QtGui import QFont, QFontDatabase
+from PyQt6 import QtWidgets as QtW, QtCore
+from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices
 
 import logger_setup
 from Functions.Settings_manager import settings
@@ -275,6 +275,8 @@ class SettingsDialog(QtW.QDialog):
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Apply).clicked.connect(self.update_settings)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.restore_defaults)
 
+        self.openlogs_pushButton.clicked.connect(self.open_logs)
+
     def display_tab(self, index):
         self.settings_tabWidget.setCurrentIndex(index)
 
@@ -513,6 +515,10 @@ class SettingsDialog(QtW.QDialog):
         if '{DOI}' in reference_format:
             reference_format = reference_format.replace('{DOI}', 'ifnull(DOI, "")')
         return reference_format
+
+    def open_logs(self):
+        dirname = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) + f"/logs/"
+        QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(dirname))
 
     def close(self):
         self.saveWindowState()

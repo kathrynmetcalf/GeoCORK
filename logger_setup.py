@@ -58,7 +58,6 @@ def setup_async_logger():
 
     # Ensure the directory exists
     log_dir = os.path.dirname(LOG_FILE)
-    print("Log directory can be found at: ", log_dir)
     if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
     # If already set up, do nothing

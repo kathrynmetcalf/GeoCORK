@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="settings_tabWidget">
      <property name="currentIndex">
-      <number>1</number>
+      <number>2</number>
      </property>
      <widget class="QWidget" name="units_formats_tab">
       <attribute name="title">
@@ -362,86 +362,80 @@
       <attribute name="title">
        <string>About Database</string>
       </attribute>
-      <layout class="QGridLayout" name="gridLayout_4">
-       <item row="4" column="0">
-        <widget class="QLabel" name="db_reference_label">
-         <property name="text">
-          <string>Reference</string>
-         </property>
-        </widget>
+      <layout class="QVBoxLayout" name="verticalLayout_4">
+       <item>
+        <layout class="QGridLayout" name="gridLayout_4">
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="db_name_lineEdit"/>
+         </item>
+         <item row="0" column="0">
+          <widget class="QLabel" name="db_name_label">
+           <property name="text">
+            <string>Database Name</string>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="0">
+          <widget class="QLabel" name="db_created_by_label">
+           <property name="text">
+            <string>Created By</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="db_description_lineEdit">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="2" column="1">
+          <widget class="QLineEdit" name="db_created_by_lineEdit">
+           <property name="text">
+            <string/>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="db_authors_label">
+           <property name="text">
+            <string>Database Author(s)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="db_description_label">
+           <property name="text">
+            <string>Database Description</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="1">
+          <widget class="QLineEdit" name="db_authors_lineEdit"/>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="db_reference_label">
+           <property name="text">
+            <string>Reference</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="0">
+          <widget class="QLabel" name="db_reference_link_label">
+           <property name="text">
+            <string>Reference Link</string>
+           </property>
+          </widget>
+         </item>
+         <item row="5" column="1">
+          <widget class="QLineEdit" name="db_reference_link_lineEdit"/>
+         </item>
+         <item row="4" column="1">
+          <widget class="QLineEdit" name="db_reference_lineEdit"/>
+         </item>
+        </layout>
        </item>
-       <item row="5" column="2">
-        <widget class="QLineEdit" name="db_reference_link_lineEdit"/>
-       </item>
-       <item row="3" column="2">
-        <widget class="QLineEdit" name="db_authors_lineEdit"/>
-       </item>
-       <item row="5" column="0">
-        <widget class="QLabel" name="db_reference_link_label">
-         <property name="text">
-          <string>Reference Link</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="2">
-        <widget class="QLineEdit" name="db_name_lineEdit"/>
-       </item>
-       <item row="0" column="0">
-        <widget class="QLabel" name="db_name_label">
-         <property name="text">
-          <string>Database Name</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="2">
-        <widget class="QLineEdit" name="db_created_by_lineEdit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="0">
-        <widget class="QLabel" name="db_description_label">
-         <property name="text">
-          <string>Database Description</string>
-         </property>
-        </widget>
-       </item>
-       <item row="1" column="2">
-        <widget class="QLineEdit" name="db_description_lineEdit">
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item row="3" column="0">
-        <widget class="QLabel" name="db_authors_label">
-         <property name="text">
-          <string>Database Author(s)</string>
-         </property>
-        </widget>
-       </item>
-       <item row="2" column="0">
-        <widget class="QLabel" name="db_created_by_label">
-         <property name="text">
-          <string>Created By</string>
-         </property>
-        </widget>
-       </item>
-       <item row="0" column="3">
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
-       </item>
-       <item row="6" column="0">
+       <item>
         <spacer name="verticalSpacer_2">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -454,8 +448,23 @@
          </property>
         </spacer>
        </item>
-       <item row="4" column="2">
-        <widget class="QLineEdit" name="db_reference_lineEdit"/>
+       <item>
+        <widget class="QLabel" name="label_3">
+         <property name="text">
+          <string>Warning: Use the below functions carefully, create backups before any use</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_2">
+         <item>
+          <widget class="QPushButton" name="openlogs_pushButton">
+           <property name="text">
+            <string>Open Logs</string>
+           </property>
+          </widget>
+         </item>
+        </layout>
        </item>
       </layout>
      </widget>
