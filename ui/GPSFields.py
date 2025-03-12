@@ -46,7 +46,7 @@ class GPSFields(QtW.QWidget):
         self.updated = False
         self.errmsg = QtW.QMessageBox(self)
 
-        self.item_model = QtS.QSqlQueryModel()
+        self.item_model = None
         self.gps_format_model = QtS.QSqlTableModel()
         self.gps_location_model = QtS.QSqlTableModel()
         self.direction_unit_model = QtS.QSqlTableModel()
@@ -123,13 +123,12 @@ class GPSFields(QtW.QWidget):
         reset_fields = False  # Reset the GPS fields if there are no samples to populate
         column_names = get_headers('GPSLocations')
         if len(self.item_ids) > 1:
-            self.item_model.setQuery(
-                f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}')
+            query_where_str = f' WHERE {self.item_id_header} IN {tuple(self.item_ids)}'
         elif len(self.item_ids) == 1:
-            self.item_model.setQuery(
-                f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}')
+            query_where_str = f' WHERE {self.item_id_header} = {self.item_ids[0]}'
         else:
-            self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}')
+            query_where_str = ''
+        self.item_model = SQLiteTableModel(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}{query_where_str}')
         if self.item_model.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             reset_fields = True

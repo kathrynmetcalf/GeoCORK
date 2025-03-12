@@ -168,7 +168,7 @@
         </widget>
        </item>
        <item>
-        <widget class="CheckableTreeCombobox" name="age_error_format_comboBox"/>
+        <widget class="CheckableComboBox" name="age_error_format_comboBox"/>
        </item>
       </layout>
      </item>
@@ -247,7 +247,7 @@
         </widget>
        </item>
        <item>
-        <widget class="CheckableTreeCombobox" name="spot_size_unit_comboBox"/>
+        <widget class="CheckableComboBox" name="spot_size_unit_comboBox"/>
        </item>
       </layout>
      </item>

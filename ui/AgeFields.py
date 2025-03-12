@@ -7,9 +7,11 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, set_table, SampleAgeTableModel, CheckableSqlTableModel,
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, set_table, SampleAgeTableModel,
+    CheckableSqlTableModel,
     FontDelegate, get_name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel,
-    get_selected_tree_ids, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state, restore_expanded_state
+    get_selected_tree_ids, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state,
+    restore_expanded_state, SQLiteTableModel
 )
 from Functions import SQLUtils
 from Functions.Settings_manager import settings
@@ -289,15 +291,13 @@ class AgeFields(QtW.QWidget):
             else:
                 self.default_age_checkBox.setChecked(False)
         column_names = get_headers('SampleAges')
-        sample_age_table = QtS.QSqlQueryModel()
         if len(self.sample_ages) > 1:
-            sample_age_table.setQuery(
-                f'SELECT * FROM SampleAges WHERE SampleAgeID in {tuple(self.sample_ages)}')
+            query_where_str = f' WHERE SampleAgeID in {tuple(self.sample_ages)}'
         elif len(self.sample_ages) == 1:
-            sample_age_table.setQuery(
-                f'SELECT * FROM SampleAges WHERE SampleAgeID = {self.sample_ages[0]}')
+            query_where_str = f' WHERE SampleAgeID = {self.sample_ages[0]}'
         else:
-            sample_age_table.setQuery(f'SELECT * FROM SampleAges')
+            query_where_str = ''
+        sample_age_table = SQLiteTableModel(f'SELECT * FROM SampleAges{query_where_str}')
         if sample_age_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             reset_fields = True

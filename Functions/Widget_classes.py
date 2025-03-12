@@ -521,9 +521,11 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         col = get_name_column(self.tableName())
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
-                self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) not in self.checked_ids:
+                    self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             elif value == QtC.Qt.CheckState.PartiallyChecked:
-                self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) not in self.partially_checked_ids:
+                    self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
                     self.checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
@@ -613,9 +615,11 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
 
         if index.column() == col and role == QtC.Qt.ItemDataRole.CheckStateRole:
             if value == QtC.Qt.CheckState.Checked:
-                self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) not in self.checked_ids:
+                    self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             elif value == QtC.Qt.CheckState.PartiallyChecked:
-                self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) not in self.partially_checked_ids:
+                    self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
                     self.checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
@@ -2076,6 +2080,18 @@ class CheckableTreeModel(TreeModel):
             self.setData(name_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
             self.clear_checks(name_index)
 
+    def check_checkable_tree(self, parent: QtC.QModelIndex, checked_items: list, partially_checked_items: list):
+        for row in range(self.rowCount(parent)):
+            name_index = self.index(row, 0, parent)
+            id_index = self.index(row, 1, parent)
+            if self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole) in checked_items:
+                self.setData(name_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+            elif self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole) in partially_checked_items:
+                self.setData(name_index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            else:
+                self.setData(name_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            self.check_checkable_tree(name_index, checked_items, partially_checked_items)
+
     def traverse_checkable_tree(self, parent: QtC.QModelIndex):
         checked_items = []
         partially_checked_items = []
@@ -2606,7 +2622,10 @@ class CheckableComboBox(QtW.QComboBox):
         if self.model().rowCount() == 0:
             return
         # self.view().resizeColumnToContents(self.name_col)
-        self.view().setFixedWidth(self.view().sizeHintForColumn(self.name_col))
+        if self.width() > self.view().sizeHintForColumn(self.name_col):
+            self.view().setFixedWidth(self.width())
+        else:
+            self.view().setFixedWidth(self.view().sizeHintForColumn(self.name_col))
         self.view().setFixedHeight(self.view().sizeHint().height())
         self.popup_shown = True
 
@@ -3345,6 +3364,7 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
 
 def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     table: str = None
+    view: str = None
     query: str = None
     column: str = None
     for key, value in kwargs.items():
@@ -3361,8 +3381,9 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         model.setQuery(query)
         table = model.tableName()
     elif 'View' in table:
+        view = table
         model = DisplayRoundedQueryModel()
-        model.setQuery(f"SELECT * FROM {table}")
+        model.setQuery(f"SELECT * FROM {view}")
         table = model.tableName()
     else:
         model = DisplayRoundedModel()
@@ -3381,9 +3402,13 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         else:
             show_column(comboBox, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
     else:
-        if isinstance(comboBox, CheckableComboBox):
+        if isinstance(comboBox, CheckableComboBox) and not view:
             checkable_model = CheckableSqlTableModel()
             set_table(checkable_model, table)
+            comboBox.setModel(checkable_model)
+        elif isinstance(comboBox, CheckableComboBox) and view:
+            checkable_model = CheckableSqlQueryModel()
+            checkable_model.setQuery(f"SELECT * FROM {view}")
             comboBox.setModel(checkable_model)
         else:
             comboBox.setModel(model)
@@ -3393,8 +3418,9 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             name_col = get_name_column(table)
             show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
-def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids, item_table: str=None):
-    table_id_header = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids, item_table: str=None, table_id_header: str=None):
+    if table_id_header is None:
+        table_id_header = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
     item_id_header = get_headers(item_table)[0]
     query_model = QtS.QSqlQueryModel()
     if len(item_ids) > 1:
@@ -3404,7 +3430,10 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
     else:
         logger_setup.get_logger().error(f'No item IDs given for {model.tableName()}')
         return False
-    col = get_name_column(model.tableName())
+    try:
+        col = model.view_name_col
+    except AttributeError:
+        col = get_name_column(model.tableName())
     for row in range(model.rowCount()):
         table_id = model.index(row, 0).data()
         query_model.setQuery(
@@ -3423,6 +3452,47 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         else:
             # No items have this tag, go ahead and uncheck it
             model.setData(model.index(row, col), QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+    return True
+
+def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids, item_table: str=None, table_id_header: str=None):
+    id_col = 1  # ID column is always placed in the second column
+    table = tree_model.table
+    if table_id_header is None:
+        table_id_header = tree_model.headerData(id_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        if ' ' in table_id_header:
+            table_id_header = TxM.remove_spaces(table_id_header)
+    item_id_header = get_headers(item_table)[0]
+    query_model = QtS.QSqlQueryModel()
+    if len(item_ids) > 1:
+        query_where_str = f'in {tuple(item_ids)}'
+    elif len(item_ids) == 1:
+        query_where_str = f'= {item_ids[0]}'
+    else:
+        logger_setup.get_logger().error(f'No item IDs given for {table}')
+        return False
+    table_model = QtS.QSqlQueryModel()
+    table_model.setQuery(f"SELECT * FROM {table}")
+    all_items = []
+    some_items = []
+    for row in range(table_model.rowCount()):
+        table_id = table_model.index(row, 0).data()
+        query_model.setQuery(
+            f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}")
+        if query_model.lastError().isValid():
+            logger_setup.get_logger().error(
+                f'Error getting {table} checks for {table}: {query_model.lastError().text()}')
+            return False
+        # Go through each line in the model and check how many item_ids have this tag
+        if query_model.rowCount() == len(item_ids):
+            # All items have this tag
+            all_items.append(table_id)
+        elif query_model.rowCount() > 0:
+            # Some items have this tag
+            some_items.append(table_id)
+    tree_model.blockSignals(True)
+    tree_model.check_checkable_tree(QtC.QModelIndex(), all_items, some_items)
+    tree_model.blockSignals(False)
+    return True
 
 def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_table_ids: list):
     if first_table_ids == []:

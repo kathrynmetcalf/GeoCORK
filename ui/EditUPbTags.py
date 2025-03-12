@@ -16,7 +16,8 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, get_name_column, get_view_name_column, CheckableTreeModel, TreeModel,
-    show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox, find_tree_model
+    show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox,
+    CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -38,6 +39,8 @@ class EditUPbTags(QtW.QDialog):
         self.setWindowTitle("Edit U-Pb Information")
         self.setModal(True)
         # self.loadWindowState()
+        self.updated = False
+        self.close_by_dialog = False
 
         sources_ui_file = "ui/EditUPbTags.ui"
         loadUi(sources_ui_file, self)
@@ -65,24 +68,16 @@ class EditUPbTags(QtW.QDialog):
                 self.text_sample_names = self.sample_name_list[0]
             self.selected_sample_label.setText(f"Selected Samples: {self.text_sample_names}")
             self.upb_analysis_ids = find_upb_from_samples(self.selected_sample_list)
+        if len(self.upb_analysis_ids) == 0:
+            logger_setup.get_logger().error("No UPb Analyses for selected samples")
+            self.close()
 
         label_text = self.label.text()
         label_text = label_text.replace("#", str(len(self.upb_analysis_ids)))
         self.label.setText(label_text)
 
-        # self.reference_model = CheckableSqlQueryModel()
-        # self.analysis_method_model = QtS.QSqlTableModel()
-        # self.analysis_method_tree = CheckableTreeModel()
-        # self.lab_facility_model = CheckableSqlTableModel()
-        # self.instrument_model = CheckableSqlTableModel()
-        # self.ratio_error_format_model = CheckableSqlTableModel()
-        # self.age_error_format_model = CheckableSqlTableModel()
-        # self.concordance_format_model = CheckableSqlTableModel()
-        # self.spot_size_unit_model = CheckableSqlTableModel()
-
         self.msg = QtW.QMessageBox(self)
         create_savepoint('before_upb_edit')
-        self.close_by_dialog = False
 
         # Fill in information based on selected samples
         self.populate_dropdowns()
@@ -91,25 +86,10 @@ class EditUPbTags(QtW.QDialog):
         # self.increment_progress_dialog(self.init_progress_dialog)
         self.connect_signals()
 
-        self.updated = False
-
     def populate_dropdowns(self):
-        # self.reference_model.setQuery(f'SELECT * FROM ReferenceView')
-        # if self.reference_model.lastError().text():
-        #     logger_setup.get_logger().critical(
-        #         f"Error setting reference model query: {self.reference_model.lastError().text()}")
-        # self.analysis_method_model = set_table(self.analysis_method_model, 'UPbAnalysisMethods')
-        # self.analysis_method_tree.setSourceModel(self.analysis_method_model)
-        # self.lab_facility_model = set_table(self.lab_facility_model, 'LabFacilities')
-        # self.instrument_model = set_table(self.instrument_model, 'Instruments')
-        # self.ratio_error_format_model = set_table(self.ratio_error_format_model, 'ErrorFormats')
-        # self.age_error_format_model = set_table(self.age_error_format_model, 'ErrorFormats')
-        # self.concordance_format_model = set_table(self.concordance_format_model, 'ConcordanceFormats')
-        # self.spot_size_unit_model = set_table(self.spot_size_unit_model, 'DistanceUnits')
-
         self.reference_comboBox.model_modifiable = True
         self.reference_comboBox.enable_context_menu(True)
-        populate_combo_box(self.reference_comboBox, **{'table': 'ReferenceView'})
+        populate_combo_box(self.reference_comboBox, **{'table': 'ReferenceView', 'column': 'ReferenceDisplay'})
         self.analysis_method_comboBox.model_modifiable = True
         self.analysis_method_comboBox.enable_context_menu(True)
         populate_combo_box(self.analysis_method_comboBox, **{'table': 'UPbAnalysisMethods'})
@@ -121,9 +101,9 @@ class EditUPbTags(QtW.QDialog):
         populate_combo_box(self.instrument_comboBox, **{'table': 'Instruments'})
         populate_combo_box(self.ratio_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
         populate_combo_box(self.age_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
+        populate_combo_box(self.age_unit_comboBox, **{'table': 'AgeUnits', 'column': 'AgeUnitAbbreviation'})
         populate_combo_box(self.concordance_format_comboBox, **{'table': 'ConcordanceFormats', 'column': 'ConcordanceFormatAbbreviation'})
         populate_combo_box(self.spot_size_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
-        
 
     def connect_signals(self):
         logger_setup.get_logger().info("Connecting signals")
@@ -131,23 +111,24 @@ class EditUPbTags(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.discard_question)
 
-        self.reference_comboBox.closing.connect(lambda: self.update_subfield_id(self.reference_model, 'ReferenceID'))
+        self.reference_comboBox.closing.connect(lambda: self.update_subfield_id('ReferenceID'))
         self.reference_comboBox.add_triggered.connect(self.add_popup)
         self.reference_comboBox.edit_triggered.connect(self.edit_popup)
-        self.analysis_method_comboBox.closing.connect(lambda: self.update_sub_tags(self.analysis_method_tree))
+        self.analysis_method_comboBox.closing.connect(lambda: self.update_subfield_id('UPbAnalysisMethodID'))
         self.analysis_method_comboBox.add_triggered.connect(self.add_popup)
         self.analysis_method_comboBox.edit_triggered.connect(self.edit_popup)
         self.lab_facility_comboBox.closing.connect(
-            lambda: self.update_subfield_id(self.lab_facility_model, 'LabFacilityID'))
+            lambda: self.update_subfield_id('LabFacilityID'))
         self.lab_facility_comboBox.add_triggered.connect(self.add_popup)
         self.lab_facility_comboBox.edit_triggered.connect(self.edit_popup)
-        self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id(self.instrument_model, 'InstrumentID'))
+        self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id('InstrumentID'))
         self.instrument_comboBox.add_triggered.connect(self.add_popup)
         self.instrument_comboBox.edit_triggered.connect(self.edit_popup)
-        self.ratio_error_format_comboBox.closing.connect(lambda: self.update_subfield_id(self.ratio_error_format_model, 'RatioErrorFormatID'))
-        self.age_error_format_comboBox.closing.connect(lambda: self.update_subfield_id(self.age_error_format_model, 'AgeErrorFormatID'))
-        self.concordance_format_comboBox.closing.connect(lambda: self.update_subfield_id(self.concordance_format_model, 'ConcordanceFormatID'))
-        self.spot_size_unit_comboBox.closing.connect(lambda: self.update_subfield_id(self.spot_size_unit_model, 'SpotSizeUnitID'))
+        self.ratio_error_format_comboBox.closing.connect(lambda: self.update_subfield_id('RatioErrorFormatID'))
+        self.age_error_format_comboBox.closing.connect(lambda: self.update_subfield_id('AgeErrorFormatID'))
+        self.age_unit_comboBox.closing.connect(lambda: self.update_subfield_id('AgeUnitID'))
+        self.concordance_format_comboBox.closing.connect(lambda: self.update_subfield_id('ConcordanceFormatID'))
+        self.spot_size_unit_comboBox.closing.connect(lambda: self.update_subfield_id('SpotSizeUnitID'))
         self.spot_size_lineEdit.editingFinished.connect(lambda: self.update_subfield('SpotSize', self.spot_size_label.text()))
         
         logger_setup.get_logger().info("Signals connected")
@@ -155,150 +136,152 @@ class EditUPbTags(QtW.QDialog):
     def populate_fields(self):
         logger_setup.get_logger().info("Populating fields")
         start_populate_fields_time = time.time()
-        
 
-        text = self.populate_upb_checks(self.reference_model)
+        self.populate_upb_checks(self.reference_comboBox)
         self.reference_comboBox.set_single_click(True)
-        self.reference_comboBox.setCurrentText(text)
-        text = self.populate_upb_checks(self.analysis_method_model)
+        self.populate_upb_checks(self.analysis_method_comboBox)
         self.analysis_method_comboBox.set_single_click(True)
-        self.analysis_method_comboBox.setCurrentText(text)
-        text = self.populate_upb_checks(self.lab_facility_model)
+        self.populate_upb_checks(self.lab_facility_comboBox)
         self.lab_facility_comboBox.set_single_click(True)
-        self.lab_facility_comboBox.setCurrentText(text)
-        text = self.populate_upb_checks(self.instrument_model)
+        self.populate_upb_checks(self.instrument_comboBox)
         self.instrument_comboBox.set_single_click(True)
-        self.instrument_comboBox.setCurrentText(text)
-        
+        self.populate_upb_checks(self.ratio_error_format_comboBox)
+        self.ratio_error_format_comboBox.set_single_click(True)
+        self.populate_upb_checks(self.age_error_format_comboBox)
+        self.age_error_format_comboBox.set_single_click(True)
+        self.populate_upb_checks(self.age_unit_comboBox)
+        self.age_unit_comboBox.set_single_click(True)
+        self.populate_upb_checks(self.concordance_format_comboBox)
+        self.concordance_format_comboBox.set_single_click(True)
+        self.populate_upb_checks(self.spot_size_unit_comboBox)
+        self.spot_size_unit_comboBox.set_single_click(True)
+
     def populate_upb_checks(self, combo: QtW.QComboBox):
         start_populate_upb_checks_time = time.time()
-        all_items = []
-        some_items = []
         text = ""
+        if isinstance(combo.model(), CheckableSqlTableModel | CheckableSqlQueryModel):
+            model = combo.model()
+            combo.objectName()
+            try:
+                table = model.view
+                name_column = get_view_name_column(table)
+            except AttributeError:
+                table = model.tableName()
+                name_column = get_name_column(table)
+            if 'ratio_error' in combo.objectName():
+                table_id_header = 'RatioErrorFormatID'
+            elif 'age_error' in combo.objectName():
+                table_id_header = 'AgeErrorFormatID'
+            elif 'spot_size' in combo.objectName():
+                table_id_header = 'SpotSizeUnitID'
+            else:
+                table_id_header = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            if not populate_model_checks(model, self.upb_analysis_ids, 'UPbAnalyses', table_id_header):
+                return
+            checked_ids = model.checked_ids
+            partially_checked_ids = model.partially_checked_ids
+        elif isinstance(combo.model(), CheckableTreeModel):
+            tree_model, indexes = find_tree_model(combo.model(), None)
+            table = tree_model.table
+            model = tree_model.sourceModel()
+            try:
+                name_column = get_view_name_column(model.view)
+            except AttributeError:
+                name_column = get_name_column(table)
+            if not populate_tree_model_checks(tree_model, self.upb_analysis_ids, 'UPbAnalyses'):
+                return
+            checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
+        if partially_checked_ids:
+            text = "-"
+        elif checked_ids:
+            checked_names = []
+            for row in range(model.rowCount()):
+                if model.data(model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole) in checked_ids:
+                    checked_names.append(model.data(model.index(row, name_column), QtC.Qt.ItemDataRole.DisplayRole))
+            text = ", ".join(checked_names)
+        else:
+            text = combo.placeholderText()
+        combo.setCurrentText(text)
+        end_populate_upb_checks_time = time.time()
+        logger_setup.get_logger().info(f"Populated UPb checks for {table} in {end_populate_upb_checks_time - start_populate_upb_checks_time} seconds")
+
+    def update_subfield_id(self, field: str):
+        combo = self.sender()
         if isinstance(combo, CheckableTreeCombobox):
-            model = find_tree_model(combo.model())
+            model, indexes = find_tree_model(combo.model(), None)
             table = model.table
-            col = 0  # Name column is always placed in the first column
-            tag_id_header = model.source_model.record().fieldName(0)
-            id_col = 1  # ID column is always placed in the second column
+            column = get_name_column(table)
         else:
             model = combo.model()
             table = model.tableName()
             try:
                 view = model.tableView()
-                col = get_view_name_column(view)
-            except AttributeError:
-                col = get_name_column(model.tableName())
-            tag_id_header = model.record().fieldName(0)
-            id_col = 0  # ID column is always in the first column
-        logger_setup.get_logger().info(f"Populating UPb checks for {table}")
-        # Already checked if no analyses are selected
-        if isinstance(combo, CheckableTreeCombobox):
-            model.blockSignals(True)
-            # recursively check data
-            def check_data(model: CheckableTreeModel, index: QtC.QModelIndex):
-                for row in range(model.rowCount(index)):
-                    model_index = model.index(row, col, index)
-                    id_index = model.index(row, id_col, index)
-                    tag_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
-                    upb_analysis_table = SQLiteTableModel(
-                        f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)} AND {tag_id_header} = {tag_id}")
-                    if upb_analysis_table.rowCount() == len(self.upb_analysis_ids):
-                        # All samples have this tag
-                        model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        all_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                    elif upb_analysis_table.rowCount() > 0:
-                        # Some samples have this tag
-                        model.setData(model_index, QtC.Qt.CheckState.PartiallyChecked,
-                                      QtC.Qt.ItemDataRole.CheckStateRole)
-                        some_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                    else:
-                        # No samples have this tag
-                        model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    check_data(model, model_index)
-            check_data(model, QtC.QModelIndex())
-        else:
-            for row in range(model.rowCount()):
-                tag_id = model.index(row, 0).data()
-                upb_analysis_table = SQLiteTableModel(f"SELECT * FROM UPbAnalyses WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)} AND {tag_id_header} = {tag_id}")
-                index = model.index(row, col)
-                if upb_analysis_table.rowCount() == len(self.upb_analysis_ids):
-                    # All analyses have this tag
-                    model.setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting checked for {model.tableName()}: {model.lastError().text()}")
-                    all_items.append(model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                elif upb_analysis_table.rowCount() > 0:
-                    # Some samples have this tag
-                    model.setData(index, QtC.Qt.CheckState.PartiallyChecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting partial checked for {model.tableName()}: {model.lastError().text()}")
-                    some_items.append(model.data(index, QtC.Qt.ItemDataRole.DisplayRole))
-                else:
-                    # No samples have this tag
-                    model.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if model.lastError().text():
-                        logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}")
-        if not all_items and not some_items:
-            # No samples have these tags
-            text = ""
-        elif not some_items:
-            # All samples have the same tags
-            text = ', '.join(all_items)
-        else:
-            # Samples have different tags
-            text = "-"
-        if isinstance(combo, CheckableTreeCombobox):
-            model.blockSignals(False)
-        if text == "":
-            text = combo.placeholderText()
-        combo.setCurrentText(text)
-        end_populate_upb_checks_time = time.time()
-        logger_setup.get_logger().info(f"Populated UPb checks for {model.tableName()} in {end_populate_upb_checks_time - start_populate_upb_checks_time} seconds")
-
-    def update_subfield_id(self, model: CheckableSqlTableModel | CheckableSqlQueryModel, field: str):
-        logger_setup.get_logger().info(f"update_subfield_id called with {model.tableName()} and {field}")
-        start_update_subfield_id_time = time.time()
-        # UPbAnalayses have only one value for each field, so only one value should be checked
-        # If nothing is fully checked, then nothing should be updated
-        checked_item_id = None  # Should only be one
-        if len(self.upb_analysis_ids) > 0:
-            try:
-                view = model.tableView()
                 column = get_view_name_column(view)
             except AttributeError:
-                column = get_name_column(model.tableName())
-            for row in range(model.rowCount()):
-                name_index = model.index(row, column)
-                id_index = model.index(row, 0)
-                if model.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                    checked_item_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
-                    break
-            logger_setup.get_logger().info(f"Updating {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses")
-            create_savepoint('before_upb_update')
-            query_start_time = time.time()
-            query = QtS.QSqlQuery()
-            query.setForwardOnly(True)
-            if checked_item_id is None:
-                checked_item_id = 'Null'
-            if len(self.upb_analysis_ids) > 1:
-                self.upb_analysis_ids.sort()
-                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}"):
-                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses: {query.lastError().text()}")
-                update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
-            else:
-                if not query.exec(f"UPDATE UPbAnalyses SET {field} = {checked_item_id} WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}"):
-                    logger_setup.get_logger().critical(f"Failed to update {field} to {checked_item_id} for UPbAnalysisID {self.upb_analysis_ids[0]}: {query.lastError().text()}")
-                update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids[0])
-            query_end_time = time.time()
-            logger_setup.get_logger().info(f"Query time: {query_end_time - query_start_time}")
-            self.updated = True
-            end_update_subfield_id = time.time()
-            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses in {end_update_subfield_id - start_update_subfield_id_time} seconds")
-            logger_setup.get_logger().info(f"Updated {field} to {checked_item_id} for {len(self.upb_analysis_ids)} UPb Analyses")
-            release_savepoint('before_upb_update')
+                column = get_name_column(table)
+        logger_setup.get_logger().info(f"update_subfield_id called with {table}")
+        start_update_sub_tags_time = time.time()
+        # UPbAnalyses have only one value for each field, so only one value should be checked
+        # If there are still partial checks, then nothing should be updated
+        if isinstance(model, CheckableTreeModel):
+            checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
+                QtC.QModelIndex())
         else:
-            logger_setup.get_logger().info("No UPbAnalyses for selected samples")
+            checked_ids = model.checked_ids
+            partially_checked_ids = model.partially_checked_ids
+        if len(self.upb_analysis_ids) > 1:
+            query_where_string = f"IN {tuple(self.upb_analysis_ids)}"
+        elif len(self.upb_analysis_ids) == 1:
+            query_where_string = f"= {self.upb_analysis_ids[0]}"
+        if len(self.selected_sample_list) == 0 or len(self.upb_analysis_ids) == 0:
+            logger_setup.get_logger().info("No analyses selected to update")
+            return
+        elif len(checked_ids) > 1:
+            logger_setup.get_logger().critical(f"More than one checked value for {field}")
+            return
+        elif len(checked_ids) == 1:
+            # Should only be one checked value
+            logger_setup.get_logger().info(
+                f"Updating {field} to {checked_ids[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
+            create_savepoint('before_upb_update')
+            query = QtS.QSqlQuery()
+            query.prepare(
+                f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID {query_where_string}")
+            if not query.exec():
+                logger_setup.get_logger().critical(
+                    f"Failed to update {field} to {checked_ids[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
+                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                rollback_savepoint('before_upb_update')
+                return
+            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
+            self.updated = True
+            end_update_sub_tags_time = time.time()
+            logger_setup.get_logger().info(
+                f"Updated {field} to {checked_ids[0]} for {len(self.upb_analysis_ids)} UPb Analyses in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
+            logger_setup.get_logger().info(
+                f"Updated {field} to {checked_ids[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
+            release_savepoint('before_upb_update')
+        elif len(checked_ids) == 0 and len(partially_checked_ids) == 0:
+            logger_setup.get_logger().info(f"Updating all {table} to unchecked")
+            create_savepoint('before_upb_update')
+            query = QtS.QSqlQuery()
+            query.prepare(
+                f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID {query_where_string}")
+            if not query.exec():
+                logger_setup.get_logger().critical(
+                    f"Failed to update {field} to Null for {len(self.upb_analysis_ids)} UPb Analyses")
+                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                rollback_savepoint('before_upb_update')
+                return
+            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
+            self.updated = True
+            end_update_sub_tags_time = time.time()
+            logger_setup.get_logger().info(
+                f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
+            # logger_setup.get_logger().info(f"Updated {field} to Null for {len(self.upb_analysis_ids)} UPb Analyses")
+            release_savepoint('before_upb_update')
             
     def update_subfield(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
@@ -310,7 +293,9 @@ class EditUPbTags(QtW.QDialog):
                 create_savepoint('before_upb_update')
                 for upb_analysis_id in self.upb_analysis_ids:
                     if not query.exec(f"SELECT {field} FROM UPbAnalyses WHERE UPbAnalysisID = {upb_analysis_id}"):
-                        logger_setup.get_logger().critical(f"Failed to select {field} for UPbAnalysisID {upb_analysis_id}: {query.lastError().text()}")
+                        logger_setup.get_logger().critical(f"Failed to select {field} for {len(self.upb_analysis_ids)} UPb Analyses")
+                        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                         return
                     query.next()
                     if query.value(0) != text:
@@ -318,7 +303,9 @@ class EditUPbTags(QtW.QDialog):
                         if text is None or text == '':
                             text = 'Null'
                         if not query.exec(f"UPDATE UPbAnalyses SET {field} = {text} WHERE UPbAnalysisID = {upb_analysis_id}"):
-                            logger_setup.get_logger().critical(f"Failed to update {field} to {text} for UPbAnalysisID {upb_analysis_id}: {query.lastError().text()}")
+                            logger_setup.get_logger().critical(f"Failed to update {field} to {text} for {len(self.upb_analysis_ids)} UPb Analyses")
+                            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                             rollback_savepoint('before_upb_update')
                             return
                         update_modified_timestamp('UPbAnalyses', [upb_analysis_id])
@@ -330,67 +317,6 @@ class EditUPbTags(QtW.QDialog):
                 release_savepoint('before_upb_update')
             else:
                 logger_setup.get_logger().info("No samples selected")
-            
-    def update_sub_tags(self, model: CheckableTreeModel):
-        logger_setup.get_logger().info(f"update_tags called with {model.table}")
-        table = model.table
-        combo = self.sender()
-        if not combo.treeView.model_edited:
-            logger_setup.get_logger().info(f"No changes to {table}")
-            return
-        start_update_sub_tags_time = time.time()
-        field = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        # UPbAnalayses have only one value for each field, so only one value should be checked
-        # If there are still partial checks, then nothing should be updated
-        checked_ids, partially_checked_ids = model.traverse_checkable_tree(QtC.QModelIndex())
-        if len(self.selected_sample_list) == 0:
-            logger_setup.get_logger().info("No samples selected")
-            return
-        elif len(checked_ids) > 1:
-            logger_setup.get_logger().critical(f"More than one checked value for {field}")
-            return
-        elif len(checked_ids) == 1:
-            # Should only be one checked value
-            logger_setup.get_logger().info(f"Updating {field} to {checked_ids[0]} for {len(self.upb_analysis_ids)} UPb Analyses")
-            create_savepoint('before_upb_update')
-            query = QtS.QSqlQuery()
-            if len(self.upb_analysis_ids) > 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}")
-            if len(self.upb_analysis_ids) == 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = {checked_ids[0]} WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}")
-            if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids}: {query.lastError().text()}")
-                rollback_savepoint('before_upb_update')
-                return
-            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
-            self.updated = True
-            end_update_sub_tags_time = time.time()
-            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
-            logger_setup.get_logger().info(f"Updated {field} to {checked_ids[0]} for UPbAnalysisID {self.upb_analysis_ids}")
-            release_savepoint('before_upb_update')
-        elif len(checked_ids) == 0 and len(partially_checked_ids) == 0:
-            logger_setup.get_logger().info(f"Updating all {table} to unchecked")
-            create_savepoint('before_upb_update')
-            query = QtS.QSqlQuery()
-            if len(self.upb_analysis_ids) > 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID in {tuple(self.upb_analysis_ids)}")
-            if len(self.upb_analysis_ids) == 1:
-                query.prepare(
-                    f"UPDATE UPbAnalyses SET {field} = Null WHERE UPbAnalysisID = {self.upb_analysis_ids[0]}")
-            if not query.exec():
-                logger_setup.get_logger().critical(f"Failed to update {field} to Null for UPbAnalysisID {self.upb_analysis_ids}: {query.lastError().text()}")
-                rollback_savepoint('before_upb_update')
-                return
-            update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
-            self.updated = True
-            end_update_sub_tags_time = time.time()
-            logger_setup.get_logger().info(
-                f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
-            logger_setup.get_logger().info(f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids}")
-            release_savepoint('before_upb_update')
 
     def update_fields(self):
         try:

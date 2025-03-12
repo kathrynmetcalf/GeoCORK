@@ -205,7 +205,7 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_comboBox.enable_context_menu(True)
         populate_combo_box(self.age_signature_comboBox, **{'table': 'AgeSignatures'})
 
-        self.sample_name_comboBox: CheckableTreeCombobox
+        self.sample_name_comboBox: CheckableComboBox
         self.sample_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.column_name_comboBox.view().setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         end_populate_dropdown_time = time.time()
@@ -653,6 +653,8 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info("Edit U-Pb popup called")
         dlg = EditUPbTags(self, self.checked_sample_list)
         dlg.exec()
+        if dlg.updated:
+            self.updated = True
 
     def check_focus(self):
         if self.column_groupBox.any_child_has_focus() and self.column_groupBox.edited:
