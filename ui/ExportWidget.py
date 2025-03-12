@@ -37,9 +37,11 @@ class ExportWidget(QWidget):
         loadUi(sources_ui_file, self)
 
         self.refreshbutton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
-        self.refreshbutton.clicked.connect(self.update_table_view)
+        self.refreshbutton.clicked.connect(self.refresh_button)
 
         self.checked_filter_list = []
+
+        self.checked_grouped_filter_list = []
 
         self.checked_sample_list = []
         self.checked_aliquot_list = []
@@ -80,8 +82,18 @@ class ExportWidget(QWidget):
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filterselection_comboBox.setModel(self.filter_model)
 
+        self.groupedfilter_model = CheckableSqlTableModel()
+        self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
+        self.groupedfilter_comboBox.setModel(self.groupedfilter_model)
+
         # Fix for updating the filter list when the filter model is updated
         self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
+        self.filterselection_comboBox.closing.connect(
+            lambda: self.update_checked_list(self.filter_model, 'FilterGroups'))
+
+        self.groupedfilter_model.dataChanged.connect(lambda: self.update_groupedfilter_list(self.groupedfilter_model))
+        self.groupedfilter_comboBox.closing.connect(
+            lambda: self.update_checked_list(self.groupedfilter_model, 'GroupedFilterGroups'))
 
         self.update_step_2_list()
         self.populate_stack()
@@ -93,9 +105,11 @@ class ExportWidget(QWidget):
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
 
-        self.filterselection_comboBox.closing.connect(lambda: self.update_checked_list(self.filter_model, 'FilterGroups'))
-
         self.samplesincluded_comboBox.clearEditText()
+
+    def refresh_button(self):
+        logger_setup.get_logger().info('Refresh Button Clicked')
+        self.update_table_view()
 
     def update_checked_list(self, table_model: CheckableSqlTableModel, table_name: str):
         items = []
@@ -104,15 +118,21 @@ class ExportWidget(QWidget):
             if table_model.data(index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
                 items.append(table_model.data(index, QtCore.Qt.ItemDataRole.DisplayRole))
         if len(items) == 0:
-            if table_name == 'Samples':
-                self.samplesincluded_comboBox.set_line_edit_text('None')
-            if table_name == 'FilterGroups':
-                self.filterselection_comboBox.set_line_edit_text('None')
+            match table_name:
+                case 'Samples':
+                    self.samplesincluded_comboBox.set_line_edit_text('None')
+                case 'FilterGroups':
+                    self.filterselection_comboBox.set_line_edit_text('None')
+                case 'GroupedFilterGroups':
+                    self.groupedfilter_comboBox.set_line_edit_text('None')
         else:
-            if table_name == 'Samples':
-                self.samplesincluded_comboBox.set_line_edit_text(', '.join(items))
-            if table_name == 'FilterGroups':
-                self.filterselection_comboBox.set_line_edit_text(', '.join(items))
+            match table_name:
+                case 'Samples':
+                    self.samplesincluded_comboBox.set_line_edit_text(', '.join(items))
+                case 'FilterGroups':
+                    self.filterselection_comboBox.set_line_edit_text(', '.join(items))
+                case 'GroupedFilterGroups':
+                    self.groupedfilter_comboBox.set_line_edit_text(', '.join(items))
 
 
     def showEvent(self, a0):
@@ -131,6 +151,12 @@ class ExportWidget(QWidget):
         self.filterselection_comboBox.setModel(self.filter_model)
 
         self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
+
+        self.groupedfilter_model = CheckableSqlTableModel()
+        self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
+        self.groupedfilter_comboBox.setModel(self.groupedfilter_model)
+
+        self.groupedfilter_model.dataChanged.connect(lambda: self.update_groupedfilter_list(self.groupedfilter_model))
 
         self.update_step_2_list()
 
@@ -530,19 +556,21 @@ class ExportWidget(QWidget):
                             widget.setChecked(False)
         self.update_table_view()
 
-    def update_table_view(self, deleted=False, worksheet_name=None):
+    def update_table_view(self, order_changed=False, worksheet_name=None):
         # Get the current workbook
         if worksheet_name is None:
             current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         else:
             current_worksheet_name = worksheet_name
+        #Get the current TableView
         tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
 
-        if deleted:
+        #If column order has changed, set selected columns to ordered_columns, select checkboxes based on ordered columns
+        # This removes potentially deleted columns from the column dialog
+        if order_changed:
             self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
             self.select_checkboxes(ordered_columns)
-
         else:
             # # update selected columns
             self.get_selected_values()
@@ -551,11 +579,13 @@ class ExportWidget(QWidget):
             selected_columns = self.worksheet_tabs_dict[current_worksheet_name].get('selected_columns', {})
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
 
+            #checks to make sure the items in selected_columns and ordered_columns match. If they do not match then
+            #default to selected columns, means new column could be selected, therefore ordered_columns is out of date
             if Counter(selected_columns) != Counter(ordered_columns):
                 ordered_columns = selected_columns
                 self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = ordered_columns
 
-
+        # prevents necessary compute time
         if not ordered_columns:
             # No columns selected, clear the table view
             tableView.setModel(None)
@@ -563,28 +593,31 @@ class ExportWidget(QWidget):
 
         # Build the SQL query
         tables = set()
+        #always ensures UPbAnalyses in the resulting query, prevents edge cases
         tables.add('UPbAnalyses')
         columns_str = ''
+        #creates column select string in format [SampleID], [CalculatedU/Th], etc...
         for table, field in ordered_columns:
             tables.add(table)
-
             columns_str += f'[{field}], '
 
+        # removes final ", "
         columns_str = columns_str[0:-2]
-
+        #always ensures samples is included, since tables is a set only one copy will exist
         tables.add('Samples')
 
+        #gets final join from all found tables.
         join = SQLUtils.get_join_from_table("", list(tables))
 
         filtered_where_clause = ''
-        ids = []
+        ids = set()
+        # Filters for additional filters step, so if Samples1,2,3 are selected but only want bestage<500ma this
+        # section finds the UPbAnalysisID that match the criteria.
         for filter_id, filter_json in self.checked_filter_list:
 
+            #loops through each filter in the checked filter list, processes the json to sql
             filtered_where_clause = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
-
-            sql_query = ''
-            # join += SQLUtils.get_join_from_table(['UPbAnalyses'])
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
             query = QSqlQuery()
@@ -597,24 +630,19 @@ class ExportWidget(QWidget):
                     f'Error fetching distinct UPbAnalysisID using Filter ID: {filter_id}: {query.lastError().text()}')
                 logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
-            # Fetch all results
+            # Fetch all results, add found IDs to the list.
             while query.next():
-                ids.append(query.value(0))
+                ids.add(query.value(0))
         logger_setup.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(ids)}')
 
+        # due to how the above logic is, the filters are added with an OR clause, therefore it full unions Filters 1 and 2
+        ids = f"({', '.join(map(str, ids))})"
 
-
-        if len(self.checked_filter_list) == 1:
-            ids = f"({', '.join(map(str, ids))})"
-        else:
-            # Count the occurrences of each ID
-            id_counts = Counter(ids)
-            # Extract IDs that appear more than once
-            ids_more_than_once = [id for id, count in id_counts.items() if count > 1]
-
-            ids = f"({', '.join(map(str, ids_more_than_once))})"
-        # todo Maybe change to pagination
-
+        # checks for logic to see what kind of SQL query is needed.
+        # self.checked_sample_names defaults to '()', so length of 2,
+        # if a sample is checked then len > 2, so UPbAnalysisID are needed, so we limit to LIMIT 250 so its quicker and
+        # still shows example data to be exported.
+        # if filtered where clause is not blank, len > 0, then we need to filter by UPbAnalysisID
         if len(self.checked_sample_names) > 2:
             if len(filtered_where_clause) > 0:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {ids} LIMIT 250"
@@ -627,10 +655,52 @@ class ExportWidget(QWidget):
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else '' } {columns_str} FROM Samples {join} WHERE FALSE"
 
         logger_setup.get_logger().debug(f'Final TableView SQL command: {query_str}')
+
+
+        # code to add optional grouped filters as a new Sample, unions all
+        for filter_id, name, filter_json in self.checked_grouped_filter_list:
+            ids = set()
+            logger_setup.get_logger().info('Fetching Filters for Grouped Filter List')
+            # loops through each filter in the checked filter list, processes the json to sql
+            filtered_where_clause = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
+            filtered_where_clause = filtered_where_clause[0:-1]
+
+            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
+            query = QSqlQuery()
+
+            # Execute the query
+            logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            if not query.exec(sql_query):
+                logger_setup.get_logger().critical(
+                    f'Error fetching distinct UPbAnalysisID using Filter ID: {filter_id}: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+            logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
+            # Fetch all results, add found IDs to the list.
+            while query.next():
+                ids.add(query.value(0))
+            ids = f"({', '.join(map(str, ids))})"
+
+            # remove LIMIT 250 from original query_str, can only have one of those
+            query_str = query_str.replace('LIMIT 250', '')
+            # take the original query_str and only the content before WHERE CLAUSE
+            modified_query_str = query_str.split('WHERE')[0]
+            # replace SampleName with filter name AS
+            modified_query_str = modified_query_str.replace('[SampleName]', f'\'{name}\' AS [SampleName]')
+            modified_query_str = modified_query_str.replace('SELECT', 'SELECT DISTINCT')
+            modified_query_str = modified_query_str.replace('LIMIT 250', '')
+            modified_query_str = modified_query_str.replace('DISTINCT DISTINCT', 'DISTINCT')
+
+            query_str = f"{query_str} \n UNION ALL \n {modified_query_str} WHERE UPbAnalysisID IN {ids} LIMIT 250 \n"
+            logger_setup.get_logger().debug(f'SQL command: {query_str}')
+
+
         # code to transform the query into a pivot table
+        # SQLite doesn't have a builtin Pivot function, so it must be done manually.
         if self.worksheet_tabs_dict[current_worksheet_name]['pivot']:
             query_str = query_str.replace('LIMIT 250', '')
 
+            # Any transactions shouldn't be present at this time, but just in case
             db = QSqlDatabase.database()
             db.commit()
             db.close()
@@ -644,6 +714,7 @@ class ExportWidget(QWidget):
                 logger_setup.get_logger().critical(f'SQL command: {sql_query}')
 
             create_table_qry = QSqlQuery()
+            # creating new TempPivotTable from existing query string data
             sql_temptable_create = 'CREATE TEMP TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
             logger_setup.get_logger().info('Creating table TempPivotTable')
             if not create_table_qry.exec(sql_temptable_create):
@@ -653,9 +724,11 @@ class ExportWidget(QWidget):
                 return
             logger_setup.get_logger().info('Created table TempPivotTable successfully')
 
+            #defaults to pivot based on the first column in the exporter.
             first_tuple = next(iter(ordered_columns))
             pivot_col = first_tuple[1]
 
+            # finds distinct list of first column values.
             distinct_first_column_query = QSqlQuery()
             first_column_list = []
             sql_distinct_first_column = f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'
@@ -665,6 +738,8 @@ class ExportWidget(QWidget):
                         first_column_list.append(distinct_first_column_query.value(0))
                         distinct_first_column_query.next()
                 else:
+                    # if no columns/values are found then could be an error, check if items are checked, if there are
+                    # then something went wrong.
                     if not (len(self.checked_sample_list) == 0 and
                         len(self.checked_aliquot_list) == 0 and
                         len(self.checked_spot_list) == 0):
@@ -680,6 +755,9 @@ class ExportWidget(QWidget):
                 return
             case_expressions = []
 
+            # Creates the column names for the first col and other columns, so if SampleID, BestAge is being pivot
+            # with samples in the list as S1, S2, S3, then:
+            # end result should be S1_BestAge, S2_BestAge, S3_BestAge
             for name in first_column_list:
                 for table, field in ordered_columns:
                     if field == pivot_col:
@@ -688,7 +766,7 @@ class ExportWidget(QWidget):
 
             case_list_sql = '\n, '.join(case_expressions)
 
-
+            # final pivot string, takes the data from TempPivotTable and modifies it.
             query_str = (f"""With cte AS (SELECT {columns_str}, ROW_NUMBER() OVER (
             PARTITION BY {pivot_col}
             ORDER BY rowid) AS RowNum
@@ -699,13 +777,15 @@ class ExportWidget(QWidget):
             ORDER BY c.RowNum""")
 
 
+        # At this point the final query_str is complete, either with or without pivot.
+        # saves final string used for exporting, removed LIMIT, and saved model for future use.
         model = QSqlQueryModel()
         model.setQuery(query_str)
         self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace('LIMIT 250', '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 
-        # Remove LIMIT 250 from the original query string and build the COUNT query
-        counter_sql_query = f"SELECT COUNT('UPbAnalyses') FROM ({query_str.replace('LIMIT 250', '')}) AS SubQuery"
+        # Remove LIMIT 250 from the original query string and build the COUNT query, for the count label
+        counter_sql_query = f"SELECT COUNT('UPbAnalyses') FROM ({self.worksheet_tabs_dict[current_worksheet_name]['sql']}) AS SubQuery"
 
         # Prepare and execute the query
         counter_query = QSqlQuery()
@@ -726,10 +806,6 @@ class ExportWidget(QWidget):
             else:
                 # Handle case where query doesn't return a result
                 self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Number of Rows: 0")
-
-        # for col, (table, field) in enumerate(ordered_columns):
-        #     header = f"{table}.{field}"
-        #     model.setHeaderData(col, QtCore.Qt.Orientation.Horizontal, header, QtCore.Qt.ItemDataRole.DisplayRole)
 
         tableView.setModel(model)
 
@@ -825,7 +901,9 @@ class ExportWidget(QWidget):
             query.prepare(sql)
 
             if not query.exec():
-                print(f"Query execution failed: {query.lastError().text()}")
+                logger_setup.get_logger().critical(
+                    f'Error exporting query to excel: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'SQL command: {sql}')
                 return
 
             # Retrieve column names
@@ -1046,7 +1124,7 @@ class ExportWidget(QWidget):
         self.samplesincluded_comboBox.show()
         self.filters_label.show()
         self.filters_label.setText("Select Additional Filters (optional):")
-        self.filters_label.setToolTip("Adds an additional filter to further refine selection.")
+        self.filters_label.setToolTip("Additional filters to filter the samples, multiple filters union their sets together.")
         if self.selectionscope_comboBox.currentText() == 'Samples':
             self.samplesincluded_comboBox.setModel(self.samples_model)
             self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.samples_model))
@@ -1085,6 +1163,7 @@ class ExportWidget(QWidget):
             self.filters_label.setToolTip("")
 
         self.update_checked_list(self.filter_model, 'FilterGroups')
+        self.update_checked_list(self.groupedfilter_model, 'GroupedFilterGroups')
 
     def closeEvent(self, a0):
         # self.saveWindowState()
@@ -1148,6 +1227,22 @@ class ExportWidget(QWidget):
         else:
             self.export_format()
 
+    def update_groupedfilter_list(self, model):
+        self.checked_grouped_filter_list = []
+        for row in range(model.rowCount()):
+            name_index = model.index(row, 1, QtCore.QModelIndex())
+            if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                # Add the filter ID and JSON to the list
+                id_index = model.index(row, 0, QtCore.QModelIndex())
+                filter_json = model.index(row, 2, QtCore.QModelIndex())
+                self.checked_grouped_filter_list.append((model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole),
+                                                         model.data(name_index, QtCore.Qt.ItemDataRole.DisplayRole),
+                                                         model.data(filter_json, QtCore.Qt.ItemDataRole.DisplayRole)))
+        if self.exportformat_comboBox.currentText() != 'Database':
+            self.update_table_view()
+        else:
+            self.export_format()
+
     def open_column_order_dialog(self):
         # Get current selected columns
         current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
@@ -1165,7 +1260,7 @@ class ExportWidget(QWidget):
             # Update the selected columns
             self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = adjusted_columns
             # Update the table view with the new column order
-            self.update_table_view(deleted=True)
+            self.update_table_view(order_changed=True)
 
 class ColumnOrderDialog(QDialog):
     def __init__(self, ordered_columns, parent=None):

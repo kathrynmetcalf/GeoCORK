@@ -1002,12 +1002,13 @@ class QueryBuilder(QWidget):
             return as_tables, select_tables, where_tables
 
         as_tables, select_tables, where_tables = extract_as_tables(join)
-        for as_table in as_tables:
-            replace_table = SQLUtils.as_table_dict[as_table]
-            if replace_table in select_tables:
-                selects = selects.replace(replace_table, as_table)
-            if replace_table in where_tables:
-                where_clause = where_clause.replace(replace_table, as_table)
+        if as_tables is not None:
+            for as_table in as_tables:
+                replace_table = SQLUtils.as_table_dict[as_table]
+                if replace_table in select_tables:
+                    selects = selects.replace(replace_table, as_table)
+                if replace_table in where_tables:
+                    where_clause = where_clause.replace(replace_table, as_table)
 
         if type == 'Samples':
             sql_query = (
@@ -1090,7 +1091,7 @@ class QueryBuilder(QWidget):
                 filter_id = None
             elif reply == update_button:
                 filter_id = get_id_from_name('FilterGroups', filter_name)
-        InsertFilterGroupDialog(self.main_group_box.get_structure(), filter_id, self).exec()
+        InsertFilterGroupDialog(self.main_group_box.get_structure(), parent=self).exec()
 
         self.listWidget.clear()
         self.update_filter_list()
