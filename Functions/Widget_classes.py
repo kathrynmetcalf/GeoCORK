@@ -2854,8 +2854,10 @@ class TreeCombobox(QtW.QComboBox):
         if action:
             if action.text() == 'Edit':
                 self.edit_triggered.emit(self)
+                logger_setup.get_logger().info(f'Edit triggered for combo box')
             elif 'Add' in action.text() or 'Insert' in action.text():
                 self.add_triggered.emit(self, action)
+                logger_setup.get_logger().info(f'Add triggered for combo box')
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
 
@@ -2935,6 +2937,8 @@ class TreeCombobox(QtW.QComboBox):
 
 class CheckableTreeCombobox(TreeCombobox):
     closing = QtC.pyqtSignal()
+    edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
+    add_triggered = QtC.pyqtSignal(QtW.QComboBox, QAction)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -3009,6 +3013,20 @@ class CheckableTreeCombobox(TreeCombobox):
         if self.popup_shown:
             super().hidePopup()
             self.popup_shown = False
+
+    def show_context_menu(self, pos):
+        menu = TreeContextMenu()
+        menu.set_view(self.treeView, False)
+        action = menu.exec(self.mapToGlobal(pos))
+        if action:
+            if action.text() == 'Edit':
+                self.edit_triggered.emit(self)
+                logger_setup.get_logger().info(f'Edit triggered for checkable tree combo box')
+            elif 'Add' in action.text() or 'Insert' in action.text():
+                self.add_triggered.emit(self, action)
+                logger_setup.get_logger().info(f'Add triggered for checkable tree combo box')
+            elif 'Expand' in action.text() or 'Collapse' in action.text():
+                expand_collapse(self.treeView, action)
 
     def eventFilter(self, obj, event):
         if obj == self.lineEdit():
@@ -3823,11 +3841,16 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
             query.addBindValue(item_id)
             query.addBindValue(id)
             if not query.exec():
-                logger_setup.get_logger().error(
-                    f"Error adding {first_table_ids, id} to {many_table}")
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                rollback_savepoint('update_many_table')
-                return False
+                # If it is a unique constraint fail, just continue
+                if 'UNIQUE constraint failed' in query.lastError().text():
+                    pass
+                # If it is another type of error, log it and rollback
+                else:
+                    logger_setup.get_logger().error(
+                        f"Error adding {first_table_ids, id} to {many_table}")
+                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    rollback_savepoint('update_many_table')
+                    return False
     logger_setup.get_logger().info(f"Added {to_add} associated with item IDs {first_table_ids} to {many_table}")
     logger_setup.get_logger().info(
         f"Successfully updated {many_table} for {first_table_id_header} {first_table_ids}")

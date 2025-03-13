@@ -17,13 +17,16 @@ from Functions.Widget_classes import (
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
     set_table, VerifiableSqlTableModel, VerifiableSqlViewModel, populate_many_combo_checks, populate_model_checks,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
-    get_id_from_name
+    get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
 from ui.AddTags import AddTags
+from ui.AddTreeTags import AddTreeTags
+from ui.EditTree import EditTree
+from ui.EditTable import EditTable
 from ui.GPSDialog import GPSDialog
 from ui.New_reference import NewReference
 from ui.AgeDialog import AgeDialog
@@ -647,11 +650,10 @@ class EditView(QtW.QDialog):
         self.combo.view().installEventFilter(self)
         self.combo.model_modifiable = True
         self.combo.closedOnLineEditClick = False
-        if isinstance(self.combo, QtW.QComboBox):
-            pass
-        else:
-            # combo is a CheckableComboBox or CheckableTreeComboBox
+        if isinstance(self.combo, CheckableComboBox | CheckableTreeCombobox):
             self.combo.enable_context_menu(True)
+            self.combo.add_triggered.connect(self.add_tag_popup)
+            self.combo.edit_triggered.connect(self.edit_tag_popup)
         # self.combo.activated.connect(self.save_dropdown_data)
         self.combo.setFocus()
         # print("showing popup")
@@ -775,6 +777,11 @@ class EditView(QtW.QDialog):
         try:
             self.combo.removeEventFilter(self)
             self.combo.view().removeEventFilter(self)
+        except TypeError:
+            pass
+        try:
+            self.combo.add_triggered.disconnect(self.add_tag_popup)
+            self.combo.edit_triggered.disconnect(self.edit_tag_popup)
         except TypeError:
             pass
         self.edit_tableView.setIndexWidget(self.combo_index, None)
@@ -1279,6 +1286,51 @@ class EditView(QtW.QDialog):
             self.updated = True
             self.find_new_rows()
         self.display_table()
+
+    def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
+        if isinstance(combo.model(), TreeModel):
+            table = combo.model().table
+        else:
+            table = combo.model().tableName()
+        dlg = None
+        if table in SQLUtils.user_viewable_trees:
+            save_expanded_state(table, combo.model(), combo.view())
+            dlg_args = add_tree_popup(combo.view(), combo.model(), action)
+            if dlg_args:
+                dlg = AddTreeTags(table, **dlg_args)
+            else:
+                dlg = AddTreeTags(table)
+        else:
+            dlg = AddTags(table)
+        if not dlg:
+            return
+        logger_setup.get_logger().info(f"Showing {table} add dialog")
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
+            # Clear and recreate this combo box
+            self.destroy_dropdown()
+            self.display_widget()
+            self.combo.showPopup()
+
+    def edit_tag_popup(self):
+        combo = self.sender()
+        if isinstance(combo.model(), TreeModel):
+            table = combo.model().table
+        else:
+            table = combo.model().tableName()
+        if table in SQLUtils.user_viewable_trees:
+            dlg = EditTree(table)
+        else:
+            dlg = EditTable(table)
+        if dlg is None:
+            return
+        logger_setup.get_logger().info(f"Showing {table} edit dialog")
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
+            # Clear and recreate this combo box
+            self.destroy_dropdown()
+            self.display_widget()
+            self.combo.showPopup()
 
     def rollback(self):
         rollback_savepoint('before_edit')

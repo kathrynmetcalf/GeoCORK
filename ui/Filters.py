@@ -278,17 +278,6 @@ class InsertFilterGroupDialog(QDialog):
         self.warning_label = QLabel()
         layout.addWidget(self.warning_label)
 
-        self.color_label = QLabel("Default Color:")
-        self.color_display = QLabel(" ")
-        self.color_display.setStyleSheet("background-color: black;")
-        self.color_picker_button = QPushButton("Pick Color")
-        self.color_picker_button.clicked.connect(self.pick_color)
-        color_layout = QHBoxLayout()
-        color_layout.addWidget(self.color_display)
-        color_layout.addWidget(self.color_picker_button)
-        layout.addWidget(self.color_label)
-        layout.addLayout(color_layout)
-
         self.description_label = QLabel("Filter Group Description:")
         self.description_input = QTextEdit()
         layout.addWidget(self.description_label)
@@ -318,7 +307,7 @@ class InsertFilterGroupDialog(QDialog):
     def populate_fields(self):
         query = QSqlQuery()
         sql_query = """
-            SELECT FilterGroupName, DefaultColor, FilterGroupDescription 
+            SELECT FilterGroupName, FilterGroupDescription 
             FROM FilterGroups 
             WHERE FilterGroupID = :filter_id;
         """
@@ -329,8 +318,6 @@ class InsertFilterGroupDialog(QDialog):
         if query.exec():
             if query.next():
                 self.name_input.setText(query.value(0))
-                self.color_display.setStyleSheet(f"background-color: {query.value(1)};")
-                self.color = query.value(1)
                 self.description_input.setText(query.value(2))
             else:
                 logger_setup.get_logger().critical(
@@ -341,15 +328,8 @@ class InsertFilterGroupDialog(QDialog):
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
-    def pick_color(self):
-        color = QColorDialog.getColor()
-        if color.isValid():
-            self.color_display.setStyleSheet(f"background-color: {color.name()};")
-            self.color = color.name()
-
     def insert_data(self):
         name = self.name_input.text()
-        color = getattr(self, 'color', '#000000')
         description = self.description_input.toPlainText()
 
         query = QSqlQuery()
@@ -384,13 +364,12 @@ class InsertFilterGroupDialog(QDialog):
             # self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         else:
             insert_query = """
-                INSERT INTO FilterGroups (FilterGroupName, SQLQuery, DefaultColor, FilterGroupDescription)
-                VALUES (:name, :sql_query, :color, :description)
+                INSERT INTO FilterGroups (FilterGroupName, SQLQuery, FilterGroupDescription)
+                VALUES (:name, :sql_query, :description)
             """
             query.prepare(insert_query)
             query.bindValue(":name", name)
             query.bindValue(":sql_query", f'\'{self.sql_structure}\'')
-            query.bindValue(":color", color)
             query.bindValue(":description", description)
 
             if not query.exec():
@@ -404,19 +383,17 @@ class InsertFilterGroupDialog(QDialog):
 
     def update_data(self):
         name = self.name_input.text()
-        color = getattr(self, 'color', '#000000')
         description = self.description_input.toPlainText()
 
         query = QSqlQuery()
         update_query = """
             UPDATE FilterGroups
-            SET FilterGroupName = :name, SQLQuery = :sql_query, DefaultColor = :color, FilterGroupDescription = :description
+            SET FilterGroupName = :name, SQLQuery = :sql_query, FilterGroupDescription = :description
             WHERE FilterGroupID = :id
         """
         query.prepare(update_query)
         query.bindValue(":name", name)
         query.bindValue(":sql_query", f'\'{self.sql_structure}\'')
-        query.bindValue(":color", color)
         query.bindValue(":description", description)
         query.bindValue(":id", self.update_id)
         if not query.exec():
@@ -1060,7 +1037,6 @@ class QueryBuilder(QWidget):
         if query.exec(sql_query):
             while query.next():
                 item = QListWidgetItem()
-                item.setForeground(QColor(query.value(3)))  # color
                 item.setToolTip(query.value(4))  # description
                 item.setText(query.value(1))     # FilterGroupName
                 self.listWidget.addItem(item)

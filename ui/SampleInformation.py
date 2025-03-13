@@ -493,9 +493,9 @@ class SampleInformation(QtW.QDialog):
             if self.delete_question():
                 delete_samples(selected_indexes)
         elif action == add_action:
-            self.add_popup(action, combo)
+            self.add_popup(combo, action)
         elif action == edit_action:
-            self.edit_popup(combo)
+            self.edit_popup()
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
