@@ -601,6 +601,9 @@ class ImportWizardDialog(QWidget):
                 # Optional: Give user a chance to review and adjust the values
                 QMessageBox.information(self, "Review",
                                         "The empty cells have been filled with default values. Please review before clicking import again.")
+                return
+            else:
+                return
 
         # Prepare SQL queries for validation
         # find values where SampleName in the database matches listed value
@@ -650,7 +653,7 @@ class ImportWizardDialog(QWidget):
             if sample_match:
                 item = self.left_table.item(row, 0)
                 if item:
-                    item.setBackground(QColor('#FCAE1E'))
+                    item.setBackground(QColor('#FFDEB8')) # Light orange
             else:
                 item = self.left_table.item(row, 0)
                 if item:
@@ -659,7 +662,7 @@ class ImportWizardDialog(QWidget):
             if aliquot_match:
                 item = self.left_table.item(row, 1)
                 if item:
-                    item.setBackground(QColor('#FCAE1E'))
+                    item.setBackground(QColor('#FFDEB8')) # Light orange
             else:
                 item = self.left_table.item(row, 1)
                 if item:
@@ -668,7 +671,7 @@ class ImportWizardDialog(QWidget):
             if spot_match:
                 item = self.left_table.item(row, 2)
                 if item:
-                    item.setBackground(QColor('#FCAE1E'))
+                    item.setBackground(QColor('#FFDEB8')) # Light orange
             else:
                 item = self.left_table.item(row, 2)
                 if item:
@@ -1012,7 +1015,7 @@ class ImportWizardDialog(QWidget):
         # Set the column header
         header_text = f"{selected_field}"
         header_item = QTableWidgetItem(header_text)
-        header_item.setBackground(QBrush(QColor("#ffffcc")))  # Light yellow background for new column
+        header_item.setBackground(QBrush(QColor("#C0FFB8")))  # Green background for new column
         self.right_table.setHorizontalHeaderItem(column_index, header_item)
 
         # Add the new column to the column mappings
@@ -1294,7 +1297,7 @@ class ImportWizardDialog(QWidget):
                 if font.color and hasattr(font.color, "rgb") and isinstance(font.color.rgb, str):
                     hex_col = "#" + font.color.rgb[-6:]
                     item.setForeground(QBrush(QColor(hex_col)))
-                    if hex_col.lower() == "#ff0000":
+                    if hex_col.lower() == "#EB1800":  # Red
                         row_rejected = True
                 # else:
                 #     item.setForeground(QBrush(Qt.GlobalColor.black))
@@ -1363,7 +1366,7 @@ class ImportWizardDialog(QWidget):
     #             self.column_mappings[col_idx] = (field)
     #             item = self.right_table.horizontalHeaderItem(col_idx)
     #             item.setText(f"{field}")
-    #             item.setBackground(QBrush(QColor("#ffffcc")))
+    #             item.setBackground(QBrush(QColor("#B8CFFF")))
     #         else:
     #             self.column_mappings[col_idx] = ("None")
 
@@ -1594,7 +1597,8 @@ class ImportWizardDialog(QWidget):
             else:
                 self.column_mappings[logical_index] = (new_field)
                 item.setText(f"{new_field}")
-                item.setBackground(QBrush(Qt.GlobalColor.green))
+                item.setBackground(QColor("#C0FFB8")  # Green
+                )
 
                 # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
                 if new_field in ["Sample Name", "Aliquot Name", "Spot Name"]:
@@ -1779,7 +1783,7 @@ class ImportWizardDialog(QWidget):
                     if col_idx in self.column_mappings:
                         f_name = self.column_mappings[col_idx]
                         hdr_item.setText(f"{f_name}")
-                        hdr_item.setBackground(QBrush(QColor("#ffffcc")))
+                        hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
                         # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
                         if f_name in ["Sample Name", "Aliquot Name", "Spot Name"]:
                             self.update_left_table_on_header_change(f_name, col_idx)
@@ -1850,7 +1854,7 @@ class ImportWizardDialog(QWidget):
                     self.left_table.setItem(row, col, QTableWidgetItem(f"{aliquot_id}-{spot_counter}"))
 
             # Highlight the updated cell
-            self.left_table.item(row, col).setBackground(Qt.GlobalColor.yellow)
+            self.left_table.item(row, col).setBackground(QColor("#D4B8FF")) # Light purple
 
         self.left_table.blockSignals(False)
         self.left_table.resizeColumnsToContents()
