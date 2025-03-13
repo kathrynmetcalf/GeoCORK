@@ -15,7 +15,7 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import SQLUtils
-from Functions.Widget_classes import get_id_from_name
+from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column
 from ui.DataViewerWidget import DataViewerWidget
 
 
@@ -471,14 +471,20 @@ class RuleWidget(QWidget):
 
         if field is not None:
             self.table_combo.setCurrentText(field.split('.')[0])
-        if field is not None:
             self.attribute_combo.setCurrentText(field.split('.')[1][1:-1])
+        else:
+            self.table_switcher()
+            self.attribute_switcher()
         if operator is not None:
             self.operator_combo.setCurrentText(operator)
         if value is not None:
             self.value_input.setText(value)
+        else:
+            self.lineedit_switcher()
         if unit is not None:
             self.unit_combo.setCurrentText(unit)
+
+        self.lineedit_completer()
 
         # Delete button
         self.delete_button = QPushButton('Delete')
@@ -531,7 +537,7 @@ class RuleWidget(QWidget):
                     self.value_input.setValidator(None)  # No numeric validator
                 case 'boolean':
                     self.value_input.setPlaceholderText("e.g. True/False")
-                    self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(T rue|False)$")))
+                    self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(True|False)$")))
                 case 'number':
                     # Numeric fields, e.g. Ages
                     float_validator = QDoubleValidator(
@@ -546,9 +552,36 @@ class RuleWidget(QWidget):
                     if "Age" in self.attribute_combo.currentText():
                         self.unit_combo.show()
 
+    def lineedit_completer(self):
+        if self.attribute_combo.currentText() == "":
+            self.value_input.setCompleter(None)
+            return
+        name_column = get_name_column(self.table_combo.currentText())
+        if not name_column:
+            self.value_input.setCompleter(None)
+            return
+        name_header = get_headers(self.table_combo.currentText())[name_column]
+        if self.attribute_combo.currentText() == name_header and self.value_input.placeholderText() == "e.g. abc123":
+            # Populate the value input with a completer based on the selected attribute
+            value_completer = QtWidgets.QCompleter()
+            query = QSqlQuery()
+            sql_query = f"SELECT DISTINCT {self.attribute_combo.currentText()} FROM {self.table_combo.currentText()}"
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            if not query.exec(sql_query):
+                logger_setup.get_logger().info(f'Error creating the completer for input')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            values = []
+            while query.next():
+                values.append(query.value(0))
+            value_completer.setModel(QtCore.QStringListModel(values))
+            value_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
+            value_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
+            value_completer.setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
+            self.value_input.setCompleter(value_completer)
+
     def attribute_switcher(self):
         """
-        Based on the attribute selected, populate the operator combo.
+        Based on the attribute selected, populate the operator combo and the value line edit completer.
         """
         if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
                 operator_items = [
@@ -605,7 +638,7 @@ class RuleWidget(QWidget):
             self.operator_combo.addItems(operator_items)
             self.datatype = 'number'
         self.lineedit_switcher()
-
+        self.lineedit_completer()
 
     def table_switcher(self):
         """

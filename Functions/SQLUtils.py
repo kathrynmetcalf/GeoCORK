@@ -572,8 +572,8 @@ table_attributes_dict = {
         "LabFacilityCreated", "LabFacilityModified"
     ],
     'References': [
-        "Authors", "Year", "Title", "Source", "doi", "ShortCitation", "ReferenceDescription",
-        "ReferenceCreated", "ReferenceModified"
+        "Authors", "Year", "Title", "Source", "DOI", "ReferenceDescription",
+        "ReferenceCreated", "ReferenceModified", "ReferenceDisplay"
     ],
     'Regions': [
         "RegionName", "RegionDescription",
