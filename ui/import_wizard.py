@@ -1514,7 +1514,13 @@ class ImportWizardDialog(QWidget):
         for r in sr:
             self.right_table.removeRow(r)
             self.left_table.removeRow(r)
-            self.rejected_rows.discard(r)
+            new_rejected = set()
+            for rejected_row in self.rejected_rows:
+                if rejected_row < r:
+                    new_rejected.add(rejected_row)
+                elif rejected_row > r:
+                    new_rejected.add(rejected_row - 1)
+            self.rejected_rows = new_rejected
         self.update_vertical_headers()
 
     def remove_selected_columns(self):
