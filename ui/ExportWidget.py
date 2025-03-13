@@ -6,14 +6,14 @@ from collections import Counter
 import pandas
 import qtawesome
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QTimer
+from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QTimer, Qt
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
     QGridLayout, QLabel, QCheckBox, QSpacerItem,
     QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QErrorMessage,
-    QGroupBox, QScrollArea, QHeaderView
+    QGroupBox, QScrollArea, QHeaderView, QAbstractItemView, QListWidgetItem
 )
 from PyQt6.uic import loadUi
 from openpyxl import Workbook
@@ -25,7 +25,7 @@ from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase
 from Functions import FilterDatabase
 from Functions import SQLUtils
-from Functions.Widget_classes import CheckableSqlTableModel, CheckableComboBox
+from Functions.Widget_classes import CheckableSqlTableModel, CheckableComboBox, SQLiteTableModel
 from ui import Filters
 
 
@@ -50,6 +50,8 @@ class ExportWidget(QWidget):
         self.checked_sample_names = '()'
         self.checked_aliquot_names = '()'
         self.checked_spot_names = '()'
+
+        self.column_name_mappings = dict()
 
         # Initialize a dictionary to store data for each workbook tab
         self.worksheet_tabs_dict = {}
@@ -100,6 +102,7 @@ class ExportWidget(QWidget):
         self.export_format()
 
         self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
+        self.edit_columnnames_pushButton.clicked.connect(self.open_columnname_mapping_dialog)
 
         self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
@@ -271,10 +274,23 @@ class ExportWidget(QWidget):
         self.worksheet_tabs_dict = {}
         self.previous_worksheet = None
 
+    def rename_column(self, column_index, model):
+        """Show an input dialog to rename a column header."""
+        current_name = str(model.headerData(column_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole))
 
+        new_name, ok = QInputDialog.getText(self, "Rename Column",
+                                            f"Enter new name for '{current_name}':",
+                                            text=current_name)
+        if ok and new_name.strip():
+            model.setHeaderData(column_index, Qt.Orientation.Horizontal, new_name)
 
-    def add_worksheet_tab(self, worksheet_name=None, distinct=False, pivot=False, selected_columns=None, ordered_columns=None, headers=False):
+    def add_worksheet_tab(self, worksheet_name=None, distinct=False, pivot=False, selected_columns=None,
+                          ordered_columns=None, headers=False):
         # Determine the new workbook name
+        if ordered_columns is None:
+            ordered_columns = {}
+        if selected_columns is None:
+            selected_columns = {}
         if ordered_columns is None:
             ordered_columns = {}
         if selected_columns is None:
@@ -350,7 +366,7 @@ class ExportWidget(QWidget):
 
         self.workbooktabs.blockSignals(False)
         self.load_checkbox_states(worksheet_name)
-        self.workbooktabs.setCurrentWidget(new_tab)
+        # self.workbooktabs.setCurrentWidget(new_tab)
 
         distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
         headers_checkbox.stateChanged.connect(self.update_header_checkbox)
@@ -441,7 +457,7 @@ class ExportWidget(QWidget):
                 # Save field metadata
                 checkbox.setProperty("field_name", field)
                 checkbox.setProperty("table_name", table_name)
-                checkbox.checkStateChanged.connect(lambda: self.update_table_view(deleted=False))
+                checkbox.checkStateChanged.connect(lambda: self.update_table_view())
 
             # Add a vertical spacer to push content up
             vertical_spacer = QSpacerItem(20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
@@ -536,7 +552,10 @@ class ExportWidget(QWidget):
         # Store selected_columns in the current workbook
         current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = selected_columns
-        # print(selected_columns)
+        for column in selected_columns:
+            if column[1] not in self.column_name_mappings:
+                self.column_name_mappings[column[1]] = column[1]
+
         return selected_columns
 
     def select_checkboxes(self, values):
@@ -574,17 +593,14 @@ class ExportWidget(QWidget):
         else:
             # # update selected columns
             self.get_selected_values()
-
             # Get the selected columns for the current workbook
-            selected_columns = self.worksheet_tabs_dict[current_worksheet_name].get('selected_columns', {})
-            ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
-
+            selected_columns = self.worksheet_tabs_dict[current_worksheet_name]['selected_columns']
+            ordered_columns = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
             #checks to make sure the items in selected_columns and ordered_columns match. If they do not match then
             #default to selected columns, means new column could be selected, therefore ordered_columns is out of date
-            if Counter(selected_columns) != Counter(ordered_columns):
+            if selected_columns == ordered_columns:
                 ordered_columns = selected_columns
                 self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = ordered_columns
-
         # prevents necessary compute time
         if not ordered_columns:
             # No columns selected, clear the table view
@@ -599,7 +615,11 @@ class ExportWidget(QWidget):
         #creates column select string in format [SampleID], [CalculatedU/Th], etc...
         for table, field in ordered_columns:
             tables.add(table)
-            columns_str += f'[{field}], '
+            if field in self.column_name_mappings:
+                columns_str += f"[{field}] AS '{self.column_name_mappings[field]}', "
+            else:
+                columns_str += f'[{field}], '
+
 
         # removes final ", "
         columns_str = columns_str[0:-2]
@@ -727,6 +747,7 @@ class ExportWidget(QWidget):
             #defaults to pivot based on the first column in the exporter.
             first_tuple = next(iter(ordered_columns))
             pivot_col = first_tuple[1]
+            pivot_col = self.column_name_mappings[pivot_col]
 
             # finds distinct list of first column values.
             distinct_first_column_query = QSqlQuery()
@@ -760,9 +781,10 @@ class ExportWidget(QWidget):
             # end result should be S1_BestAge, S2_BestAge, S3_BestAge
             for name in first_column_list:
                 for table, field in ordered_columns:
-                    if field == pivot_col:
+
+                    if self.column_name_mappings[field] == pivot_col:
                         continue
-                    case_expressions.append(f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field}] END) AS [{name + "_" + field}]')
+                    case_expressions.append(f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field}] END) AS [{name + "_" + self.column_name_mappings[field]}]')
 
             case_list_sql = '\n, '.join(case_expressions)
 
@@ -815,7 +837,7 @@ class ExportWidget(QWidget):
             case 'detritalPy':
                 self.export_to_excel()
             case 'IsoplotR':
-                self.export_to_excel()
+                self.export_to_csv()
             case 'DZStats - Intersample':
                 self.export_to_csv()
             case 'DZStats - Two Sample Compare':
@@ -988,26 +1010,96 @@ class ExportWidget(QWidget):
         self.add_workbook_button.setEnabled(True)
         self.remove_workbook_button.setEnabled(True)
         self.fileformat_comboBox.setEnabled(True)
+        self.column_name_mappings.clear()
         match self.exportformat_comboBox.currentText():
+            # DetritalPy requires an excel file, with multiple sheets
+            # sheet 1 (Samples) is a distinct list of sample, units, basins(), age, lat, long, and source
+            # sheet 2 (ZrUPb) is list of samples, grains, analysis, and upb data
+
             case 'detritalPy':
                 self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 Samples_columns= {
                     ('Samples', 'SampleName'): True,
                     ('Units', 'UnitName'): True,
-                    ('Samples', 'Latitude'): True,
-                    ('Samples', 'Longitude'): True,
-                    ('Sources', 'ShortCitation'): True
+                    ('Regions', 'RegionName'): True,
+                    # ('GPSLocations', 'Latitude'): True,
+                    # ('Samples', 'Longitude'): True,
+                    ('References', 'ReferenceDisplay'): True
                 }
                 self.add_worksheet_tab('Samples', True, False, Samples_columns, Samples_columns, True)
 
                 ZrUPb_columns = {
                     ('Samples', 'SampleName'): True,
+                    ('Aliquots', 'AliquotName'): True,
                     ('Spots', 'SpotName'): True,
-                    ('UPbAnalyses', 'Uppm'): True,
-                    ('UPbAnalyses', 'CalculatedU/Th'): True,
-                    ('UPbAnalyses', 'CalculatedBestAge'): True,
-                    ('UPbAnalyses', 'CalculatedBestAgeError'): True,
-                    ('UPbAnalyses', 'CalculatedConcordance'): True
+
+                    ('UPbAnalyses', "Calculated206Pb/204Pb"): True,
+                    ('UPbAnalyses', "Uppm"): True,
+                    ('UPbAnalyses', "CalculatedU/Th"): True,
+                    ('UPbAnalyses', "CalculatedTh/U"): True,
+
+                    ('UPbAnalyses', "Calculated207Pb/206Pb"): True,
+                    ('UPbAnalyses', "Calculated207Pb/206PbError"): True,
+                    ('UPbAnalyses', "Calculated207Pb/235U"): True,
+                    ('UPbAnalyses', "Calculated207Pb/235UError"): True,
+                    ('UPbAnalyses', "Calculated206Pb/238U"): True,
+                    ('UPbAnalyses', "Calculated206Pb/238UError"): True,
+
+                    ('UPbAnalyses', "ErrorCorr/Rho"): True,
+
+                    ('UPbAnalyses', "Calculated207Pb/235UAge"): True,
+                    ('UPbAnalyses', "Calculated207Pb/235UAgeError"): True,
+
+                    ('UPbAnalyses', "Calculated206Pb/238UAge"): True,
+                    ('UPbAnalyses', "Calculated206Pb/238UAgeError"): True,
+
+                    ('UPbAnalyses', "Calculated207Pb/206PbAge"): True,
+                    ('UPbAnalyses', "Calculated207Pb/206PbAgeError"): True,
+
+                    ('UPbAnalyses', "CalculatedBestAge"): True,
+                    ('UPbAnalyses', "CalculatedBestAgeError"): True,
+
+                    ('UPbAnalyses', "CalculatedConcordance"): True
+                }
+
+                self.column_name_mappings = {
+                    "SampleName": "Sample_ID",
+                    "UnitName": "Unit",
+                    "RegionName": "Basin",
+                    "Latitude": "Latitude",
+                    "Longitude": "Longitude",
+                    "ReferenceDisplay": "Source",
+
+                    "AliquotName": "Grain_ID",
+                    "SpotName": "Analysis_ID",
+
+                    "Calculated206Pb/204Pb": "206Pb_204Pb",
+                    "Uppm": "U_ppm",
+                    "CalculatedU/Th": "U_Th",
+                    "CalculatedTh/U": "Th_U",
+
+                    "Calculated207Pb/206Pb": "207Pb_206Pb",
+                    "Calculated207Pb/206PbError": "207Pb_206Pb_err",
+                    "Calculated207Pb/235U": "207Pb_235Pb",
+                    "Calculated207Pb/235UError": "207Pb_235Pb_err",
+                    "Calculated206Pb/238U": "206Pb_238Pb",
+                    "Calculated206Pb/238UError": "206Pb_238Pb_err",
+
+                    "ErrorCorr/Rho": "RHO",
+
+                    "Calculated207Pb/235UAge": "75Age",
+                    "Calculated207Pb/235UAgeError": "75Age_err",
+
+                    "Calculated206Pb/238UAge": "68Age",
+                    "Calculated206Pb/238UAgeError": "68Age_err",
+
+                    "Calculated207Pb/206PbAge": "76Age",
+                    "Calculated207Pb/206PbAgeError": "76Age_err",
+
+                    "CalculatedBestAge": "BestAge",
+                    "CalculatedBestAgeError": "BestAge_err",
+
+                    "CalculatedConcordance": "Disc"
                 }
 
                 self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns, True)
@@ -1242,6 +1334,21 @@ class ExportWidget(QWidget):
             self.update_table_view()
         else:
             self.export_format()
+    def open_columnname_mapping_dialog(self):
+        # Get current selected columns
+        current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', [])
+
+        if not ordered_columns:
+            QMessageBox.warning(self, "No Columns Selected", "Please select columns before editing their name.")
+            return
+
+        # Open the dialog
+        dialog = ColumnNamesDialog(self.column_name_mappings, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # Get adjusted columns
+            self.column_name_mappings = dialog.get_adjusted_columns()
+            self.update_table_view()
 
     def open_column_order_dialog(self):
         # Get current selected columns
@@ -1313,3 +1420,75 @@ class ColumnOrderDialog(QDialog):
             table_name, field_name = item_text.split('.', 1)
             adjusted_columns.append((table_name, field_name))
         return tuple(adjusted_columns)
+
+class ColumnNamesDialog(QDialog):
+    def __init__(self, mapped_columns, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Edit Column Names")
+        self.resize(350, 450)
+        self.mapped_columns = mapped_columns
+
+        # Create widgets
+        self.list_widget = QListWidget()
+        self.list_widget.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.list_widget.setDragDropMode(QListWidget.DragDropMode.InternalMove)
+        self.list_widget.setEditTriggers(QAbstractItemView.EditTrigger.DoubleClicked)
+
+        # Populate list with columns
+        for original, field_name in self.mapped_columns.items():
+            item = QListWidgetItem(f"{original}: {field_name}")
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsEditable)  # Make items editable
+            self.list_widget.addItem(item)
+
+        # Buttons
+        self.rename_button = QPushButton("Rename Selected")
+        self.ok_button = QPushButton("OK")
+        self.cancel_button = QPushButton("Cancel")
+
+        # Connect signals
+        self.rename_button.clicked.connect(self.rename_selected_item)
+        self.ok_button.clicked.connect(self.accept)
+        self.cancel_button.clicked.connect(self.reject)
+
+        # Layouts
+        button_layout = QHBoxLayout()
+        button_layout.addWidget(self.rename_button)
+        button_layout.addStretch()
+        button_layout.addWidget(self.cancel_button)
+        button_layout.addWidget(self.ok_button)
+
+        main_layout = QVBoxLayout()
+        main_layout.addWidget(self.list_widget)
+        main_layout.addLayout(button_layout)
+
+        self.setLayout(main_layout)
+
+    def rename_selected_item(self):
+        current_item = self.list_widget.currentItem()
+        if current_item:
+            self.list_widget.editItem(current_item)
+        else:
+            QMessageBox.warning(self, "No Selection", "Please select an item to rename.")
+
+    def delete_selected_item(self):
+        current_row = self.list_widget.currentRow()
+        if current_row >= 0:
+            self.list_widget.takeItem(current_row)
+        else:
+            QMessageBox.warning(self, "No Selection", "Please select an item to delete.")
+
+    def get_adjusted_columns(self):
+        adjusted_columns = {}
+        for index, (original_name, field_name) in enumerate(self.mapped_columns.items()):
+            item_text = self.list_widget.item(index).text()
+
+            # Extract the new name from the list item text (assuming format: "original: new_name")
+            if ": " in item_text:
+                _, new_name = item_text.split(": ", 1)
+            else:
+                new_name = item_text  # Fallback if formatting isn't as expected
+
+            # Store in dictionary
+            adjusted_columns[original_name] = new_name  # Mapping original field to new name
+
+        return adjusted_columns

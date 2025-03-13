@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1000</width>
-    <height>500</height>
+    <width>1071</width>
+    <height>644</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -549,6 +549,13 @@
         <widget class="QPushButton" name="remove_workbook_button">
          <property name="text">
           <string>Delete Worksheet</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="edit_columnnames_pushButton">
+         <property name="text">
+          <string>Edit Column Names</string>
          </property>
         </widget>
        </item>

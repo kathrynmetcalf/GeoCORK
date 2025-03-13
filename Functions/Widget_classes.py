@@ -67,35 +67,53 @@ age = table_model_cols("Age (Ma)", "Samples", ["AverageAge", "AverageAgeError"],
 age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatureName"], "Samples_AgeSignatures")
 
 class SQLiteTableModel(QAbstractTableModel):
-    def __init__(self, query: str, database=None):
+    def __init__(self, query: str = '', database=None):
         from Functions.Settings_manager import settings
 
-        if database is None:
-            db_file = settings._instance.value('db_file', type=str)
-        else:
-            db_file = database
-        uri = f'file:{db_file}?mode=ro&immutable=1'
+        super().__init__()
         self._data = []
         self._headers = []
+        self.edited_indexes = []
         self.last_error = None
+        self.query_text = query
+        self.database = database if database is not None else settings._instance.value('db_file', type=str)
+
+        self.load_data(self.query_text, self.database)
+
+    def update_query(self, new_query: str):
+        """Updates the model with a new query."""
+        self.load_data(new_query, self.database)
+
+    def update_database(self, new_database: str):
+        """Updates the model with a new database."""
+        self.load_data(self.query_text, new_database)
+
+    def load_data(self, query: str, database: str):
+        """Loads data from the given query and database."""
+        if query == '':
+            return
+        self.beginResetModel()
+        self._data.clear()
+        self._headers.clear()
+        self.last_error = None
+        self.query_text = query
+        self.database = database
+        uri = f'file:{database}?mode=ro&immutable=1'
+
         try:
             conn = sqlite3.connect(uri, uri=True)
             with conn:
                 cursor = conn.cursor()
-
                 cursor.execute(query)
-                _records = cursor.fetchall()
-                self._data = _records
-                self._headers = [desc[0] for desc in cursor.description]  # Get column names
+                self._data = cursor.fetchall()
+                self._headers = [desc[0] for desc in cursor.description]
             conn.commit()
             conn.close()
-
         except sqlite3.Error as e:
             logger_setup.get_logger().critical(f"Error opening database and executing query: {e.sqlite_errorname}")
             logger_setup.get_logger().debug(f"Query: {query}")
             logger_setup.get_logger().debug(f"Error: {e}")
             self.last_error = e
-        self.query_text = query
         if 'table_info' in query:
             table = 'table_info'
         else:
@@ -119,9 +137,7 @@ class SQLiteTableModel(QAbstractTableModel):
         else:
             self.table = table
             self.table_name_col = get_name_column(self.table)
-        self.edited_indexes = []
-        super().__init__()
-
+        self.endResetModel()
 
     def rowCount(self, parent=None):
         return len(self._data)
@@ -159,9 +175,18 @@ class SQLiteTableModel(QAbstractTableModel):
         return None  # Return None for roles that are not DisplayRole
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
-        if role == Qt.ItemDataRole.DisplayRole and orientation == Qt.Orientation.Horizontal:
-            return self._headers[section] if section < len(self._headers) else None
-        return None
+        """Return column headers."""
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+            return self._headers[section]  # Ensure headers are stored properly
+        return super().headerData(section, orientation, role)
+
+    def setHeaderData(self, section, orientation, value, role=Qt.ItemDataRole.EditRole):
+        """Allow renaming of column headers."""
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.EditRole:
+            self._headers[section] = value
+            self.headerDataChanged.emit(orientation, section, section)
+            return True
+        return super().setHeaderData(section, orientation, value, role)
 
     def setData(self, index, value, role = ...):
         if role == Qt.ItemDataRole.EditRole:
