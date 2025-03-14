@@ -558,9 +558,8 @@ table_attributes_dict = {
     ],
     'GPSLocations': [
         "GPSLocationConverted", "GPSLocationDisplay",
-        "GPSLatDeg", "GPSLatMin", "GPSLatSec",
-        "GPSLongDeg", "GPSLongMin", "GPSLongSec",
-        "GPSUTMZone", "GPSUTMMN", "GPSUTMME",
+        "CalculatedZone", "CalculatedEasting", "CalculatedNorthing",
+        "CalculatedLat", "CalculatedLon",
         "CalculatedGPSElev", "CalculatedGPSElevError"
     ],
     'Instruments': [

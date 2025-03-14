@@ -1156,8 +1156,6 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Calculated207Pb/206PbError'): True,
                     ('UPbAnalyses', 'Calculated238U/206Pb'): True,
                     ('UPbAnalyses', 'Calculated238U/206PbError'): True,
-                    ('Samples', 'SampleName'): True
-
                 }
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 

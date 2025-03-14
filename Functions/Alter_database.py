@@ -344,15 +344,14 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     global_vars = {name: globals()[name] for name in modules}
     gps_model = QtS.QSqlTableModel()
     set_table(gps_model, table)
-    if selected_id == 7: # UTM selected
-        sql_zone_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedZone VIRTUAL'
-        sql_e_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedEasting VIRTUAL'
-        sql_n_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedNorthing VIRTUAL'
-        sql_gps_alters = [sql_zone_alter, sql_e_alter, sql_n_alter]
-    else: # lat, lon of some form selected
-        sql_lat_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLat VIRTUAL'
-        sql_lon_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLon VIRTUAL'
-        sql_gps_alters = [sql_lat_alter, sql_lon_alter]
+
+    sql_zone_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedZone VIRTUAL'
+    sql_e_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedEasting VIRTUAL'
+    sql_n_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedNorthing VIRTUAL'
+    sql_gps_alters = [sql_zone_alter, sql_e_alter, sql_n_alter]
+    sql_lat_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLat VIRTUAL'
+    sql_lon_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLon VIRTUAL'
+    sql_gps_alters = [sql_lat_alter, sql_lon_alter]
     for sql_gps_alter in sql_gps_alters:
         logger_setup.get_logger().info(f'Adding the calculated column {sql_gps_alter.split("COLUMN ")[1].split(" VIRTUAL")[0]}')
         logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
