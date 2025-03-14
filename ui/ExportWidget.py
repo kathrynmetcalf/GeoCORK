@@ -706,7 +706,7 @@ class ExportWidget(QWidget):
             # take the original query_str and only the content before WHERE CLAUSE
             modified_query_str = query_str.split('WHERE')[0]
             # replace SampleName with filter name AS
-            modified_query_str = modified_query_str.replace('[SampleName]', f'\'{name}\' AS [SampleName]')
+            modified_query_str = modified_query_str.replace('[SampleName]', f'\'{name}\'')
             modified_query_str = modified_query_str.replace('SELECT', 'SELECT DISTINCT')
             modified_query_str = modified_query_str.replace('LIMIT 250', '')
             modified_query_str = modified_query_str.replace('DISTINCT DISTINCT', 'DISTINCT')
@@ -836,12 +836,15 @@ class ExportWidget(QWidget):
         match self.exportformat_comboBox.currentText():
             case 'detritalPy':
                 self.export_to_excel()
-            case 'IsoplotR':
+            case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
+                self.export_to_csv()
+            case 'IsoplotR - 38/06, 07/06':
                 self.export_to_csv()
             case 'DZStats - Intersample':
                 self.export_to_csv()
             case 'DZStats - Two Sample Compare':
-                self.export_to_csv()
+                # Requires 2 samples be in two csv files.
+                self.export_to_csv(one_file=False)
             case 'Database':
                 self.export_to_datbase()
             case 'Custom':
@@ -955,19 +958,33 @@ class ExportWidget(QWidget):
         # Open the file using the system's default application
         QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(fileName))
 
-    def export_to_csv(self):
+    def export_to_csv(self, one_file=True):
         # Prompt user for where to save the CSV file
+        if one_file:
+            fileName, _ = QFileDialog.getSaveFileName(
+                None,
+                "Save CSV File",
+                "",
+                "Comma-Separated Values Files (*.csv)"
+            )
 
-        directory = QFileDialog.getExistingDirectory(None, "Select Directory to Save CSV Files", "")
+            if not fileName:
+                return
 
-        if not directory:
-            return
+            # Ensure the filename ends with .xlsx
+            if not fileName.lower().endswith(".csv"):
+                fileName += ".csv"
+        else:
+            directory = QFileDialog.getExistingDirectory(None, "Select Directory to Save CSV Files", "")
+
+            if not directory:
+                return
 
         for sheet_name, info in self.worksheet_tabs_dict.items():
-            file_path = os.path.join(directory, f"{sheet_name}.csv")
-
+            if not one_file:
+                fileName = os.path.join(directory, f"{sheet_name}.csv")
             try:
-                with open(file_path, mode='w', newline='', encoding='utf-8') as file:
+                with open(fileName, mode='w', newline='', encoding='utf-8') as file:
                     writer = csv.writer(file)
 
                     self.update_table_view(worksheet_name=sheet_name)
@@ -998,7 +1015,7 @@ class ExportWidget(QWidget):
                 return
 
         # Open the file using the system's default application
-        QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(directory))
+        QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(fileName))
 
 
     def export_format(self):
@@ -1112,7 +1129,7 @@ class ExportWidget(QWidget):
                 # 207/206
                 # 204/207
                 # 204/206
-                self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
+                self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('UPbAnalyses', 'Calculated207Pb/235U'): True,
                     ('UPbAnalyses', 'Calculated207Pb/235UError'): True,
@@ -1125,7 +1142,7 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'Calculated204Pb/207Pb'): True,
                     ('UPbAnalyses', 'Calculated204Pb/207PbError'): True,
                     ('UPbAnalyses', 'Calculated204Pb/206Pb'): True,
-                    ('UPbAnalyses', 'Calculated204Pb/206PbError'): True
+                    ('UPbAnalyses', 'Calculated204Pb/206PbError'): True,
                 }
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
@@ -1133,12 +1150,14 @@ class ExportWidget(QWidget):
                 # modeled after UPb2.csv in IsoplotR
                 # 238/206
                 # 207/206
-                self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
+                self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
+                    ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/206PbError'): True,
                     ('UPbAnalyses', 'Calculated238U/206Pb'): True,
                     ('UPbAnalyses', 'Calculated238U/206PbError'): True,
-                    ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
-                    ('UPbAnalyses', 'Calculated207Pb/206PbError'): True
+                    ('Samples', 'SampleName'): True
+
                 }
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
@@ -1150,14 +1169,14 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'CalculatedBestAgeError'): True
                 }
                 self.add_worksheet_tab('DZStats - Intersample', False, True, UPb_columns, UPb_columns, False)
-            case 'DZStats - Two Sample Compare':
-                self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
-                UPb_columns = {
-                    ('Samples', 'SampleName'): True,
-                    ('UPbAnalyses', 'CalculatedBestAge'): True,
-                    ('UPbAnalyses', 'CalculatedBestAgeError'): True
-                }
-                self.add_worksheet_tab('DZStats - Two Sample Compare', False, True, UPb_columns, UPb_columns, False)
+            # case 'DZStats - Two Sample Compare':
+            #     self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
+            #     UPb_columns = {
+            #         ('Samples', 'SampleName'): True,
+            #         ('UPbAnalyses', 'CalculatedBestAge'): True,
+            #         ('UPbAnalyses', 'CalculatedBestAgeError'): True
+            #     }
+            #     self.add_worksheet_tab('DZStats - Two Sample Compare', False, True, UPb_columns, UPb_columns, False)
             case 'Database':
                 self.fileformat_comboBox.setEnabled(False)
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
