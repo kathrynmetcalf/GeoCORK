@@ -1683,7 +1683,7 @@ def populate_gps_conversions():
                     convert_dms_to_sign = 'lat, lon = GPS.convert_direction_to_sign([GPSLatDeg, GPSLatMin, GPSLatSec, GPSLatDirectionID], [GPSLonDeg, GPSLonMin, GPSLonSec, GPSLonDirectionID])'
                     convert_to_direction = 'lat, lon = GPS.convert_sign_to_direction(lat, lon)'
                     if gps_formats[format1][1] == 'DD +/-' and gps_formats[format2][1] == 'DD NSEW':
-                        conversion1to2 = '''lat, lon = GPS.convert_sign_to_direction([GPSLatDeg], [GPSLonDeg])\nconverted = f"{lat[0]}° {lat[1], {lon[0]}° {lon[1}"'''
+                        conversion1to2 = '''lat, lon = GPS.convert_sign_to_direction([GPSLatDeg], [GPSLonDeg])\nconverted = f"{lat[0]}° {lat[1]}, {lon[0]}° {lon[1]}"'''
                         conversion2to1 = f'''{convert_dd_to_sign}'''
                         conversion2to1 += '''\nconverted = f"{lat[0]}°, {lon[0]}°"'''
                     elif gps_formats[format1][1] == 'DD +/-' and gps_formats[format2][1] == 'DDM NSEW':
@@ -1698,7 +1698,7 @@ def populate_gps_conversions():
                         conversion2to1 += '''\nconverted = f"{lat[0]}°, {lon[0]}°"'''
                     elif gps_formats[format1][1] == 'DDM +/-' and gps_formats[format2][1] == 'DD NSEW':
                         conversion1to2 = f'''lat, lon = GPS.convert_ddm_to_dd([GPSLatDeg, GPSLatMin], [GPSLonDeg, GPSLonMin])\n{convert_to_direction}'''
-                        conversion1to2 += '''\nconverted = f"{lat[0]}° {lat[1], {lon[0]}° {lon[1}"'''
+                        conversion1to2 += '''\nconverted = f"{lat[0]}° {lat[1]}, {lon[0]}° {lon[1]}"'''
                         conversion2to1 = f'''{convert_dd_to_sign}\nlat, lon = GPS.convert_dd_to_ddm(lat, lon)'''
                         conversion2to1 += '''\nconverted = f"{lat[0]}°{lat[1]}', {lon[0]}°{lon[1]}'"'''
                     elif gps_formats[format1][1] == 'DDM +/-' and gps_formats[format2][1] == 'DDM NSEW':

@@ -329,8 +329,8 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
         logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
         if not query.exec(sql_alter):
             logger_setup.get_logger().critical(
-                f'Error adding the calculated column {err_column}: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+                f'Error adding the calculated column {err_column}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             rollback_savepoint('before_populate')
             return "error"
         logger_setup.get_logger().info(f'Successfully updated {err_column}')
@@ -344,6 +344,24 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     global_vars = {name: globals()[name] for name in modules}
     gps_model = QtS.QSqlTableModel()
     set_table(gps_model, table)
+    if selected_id == 7: # UTM selected
+        sql_zone_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedZone VIRTUAL'
+        sql_e_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedEasting VIRTUAL'
+        sql_n_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedNorthing VIRTUAL'
+        sql_gps_alters = [sql_zone_alter, sql_e_alter, sql_n_alter]
+    else: # lat, lon of some form selected
+        sql_lat_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLat VIRTUAL'
+        sql_lon_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLon VIRTUAL'
+        sql_gps_alters = [sql_lat_alter, sql_lon_alter]
+    for sql_gps_alter in sql_gps_alters:
+        logger_setup.get_logger().info(f'Adding the calculated column {sql_gps_alter.split("COLUMN ")[1].split(" VIRTUAL")[0]}')
+        logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
+        if not query.exec(sql_gps_alter):
+            logger_setup.get_logger().critical(
+                f'Error adding the calculated column {sql_gps_alter.split("COLUMN ")[1]}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
+            rollback_savepoint('before_populate')
+            return "error"
     for row in range(gps_model.rowCount()):
         gps_id = gps_model.record(row).value('GPSLocationID')
         gps_format_id = gps_model.record(row).value('GPSFormatID')
@@ -359,12 +377,16 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         GPSUTMN = gps_model.record(row).value('GPSUTMN')
         GPSUTME = gps_model.record(row).value('GPSUTME')
         deg_symbol = u'\N{DEGREE SIGN}'
+        # deg_symbol = '\u00b0'
+        # deg_symbol = '°'
         local_vars = {name: locals()[name] for name in variables}
 
         for conversion in conversions:
             if conversion[0] == gps_format_id:
 
                 gps_code = conversion[1]
+                if '°' in gps_code:
+                    gps_code = gps_code.replace('°', '{deg_symbol}')
                 exec(gps_code, global_vars, local_vars)
                 gps_display = local_vars.get('converted')
                 sql_alter = f'UPDATE {table} SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'
@@ -376,6 +398,18 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                     logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
                     rollback_savepoint('before_populate')
                     return "error"
+                gps_elements = gps_display.split(', ')
+                for sql_gps_alter in sql_gps_alters:
+                    gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
+                    query.prepare(f'UPDATE {table} SET {gps_column}=:value WHERE "GPSLocationID"={gps_id}')
+                    query.bindValue(':value', gps_elements[sql_gps_alters.index(sql_gps_alter)])
+                    if not query.exec():
+                        logger_setup.get_logger().critical(
+                            f'Error adding the calculated column {gps_column}')
+                        logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
+                        rollback_savepoint('before_populate')
+                        return "error"
+                    logger_setup.get_logger().info(f'Successfully updated {gps_column}')
                 logger_setup.get_logger().info(f'Successfully updated {column}')
                 break
 
