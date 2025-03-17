@@ -415,6 +415,38 @@ def subset_one_to_many_chain(
             fetch_and_insert("LabFacilities", "LabFacilityID", labfac_ids)
             fetch_and_insert("UPbAnalysisMethods", "UPbAnalysisMethodID", method_ids)
 
+        # -------------------------------------------------------------------------
+        # D) GPSLocations referencing Samples
+        #
+        # Many schemas have a column in "Samples" like "GPSLocationID"
+        # that references "GPSLocations(GPSLocationID)".
+        # So we need to copy the matching GPSLocations rows for each Sample.
+        # -------------------------------------------------------------------------
+        # 1) Grab the GPSLocations table structure
+    col_info_gps = fetchall("PRAGMA table_info('GPSLocations')", conn_source)
+    insert_cols_info_gps = [c[1] for c in col_info_gps]
+
+    if sample_ids:  # sample_ids is a set
+        placeholder = ",".join(["?"] * len(sample_ids))
+
+        # 2) For all sample_ids in 'Samples', gather the GPSLocationIDs used
+        gps_rows = fetchall(
+            f"""
+               SELECT {','.join([f"[{col}]" for col in insert_cols_info_gps])}
+               FROM GPSLocations
+               WHERE GPSLocationID IN (
+                   SELECT SampleGPSLocationID FROM Samples
+                   WHERE SampleID IN ({placeholder})
+                   AND SampleGPSLocationID IS NOT NULL
+               )
+               """,
+            conn_source,
+            tuple(sample_ids)
+        )
+
+        if gps_rows:
+            insert_rows(conn_target, 'GPSLocations', gps_rows, insert_cols_info_gps)
+
 ###############################################################################
 # 4. DETECTING 'TREE' TABLES (HIERARCHIES)
 ###############################################################################
@@ -500,6 +532,203 @@ def subset_tree_table_downstream(
 ###############################################################################
 # 5. MASTER FUNCTION: subset_database
 ###############################################################################
+
+def subset_sample_ages_m2m(
+    conn_source: QSqlDatabase,
+    conn_target: QSqlDatabase,
+    sample_ids: Set[int]
+):
+    """
+    Handles the known dual many-to-many relationships:
+
+    Samples <-> Samples_SampleAges <-> SampleAges <-> SampleAges_AgeConstraints <-> AgeConstraints
+                                                        and
+                                         SampleAges <-> SampleAges_AgeInterpretations <-> AgeInterpretations
+
+    For each SampleID in sample_ids, this function:
+      1) Finds rows in Samples_SampleAges referencing those SampleIDs, inserts them into the target.
+      2) From those rows, collects SampleAgeIDs -> fetches SampleAges.
+      3) Inserts SampleAges into the target.
+      4) Finds bridging rows in SampleAges_AgeConstraints for those SampleAgeIDs -> inserts them.
+      5) Gathers AgeConstraintIDs -> fetches AgeConstraints -> inserts them.
+      6) Finds bridging rows in SampleAges_AgeInterpretations for those SampleAgeIDs -> inserts them.
+      7) Gathers AgeInterpretationIDs -> fetches AgeInterpretations -> inserts them.
+    """
+
+    if not sample_ids:
+        return
+
+    logger_setup.get_logger().info(f"Subsetting SampleAges M2M relationships for sample_ids={sample_ids}")
+
+    # -------------------------------------------------------------------------
+    # (1) Samples_SampleAges referencing our sample_ids
+    # -------------------------------------------------------------------------
+    # PRAGMA table_info to figure out columns in the bridging table
+    col_info_samples_sampleages = fetchall("PRAGMA table_info('Samples_SampleAges')", conn_source)
+    insert_cols_samples_sampleages = [c[1] for c in col_info_samples_sampleages]
+
+    # We need a placeholder string for the IN clause
+    placeholder = ",".join(["?"] * len(sample_ids))
+
+    samples_sampleages_rows = fetchall(
+        f"""
+        SELECT {",".join([f"[{col}]" for col in insert_cols_samples_sampleages])}
+        FROM Samples_SampleAges
+        WHERE SampleID IN ({placeholder})
+        """,
+        conn_source,
+        tuple(sample_ids)
+    )
+    if samples_sampleages_rows:
+        insert_rows(conn_target, "Samples_SampleAges", samples_sampleages_rows, insert_cols_samples_sampleages)
+    else:
+        # No bridging rows => nothing further to do
+        return
+
+    # Gather SampleAgeIDs
+    col_names_samples_sampleages = [c[1] for c in col_info_samples_sampleages]
+    try:
+        sampleAgeID_idx = col_names_samples_sampleages.index("SampleAgeID")
+    except ValueError:
+        # The bridging table doesn't have the expected column name
+        logger_setup.get_logger().warning("Samples_SampleAges table doesn't have 'SampleAgeID' column!")
+        return
+
+    sampleAge_ids = {
+        row[sampleAgeID_idx]
+        for row in samples_sampleages_rows
+        if row[sampleAgeID_idx] is not None
+    }
+    if not sampleAge_ids:
+        return
+
+    # -------------------------------------------------------------------------
+    # (2) & (3) SampleAges
+    # -------------------------------------------------------------------------
+    col_info_sampleages = fetchall("PRAGMA table_info('SampleAges')", conn_source)
+    insert_cols_sampleages = [c[1] for c in col_info_sampleages]
+
+    placeholder_2 = ",".join(["?"] * len(sampleAge_ids))
+    sampleages_rows = fetchall(
+        f"""
+        SELECT {",".join([f"[{col}]" for col in insert_cols_sampleages])}
+        FROM SampleAges
+        WHERE SampleAgeID IN ({placeholder_2})
+        """,
+        conn_source,
+        tuple(sampleAge_ids)
+    )
+    if sampleages_rows:
+        insert_rows(conn_target, "SampleAges", sampleages_rows, insert_cols_sampleages)
+    else:
+        return  # No sampleage rows => no further bridging references
+
+    # -------------------------------------------------------------------------
+    # (4) & (5) SampleAges_AgeConstraints -> AgeConstraints
+    # -------------------------------------------------------------------------
+    col_info_sa_ageconstraints = fetchall("PRAGMA table_info('SampleAges_AgeConstraints')", conn_source)
+    insert_cols_sa_ageconstraints = [c[1] for c in col_info_sa_ageconstraints]
+
+    placeholder_3 = ",".join(["?"] * len(sampleAge_ids))
+    sa_ageconstraints_rows = fetchall(
+        f"""
+        SELECT {",".join([f"[{col}]" for col in insert_cols_sa_ageconstraints])}
+        FROM SampleAges_AgeConstraints
+        WHERE SampleAgeID IN ({placeholder_3})
+        """,
+        conn_source,
+        tuple(sampleAge_ids)
+    )
+    if sa_ageconstraints_rows:
+        insert_rows(conn_target, "SampleAges_AgeConstraints", sa_ageconstraints_rows, insert_cols_sa_ageconstraints)
+
+        # Gather AgeConstraintIDs
+        col_names_sa_ageconstraints = [c[1] for c in col_info_sa_ageconstraints]
+        try:
+            ageConstraintID_idx = col_names_sa_ageconstraints.index("AgeConstraintID")
+        except ValueError:
+            logger_setup.get_logger().warning("SampleAges_AgeConstraints doesn't have 'AgeConstraintID' column!")
+            ageConstraintID_idx = None
+
+        if ageConstraintID_idx is not None:
+            ageConstraint_ids = {
+                row[ageConstraintID_idx]
+                for row in sa_ageconstraints_rows
+                if row[ageConstraintID_idx] is not None
+            }
+            if ageConstraint_ids:
+                # Insert those AgeConstraints
+                col_info_ageconstraints = fetchall("PRAGMA table_info('AgeConstraints')", conn_source)
+                insert_cols_ageconstraints = [c[1] for c in col_info_ageconstraints]
+
+                placeholder_4 = ",".join(["?"] * len(ageConstraint_ids))
+                ageconstraints_rows = fetchall(
+                    f"""
+                    SELECT {",".join([f"[{col}]" for col in insert_cols_ageconstraints])}
+                    FROM AgeConstraints
+                    WHERE AgeConstraintID IN ({placeholder_4})
+                    """,
+                    conn_source,
+                    tuple(ageConstraint_ids)
+                )
+                if ageconstraints_rows:
+                    insert_rows(conn_target, "AgeConstraints", ageconstraints_rows, insert_cols_ageconstraints)
+
+    # -------------------------------------------------------------------------
+    # (6) & (7) SampleAges_AgeInterpretations -> AgeInterpretations
+    # -------------------------------------------------------------------------
+    col_info_sa_ageinterpretations = fetchall("PRAGMA table_info('SampleAges_AgeInterpretations')", conn_source)
+    insert_cols_sa_ageinterpretations = [c[1] for c in col_info_sa_ageinterpretations]
+
+    placeholder_5 = ",".join(["?"] * len(sampleAge_ids))
+    sa_ageinterpretations_rows = fetchall(
+        f"""
+        SELECT {",".join([f"[{col}]" for col in insert_cols_sa_ageinterpretations])}
+        FROM SampleAges_AgeInterpretations
+        WHERE SampleAgeID IN ({placeholder_5})
+        """,
+        conn_source,
+        tuple(sampleAge_ids)
+    )
+    if sa_ageinterpretations_rows:
+        insert_rows(
+            conn_target,
+            "SampleAges_AgeInterpretations",
+            sa_ageinterpretations_rows,
+            insert_cols_sa_ageinterpretations
+        )
+
+        # Gather AgeInterpretationIDs
+        col_names_sa_ageinterpretations = [c[1] for c in col_info_sa_ageinterpretations]
+        try:
+            ageInterpretationID_idx = col_names_sa_ageinterpretations.index("AgeInterpretationID")
+        except ValueError:
+            logger_setup.get_logger().warning("SampleAges_AgeInterpretations doesn't have 'AgeInterpretationID' column!")
+            ageInterpretationID_idx = None
+
+        if ageInterpretationID_idx is not None:
+            ageInterpretation_ids = {
+                row[ageInterpretationID_idx]
+                for row in sa_ageinterpretations_rows
+                if row[ageInterpretationID_idx] is not None
+            }
+            if ageInterpretation_ids:
+                # Insert those AgeInterpretations
+                col_info_ageinterpretations = fetchall("PRAGMA table_info('AgeInterpretations')", conn_source)
+                insert_cols_ageinterpretations = [c[1] for c in col_info_ageinterpretations]
+
+                placeholder_6 = ",".join(["?"] * len(ageInterpretation_ids))
+                ageinterpretations_rows = fetchall(
+                    f"""
+                    SELECT {",".join([f"[{col}]" for col in insert_cols_ageinterpretations])}
+                    FROM AgeInterpretations
+                    WHERE AgeInterpretationID IN ({placeholder_6})
+                    """,
+                    conn_source,
+                    tuple(ageInterpretation_ids)
+                )
+                if ageinterpretations_rows:
+                    insert_rows(conn_target, "AgeInterpretations", ageinterpretations_rows, insert_cols_ageinterpretations)
 
 def subset_database(
     conn_source: QSqlDatabase,

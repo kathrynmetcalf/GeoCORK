@@ -1035,8 +1035,8 @@ class ExportWidget(QWidget):
                     ('Samples', 'SampleName'): True,
                     ('Units', 'UnitName'): True,
                     ('Regions', 'RegionName'): True,
-                    # ('GPSLocations', 'Latitude'): True,
-                    # ('Samples', 'Longitude'): True,
+                    ('GPSLocations', 'CalculatedLat'): True,
+                    ('GPSLocations', 'CalculatedLon'): True,
                     ('References', 'ReferenceDisplay'): True
                 }
                 self.add_worksheet_tab('Samples', True, False, Samples_columns, Samples_columns, True)
