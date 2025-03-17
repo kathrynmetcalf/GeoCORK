@@ -679,6 +679,8 @@ table_attributes_dict = {
         "CalculatedBestAge",
         "CalculatedBestAgeError",
 
+        "ErrorCorr/Rho",
+
         "CalculatedConcordance",
         "Rejected",
         "CalculatedSpotSize",

@@ -363,10 +363,9 @@ class ExportWidget(QWidget):
         }
         self.workbooktabs.blockSignals(True)
         self.workbooktabs.addTab(new_tab, worksheet_name)
-
         self.workbooktabs.blockSignals(False)
         self.load_checkbox_states(worksheet_name)
-        # self.workbooktabs.setCurrentWidget(new_tab)
+        self.workbooktabs.setCurrentWidget(new_tab)
 
         distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
         headers_checkbox.stateChanged.connect(self.update_header_checkbox)
@@ -587,9 +586,7 @@ class ExportWidget(QWidget):
         #If column order has changed, set selected columns to ordered_columns, select checkboxes based on ordered columns
         # This removes potentially deleted columns from the column dialog
         if order_changed:
-            self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
-            ordered_columns = self.worksheet_tabs_dict[current_worksheet_name].get('ordered_columns', {})
-            self.select_checkboxes(ordered_columns)
+            self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
         else:
             # # update selected columns
             self.get_selected_values()
@@ -598,9 +595,8 @@ class ExportWidget(QWidget):
             ordered_columns = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
             #checks to make sure the items in selected_columns and ordered_columns match. If they do not match then
             #default to selected columns, means new column could be selected, therefore ordered_columns is out of date
-            if selected_columns == ordered_columns:
-                ordered_columns = selected_columns
-                self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = ordered_columns
+            if selected_columns != ordered_columns:
+                self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = selected_columns
         # prevents necessary compute time
         if not ordered_columns:
             # No columns selected, clear the table view
