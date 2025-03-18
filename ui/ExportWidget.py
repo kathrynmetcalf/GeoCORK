@@ -1023,6 +1023,10 @@ class ExportWidget(QWidget):
         self.add_workbook_button.setEnabled(True)
         self.remove_workbook_button.setEnabled(True)
         self.fileformat_comboBox.setEnabled(True)
+        self.filterselection_comboBox.show()
+        self.groupedfilter_comboBox.show()
+        self.groupedfilter_label.show()
+        self.filters_label.show()
         self.column_name_mappings.clear()
         match self.exportformat_comboBox.currentText():
             # DetritalPy requires an excel file, with multiple sheets
@@ -1186,6 +1190,10 @@ class ExportWidget(QWidget):
                 self.editorder_pushbutton.setEnabled(False)
                 self.add_workbook_button.setEnabled(False)
                 self.remove_workbook_button.setEnabled(False)
+                self.filterselection_comboBox.hide()
+                self.groupedfilter_comboBox.hide()
+                self.groupedfilter_label.hide()
+                self.filters_label.hide()
                 if self.checked_sample_list == []:
                     return
 
