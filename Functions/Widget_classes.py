@@ -1352,7 +1352,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        self.source_model = DisplayRoundedQueryModel()
+        self.source_model = DisplayRoundedQueryModel(db=self.db)
         self.source_model.setQuery(f'{self.base_query}')
         self.sourceHeaders = []
         self.proxyHeaders = []

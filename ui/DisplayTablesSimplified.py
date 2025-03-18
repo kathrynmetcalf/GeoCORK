@@ -120,13 +120,14 @@ class DisplayTablesSimplified(QtW.QWidget):
             self.database.open()
             # if self.table == 'Aliquots':
             #     table = 'AliquotView'
-            self.model = QtS.QSqlTableModel(parent=self, db=self.database)
-            self.model.setTable(table)
-            self.model.select()
+            self.model = SQLiteTableModel(f'SELECT * FROM {table}', self.db_file)
+            # self.model.setTable(table)
+            # self.model.select()
 
             self.tree_model = TreeModel(source_model=self.model, db=self.database)
             self.tree_proxy_model.setSourceModel(self.tree_model)
 
+            self.dbTable_treeView: QTreeView
             self.dbTable_treeView.setModel(self.tree_proxy_model)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
@@ -135,7 +136,7 @@ class DisplayTablesSimplified(QtW.QWidget):
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
+            self.dbTable_treeView.expandAll()
             self.dbTable_treeView: QTreeView
         elif self.table in self.dbtable_list:
             self.switch_to_table()
