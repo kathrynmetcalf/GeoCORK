@@ -784,6 +784,8 @@ def subset_database(
         # 6) Known one-to-many chain
         subset_one_to_many_chain(conn_source, conn_target, sample_ids)
 
+        subset_sample_ages_m2m(conn_source, conn_target, sample_ids)
+
         # 7) Handle any 'tree' tables
         tree_tables = find_tree_tables(conn_source)
         # Example usage (schema-dependent). If you had a table "Hierarchy" with columns

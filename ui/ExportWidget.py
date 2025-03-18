@@ -1233,21 +1233,21 @@ class ExportWidget(QWidget):
         if self.selectionscope_comboBox.currentText() == 'Samples':
             self.samplesincluded_comboBox.setModel(self.samples_model)
             self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.samples_model))
-            self.samples_model.dataChanged.connect(lambda: self.updatetimer.start(1500))
+            self.samples_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.samples_model, 'Samples'))
             self.update_checked_list(self.samples_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Aliquots':
             self.samplesincluded_comboBox.setModel(self.aliquots_model)
             self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.aliquots_model))
-            self.aliquots_model.dataChanged.connect(lambda: self.updatetimer.start(1500))
+            self.aliquots_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.aliquots_model, 'Samples'))
             self.update_checked_list(self.aliquots_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Spots':
             self.samplesincluded_comboBox.setModel(self.spots_model)
             self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.spots_model))
-            self.spots_model.dataChanged.connect(lambda: self.updatetimer.start(1500))
+            self.spots_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.spots_model, 'Samples'))
             self.update_checked_list(self.spots_model, 'Samples')
