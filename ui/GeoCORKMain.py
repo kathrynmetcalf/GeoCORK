@@ -12,7 +12,8 @@ from PyQt6.QtWidgets import QMenu, QStatusBar
 
 from PyQt6.uic import loadUi
 import Functions.Database_views as DB_views
-import Functions.Widget_classes as WC
+from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Widget_classes import get_name_from_id, show_loading_dialog, close_loading_dialog
 import logger_setup
 from Functions import SQLUtils
 from Functions import Savepoint_manager
@@ -38,6 +39,8 @@ class GeoCORK(QtW.QMainWindow):
         super().__init__()
         logger_setup.get_logger().info("Starting the main window")
         # Define any variables here
+
+        self.loading_manager = LoadingDialogManager.get_instance()
 
         blank_schema_file = "Reference/GeoCORK_v1-0.db"
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -124,8 +127,13 @@ class GeoCORK(QtW.QMainWindow):
         actionExport.triggered.connect(ExportWidget)
         actionQuit.triggered.connect(self.close)
 
+        self.loading_manager.close_loading_dialog('Opening', f'Opening {self.db_file}...')
         self.showMaximized()
         self.show()
+
+    def cancel_open(self, title, message):
+        close_loading_dialog(title, message)
+        self.close()
 
     def update_recent_files_menu(self):
         """Refresh the recent files menu."""
@@ -211,11 +219,11 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget: PartiallyCloseableTabWidget
         for p_id in parent_id:
             if parent_type == 'Sample':
-                parent_name = WC.get_name_from_id('Samples', p_id)
+                parent_name = get_name_from_id('Samples', p_id)
             elif parent_type == 'Aliquot':
-                parent_name = WC.get_name_from_id('Aliquots', p_id)
+                parent_name = get_name_from_id('Aliquots', p_id)
             elif parent_type == 'Spot':
-                parent_name = WC.get_name_from_id('Spots', p_id)
+                parent_name = get_name_from_id('Spots', p_id)
             else:
                 print("Error: Invalid parent type")
                 return

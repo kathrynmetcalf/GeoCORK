@@ -2,6 +2,8 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from pandas.core import indexes
+
 import Functions.Text_manipulations as TxM
 from Functions.Settings_manager import settings
 
@@ -21,6 +23,7 @@ from PyQt6.QtGui import QTextOption, QFont, QAction
 import logger_setup
 from Functions.Settings_manager import settings, SettingsManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions import SQLUtils
 import Functions.Text_manipulations as TxM
 from Functions.Check_triggers import update_modified_timestamp, validate_update, validate_insert
@@ -1369,6 +1372,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         # Add all nodes to the tree model
         # start with root item, look for children
         logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
+        start_build_time = time.time()
         root_id = 0
         child_ids = self.find_children(root_id)
         # add each child to model with parent (root)
@@ -1377,7 +1381,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         # add each child to the model with parent
         # etc. until there are no more children
         self.source_model.setQuery(f"{self.base_query}")
-        logger_setup.get_logger().info(f'Finished building the {self.table} tree with {self.source_model.rowCount()} items')
+        logger_setup.get_logger().info(f'Finished building the {self.table} tree with {self.source_model.rowCount()} items in {time.time() - start_build_time:.2f} seconds')
 
     def find_children(self, parent_id: int):
         # Find children of a given ID using the source_model's filtered data
@@ -1392,15 +1396,15 @@ class TreeModel(QtC.QAbstractProxyModel):
     def add_to_tree(self, child_ids: list, parent: TreeItem):
         if not child_ids:
             return
-        logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
-        logger_setup.get_logger().debug(f'Child IDs: {child_ids}')
+        # logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
+        # logger_setup.get_logger().debug(f'Child IDs: {child_ids}')
         for child_id in child_ids:
             self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
             if self.source_model.rowCount() > 0:
                 record = self.source_model.record(0)
                 item = TreeItem(record, parent)
                 parent.appendChild(item)
-                logger_setup.get_logger().debug(f'Added {child_id} to the tree')
+                # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
                 new_child_ids = self.find_children(child_id)
                 self.add_to_tree(new_child_ids, item)
 
@@ -1737,11 +1741,19 @@ class TreeModel(QtC.QAbstractProxyModel):
         del_ids = find_child_ids(item_id, del_ids)
         del_join = ', '.join([str(i) for i in del_ids])
         del_string = f'({del_join})'
+        if len(del_ids) == 1:
+            sql_where_str = f'={del_ids[0]}'
+        elif len(del_ids) > 1:
+            sql_where_str = f'IN {del_string}'
+        elif len(del_ids) == 0:
+            logger_setup.get_logger().info(f'Item was already deleted')
+            logger_setup.get_logger().debug(f'Item ID: {item_id}')
+            return True
         logger_setup.get_logger().info(
             f'Deleting item {item_id} and {len(del_ids) - 1} dependents from {self.table}...')
         self.source_model.setQuery(self.base_query)  # Reset the filter
         query = QtS.QSqlQuery()
-        query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} IN {del_string}')
+        query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} {sql_where_str}')
         create_savepoint('before_delete')
         self.save_state.emit()
         if not query.exec():  # if item and children not deleted, rollback
@@ -3327,12 +3339,12 @@ def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
     @return:
     '''
 
-    expanded_ids = []
+    expanded_ids = set()
 
     def save_state(index):
         if index.isValid() and treeView.isExpanded(index):
             item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
-            expanded_ids.append(item_id)
+            expanded_ids.add(item_id)
         for i in range(model.rowCount(index)):
             save_state(model.index(i, 0, index))
 
@@ -3349,21 +3361,28 @@ def restore_expanded_state(table: str, model, treeView: QtW.QTreeView):
     @param treeView: The view to display the model
     @return:
     '''
-    expanded_ids = settings.value(f'expanded_ids_{table}', [])
+    logger_setup.get_logger().info(f'Restoring expanded state for {table} table')
+    start_expand_tree_time = time.time()
+    expanded_ids = settings.value(f'expanded_ids_{table}', set())
+    indexes_to_expand = set()
+    indexes_to_collapse = set()
 
     def restore_state(index):
         item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
         if item_id in expanded_ids:
-            treeView.setExpanded(index, True)
+            indexes_to_expand.add(index)
         else:
-            treeView.setExpanded(index, False)
-        for i in range(model.rowCount(index)):
-            restore_state(model.index(i, 0, index))
+            indexes_to_collapse.add(index)
+        for row in range(model.rowCount(index)):
+            restore_state(model.index(row, 0, index))
 
     root_index = QtC.QModelIndex()
-    for i in range(model.rowCount(root_index)):
-        restore_state(model.index(i, 0, root_index))
     restore_state(QtC.QModelIndex())
+    for index in indexes_to_expand:
+        treeView.setExpanded(index, True)
+    for index in indexes_to_collapse:
+        treeView.setExpanded(index, False)
+    logger_setup.get_logger().info(f'Expanded state restored in {time.time() - start_expand_tree_time} seconds')
 
 def expand_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):
     model = tree_view.model()
@@ -3740,6 +3759,25 @@ def get_readable_header(header: str):
     if 'U Pb' in header:
         header = header.replace('U Pb', 'U-Pb')
     return header
+
+
+
+def show_loading_dialog(title, message, cancel_callback=None):
+    """
+    Show a loading dialog while the action is taking places
+    :return:
+    """
+    # Wait one second before showing the loading dialog
+    timer = QtC.QTimer()
+    timer.start(1000)
+    LoadingDialogManager.show_loading_dialog(message, title, cancel_callback)
+
+def close_loading_dialog(title, message):
+    """
+    Close the loading dialog
+    :return:
+    """
+    LoadingDialogManager.close_loading_dialog(title, message)
 
 
 # ---------------------------

@@ -7,11 +7,13 @@ from PyQt6 import QtSql as QtS
 from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
 import logger_setup
+import time
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Database_manager import update_database
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    restore_expanded_state, add_tree_popup
+    restore_expanded_state, add_tree_popup, SQLiteTableModel, ReadableProxyModel
 )
 import Functions.Text_manipulations as TxM
 from ui.AddTreeTags import AddTreeTags
@@ -21,28 +23,34 @@ class EditTree(QtW.QDialog):
     def __init__(self, table_name, **kwargs):
         super().__init__()
 
-        # Define any widgets here
+        logger_setup.get_logger().info(f'Opening {table_name} tree edit dialog')
+        start_edit_tree_time = time.time()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTree.ui")
         loadUi(sources_ui_file, self)
         self.setModal(True)
         self.updated = False
 
+        self.table_name = table_name
         self.table_item_ids: list = []
         for key, value in kwargs.items():
             setattr(self, key, value)
 
         # Set the model and table
+        self.table = TxM.remove_spaces(table_name)
+        logger_setup.get_logger().info(f'Setting up {table_name} tree model')
+        # self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
         self.model = QtS.QSqlTableModel()
-        set_table(self.model, table_name)
+        set_table(self.model, self.table)
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TreeModel(self.model)
-        self.table = TxM.remove_spaces(table_name)
-        self.setWindowTitle(f'Edit {TxM.add_spaces_camel(self.table)}')
-        self.tree_proxy_model = QtC.QSortFilterProxyModel()
+        self.setWindowTitle(f'Edit {table_name}')
+        logger_setup.get_logger().info('Setting up proxy model')
+        self.tree_proxy_model = ReadableProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
+        logger_setup.get_logger().info('Connecting signals')
         self.edit_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
@@ -58,7 +66,13 @@ class EditTree(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.discard_question)
 
+        LoadingDialogManager.close_loading_dialog()
+        logger_setup.get_logger().info(f'Opened {table_name} tree edit dialog in {time.time() - start_edit_tree_time} seconds')
+
     def display_tree(self):
+        logger_setup.get_logger().info(f'Displaying {self.table_name} tree')
+        start_display_tree_time = time.time()
+        LoadingDialogManager.show_loading_dialog('Loading', f'Displaying {self.table_name}')
         self.edit_treeView.setModel(self.tree_proxy_model)
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.edit_treeView.hideColumn(1)  # don't show ID column
@@ -72,6 +86,8 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+
+        logger_setup.get_logger().info(f'Displayed {self.table_name} tree in {time.time() - start_display_tree_time} seconds')
 
     def search(self):
         self.search_lineEdit: QtW.QLineEdit
@@ -91,7 +107,7 @@ class EditTree(QtW.QDialog):
         if self.table == 'Ages':
             tree_menu.set_view(self.edit_treeView, False, False, False)
         else:
-            tree_menu.set_view(self.edit_treeView, False, True, False)
+            tree_menu.set_view(self.edit_treeView, True, True, False)
         action = tree_menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if action:
             self.tree_context_menu(action)
@@ -106,6 +122,8 @@ class EditTree(QtW.QDialog):
             self.add_popup(action)
         elif 'Expand' in action.text() or 'Collapse' in action.text():
             expand_collapse(self.edit_treeView, action)
+        elif 'Delete' in action.text():
+            self.delete_item()
 
     def update_proxy(self):
         if self.sender() == self.tree_model:
@@ -148,11 +166,46 @@ class EditTree(QtW.QDialog):
         row = output[1]
         self.add_popup(None, parent_id, row, 'parent', new_child_ids, new_parent_rows)
 
-    def delete_question(self):
+    def delete_item(self):
+        # todo: implement delete in the context menu
+        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        tree_indexes = []
+        for view_index in self.edit_treeView.selectedIndexes():
+            tree_index = self.tree_proxy_model.mapToSource(view_index)
+            if tree_index.row() == 0 and tree_index not in tree_indexes:
+                tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
+        item_ids = get_selected_tree_ids(self.tree_model, tree_indexes)
+        if not item_ids:
+            return
+        # Look for any children of the selected items
+        def get_children(item_id):
+            delete_children = []
+            children = self.tree_model.find_children(item_id)
+            if children:
+                for child in children:
+                    if child not in delete_children:
+                        delete_children.append(child)
+                        get_children(child)
+            return delete_children
+        all_children = []
+        for item_id in item_ids:
+            children_ids = get_children(item_id)
+            if children_ids:
+                all_children.extend(children_ids)
+        if self.delete_question(all_children):
+            for item_id in all_children:
+                item = self.tree_model.find_id_in_tree(item_id)
+                parent_id = item.data(1)
+                parent_row = item.data(2)
+                self.tree_model.removeItem(item_id, parent_row, parent_id)
+            self.updated = True
+            self.update_proxy()
+
+    def delete_question(self, children: list):
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to delete these items and all children?')
+        msg_box.setText(f'Are you sure you want to delete these items and all {len(children)} children?')
         msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
         msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
         response = msg_box.exec()

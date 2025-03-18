@@ -19,6 +19,8 @@ from Functions import Savepoint_manager
 from Functions.Create_database import create_tables
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
+from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 # from Functions.Create_database import create_tables
 # from ui.Settings import SettingsDialog, settings_ids
 
@@ -27,6 +29,7 @@ class LandingPage(QWidget):
     def __init__(self):
         super().__init__()
         logger_setup.get_logger().info("Starting Landing Page...")
+        self.loading_manager = LoadingDialogManager.get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file =os.path.join(base_path,  "landingpage.ui")
@@ -80,6 +83,11 @@ class LandingPage(QWidget):
 
     def open_geo_cork(self, skip_update=False):
         if not self.test_database_lock():
+            if '/' in self.selected_files:
+                self.loading_manager.show_loading_dialog("Opening", f"Opening {self.selected_files.split('/')[-1]}...")
+            elif '\\' in self.selected_files:
+                self.loading_manager.show_loading_dialog("Opening", f"Opening {self.selected_files.split('\\')[-1]}...")
+            QtWidgets.QApplication.processEvents()
             from ui.GeoCORKMain import GeoCORK
             for widget in QApplication.allWidgets():
                 if widget.objectName() == 'GeoCORKMain':
@@ -114,6 +122,11 @@ class LandingPage(QWidget):
         # Repopulate the QListWidget with new items
         for item in self.list_recents:
             self.listWidget.addItem(str(item))
+
+    def cancel_open(self):
+        self.loading_manager.close_loading_dialog("Opening", f"Opening {self.selected_files[0]}")
+        self.db.close()
+        self.db = None
 
     def test_database_lock(self):
         logger_setup.get_logger().info("Testing Database Lock...")

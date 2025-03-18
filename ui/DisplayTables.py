@@ -17,7 +17,7 @@ from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
-    get_record_index,
+    get_record_index, close_loading_dialog, show_loading_dialog,
     set_table, MaxWidthDelegate, get_id_from_name
 )
 import Functions.Text_manipulations as TxM
@@ -25,6 +25,7 @@ from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
+from Functions.LoadingDialog_manager import LoadingDialogManager
 # from Functions.Widget_classes import add_popup_dialog
 from ui.EditView import EditView
 from ui.EditTable import EditTable
@@ -40,6 +41,7 @@ class DisplayTables(QtW.QWidget):
     def __init__(self, parent):
         super().__init__(parent)
         logger_setup.get_logger().info("Starting the display tables window")
+        self.loading_manager = LoadingDialogManager.get_instance()
 
         # Load the ui file
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -76,6 +78,7 @@ class DisplayTables(QtW.QWidget):
         self.name_column = None
         self.name_header = None
         self.show_cols = []
+        self.timer = QTimer()
         self.db_stackedWidget: QtW.QStackedWidget
         # logger_setup.get_logger().info("Adding the frozen table view")
         # self.dbFrozen_tableView = FrozenTableView()
@@ -242,23 +245,27 @@ class DisplayTables(QtW.QWidget):
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
         logger_setup.get_logger().info(f'Displaying {self.table}')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+        start_display_time = time.time()
+        # show_loading_dialog('Loading', f'Displaying {self.table}...', self.cancel_display)
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
             save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
-        self.previous_table = self.table
-
         if self.table in self.dbtree_list:
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
+            start_display_tree_time = time.time()
+            self.dbTable_treeView: QTreeView
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
-            self.model = QtS.QSqlTableModel()
-            set_table(self.model, self.table)
+            self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
+            # set_table(self.model, self.table)
 
             self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
 
             self.dbTable_treeView.setModel(self.tree_proxy_model)
+            logger_setup.get_logger().info(f'Populated tree view in {time.time() - start_display_tree_time:.2f} seconds')
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.hideColumn(1)  # don't show ID column
             self.dbTable_treeView.hideColumn(2)  # don't show parent ID column
@@ -267,13 +274,32 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
-            self.dbTable_treeView: QTreeView
+            self.dbTable_treeView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
 
             self.name_column = get_name_column(self.table)
             self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                                  QtC.Qt.ItemDataRole.DisplayRole)
+            logger_setup.get_logger().info(f'Displaying {self.name_header}')
+
+            # Optimize window resizing
+            self.resize_timer = QTimer()
+            self.resize_timer.setSingleShot(True)
+            self.resize_timer.timeout.connect(self.resizeRowsOptimized)
+
+            # Connect resizing events
+            self.dbTable_treeView.header().sectionResized.connect(self.optimizeVerticalResize)
+
+            start_column_resize_time = time.time()
+            for column in range(self.tree_proxy_model.columnCount()):
+                self.dbTable_treeView.resizeColumnToContents(column)
+                if self.dbTable_treeView.columnWidth(column) > 400:
+                    self.dbTable_treeView.setColumnWidth(column, 400)
+            logger_setup.get_logger().info(f'Resized columns in {time.time() - start_column_resize_time:.2f} seconds')
+
+            logger_setup.get_logger().info(f'Set up tree view for {self.table} in {time.time() - start_display_tree_time:.2f} seconds')
 
         elif self.table in self.dbtable_list:
+            logger_setup.get_logger().info(f'Switching to table view for {self.table}')
             self.switch_to_table()
             if self.table == 'Samples':
                 # logger_setup.get_logger().info(f'Switching to frozen table view for {self.table}')
@@ -353,6 +379,9 @@ class DisplayTables(QtW.QWidget):
         self.edit_pushButton.setText(f"Edit {self.table}")
         self.goto_line_edit.clear()
         self.goto_line_edit.setPlaceholderText(f'Go to {self.name_header}...')
+        self.previous_table = self.table
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+        logger_setup.get_logger().info(f'Displayed {self.table} in {time.time() - start_display_time:.2f} seconds')
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
@@ -361,6 +390,7 @@ class DisplayTables(QtW.QWidget):
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""
         self.dbTable_tableView.resizeRowsToContents()
+
     def search(self):
         """
         Search the current table for the text in the search box
@@ -388,6 +418,11 @@ class DisplayTables(QtW.QWidget):
                 self.dbTable_treeView.expandAll()
         else:
             self.table_proxy_model.setFilterRegularExpression(search_expression)
+
+    def cancel_display(self, title, message):
+        close_loading_dialog(title, message)
+        self.dbTable_comboBox.setCurrentText(self.previous_table)
+        self.display_table()
 
     def show_context_menu(self, pos):
         """
@@ -471,6 +506,10 @@ class DisplayTables(QtW.QWidget):
         elif 'Add' in action.text() or 'Insert' in action.text():
             self.add_popup(action)
 
+    def cancel_dlg(self, dlg):
+        dlg = None
+        self.display_table()
+
     def edit_popup(self):
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if self.table in view_tables:
@@ -480,29 +519,10 @@ class DisplayTables(QtW.QWidget):
             dlg = EditTree(self.table)
         else:
             dlg = EditTable(self.table)
+        # show_loading_dialog('Loading', f'Opening edit window for {self.table}...', self.cancel_dlg(dlg))
         dlg.exec()
-        update_database()
-        self.display_table()
-
-    def edit_samples_popup(self, text=None):
-        # print(f'edit_samples_popup called with {text}')
-        if self.table != 'Samples':
-            return
-        selected_samples = []
-        self.dbTable_tableView: QtW.QTableView
-        # Add the sample ID for any rows that are selected
-        if self.dbTable_tableView.selectedIndexes():
-            selected_indexes = self.dbTable_tableView.selectedIndexes()
-        # elif self.dbFrozen_tableView.selectedIndexes():
-        #     selected_indexes = self.dbFrozen_tableView.selectedIndexes()
-        else:
-            logger_setup.get_logger().error("Select rows to edit")
-            return
-        for index in selected_indexes:
-            id_index = index.siblingAtColumn(0)
-            selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
-        dlg = SampleInformation(self, selected_samples)
-        dlg.exec()
+        if dlg.updated:
+            update_database()
         self.display_table()
 
     def add_popup(self, action: QtG.QAction | None = None):
@@ -516,8 +536,10 @@ class DisplayTables(QtW.QWidget):
             dlg = AddTags(self.table)
         if not dlg:
             return
+        # show_loading_dialog('Loading', f'Opening add window for {self.table}...', self.cancel_dlg(dlg))
         dlg.exec()
-        update_database()
+        if dlg.updated:
+            update_database()
         self.display_table()
 
     def closeEvent(self, event):
