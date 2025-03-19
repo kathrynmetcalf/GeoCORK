@@ -339,7 +339,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     query = QtS.QSqlQuery()
     column = 'GPSLocationConverted'
     variables = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
-                 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'deg_symbol']
+                 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'deg_symbol', 'min_symbol', 'sec_symbol']
     modules = ['GPS', 'pyproj']
     global_vars = {name: globals()[name] for name in modules}
     gps_model = QtS.QSqlTableModel()
@@ -376,6 +376,8 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         GPSUTMN = gps_model.record(row).value('GPSUTMN')
         GPSUTME = gps_model.record(row).value('GPSUTME')
         deg_symbol = u'\N{DEGREE SIGN}'
+        min_symbol = "'"
+        sec_symbol = '"'
         # deg_symbol = '\u00b0'
         # deg_symbol = '°'
         local_vars = {name: locals()[name] for name in variables}
@@ -388,13 +390,13 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                     gps_code = gps_code.replace('°', '{deg_symbol}')
                 exec(gps_code, global_vars, local_vars)
                 gps_display = local_vars.get('converted')
-                sql_alter = f'UPDATE {table} SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'
+                query.prepare(f'UPDATE {table} SET {column}=:gps_display WHERE "GPSLocationID"={gps_id}')
+                query.bindValue(':gps_display', gps_display)
                 logger_setup.get_logger().info(f'Updating the calculated {column}')
-                logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
-                if not query.exec(sql_alter):
+                if not query.exec():
                     logger_setup.get_logger().critical(
                         f'Error adding the calculated column {column}: {query.lastError().text()}')
-                    logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+                    logger_setup.get_logger().critical(f'SQL command: {query.lastQuery()}')
                     rollback_savepoint('before_populate')
                     return "error"
                 gps_elements = gps_display.split(', ')
@@ -608,6 +610,14 @@ def convert_gps_location(gps_id: int):
     for conversion in conversions:
         if conversion[0] == gps_format_id:
             gps_code = conversion[1]
+            # gps_code = gps_code.replace("'", "\\'")
+            # quote_indexes = []
+            # # for each character in gps_code, if it is a quote, add its index to the list
+            # for index in range(len(gps_code)):
+            #     if gps_code[index] == '"':
+            #         quote_indexes.append(index)
+            # escaped = gps_code[quote_indexes[1]:quote_indexes[-1]].replace('"', '\\"')
+            # gps_code = gps_code[:quote_indexes[1]] + escaped + gps_code[quote_indexes[-1]:]
             exec(gps_code, global_vars, locals())
             gps_display = locals().get('converted')
             sql_alter = f'UPDATE GPSLocations SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'

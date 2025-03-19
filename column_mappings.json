@@ -208,5 +208,58 @@
         "68": {
             "field": "BestAgeError"
         }
+    },
+    "Ernst et al., 2017": {
+        "0": {
+            "field": "Spot Name"
+        },
+        "1": {
+            "field": "Pb*cps"
+        },
+        "2": {
+            "field": "Thppm"
+        },
+        "3": {
+            "field": "Uppm"
+        },
+        "4": {
+            "field": "Th/U"
+        },
+        "5": {
+            "field": "207Pb/206Pb"
+        },
+        "6": {
+            "field": "207Pb/206PbError"
+        },
+        "7": {
+            "field": "207Pb/235U"
+        },
+        "8": {
+            "field": "207Pb/235UError"
+        },
+        "9": {
+            "field": "206Pb/238U"
+        },
+        "10": {
+            "field": "206Pb/238UError"
+        },
+        "11": {
+            "field": "207Pb/206PbAge"
+        },
+        "12": {
+            "field": "207Pb/206PbAge"
+        },
+        "13": {
+            "field": "207Pb/235UAge"
+        },
+        "14": {
+            "field": "207Pb/235UAgeError"
+        },
+        "15": {
+            "field": "206Pb/238UAge"
+        },
+        "16": {
+            "field": "206Pb/238UAgeError"
+        }
     }
 }

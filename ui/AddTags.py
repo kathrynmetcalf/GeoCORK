@@ -16,14 +16,15 @@ from Functions.Widget_classes import set_table, get_headers, get_name_column, de
 import Functions.Check_triggers as Ct
 
 class AddTags(QtW.QDialog):
-    def __init__(self, table):
-        super().__init__()
+    def __init__(self, parent_window, table):
+        super().__init__(parent=parent_window)
         logger_setup.get_logger().info(f'Starting AddTags dialog for {table}...')
         # Define any widgets here
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "AddTags.ui")
         loadUi(sources_ui_file, self)
         self.setModal(True)
+        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowTitle(f'Add tags to {TxM.add_spaces_camel(table)}')
         self.updated = False
 

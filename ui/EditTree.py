@@ -20,15 +20,17 @@ from ui.AddTreeTags import AddTreeTags
 
 
 class EditTree(QtW.QDialog):
-    def __init__(self, table_name, **kwargs):
-        super().__init__()
+    def __init__(self, parent_window, table_name, **kwargs):
+        super().__init__(parent=parent_window)
 
         logger_setup.get_logger().info(f'Opening {table_name} tree edit dialog')
         start_edit_tree_time = time.time()
+        self.loading_manager = LoadingDialogManager.get_instance()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTree.ui")
         loadUi(sources_ui_file, self)
         self.setModal(True)
+        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.updated = False
 
         self.table_name = table_name
@@ -66,13 +68,13 @@ class EditTree(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.discard_question)
 
-        LoadingDialogManager.close_loading_dialog()
+        self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table_name}...')
         logger_setup.get_logger().info(f'Opened {table_name} tree edit dialog in {time.time() - start_edit_tree_time} seconds')
 
     def display_tree(self):
         logger_setup.get_logger().info(f'Displaying {self.table_name} tree')
         start_display_tree_time = time.time()
-        LoadingDialogManager.show_loading_dialog('Loading', f'Displaying {self.table_name}')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table_name}...')
         self.edit_treeView.setModel(self.tree_proxy_model)
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.edit_treeView.hideColumn(1)  # don't show ID column
@@ -87,6 +89,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
 
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table_name}...')
         logger_setup.get_logger().info(f'Displayed {self.table_name} tree in {time.time() - start_display_tree_time} seconds')
 
     def search(self):
@@ -136,6 +139,7 @@ class EditTree(QtW.QDialog):
         self.display_tree()
 
     def add_popup(self, action: QtG.QAction | None = None):
+        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         dlg_args = add_tree_popup(self.edit_treeView, self.tree_model, action)
         if dlg_args:

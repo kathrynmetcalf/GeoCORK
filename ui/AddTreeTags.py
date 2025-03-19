@@ -11,6 +11,7 @@ from PyQt6.uic import loadUi
 import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state, restore_expanded_state,
                                       get_headers, get_name_column, description_column, set_table
@@ -20,14 +21,16 @@ from Functions.Check_triggers import validate_insert, validate_update, update_mo
 
 class AddTreeTags(QtW.QDialog):
     # def __init__(self, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
-    def __init__(self, table: str, **kwargs):
-        super().__init__()
+    def __init__(self, parent_window, table: str, **kwargs):
+        super().__init__(parent_window)
 
         logger_setup.get_logger().info(f'Starting AddTreeTags dialog for {table}...')
+        self.loading_manager = LoadingDialogManager.get_instance()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "AddTreeTags.ui")
         loadUi(sources_ui_file, self)
         self.setModal(True)
+        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowTitle(f'Add tags to {TxM.add_spaces_camel(table)}')
         self.updated = False
 
@@ -73,6 +76,7 @@ class AddTreeTags(QtW.QDialog):
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
+        self.loading_manager.close_loading_dialog('Loading', f'Opening add window for {self.table}...')
 
     def add_label(self):
         if self.add_item == 'child':
@@ -184,7 +188,7 @@ class AddTreeTags(QtW.QDialog):
         if self.parent_id:
             # Add it to the settings list of expanded items
             expanded_ids = settings.value(f'expanded_ids_{self.table}', [])
-            expanded_ids.append(self.parent_id)
+            expanded_ids.add(self.parent_id)
             settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
         save_expanded_state(self.table, self.tree_model, self.tags_treeView)
         self.update_proxy()

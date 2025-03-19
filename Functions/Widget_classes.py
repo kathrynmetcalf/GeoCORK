@@ -1011,16 +1011,20 @@ def display_age(string: str):
 def display_gps(string: str):
     if '"' in string:
         # DMS format, (lat_deg°lat_min'lat_sec" lat_dir, lon_deg°lon_min'lon_sec" lon_dir) or (lat_deg°lat_min'lat_sec", lon_deg°lon_min'lon_sec")
-        lat_sec = string.split('°')[1].split('\'')[1].split('"')[0]
-        lon_sec = string.split('°')[1].split('\'')[1].split('"')[1]
+        lat_string = string.split(', ')[0]
+        lon_string = string.split(', ')[1]
+        lat_sec = lat_string.split('°')[1].split('\'')[1].split('"')[0]
+        lon_sec = lon_string.split('°')[1].split('\'')[1].split('"')[0]
         rounded_lat_sec = return_rounded(lat_sec)
         rounded_lon_sec = return_rounded(lon_sec)
         string = string.replace(lat_sec, f'{rounded_lat_sec}')
         string = string.replace(lon_sec, f'{rounded_lon_sec}')
     if "'" in string:
         # DM format, (lat_deg°lat_min' lat_dir, lon_deg°lon_min' lon_dir) or (lat_deg°lat_min', lon_deg°lon_min')
-        lat_min = string.split('°')[1].split('\'')[0]
-        lon_min = string.split('°')[1].split('\'')[1]
+        lat_string = string.split(', ')[0]
+        lon_string = string.split(', ')[1]
+        lat_min = lat_string.split('°')[1].split('\'')[0]
+        lon_min = lon_string.split('°')[1].split('\'')[0]
         rounded_lat_min = return_rounded(lat_min)
         rounded_lon_min = return_rounded(lon_min)
         string = string.replace(lat_min, f'{rounded_lat_min}')
@@ -2351,6 +2355,7 @@ class FocusGroupBox(QGroupBox):
         for pair in self.initial_values:
             if pair[0] == child:
                 initial_value = pair[1]
+                break
         if initial_value is None:
             return
         if isinstance(child, QtW.QLineEdit):
@@ -3369,14 +3374,15 @@ def restore_expanded_state(table: str, model, treeView: QtW.QTreeView):
 
     def restore_state(index):
         item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
-        if item_id in expanded_ids:
+        if index == QtC.QModelIndex():
+            pass
+        elif item_id in expanded_ids:
             indexes_to_expand.add(index)
         else:
             indexes_to_collapse.add(index)
         for row in range(model.rowCount(index)):
             restore_state(model.index(row, 0, index))
 
-    root_index = QtC.QModelIndex()
     restore_state(QtC.QModelIndex())
     for index in indexes_to_expand:
         treeView.setExpanded(index, True)

@@ -24,8 +24,8 @@ from ui.New_reference import NewReference
 
 
 class EditTable(QtW.QDialog):
-    def __init__(self, table_name, **kwargs):
-        super().__init__()
+    def __init__(self, parent_window, table_name, **kwargs):
+        super().__init__(parent=parent_window)
 
         logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -152,7 +152,7 @@ class EditTable(QtW.QDialog):
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
             return
         else:
-            dlg = AddTags(self.table)
+            dlg = AddTags(self, self.table)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
         self.create_model()

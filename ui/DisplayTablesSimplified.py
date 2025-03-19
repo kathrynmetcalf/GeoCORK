@@ -173,8 +173,8 @@ class DisplayTablesSimplified(QtW.QWidget):
                     model = SQLiteTableModel(f'SELECT {self.show_cols} FROM ReferenceView', database=self.db_file)
                     self.table_proxy_model.setSourceModel(model)
                 else:
-                    self.model.setTable(table)
-                    self.model.select()
+                    # self.model.setTable(table)
+                    # self.model.select()
                     self.table_proxy_model.setSourceModel(self.model)
 
             self.dbTable_tableView.setWordWrap(True)

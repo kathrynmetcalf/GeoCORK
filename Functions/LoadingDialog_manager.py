@@ -24,9 +24,10 @@ class LoadingDialogManager:
         return LoadingDialogManager._instance
 
     def show_loading_dialog(self, title: str, message: str):
-        self.title = title
-        self.message = message
-        self.begin()
+        if self.dialog is None:
+            self.title = title
+            self.message = message
+            self.begin()
         # self.timer.setSingleShot(True)
         # self.timer.setInterval(1000)
         # self.timer.timeout.connect(self.timeout)

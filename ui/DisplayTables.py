@@ -510,16 +510,37 @@ class DisplayTables(QtW.QWidget):
         dlg = None
         self.display_table()
 
+    def edit_samples_popup(self, text=None):
+        # print(f'edit_samples_popup called with {text}')
+        if self.table != 'Samples':
+            return
+        selected_samples = []
+        self.dbTable_tableView: QtW.QTableView
+        # Add the sample ID for any rows that are selected
+        if self.dbTable_tableView.selectedIndexes():
+            selected_indexes = self.dbTable_tableView.selectedIndexes()
+        # elif self.dbFrozen_tableView.selectedIndexes():
+        #     selected_indexes = self.dbFrozen_tableView.selectedIndexes()
+        else:
+            logger_setup.get_logger().error("Select rows to edit")
+            return
+        for index in selected_indexes:
+            id_index = index.siblingAtColumn(0)
+            selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
+        dlg = SampleInformation(self, selected_samples)
+        dlg.exec()
+        self.display_table()
+
     def edit_popup(self):
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if self.table in view_tables:
-            dlg = EditView(self.table)
+            dlg = EditView(self, self.table)
         elif self.table in self.dbtree_list:
             save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
-            dlg = EditTree(self.table)
+            dlg = EditTree(self, self.table)
         else:
-            dlg = EditTable(self.table)
-        # show_loading_dialog('Loading', f'Opening edit window for {self.table}...', self.cancel_dlg(dlg))
+            dlg = EditTable(self, self.table)
+        self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         dlg.exec()
         if dlg.updated:
             update_database()
@@ -531,9 +552,9 @@ class DisplayTables(QtW.QWidget):
             save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
             dlg_args = add_tree_popup(self.dbTable_treeView, self.tree_model, action)
             if dlg_args:
-                dlg = AddTreeTags(self.table, **dlg_args)
+                dlg = AddTreeTags(self, self.table, **dlg_args)
         else:
-            dlg = AddTags(self.table)
+            dlg = AddTags(self, self.table)
         if not dlg:
             return
         # show_loading_dialog('Loading', f'Opening add window for {self.table}...', self.cancel_dlg(dlg))

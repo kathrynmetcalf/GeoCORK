@@ -89,14 +89,15 @@ class GeoCORK(QtW.QMainWindow):
 
         settings.setValue('db_file', self.db_file)
         logger_setup.get_logger().info(f"Setting database file to: {self.db_file}")
+        if '/' in self.db_file:
+            self.db_name = self.db_file.split('/')[-1]
+        elif '\\' in self.db_file:
+            self.db_name = self.db_file.split('\\')[-1]
         if self.db.isOpen():
             print('database not open:', self.db.isOpen())
             if self.db.open():
                 logger_setup.get_logger().info(f"Database opened successfully")
-                if '/' in self.db_file:
-                    self.setWindowTitle(f"GeoCORK - {self.db_file.split('/')[-1]}")
-                elif '\\' in self.db_file:
-                    self.setWindowTitle(f"GeoCORK - {self.db_file.split('\\')[-1]}")
+                self.setWindowTitle(f"GeoCORK - {self.db_name}")
             else:
                 logger_setup.get_logger().critical('Database could not be opened')
                 return
@@ -127,7 +128,7 @@ class GeoCORK(QtW.QMainWindow):
         actionExport.triggered.connect(ExportWidget)
         actionQuit.triggered.connect(self.close)
 
-        self.loading_manager.close_loading_dialog('Opening', f'Opening {self.db_file}...')
+        self.loading_manager.close_loading_dialog('Opening', f'Opening {self.db_name}...')
         self.showMaximized()
         self.show()
 

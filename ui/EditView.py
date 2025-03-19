@@ -33,11 +33,12 @@ from ui.AgeDialog import AgeDialog
 import time
 
 class SetSelectedValues(QtW.QDialog):
-    def __init__(self, widget: QtW.QWidget):
-        super().__init__()
+    def __init__(self, parent_window, widget: QtW.QWidget):
+        super().__init__(parent=parent_window)
         self.setWindowTitle('Set selected values')
         self.setModal(True)
         self.close_by_dialog = False
+        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         # self.setMinimumSize(600, 200)
 
         self.widget = widget
@@ -75,8 +76,8 @@ class SetSelectedValues(QtW.QDialog):
             self.cancel()
 
 class EditView(QtW.QDialog):
-    def __init__(self, table_name, **kwargs):
-        super().__init__()
+    def __init__(self, parent_window, table_name, **kwargs):
+        super().__init__(parent=parent_window)
         self.loadWindowState()
 
         logger_setup.get_logger().info(f'Creating a new EditView for {table_name}')
@@ -280,14 +281,14 @@ class EditView(QtW.QDialog):
         elif action == set_selected_action:
             self.determine_widget(indexes[0])
             if self.lineEdit:
-                dlg = SetSelectedValues(self.lineEdit)
+                dlg = SetSelectedValues(self, self.lineEdit)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.lineEdit = dlg.widget
                     self.save_lineedit_data()
                 else:
                     self.destroy_lineedit()
             elif self.combo:
-                dlg = SetSelectedValues(self.combo)
+                dlg = SetSelectedValues(self, self.combo)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.combo = dlg.widget
                     self.save_dropdown_data()
@@ -402,7 +403,7 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                dlg = GPSDialog(self.table, item_ids)
+                dlg = GPSDialog(self.table, item_ids, self)
                 dlg.exec()
                 logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
                 query = QtS.QSqlQuery()
@@ -422,7 +423,7 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                dlg = AgeDialog(self.table, item_ids)
+                dlg = AgeDialog(self.table, item_ids, self)
                 dlg.exec()
                 logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
                 query = QtS.QSqlQuery()
@@ -1279,9 +1280,9 @@ class EditView(QtW.QDialog):
         # if self.table == 'Samples' or self.table == '"References"' or self.table == 'Aliquots' or self.table == 'UPbData':
         #     pass
         if self.table == '"References"' or self.table == 'References':
-            dlg = NewReference()
+            dlg = NewReference(self)
         else:
-            dlg = AddTags(self.model, self.table)
+            dlg = AddTags(self, self.table)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             self.find_new_rows()
@@ -1297,11 +1298,11 @@ class EditView(QtW.QDialog):
             save_expanded_state(table, combo.model(), combo.view())
             dlg_args = add_tree_popup(combo.view(), combo.model(), action)
             if dlg_args:
-                dlg = AddTreeTags(table, **dlg_args)
+                dlg = AddTreeTags(self, table, **dlg_args)
             else:
-                dlg = AddTreeTags(table)
+                dlg = AddTreeTags(self, table)
         else:
-            dlg = AddTags(table)
+            dlg = AddTags(self, table)
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
@@ -1319,9 +1320,9 @@ class EditView(QtW.QDialog):
         else:
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:
-            dlg = EditTree(table)
+            dlg = EditTree(self, table)
         else:
-            dlg = EditTable(table)
+            dlg = EditTable(self, table)
         if dlg is None:
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")

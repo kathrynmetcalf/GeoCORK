@@ -44,6 +44,7 @@ class SampleInformation(QtW.QDialog):
         self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit Sample Information")
         self.setModal(True)
+        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
@@ -614,9 +615,9 @@ class SampleInformation(QtW.QDialog):
             save_expanded_state(table, combo.model(), combo.view())
             dlg_args = add_tree_popup(combo.view(), combo.model(), action)
             if dlg_args:
-                dlg = AddTreeTags(table, **dlg_args)
+                dlg = AddTreeTags(self, table, **dlg_args)
         else:
-            dlg = AddTags(table)
+            dlg = AddTags(self, table)
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
@@ -635,9 +636,9 @@ class SampleInformation(QtW.QDialog):
         else:
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:
-            dlg = EditTree(table)
+            dlg = EditTree(self, table)
         else:
-            dlg = EditTable(table)
+            dlg = EditTable(self, table)
         if dlg is None:
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")

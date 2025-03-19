@@ -1,6 +1,6 @@
 import PyQt6
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSize
+from PyQt6.QtCore import QPoint, QSize, Qt
 from PyQt6.uic import loadUi
 import ui.AgeFields
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
@@ -26,6 +26,9 @@ class AgeDialog(QtW.QDialog):
         self.button_layout.addWidget(self.commit_button)
         self.layout().addLayout(self.button_layout)
         self.close_by_dialog = False
+        self.setModal(True)
+        self.setWindowTitle('Edit Age')
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
 
         self.msg_box = QtW.QMessageBox()
         self.msg_box.setIcon(QtW.QMessageBox.Icon.Question)

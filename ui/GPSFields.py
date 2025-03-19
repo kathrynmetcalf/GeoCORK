@@ -45,6 +45,11 @@ class GPSFields(QtW.QWidget):
         self.item_ids = item_ids
         self.updated = False
         self.errmsg = QtW.QMessageBox(self)
+        self.focus_timer = QtC.QTimer(self)
+        self.focus_timer.setSingleShot(True)
+        self.focus_timer.timeout.connect(self.update_gps)
+        self._isApplicationFocused = True
+        QtW.QApplication.instance().installEventFilter(self)
 
         self.item_model = None
         self.gps_format_model = QtS.QSqlTableModel()
@@ -99,14 +104,25 @@ class GPSFields(QtW.QWidget):
         elif self.elev_groupBox.any_child_has_focus() and self.elev_groupBox.edited:
             self.elev_groupBox.focusLost.emit()
 
+    def eventFilter(self, obj, event):
+        if event.type() == QtC.QEvent.Type.ApplicationDeactivate:
+            self._isApplicationFocused = False
+        elif event.type() == QtC.QEvent.Type.ApplicationActivate:
+            self._isApplicationFocused = True
+        return super().eventFilter(obj, event)
+
     def connect_signals(self):
         self.gps_format_comboBox.currentTextChanged.connect(self.display_gps)
         self.latlon_groupBox.connect_child_signals()
-        self.latlon_groupBox.focusLost.connect(self.update_gps)
+        self.latlon_groupBox.focusLost.connect(self.focus_lost_delay)
         self.utm_groupBox.connect_child_signals()
-        self.utm_groupBox.focusLost.connect(self.update_gps)
+        self.utm_groupBox.focusLost.connect(self.focus_lost_delay)
         self.elev_groupBox.connect_child_signals()
-        self.elev_groupBox.focusLost.connect(self.update_gps)
+        self.elev_groupBox.focusLost.connect(self.focus_lost_delay)
+
+    def focus_lost_delay(self):
+        if self._isApplicationFocused:
+            self.focus_timer.start(100)
 
     def disconnect_text_signals(self):
         self.latlon_groupBox.disconnect_child_signals()
@@ -302,7 +318,7 @@ class GPSFields(QtW.QWidget):
                 self.lon_min_lineEdit.show()
                 self.lat_min_label.show()
                 self.lon_min_label.show()
-                if 'S' in current_gps_format:
+                if 'MS' in current_gps_format:
                     self.lat_sec_lineEdit.show()
                     self.lon_sec_lineEdit.show()
                     self.lat_sec_label.show()
@@ -416,9 +432,9 @@ class GPSFields(QtW.QWidget):
                 elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
 
             if len(self.item_ids) > 1:
-                self.item_model.setQuery(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}")
+                self.item_model = SQLiteTableModel(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}")
             elif len(self.item_ids) == 1:
-                self.item_model.setQuery(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}")
+                self.item_model = SQLiteTableModel(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}")
             gps_ids = []
             for row in range(self.item_model.rowCount()):
                 id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -438,7 +454,7 @@ class GPSFields(QtW.QWidget):
             if len(gps_ids) > 0:
                 logger_setup.get_logger().info(f"Checking {len(gps_ids)} GPS locations associated with the {self.table}")
                 for gps in gps_ids:
-                    self.item_model.setQuery(f"SELECT {self.item_id_header} FROM {self.item_edit_view} WHERE {self.table_gps_id_header} = {gps}")
+                    self.item_model = SQLiteTableModel(f"SELECT {self.item_id_header} FROM {self.item_edit_view} WHERE {self.table_gps_id_header} = {gps}")
                     other_item_model = QtS.QSqlQueryModel()
                     other_item_model.setQuery(f"SELECT {self.other_table_id_header} FROM {self.other_edit_view} WHERE {self.other_table_gps_id_header} = {gps}")
                     items_with_gps = []
