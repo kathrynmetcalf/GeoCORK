@@ -10,6 +10,7 @@ from PyQt6.QtCore import QCoreApplication, QVariant, QMetaType
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QApplication
 
+import SQLUtils
 import logger_setup
 from ui.GPSDialog import GPSDialog
 
@@ -146,19 +147,7 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
 
 
 def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
-    static_tables = ['About',
-                     'AgeUnitConversions',
-                     'AgeUnits',
-                     'ConcordanceFormatConversions',
-                     'ConcordanceFormats',
-                     'DirectionUnits',
-                     'DistanceUnitConversions',
-                     'DistanceUnits',
-                     'ErrorFormatConversions',
-                     'ErrorFormats',
-                     'GPSFormatConversions',
-                     'GPSFormats']
-    for table in static_tables:
+    for table in SQLUtils.static_tables:
         logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
         copy_table(table, conn_source, conn_target)
 

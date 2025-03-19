@@ -507,6 +507,20 @@ gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees 
                    ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
                    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
 
+static_tables = ['About',
+                 'Ages',
+                 'AgeUnitConversions',
+                 'AgeUnits',
+                 'ConcordanceFormatConversions',
+                 'ConcordanceFormats',
+                 'DirectionUnits',
+                 'DistanceUnitConversions',
+                 'DistanceUnits',
+                 'ErrorFormatConversions',
+                 'ErrorFormats',
+                 'GPSFormatConversions',
+                 'GPSFormats']
+
 as_table_dict = {
     'DirectAgeErrorFormats': 'ErrorFormats',
     'OldAge': 'Ages',

@@ -1,81 +1,70 @@
 import sqlite3
 from typing import Dict, List, Tuple
+import sqlite3
+from typing import Dict, List
+
+import SQLUtils
 
 
-def merge_databases(source_db_path: str, incoming_db_path: str):
+def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
     """
-    Merge incoming_db into source_db, rewriting primary keys to avoid collisions
-    and preserving foreign key relationships.
+    Merge 'incoming_db_path' into 'source_db_path', handling self-referential
+    'tree' tables by inserting parent rows first so the parent's new PK is known.
     """
 
-    # -------------------------------------
-    # 1. Connect to both databases
-    # -------------------------------------
+    # ----------------------------------------------------------------
+    # 1. Connect to both databases, turn off foreign_keys in source
+    # ----------------------------------------------------------------
     source_conn = sqlite3.connect(source_db_path)
     incoming_conn = sqlite3.connect(incoming_db_path)
 
-    # We want manual transaction control and faster inserts
+    # For faster inserts
     source_conn.isolation_level = None
     incoming_conn.isolation_level = None
 
-    # -------------------------------------
-    # 2. Disable foreign key checks in source (for flexible insertion order)
-    # -------------------------------------
     source_conn.execute("PRAGMA foreign_keys = OFF;")
-    source_conn.execute("BEGIN;")  # start transaction
+    source_conn.execute("BEGIN;")  # begin transaction
 
-    # -------------------------------------
-    # 3. Gather metadata about all tables
-    #    We will figure out:
-    #       - The PRIMARY KEY column
-    #       - All columns
-    #       - Which columns are foreign keys (and reference which table/column)
-    # -------------------------------------
-
+    # ----------------------------------------------------------------
+    # 2. Utility: get tables, schema, detect PK column, detect FKs
+    # ----------------------------------------------------------------
     def get_tables(conn: sqlite3.Connection) -> List[str]:
-        """Return a list of all user-defined table names."""
         rows = conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
         ).fetchall()
-        table_names = [r[0] for r in rows]
-        # Exclude SQLite internal tables if present
+        table_names = ["\"" + r[0] + "\"" for r in rows]
+        for table in SQLUtils.static_tables:
+            table = "\"" + table + "\""
+            if table in table_names:
+                table_names.remove(table)
         return [t for t in table_names if not t.startswith("sqlite_")]
 
-    def get_table_info(conn: sqlite3.Connection, table: str) -> List[Dict]:
+    def get_table_info(conn: sqlite3.Connection, table: str):
         """
-        Return PRAGMA table_info() for the given table,
-        as a list of dicts with keys:
-         - cid
-         - name
-         - type
-         - notnull
-         - dflt_value
-         - pk
+        PRAGMA table_info(table):
+         Each row: (cid, name, type, notnull, dflt_value, pk)
         """
-        cursor = conn.execute(f"PRAGMA table_info({table});")
-        col_info = []
-        for row in cursor:
-            cid, name, col_type, notnull, dflt_value, pk = row
-            col_info.append({
-                "cid": cid,
-                "name": name,
-                "type": col_type,
-                "notnull": notnull,
-                "dflt_value": dflt_value,
-                "pk": pk
-            })
-        return col_info
+        info = []
+        for row in conn.execute(f"PRAGMA table_info({table});"):
+            cid, name, ctype, notnull, dflt_value, pk = row
+            if "Calculated" not in name:
+                info.append({
+                    "cid": cid,
+                    "name": "[" + name + "]",  # escape names
+                    "type": ctype,
+                    "notnull": notnull,
+                    "dflt_value": dflt_value,
+                    "pk": pk
+                })
+        return info
 
-    def get_foreign_key_info(conn: sqlite3.Connection, table: str) -> List[Dict]:
+    def get_foreign_key_info(conn: sqlite3.Connection, table: str):
         """
-        Return PRAGMA foreign_key_list(table) data:
-         - For each foreign key, we get:
-           [id, seq, table, from, to, on_update, on_delete, match]
+        PRAGMA foreign_key_list(table):
+         Each row: (id, seq, ref_table, from_col, to_col, on_update, on_delete, match)
         """
-        cursor = conn.execute(f"PRAGMA foreign_key_list({table});")
         fks = []
-        for row in cursor:
-            # row: (id, seq, table, from_col, to_col, on_update, on_delete, match)
+        for row in conn.execute(f"PRAGMA foreign_key_list({table});"):
             fks.append({
                 "id": row[0],
                 "seq": row[1],
@@ -91,238 +80,316 @@ def merge_databases(source_db_path: str, incoming_db_path: str):
     source_tables = get_tables(source_conn)
     incoming_tables = get_tables(incoming_conn)
 
-    # We assume both DBs have the same tables.
-    # If there's a mismatch, handle it as needed (e.g., skip missing tables).
+    # We assume identical sets of tables:
     common_tables = sorted(set(source_tables) & set(incoming_tables))
 
-    # We'll store table schemas in a dict
+    # Build schema metadata
     table_schemas = {}
     for t in common_tables:
-        cols = get_table_info(source_conn, t)
-        fks = get_foreign_key_info(source_conn, t)
-
-        # Identify which column is the primary key
-        pk_cols = [c["name"] for c in cols if c["pk"] == 1]
-        primary_key_col = pk_cols[0] if pk_cols else None  # caution if multiple PKs
+        info = get_table_info(source_conn, t)
+        fks  = get_foreign_key_info(source_conn, t)
+        pk_cols = [c["name"] for c in info if c["pk"] == 1]
+        pk_col = pk_cols[0] if pk_cols else None
 
         table_schemas[t] = {
-            "columns": cols,
+            "columns": info,
             "fks": fks,
-            "primary_key": primary_key_col
+            "primary_key": pk_col
         }
 
-    # -------------------------------------
-    # 4. Prepare a dictionary to track old→new ID mappings per table
-    # -------------------------------------
-    # E.g. id_map["Samples"][old_id] = new_id
-    id_map = {t: {} for t in common_tables}
+    # ----------------------------------------------------------------
+    # 3. Identify which tables are "self-referential"
+    #    i.e., the table references itself in a foreign_key.
+    # ----------------------------------------------------------------
+    # E.g. if table "Foo" has an FK referencing "Foo", or if there's a column "ParentFooID"
+    # referencing the same table's PK. We'll store them in a separate list so we can do
+    # a special "tree merge" for them.
+    #
+    # We'll also record the "parent_col" so we know which column references the PK.
+    self_ref_tables = {}  # table_name -> from_col (that references itself)
+    for table in SQLUtils.user_viewable_trees:
+        if table in SQLUtils.static_tables:
+            continue
+        self_ref_tables["\"" + table + "\""] = {"parent_fk_col": "[Parent" + table[0:-1] + "ID]"}
+    normal_tables = []    # everything else
+    mtm_tables = []
 
-    # -------------------------------------
-    # 5. A naive ordering of tables: We'll just use the order we got them.
-    #    Ideally, do a topological sort by foreign-key dependencies.
-    # -------------------------------------
-    # For a robust solution, you'd parse table_schemas[t]["fks"] to build a
-    # dependency graph and topologically sort it. For now, let's just iterate
-    # in alphabetical order or the creation order. We'll do alphabetical:
-    table_insert_order = common_tables
+    bridging_fks = {}
 
-    # -------------------------------------
-    # 6. Function to insert rows from incoming → source, rewriting PK
-    # -------------------------------------
-    def merge_table_data(table_name: str):
-        """
-        1. Read all rows from `incoming_conn` for this table.
-        2. Insert into `source_conn`, skipping the old PK column and letting
-           the source DB generate new PKs.
-        3. Record id_map for old PK → new PK.
-        """
-        schema = table_schemas[table_name]
+    for t in common_tables:
+        schema = table_schemas[t]
         pk_col = schema["primary_key"]
-        all_cols = [c["name"] for c in schema["columns"]]
-
-        # We'll do a SELECT * on incoming side
-        col_list_str = ", ".join(all_cols)
-        select_sql = f"SELECT {col_list_str} FROM {table_name};"
-        incoming_rows = incoming_conn.execute(select_sql).fetchall()
-
-        # Build an INSERT statement that excludes the PK column
-        # e.g., if pk_col = "SampleID", we'll insert the rest
-        insert_cols = [c for c in all_cols if c != pk_col]
-        insert_cols_str = ", ".join(insert_cols)
-        placeholders_str = ", ".join(["?" for _ in insert_cols])
-        insert_sql = f"""
-            INSERT INTO {table_name} ({insert_cols_str})
-            VALUES ({placeholders_str});
-        """
-
-        # For each row from incoming, we:
-        #  1) separate out the pk_col if present
-        #  2) insert the other columns
-        #  3) retrieve new PK via last_insert_rowid()
-        for row in incoming_rows:
-            row_dict = dict(zip(all_cols, row))
-
-            # The old PK value
-            old_pk_val = row_dict[pk_col] if pk_col else None
-
-            # The insert values (excluding PK col)
-            insert_values = [row_dict[c] for c in insert_cols]
-
-            # Insert
-            source_conn.execute(insert_sql, insert_values)
-            # Get the new PK
-            if pk_col:
-                new_pk_val = source_conn.execute(
-                    "SELECT last_insert_rowid();"
-                ).fetchone()[0]
-                # Save the mapping
-                id_map[table_name][old_pk_val] = new_pk_val
-
-    # -------------------------------------
-    # 7. Function to fix foreign keys in child tables
-    #    i.e., re-insert child rows with updated references
-    # -------------------------------------
-    def fix_foreign_keys(table_name: str):
-        """
-        For each row in `table_name` in the incoming DB, we look at
-        the foreign keys. We'll build a row for the source that
-        uses the *new mapped IDs*. Then we do the same style insert
-        but we skip the old PK, get the new PK, etc.
-
-        Important for many-to-many link tables, or child tables referencing
-        other parents.
-        """
-        schema = table_schemas[table_name]
-        pk_col = schema["primary_key"]
-        all_cols = [c["name"] for c in schema["columns"]]
         fks = schema["fks"]
 
-        # We'll do a fresh SELECT * from incoming
-        col_list_str = ", ".join(all_cols)
+        distinct_refs = set(fk["ref_table"].lower() for fk in fks)
+
+        # Is there a foreign key that references the same table 't'?
+        self_ref_fk = None
+        for fk in fks:
+            if fk["ref_table"].lower() == t.lower():
+                # Found a self-reference
+                self_ref_fk = fk
+                break
+
+        if self_ref_fk:
+            self_ref_tables[t] = {
+                "parent_fk_col": self_ref_fk["from_col"],  # e.g. "ParentFooID"
+            }
+        elif "_" in t and len(distinct_refs) == 2 and all(fk["ref_table"].lower() != t.lower() for fk in fks):
+            mtm_tables.append(t)
+            bridging_fks[t] = []
+            for fk in fks:
+                bridging_fks[t].append(("[" + fk["from_col"] + "]", "\"" + fk["ref_table"].replace("_old","") + "\""))
+        elif t.replace("\"","") not in SQLUtils.user_viewable_trees:
+            normal_tables.append(t)
+
+    # We'll keep them separate so we can handle "normal tables" vs "tree tables."
+    # (Of course, some tables might also reference other tables, so real merges
+    # often need topological ordering. This is a simplified example.)
+
+    # ----------------------------------------------------------------
+    # 4. ID mapping: store old_pk -> new_pk for each table
+    # ----------------------------------------------------------------
+    id_map = {t: {} for t in common_tables}
+
+    # ----------------------------------------------------------------
+    # 5. Insertion function for normal (non-self-ref) tables
+    # ----------------------------------------------------------------
+    def merge_non_self_ref_table(table_name: str):
+        """
+        Merge rows from the incoming DB to source DB, ignoring the old PK
+        (letting source auto-generate) but preserving all other columns.
+        """
+        schema = table_schemas[table_name]
+        pk_col = schema["primary_key"]
+        col_names = [c["name"] for c in schema["columns"]]
+
+        # SELECT all rows from incoming
+        col_list_str = ", ".join(col_names)
         select_sql = f"SELECT {col_list_str} FROM {table_name};"
         incoming_rows = incoming_conn.execute(select_sql).fetchall()
 
-        # Build the same kind of insert statement that excludes pk_col
-        insert_cols = [c for c in all_cols if c != pk_col]
+        # Prepare insert statement skipping pk_col
+        insert_cols = [c for c in col_names if c != pk_col]
         insert_cols_str = ", ".join(insert_cols)
-        placeholders_str = ", ".join(["?" for _ in insert_cols])
+        placeholders_str = ", ".join("?" for _ in insert_cols)
+        insert_sql = f"""INSERT INTO {table_name} ({insert_cols_str})
+                         VALUES ({placeholders_str});"""
+
+        for row in incoming_rows:
+            row_dict = dict(zip(col_names, row))
+            old_pk_val = row_dict[pk_col] if pk_col else None
+
+            # We do not re-map foreign keys here. A robust approach would also
+            # fix references to other tables if needed. This snippet is for
+            # demonstration. (See prior code for rewriting foreign keys.)
+            # Insert values minus pk
+            to_insert = [row_dict[c] for c in insert_cols]
+            try:
+                source_conn.execute(insert_sql, to_insert)
+            except sqlite3.IntegrityError as e:
+                if "UNIQUE constraint failed" in e.__str__():
+                    #todo change to add error message and record reconciliation
+                    to_insert[1] = to_insert[1] + " (1)"
+                    source_conn.execute(insert_sql, to_insert)
+
+
+            # Retrieve new pk
+            if pk_col:
+                new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                id_map[table_name][old_pk_val] = new_pk_val
+
+    # ----------------------------------------------------------------
+    # 6. Merge a self-referential "tree" table
+    # ----------------------------------------------------------------
+    def merge_self_ref_table(table_name: str):
+        """
+        For a table that references itself in a parent-child relationship,
+        we do multiple passes or a BFS approach:
+          - Insert all rows with no parent (NULL or 0).
+          - Then insert rows whose parent is already inserted.
+          - Repeat until all are inserted.
+        """
+        schema = table_schemas[table_name]
+        pk_col = schema["primary_key"]
+        parent_fk_col = self_ref_tables[table_name]["parent_fk_col"]
+        col_names = [c["name"] for c in schema["columns"]]
+
+        # Read all rows from incoming
+        col_list_str = ", ".join(col_names)
+        select_sql = f"SELECT {col_list_str} FROM {table_name};"
+        all_rows = incoming_conn.execute(select_sql).fetchall()
+
+        # Convert to dict: old_pk -> row_dict
+        incoming_dict = {}
+        for row in all_rows:
+            row_dict = dict(zip(col_names, row))
+            old_pk = row_dict[pk_col]
+            incoming_dict[old_pk] = row_dict
+
+        # We'll track which rows are "inserted" in the source
+        inserted = set()
+
+        # Prepare the insert statement (skipping pk_col)
+        insert_cols = [c for c in col_names if c != pk_col]
+        insert_cols_str = ", ".join(insert_cols)
+        placeholders_str = ", ".join("?" for _ in insert_cols)
         insert_sql = f"""
             INSERT INTO {table_name} ({insert_cols_str})
             VALUES ({placeholders_str});
         """
 
-        # We'll re-insert everything but with foreign key columns replaced
-        # by new IDs from id_map. For each foreign key, we have something like:
-        #  from_col references ref_table(ref_col)
-        # We only handle the typical case: ref_col is the PK of ref_table.
-        # So we do: new_id = id_map[ref_table][ old_id ]
-        for row in incoming_rows:
+        # Repeatedly scan all rows; insert any row whose parent is inserted or NULL
+        # Keep going until no more can be inserted.
+        # (Assumes no cycles, i.e., it's a true tree.)
+        rows_to_insert = set(incoming_dict.keys())  # all old pks
+        progress = True
+
+        while progress and rows_to_insert:
+            progress = False
+            # We'll build a list of old PKs that we successfully insert in this pass
+            inserted_this_round = []
+
+            for old_pk in rows_to_insert:
+                row_dict = incoming_dict[old_pk]
+                parent_old_id = row_dict[parent_fk_col]
+
+                # Condition: if parent is None (or 0) or the parent is already in 'inserted'
+                # we can safely insert
+                # (Adjust the condition if your schema uses a different "no parent" sentinel.)
+                if parent_old_id is None or parent_old_id == 0 or parent_old_id in inserted:
+                    # Let's do the insert
+                    # Build the row minus the PK
+                    row_for_insert = {}
+                    for c in insert_cols:
+                        row_for_insert[c] = row_dict[c]
+
+                    # Also fix the parent's PK if we have a mapping
+                    if parent_old_id and parent_old_id in id_map[table_name]:
+                        row_for_insert[parent_fk_col] = id_map[table_name][parent_old_id]
+                    else:
+                        # parent is None or we haven't inserted that parent yet
+                        row_for_insert[parent_fk_col] = None if parent_old_id else None
+
+                    # Insert
+                    vals = [row_for_insert[c] for c in insert_cols]
+                    try:
+                        source_conn.execute(insert_sql, vals)
+                    except sqlite3.IntegrityError as e:
+                        if "UNIQUE constraint failed" in e.__str__():
+                            # todo change to add error message and record reconciliation
+                            vals[2] = vals[2] + " (1)"
+                            source_conn.execute(insert_sql, vals)
+
+                    # Get new PK
+                    new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                    id_map[table_name][old_pk] = new_pk_val
+
+                    # Mark it inserted
+                    inserted_this_round.append(old_pk)
+
+            # After scanning all rows_to_insert, remove what we inserted
+            if inserted_this_round:
+                progress = True
+                for pk in inserted_this_round:
+                    inserted.add(pk)
+                    rows_to_insert.remove(pk)
+
+        # If rows_to_insert is still not empty, it might indicate a cycle
+        # or references to a parent that doesn't exist. For a real "tree," we expect
+        # everything to eventually get inserted.
+
+    def merge_m2m_bridge_table(table_name: str):
+        """
+        M2M table referencing exactly 2 other distinct tables.
+        We'll read all rows from incoming, rewrite the FK columns
+        to point to the new IDs from id_map, and insert them.
+        If the table has its own PK, we skip it as usual so new PK is assigned.
+        """
+        schema = table_schemas[table_name]
+        pk_col = schema["primary_key"]
+        all_cols = [c["name"] for c in schema["columns"]]
+
+        # foreign keys
+        fk_pairs = bridging_fks[table_name]
+        # e.g. [ (from_col1, ref_table1), (from_col2, ref_table2) ]
+
+        # read all from incoming
+        col_list_str = ", ".join(all_cols)
+        select_sql = f"SELECT {col_list_str} FROM {table_name};"
+        rows = incoming_conn.execute(select_sql).fetchall()
+
+        # We'll skip the bridging table's PK column (if any) so it re-generates
+        insert_cols = [c for c in all_cols if c != pk_col]
+        insert_cols_str = ", ".join(insert_cols)
+        placeholders_str = ", ".join("?" for _ in insert_cols)
+        insert_sql = f"""
+            INSERT INTO {table_name} ({insert_cols_str})
+            VALUES ({placeholders_str});
+        """
+
+        for row in rows:
             row_dict = dict(zip(all_cols, row))
 
-            old_pk_val = row_dict[pk_col] if pk_col else None
-
-            # Build a new row dict that updates any foreign keys
-            new_row_dict = row_dict.copy()
-            for fk in fks:
-                ref_table = fk["ref_table"]
-                from_col = fk["from_col"]
-                to_col = fk["to_col"]  # presumably the PK of the referenced table
-
+            # rewrite each referencing column
+            for (from_col, ref_table) in fk_pairs:
                 old_fk_val = row_dict[from_col]
-                if old_fk_val is None:
-                    # no reference
-                    continue
-                # Lookup the new ID in id_map[ref_table]
-                # If the referenced table had a known old→new mapping, do it
-                if ref_table in id_map and old_fk_val in id_map[ref_table]:
-                    new_fk_val = id_map[ref_table][old_fk_val]
-                    new_row_dict[from_col] = new_fk_val
-                else:
-                    # Possibly the referenced row was identical or never inserted
-                    # or it might be self-referential. You might need extra logic here.
-                    new_row_dict[from_col] = None  # or keep old_fk_val?
+                if old_fk_val is not None:
+                    # get the new ID from id_map
+                    if old_fk_val in id_map[ref_table]:
+                        row_dict[from_col] = id_map[ref_table][old_fk_val]
+                    else:
+                        # e.g. if it didn't exist, or wasn't inserted
+                        row_dict[from_col] = None
 
-            # Now remove the pk_col from new_row_dict
-            # because we'll let the source auto-generate a new PK
-            if pk_col in new_row_dict:
-                del new_row_dict[pk_col]
+            # Build final insert dict minus PK
+            to_insert = []
+            for c in insert_cols:
+                to_insert.append(row_dict[c])
 
-            # Perform the insert
-            insert_values = [new_row_dict[c] for c in insert_cols]
-            source_conn.execute(insert_sql, insert_values)
+            source_conn.execute(insert_sql, to_insert)
 
-            # Save the new PK mapping if table has a PK
+            # If bridging table has a PK, update the map
+            # (Often bridging tables might not need an id_map, but let's keep it consistent)
             if pk_col:
-                new_pk_val = source_conn.execute(
-                    "SELECT last_insert_rowid();"
-                ).fetchone()[0]
+                old_pk_val = row_dict[pk_col]
+                new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
                 id_map[table_name][old_pk_val] = new_pk_val
 
-    # -------------------------------------
-    # 8. Merging approach:
-    #    Step A: Insert all parent-type tables ignoring FKs
-    #    Step B: Insert all child-type tables with FK references updated
-    #
-    #    Because your schema is large and cyclical in places,
-    #    you may need more granular control. We'll do a naive approach:
-    #    first pass: merge_table_data for all
-    #    second pass: fix_foreign_keys for all
-    # -------------------------------------
+    # ----------------------------------------------------------------
+    # 7. Merge logic
+    #    For demonstration, let's do all "normal" tables first,
+    #    then the self-referential tables. Real merges often need
+    #    a more careful order or multiple passes.
+    # ----------------------------------------------------------------
+    for t in normal_tables:
+        print(f"Merging normal table: {t}")
+        merge_non_self_ref_table(t)
 
-    # 8A. First pass: Insert all data ignoring PK collisions
-    for t in table_insert_order:
-        print(f"Merging table data: {t}")
-        merge_table_data(t)
+    for t in self_ref_tables:
+        print(f"Merging self-referential tree table: {t}")
+        merge_self_ref_table(t)
 
-    # 8B. Second pass: Re-insert them in a new, empty copy?
-    # Actually, to avoid duplication, we either:
-    #  - TRUNCATE the tables in the source first (not desired in many merges),
-    #  - Or do a second pass that re-inserts (which would duplicate).
-    #
-    # Typically, you'd want to build a fresh, empty "destination" DB, or
-    # a new set of tables for the final. If you truly want to merge in
-    # one DB that already has data, you must handle collisions. It's complicated!
-    #
-    # For demonstration, let's assume the source DB is empty. Then we
-    # do "fix_foreign_keys" to correct references. However, in practice,
-    # "merge_table_data" has already inserted rows.
-    #
-    # If your tables are truly empty in source, "merge_table_data" is fine
-    # for non-FK columns, but does not fix the child references. We can do
-    # a second pass to re-insert with corrected references, but that duplicates data.
-    #
-    # A more correct approach:
-    #   - Insert parent rows first (no children).
-    #   - Then insert child rows referencing mapped IDs.
-    #   - Then handle many-to-many link tables last.
-    #
-    # Because your schema is quite large, let's illustrate the "child pass" approach
-    # in principle, but keep in mind you might want a table order or partial logic:
+    for t in mtm_tables:
+        print(f"Merging mtm table: {t}")
+        merge_m2m_bridge_table(t)
 
-    for t in table_insert_order:
-        print(f"Fixing foreign keys in table: {t}")
-        # This will RE-INSERT each row with corrected FKs.
-        # It means you now have duplicates unless your source DB was empty to begin with.
-        fix_foreign_keys(t)
-
-    # -------------------------------------
-    # 9. Commit and re-enable foreign keys
-    # -------------------------------------
+    # ----------------------------------------------------------------
+    # 8. Commit and re-enable foreign_keys
+    # ----------------------------------------------------------------
     source_conn.execute("COMMIT;")
     source_conn.execute("PRAGMA foreign_keys = ON;")
 
-    # -------------------------------------
-    # 10. Close connections
-    # -------------------------------------
+    # Close
     source_conn.close()
     incoming_conn.close()
 
-    print("Merge complete.")
+    print("Merge completed with tree handling.")
 
 
 if __name__ == "__main__":
     # Example usage:
-    SOURCE_DB = r"C:\Users\jburges\Downloads\db merge\geochron.db"
-    INCOMING_DB = r"C:\Users\jburges\Downloads\db merge\klam.db"
+    SOURCE_DB = r"/Users/jarrodburges/Downloads/merge test/geochron.db"
+    INCOMING_DB = r"/Users/jarrodburges/Downloads/merge test/klam.db"
 
-    merge_databases(SOURCE_DB, INCOMING_DB)
+    merge_databases_with_trees(SOURCE_DB, INCOMING_DB)
