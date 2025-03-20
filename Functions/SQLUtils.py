@@ -7,7 +7,6 @@ qaliquot_id = 'Aliquots.AliquotID AS AliquotID'
 qspot_id = 'Spots.SpotID AS SpotID'
 qupb_id = 'UPbAnalyses.UPbAnalysisID AS UPbAnalysisID'
 
-
 # Sample view columns
 qsample_name = 'Samples.SampleName AS SampleName'
 qigsn = 'Samples.SampleIGSN AS SampleIGSN'
@@ -232,13 +231,12 @@ sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON Di
                         LEFT JOIN AgeUnits ON AgeUnits.AgeUnitID=SampleAges.DirectAgeUnitID
                         LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID=OldAge.AgeID
                         LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID=YoungAge.AgeID'''
-sampleage_age_constraint_join ='''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID=SampleAges_AgeConstraints.SampleAgeID
+sampleage_age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID=SampleAges_AgeConstraints.SampleAgeID
                         LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID'''
-sampleage_age_interpretation_join ='''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
+sampleage_age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
                         LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
 sampleage_age_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID=SampleAges_References.SampleAgeID
                         LEFT JOIN "References" AS AgeReferences ON AgeReferences.ReferenceID=SampleAges_References.ReferenceID'''
-
 
 # GPSLocation joins
 gps_sample_join = '''LEFT JOIN GPSLocations AS GPSLocations ON Samples.SampleGPSLocationID=GPSLocations.GPSLocationID'''
@@ -313,14 +311,16 @@ sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcol
                        qage_range, qsample_age_constraint, qsample_age_interpretation,
                        qsample_age_references, qsample_description, qage_signature, qregions, qrock_types,
                        qsample_context, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts,
-                       qspots, qspot_compositions, qspot_contexts, qupb_references, qupb_lab_facilities, qupb_instruments,
+                       qspots, qspot_compositions, qspot_contexts, qupb_references, qupb_lab_facilities,
+                       qupb_instruments,
                        qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_error_formats, qupb_age_units,
                        qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons]
 
 # Many-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate multiple selection dropdowns
 many_editable = {
     'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'RegionName': 'Regions', 'RockTypeName': 'RockTypes',
-                'SampleContexName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods', 'SettingName': 'Settings',
+                'SampleContexName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods',
+                'SettingName': 'Settings',
                 'UnitName': 'Units'},
     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
     'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
@@ -328,13 +328,17 @@ many_editable = {
 }
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
 one_editable = {
-    'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges', 'ColumnName': 'Columns',
-                'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots', 'UPbReference': 'References'},
+    'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges',
+                'ColumnName': 'Columns',
+                'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots',
+                'UPbReference': 'References'},
     'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits', 'ColumnBaseGPSDisplay': 'GPSLocations'},
     'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
     'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
-    'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName':'Samples', 'UPbReference': 'References',
-                    'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments', 'UPbAnalysisMethodName': 'UPbAnalysisMethods',
+    'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
+                    'UPbReference': 'References',
+                    'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments',
+                    'UPbAnalysisMethodName': 'UPbAnalysisMethods',
                     'RatioErrorFormatAbbreviation': 'ErrorFormats', 'AgeUnitAbbreviation': 'AgeUnits',
                     'AgeErrorFormatAbbreviation': 'ErrorFormats', 'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
                     'SpotSizeUnitAbbreviation': 'DistanceUnits'}
@@ -362,47 +366,145 @@ export_database_tables_viewable = sorted(user_viewable_tables + ['UPbAnalyses', 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView']
+trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView', 'UPbAnalyses',
+                  'UPbView', 'UPbEditView']
 
-views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView', 'UPbEditView', 'ColumnView', 'ColumnEditView']
+static_foreign_key_tables = [
+    'AgeUnitConversions',
+    'AgeUnits',
+    'ConcordanceFormatConversions',
+    'ConcordanceFormats',
+    'DirectionUnits',
+    'DistanceUnits',
+    'DistanceUnitConversions',
+    'ErrorFormatConversions',
+    'ErrorFormats',
+    'GPSFormatConversions',
+    'GPSFormats'
+]
+
+foreign_key_tables = [
+    'SampleAges_AgeConstraints',
+    'SampleAges_AgeInterpretations',
+    'SampleAges_References',
+    'Aliquots',
+    'Spots',
+    'Samples_AgeSignatures',
+    'Samples_Regions',
+    'Samples_RockTypes',
+    'Samples_SampleAges',
+    'Samples_SampleContexts',
+    'Samples_SamplingMethods',
+    'Samples_Settings',
+    'Samples_Units',
+    'Aliquots_AliquotContexts',
+    'Spots_SpotContexts',
+    'UPbAnalyses_RejectionReasons',
+    'SampleAges',
+    'UPbAnalyses',
+    'Samples',
+    'Columns'
+]
+
+database_ordered_tables = ['AgeUnits',
+                           'ConcordanceFormats',
+                           'DirectionUnits',
+                           'DistanceUnits',
+                           'ErrorFormats',
+                           'AgeConversions',
+                           'ConcordanceConversions',
+                           'DistanceConversions',
+                           'ErrorConversions',
+                           'Instruments',
+                           'LabFacilities',
+                           'RejectionReasons',
+                           'References',
+                           'UPbAnalysisMethods',
+                           'SpotCompositions',
+                           'SpotContexts',
+                           'AliquotContexts',
+                           'AgeConstraints',
+                           'AgeInterpretations',
+                           'AgeSignatures',
+                           'Ages',
+                           'Columns',
+                           'GPSConversions',
+                           'GPSFormats',
+                           'GPSLocations',
+                           'Regions',
+                           'RockTypes',
+                           'SampleAges',
+                           'SampleContexts',
+                           'SampleAges_AgeConstraints',
+                           'SampleAges_AgeInterpretations',
+                           'SampleAges_References',
+                           'SamplingMethods',
+                           'Settings',
+                           'Units',
+                           'Samples',
+                           'Aliquots',
+                           'Spots',
+                           'UPbAnalyses',
+                           'Samples_AgeSignatures',
+                           'Samples_Regions',
+                           'Samples_RockTypes',
+                           'Samples_SampleAges',
+                           'Samples_SampleContexts',
+                           'Samples_SamplingMethods',
+                           'Samples_Settings',
+                           'Samples_Units',
+                           'Aliquots_AliquotContexts',
+                           'Spots_SpotContexts',
+                           'UPbAnalyses_RejectionReasons',
+                           'FilterGroups'
+                           ]
+
+views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
+         'UPbEditView', 'ColumnView', 'ColumnEditView']
 
 age_units = [('Billion years', 'Ga', '1000000000'),
-                 ('Million years', 'Ma', '1000000'),
-                 ('Thousand years', 'ka', '1000'),
-                 ('Years', 'a', '1')]
+             ('Million years', 'Ma', '1000000'),
+             ('Thousand years', 'ka', '1000'),
+             ('Years', 'a', '1')]
 
 concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
-                         ('Concordance percent', 'Con%', 'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
-                         ('Discordance ratio', 'Dis', 'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
-                         ('Discordance percent', 'Dis%', 'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
+                       ('Concordance percent', 'Con%',
+                        'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
+                       ('Discordance ratio', 'Dis',
+                        'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
+                       ('Discordance percent', 'Dis%',
+                        'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
 
-direction_units = [('North', 'N','positive north'),
-                       ('South', 'S','positive south'),
-                       ('East', 'E','positive east'),
-                       ('West', 'W','positive west')]
+direction_units = [('North', 'N', 'positive north'),
+                   ('South', 'S', 'positive south'),
+                   ('East', 'E', 'positive east'),
+                   ('West', 'W', 'positive west')]
 
 distance_units = [('Kilometers', 'km', '1000'),
-                 ('Meters', 'm', '1'),
-                 ('Centimeters', 'cm', '0.01'),
-                 ('Millimeter', 'mm', '0.001'),
-                 ('Micrometer', 'µm', '0.000001'),
-                 ('Miles', 'mi', '5280'),
-                 ('Yards', 'yd', '3'),
-                 ('Feet', 'ft', '1'),
-                 ('Inches', 'in', f'(1/12)')]
+                  ('Meters', 'm', '1'),
+                  ('Centimeters', 'cm', '0.01'),
+                  ('Millimeter', 'mm', '0.001'),
+                  ('Micrometer', 'µm', '0.000001'),
+                  ('Miles', 'mi', '5280'),
+                  ('Yards', 'yd', '3'),
+                  ('Feet', 'ft', '1'),
+                  ('Inches', 'in', f'(1/12)')]
 
 error_formats = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
-                         ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
-                         ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
-                         ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
+                 ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
+                 ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
+                 ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
 
-gps_formats = [('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
-                   ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
-                   ('Degrees minutes positive/negative', 'DDM +/-', 'Degrees and decimal minutes with positive N and E and negative S and W'),
-                   ('Degrees minutes cardinal', 'DDM NSEW', 'Degrees and decimal minutes with cardinal directions'),
-                   ('Degrees minutes seconds positive/negative', 'DMS +/-', 'Degrees, minutes, and seconds with positive N and E and negative S and W'),
-                   ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
-                   ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+gps_formats = [
+    ('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
+    ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
+    ('Degrees minutes positive/negative', 'DDM +/-',
+     'Degrees and decimal minutes with positive N and E and negative S and W'),
+    ('Degrees minutes cardinal', 'DDM NSEW', 'Degrees and decimal minutes with cardinal directions'),
+    ('Degrees minutes seconds positive/negative', 'DMS +/-',
+     'Degrees, minutes, and seconds with positive N and E and negative S and W'),
+    ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
+    ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
 
 static_tables = ['About',
                  'Ages',
@@ -426,7 +528,7 @@ as_table_dict = {
     'SampleLatDirections': 'DirectionUnits',
     'SampleLonDirections': 'DirectionUnits',
     'SampleElevationUnits': 'DistanceUnits',
-    'ColumnGPS' : 'GPSLocations',
+    'ColumnGPS': 'GPSLocations',
     'ColumnLatDirections': 'DirectionUnits',
     'ColumnLonDirections': 'DirectionUnits',
     'ColumnElevationUnits': 'DistanceUnits',
@@ -610,62 +712,78 @@ table_attributes_dict = {
 }
 
 view_attributes_dict = {
-    'SampleView': [
-        f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
-        f"{qsample_description.split('AS ')[1]}", f"{qgps.split('AS ')[1]}", f"{qsample_elev.split('AS ')[1]}",
-        f"{qsample_age.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
-        f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data.split('AS ')[1]}",
-        f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
-        f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
-        f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
-        f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
-        f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", f"{qupb_age_error_formats.split('AS ')[1]}",
-        f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
-        ],
-    'SampleEditView': [
-        f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qsample_description.split('AS ')[1]}", f"{qgps_display.split('AS ')[1]}", f"{qsample_elev_display.split('AS ')[1]}",
-        f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_display.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
-        f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
-        f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}", f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
-        f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
-        f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
-        ],
-    'ColumnView': [
-        f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_calc_total_height_depth.split('AS ')[1]}", f"{qcolumn_gps.split('AS ')[1]}",
-        f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
-    ],
-    'ColumnEditView': [
-        f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_total_height_depth.split('AS ')[1]}", f"{qcolumn_total_height_depth_unit.split('AS ')[1]}",
-        f"{qcolumn_gps_display.split('AS ')[1]}", f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
-    ],
+    # 'SampleView': [
+    #     f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
+    #     f"{qsample_description.split('AS ')[1]}", f"{qgps.split('AS ')[1]}", f"{qsample_elev.split('AS ')[1]}",
+    #     f"{qsample_age.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
+    #     f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data.split('AS ')[1]}",
+    #     f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
+    #     f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
+    #     f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
+    #     f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+    #     f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
+    #     f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", f"{qupb_age_error_formats.split('AS ')[1]}",
+    #     f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+    #     f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
+    #     ],
+    # 'SampleEditView': [
+    #     f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qsample_description.split('AS ')[1]}", f"{qgps_display.split('AS ')[1]}", f"{qsample_elev_display.split('AS ')[1]}",
+    #     f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_display.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
+    #     f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
+    #     f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}", f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
+    #     f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+    #     f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+    #     f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
+    #     f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
+    #     ],
+    # 'ColumnView': [
+    #     f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_calc_total_height_depth.split('AS ')[1]}", f"{qcolumn_gps.split('AS ')[1]}",
+    #     f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
+    # ],
+    # 'ColumnEditView': [
+    #     f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_total_height_depth.split('AS ')[1]}", f"{qcolumn_total_height_depth_unit.split('AS ')[1]}",
+    #     f"{qcolumn_gps_display.split('AS ')[1]}", f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
+    # ],
     'AliquotView': [
-        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}", f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qaliquot_sample.split('AS ')[1]}",
-        f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qupb_count.split('AS ')[1]}",
-        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
+        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
+        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qaliquot_sample.split('AS ')[1]}",
+        f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}",
+        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qupb_count.split('AS ')[1]}",
+        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
+        f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
+        f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_references.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}",
+        f"{qaliquot_modified.split('AS ')[1]}"
     ],
     'AliquotEditView': [
-        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}", f"{qaliquot_parent_row.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
-        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
+        f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
+        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
+        f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
     ],
     'SpotView': [
-        f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}", f"{qspots.split('AS ')[1]}",
-        f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
+        f"{qspots.split('AS ')[1]}",
+        f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}",
+        f"{qspot_contexts.split('AS ')[1]}",
+        f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
+        f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
+        f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
+        f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
     'SpotEditView': [
-        f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}", f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
-        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
+        f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
+        f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+        f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
     'UPbView': [
-        f"{qupb_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
+        f"{qupb_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qsample_name.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
+        f"{qupb_lab_facilities.split('AS ')[1]}",
         f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", '"Pb204cps"', '"Pb206cps"',
         '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"',
         '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"',
@@ -698,8 +816,11 @@ view_attributes_dict = {
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ],
     'UPbEditView': [
-        f"{qupb_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}", f"{qspot_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
+        f"{qupb_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
+        f"{qspot_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qsample_name.split('AS ')[1]}",
+        f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
+        f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         '"Pb204cps"', '"Pb206cps"',
         '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"',
         '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"',
@@ -728,31 +849,34 @@ view_attributes_dict = {
         '"206Pb/238UAge"', '"206Pb/238UAgeError"',
         '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
         '"BestAge"', '"BestAgeError"',
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", '"Concordance"', f"{qconcordance_formats.split('AS ')[1]}",
-        '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", '"Concordance"',
+        f"{qconcordance_formats.split('AS ')[1]}",
+        '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
+        f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ],
     'ReferenceView': [
         f"{qreference_id.split('AS ')[1]}", f"{qreference_display.split('AS ')[1]}", f"{qauthors.split('AS ')[1]}",
-        f"{qyear.split('AS ')[1]}", f"{qtitle.split('AS ')[1]}", f"{qsource.split('AS ')[1]}", f"{qdoi.split('AS ')[1]}",
-        f"{qreference_description.split('AS ')[1]}", f"{qreference_created.split('AS ')[1]}", f"{qreference_modified.split('AS ')[1]}"
+        f"{qyear.split('AS ')[1]}", f"{qtitle.split('AS ')[1]}", f"{qsource.split('AS ')[1]}",
+        f"{qdoi.split('AS ')[1]}",
+        f"{qreference_description.split('AS ')[1]}", f"{qreference_created.split('AS ')[1]}",
+        f"{qreference_modified.split('AS ')[1]}"
     ]
 }
 
 view_setting_dict = {
-            'SampleView': 'sample_view_columns',
-            'SampleEditView': 'sample_edit_columns',
-            'AliquotView': 'aliquot_view_columns',
-            'AliquotEditView': 'aliquot_edit_columns',
-            'SpotView': 'spot_view_columns',
-            'SpotEditView': 'spot_edit_columns',
-            'UPbView': 'upb_analysis_view_columns',
-            'UPbEditView': 'upb_analysis_edit_columns',
-            'ColumnView': 'column_view_columns',
-            'ColumnEditView': 'column_edit_columns',
-            'ReferenceView': 'reference_view_columns',
-        }
-
+    'SampleView': 'sample_view_columns',
+    'SampleEditView': 'sample_edit_columns',
+    'AliquotView': 'aliquot_view_columns',
+    'AliquotEditView': 'aliquot_edit_columns',
+    'SpotView': 'spot_view_columns',
+    'SpotEditView': 'spot_edit_columns',
+    'UPbView': 'upb_analysis_view_columns',
+    'UPbEditView': 'upb_analysis_edit_columns',
+    'ColumnView': 'column_view_columns',
+    'ColumnEditView': 'column_edit_columns',
+    'ReferenceView': 'reference_view_columns',
+}
 
 upb_possible_database_input_fields = [
     'SpotID',

@@ -773,6 +773,7 @@ def get_columns(table: str):
     return query, virtual, stored, columns
 
 def get_name_column(table: str) -> int | None:
+    table = table.replace('"', '')
     if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
         return 3
     elif 'Format' in table or 'Unit' in table:

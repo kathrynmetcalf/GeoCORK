@@ -1,13 +1,16 @@
 import sqlite3
+from _ast import pattern
 from typing import Dict, List, Tuple
+import re
 import sqlite3
 from typing import Dict, List
+from Widget_classes import get_name_column
 
 import SQLUtils
 import logger_setup
 
 
-def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
+def merge_database(source_db_path: str, incoming_db_path: str):
     """
     Merge 'incoming_db_path' into 'source_db_path', handling self-referential
     'tree' tables by inserting parent rows first so the parent's new PK is known.
@@ -80,9 +83,9 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
             fks.append({
                 "id": row[0],
                 "seq": row[1],
-                "ref_table": row[2],
-                "from_col": row[3],
-                "to_col": row[4],
+                "ref_table": '\"' + row[2].replace('_old','') + '\"',
+                "from_col": "[" + row[3] + "]",
+                "to_col": "[" + row[4] + "]",
                 "on_update": row[5],
                 "on_delete": row[6],
                 "match": row[7]
@@ -123,8 +126,9 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
         if table in SQLUtils.static_tables:
             continue
         self_ref_tables["\"" + table + "\""] = {"parent_fk_col": "[Parent" + table[0:-1] + "ID]"}
-    normal_tables = []    # everything else
+    normal_tables = []
     mtm_tables = []
+    fk_tables = []
 
     bridging_fks = {}
 
@@ -151,7 +155,9 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
             mtm_tables.append(t)
             bridging_fks[t] = []
             for fk in fks:
-                bridging_fks[t].append(("[" + fk["from_col"] + "]", "\"" + fk["ref_table"].replace("_old","") + "\""))
+                bridging_fks[t].append((fk["from_col"], fk["ref_table"]))
+        elif t.replace("\"","")  in SQLUtils.foreign_key_tables:
+            fk_tables.append(t)
         elif t.replace("\"","") not in SQLUtils.user_viewable_trees:
             normal_tables.append(t)
 
@@ -197,14 +203,24 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
             # demonstration. (See prior code for rewriting foreign keys.)
             # Insert values minus pk
             to_insert = [row_dict[c] for c in insert_cols]
-            try:
-                source_conn.execute(insert_sql, to_insert)
-            except sqlite3.IntegrityError as e:
-                if "UNIQUE constraint failed" in e.__str__():
-                    #todo change to add error message and record reconciliation
-                    to_insert[1] = to_insert[1] + " (1)"
-                    source_conn.execute(insert_sql, to_insert)
 
+            if table_name == '"References"':
+                name_index = 1
+            elif table_name != '"UPbAnalyses"':
+                name_index = get_name_column(table_name) - 1
+
+            while True:
+                try:
+                    source_conn.execute(insert_sql, to_insert)
+                    break  # success: break out of loop
+                except sqlite3.IntegrityError as e:
+                    if "UNIQUE constraint failed" in str(e):
+                        # We got a uniqueness collision, so increment or append '(1)'
+                        current_value = str(to_insert[name_index])
+                        to_insert[name_index] = current_value + '(1)'
+                    else:
+                        # It's another error we don't want to handle here; re-raise
+                        raise
 
             # Retrieve new pk
             if pk_col:
@@ -251,6 +267,10 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
             VALUES ({placeholders_str});
         """
 
+        largest_null_parentrow = source_conn.execute(f"SELECT MAX({insert_cols[1]}) FROM {table_name} WHERE {insert_cols[0]} is NULL;").fetchone()[0]
+        if largest_null_parentrow is None:
+            largest_null_parentrow = -1
+
         # Repeatedly scan all rows; insert any row whose parent is inserted or NULL
         # Keep going until no more can be inserted.
         # (Assumes no cycles, i.e., it's a true tree.)
@@ -275,7 +295,8 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
                     row_for_insert = {}
                     for c in insert_cols:
                         row_for_insert[c] = row_dict[c]
-
+                    if row_for_insert[list(row_for_insert.keys())[0]] is None:
+                        row_for_insert[list(row_for_insert.keys())[1]] = largest_null_parentrow + 1
                     # Also fix the parent's PK if we have a mapping
                     if parent_old_id and parent_old_id in id_map[table_name]:
                         row_for_insert[parent_fk_col] = id_map[table_name][parent_old_id]
@@ -284,14 +305,20 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
                         row_for_insert[parent_fk_col] = None if parent_old_id else None
 
                     # Insert
-                    vals = [row_for_insert[c] for c in insert_cols]
-                    try:
-                        source_conn.execute(insert_sql, vals)
-                    except sqlite3.IntegrityError as e:
-                        if "UNIQUE constraint failed" in e.__str__():
-                            # todo change to add error message and record reconciliation
-                            vals[2] = vals[2] + " (1)"
-                            source_conn.execute(insert_sql, vals)
+                    to_insert = [row_for_insert[c] for c in insert_cols]
+
+                    while True:
+                        try:
+                            source_conn.execute(insert_sql, to_insert)
+                            break  # success: break out of loop
+                        except sqlite3.IntegrityError as e:
+                            if "UNIQUE constraint failed" in str(e):
+                                # We got a uniqueness collision, so increment or append '(1)'
+                                current_value = str(to_insert[2])
+                                to_insert[2] = current_value + '(1)'
+                            else:
+                                # It's another error we don't want to handle here; re-raise
+                                raise
 
                     # Get new PK
                     new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
@@ -376,23 +403,110 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
                 new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
                 id_map[table_name][old_pk_val] = new_pk_val
 
+    def merge_table_with_foreign_keys(table_name: str):
+        """
+        Merges data from incoming -> source for table `table_name`,
+        rewriting foreign keys from old IDs to new IDs using `id_map`.
+        If the table has its own PK, skip that column so the source auto-generates
+        a new PK, and record old_pk->new_pk in id_map.
+        """
+        schema = table_schemas[table_name]
+        pk_col = schema["primary_key"]
+        all_cols = [c["name"] for c in schema["columns"]]
+        fks = schema["fks"]
+
+        # We'll read all rows from incoming
+        col_list_str = ", ".join(all_cols)
+        select_sql = f"SELECT {col_list_str} FROM {table_name};"
+        incoming_rows = incoming_conn.execute(select_sql).fetchall()
+
+        # Prepare an INSERT statement for all columns except the PK
+        insert_cols = [c for c in all_cols if c != pk_col]
+        insert_cols_str = ", ".join(insert_cols)
+        placeholders_str = ", ".join("?" for _ in insert_cols)
+        insert_sql = f"""
+            INSERT INTO {table_name} ({insert_cols_str})
+            VALUES ({placeholders_str});
+        """
+
+        # Merge each row
+        for row in incoming_rows:
+            row_dict = dict(zip(all_cols, row))
+            old_pk_val = row_dict[pk_col] if pk_col else None
+
+            # For each foreign key, rewrite the column
+            for fk in fks:
+                ref_table = fk["ref_table"]  # e.g. "Samples"
+                from_col = fk["from_col"]  # e.g. "SampleID"
+                to_col = fk["to_col"]  # typically the PK of the referenced table
+
+                if ref_table.replace('"', '') in SQLUtils.static_foreign_key_tables:
+                    continue
+
+                old_fk_val = row_dict[from_col]
+                if old_fk_val is None:
+                    continue  # no reference to rewrite
+
+                # Lookup the new ID
+                # If the ref_table was already merged, we have id_map[ref_table]
+                if old_fk_val in id_map[ref_table]:
+                    new_fk_val = id_map[ref_table][old_fk_val]
+                    row_dict[from_col] = new_fk_val
+                else:
+                    # Possibly the row wasn't inserted, or some special case
+                    # We'll set it to None or handle differently
+                    row_dict[from_col] = None
+
+            # Build the tuple of values to insert (excluding pk)
+            to_insert = []
+            for c in insert_cols:
+                to_insert.append(row_dict[c])
+
+            if table_name == '"References"':
+                name_index = 1
+            elif table_name != '"UPbAnalyses"':
+                name_index = get_name_column(table_name) - 1
+
+            while True:
+                try:
+                    source_conn.execute(insert_sql, to_insert)
+                    break  # success: break out of loop
+                except sqlite3.IntegrityError as e:
+                    if "UNIQUE constraint failed" in str(e):
+                        # We got a uniqueness collision, so increment or append '(1)'
+                        current_value = str(to_insert[name_index])
+                        to_insert[name_index] = current_value + '(1)'
+                    else:
+                        # It's another error we don't want to handle here; re-raise
+                        raise
+
+            # If this table has a PK, record old->new in id_map
+            if pk_col:
+                new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                id_map[table_name][old_pk_val] = new_pk_val
+
     # ----------------------------------------------------------------
     # 7. Merge logic
     #    For demonstration, let's do all "normal" tables first,
     #    then the self-referential tables. Real merges often need
     #    a more careful order or multiple passes.
     # ----------------------------------------------------------------
-    for t in normal_tables:
-        print(f"Merging normal table: {t}")
-        merge_non_self_ref_table(t)
 
-    for t in self_ref_tables:
-        print(f"Merging self-referential tree table: {t}")
-        merge_self_ref_table(t)
-
-    for t in mtm_tables:
-        print(f"Merging mtm table: {t}")
-        merge_m2m_bridge_table(t)
+    all_tables = SQLUtils.database_ordered_tables
+    for t in all_tables:
+        t = f'"{t}"'
+        if t in normal_tables:
+            print(f"Merging normal table: {t}")
+            merge_non_self_ref_table(t)
+        elif t in self_ref_tables.keys():
+            print(f"Merging self-referential tree table: {t}")
+            merge_self_ref_table(t)
+        elif t in mtm_tables:
+            print(f"Merging mtm table: {t}")
+            merge_m2m_bridge_table(t)
+        elif t in fk_tables:
+            print(f"Merging table with FKs: {t}")
+            merge_table_with_foreign_keys(t)
 
     # ----------------------------------------------------------------
     # 8. Commit and re-enable foreign_keys
@@ -412,7 +526,10 @@ if __name__ == "__main__":
     # SOURCE_DB = r"/Users/jarrodburges/Downloads/merge test/geochron.db"
     # INCOMING_DB = r"/Users/jarrodburges/Downloads/merge test/klam.db"
 
-    SOURCE_DB = r"/Users/kametcalf/Documents/Research/GeoChron_non_git/GeoChron v.0.db"
-    INCOMING_DB = r"/Users/kametcalf/Documents/Research/GeoChronology_Code/dec_schema.db"
+    SOURCE_DB = r"C:\Users\jburges\Downloads\db merge\klam2.db"
+    INCOMING_DB = r"C:\Users\jburges\Downloads\db merge\klam.db"
 
-    merge_databases_with_trees(SOURCE_DB, INCOMING_DB)
+    # SOURCE_DB = r"/Users/kametcalf/Documents/Research/GeoChron_non_git/GeoChron v.0.db"
+    # INCOMING_DB = r"/Users/kametcalf/Documents/Research/GeoChronology_Code/dec_schema.db"
+
+    merge_database(SOURCE_DB, INCOMING_DB)

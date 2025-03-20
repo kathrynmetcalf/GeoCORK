@@ -985,7 +985,7 @@ def create_tables():
 
     # Create unit and formats tables
     if not query.exec(CREATE_AGE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Age Units table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error creating AgeUnits table: {query.lastError().text()}')
         logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_UNITS_TABLE}')
         return
     if not query.exec(CREATE_CONCORDANCE_FORMATS_TABLE):
@@ -1131,7 +1131,7 @@ def create_tables():
         logger_setup.get_logger().critical(f'SQL command: {CREATE_SETTINGS_TABLE}')
         return
     if not query.exec(CREATE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating  table: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error creating Units table: {query.lastError().text()}')
         logger_setup.get_logger().critical(f'SQL command: {CREATE_UNITS_TABLE}')
         return
 
