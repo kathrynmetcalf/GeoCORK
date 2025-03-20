@@ -247,7 +247,6 @@ class DisplayTables(QtW.QWidget):
         logger_setup.get_logger().info(f'Displaying {self.table}')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         start_display_time = time.time()
-        # show_loading_dialog('Loading', f'Displaying {self.table}...', self.cancel_display)
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
             save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
@@ -364,8 +363,13 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
 
             self.total_records = get_total_records(self.table)
-            self.page_info_label.setText(
-                f'{self.current_page * self.rows_per_page + 1}-{(self.current_page + 1) * self.rows_per_page} of {self.total_records}')
+            if (self.current_page + 1) * self.rows_per_page > self.total_records:
+                self.page_info_label.setText(
+                    f'{self.current_page * self.rows_per_page + 1}-{self.total_records} of {self.total_records}')
+            else:
+                self.page_info_label.setText(
+                    f'{self.current_page * self.rows_per_page + 1}-{(self.current_page + 1) * self.rows_per_page} of '
+                    f'{self.total_records}')
 
             self.dbTable_tableView.resizeColumnsToContents()
             for column in range(self.table_proxy_model.columnCount()):
@@ -527,20 +531,20 @@ class DisplayTables(QtW.QWidget):
         for index in selected_indexes:
             id_index = index.siblingAtColumn(0)
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
+        self.loading_manager.show_loading_dialog('Loading', f'Opening Sample Information window for {self.table}...')
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         self.display_table()
 
     def edit_popup(self):
+        self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if self.table in view_tables:
             dlg = EditView(self, self.table)
         elif self.table in self.dbtree_list:
-            save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
             dlg = EditTree(self, self.table)
         else:
             dlg = EditTable(self, self.table)
-        self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         dlg.exec()
         if dlg.updated:
             update_database()
@@ -557,7 +561,7 @@ class DisplayTables(QtW.QWidget):
             dlg = AddTags(self, self.table)
         if not dlg:
             return
-        # show_loading_dialog('Loading', f'Opening add window for {self.table}...', self.cancel_dlg(dlg))
+        show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         dlg.exec()
         if dlg.updated:
             update_database()

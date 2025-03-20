@@ -10,6 +10,7 @@ import pyproj
 import Functions.Create_database as Create_db
 from Functions.Widget_classes import set_table, get_columns
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 import Functions.GPS_conversions as GPS # gps conversions
 
 def settings_reset():
@@ -20,6 +21,9 @@ def settings_reset():
         populate_generated_columns()
 
 def drop_virtual_columns(tables_affected: list, edit_table: str = None):
+    logger_setup.get_logger().info(f'Turning off foreign keys')
+    if not turn_off_foreign_keys():
+        return False
     create_savepoint('before_drop')
     for table_info in tables_affected:
         table = table_info[0]
@@ -32,89 +36,67 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
             rollback_savepoint('before_drop')
             return False
         if virtual:
-            column_str = ', '.join(columns)
 
-            logger_setup.get_logger().info(f'Turning off foreign keys')
-            pragma_foreign_keys = 'PRAGMA foreign_keys=OFF'
-            if not query.exec(pragma_foreign_keys):
-                logger_setup.get_logger().critical(
-                    f'Error turning off foreign keys: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {pragma_foreign_keys}')
-                rollback_savepoint('before_drop')
-                return False
-            logger_setup.get_logger().info('Successfully turned off foreign keys')
-
-            alter_table_qry = f'ALTER TABLE "{table}" RENAME TO {table}_old'
-            logger_setup.get_logger().info(f'Altering table rename: {table} to {table}_old')
-            logger_setup.get_logger().debug(f'SQL command: {alter_table_qry}')
-            if not query.exec(alter_table_qry):
-                if 'already' in query.lastError().text():
-                    if not query.exec(f'DROP TABLE {table}_old'):
-                        logger_setup.get_logger().critical(f'Error dropping leftover old {table} table: {query.lastError().text()}')
-                        rollback_savepoint('before_drop')
-                        return False
-                    if not query.exec(f'ALTER TABLE "{table}" RENAME TO {table}_old'):
-                        logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
-                        rollback_savepoint('before_drop')
-                        return False
-                else:
-                    logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
-                    rollback_savepoint('before_drop')
-                    return False
-            logger_setup.get_logger().info(f'Successfully altered table rename: {table} to {table}_old')
-
-
-            # Select only the stored columns, not the virtual ones
-            logger_setup.get_logger().info(f'Creating table: {table}')
-            logger_setup.get_logger().debug(f'SQL command: {create_sql}')
+            # Create a new table with the same original columns as the old one
+            logger_setup.get_logger().info(f'Creating table: {table}_new')
+            if table == 'References':
+                column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS "{table}"')[1]
+            else:
+                column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS {table}')[1]
+            create_sql = f'CREATE TABLE IF NOT EXISTS {table}_new{column_creation}'
             if not query.exec(create_sql):
                 logger_setup.get_logger().critical(
-                    f'Error creating {table} table: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {create_sql}')
+                    f'Error creating {table}_new table: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {create_sql}')
                 rollback_savepoint('before_drop')
                 return False
-            logger_setup.get_logger().info(f'Successfully created table: {table}')
+            logger_setup.get_logger().info(f'Successfully created table: {table}_new')
 
-
-            insert_old_table = f'INSERT INTO "{table}" SELECT {column_str} FROM {table}_old'
+            # Select only the stored columns, not the virtual ones
+            column_str = ', '.join(columns)
+            insert_new_table = f'INSERT INTO {table}_new SELECT {column_str} FROM "{table}"'
             logger_setup.get_logger().info(f'Inserting into old table: {table}_old')
-            logger_setup.get_logger().debug(f'SQL command: {insert_old_table}')
-            if not query.exec(insert_old_table):
+            if not query.exec(insert_new_table):
                 logger_setup.get_logger().critical(
-                    f'Error inserting old {table} table: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {insert_old_table}')
+                    f'Error inserting {table}_new table: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {insert_new_table}')
                 rollback_savepoint('before_drop')
                 return False
-            logger_setup.get_logger().info(f'Successfully inserted into old table: {table}_old')
+            logger_setup.get_logger().info(f'Successfully inserted into new table: {table}_new')
 
-
-            drop_old_table =f'DROP TABLE {table}_old'
-            logger_setup.get_logger().info(f'Dropping old table: {table}_old')
-            logger_setup.get_logger().debug(f'SQL command: {drop_old_table}')
-            if not query.exec(drop_old_table):
+            # Drop the original table
+            drop_original_table = f'DROP TABLE "{table}"'
+            logger_setup.get_logger().info(f'Dropping original table: {table}')
+            if not query.exec(drop_original_table):
                 logger_setup.get_logger().critical(
-                    f'Error dropping old {table} table: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {drop_old_table}')
+                    f'Error dropping original {table} table: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {drop_original_table}')
                 rollback_savepoint('before_drop')
                 return False
-            logger_setup.get_logger().info(f'Successfully dropped old table: {table}_old')
+            logger_setup.get_logger().info(f'Successfully dropped original table: {table}')
 
+            # Rename the new table to the original table name
+            alter_table_qry = f'ALTER TABLE {table}_new RENAME TO "{table}"'
+            logger_setup.get_logger().info(f'Altering table rename: {table}_new to {table}')
+            if not query.exec(f'ALTER TABLE {table}_new RENAME TO "{table}"'):
+                        logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL command: {alter_table_qry}')
+                        rollback_savepoint('before_drop')
+                        return False
+            logger_setup.get_logger().info(f'Successfully altered table rename: {table}_new to {table}')
+
+            # Get the columns of the new table to compare to the original table
             new_query, new_virtual, new_stored, new_columns = get_columns(table)
             if new_columns != columns:
                 logger_setup.get_logger().critical(f'Error copying new table {table} columns')
+                logger_setup.get_logger().debug(f'Original columns: {columns}')
+                logger_setup.get_logger().debug(f'New columns: {new_columns}')
                 rollback_savepoint('before_drop')
                 return False
 
-            logger_setup.get_logger().info(f'Turning on foreign keys')
-            pragma_foreign_keys = 'PRAGMA foreign_keys=ON'
-            if not query.exec(pragma_foreign_keys):
-                logger_setup.get_logger().critical(
-                    f'Error turning on foreign keys: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {pragma_foreign_keys}')
-                rollback_savepoint('before_drop')
-                return False
-            logger_setup.get_logger().info('Successfully turned on foreign keys')
     release_savepoint('before_drop')
+    if not turn_on_foreign_keys():
+        return False
     return True
 
 def populate_generated_columns():

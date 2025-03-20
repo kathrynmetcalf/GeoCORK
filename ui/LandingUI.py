@@ -17,7 +17,7 @@ from PyQt6.uic import loadUi
 import logger_setup
 from Functions import Savepoint_manager
 from Functions.Create_database import create_tables
-from Functions.Database_manager import update_database
+from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
@@ -100,6 +100,11 @@ class LandingPage(QWidget):
                 self.db = QSqlDatabase.addDatabase("QSQLITE")
                 self.db.setDatabaseName(self.get_filename())
                 self.db.open()
+                if not self.db.isOpen():
+                    logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                    return
+                if not turn_on_foreign_keys():
+                    return
                 Savepoint_manager.SavepointManager()
             if not skip_update:
                 update_database()
@@ -185,6 +190,11 @@ class LandingPage(QWidget):
             self.db = QSqlDatabase.addDatabase("QSQLITE")
             self.db.setDatabaseName(self.get_filename())
             self.db.open()
+            if not self.db.isOpen():
+                logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                return
+            if not turn_on_foreign_keys():
+                return
             Savepoint_manager.SavepointManager()
             update_database()
             self.selected_files = file_name

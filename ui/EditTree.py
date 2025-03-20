@@ -72,7 +72,7 @@ class EditTree(QtW.QDialog):
         logger_setup.get_logger().info(f'Opened {table_name} tree edit dialog in {time.time() - start_edit_tree_time} seconds')
 
     def display_tree(self):
-        logger_setup.get_logger().info(f'Displaying {self.table_name} tree')
+        logger_setup.get_logger().info(f'Displaying {self.table_name}...')
         start_display_tree_time = time.time()
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table_name}...')
         self.edit_treeView.setModel(self.tree_proxy_model)
@@ -139,15 +139,15 @@ class EditTree(QtW.QDialog):
         self.display_tree()
 
     def add_popup(self, action: QtG.QAction | None = None):
-        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         dlg_args = add_tree_popup(self.edit_treeView, self.tree_model, action)
         if dlg_args:
-            dlg = AddTreeTags(self.table, **dlg_args)
+            dlg = AddTreeTags(self, self.table, **dlg_args)
         else:
-            dlg = AddTreeTags(self.table)
+            dlg = AddTreeTags(self, self.table)
         if not dlg:
             return
+        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
         self.update_proxy()
@@ -176,9 +176,9 @@ class EditTree(QtW.QDialog):
         tree_indexes = []
         for view_index in self.edit_treeView.selectedIndexes():
             tree_index = self.tree_proxy_model.mapToSource(view_index)
-            if tree_index.row() == 0 and tree_index not in tree_indexes:
+            if tree_index.column() == 0 and tree_index not in tree_indexes:
                 tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
-        item_ids = get_selected_tree_ids(self.tree_model, tree_indexes)
+        item_ids = get_selected_tree_ids(self.tree_model, tree_indexes)[0]
         if not item_ids:
             return
         # Look for any children of the selected items
@@ -189,7 +189,7 @@ class EditTree(QtW.QDialog):
                 for child in children:
                     if child not in delete_children:
                         delete_children.append(child)
-                        get_children(child)
+                        delete_children.extend(get_children(child))
             return delete_children
         all_children = []
         for item_id in item_ids:
@@ -197,7 +197,7 @@ class EditTree(QtW.QDialog):
             if children_ids:
                 all_children.extend(children_ids)
         if self.delete_question(all_children):
-            for item_id in all_children:
+            for item_id in item_ids:
                 item = self.tree_model.find_id_in_tree(item_id)
                 parent_id = item.data(1)
                 parent_row = item.data(2)

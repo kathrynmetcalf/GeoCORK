@@ -25,6 +25,7 @@ from Functions.Savepoint_manager import SavepointManager, create_savepoint, rele
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
 from ui.EditTable import EditTable
@@ -39,6 +40,7 @@ class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
         super().__init__(parent=parent_window)
         logger_setup.get_logger().info("Starting the sample information dialog")
+        self.loading_manager = LoadingDialogManager.get_instance()
         start_init_time = time.time()
         self.parent_window = parent_window
         self.savepoint_manager = SavepointManager.get_instance()
@@ -113,6 +115,8 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info(f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
         self.showMaximized()
 
+        self.loading_manager.close_loading_dialog('Loading', f'Opening Sample Information window for {self.table}...')
+
     def check_all_samples(self):
         logger_setup.get_logger().info("Checking all samples")
         if len(self.selected_sample_list) > 0:
@@ -165,22 +169,6 @@ class SampleInformation(QtW.QDialog):
     def populate_dropdowns(self):
         start_populate_dropdown_time = time.time()
         logger_setup.get_logger().info("Populating dropdowns")
-        # self.column_model = set_table(self.column_model, 'Columns')
-        # self.column_unit_model = set_table(self.column_unit_model, 'DistanceUnits')
-        # self.sample_context_model = set_table(self.sample_context_model, 'SampleContexts')
-        # self.sample_context_tree.setSourceModel(self.sample_context_model)
-        # self.sampling_method_model = set_table(self.sampling_method_model, 'SamplingMethods')
-        # self.sampling_method_tree.setSourceModel(self.sampling_method_model)
-        # self.unit_model = set_table(self.unit_model, 'Units')
-        # self.unit_tree.setSourceModel(self.unit_model)
-        # self.rock_type_model = set_table(self.rock_type_model, 'RockTypes')
-        # self.rock_type_tree.setSourceModel(self.rock_type_model)
-        # self.region_model = set_table(self.region_model, 'Regions')
-        # self.region_tree.setSourceModel(self.region_model)
-        # self.setting_model = set_table(self.setting_model, 'Settings')
-        # self.setting_tree.setSourceModel(self.setting_model)
-        # self.age_signature_model = set_table(self.age_signature_model, 'AgeSignatures')
-        # self.age_signature_tree.setSourceModel(self.age_signature_model)
 
         populate_combo_box(self.column_name_comboBox, **{'table': 'Columns', 'column': 'ColumnName'})
         populate_combo_box(self.height_depth_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
@@ -621,6 +609,7 @@ class SampleInformation(QtW.QDialog):
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
+        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Update this combo box

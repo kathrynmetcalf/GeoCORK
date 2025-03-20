@@ -25,6 +25,7 @@ from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase
 from Functions import FilterDatabase
 from Functions import SQLUtils
+from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, CheckableComboBox, SQLiteTableModel
 from ui import Filters
 
@@ -721,6 +722,11 @@ class ExportWidget(QWidget):
             db.commit()
             db.close()
             db.open()
+            if not db.isOpen():
+                logger_setup.get_logger().critical('Error opening database connection')
+                return
+            if not turn_on_foreign_keys():
+                return
 
             drop_table_qry = QSqlQuery()
             logger_setup.get_logger().info('Dropping TempPivotTable')
@@ -873,6 +879,11 @@ class ExportWidget(QWidget):
         tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'target_connection')
         tgt_db.setDatabaseName(fileName)
         tgt_db.open()
+        if not tgt_db.isOpen():
+            logger_setup.get_logger().critical('Could not open target database')
+            return
+        if not turn_on_foreign_keys():
+            return
 
         src_db = QSqlDatabase()
 
@@ -1209,6 +1220,11 @@ class ExportWidget(QWidget):
                 tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'temp')
                 tgt_db.setDatabaseName(tgt_db_file)
                 tgt_db.open()
+                if not tgt_db.isOpen():
+                    logger_setup.get_logger().critical('Could not open target database')
+                    return
+                if not turn_on_foreign_keys():
+                    return
 
                 src_db = QSqlDatabase()
 

@@ -16,6 +16,7 @@ from Functions import SQLUtils
 from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import settings
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.EditView import EditView
@@ -24,6 +25,7 @@ from ui.EditView import EditView
 class DataViewerWidget(QWidget):
     def __init__(self, ids_to_show, table_type):
         super().__init__()
+        self.loading_manager = LoadingDialogManager.get_instance()
         self.table_type = table_type
         self.ids_to_show = '('
 
@@ -599,21 +601,22 @@ class DataViewerWidget(QWidget):
         dbTable_comboBox: QComboBox
         table_name = dbTable_comboBox.currentText()
         table = TxM.remove_spaces(table_name)
-        # todo fix this for working with new sample edit view
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if table_name in view_tables:
             id_str = self.ids_to_show.replace('(', '').replace(')', '')
             ids = id_str.split(', ')
             ids = list(map(int, ids))  # Convert all IDs to integers
             dlg_args = {'table_item_ids': ids}
-            dlg = EditView(table, **dlg_args)
+            dlg = EditView(self, table, **dlg_args)
         elif table_name == 'Aliquots':
-            pass
+            return
         elif table in SQLUtils.user_viewable_trees:
             save_expanded_state(table_name, tree_proxy_model, dbTable_treeView)
-            dlg = EditTree(table)
+            self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {table}...')
+            dlg = EditTree(self, table)
         else:
-            dlg = EditTable(table)
+            self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {table}...')
+            dlg = EditTable(self, table)
         dlg.exec()
         update_database()
 

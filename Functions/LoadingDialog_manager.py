@@ -28,6 +28,8 @@ class LoadingDialogManager:
             self.title = title
             self.message = message
             self.begin()
+        else:
+            return
         # self.timer.setSingleShot(True)
         # self.timer.setInterval(1000)
         # self.timer.timeout.connect(self.timeout)
@@ -63,6 +65,8 @@ class LoadingDialogManager:
                 self.dialog = None
                 self.title = None
                 self.message = None
+        else:
+            return
 
 # class LoadingWorker(QtC.QObject):
 #     def __init__(self):

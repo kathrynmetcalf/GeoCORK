@@ -11,6 +11,7 @@ from PyQt6.uic import loadUi
 import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.LoadingDialog_manager import LoadingDialogManager
 import Functions.Text_manipulations as TxM
 from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column
 import Functions.Check_triggers as Ct
@@ -18,6 +19,7 @@ import Functions.Check_triggers as Ct
 class AddTags(QtW.QDialog):
     def __init__(self, parent_window, table):
         super().__init__(parent=parent_window)
+        self.loading_manager = LoadingDialogManager.get_instance()
         logger_setup.get_logger().info(f'Starting AddTags dialog for {table}...')
         # Define any widgets here
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -53,6 +55,8 @@ class AddTags(QtW.QDialog):
         self.ok_pushButton.clicked.connect(self.add_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
+
+        self.loading_manager.close_loading_dialog('Loading', f'Opening add window for {self.table}...')
 
     def display_tags(self):
         self.tags_tableView.setModel(self.filter_proxy_model)

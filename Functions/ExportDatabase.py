@@ -10,7 +10,8 @@ from PyQt6.QtCore import QCoreApplication, QVariant, QMetaType
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 from PyQt6.QtWidgets import QApplication
 
-import SQLUtils
+from Functions import SQLUtils
+from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 import logger_setup
 from ui.GPSDialog import GPSDialog
 
@@ -23,6 +24,8 @@ def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
     db.setDatabaseName(db_path)
     if not db.open():
         raise RuntimeError(f"Could not open database at {db_path}: {db.lastError().text()}")
+    if not turn_on_foreign_keys():
+        raise RuntimeError("Could not enable foreign keys")
     return db
 
 

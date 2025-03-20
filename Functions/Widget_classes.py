@@ -1764,7 +1764,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             logger_setup.get_logger().error(f'Error deleting {del_ids} from {self.table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             rollback_savepoint('before_delete')
-            return None
+            return False
         logger_setup.get_logger().info(f'Successfully deleted {del_ids} from {self.table}')
         if parent_id:
             pID = f'= {parent_id}'
@@ -1786,7 +1786,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 if not self.update_parent_info(childID, parent_id, newParentRow):
                     logger_setup.get_logger().error(f'Error updating parent row for child {childID}')
                     rollback_savepoint('before_delete')
-                    return None
+                    return False
         release_savepoint('before_delete')
         logger_setup.get_logger().info(
             f'Successfully deleted item {item_id} and {len(del_ids) - 1} dependents from {self.table}...')

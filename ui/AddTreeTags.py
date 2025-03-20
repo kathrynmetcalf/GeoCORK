@@ -76,6 +76,7 @@ class AddTreeTags(QtW.QDialog):
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
+
         self.loading_manager.close_loading_dialog('Loading', f'Opening add window for {self.table}...')
 
     def add_label(self):

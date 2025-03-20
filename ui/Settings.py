@@ -189,6 +189,7 @@ def reset_to_default_settings():
 
 def check_missing_settings():
     # Check if any of the settings are missing, if so, set them to the default
+    # todo: reduce logging to only errors
     for setting in settings_list:
         logger_setup.get_logger().debug(f'Checking for missing setting: {setting}')
         if settings.value(setting) is None:
@@ -248,7 +249,7 @@ class SettingsDialog(QtW.QDialog):
         loadUi(settings_ui_file, self)
         self.setWindowTitle('Settings')
         self.loadWindowState()
-
+        # todo: always open to the first tab
         self.gps_format_model = QSqlQueryModel()
         self.elevation_unit_model = QSqlQueryModel()
         self.column_unit_model = QSqlQueryModel()

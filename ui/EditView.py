@@ -23,6 +23,7 @@ from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTree import EditTree
@@ -78,6 +79,7 @@ class SetSelectedValues(QtW.QDialog):
 class EditView(QtW.QDialog):
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
+        self.loading_manager = LoadingDialogManager.get_instance()
         self.loadWindowState()
 
         logger_setup.get_logger().info(f'Creating a new EditView for {table_name}')
@@ -190,6 +192,8 @@ class EditView(QtW.QDialog):
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
+
+        self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
 
     def create_model(self):
         self.model = SQLiteTableModel(f'''
@@ -322,6 +326,8 @@ class EditView(QtW.QDialog):
                 self.display_table()
 
     def display_table(self):
+        logger_setup.get_logger().info(f'Displaying {self.table} table')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.proxy_model = ReadableProxyModel()
         self.proxy_model.setSourceModel(self.model)
         self.name_column = get_name_column(self.table)
@@ -363,6 +369,9 @@ class EditView(QtW.QDialog):
         # Connect resizing events
         self.edit_tableView.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
         self.edit_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
+
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+        logger_setup.get_logger().info(f'Display {self.table} table complete')
 
     def find_new_rows(self):
         # Find the new rows that have been added to the database and add them to the model

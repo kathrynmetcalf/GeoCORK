@@ -1,6 +1,8 @@
 from typing import List, Dict, Any, Set, Optional, Tuple
 
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+import logger_setup
+from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 
 
 ###############################################################################
@@ -17,6 +19,8 @@ def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
         raise RuntimeError(
             f"Could not open database at {db_path}: {db.lastError().text()}"
         )
+    if not turn_on_foreign_keys():
+        raise RuntimeError("Could not enable foreign keys.")
     return db
 
 

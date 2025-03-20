@@ -4,6 +4,7 @@ import sqlite3
 from typing import Dict, List
 
 import SQLUtils
+import logger_setup
 
 
 def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
@@ -15,8 +16,13 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
     # ----------------------------------------------------------------
     # 1. Connect to both databases, turn off foreign_keys in source
     # ----------------------------------------------------------------
-    source_conn = sqlite3.connect(source_db_path)
-    incoming_conn = sqlite3.connect(incoming_db_path)
+    try:
+        source_conn = sqlite3.connect(source_db_path)
+        incoming_conn = sqlite3.connect(incoming_db_path)
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical(f"Error opening database: {e.sqlite_errorname}")
+        logger_setup.get_logger().debug(f"Error: {e}")
+        return
 
     # For faster inserts
     source_conn.isolation_level = None
@@ -29,9 +35,15 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
     # 2. Utility: get tables, schema, detect PK column, detect FKs
     # ----------------------------------------------------------------
     def get_tables(conn: sqlite3.Connection) -> List[str]:
-        rows = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
+            ).fetchall()
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f"Error opening database and executing query: {e.sqlite_errorname}")
+            logger_setup.get_logger().debug(f"Query: SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
+            logger_setup.get_logger().debug(f"Error: {e}")
+            return []
         table_names = ["\"" + r[0] + "\"" for r in rows]
         for table in SQLUtils.static_tables:
             table = "\"" + table + "\""
@@ -347,7 +359,15 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
             for c in insert_cols:
                 to_insert.append(row_dict[c])
 
-            source_conn.execute(insert_sql, to_insert)
+            try:
+                source_conn.execute(insert_sql, to_insert)
+            except sqlite3.IntegrityError as e:
+                if "UNIQUE constraint failed" in e.__str__():
+                    logger_setup.get_logger().info(f"Relationship already in table {table_name}. Skipping")
+                    logger_setup.get_logger().debug(f"{to_insert}")
+                elif "NOT NULL constraint failed" in e.__str__():
+                    logger_setup.get_logger().info(f"One of the {table_name} does not exist in the original or merged database. Skipping")
+                    logger_setup.get_logger().debug(f"{to_insert}")
 
             # If bridging table has a PK, update the map
             # (Often bridging tables might not need an id_map, but let's keep it consistent)
@@ -389,7 +409,10 @@ def merge_databases_with_trees(source_db_path: str, incoming_db_path: str):
 
 if __name__ == "__main__":
     # Example usage:
-    SOURCE_DB = r"/Users/jarrodburges/Downloads/merge test/geochron.db"
-    INCOMING_DB = r"/Users/jarrodburges/Downloads/merge test/klam.db"
+    # SOURCE_DB = r"/Users/jarrodburges/Downloads/merge test/geochron.db"
+    # INCOMING_DB = r"/Users/jarrodburges/Downloads/merge test/klam.db"
+
+    SOURCE_DB = r"/Users/kametcalf/Documents/Research/GeoChron_non_git/GeoChron v.0.db"
+    INCOMING_DB = r"/Users/kametcalf/Documents/Research/GeoChronology_Code/dec_schema.db"
 
     merge_databases_with_trees(SOURCE_DB, INCOMING_DB)

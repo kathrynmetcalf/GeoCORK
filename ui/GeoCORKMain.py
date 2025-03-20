@@ -18,7 +18,7 @@ import logger_setup
 from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Settings_manager import settings
-from Functions.Database_manager import update_database
+from Functions.Database_manager import update_database, turn_off_foreign_keys, turn_on_foreign_keys
 import ui.import_wizard
 import ui.New_reference
 from ui.SampleInformation import SampleInformation
@@ -104,6 +104,9 @@ class GeoCORK(QtW.QMainWindow):
         else:
             logger_setup.get_logger().info(f"Database already opened")
 
+        if not turn_on_foreign_keys():
+            return
+
         self.savepoint_manager = Savepoint_manager.SavepointManager().get_instance()
         self.msg = QtW.QMessageBox(self)
 
@@ -125,7 +128,7 @@ class GeoCORK(QtW.QMainWindow):
         # actionRestoreBackup.triggered.connect(self.restore_backup)
         actionImport.triggered.connect(self.show_import_wizard_dialog)
         actionSettings.triggered.connect(self.show_settings_dialog)
-        actionExport.triggered.connect(ExportWidget)
+        actionExport.triggered.connect(self.switch_to_export_tab)
         actionQuit.triggered.connect(self.close)
 
         self.loading_manager.close_loading_dialog('Opening', f'Opening {self.db_name}...')
@@ -181,6 +184,9 @@ class GeoCORK(QtW.QMainWindow):
         import_wizard.data_imported.connect(self.edit_sample_information)
         import_wizard.show()
 
+
+    def switch_to_export_tab(self):
+        self.tabWidget.setCurrentIndex(2)
 
     def edit_sample_information(self, sample_ids: list[int]):
         """

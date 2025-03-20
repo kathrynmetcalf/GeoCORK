@@ -13,6 +13,7 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.LoadingDialog_manager import LoadingDialogManager
 import Functions.Text_manipulations as TxM
 from Functions.Widget_classes import (SQLiteTableModel, VerifiableSqlTableModel, VerifiableSqlViewModel, set_table, get_headers,
                                       ReadableProxyModel, get_name_column)
@@ -27,6 +28,7 @@ class EditTable(QtW.QDialog):
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
 
+        self.loading_manager = LoadingDialogManager.get_instance()
         logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
@@ -61,6 +63,8 @@ class EditTable(QtW.QDialog):
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
+
+        self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
     def create_model(self):
         # self.model.setQuery(f'SELECT * FROM {self.table}')
@@ -135,6 +139,7 @@ class EditTable(QtW.QDialog):
 
     def display_table(self):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.edit_tableView.setModel(self.proxy_model)
         # self.edit_tableView.setModel(self.filter_proxy_model)
         for column in range(self.proxy_model.columnCount()):
@@ -143,6 +148,7 @@ class EditTable(QtW.QDialog):
                 self.edit_tableView.hideColumn(column)
         self.edit_tableView.resizeColumnsToContents()
         self.edit_tableView.setSortingEnabled(True)
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
 
     def add_popup(self):
         # if not self.add_pushButton.hasFocus():
@@ -153,6 +159,7 @@ class EditTable(QtW.QDialog):
             return
         else:
             dlg = AddTags(self, self.table)
+        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
         self.create_model()
