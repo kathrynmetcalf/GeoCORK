@@ -19,9 +19,10 @@ from PyQt6.QtWidgets import (
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
     QProgressDialog, QListWidget, QAbstractButton, QListView, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt, QPoint, QSize, QEventLoop
+from PyQt6.QtCore import Qt, QPoint, QSize, QEventLoop, QStringListModel
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction
 
+import logger_setup
 from Functions import SQLUtils, Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
@@ -150,6 +151,8 @@ class LoadMappingDialog(QDialog):
             return
 
         self.configs = configs
+        self.selected_name = ''
+        self.list_model = QStringListModel()
         self.setModal(True)
         self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowTitle("Load Mapping")
@@ -157,6 +160,7 @@ class LoadMappingDialog(QDialog):
         self.list_view = QListView()
         self.list_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.list_view.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.list_view.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.text_label = QLabel()
         self.text_label.setText("Select a mapping to load:")
         self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -170,6 +174,7 @@ class LoadMappingDialog(QDialog):
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         self.list_view.customContextMenuRequested.connect(self.show_context_menu)
+        self.list_view.selectionModel().selectionChanged.connect(self.get_selected_name)
 
     def display_mapping_list(self):
         items = list(self.configs.keys())
@@ -182,7 +187,15 @@ class LoadMappingDialog(QDialog):
         for name in items:
             if name not in items_sorted:
                 items_sorted.append(name)
-        self.list_view.setModel(items_sorted)
+        self.list_model.setStringList(items_sorted)
+        self.list_view.setModel(self.list_model)
+
+    def get_selected_name(self):
+        index = self.list_view.currentIndex()
+        if not index.isValid():
+            self.selected_name = ''
+            return
+        self.selected_name = index.data()
 
     def show_context_menu(self, pos):
         menu = QMenu()
@@ -221,10 +234,18 @@ class LoadMappingDialog(QDialog):
             with open(CONFIG_FILE, 'w') as f:
                 json.dump(self.configs, f, indent=4)
             items = settings.value("recent_mappings", [])
-            items.remove(name)
+            if name in items:
+                items.remove(name)
             settings.setValue("recent_mappings", items)
             QMessageBox.information(self, "Deleted", f"Mapping '{name}' deleted successfully.")
             self.display_mapping_list()
+
+    def accept(self):
+        index = self.list_view.currentIndex()
+        if not index.isValid():
+            logger_setup.get_logger().error("Must select a mapping")
+            return
+        super().accept()
 
 class ImportWizardDialog(QWidget):
     """
@@ -1868,45 +1889,48 @@ class ImportWizardDialog(QWidget):
             if not configs:
                 QMessageBox.warning(self, "No Mappings", "No mappings found in configuration.")
                 return
-
-            items = list(configs.keys())
-            recent_mappings = settings.value("recent_mappings", [])
-            items_sorted = []
-            if recent_mappings:
-                for name in recent_mappings:
-                    if name in items:
-                        items_sorted.append(name)
-            for name in items:
-                if name not in items_sorted:
-                    items_sorted.append(name)
-
-            name, ok = QInputDialog.getItem(self, "Load Mapping", "Select a mapping to load:", items_sorted, 0, False)
-            if ok and name:
-                loaded = configs[name]
-                self.column_mappings.clear()
-                for k_str, v in loaded.items():
-                    idx = int(k_str)
-                    self.column_mappings[idx] = (v["field"])
-
-                total_cols = self.right_table.columnCount()
-                for col_idx in range(total_cols):
-                    hdr_item = self.right_table.horizontalHeaderItem(col_idx)
-                    if not hdr_item:
-                        continue
-                    if col_idx in self.column_mappings:
-                        f_name = self.column_mappings[col_idx]
-                        hdr_item.setText(f"{f_name}")
-                        hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
-                        # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
-                        if f_name in ["Sample Name", "Aliquot Name", "Spot Name"]:
-                            self.update_left_table_on_header_change(f_name, col_idx)
-                    else:
-                        hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
-                self.update_mapping_list(name, configs)
-                QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load mapping:\n{e}")
             return
+
+        # items = list(configs.keys())
+        # recent_mappings = settings.value("recent_mappings", [])
+        # items_sorted = []
+        # if recent_mappings:
+        #     for name in recent_mappings:
+        #         if name in items:
+        #             items_sorted.append(name)
+        # for name in items:
+        #     if name not in items_sorted:
+        #         items_sorted.append(name)
+        #
+        # name, ok = QInputDialog.getItem(self, "Load Mapping", "Select a mapping to load:", items_sorted, 0, False)
+        dlg = LoadMappingDialog(self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            name = dlg.selected_name
+            loaded = configs[name]
+            self.column_mappings.clear()
+            for k_str, v in loaded.items():
+                idx = int(k_str)
+                self.column_mappings[idx] = (v["field"])
+
+            total_cols = self.right_table.columnCount()
+            for col_idx in range(total_cols):
+                hdr_item = self.right_table.horizontalHeaderItem(col_idx)
+                if not hdr_item:
+                    continue
+                if col_idx in self.column_mappings:
+                    f_name = self.column_mappings[col_idx]
+                    hdr_item.setText(f"{f_name}")
+                    hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
+                    # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
+                    if f_name in ["Sample Name", "Aliquot Name", "Spot Name"]:
+                        self.update_left_table_on_header_change(f_name, col_idx)
+                else:
+                    hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
+            self.update_mapping_list(name, configs)
+            QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
+
         self.right_table.resizeColumnsToContents()
 
     # todo: allow deleting mappings or changing name

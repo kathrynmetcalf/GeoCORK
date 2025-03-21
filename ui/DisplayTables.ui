@@ -303,7 +303,7 @@
         </size>
        </property>
        <property name="placeholderText">
-        <string>Go to record ID</string>
+        <string>Go to record</string>
        </property>
       </widget>
      </item>

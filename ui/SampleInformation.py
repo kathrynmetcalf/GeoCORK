@@ -17,7 +17,7 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, get_name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
-    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_samples,
+    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
     DisplayRoundedQueryModel, populate_combo_box
 )
@@ -480,7 +480,7 @@ class SampleInformation(QtW.QDialog):
             self.uncheck_all_samples()
         elif action == delete_action:
             if self.delete_question():
-                delete_samples(selected_indexes)
+                delete_data(selected_indexes, 'Samples')
         elif action == add_action:
             self.add_popup(combo, action)
         elif action == edit_action:

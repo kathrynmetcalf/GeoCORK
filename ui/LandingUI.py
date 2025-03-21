@@ -165,6 +165,10 @@ class LandingPage(QWidget):
 
     def clicked_file(self):
         self.selected_files = self.listWidget.currentItem().text()
+        # Move the selected database to the top of the list
+        self.list_recents.remove(self.selected_files)
+        self.list_recents.insert(0, self.selected_files)
+        settings.setValue("ui/LandingPage/recentlist", self.list_recents)
         self.db = None
         self.open_geo_cork()
 
