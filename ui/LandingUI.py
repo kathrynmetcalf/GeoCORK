@@ -199,7 +199,7 @@ class LandingPage(QWidget):
             update_database()
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
-                self.list_recents.append(self.selected_files)
+                self.list_recents.insert(0, self.selected_files) # Add the new database to the top of the list
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.open_about_db()
             self.open_geo_cork(skip_update=True)
@@ -217,7 +217,7 @@ class LandingPage(QWidget):
         if file_dialog.exec():
             self.selected_files = file_dialog.selectedFiles()[0]
             if self.selected_files not in self.list_recents:
-                self.list_recents.append(self.selected_files)
+                self.list_recents.insert(0, self.selected_files) # Add the new database to the top of the list
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.hide()
             self.open_geo_cork()

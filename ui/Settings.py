@@ -191,12 +191,8 @@ def check_missing_settings():
     # Check if any of the settings are missing, if so, set them to the default
     # todo: reduce logging to only errors
     for setting in settings_list:
-        logger_setup.get_logger().debug(f'Checking for missing setting: {setting}')
         if settings.value(setting) is None:
-            logger_setup.get_logger().info(f'Found missing setting: {setting} - setting to default value: {settings.value(f"default_{setting}")}')
             settings.setValue(setting, settings.value(f'default_{setting}'))
-        else:
-            logger_setup.get_logger().debug(f'Found setting: {setting}')
 
 def update_setting(key, value):
     # pass the key to update and user input, then change the value in settings
@@ -249,7 +245,7 @@ class SettingsDialog(QtW.QDialog):
         loadUi(settings_ui_file, self)
         self.setWindowTitle('Settings')
         self.loadWindowState()
-        # todo: always open to the first tab
+        self.settings_tabWidget.setCurrentIndex(0)
         self.gps_format_model = QSqlQueryModel()
         self.elevation_unit_model = QSqlQueryModel()
         self.column_unit_model = QSqlQueryModel()

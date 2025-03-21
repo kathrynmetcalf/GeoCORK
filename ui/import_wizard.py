@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
-    QProgressDialog, QListWidget, QAbstractButton
+    QProgressDialog, QListWidget, QAbstractButton, QListView, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QPoint, QSize, QEventLoop
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction
@@ -128,6 +128,103 @@ class ColumnMapDialog(QDialog):
             if combo.currentIndex() != 0 and combo.currentIndex() != -1:  # i.e., not "None" or no selection
                 return combo.currentText()
         return "None"
+
+class LoadMappingDialog(QDialog):
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
+
+        try:
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, 'r') as f:
+                    try:
+                        configs = json.load(f)
+                    except json.JSONDecodeError:
+                        # If the file is empty, it cannot load
+                        configs = {}
+                        return
+            else:
+                configs = {}
+                return
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save mapping:\n{e}")
+            return
+
+        self.configs = configs
+        self.setModal(True)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowTitle("Load Mapping")
+        self.layout = QVBoxLayout(self)
+        self.list_view = QListView()
+        self.list_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.list_view.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.text_label = QLabel()
+        self.text_label.setText("Select a mapping to load:")
+        self.button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        self.layout.addWidget(self.text_label)
+        self.layout.addWidget(self.list_view)
+        self.layout.addWidget(self.button_box)
+        self.setLayout(self.layout)
+
+        self.display_mapping_list()
+
+        self.button_box.accepted.connect(self.accept)
+        self.button_box.rejected.connect(self.reject)
+        self.list_view.customContextMenuRequested.connect(self.show_context_menu)
+
+    def display_mapping_list(self):
+        items = list(self.configs.keys())
+        recent_mappings = settings.value("recent_mappings", [])
+        items_sorted = []
+        if recent_mappings:
+            for name in recent_mappings:
+                if name in items:
+                    items_sorted.append(name)
+        for name in items:
+            if name not in items_sorted:
+                items_sorted.append(name)
+        self.list_view.setModel(items_sorted)
+
+    def show_context_menu(self, pos):
+        menu = QMenu()
+        menu.addAction("Rename", self.rename_mapping)
+        menu.addAction("Delete", self.delete_mapping)
+        menu.exec(self.list_view.mapToGlobal(pos))
+
+    def rename_mapping(self):
+        index = self.list_view.currentIndex()
+        if not index.isValid():
+            return
+        name = index.data()
+        new_name, ok = QInputDialog.getText(self, "Rename", "Enter a new name for the mapping:", text=name)
+        if ok:
+            mapping = self.configs[name]
+            del self.configs[name]
+            self.configs[new_name] = mapping
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(self.configs, f, indent=4)
+            items = settings.value("recent_mappings", [])
+            items.remove(name)
+            items.insert(index, new_name)
+            settings.setValue("recent_mappings", items)
+            QMessageBox.information(self, "Edited", f"Mapping '{name}' renamed successfully.")
+            self.display_mapping_list()
+
+    def delete_mapping(self):
+        index = self.list_view.currentIndex()
+        if not index.isValid():
+            return
+        name = index.data()
+        response = QMessageBox.question(self, "Delete Mapping", f"Are you sure you want to delete the mapping '{name}'?",
+                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if response == QMessageBox.StandardButton.Yes:
+            del self.configs[name]
+            with open(CONFIG_FILE, 'w') as f:
+                json.dump(self.configs, f, indent=4)
+            items = settings.value("recent_mappings", [])
+            items.remove(name)
+            settings.setValue("recent_mappings", items)
+            QMessageBox.information(self, "Deleted", f"Mapping '{name}' deleted successfully.")
+            self.display_mapping_list()
 
 class ImportWizardDialog(QWidget):
     """
@@ -1773,7 +1870,17 @@ class ImportWizardDialog(QWidget):
                 return
 
             items = list(configs.keys())
-            name, ok = QInputDialog.getItem(self, "Load Mapping", "Select a mapping to load:", items, 0, False)
+            recent_mappings = settings.value("recent_mappings", [])
+            items_sorted = []
+            if recent_mappings:
+                for name in recent_mappings:
+                    if name in items:
+                        items_sorted.append(name)
+            for name in items:
+                if name not in items_sorted:
+                    items_sorted.append(name)
+
+            name, ok = QInputDialog.getItem(self, "Load Mapping", "Select a mapping to load:", items_sorted, 0, False)
             if ok and name:
                 loaded = configs[name]
                 self.column_mappings.clear()
@@ -1795,7 +1902,7 @@ class ImportWizardDialog(QWidget):
                             self.update_left_table_on_header_change(f_name, col_idx)
                     else:
                         hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
-
+                self.update_mapping_list(name, configs)
                 QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load mapping:\n{e}")
@@ -1803,6 +1910,21 @@ class ImportWizardDialog(QWidget):
         self.right_table.resizeColumnsToContents()
 
     # todo: allow deleting mappings or changing name
+    def edit_mapping(self, name):
+        ok, new_name = QInputDialog.getText(self, "Edit Mapping", "Enter new name for this mapping:")
+
+    def update_mapping_list(self, mapping_name, configs):
+        # Update the order of mappings in the list and config file
+        recent_mappings = settings.value("recent_mappings", [])
+        for name in configs.keys():
+            if name not in recent_mappings:
+                recent_mappings.append(name)
+        if mapping_name not in recent_mappings:
+            recent_mappings.insert(0, mapping_name)
+        else:
+            recent_mappings.remove(mapping_name)
+            recent_mappings.insert(0, mapping_name)
+        settings.setValue("recent_mappings", recent_mappings)
 
     def check_empty_cells_in_left_table(self):
         empty_cells = []

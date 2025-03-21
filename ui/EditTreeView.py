@@ -772,7 +772,6 @@ class EditTreeView(QtW.QDialog):
         self.updated_timestamp = time.time()
 
     def delete_item(self):
-        # todo: implement delete in the context menu
         save_expanded_state(self.table, self.proxy_model, self.edit_treeView)
         tree_indexes = []
         for view_index in self.edit_treeView.selectedIndexes():
@@ -999,7 +998,7 @@ class EditTreeView(QtW.QDialog):
                                 update_cols[key].append(header)
                                 update_col_values[key].append(id)
                                 if key != self.table:
-                                    # todo: figure out how to get the correct IDs for the where clause
+                                    #todo: figure out how to get the correct IDs for the where clause
                                     pass
                                 header_found = True
                                 continue
