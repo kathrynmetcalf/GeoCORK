@@ -475,7 +475,7 @@ class GPSFields(QtW.QWidget):
                         logger_setup.get_logger().error(f"Invalid GPS input: {error}")
                         rollback_savepoint('before_update')
                         return
-                    if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) = (qgps_values)'''):
+                    if not query.exec(f'''INSERT INTO GPSLocations ({qgps_columns}) = ({qgps_values})'''):
                         if 'UNIQUE constraint failed' in query.lastError().text():
                             logger_setup.get_logger().error(f"GPS location with these values already exists")
                         else:

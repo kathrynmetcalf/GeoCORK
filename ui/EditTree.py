@@ -171,7 +171,6 @@ class EditTree(QtW.QDialog):
         self.add_popup(None, parent_id, row, 'parent', new_child_ids, new_parent_rows)
 
     def delete_item(self):
-        # todo: implement delete in the context menu
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         tree_indexes = []
         for view_index in self.edit_treeView.selectedIndexes():

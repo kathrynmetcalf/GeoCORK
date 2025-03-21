@@ -1,3 +1,5 @@
+from idlelib import query
+
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
@@ -1089,42 +1091,71 @@ def return_rounded(value: str | float | int):
         rounded_value = value
     return rounded_value
 
-def delete_samples(sample_ids: list):
-    # Delete the selected samples and all aliquots, spots, and UPb data associated with them
-    aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(sample_ids)
-    logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
 
-    # Get a list of tables in the database
+def delete_query(table, ids, id_name):
     query = QtS.QSqlQuery()
-    db = QtS.QSqlDatabase.database()
-    tables = db.tables()
+    if len(ids) > 0:
+        query.prepare(f'DELETE FROM {table} WHERE {id_name} in {tuple(ids)}')
+    if len(ids) == 1:
+        query.prepare(f'DELETE FROM {table} WHERE {id_name}={ids[0]}')
+    if not query.exec():
+        logger_setup.get_logger().error(f"Failed to delete {id_name} from {table}")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        return False
+    return True
+
+def delete_data(data_ids: list, table: str):
+    """
+    Given Samples, Aliquots, or Spots, delete given ids and all sub items
+    :param data_ids: List of sample, aliquot, or spot IDs
+    :param table: Table the IDs belong to
+    :return: True or False
+    """
+    # Delete the selected samples and all aliquots, spots, and UPb data associated with them
+    if table == 'Samples':
+        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(data_ids, table)
+        sample_ids = data_ids
+        logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+    elif table == 'Aliquots':
+        spot_ids, upb_analysis_ids = find_sub_items(data_ids, table)
+        aliquot_ids = data_ids
+        logger_setup.get_logger().info(f"Deleting {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+    elif table == 'Spots':
+        upb_analysis_ids = find_sub_items(data_ids, table)
+        spot_ids = data_ids
+        logger_setup.get_logger().info(f"Deleting {len(spot_ids)} spots and {len(upb_analysis_ids)} UPb analyses")
+    else:
+        logger_setup.get_logger().error(f"Failed to delete {table}")
+        logger_setup.get_logger().debug(f"Error: This method is only for Samples, Aliquots, and Spots")
+        return False
 
     create_savepoint('before_delete')
 
-    def delete_query(table, ids, id_name):
-        if len(ids) > 0:
-            query.prepare(f'DELETE FROM {table} WHERE {id_name} in {tuple(ids)}')
-        if len(ids) == 1:
-            query.prepare(f'DELETE FROM {table} WHERE {id_name}={ids[0]}')
-        if not query.exec():
-            logger_setup.get_logger().error(f"Failed to delete {id_name} from {table}")
+    from Functions.Database_manager import turn_on_foreign_keys
+    # Double-check that foreign keys are enabled
+    if not turn_on_foreign_keys():
+        return False
+    if not delete_query('UPbAnalyses', upb_analysis_ids, 'UPbAnalysisID'):
+        rollback_savepoint('before_delete')
+        return False
+    logger_setup.get_logger().info(f'Deleted {len(upb_analysis_ids)} UPb analyses')
+    if not delete_query('Spots', spot_ids, 'SpotID'):
+        rollback_savepoint('before_delete')
+        return False
+    logger_setup.get_logger().info(f'Deleted {len(spot_ids)} spots')
+    if table in ['Samples', 'Aliquots']:
+        if not delete_query('Aliquots', aliquot_ids, 'AliquotID'):
             rollback_savepoint('before_delete')
-            return query.lastError().text()
+            return False
+        logger_setup.get_logger().info(f'Deleted {len(aliquot_ids)} Aliquots')
+    if table == 'Samples':
+        if not delete_query('Samples', sample_ids, 'SampleID'):
+            rollback_savepoint('before_delete')
+            return False
+        logger_setup.get_logger().info(f'Deleted {len(sample_ids)} Samples')
 
-    delete_query('UPbAnalyses', upb_analysis_ids, 'UPbAnalysisID')
-    for table in tables:
-        if 'Spots_' in table:
-            delete_query(f'Spots_{table}', spot_ids, 'SpotID')
-        elif 'Aliquots_' in table:
-            delete_query(f'Aliquots_{table}', aliquot_ids, 'AliquotID')
-        elif 'Samples_' in table:
-            delete_query(f'Samples_{table}', sample_ids, 'SampleID')
-    delete_query('Spots', spot_ids, 'SpotID')
-    delete_query('Aliquots', aliquot_ids, 'AliquotID')
-    delete_query('Samples', sample_ids, 'SampleID')
-
-    logger_setup.get_logger().info(f"Deleted {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
     release_savepoint('before_delete')
+    return True
 
 def find_upb_from_samples(sample_ids):
     # Find UPb analyses for a list of samples
@@ -1146,17 +1177,29 @@ def find_upb_from_samples(sample_ids):
         # There was an error creating the table
         return
 
-def find_sub_items(sample_ids):
-    # Find all the sub items of a list of samples
-    logger_setup.get_logger().info(f"Finding sub items for {len(sample_ids)} samples")
+def find_sub_items(data_ids: list, table: str):
+    # Find all the sub items of a list of samples, aliquots, or spots
+    logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
     aliquot_ids = []
     spot_ids = []
     upb_analysis_ids = []
-    for sample_id in sample_ids:
-        aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Aliquots WHERE SampleID={sample_id}')
-        for a_row in range(aliquot_table.rowCount()):
-            aliquot_id = aliquot_table.data(aliquot_table.index(a_row, 0))
-            aliquot_ids.append(aliquot_id)
+    if table == 'Samples':
+        for sample_id in data_ids:
+            aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Aliquots WHERE SampleID={sample_id}')
+            for a_row in range(aliquot_table.rowCount()):
+                aliquot_id = aliquot_table.data(aliquot_table.index(a_row, 0))
+                aliquot_ids.append(aliquot_id)
+                spot_table = SQLiteTableModel(f'SELECT SpotID FROM Spots WHERE AliquotID={aliquot_id}')
+                for s_row in range(spot_table.rowCount()):
+                    spot_id = spot_table.data(spot_table.index(s_row, 0))
+                    spot_ids.append(spot_id)
+                    UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
+                    for row in range(UPb_analysis_table.rowCount()):
+                        upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
+                        upb_analysis_ids.append(upb_data_id)
+        return aliquot_ids, spot_ids, upb_analysis_ids
+    elif table == 'Aliquots':
+        for aliquot_id in data_ids:
             spot_table = SQLiteTableModel(f'SELECT SpotID FROM Spots WHERE AliquotID={aliquot_id}')
             for s_row in range(spot_table.rowCount()):
                 spot_id = spot_table.data(spot_table.index(s_row, 0))
@@ -1165,7 +1208,14 @@ def find_sub_items(sample_ids):
                 for row in range(UPb_analysis_table.rowCount()):
                     upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
                     upb_analysis_ids.append(upb_data_id)
-    return aliquot_ids, spot_ids, upb_analysis_ids
+        return spot_ids, upb_analysis_ids
+    elif table == 'Spots':
+        for spot_id in data_ids:
+            UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
+            for row in range(UPb_analysis_table.rowCount()):
+                upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
+                upb_analysis_ids.append(upb_data_id)
+        return upb_analysis_ids
 
 
 
