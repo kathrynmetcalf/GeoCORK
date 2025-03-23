@@ -115,7 +115,7 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info(f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
         self.showMaximized()
 
-        self.loading_manager.close_loading_dialog('Loading', f'Opening Sample Information window for {self.table}...')
+        self.loading_manager.close_loading_dialog('Loading', f'Opening Sample Information window...')
 
     def check_all_samples(self):
         logger_setup.get_logger().info("Checking all samples")

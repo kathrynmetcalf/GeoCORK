@@ -141,16 +141,17 @@ class LandingPage(QWidget):
             # Attempt to connect and perform a simple query
             connection = sqlite3.connect(database_path, timeout=1)  # Set timeout to 1 second
             cursor = connection.cursor()
-            cursor.execute("PRAGMA schema_version")  # Simple query to test access
+            cursor.execute("PRAGMA foreign_keys=ON")  # Simple query to test access
+            cursor.execute("DROP VIEW IF EXISTS ReferenceView")  # Try write access, will be regenerated later
             connection.close()
         except Exception as e:
             # Handle the specific database lock error
-            logger_setup.get_logger().critical(
+            logger_setup.get_logger().debug(
                 f"Error testing for database lock: {e}")
             if "database is locked" in str(e):
-                logger_setup.get_logger().critical(
+                logger_setup.get_logger().debug(
                     f"Database lock error: {e}")
-                self.show_message("Database Locked", "The database is currently locked. Please try again later.")
+                self.show_message("Database Locked", "The database is currently locked. Make sure it is not in use elsewhere.")
                 return True
             else:
                 self.show_message("Error", f"An error occurred: {e}")

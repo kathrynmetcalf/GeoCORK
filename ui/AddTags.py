@@ -111,7 +111,7 @@ class AddTags(QtW.QDialog):
             rollback_savepoint('before_add')
 
         logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
-
+        self.updated = True
         self.model.setTable(self.table)
         self.model.select()
         self.newName_lineEdit.clear()
@@ -145,8 +145,10 @@ class AddTags(QtW.QDialog):
             if not self.add_tag():
                 return False
         release_savepoint('before_add')
+        logger_setup.get_logger().info(f'Changes committed to {self.table}')
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
+            logger_setup.get_logger().info('No active save points - updating the database')
             update_database()
         self.accept()
         self.close_by_dialog = True
@@ -155,7 +157,12 @@ class AddTags(QtW.QDialog):
 
     def closeEvent(self, event: QtG.QCloseEvent):
         if not self.close_by_dialog:
-            self.discard_question()
-            event.ignore()
+            if self.updated:
+                self.discard_question()
+                event.ignore()
+            else:
+                logger_setup.get_logger().info(f'Closing {self.table} add dialog')
+                event.accept()
         else:
+            logger_setup.get_logger().info(f'Closing {self.table} add dialog')
             event.accept()

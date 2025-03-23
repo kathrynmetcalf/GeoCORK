@@ -260,7 +260,7 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
     def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         return super().data(index, role)
 
-class DisplayRoundedQueryModel(QtS.QSqlQueryModel):
+class DisplayRoundedQueryModel(QSqlQueryModel):
     def __init__(self, db=QSqlDatabase()):
         super().__init__()
         self.view = ''
@@ -495,6 +495,56 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
             logger_setup.get_logger().error(f'Failed to delete {id} from {self.table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             return False
+        return True
+
+class EditableSqlQueryModel(DisplayRoundedQueryModel):
+    def __init__(self):
+        super().__init__()
+
+    def flags(self, index):
+        flags = super().flags(index)
+        col = get_name_column(self.table)
+        if index.column() == col:
+            flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
+        return flags
+
+    def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        if role == QtC.Qt.ItemDataRole.EditRole:
+            edited_id = self.data(self.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
+            id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            edited_header = self.headerData(index.row(), QtC.Qt.Orientation.Horizontal)
+            query = QtS.QSqlQuery()
+            if not query.exec(f'SELECT {edited_header} FROM {self.table} WHERE {id_header}={edited_id}'):
+                logger_setup.get_logger().critical(f'Failed to get {edited_header} from {self.table}')
+                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                return False
+            if query.next():
+                if query.value(0) == value:
+                    logger_setup.get_logger().info(f'{edited_header} is already set to {value}')
+                    return True
+            query.prepare(f'UPDATE {self.table} SET {edited_header}=:value WHERE {id_header}=:id')
+            query.bindValue(':value', value)
+            query.bindValue(':id', edited_id)
+            if not query.exec():
+                logger_setup.get_logger().error(f'Failed to update {edited_header} in {self.table}')
+                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                return False
+            logger_setup.get_logger().info(f'Successfully updated {edited_header} in {self.table}')
+            update_modified_timestamp(self.table, [edited_id])
+            return super().setData(index, value, role)
+        return False
+
+    def deleteRowFromTable(self, row):
+        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        query = QtS.QSqlQuery()
+        if not query.exec(f'DELETE FROM {self.table} WHERE {id_header}={id}'):
+            logger_setup.get_logger().error(f'Failed to delete {id} from {self.table}')
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            return False
+        logger_setup.get_logger().info(f'Successfully deleted {id} from {self.table}')
         return True
 
 class ReadableProxyModel(QtC.QSortFilterProxyModel):
@@ -838,9 +888,16 @@ def get_name_from_id(table: str, item_id: int):
 def get_id_from_name(table: str, name: str):
     query = QtS.QSqlQuery()
     headers = get_headers(table)
-    if not query.exec(f'SELECT {headers[0]} FROM {table} WHERE {headers[get_name_column(table)]}="{name}"'):
+    if not query.prepare(f'SELECT {headers[0]} FROM {table} WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'):
+        logger_setup.get_logger().error(f"Invalid query")
+        logger_setup.get_logger().debug(f"Could not prepare query to find ID for {name} in {table}")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL command: {query.lastQuery()}")
+    query.bindValue(":name", name)
+    if not query.exec():
         logger_setup.get_logger().error(f"Failed to get ID for {name} in {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL command: {query.lastQuery()}")
         return None
     query.next()
     return query.value(0)

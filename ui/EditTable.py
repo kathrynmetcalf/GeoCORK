@@ -15,8 +15,9 @@ from Functions.Settings_manager import settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.LoadingDialog_manager import LoadingDialogManager
 import Functions.Text_manipulations as TxM
-from Functions.Widget_classes import (SQLiteTableModel, VerifiableSqlTableModel, VerifiableSqlViewModel, set_table, get_headers,
-                                      ReadableProxyModel, get_name_column)
+from Functions.Widget_classes import (SQLiteTableModel, VerifiableSqlTableModel, VerifiableSqlViewModel, set_table,
+                                      get_headers,
+                                      ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel)
 import Functions.Alter_database as Alter_db
 from ui.AddTags import AddTags
 from ui.GPSDialog import GPSDialog
@@ -48,11 +49,13 @@ class EditTable(QtW.QDialog):
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
         self.total_records = 0
 
-        # self.model = QtS.QSqlQueryModel()
-        self.model = QtS.QSqlTableModel()
+        self.model = EditableSqlQueryModel()
+        # self.model = QtS.QSqlTableModel()
         self.proxy_model = ReadableProxyModel()
         self.name_column = None
         self.name_header = None
+        self.table_headers = None
+        self.create_model()
 
         create_savepoint('before_edit')
 
@@ -60,27 +63,23 @@ class EditTable(QtW.QDialog):
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
-        self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
+        # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
     def create_model(self):
-        # self.model.setQuery(f'SELECT * FROM {self.table}')
-
+        self.model.setQuery(f'SELECT * FROM {self.table} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
+        # set_table(self.model, self.table)
         self.table_headers = get_headers(self.table)
         self.proxy_model.setSourceModel(self.model)
 
         self.name_column = get_name_column(self.table)
-        model_index = self.model.index(0, self.name_column)
-        proxy_index = self.proxy_model.mapFromSource(model_index)
-        proxy_name_column = proxy_index.column()
-        self.name_header = self.proxy_model.headerData(proxy_name_column, QtC.Qt.Orientation.Horizontal,
-                                                       QtC.Qt.ItemDataRole.DisplayRole)
+        self.name_header = self.table_headers[self.name_column]
 
         # Sort the table by the name column
-        self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+        self.proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.display_table()
 
     def change_rows_per_page(self):
@@ -123,19 +122,28 @@ class EditTable(QtW.QDialog):
         if action == clear_action:
             self.model.setData(indexes[0], '', QtC.Qt.ItemDataRole.EditRole)
         elif action == delete_action:
-            self.msg.warning(self, 'Delete row', 'Are you sure you want to delete the selected rows?',
-                             QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-            self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-            response = self.msg.exec()
+            delete_msg = QtW.QMessageBox()
+            delete_msg.setWindowTitle(f'Delete row')
+            # get all the rows in the selected indexes
+            rows = []
+            for index in indexes:
+                model_index = self.proxy_model.mapToSource(index)
+                if model_index.row() not in rows:
+                    rows.append(model_index.row())
+            if len(rows) == 1:
+                delete_msg.setText(f'Are you sure you want to delete the selected row?')
+            else:
+                delete_msg.setText(f'Are you sure you want to delete the {len(rows)} selected rows?')
+            delete_msg.setIcon(QtW.QMessageBox.Icon.Warning)
+            delete_msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            delete_msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = delete_msg.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
-                # get all the rows in the selected indexes
-                rows = []
-                for index in indexes:
-                    if index.row() not in rows:
-                        rows.append(index.row())
                 for row in rows:
                     if not self.model.deleteRowFromTable(row):
                         logger_setup.get_logger().critical(f'Failed to delete row {row} from {self.table}: {self.model.lastError().text()}')
+                self.create_model()
+                self.display_table()
 
     def display_table(self):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
@@ -148,6 +156,14 @@ class EditTable(QtW.QDialog):
                 self.edit_tableView.hideColumn(column)
         self.edit_tableView.resizeColumnsToContents()
         self.edit_tableView.setSortingEnabled(True)
+        self.total_records = get_total_records(self.table)
+        if (self.current_page + 1) * self.rows_per_page > self.total_records:
+            self.page_info_label.setText(
+                f'{self.current_page * self.rows_per_page + 1}-{self.total_records} of {self.total_records}')
+        else:
+            self.page_info_label.setText(
+                f'{self.current_page * self.rows_per_page + 1}-{(self.current_page + 1) * self.rows_per_page} of '
+                f'{self.total_records}')
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
 
     def add_popup(self):
@@ -172,7 +188,8 @@ class EditTable(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
-        if self.edit_tableView.currentIndex().isValid() and not self.model.submitAll():
+        current_model_index = self.proxy_model.mapToSource(self.edit_tableView.currentIndex())
+        if self.edit_tableView.currentIndex().isValid() and not self.model.setData(current_model_index, self.edit_tableView.currentIndex().data(), QtC.Qt.ItemDataRole.EditRole):
             # There is a valid index selected and submitting data failed
             logger_setup.get_logger().critical('Failed to save changes')
             return

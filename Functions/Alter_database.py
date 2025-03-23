@@ -584,6 +584,8 @@ def convert_gps_location(gps_id: int):
     GPSUTMN = gps_model.record(0).value('GPSUTMN')
     GPSUTME = gps_model.record(0).value('GPSUTME')
     deg_symbol = u'\N{DEGREE SIGN}'
+    min_symbol = "'"
+    sec_symbol = '"'
     local_vars = {name: locals()[name] for name in variables}
     conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormat', gps_format_id)
     if conversions == "error":
@@ -602,13 +604,13 @@ def convert_gps_location(gps_id: int):
             # gps_code = gps_code[:quote_indexes[1]] + escaped + gps_code[quote_indexes[-1]:]
             exec(gps_code, global_vars, locals())
             gps_display = locals().get('converted')
-            sql_alter = f'UPDATE GPSLocations SET {column}="{gps_display}" WHERE "GPSLocationID"={gps_id}'
             logger_setup.get_logger().info(f'Updating the calculated {column}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
-            if not query.exec(sql_alter):
+            query.prepare(f'UPDATE GPSLocations SET {column}=:display WHERE "GPSLocationID"={gps_id}')
+            query.bindValue(':display', gps_display)
+            if not query.exec():
                 logger_setup.get_logger().critical(
                     f'Error adding the calculated column {column}: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+                logger_setup.get_logger().critical(f'SQL command: {query.lastQuery()}')
                 rollback_savepoint('before_populate_gps')
                 return False
             logger_setup.get_logger().info(f'Successfully updated GPS display')

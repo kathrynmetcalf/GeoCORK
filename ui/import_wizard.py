@@ -26,11 +26,12 @@ import logger_setup
 from Functions import SQLUtils, Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
+from Functions.LoadingDialog_manager import LoadingDialogManager
 
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (
     get_selected_tree_ids, CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
-    CheckableTreeCombobox, save_expanded_state, get_name_column)
+    CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers)
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
@@ -261,6 +262,7 @@ class ImportWizardDialog(QWidget):
 
         self.setWindowTitle("UPb Import Wizard")
         self.loadWindowState()
+        self.loading_manager = LoadingDialogManager.get_instance()
 
         main_layout = QVBoxLayout(self)
 
@@ -653,7 +655,9 @@ class ImportWizardDialog(QWidget):
             while age_unit_query.next():
                 self.age_formats.append((age_unit_query.value(0), age_unit_query.value(1)))
         else:
-            print("Failed to execute query:", age_unit_query.lastError().text())
+            logger_setup.get_logger().error(f"Failed to find age units")
+            logger_setup.get_logger().debug(f"Error: {age_unit_query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {age_unit_query.lastQuery()}")
 
 
 
@@ -666,7 +670,9 @@ class ImportWizardDialog(QWidget):
             while distance_units_query.next():
                 self.distance_units.append((distance_units_query.value(0), distance_units_query.value(1)))
         else:
-            print("Failed to execute query:", distance_units_query.lastError().text())
+            logger_setup.get_logger().error(f"Failed to find distance units")
+            logger_setup.get_logger().debug(f"Error: {distance_units_query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {distance_units_query.lastQuery()}")
 
 
 
@@ -679,7 +685,9 @@ class ImportWizardDialog(QWidget):
             while concordance_units_query.next():
                 self.concordance_formats.append((concordance_units_query.value(0), concordance_units_query.value(1)))
         else:
-            print("Failed to execute query:", concordance_units_query.lastError().text())
+            logger_setup.get_logger().error(f"Failed to find concordance formats")
+            logger_setup.get_logger().debug(f"Error: {concordance_units_query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {concordance_units_query.lastQuery()}")
 
 
 
@@ -692,7 +700,9 @@ class ImportWizardDialog(QWidget):
             while error_type_format_query.next():
                 self.error_formats.append((error_type_format_query.value(0), error_type_format_query.value(1)))
         else:
-            print("Failed to execute query:", error_type_format_query.lastError().text())
+            logger_setup.get_logger().error(f"Failed to find error formats")
+            logger_setup.get_logger().debug(f"Error: {error_type_format_query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {error_type_format_query.lastQuery()}")
 
     def validate_ids(self):
         """
@@ -846,30 +856,21 @@ class ImportWizardDialog(QWidget):
         dlg_args = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.model(), combo.treeView())
-            indexes = combo.treeView().selectedIndexes()
-            item_ids, parent_ids, parent_rows = get_selected_tree_ids(combo.model(), indexes)
             if action:
-                if action.text() == 'Insert above':
-                    row = parent_rows[0]
-                    parent_id = parent_ids[0]
-                    dlg_args = (table, parent_id, row)
-                elif action.text() == 'Insert below':
-                    row = parent_rows[0] + 1
-                    parent_id = parent_ids[0]
-                    dlg_args = (None, parent_id, row)
-                elif action.text() == 'Add child':
-                    parent_id = item_ids[0]
-                    dlg_args = (None, parent_id)
-                elif action.text() == 'Add parent':
-                    dlg_args = (item_ids, parent_ids, parent_rows)
-                elif action.text() == 'Add to end':
-                    dlg_args = (None, None)
+                dlg_args = add_tree_popup(combo.treeView(), combo.model(), action)
             if dlg_args:
-                dlg = AddTreeTags(table, *dlg_args)
+                self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+                dlg = AddTreeTags(self, table, **dlg_args)
         else:
-            dlg = AddTags(table)
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            dlg = AddTags(self, table)
         dlg.exec()
-        # combo.model().select()
+        if dlg.updated:
+            if table in SQLUtils.user_viewable_trees:
+                combo.model().sourceModel().select()
+                combo.model().setSourceModel(combo.model().sourceModel())
+            else:
+                combo.model().select()
 
     def show_left_header_context_menu(self, pos):
         """
@@ -1326,6 +1327,7 @@ class ImportWizardDialog(QWidget):
             self.selected_file_path = path
             self.label_file.setText(f"Selected File: {os.path.basename(path)}")
             try:
+                self.loading_manager.show_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
                 self.wb = load_workbook(path, data_only=True, rich_text=True)
                 self.combo_sheets.clear()
                 self.combo_sheets.addItems(self.wb.sheetnames)
@@ -1334,6 +1336,7 @@ class ImportWizardDialog(QWidget):
                 QMessageBox.critical(self, "Error", f"Failed to read Excel file:\n{e}")
                 return
         self.activate_widgets()
+        self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
 
     def load_sheet(self, bypass=False):
 
@@ -1497,19 +1500,23 @@ class ImportWizardDialog(QWidget):
         Set all rows in the specified column to the given value.
         Args:
             field (str): The field name (e.g., 'Reference', 'Instrument').
-            value (str): The value to set.
+            model (checkable model): The model to retrieve checks from.
         """
-        # todo crashing on closing of drop down
-        if isinstance(model.tableName, str):
-            table = model.tableName
-        else:
-            table = model.tableName()
-        name_column = get_name_column(table)
+        # todo analysis method not checking
+        try:
+            if isinstance(model.tableName, str):
+                table = model.tableName
+            else:
+                table = model.tableName()
+            name_column = get_name_column(table)
+        except AttributeError:
+            table = model.table # for trees
+            name_column = 0 # for trees
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None
         checked_item_id = None
-        if table != '':
+        if table not in SQLUtils.user_viewable_trees:
             for row in range(model.rowCount()):
                 name_index = model.index(row, name_column)
                 id_index = model.index(row, 0)
@@ -1520,10 +1527,16 @@ class ImportWizardDialog(QWidget):
                     source_checked_row = row
             if checked_item_name is None or checked_item_id is None:
                 return
-            print(checked_item_name, checked_item_id)
+            logger_setup.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
         else:
-            # todo: add logic to get checked item from tree
-            return
+            # Get the checked item from the tree
+            checked_items, partially_checked_items, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtCore.QModelIndex())
+            if checked_items:
+                checked_item_name = checked_items[0]
+                checked_item_id = get_id_from_name(table, checked_item_name)
+                source_checked_row = checked_indices[0].row()
+            else:
+                return
 
 
         field_to_column = {
@@ -2125,14 +2138,11 @@ class ImportWizardDialog(QWidget):
                 record["Spot Name"] = spot_id_item.text().strip() if spot_id_item else None
 
                 # Find matching SampleID or create new
-                sample_query = QSqlQuery()
-                sample_query.prepare(f"SELECT SampleID FROM Samples WHERE SampleName=:name COLLATE NOCASE")
-                sample_query.bindValue(":name", record["Sample Name"])
-
-                if sample_query.exec():
-                    if sample_query.next():
+                if record["Sample Name"]:
+                    sample_id = get_id_from_name('Samples', record["Sample Name"])
+                    if sample_id:
                         # found matching samplename in database, will use that sample ID
-                        record["SampleID"] = sample_query.value(0)
+                        record["SampleID"] = sample_id
                         self.sample_ids.append(record["SampleID"])
                     else:
                         # no matching samplename in database, will create new one.
@@ -2141,12 +2151,12 @@ class ImportWizardDialog(QWidget):
                         create_sample.bindValue(":name", record["Sample Name"])
 
                         if not create_sample.exec():
-                            print("Failed to execute query:", create_sample.lastError().text())
+                            logger_setup.get_logger().error(f"Failed to create sample {record['Sample Name']}")
+                            logger_setup.get_logger().debug(f"Error: {create_sample.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {create_sample.executedQuery()}")
                         else:
                             record["SampleID"] = create_sample.lastInsertId()
                             self.sample_ids.append(record["SampleID"])
-                else:
-                    print("Failed to execute query:", sample_query.lastError().text())
 
 
                 # Find matching Aliquot Name or create new
@@ -2167,11 +2177,15 @@ class ImportWizardDialog(QWidget):
                         create_aliquot.bindValue(":sample_id", record["SampleID"])
 
                         if not create_aliquot.exec():
-                            print("Failed to create_aliquot execute query:", create_aliquot.lastError().text())
+                            logger_setup.get_logger().error(f"Failed to create aliquot {record['Aliquot Name']}")
+                            logger_setup.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {create_aliquot.executedQuery()}")
                         else:
                             record["AliquotID"] = create_aliquot.lastInsertId()
                 else:
-                    print("Failed to select_aliquot execute query:", aliquot_query.lastError().text())
+                    logger_setup.get_logger().error(f'Failed search for aliquot {record["Aliquot Name"]}')
+                    logger_setup.get_logger().debug(f'Error: {aliquot_query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {aliquot_query.executedQuery()}')
 
                 # Find matching SpotID or create new
                 spot_query = QSqlQuery()
@@ -2194,11 +2208,15 @@ class ImportWizardDialog(QWidget):
                         create_spot.bindValue(":aliquot_id", record["AliquotID"])
 
                         if not create_spot.exec():
-                            print("Failed to execute query:", create_spot.lastError().text())
+                            logger_setup.get_logger().warning(f"Failed to add spot {record['Spot Name']}")
+                            logger_setup.get_logger().debug(f"Error: {create_spot.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {create_spot.executedQuery()}")
                         else:
                             record["SpotID"] = create_spot.lastInsertId()
                 else:
-                    print("Failed to execute query:", spot_query.lastError().text())
+                    logger_setup.get_logger().warning(f'Failed search for spot {record["Spot Name"]}')
+                    logger_setup.get_logger().debug(f'Error: {spot_query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {spot_query.executedQuery()}')
 
 
 
@@ -2221,7 +2239,9 @@ class ImportWizardDialog(QWidget):
                     delete_query.prepare('DELETE FROM UPbAnalyses WHERE SpotID=:spot_id')
                     delete_query.bindValue(":spot_id", record["SpotID"])
                     if not delete_query.exec():
-                        print("Failed to execute query:", delete_query.lastError().text())
+                        logger_setup.get_logger().warning("Failed to overwrite existing UPbAnalysis")
+                        logger_setup.get_logger().debug(f"Error: {delete_query.lastError().text()}")
+                        logger_setup.get_logger().debug(f"SQL query: {delete_query.executedQuery()}")
 
 
                 field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
@@ -2238,7 +2258,7 @@ class ImportWizardDialog(QWidget):
                                             )
                                         """
 
-                print(insert_sql)
+                # print(insert_sql)
 
                 # Process the main columns from the mapping.
                 # In your code, you might reduce main_cols by 4 if these appended columns
@@ -2260,13 +2280,59 @@ class ImportWizardDialog(QWidget):
                     if cell_text.upper() == "NULL":
                         record[field_name] = None
                     else:
-                        record[field_name] = cell_text
+                        # Check if the field is a foreign key, add the value if not already in the database, and get the ID
+                        if field_name in ('Reference Display', 'Lab Facility Name', 'Instrument Name',
+                                          'UPb Analysis Method Name'):
+                            item_name = cell_text
+                            if field_name == 'Reference Display':
+                                table = 'References'
+                            elif field_name == 'Lab Facility Name':
+                                table = 'LabFacilities'
+                            elif field_name == 'Instrument Name':
+                                table = 'Instruments'
+                            elif field_name == 'UPb Analysis Method Name':
+                                table = 'UPbAnalysisMethods'
+                            item_id = get_id_from_name(table, item_name)
+                            if item_id:
+                                id_header = get_headers(table)[0]
+                                record[f'{id_header}'] = item_id
+                            elif table not in SQLUtils.static_tables:
+                                # table is editable, so we can add new items
+                                # no matching ID in database, will create new one.
+                                create_item = QSqlQuery()
+                                if not create_item.prepare(f'INSERT INTO {table} ({field_name.replace(' ','')}) VALUES (:name)'):
+                                    logger_setup.get_logger().error(f'Failed to prepare data for {field_name}')
+                                    logger_setup.get_logger().debug(f'Error: {create_item.lastError().text()}')
+                                    logger_setup.get_logger().debug(f'SQL query: {create_item.executedQuery()}')
+                                create_item.bindValue(":name", item_name)
+                                if not create_item.exec():
+                                    logger_setup.get_logger().error(f'Failed to add {field_name}: {item_name}')
+                                    logger_setup.get_logger().debug(f'Error: {create_item.lastError().text()}')
+                                    logger_setup.get_logger().debug(f'SQL query: {create_item.executedQuery()}')
+                                else:
+                                    item_id = create_item.lastInsertId()
+                                    id_header = get_headers(table)[0]
+                                    record[f'{id_header}'] = item_id
+                        elif field_name in ('ReferenceID', 'LabFacilityID', 'InstrumentID', 'UPbAnalysisMethodID'):
+                            # Check if cell_text is an integer
+                            if isinstance(cell_item, int):
+                                record[field_name] = cell_text
+                            elif isinstance(cell_item, str):
+                                try:
+                                    record[field_name] = int(cell_text)
+                                except ValueError:
+                                    # Has been or will be handled when the name field is processed, skip for now
+                                    pass
+                        else:
+                            record[field_name] = cell_text
 
                 # Finally insert the row
                 insert_query = QSqlQuery()
-
+# todo: figure out why LabFacilityID is getting reset to ''
                 if not insert_query.prepare(insert_sql):
-                    print("Failed to execute prepare:", insert_query.lastError().text())
+                    logger_setup.get_logger().error(f"Failed to prepare data for spot {record['Spot Name']}")
+                    logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                 record_count = 0
                 for key, value in record.items():
                     if key == "Sample Name" or key == "SampleID" or key == "Aliquot Name" or key == "AliquotID" or key == "Spot Name":
@@ -2274,10 +2340,10 @@ class ImportWizardDialog(QWidget):
                     insert_query.bindValue(f":{key.replace('/', '').replace('*', '').replace(' ', '_')}", value)
                     record_count += 1
                 if not insert_query.exec():
-                    print(f"Error executing query: {insert_query.lastError().text()}")
-                    print(insert_query.executedQuery())
-                    for value in insert_query.boundValues():
-                        print(value)
+                    logger_setup.get_logger().error(f"Failed to insert data for spot {record['Spot Name']}")
+                    logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                    logger_setup.get_logger().error(f"Values: {insert_query.boundValues()}")
 
                 # Find matching Rejection Reasons, unique collate no case rejection reasons table
                 # if found utilize that ID, else create one, then create association in many-to-many table
@@ -2287,45 +2353,42 @@ class ImportWizardDialog(QWidget):
                     if record['Rejection Reason'] is not None:
                         # Find matching Rejection Reasons, unique collate no case rejection reasons table
                         # if found utilize that ID, else create one, then create assoication in many-to-many table
-                        # Find matching SpotID or create new
-                        rejection_query = QSqlQuery()
-                        rejection_query.prepare(
-                            'SELECT RejectionReasonID FROM RejectionReasons WHERE RejectionReasonName=:name COLLATE NOCASE')
-                        rejection_query.bindValue(":name", record["Rejection Reason"])
-
-                        if rejection_query.exec():
-                            if rejection_query.next():
-                                # found matching spot name in database, will use that spot ID
-                                record["RejectionReasonID"] = rejection_query.value(---0)
-                            else:
-                                # no matching samplename in database, will create new one.
-                                create_rejection = QSqlQuery()
-                                create_rejection.prepare(
-                                    'INSERT INTO RejectionReasons (RejectionReasonName) VALUES (:name)')
-                                create_rejection.bindValue(":name", record["Rejection Reason"])
-
-                                if not create_rejection.exec():
-                                    print("Failed to execute query:", create_rejection.lastError().text())
-                                else:
-                                    record["RejectionReasonID"] = create_rejection.lastInsertId()
-
-                                # no matching samplename in database, will create new one.
-                                create_upb_rejection_assoc = QSqlQuery()
-                                create_upb_rejection_assoc.prepare(
-                                    'INSERT INTO UPbAnalyses_RejectionReasons (UPbAnalysisID, RejectionReasonID) VALUES (:upb_analysis_id, :rejection_reason_id)')
-                                create_upb_rejection_assoc.bindValue(":upb_analysis_id", record["UPbAnalysisID"])
-                                create_upb_rejection_assoc.bindValue(":rejection_reason_id", record["RejectionReasonID"])
-
-                                if not create_upb_rejection_assoc.exec():
-                                    print("Failed to execute query:", create_upb_rejection_assoc.lastError().text())
-
+                        # Find matching UPbAnalysisID or create new
+                        rejection_id = get_id_from_name('RejectionReasons', record['Rejection Reason'])
+                        if rejection_id:
+                            # found matching ID in database, will use that
+                            record["RejectionReasonID"] = rejection_id
                         else:
-                            print("Failed to execute query:", rejection_query.lastError().text())
+                            # no matching ID in database, will create new one.
+                            create_rejection = QSqlQuery()
+                            create_rejection.prepare(
+                                'INSERT INTO RejectionReasons (RejectionReasonName) VALUES (:name)')
+                            create_rejection.bindValue(":name", record["Rejection Reason"])
+
+                            if not create_rejection.exec():
+                                logger_setup.get_logger().warning(f'Failed to add rejection reason: {record["Rejection Reason"]}')
+                                logger_setup.get_logger().debug(f'Error: {create_rejection.lastError().text()}')
+                                logger_setup.get_logger().debug(f'SQL query: {create_rejection.executedQuery()}')
+                            else:
+                                record["RejectionReasonID"] = create_rejection.lastInsertId()
+
+                            # Add to many-to-many table.
+                            create_upb_rejection_assoc = QSqlQuery()
+                            create_upb_rejection_assoc.prepare(
+                                'INSERT INTO UPbAnalyses_RejectionReasons (UPbAnalysisID, RejectionReasonID) VALUES (:upb_analysis_id, :rejection_reason_id)')
+                            create_upb_rejection_assoc.bindValue(":upb_analysis_id", record["UPbAnalysisID"])
+                            create_upb_rejection_assoc.bindValue(":rejection_reason_id", record["RejectionReasonID"])
+
+                            if not create_upb_rejection_assoc.exec():
+                                logger_setup.get_logger().warning(f'Failed to associate rejection reason "{record["Rejection Reason"]}" with analysis')
+                                logger_setup.get_logger().debug(f'Error: {create_upb_rejection_assoc.lastError().text()}')
+                                logger_setup.get_logger().debug(f'SQL query: {create_upb_rejection_assoc.executedQuery()}')
 
                 inserted_count += 1
 
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to import data:\n{e}")
+            logger_setup.get_logger().critical(f"Import failed: {e}")
+            logger_setup.get_logger().debug(f"Error: {e}")
             rollback_savepoint('before_upb_import')
         QSqlDatabase().commit()
         release_savepoint('before_upb_import')

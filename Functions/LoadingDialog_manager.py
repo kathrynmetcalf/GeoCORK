@@ -42,6 +42,7 @@ class LoadingDialogManager:
         self.dialog.setWindowTitle(self.title)
         self.dialog.setLabelText(self.message)
         self.dialog.setCancelButton(None)
+        self.dialog.setWindowFlags(QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.dialog.adjustSize()
         self.dialog.show()
         QtW.QApplication.processEvents()

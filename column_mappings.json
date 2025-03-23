@@ -256,5 +256,64 @@
         "16": {
             "field": "206Pb/238UAgeError"
         }
+    },
+    "LaMaskin et al., 2022": {
+        "0": {
+            "field": "Spot Name"
+        },
+        "1": {
+            "field": "Lab Facility Name"
+        },
+        "2": {
+            "field": "U/Th"
+        },
+        "3": {
+            "field": "207Pb/235U"
+        },
+        "4": {
+            "field": "207Pb/235UError"
+        },
+        "5": {
+            "field": "238U/206Pb"
+        },
+        "6": {
+            "field": "238U/206PbError"
+        },
+        "7": {
+            "field": "207Pb/206Pb"
+        },
+        "8": {
+            "field": "207Pb/206PbError"
+        },
+        "9": {
+            "field": "207Pb/235UAge"
+        },
+        "10": {
+            "field": "207Pb/235UAgeError"
+        },
+        "11": {
+            "field": "206Pb/238UAge"
+        },
+        "12": {
+            "field": "206Pb/238UAgeError"
+        },
+        "13": {
+            "field": "207Pb/206PbAge"
+        },
+        "14": {
+            "field": "207Pb/206PbAgeError"
+        },
+        "15": {
+            "field": "BestAge"
+        },
+        "16": {
+            "field": "BestAgeError"
+        },
+        "17": {
+            "field": "Concordance"
+        },
+        "19": {
+            "field": "LabFacilityID"
+        }
     }
 }

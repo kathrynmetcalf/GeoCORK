@@ -194,11 +194,12 @@ class GeoCORK(QtW.QMainWindow):
         :param sample_ids: The IDs of the samples to edit
         :return:
         """
+        self.loading_manager.show_loading_dialog('Loading', 'Opening Sample Information window...')
         dlg = SampleInformation(self, sample_ids)
         dlg.exec()
         if dlg.updated:
             if self.tabWidget.currentIndex() == 0:
-                self.tabWidget.widget(0).display_tree()
+                self.tabWidget.widget(0).display_table()
 
     def on_tab_changed(self, index):
         """

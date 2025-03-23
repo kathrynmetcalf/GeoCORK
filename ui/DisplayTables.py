@@ -531,7 +531,7 @@ class DisplayTables(QtW.QWidget):
         for index in selected_indexes:
             id_index = index.siblingAtColumn(0)
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
-        self.loading_manager.show_loading_dialog('Loading', f'Opening Sample Information window for {self.table}...')
+        self.loading_manager.show_loading_dialog('Loading', f'Opening Sample Information window...')
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
         self.display_table()
