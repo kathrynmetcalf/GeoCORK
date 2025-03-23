@@ -223,6 +223,12 @@ class SQLiteTableModel(QAbstractTableModel):
                     break
         self.endRemoveRows()
 
+    def insertRow(self, row_data: list):
+        self.beginInsertRows(QtC.QModelIndex(), len(self._data), len(self._data))
+        self._data.append(row_data)
+        self.endInsertRows()
+        logger_setup.get_logger().info(f'Updated {self.table}')
+
     def column_as_list(self, col):
         if isinstance(col, str):
             column = self._headers.index(col)
@@ -914,7 +920,6 @@ def get_total_records(table: str) -> int:
 
     # Execute the query
     logger_setup.get_logger().info(f'Fetching total records for {table}')
-    logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.exec(sql_query):
         # Handle query execution error
         logger_setup.get_logger().error(f'Error fetching total records')

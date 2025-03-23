@@ -327,7 +327,8 @@ many_editable = {
                 'UnitName': 'Units'},
     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
     'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
-    'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons'}
+    'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons'},
+    'References': {}
 }
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
 one_editable = {
@@ -344,7 +345,8 @@ one_editable = {
                     'UPbAnalysisMethodName': 'UPbAnalysisMethods',
                     'RatioErrorFormatAbbreviation': 'ErrorFormats', 'AgeUnitAbbreviation': 'AgeUnits',
                     'AgeErrorFormatAbbreviation': 'ErrorFormats', 'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
-                    'SpotSizeUnitAbbreviation': 'DistanceUnits'}
+                    'SpotSizeUnitAbbreviation': 'DistanceUnits'},
+    'References': {}
 }
 # Non-editable columns for each table key, key-value pairs for column in the view and table the to edit that information, populate single selection dropdowns
 non_editable = {
@@ -352,7 +354,8 @@ non_editable = {
     'Columns': ['ColumnCreated', 'ColumnModified'],
     'Aliquots': ['AliquotCreated', 'AliquotModified'],
     'Spots': ['SpotCreated', 'SpotModified'],
-    'UPbAnalyses': ['UPbAnalysisCreated', 'UPbAnalysisModified']
+    'UPbAnalyses': ['UPbAnalysisCreated', 'UPbAnalysisModified'],
+    'References': ['ReferenceDisplay', 'ReferenceCreated', 'ReferenceModified']
 }
 # Columns that cannot be null
 not_null = {

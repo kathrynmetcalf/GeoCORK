@@ -6,10 +6,16 @@ from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
 from PyQt6.QtSql import QSqlQuery
 
+from Functions.LoadingDialog_manager import LoadingDialogManager
+import logger_setup
+
 
 class NewReference(QtW.QDialog):
     def __init__(self, parent_window):
         super().__init__(parent=parent_window)
+
+        logger_setup.get_logger().info(f'Opening reference add dialog')
+        self.loading_manager = LoadingDialogManager().get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         base_path = os.path.normpath(base_path)
@@ -19,9 +25,13 @@ class NewReference(QtW.QDialog):
         self.setWindowTitle('Add Reference')
         self.setModal(True)
         self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
+        self.updated = False
+        self.ids_added = []
 
         self.ok_buttonBox.accepted.connect(self.add_reference)
         self.ok_buttonBox.rejected.connect(self.rejected)
+
+        self.loading_manager.close_loading_dialog('Loading', 'Opening add window for References...')
 
     def add_reference(self):
         authors = self.authors_lineEdit.text()
@@ -40,14 +50,11 @@ class NewReference(QtW.QDialog):
         query.addBindValue(doi)
         query.addBindValue(description)
         if not query.exec():
-            print('Error inserting reference:', query.lastError().text())
+            logger_setup.get_logger().critical('Error adding reference')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return
+        logger_setup.get_logger().info('Reference added successfully')
+        self.updated = True
+        self.ids_added.append(query.lastInsertId())
         self.accept()
-
-
-# if __name__ == '__main__':
-#     # only run these commands if this script is run
-#     # Can't be run when used as a library for another script
-#     app = QtW.QDialog(sys.argv)  # pass command line arguments
-#     w = NewSource()
-#     sys.exit(app.exec())  # runs event loop, pass exit status to the system

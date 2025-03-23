@@ -29,6 +29,7 @@ class AddTags(QtW.QDialog):
         self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowTitle(f'Add tags to {TxM.add_spaces_camel(table)}')
         self.updated = False
+        self.ids_added = []
 
         self.table = table
         self.model = QtS.QSqlTableModel()
@@ -97,21 +98,21 @@ class AddTags(QtW.QDialog):
                 for entry in self.existing_names:
                     if name.casefold() == entry.casefold():
                         duplicates.append(entry)
-                logger_setup.get_logger().critical(f'Each entry in {header} must be unique (case insensitive) Duplicates: {duplicates}: {error}')
-                self.errmsg.critical(self, 'Error',
-                                     f'Each entry in {header} must be unique (case insensitive) Duplicates: {duplicates}: {error}',
-                                     QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+                logger_setup.get_logger().critical(f'Each entry in {header} must be unique (case insensitive)\nDuplicates: {duplicates}')
+                logger_setup.get_logger().debug(f'Error: {error}')
+                logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
             elif 'CHECK constraint failed:' in error:
-                logger_setup.get_logger().critical(f'{header} cannot be blank: {error} ')
-                self.errmsg.critical(self, 'Error', f'{header} cannot be blank', QtW.QMessageBox.StandardButton.Ok,
-                                     QtW.QMessageBox.StandardButton.Ok)
+                logger_setup.get_logger().critical(f'{header} cannot be blank')
+                logger_setup.get_logger().debug(f'Error: {error}')
+                logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
             else:
                 logger_setup.get_logger().critical(f'Error: {error}')
-                self.errmsg.critical(self, 'Error', error, QtW.QMessageBox.StandardButton.Ok, QtW.QMessageBox.StandardButton.Ok)
+                logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
             rollback_savepoint('before_add')
 
-        logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
+        logger_setup.get_logger().info(f'Successfully inserted {name} into {self.table}')
         self.updated = True
+        self.ids_added.append(query.lastInsertId())
         self.model.setTable(self.table)
         self.model.select()
         self.newName_lineEdit.clear()
