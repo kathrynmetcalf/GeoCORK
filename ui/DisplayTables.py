@@ -304,6 +304,7 @@ class DisplayTables(QtW.QWidget):
                 # logger_setup.get_logger().info(f'Switching to frozen table view for {self.table}')
                 # self.switch_to_frozen_table()
                 self.show_cols = ', '.join(settings.value('sample_view_columns'))
+                # self.show_cols = 'SampleID, SampleName, "Accepted/TotalUPbAnalyses"'
                 table = 'SampleView'
                 self.edit_samples_pushButton.show()
                 # table_view = self.dbFrozen_tableView

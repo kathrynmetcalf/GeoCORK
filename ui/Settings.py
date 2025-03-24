@@ -73,7 +73,7 @@ def default_settings():
         'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
         'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName', 'RegionName',
         'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName',
-        'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalayses"',
+        'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
         'UPbReference', 'SampleCreated', 'SampleModified'
@@ -84,13 +84,13 @@ def default_settings():
         'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth', 'ColumnHeightDepthUnitAbbreviation',
         'SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName',
         'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
-        '"Accepted/TotalUPbAnalayses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
+        '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize',
         'RejectionReasonName', 'UPbReference', 'SampleCreated', 'SampleModified'
     ])
     settings.setValue('default_aliquot_view_columns', [
         'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
-        'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalayses"',
+        'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
         'UPbReference', 'AliquotCreated', 'AliquotModified'

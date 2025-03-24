@@ -51,7 +51,8 @@ def release_savepoint(savepoint_name: str):
     query = QtS.QSqlQuery()
     logger_setup.get_logger().info(f'Releasing savepoint {savepoint_name}')
     if not query.exec(f'RELEASE SAVEPOINT {savepoint_name}'):
-        logger_setup.get_logger().critical(f'Failed to release savepoint {savepoint_name}: {query.lastError().text()}')
+        logger_setup.get_logger().info(f'Savepoint {savepoint_name} already released')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         return
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.remove_savepoint(savepoint_name)

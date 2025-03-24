@@ -17,11 +17,13 @@ from Functions.Widget_classes import (
     set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, get_name_column, get_view_name_column, CheckableTreeModel, TreeModel,
     show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox,
-    CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks
+    CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks, save_expanded_state,
+    restore_expanded_state
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import settings
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_manager import update_database
 from ui.New_reference import NewReference
 from ui.AddTags import AddTags
@@ -34,6 +36,7 @@ class EditUPbTags(QtW.QDialog):
         super().__init__(parent=parent_window)
         logger_setup.get_logger().info("Starting the sample information dialog")
         start_init_time = time.time()
+        self.loading_manager = LoadingDialogManager.get_instance()
         self.parent_window = parent_window
         self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit U-Pb Information")
@@ -87,6 +90,8 @@ class EditUPbTags(QtW.QDialog):
         # self.increment_progress_dialog(self.init_progress_dialog)
         self.connect_signals()
 
+        self.loading_manager.close_loading_dialog("Loading", "Showing U-Pb analysis edit dialog")
+
     def populate_dropdowns(self):
         self.reference_comboBox.model_modifiable = True
         self.reference_comboBox.enable_context_menu(True)
@@ -136,6 +141,7 @@ class EditUPbTags(QtW.QDialog):
 
     def populate_fields(self):
         logger_setup.get_logger().info("Populating fields")
+        self.loading_manager.show_loading_dialog("Loading", "Populating fields")
         start_populate_fields_time = time.time()
 
         self.populate_upb_checks(self.reference_comboBox)
@@ -156,6 +162,8 @@ class EditUPbTags(QtW.QDialog):
         self.concordance_format_comboBox.set_single_click(True)
         self.populate_upb_checks(self.spot_size_unit_comboBox)
         self.spot_size_unit_comboBox.set_single_click(True)
+
+        self.loading_manager.close_loading_dialog("Loading", "Populating fields")
 
     def populate_upb_checks(self, combo: QtW.QComboBox):
         start_populate_upb_checks_time = time.time()
@@ -221,6 +229,7 @@ class EditUPbTags(QtW.QDialog):
             except AttributeError:
                 column = get_name_column(table)
         logger_setup.get_logger().info(f"update_subfield_id called with {table}")
+        self.loading_manager.show_loading_dialog("Updating", f"Updating {field}")
         start_update_sub_tags_time = time.time()
         # UPbAnalyses have only one value for each field, so only one value should be checked
         # If there are still partial checks, then nothing should be updated
@@ -236,9 +245,11 @@ class EditUPbTags(QtW.QDialog):
             query_where_string = f"= {self.upb_analysis_ids[0]}"
         if len(self.selected_sample_list) == 0 or len(self.upb_analysis_ids) == 0:
             logger_setup.get_logger().info("No analyses selected to update")
+            self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
             return
         elif len(checked_ids) > 1:
             logger_setup.get_logger().critical(f"More than one checked value for {field}")
+            self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
             return
         elif len(checked_ids) == 1:
             # Should only be one checked value
@@ -254,6 +265,7 @@ class EditUPbTags(QtW.QDialog):
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 rollback_savepoint('before_upb_update')
+                self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
                 return
             update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
             self.updated = True
@@ -275,6 +287,7 @@ class EditUPbTags(QtW.QDialog):
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 rollback_savepoint('before_upb_update')
+                self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
                 return
             update_modified_timestamp('UPbAnalyses', self.upb_analysis_ids)
             self.updated = True
@@ -283,9 +296,11 @@ class EditUPbTags(QtW.QDialog):
                 f"Updated {field} to Null for UPbAnalysisID {self.upb_analysis_ids} in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
             # logger_setup.get_logger().info(f"Updated {field} to Null for {len(self.upb_analysis_ids)} UPb Analyses")
             release_savepoint('before_upb_update')
+        self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
             
     def update_subfield(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
+        self.loading_manager.show_loading_dialog("Updating", f"Updating {field}")
         start_update_field_time = time.time()
         if text != "-":
             if len(self.upb_analysis_ids) > 0:
@@ -297,6 +312,7 @@ class EditUPbTags(QtW.QDialog):
                         logger_setup.get_logger().critical(f"Failed to select {field} for {len(self.upb_analysis_ids)} UPb Analyses")
                         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                        self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
                         return
                     query.next()
                     if query.value(0) != text:
@@ -308,6 +324,7 @@ class EditUPbTags(QtW.QDialog):
                             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                             rollback_savepoint('before_upb_update')
+                            self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
                             return
                         update_modified_timestamp('UPbAnalyses', [upb_analysis_id])
                 self.updated = True
@@ -318,6 +335,7 @@ class EditUPbTags(QtW.QDialog):
                 release_savepoint('before_upb_update')
             else:
                 logger_setup.get_logger().info("No samples selected")
+        self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
 
     def update_fields(self):
         try:
@@ -335,17 +353,27 @@ class EditUPbTags(QtW.QDialog):
             table = combo.model().table
         else:
             table = combo.model().tableName()
+        dlg = None
         if table in SQLUtils.user_viewable_trees:
-            view = combo.view()
-            dlg = AddTreeTags(table, action.text(), view)
-        elif table == '"References"' or table == 'References':
-            dlg = NewReference(self)
+            save_expanded_state(table, combo.model(), combo.view())
+            dlg_args = add_tree_popup(combo.view(), combo.model(), action)
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            if dlg_args:
+                dlg = AddTreeTags(self, table, **dlg_args)
+            else:
+                dlg = AddTreeTags(self, table)
         else:
-            dlg = AddTags(table)
-        if dlg is None:
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            dlg = AddTags(self, table)
+        if not dlg:
             return
-        dlg.exec()
-        self.update_fields()
+        logger_setup.get_logger().info(f"Showing {table} add dialog")
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
+            # Update this combo box
+            populate_combo_box(combo, **{'table': table})
+            if isinstance(combo, CheckableTreeCombobox):
+                restore_expanded_state(table, combo.model(), combo.view())
 
     def edit_popup(self, action: QtG.QAction | None = None):
         combo = self.sender()
@@ -354,13 +382,18 @@ class EditUPbTags(QtW.QDialog):
         else:
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:
-            dlg = EditTree(table)
+            dlg = EditTree(self, table)
         else:
-            dlg = EditTable(table)
+            dlg = EditTable(self, table)
         if dlg is None:
             return
-        dlg.exec()
-        self.update_fields()
+        logger_setup.get_logger().info(f"Showing {table} edit dialog")
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
+            # Update this combo box
+            populate_combo_box(combo, **{'table': table})
+            if isinstance(combo, CheckableTreeCombobox):
+                restore_expanded_state(table, combo.model(), combo.view())
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()
@@ -417,8 +450,6 @@ class EditUPbTags(QtW.QDialog):
 
     def commit(self):
         release_savepoint('before_upb_edit')
-        # Edit occurred in the dialog, so update the database
-        update_database()
         # save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         self.close_by_dialog = True
         self.close()

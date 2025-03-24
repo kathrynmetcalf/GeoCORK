@@ -5,15 +5,15 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 import Functions.SQLUtils as SQLUtils
 import logger_setup
-from Functions.SQLUtils import gps_column_join
 from Functions.Widget_classes import set_table, get_headers
 import time
 
 
 def SampleViewQuery():
     # Select columns
-
+# todo: fix upb accepted count, numbers are far too high
     sample_query = f'''
+            {SQLUtils.qupb_count_sample_subquery}
             SELECT
                     {SQLUtils.qsample_id},
                     {SQLUtils.qigsn},
@@ -73,6 +73,7 @@ def SampleViewQuery():
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
                 {SQLUtils.spot_upb_analysis_join}
+                {SQLUtils.upb_distinct_join}
                 {SQLUtils.upb_reference_join}
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
@@ -94,6 +95,7 @@ def SampleEditViewQuery():
     # Select columns
 
     sample_query = f'''
+            {SQLUtils.qupb_count_sample_subquery}
             SELECT
                     {SQLUtils.qsample_id},
                     {SQLUtils.qigsn},
@@ -162,6 +164,7 @@ def SampleEditViewQuery():
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
                 {SQLUtils.spot_upb_analysis_join}
+                {SQLUtils.upb_distinct_join}
                 {SQLUtils.upb_reference_join}
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
@@ -183,6 +186,7 @@ def SampleEditViewQuery():
 def AliquotViewQuery():
 
     aliquot_query = f'''
+                {SQLUtils.qupb_count_aliquot_subquery}
                 SELECT
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qaliquot_parent_id},
@@ -213,6 +217,7 @@ def AliquotViewQuery():
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
                 {SQLUtils.spot_upb_analysis_join}
+                {SQLUtils.upb_distinct_join}
                 {SQLUtils.upb_reference_join}
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
@@ -443,7 +448,7 @@ def ColumnViewQuery():
                     {SQLUtils.qcolumn_created},
                     {SQLUtils.qcolumn_modified}
                 FROM Columns
-                {gps_column_join}
+                {SQLUtils.gps_column_join}
                 GROUP BY Columns.ColumnID
                 '''
     return column_query

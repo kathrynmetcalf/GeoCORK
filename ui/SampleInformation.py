@@ -339,8 +339,10 @@ class SampleInformation(QtW.QDialog):
         self.populate_checks('Samples_Settings', self.setting_comboBox)
         self.populate_checks('Samples_AgeSignatures', self.age_signature_comboBox)
 
-        self.gps.update_list(self.checked_sample_list)
-        self.age.update_list(self.checked_sample_list)
+        if set(self.gps.item_ids) != set(self.checked_sample_list):
+            self.gps.update_list(self.checked_sample_list)
+        if set(self.age.sample_ids) != set(self.checked_sample_list):
+            self.age.update_list(self.checked_sample_list)
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         logger_setup.get_logger().info("Fields populated")
@@ -647,6 +649,7 @@ class SampleInformation(QtW.QDialog):
 
     def edit_upb_popup(self):
         logger_setup.get_logger().info("Edit U-Pb popup called")
+        self.loading_manager.show_loading_dialog("Loading", "Showing U-Pb analysis edit dialog")
         dlg = EditUPbTags(self, self.checked_sample_list)
         dlg.exec()
         if dlg.updated:

@@ -86,7 +86,33 @@ qspot_created = 'SpotCreated AS SpotCreated'
 qspot_modified = 'SpotModified AS SpotModified'
 
 # UPb view columns
-qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalayses"'  # accepted/total
+# qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalyses"'  # accepted/total
+qupb_count = 'DistinctUPbAnalyses.AcceptedTotalUPbAnalyses AS "Accepted/TotalUPbAnalyses"'
+qupb_count_sample_subquery = f'''
+WITH DistinctUPbAnalyses AS 
+(SELECT 
+Samples.SampleID,
+SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
+FROM Samples
+LEFT JOIN Aliquots ON Aliquots.SampleID = Samples.SampleID
+LEFT JOIN Spots ON Spots.AliquotID = Aliquots.AliquotID
+LEFT JOIN UPbAnalyses ON UPbAnalyses.SpotID = Spots.SpotID
+GROUP BY Samples.SampleID
+)
+'''
+qupb_count_aliquot_subquery = f'''
+WITH DistinctUPbAnalyses AS 
+(SELECT 
+Samples.SampleID,
+Aliquots.AliquotID,
+SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
+FROM Samples
+LEFT JOIN Aliquots ON Aliquots.SampleID = Samples.SampleID
+LEFT JOIN Spots ON Spots.AliquotID = Aliquots.AliquotID
+LEFT JOIN UPbAnalyses ON UPbAnalyses.SpotID = Spots.SpotID
+GROUP BY Aliquots.AliquotID
+)
+'''
 qupb_references = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay) AS UPbReference'
 qupb_lab_facilities = 'GROUP_CONCAT(DISTINCT LabFacilityName) AS LabFacilityName'
 qupb_instruments = 'GROUP_CONCAT(DISTINCT InstrumentName) AS InstrumentName'
@@ -307,6 +333,7 @@ upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats ON ConcordanceFormat
 upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON SpotSizeUnits.DistanceUnitID=UPbAnalyses.SpotSizeUnitID'
 upb_rejection_reason_join = '''LEFT JOIN UPbAnalyses_RejectionReasons ON UPbAnalyses.UPbAnalysisID=UPbAnalyses_RejectionReasons.UPbAnalysisID
                                     LEFT JOIN RejectionReasons AS UPbRejectionReasons ON UPbRejectionReasons.RejectionReasonID=UPbAnalyses_RejectionReasons.RejectionReasonID'''
+upb_distinct_join = '''LEFT JOIN DistinctUPbAnalyses ON DistinctUPbAnalyses.SampleID=Samples.SampleID'''
 
 # Information for settings
 

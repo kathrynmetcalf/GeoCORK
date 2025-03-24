@@ -171,7 +171,7 @@ class GeoCORK(QtW.QMainWindow):
         self.update_window_title()
         # If the active tab is a data table, refresh it
         if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':
-            self.tabWidget.widget(self.tabWidget.currentIndex()).display_tree()
+            self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
 
     def show_import_wizard_dialog(self):
         """
@@ -210,7 +210,7 @@ class GeoCORK(QtW.QMainWindow):
         """
         logger_setup.get_logger().debug(f'Tab changed to {self.tabWidget.tabText(index)}')
         if self.tabWidget.tabText(index) not in self.tabWidget.permanent_tabs:
-            self.tabWidget.widget(index).display_tree()
+            self.tabWidget.widget(index).display_table()
 
     def open_tab(self, parent_id: list[int], parent_type: str, child_type: str):
         """
