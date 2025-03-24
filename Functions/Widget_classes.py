@@ -1,4 +1,5 @@
 from idlelib import query
+import re
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
@@ -567,6 +568,31 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def mapFromSource(self, sourceIndex):
         return super().mapFromSource(sourceIndex)
 
+    def separate_parts(self, text):
+        parts = re.split(r'(\d+)', text)
+        if parts:
+            # return all sets of numbers and strings
+            return [int(part) if part.isdigit() else part for part in parts]
+        else:
+            return None
+
+    def compare_parts(self, left_parts, right_parts):
+        for left_part, right_part in zip(left_parts, right_parts):
+            if left_part != right_part:
+                return left_part < right_part
+        # If all compared parts are equal, return the shorter one
+        return len(left_parts) < len(right_parts)
+
+    def lessThan(self, left, right):
+        left_data = self.sourceModel().data(left)
+        right_data = self.sourceModel().data(right)
+        if isinstance(left_data, str) and isinstance(right_data, str):
+            left_parts = self.separate_parts(left_data)
+            right_parts = self.separate_parts(right_data)
+            return self.compare_parts(left_parts, right_parts)
+        else:
+            return super().lessThan(left, right)
+
 class CheckableSqlTableModel(DisplayRoundedModel):
     def __init__(self):
         super().__init__()
@@ -628,14 +654,14 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         self.checked_ids = []
         self.partially_checked_ids = []
 
-    def update_table(self, other_table: str, other_ids: list):
+    def update_other_table(self, other_table: str, other_ids: list):
         # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
         # want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
         # method is useful when editing joined views, like editing the SpotComposition in the SampleEditView.
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
-        if update_table_with_checks(self.tableName(), self.checked_ids, self.partially_checked_ids, other_table, other_ids):
+        if update_table_with_checks(self.table, self.checked_ids, self.partially_checked_ids, other_table, other_ids):
             return True
         else:
             return False
@@ -668,7 +694,10 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
             return False
         try:
             view = self.tableView()
-            col = get_view_name_column(view)
+            if view == '':
+                col = get_name_column(self.table)
+            else:
+                col = get_view_name_column(view)
         except AttributeError:
             col = get_name_column(self.tableName())
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
@@ -798,6 +827,8 @@ def set_table(model: QtS.QSqlTableModel, table: str):
 
 def get_headers(table: str):
     query = QtS.QSqlQuery()
+    if table == '"References"':
+        table = 'References'
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
         logger_setup.get_logger().error(f"Failed to get headers for {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
@@ -2406,6 +2437,11 @@ class FocusGroupBox(QGroupBox):
         self.edited = False
         self.installEventFilter(self)
         # self.install_children_event_filter()
+        self.reset_edited()
+
+    def reset_edited(self):
+        self.edited = False
+        self.connect_child_signals()
 
     def connect_child_signals(self):
         self.initial_values = []
@@ -2496,7 +2532,6 @@ class FocusGroupBox(QGroupBox):
             if self.edited:
                 logger_setup.get_logger().info(f'{self.objectName()} was edited and needs to be updated')
                 self.focusLost.emit()
-                self.edited = False
 
     def any_child_has_focus(self):
         for child in self.findChildren(QtW.QWidget):
@@ -3613,12 +3648,18 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         return False
     try:
         col = model.view_name_col
+        if col == '':
+            col = get_name_column(model.tableName())
     except AttributeError:
         col = get_name_column(model.tableName())
     for row in range(model.rowCount()):
         table_id = model.index(row, 0).data()
-        query_model.setQuery(
-            f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}")
+        if item_table == 'References':
+            query_model.setQuery(
+                f'SELECT {table_id_header}, {item_id_header} FROM "References" WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}')
+        else:
+            query_model.setQuery(
+                f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}")
         if query_model.lastError().isValid():
             logger_setup.get_logger().error(
                 f'Error getting {model.tableName()} checks for {model.tableName()}: {query_model.lastError().text()}')

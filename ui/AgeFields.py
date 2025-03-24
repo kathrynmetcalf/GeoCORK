@@ -297,7 +297,8 @@ class AgeFields(QtW.QWidget):
             query_where_str = f' WHERE SampleAgeID = {self.sample_ages[0]}'
         else:
             query_where_str = ''
-        sample_age_table = SQLiteTableModel(f'SELECT * FROM SampleAges{query_where_str}')
+        sample_age_table = QtS.QSqlQueryModel()
+        sample_age_table.setQuery(f'SELECT * FROM SampleAges{query_where_str}')
         if sample_age_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             reset_fields = True

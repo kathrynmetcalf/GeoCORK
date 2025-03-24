@@ -418,6 +418,10 @@ def check_gps_format_insert(pairs: list, format_id: int):
                 return 'Use only positive coordinates in NSEW format', 'GPSLatDeg'
             if '-' in new_londeg:
                 return 'Use only positive coordinates in NSEW format', 'GPSLonDeg'
+            if new_latdir in ('3','4'):
+                return 'Latitude direction must be N or S', 'GPSLatDirectionID'
+            if new_londir in ('1','2'):
+                return 'Longitude direction must be E or W', 'GPSLonDirectionID'
     if 'UTM' in gps_format_abbreviation:
         if new_latdeg != 'Null' or new_latmin != 'Null' or new_latsec != 'Null' or new_latdir != 'Null':
             return 'Degree coordinates given for UTM format. Coordinates should be entered in the format originally provided.', 'GPSLatDeg'
@@ -565,6 +569,10 @@ def check_gps_format_update(all_records: list, new_format_id: int):
                 return 'Use only positive coordinates in NSEW format', 'GPSLatDeg'
             if '-' in new_londeg or (new_londeg == '' and '-' in old_londegs):
                 return 'Use only positive coordinates in NSEW format', 'GPSLonDeg'
+            if new_latdir in ('3','4'):
+                return 'Latitude direction must be N or S', 'GPSLatDirectionID'
+            if new_londir in ('1','2'):
+                return 'Longitude direction must be E or W', 'GPSLonDirectionID'
     if 'UTM' in gps_format_abbreviation:
         if ((new_latdeg != 'Null' or (new_latdeg == '' and 'Null' not in old_latdegs)) or
                 (new_latmin != 'Null' or (new_latmin == '' and 'Null' not in old_latmins)) or

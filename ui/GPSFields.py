@@ -61,6 +61,7 @@ class GPSFields(QtW.QWidget):
         self.elevation_unit_model = QtS.QSqlTableModel()
 
         self.gps_location_ids = ""
+        self.lost_group_box = None
 
         self.populate_dropdowns()
         self.populate_fields()
@@ -78,20 +79,23 @@ class GPSFields(QtW.QWidget):
         set_table(self.gps_format_model, 'GPSFormats')
         set_table(self.gps_location_model, 'GPSLocations')
         set_table(self.direction_unit_model, 'DirectionUnits')
-        set_table(self.lat_direction_model, 'DirectionUnits')
-        self.lat_direction_model.setFilter('DirectionUnitAbbreviation = "N" OR DirectionUnitAbbreviation = "S"')
-        set_table(self.lon_direction_model, 'DirectionUnits')
-        self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
-        set_table(self.elevation_unit_model, 'DistanceUnits')
+        # set_table(self.lat_direction_model, 'DirectionUnits')
+        # set_table(self.lon_direction_model, 'DirectionUnits')
+        # set_table(self.elevation_unit_model, 'DistanceUnits')
 
         elevation_unit_abbreviation = settings.value('elevation_unit_abbreviation')
         gps_format_abbreviation = settings.value('gps_format_abbreviation')
 
         populate_combo_box(self.gps_format_comboBox, **{'table': 'GPSFormats', 'column': 'GPSFormatAbbreviation'})
-        self.gps_format_comboBox.setCurrentText(gps_format_abbreviation)
+        self.gps_format_comboBox.setCurrentIndex(-1)
         populate_combo_box(self.lat_comboBox, **{'table': 'DirectionUnits', 'column': 'DirectionUnitAbbreviation'})
+        self.lat_direction_model = self.lat_comboBox.model()
+        self.lat_direction_model.setFilter('DirectionUnitAbbreviation = "N" OR DirectionUnitAbbreviation = "S"')
         populate_combo_box(self.lon_comboBox, **{'table': 'DirectionUnits', 'column': 'DirectionUnitAbbreviation'})
+        self.lon_direction_model = self.lon_comboBox.model()
+        self.lon_direction_model.setFilter('DirectionUnitAbbreviation = "E" OR DirectionUnitAbbreviation = "W"')
         populate_combo_box(self.elevation_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
+        self.elevation_unit_model = self.elevation_unit_comboBox.model()
         self.elevation_unit_comboBox.setCurrentText(elevation_unit_abbreviation)
         end_populate_dropdowns_time = time.time()
         logger_setup.get_logger().info(f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
@@ -122,6 +126,7 @@ class GPSFields(QtW.QWidget):
 
     def focus_lost_delay(self):
         if self._isApplicationFocused:
+            self.lost_group_box = self.sender()
             self.focus_timer.start(100)
 
     def disconnect_text_signals(self):
@@ -144,14 +149,20 @@ class GPSFields(QtW.QWidget):
             query_where_str = f' WHERE {self.item_id_header} = {self.item_ids[0]}'
         else:
             query_where_str = ''
-        self.item_model = SQLiteTableModel(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}{query_where_str}')
+        self.item_model = QtS.QSqlQueryModel()
+        self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}{query_where_str}')
+        logger_setup.get_logger().info(f'Set {self.table} model query')
         if self.item_model.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             reset_fields = True
+            empty_gps = True
         if not reset_fields:
+            empty_gps = False
             gps_ids = []
             for row in range(self.item_model.rowCount()):
                 id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if id_value == '':
+                    empty_gps = True
                 if id_value and isinstance(id_value, int) and id_value not in gps_ids:
                     gps_ids.append(self.item_model.index(row, 0).data())
             if len(gps_ids) == 0:
@@ -166,24 +177,34 @@ class GPSFields(QtW.QWidget):
                 logger_setup.get_logger().info(f"Could not find GPS location with ID {gps_ids}, so reset fields")
                 reset_fields = True
         for header in column_names:
+            logger_setup.get_logger().info(f'Populating {header}')
             if reset_fields:
                 text = ""
             else:
                 values = []
                 for row in range(self.gps_location_model.rowCount()):
-                    values.append(self.gps_location_model.index(row, self.gps_location_model.record().indexOf(header)).data())
+                    data = self.gps_location_model.index(row, self.gps_location_model.record().indexOf(header)).data()
+                    if data:
+                        values.append(self.gps_location_model.index(row, self.gps_location_model.record().indexOf(header)).data())
+                    else:
+                        values.append("")
                 if len(set(values)) == 1 and not values[0]:
                     # If all values are the same and empty, text is an empty string
                     text = ""
-                elif len(set(values)) == 1 and values[0]:
-                    # If all values are the same and not empty, text is the value
+                elif len(set(values)) == 1 and values[0] and not empty_gps:
+                    # If all values are the same and not empty, and no items are missing GPS, text is the value
                     text = values[0]
+                elif empty_gps:
+                    # Some items have GPS with values and some don't, so text is "-"
+                    text = "-"
                 else:
-                    # If values are different, text is '-'
+                    # Values are all different, text is '-'
                     text = "-"
             if 'GPSLocationID' in header:
-                if text:
+                if text and text != "-":
                     self.gps_location_ids = text
+                else:
+                    self.gps_location_ids = ""
             elif 'LatDeg' in header:
                 if not text:
                     self.lat_deg_lineEdit.setText('')
@@ -204,12 +225,16 @@ class GPSFields(QtW.QWidget):
                     set_comboBox_text(self.lat_comboBox, '')
                 else:
                     # text is the ID, so we need to get the index in the model
-                    combo_index = self.lat_comboBox.currentIndex()
-                    for row in range(self.lat_direction_model.rowCount()):
-                        if self.lat_direction_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
-                            combo_index = row
-                            break
-                    self.lat_comboBox.setCurrentIndex(combo_index)
+                    # combo_index = self.lat_comboBox.currentIndex()
+                    # for row in range(self.lat_direction_model.rowCount()):
+                    #     if self.lat_direction_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                    #         combo_index = row
+                    #         break
+                    # self.lat_comboBox.setCurrentIndex(combo_index)
+                    if isinstance(text, int):
+                        self.lat_comboBox.setCurrentIndex(text-1)
+                    else:
+                        self.lat_comboBox.setCurrentText(text)
             elif 'LonDeg' in header:
                 if not text:
                     self.lon_deg_lineEdit.setText('')
@@ -230,12 +255,16 @@ class GPSFields(QtW.QWidget):
                     set_comboBox_text(self.lon_comboBox, '')
                 else:
                     # text is the ID, so we need to get the index in the model
-                    combo_index = self.lon_comboBox.currentIndex()
-                    for row in range(self.lon_direction_model.rowCount()):
-                        if self.lon_direction_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
-                            combo_index = row
-                            break
-                    self.lon_comboBox.setCurrentIndex(combo_index)
+                    # combo_index = self.lon_comboBox.currentIndex()
+                    # for row in range(self.lon_direction_model.rowCount()):
+                    #     if self.lon_direction_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                    #         combo_index = row
+                    #         break
+                    # self.lon_comboBox.setCurrentIndex(combo_index)
+                    if isinstance(text, int):
+                        self.lon_comboBox.setCurrentIndex(text-1)
+                    else:
+                        self.lon_comboBox.setCurrentText(text)
             elif 'UTMZone' in header:
                 if not text:
                     self.utm_zone_lineEdit.setText('')
@@ -261,12 +290,16 @@ class GPSFields(QtW.QWidget):
                     set_comboBox_text(self.elevation_unit_comboBox, settings.value('elevation_unit_abbreviation'))
                 else:
                     # text is the ID, so we need to get the index in the model
-                    combo_index = self.elevation_unit_comboBox.currentIndex()
-                    for row in range(self.elevation_unit_model.rowCount()):
-                        if self.elevation_unit_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
-                            combo_index = row
-                            break
-                    self.elevation_unit_comboBox.setCurrentIndex(combo_index)
+                    # combo_index = self.elevation_unit_comboBox.currentIndex()
+                    # for row in range(self.elevation_unit_model.rowCount()):
+                    #     if self.elevation_unit_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                    #         combo_index = row
+                    #         break
+                    # self.elevation_unit_comboBox.setCurrentIndex(combo_index)
+                    if isinstance(text, int):
+                        self.elevation_unit_comboBox.setCurrentIndex(text-1)
+                    else:
+                        self.elevation_unit_comboBox.setCurrentText(text)
             elif 'Elev' in header and 'Calculated' not in header:
                 if not text:
                     self.elevation_lineEdit.setText('')
@@ -274,15 +307,21 @@ class GPSFields(QtW.QWidget):
                     self.elevation_lineEdit.setText(f"{text}")
             elif 'GPSFormat' in header:
                 if not text:
-                    set_comboBox_text(self.gps_format_comboBox, settings.value('gps_format_abbreviation'))
+                    if self.gps_format_comboBox.currentIndex() == -1:
+                        # If nothing has been selected yet, set it to the default
+                        set_comboBox_text(self.gps_format_comboBox, settings.value('gps_format_abbreviation'))
                 else:
                     # text is the ID, so we need to get the index in the model
-                    combo_index = self.gps_format_comboBox.currentIndex()
-                    for row in range(self.gps_format_model.rowCount()):
-                        if self.gps_format_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
-                            combo_index = row
-                            break
-                    self.gps_format_comboBox.setCurrentIndex(combo_index)
+                    # combo_index = self.gps_format_comboBox.currentIndex()
+                    # for row in range(self.gps_format_model.rowCount()):
+                    #     if self.gps_format_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                    #         combo_index = row
+                    #         break
+                    # self.gps_format_comboBox.setCurrentIndex(combo_index)
+                    if isinstance(text, int):
+                        self.gps_format_comboBox.setCurrentIndex(text-1)
+                    else:
+                        self.gps_format_comboBox.setCurrentText(text)
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated GPS fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         self.display_gps()
@@ -345,6 +384,9 @@ class GPSFields(QtW.QWidget):
                 self.lon_comboBox.show()
 
     def update_gps(self):
+        if not self.lost_group_box.edited:
+            logger_setup.get_logger().info(f"GPS fields not edited")
+            return
         logger_setup.get_logger().info('Update_gps called. Collecting input values.')
         if len(self.item_ids) > 0:
             create_savepoint('before_update')
@@ -432,9 +474,9 @@ class GPSFields(QtW.QWidget):
                 elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
 
             if len(self.item_ids) > 1:
-                self.item_model = SQLiteTableModel(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}")
+                self.item_model.setQuery(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}")
             elif len(self.item_ids) == 1:
-                self.item_model = SQLiteTableModel(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}")
+                self.item_model.setQuery(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}")
             gps_ids = []
             for row in range(self.item_model.rowCount()):
                 id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -552,6 +594,8 @@ class GPSFields(QtW.QWidget):
             self.updated = True
             logger_setup.get_logger().info('Update_gps finished')
             release_savepoint('before_update')
+            self.lost_group_box.reset_edited()
+            self.lost_group_box = None
             return True
 
     def clear_fields(self):
@@ -567,7 +611,7 @@ class GPSFields(QtW.QWidget):
         self.utm_e_lineEdit.clear()
         self.elevation_lineEdit.clear()
         self.elevation_error_lineEdit.clear()
-        self.gps_format_comboBox.setCurrentIndex(-1)
+        # self.gps_format_comboBox.setCurrentIndex(-1)
         self.lat_comboBox.setCurrentIndex(-1)
         self.lon_comboBox.setCurrentIndex(-1)
         self.elevation_unit_comboBox.setCurrentIndex(-1)

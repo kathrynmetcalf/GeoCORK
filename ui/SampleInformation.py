@@ -76,6 +76,7 @@ class SampleInformation(QtW.QDialog):
         self.commit_pushButton.setAutoDefault(False)
         self.cancel_pushButton.setAutoDefault(False)
         self.updated = False
+        self.commit_timer = None
 
         # Sample information models
         self.samples_table = None
@@ -160,11 +161,13 @@ class SampleInformation(QtW.QDialog):
         self.update_fields()
 
     def update_fields(self):
+        self.loading_manager.show_loading_dialog('Updating','Updating fields...')
         logger_setup.get_logger().info("Updating fields")
         self.disconnect_text_signals()
         self.populate_fields()
         self.connect_signals()
         logger_setup.get_logger().info("Fields updated")
+        self.loading_manager.close_loading_dialog('Updating', 'Updating fields...')
 
     def populate_dropdowns(self):
         start_populate_dropdown_time = time.time()
@@ -602,14 +605,17 @@ class SampleInformation(QtW.QDialog):
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.model(), combo.view())
             dlg_args = add_tree_popup(combo.view(), combo.model(), action)
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
             if dlg_args:
                 dlg = AddTreeTags(self, table, **dlg_args)
+            else:
+                dlg = AddTreeTags(self, table)
         else:
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = AddTags(self, table)
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
-        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Update this combo box
@@ -714,7 +720,8 @@ class SampleInformation(QtW.QDialog):
                 self.close_by_dialog = False
 
         # Let all the focus shifts occur before asking the question
-        QtC.QTimer.singleShot(100, after_timer)
+        if not self.commit_timer:
+            self.commit_timer = QtC.QTimer.singleShot(100, after_timer)
 
     def commit(self):
         release_savepoint('before_edit_samples')

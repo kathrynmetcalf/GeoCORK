@@ -31,7 +31,8 @@ from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (
     get_selected_tree_ids, CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
-    CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers)
+    CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers,
+    CheckableSqlQueryModel, get_view_name_column)
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.AddTags import AddTags
@@ -310,9 +311,10 @@ class ImportWizardDialog(QWidget):
         self.combo_reference_comboBox.setFixedWidth(150)
         self.combo_reference_comboBox.set_single_click(True)
 
-        self.combo_reference = CheckableSqlTableModel()
-        self.combo_reference = set_table(self.combo_reference, 'References')
+        self.combo_reference = CheckableSqlQueryModel()
+        self.combo_reference.setQuery(f'SELECT * FROM ReferenceView')
         self.combo_reference_comboBox.setModel(self.combo_reference)
+        self.combo_reference_comboBox.setModelColumn(get_view_name_column('ReferenceView'))
         self.combo_reference_comboBox.closing.connect(
             lambda: self.set_all_rows("Reference Display", self.combo_reference))
         combo_box_layout.addWidget(QLabel("Reference"))
@@ -518,7 +520,7 @@ class ImportWizardDialog(QWidget):
         self.left_table.cellChanged.connect(self.handle_cell_change)
         self.right_table.cellChanged.connect(self.handle_cell_change)
 
-        self.right_table.cellClicked.connect(self.on_cell_clicked)
+        self.right_table.cellDoubleClicked.connect(self.on_cell_clicked)
 
         # self.right_table.cellClicked.connect(self.handle_cell_click)
 
@@ -1504,14 +1506,23 @@ class ImportWizardDialog(QWidget):
         """
         # todo analysis method not checking
         try:
-            if isinstance(model.tableName, str):
-                table = model.tableName
-            else:
-                table = model.tableName()
-            name_column = get_name_column(table)
+            if isinstance(model.view, str):
+                if model.view == '':
+                    table = model.tableName()
+                    name_column = get_name_column(table)
+                else:
+                    table = model.view
+                    name_column = get_view_name_column(table)
         except AttributeError:
-            table = model.table # for trees
-            name_column = 0 # for trees
+            try:
+                if isinstance(model.tableName, str):
+                    table = model.tableName
+                else:
+                    table = model.tableName()
+                name_column = get_name_column(table)
+            except AttributeError:
+                table = model.table # for trees
+                name_column = 0 # for trees
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None

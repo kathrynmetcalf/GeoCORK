@@ -695,7 +695,7 @@ class EditView(QtW.QDialog):
                 else:
                     if isinstance(self.combo_model,
                                   CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
-                        if not combo.model().update_table(edit_table, edit_ids):
+                        if not combo.model().update_other_table(edit_table, edit_ids):
                             logger_setup.get_logger().critical(f'Failed to update {edit_table}')
                             self.destroy_dropdown()
                             return False
@@ -798,7 +798,7 @@ class EditView(QtW.QDialog):
                         # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
                         if self.table == 'Samples':
                             # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
-                            aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(selected_ids)
+                            aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(selected_ids, self.table)
                             if table == 'Aliquots':
                                 item_ids = aliquot_ids
                             elif table == 'Spots':

@@ -334,8 +334,7 @@ many_editable = {
 one_editable = {
     'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges',
                 'ColumnName': 'Columns',
-                'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots',
-                'UPbReference': 'References'},
+                'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots'},
     'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits', 'ColumnBaseGPSDisplay': 'GPSLocations'},
     'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
     'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
