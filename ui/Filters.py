@@ -75,114 +75,124 @@ def extract_table_name(field):
 
 
 def process_group(group):
-    """
-    Recursively process a group of conditions and subgroups to create a SQL WHERE clause.
-    """
-    if not group.get('conditions') and not group.get('subgroups'):
-        return ''
+    condition_strings, ctes = _process_group_inner(group)
+    return ' AND '.join(condition_strings), ctes
 
-    # Process conditions in the current group
+# Developer-specified recursive targets
+RECURSIVE_TABLES = {
+    'Regions.RegionName': {
+        'id_column': 'RegionID',
+        'name_column': 'RegionName',
+        'parent_column': 'ParentRegionID',
+        'cte_name': 'RecursiveRegions'
+    },
+    'RockTypes.RockTypeName': {
+        'id_column': 'RockTypeID',
+        'name_column': 'RockTypeName',
+        'parent_column': 'ParentRockTypeID',
+        'cte_name': 'RecursiveRockTypes'
+    }
+}
+
+
+def _process_group_inner(group):
     condition_strings = []
+    ctes = []
+
     for condition in group.get('conditions', []):
-        field, operator, value, unit, datatype = condition['field'].replace(' ', ''), condition['operator'], condition['value'], condition['unit'], condition['datatype']
-        if unit == 'None':
-            pass
-        elif unit == 'Ga':
-            value = f"{float(value) * 1000000000}"
+        field_key = condition['field'].replace(' ', '')
+        value = condition['value']
+        operator = condition['operator'].lower()
+        datatype = condition['datatype']
+        unit = condition['unit']
+
+        if unit == 'Ga':
+            value = f"{float(value) * 1_000_000_000}"
         elif unit == 'Ma':
-            value = f"{float(value) * 1000000}"
+            value = f"{float(value) * 1_000_000}"
         elif unit == 'ka':
-            value = f"{float(value) * 1000}"
-        else:
+            value = f"{float(value) * 1_000}"
+        elif unit != 'None':
             raise ValueError(f"Unknown unit: {unit}")
 
-        if operator.lower() == "is" or operator.lower() == "is on":
-            operator = "="
-            if datatype == 'number':
-                condition_string = f"{field} {operator} {value}"
-            else:
-                condition_string = f"{field} {operator} '{value}'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "is not" or operator.lower() == "is not on":
-            operator = "!="
-            if datatype == 'number':
-                condition_string = f"{field} {operator} {value}"
-            else:
-                condition_string = f"{field} {operator} '{value}'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "is greater than" or operator.lower() == "is after":
-            operator = ">"
-            if datatype == 'number':
-                condition_string = f"{field} {operator} {value}"
-            else:
-                condition_string = f"{field} {operator} '{value}'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "is less than" or operator.lower() == "is before":
-            operator = "<"
-            if datatype == 'number':
-                condition_string = f"{field} {operator} {value}"
-            else:
-                condition_string = f"{field} {operator} '{value}'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "is blank":
-            operator = "IS NULL"
-            condition_string = f"{field} {operator}"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "is not blank":
-            operator = "NOT NULL"
-            condition_string = f"{field} {operator}"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "contains":
-            operator = "LIKE"
-            condition_string = f"{field} {operator} '%{value}%'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "does not contain":
-            operator = "NOT LIKE"
-            condition_string = f"{field} {operator} '%{value}%'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "starts with":
-            operator = "LIKE"
-            condition_string = f"{field} {operator} '{value}%'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "ends with":
-            operator = "LIKE"
-            condition_string = f"{field} {operator} '%{value}'"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "is between":
-            operator = "BETWEEN"
-            value1, value2 = value.split(',')
-            if datatype != 'number':
-                condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
-            else:
-                condition_string = f"{field} {operator} {value1} AND {value2}"
-            condition_strings.append(condition_string)
-        elif operator.lower() == "is not between":
-            operator = "NOT BETWEEN"
-            value1, value2 = value.split(',')
-            if datatype != 'number':
-                condition_string = f"{field} {operator} '{value1}' AND '{value2}'"
-            else:
-                condition_string = f"{field} {operator} {value1} AND {value2}"
-            condition_strings.append(condition_string)
+        # If this field requires recursion
+        if field_key in RECURSIVE_TABLES and operator in ['is', 'is on', '=']:
+            meta = RECURSIVE_TABLES[field_key]
+            cte = f"""
+            {meta['cte_name']} AS (
+                SELECT {meta['id_column']}, {meta['name_column']}
+                FROM {field_key.split('.')[0]}
+                WHERE {meta['name_column']} = '{value}'
+                UNION ALL
+                SELECT t.{meta['id_column']}, t.{meta['name_column']}
+                FROM {field_key.split('.')[0]} t
+                INNER JOIN {meta['cte_name']} r ON t.{meta['parent_column']} = r.{meta['id_column']}
+            )
+            """
+            condition_strings.append(
+                f"{meta['id_column']} IN (SELECT {meta['id_column']} FROM {meta['cte_name']})"
+            )
+            ctes.append(cte.strip())
         else:
-            condition_string = f"{field} {operator} '{value}'"
-            condition_strings.append(condition_string)
+            # Normal condition
+            if operator in ['is', 'is on']:
+                operator = '='
+            elif operator in ['is not', 'is not on']:
+                operator = '!='
+            elif operator in ['is greater than', 'is after']:
+                operator = '>'
+            elif operator in ['is less than', 'is before']:
+                operator = '<'
+            elif operator == 'is blank':
+                condition_strings.append(f"{field_key} IS NULL")
+                continue
+            elif operator == 'is not blank':
+                condition_strings.append(f"{field_key} IS NOT NULL")
+                continue
+            elif operator == 'contains':
+                condition_strings.append(f"{field_key} LIKE '%{value}%'")
+                continue
+            elif operator == 'does not contain':
+                condition_strings.append(f"{field_key} NOT LIKE '%{value}%'")
+                continue
+            elif operator == 'starts with':
+                condition_strings.append(f"{field_key} LIKE '{value}%'")
+                continue
+            elif operator == 'ends with':
+                condition_strings.append(f"{field_key} LIKE '%{value}'")
+                continue
+            elif operator == 'is between':
+                value1, value2 = value.split(',')
+                condition_strings.append(
+                    f"{field_key} BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
+                    else f"{field_key} BETWEEN '{value1}' AND '{value2}'"
+                )
+                continue
+            elif operator == 'is not between':
+                value1, value2 = value.split(',')
+                condition_strings.append(
+                    f"{field_key} NOT BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
+                    else f"{field_key} NOT BETWEEN '{value1}' AND '{value2}'"
+                )
+                continue
 
-    # Process subgroups recursively
+            # Regular condition
+            condition = f"{field_key} {operator} {value}" if datatype == 'number' else f"{field_key} {operator} '{value}'"
+            condition_strings.append(condition)
+
     for subgroup in group.get('subgroups', []):
-        subgroup_string = process_group(subgroup)
-        if subgroup_string:
-            condition_strings.append(subgroup_string)
+        sub_conditions, sub_ctes = _process_group_inner(subgroup)
+        if sub_conditions:
+            logic = group['type'].lower()
+            if logic == "match all":
+                condition_strings.append(f"({' AND '.join(sub_conditions)})")
+            elif logic == "match any":
+                condition_strings.append(f"({' OR '.join(sub_conditions)})")
+            elif logic == "match none":
+                condition_strings.append(f"NOT ({' AND '.join(sub_conditions)})")
+        ctes.extend(sub_ctes)
 
-    # Combine conditions with the appropriate logical operator
-    if group['type'].lower() == "match all":
-        return f"({' AND '.join(condition_strings)})"
-    elif group['type'].lower() == "match any":
-        return f"({' OR '.join(condition_strings)})"
-    elif group['type'].lower() == "match none":
-        return f"NOT ({' AND '.join(condition_strings)})"
-    else:
-        raise ValueError(f"Unknown group type: {group['type']}")
+    return condition_strings, ctes
 
 
 def process_selects(group):
@@ -207,48 +217,48 @@ def process_selects(group):
     return fields
 
 
-def parse_sql_to_structure(sql):
-    """
-    (Demonstration) Parses a SQL WHERE clause into a structured format.
-    """
-    import re
-
-    sql = sql.strip()
-
-    def parse_expression(expression):
-        expression = expression.strip()
-        if '(' in expression:
-            depth, start = 0, None
-            for i, char in enumerate(expression):
-                if char == '(':
-                    if depth == 0:
-                        start = i
-                    depth += 1
-                elif char == ')':
-                    depth -= 1
-                    if depth == 0:
-                        subgroup = parse_expression(expression[start + 1:i])
-                        return [subgroup] + parse_expression(expression[i + 1:])
-        return [parse_conditions(expression)]
-
-    def parse_conditions(conditions):
-        conditions = re.split(r'\s(AND|OR)\s', conditions)
-        structured_conditions = []
-        operator = None
-        for condition in conditions:
-            if condition.upper() in ['AND', 'OR']:
-                operator = condition
-            else:
-                parts = condition.split()
-                if len(parts) >= 3:
-                    field = parts[0]
-                    op = parts[1]
-                    value = ' '.join(parts[2:]).strip("'")
-                    structured_conditions.append({'field': field, 'operator': op, 'value': value, 'logic': operator})
-                    operator = None
-        return structured_conditions
-
-    return parse_expression(sql)
+# def parse_sql_to_structure(sql):
+#     """
+#     (Demonstration) Parses a SQL WHERE clause into a structured format.
+#     """
+#     import re
+#
+#     sql = sql.strip()
+#
+#     def parse_expression(expression):
+#         expression = expression.strip()
+#         if '(' in expression:
+#             depth, start = 0, None
+#             for i, char in enumerate(expression):
+#                 if char == '(':
+#                     if depth == 0:
+#                         start = i
+#                     depth += 1
+#                 elif char == ')':
+#                     depth -= 1
+#                     if depth == 0:
+#                         subgroup = parse_expression(expression[start + 1:i])
+#                         return [subgroup] + parse_expression(expression[i + 1:])
+#         return [parse_conditions(expression)]
+#
+#     def parse_conditions(conditions):
+#         conditions = re.split(r'\s(AND|OR)\s', conditions)
+#         structured_conditions = []
+#         operator = None
+#         for condition in conditions:
+#             if condition.upper() in ['AND', 'OR']:
+#                 operator = condition
+#             else:
+#                 parts = condition.split()
+#                 if len(parts) >= 3:
+#                     field = parts[0]
+#                     op = parts[1]
+#                     value = ' '.join(parts[2:]).strip("'")
+#                     structured_conditions.append({'field': field, 'operator': op, 'value': value, 'logic': operator})
+#                     operator = None
+#         return structured_conditions
+#
+#     return parse_expression(sql)
 
 class Filters(QWidget):
     def __init__(self, parent=None):
@@ -989,11 +999,15 @@ class QueryBuilder(QWidget):
 
     def get_sql(self, type=None):
         structure = self.main_group_box.get_structure()
-        where_clause = process_group(structure)
+        where_clause, cte_list = process_group(my_group)
+        full_sql = ""
+
+        if cte_list:
+            full_sql += "WITH " + ",\n".join(cte_list) + "\n"
+
+
+
         join = SQLUtils.get_join_from_table("", self.main_group_box.get_tables())
-        logger_setup.get_logger().debug(f'Filtered SQL structure: {structure}')
-        logger_setup.get_logger().debug(f'Filtered SQL where_clause: {where_clause}')
-        logger_setup.get_logger().debug(f'Filtered SQL join: {join}')
         selects = self.main_group_box.get_selects()
 
         def extract_as_tables(join):
@@ -1021,12 +1035,12 @@ class QueryBuilder(QWidget):
                     where_clause = where_clause.replace(replace_table, as_table)
 
         if type == 'Samples':
-            sql_query = (
-                f"SELECT DISTINCT SampleID FROM ("
-                f"SELECT Samples.SampleID, {selects} "
-                f"FROM Samples {join} "
-                f"WHERE {where_clause});"
-            )
+            sql_query = full_sql + f"""
+            SELECT DISTINCT SampleID
+            FROM Samples
+            {join}
+            WHERE {where_clause}
+            """
         elif type == 'Aliquots':
             join = SQLUtils.get_join_from_table(join, ['Aliquots'])
             sql_query = (
