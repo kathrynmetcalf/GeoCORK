@@ -39,7 +39,6 @@ class SetSelectedValues(QtW.QDialog):
         self.setWindowTitle('Set selected values')
         self.setModal(True)
         self.close_by_dialog = False
-        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         # self.setMinimumSize(600, 200)
 
         self.widget = widget

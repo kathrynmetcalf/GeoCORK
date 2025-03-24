@@ -30,7 +30,6 @@ class EditTree(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "EditTree.ui")
         loadUi(sources_ui_file, self)
         self.setModal(True)
-        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.updated = False
 
         self.table_name = table_name

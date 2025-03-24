@@ -46,7 +46,6 @@ class SampleInformation(QtW.QDialog):
         self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit Sample Information")
         self.setModal(True)
-        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)

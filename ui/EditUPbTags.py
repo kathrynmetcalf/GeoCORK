@@ -42,7 +42,6 @@ class EditUPbTags(QtW.QDialog):
         self.setWindowTitle("Edit U-Pb Information")
         self.setModal(True)
         # self.loadWindowState()
-        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.updated = False
         self.close_by_dialog = False
 

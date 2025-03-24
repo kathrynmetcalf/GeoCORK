@@ -28,7 +28,6 @@ class AgeDialog(QtW.QDialog):
         self.close_by_dialog = False
         self.setModal(True)
         self.setWindowTitle('Edit Age')
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
 
         self.msg_box = QtW.QMessageBox()
         self.msg_box.setIcon(QtW.QMessageBox.Icon.Question)

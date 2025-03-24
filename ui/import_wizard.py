@@ -156,7 +156,6 @@ class LoadMappingDialog(QDialog):
         self.selected_name = ''
         self.list_model = QStringListModel()
         self.setModal(True)
-        self.setWindowFlags(self.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowTitle("Load Mapping")
         self.layout = QVBoxLayout(self)
         self.list_view = QListView()

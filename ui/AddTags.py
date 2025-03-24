@@ -26,7 +26,6 @@ class AddTags(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "AddTags.ui")
         loadUi(sources_ui_file, self)
         self.setModal(True)
-        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.setWindowTitle(f'Add tags to {TxM.add_spaces_camel(table)}')
         self.updated = False
         self.ids_added = []

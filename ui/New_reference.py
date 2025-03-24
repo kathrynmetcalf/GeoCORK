@@ -24,7 +24,6 @@ class NewReference(QtW.QDialog):
         loadUi(sources_ui_file, self)
         self.setWindowTitle('Add Reference')
         self.setModal(True)
-        self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.updated = False
         self.ids_added = []
 
