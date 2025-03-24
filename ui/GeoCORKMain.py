@@ -269,13 +269,20 @@ class GeoCORK(QtW.QMainWindow):
         #     TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
         self.saveWindowState()
         # print(f"Closing with active savepoints: {self.savepoint_manager.active_savepoints()}")
-        self.savepoint_manager.reset()
-        if self.db.isOpen():
+        # self.savepoint_manager.reset()
+        logger_setup.get_logger().info(f"Current databases open {QSqlDatabase().connectionNames()}")
+        if 'qt_sql_default_connection' in QSqlDatabase().connectionNames():
             if not self.db.commit():
-                if 'no transaction is active' not in self.db.lastError().text():
+                if 'transaction is active' in self.db.lastError().text():
                     logger_setup.get_logger().critical(
                         f'Database is open but a transaction is active: {self.db.lastError().text()}')
+                else:
+                    if "Driver not loaded" not in self.db.lastError().text():
+                        logger_setup.get_logger().critical(f'Database error: {self.db.lastError().text()}')
             self.db.close()
-        logger_setup.get_logger().info(f"{self.db_file} closed")
+            self.db.removeDatabase('qt_sql_default_connection')
+            logger_setup.get_logger().info(f"Current databases open {QSqlDatabase().connectionNames()}")
+        else:
+            logger_setup.get_logger().info('Database not open')
         self.landingpage.show()
         super().closeEvent(event)

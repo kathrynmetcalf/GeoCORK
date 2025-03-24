@@ -22,7 +22,7 @@ import logger_setup
 from ui.DisplayTables import DisplayTables
 from ui.DisplayTablesSimplified import DisplayTablesSimplified
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
-from Functions import ExportDatabase
+from Functions import ExportDatabase, Settings_manager
 from Functions import FilterDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
@@ -90,17 +90,18 @@ class ExportWidget(QWidget):
         self.groupedfilter_comboBox.setModel(self.groupedfilter_model)
 
         # Fix for updating the filter list when the filter model is updated
-        self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
+        # self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
         self.filterselection_comboBox.closing.connect(
             lambda: self.update_checked_list(self.filter_model, 'FilterGroups'))
 
-        self.groupedfilter_model.dataChanged.connect(lambda: self.update_groupedfilter_list(self.groupedfilter_model))
+        # self.groupedfilter_model.dataChanged.connect(lambda: self.update_groupedfilter_list(self.groupedfilter_model))
         self.groupedfilter_comboBox.closing.connect(
             lambda: self.update_checked_list(self.groupedfilter_model, 'GroupedFilterGroups'))
 
+        self.export_format()
         self.update_step_2_list()
         self.populate_stack()
-        self.export_format()
+
 
         self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
         self.edit_columnnames_pushButton.clicked.connect(self.open_columnname_mapping_dialog)
@@ -138,6 +139,7 @@ class ExportWidget(QWidget):
                 case 'GroupedFilterGroups':
                     self.groupedfilter_comboBox.set_line_edit_text(', '.join(items))
 
+        self.update_sample_list(table_model)
 
     def showEvent(self, a0):
         super().showEvent(a0)
@@ -420,6 +422,15 @@ class ExportWidget(QWidget):
             widget.deleteLater()
 
         for table_name, field_items in SQLUtils.table_attributes_dict.items():
+            if table_name == "GPSLocations":
+                print(Settings_manager.settings.value('gps_format_id'))
+                if Settings_manager.settings.value('gps_format_id', 1) == 7: # UTM Selected
+                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedZone', 'CalculatedEasting',
+                                   'CalculatedNorthing', 'CalculatedGPSElev', 'CalculatedGPSElevError']
+                else:
+                    field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedLat', 'CalculatedLon',
+                                   'CalculatedGPSElev', 'CalculatedGPSElevError']
+
             # Create container widget with QVBoxLayout
             container_widget = QWidget()
             # container_widget.setFixedSize(450, 500)
@@ -577,6 +588,7 @@ class ExportWidget(QWidget):
 
     def update_table_view(self, order_changed=False, worksheet_name=None):
         # Get the current workbook
+        logger_setup.get_logger().info('Updating table view with new parameters')
         if worksheet_name is None:
             current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         else:
@@ -599,7 +611,7 @@ class ExportWidget(QWidget):
             if selected_columns != ordered_columns:
                 self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns'] = selected_columns
         # prevents necessary compute time
-        if not ordered_columns:
+        if not self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
             # No columns selected, clear the table view
             tableView.setModel(None)
             return
@@ -610,7 +622,7 @@ class ExportWidget(QWidget):
         tables.add('UPbAnalyses')
         columns_str = ''
         #creates column select string in format [SampleID], [CalculatedU/Th], etc...
-        for table, field in ordered_columns:
+        for table, field in self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
             tables.add(table)
             if field in self.column_name_mappings:
                 columns_str += f"[{field}] AS '{self.column_name_mappings[field]}', "
@@ -1256,25 +1268,25 @@ class ExportWidget(QWidget):
         self.filters_label.setToolTip("Additional filters to filter the samples, multiple filters union their sets together.")
         if self.selectionscope_comboBox.currentText() == 'Samples':
             self.samplesincluded_comboBox.setModel(self.samples_model)
-            self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.samples_model))
-            self.samples_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
+            # self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.samples_model))
+            # self.samples_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.samples_model, 'Samples'))
-            self.update_checked_list(self.samples_model, 'Samples')
+            # self.update_checked_list(self.samples_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Aliquots':
             self.samplesincluded_comboBox.setModel(self.aliquots_model)
-            self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.aliquots_model))
-            self.aliquots_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
+            # self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.aliquots_model))
+            # self.aliquots_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.aliquots_model, 'Samples'))
-            self.update_checked_list(self.aliquots_model, 'Samples')
+            # self.update_checked_list(self.aliquots_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Spots':
             self.samplesincluded_comboBox.setModel(self.spots_model)
-            self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.spots_model))
-            self.spots_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
+            # self.updatetimer.timeout.connect(lambda: self.update_sample_list(self.spots_model))
+            # self.spots_model.dataChanged.connect(lambda: self.updatetimer.start(2000))
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.spots_model, 'Samples'))
-            self.update_checked_list(self.spots_model, 'Samples')
+            # self.update_checked_list(self.spots_model, 'Samples')
         elif self.selectionscope_comboBox.currentText() == 'Filter Groups':
             self.step_2_label.hide()
             self.samplesincluded_comboBox.hide()
@@ -1291,6 +1303,7 @@ class ExportWidget(QWidget):
             self.filters_label.setText("Select Filters:")
             self.filters_label.setToolTip("")
 
+        self.update_checked_list(self.samples_model, 'Samples')
         self.update_checked_list(self.filter_model, 'FilterGroups')
         self.update_checked_list(self.groupedfilter_model, 'GroupedFilterGroups')
 
