@@ -19,7 +19,7 @@ from Functions.Widget_classes import (
     CheckableSqlTableModel, get_name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
     CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
-    DisplayRoundedQueryModel, populate_combo_box
+    DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -560,7 +560,7 @@ class SampleInformation(QtW.QDialog):
             logger_setup.get_logger().info("No samples selected")
 
     def update_sample_tags(self, combo: CheckableTreeCombobox):
-        logger_setup.get_logger().info(f"update_age_tags called with {combo.objectName()}")
+        logger_setup.get_logger().info(f"update_sample_tags called with {combo.objectName()}")
         if not isinstance(combo, CheckableTreeCombobox):
             logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox")
             return False
@@ -592,9 +592,10 @@ class SampleInformation(QtW.QDialog):
                 return
             self.updated = True
             combo.treeView.toggle_edited(False)
+            populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
             end_update_sample_tags_time = time.time()
             logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
-            logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
+            # logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):

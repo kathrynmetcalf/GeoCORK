@@ -11,7 +11,6 @@ import time
 
 def SampleViewQuery():
     # Select columns
-# todo: fix upb accepted count, numbers are far too high
     sample_query = f'''
             {SQLUtils.qupb_count_sample_subquery}
             SELECT

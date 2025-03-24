@@ -4054,6 +4054,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
             logger_setup.get_logger().error(
                 f"Error removing {id} associated with item IDs from {many_table}")
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.executedQuery()}")
             rollback_savepoint('update_many_table')
             return False
     logger_setup.get_logger().info(f"Removed {to_remove} associated with item IDs {first_table_ids} from {many_table}")

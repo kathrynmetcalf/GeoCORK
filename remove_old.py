@@ -69,7 +69,6 @@ def remove_old(db_file):
 
     for old_table, table_dict in edit_dict.items():
         for table, create_sql in table_dict.items():
-            # todo: implement swapping out the _old table references
             virtual, stored, columns = get_columns(table)
             # Create a new table with the same original columns as the old one
             print(f'Creating table: {table}_new')

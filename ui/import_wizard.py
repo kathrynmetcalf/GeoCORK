@@ -1956,7 +1956,6 @@ class ImportWizardDialog(QWidget):
 
         self.right_table.resizeColumnsToContents()
 
-    # todo: allow deleting mappings or changing name
     def edit_mapping(self, name):
         ok, new_name = QInputDialog.getText(self, "Edit Mapping", "Enter new name for this mapping:")
 
@@ -2338,7 +2337,6 @@ class ImportWizardDialog(QWidget):
 
                 # Finally insert the row
                 insert_query = QSqlQuery()
-# todo: figure out why LabFacilityID is getting reset to ''
                 if not insert_query.prepare(insert_sql):
                     logger_setup.get_logger().error(f"Failed to prepare data for spot {record['Spot Name']}")
                     logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")

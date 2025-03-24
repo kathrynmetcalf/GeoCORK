@@ -11,8 +11,6 @@ import logger_setup
 from Functions.Settings_manager import settings
 from ui.SelectColumns import SelectColumns
 
-# todo: add a list of dbs so most recent is at top
-# todo: add a list of recent mappings so most recent is at top
 settings_list = [
     'default_settings', 'age_unit_id', 'age_unit_abbreviation', 'elevation_unit_id', 'elevation_unit_abbreviation', 'gps_format_id',
     'gps_format_abbreviation', 'heightdepth_unit_id', 'heightdepth_unit_abbreviation', 'spotsize_unit_id',
@@ -189,7 +187,6 @@ def reset_to_default_settings():
 
 def check_missing_settings():
     # Check if any of the settings are missing, if so, set them to the default
-    # todo: reduce logging to only errors
     for setting in settings_list:
         if settings.value(setting) is None:
             settings.setValue(setting, settings.value(f'default_{setting}'))
