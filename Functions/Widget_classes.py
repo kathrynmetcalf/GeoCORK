@@ -168,8 +168,10 @@ class SQLiteTableModel(QAbstractTableModel):
 
             # Apply formatting based on header names
             if isinstance(value, str):
-                if f'({settings.value("age_unit_abbreviation")})' in header:
-                    return display_age(value)
+                if 'Age' in header:
+                    for age_string in [f'({settings.value("age_unit_abbreviation")})', 'AgeCalculated', 'AgeDisplay']:
+                        if age_string in header:
+                            return display_age(value)
                 elif 'GPS' in header:
                     return display_gps(value)
                 elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
@@ -3256,7 +3258,7 @@ class CheckableTreeCombobox(TreeCombobox):
                                                                  option, self.treeView)
                 if expand_button_rect.contains(event.pos()):
                     if self.single_click:
-                        # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
+                        # Was the only selected item unchecked? If so, set the current index to the root before clearing all checks
                         checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.model().traverse_checkable_tree(
                             QtC.QModelIndex())
                         if self.currentIndex() in checked_items:
@@ -3264,8 +3266,11 @@ class CheckableTreeCombobox(TreeCombobox):
                         self.clear_all_checks()
                         self.treeView.toggle_check_state(self.treeView.currentIndex())
                         self.set_line_edit_text(self.treeView.currentIndex().data(QtC.Qt.ItemDataRole.DisplayRole))
-                    self.treeView.toggle_check_state(self.treeView.currentIndex())
-                    self.showPopup()
+                        self.hidePopup()
+                    else:
+                        self.treeView.toggle_check_state(self.treeView.currentIndex())
+                        self.update_line_edit()
+                        self.showPopup()
                     return True
                 else:
                     if self.treeView.isExpanded(index):
@@ -3604,6 +3609,10 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         model = DisplayRoundedQueryModel()
         model.setQuery(query)
         table = model.tableName()
+        try:
+            view = model.tableView()
+        except AttributeError:
+            pass
     elif 'View' in table:
         view = table
         model = DisplayRoundedQueryModel()
@@ -3624,7 +3633,7 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         if column:
             show_column(comboBox, column)
         else:
-            show_column(comboBox, model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            show_column(comboBox, tree_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
     else:
         if isinstance(comboBox, CheckableComboBox) and not view:
             checkable_model = CheckableSqlTableModel()
@@ -3638,6 +3647,9 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             comboBox.setModel(model)
         if column:
             show_column(comboBox, column)
+        elif view:
+            name_col = get_view_name_column(view)
+            show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
         else:
             name_col = get_name_column(table)
             show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
@@ -3686,6 +3698,11 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
 
 def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids, item_table: str=None, table_id_header: str=None):
     id_col = 1  # ID column is always placed in the second column
+    if not item_ids[0]:
+        tree_model.blockSignals(True)
+        tree_model.clear_checks(QtC.QModelIndex())
+        tree_model.blockSignals(False)
+        return True
     table = tree_model.table
     if table_id_header is None:
         table_id_header = tree_model.headerData(id_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)

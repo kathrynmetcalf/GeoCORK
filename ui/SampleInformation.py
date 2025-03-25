@@ -401,7 +401,7 @@ class SampleInformation(QtW.QDialog):
                         else:
                             many_to_many_model.setFilter(
                                 f"SampleID = {self.checked_sample_list[0]} AND {tag_id_header} = {tag_id}")
-                        if many_to_many_model.rowCount() == len(self.selected_sample_list):
+                        if many_to_many_model.rowCount() == len(self.checked_sample_list):
                             # All samples have this tag
                             model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                             all_items.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
@@ -423,7 +423,7 @@ class SampleInformation(QtW.QDialog):
                     else:
                         many_to_many_model.setFilter(f"SampleID = {self.checked_sample_list[0]} AND {tag_id_header} = {tag_id}")
                     model_index = model.index(row, col)
-                    if many_to_many_model.rowCount() == len(self.selected_sample_list):
+                    if many_to_many_model.rowCount() == len(self.checked_sample_list):
                         # All samples have this tag
                         model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                         if model.lastError().text():

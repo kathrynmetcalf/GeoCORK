@@ -288,7 +288,7 @@
             </widget>
            </item>
            <item>
-            <widget class="TreeCombobox" name="oldest_rel_comboBox"/>
+            <widget class="CheckableTreeCombobox" name="oldest_rel_comboBox"/>
            </item>
            <item>
             <spacer name="horizontalSpacer">
@@ -320,7 +320,7 @@
             </widget>
            </item>
            <item>
-            <widget class="TreeCombobox" name="youngest_rel_comboBox"/>
+            <widget class="CheckableTreeCombobox" name="youngest_rel_comboBox"/>
            </item>
           </layout>
          </item>
@@ -427,11 +427,6 @@
    <class>CheckableComboBox</class>
    <extends>QComboBox</extends>
    <header location="global">Functions/Widget_classes.h</header>
-  </customwidget>
-  <customwidget>
-   <class>TreeCombobox</class>
-   <extends>QComboBox</extends>
-   <header>Functions/Widget_classes.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

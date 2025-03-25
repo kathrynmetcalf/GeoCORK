@@ -142,13 +142,13 @@ class EditTree(QtW.QDialog):
     def add_popup(self, action: QtG.QAction | None = None):
         save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
         dlg_args = add_tree_popup(self.edit_treeView, self.tree_model, action)
+        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg_args:
             dlg = AddTreeTags(self, self.table, **dlg_args)
         else:
             dlg = AddTreeTags(self, self.table)
         if not dlg:
             return
-        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
         self.update_proxy()
