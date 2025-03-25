@@ -4,7 +4,7 @@ import sys
 from PyQt6 import QtCore as QtC, QtWidgets
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer, Qt
+from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer, Qt, QRegularExpression
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton, QPlainTextEdit
 from PyQt6.uic import loadUi
@@ -349,10 +349,11 @@ class DataViewerWidget(QWidget):
         offset = self.current_page_1 * self.rows_per_page_1
 
         if table == 'Samples':
+            table = 'SampleView'
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('sample_view_columns'))
             model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM SampleView WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM {table} WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
         elif table == 'Aliquots':
             # todo make aliquots a tree model
@@ -360,14 +361,14 @@ class DataViewerWidget(QWidget):
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('aliquot_view_columns'))
             model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM AliquotView WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM {table} WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
         elif table == 'Spots':
             table = 'SpotView'
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('spot_view_columns'))
             model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM SpotView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM {table} WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
         elif table == 'UPbAnalyses':
             table = 'UPbView'
@@ -545,6 +546,10 @@ class DataViewerWidget(QWidget):
             self.search_lineEdit_2.textChanged.connect(
                 lambda: self.search(self.search_lineEdit_2, tree_proxy_model, dbTable_treeView))
 
+            self.edit_pushButton_2.clicked.connect(
+                lambda: self.edit_popup(dbTable_tableView, dbTable_treeView, tree_proxy_model,
+                                        dbTable_comboBox))
+
         elif table in SQLUtils.user_viewable_tables or table=='"References"':
             self.switch_to_table(db_stackedWidget)
 
@@ -582,6 +587,11 @@ class DataViewerWidget(QWidget):
             dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
             self.search_lineEdit_2.textChanged.connect(lambda: self.search(self.search_lineEdit_2, table_proxy_model))
+
+            self.edit_pushButton_2.clicked.connect(
+                lambda: self.edit_popup(dbTable_tableView, dbTable_treeView, table_proxy_model,
+                                        dbTable_comboBox))
+
             logger_setup.get_logger().info('Sucessfully displayed table with selection-based filter')
         else:
             logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
@@ -594,7 +604,7 @@ class DataViewerWidget(QWidget):
         :return:
         """
         search_lineEdit: QtW.QLineEdit
-        search_expression = QtC.QRegularExpression(search_lineEdit.text())
+        search_expression = QtC.QRegularExpression(search_lineEdit.text(), options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         proxy_model.setFilterRegularExpression(search_expression)
         if dbTable_treeView is not None:
             dbTable_treeView.expandAll()

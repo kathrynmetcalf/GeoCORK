@@ -4,7 +4,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QRegularExpression
 from PyQt6.QtWidgets import QAbstractItemView, QHeaderView
 
 import logger_setup
@@ -33,11 +33,16 @@ class ViewDataTab(QtW.QWidget):
         self.h_layout = QtW.QHBoxLayout()
         self.h_layout.addWidget(self.edit_pushButton)
         self.h_layout.addStretch(6)
+        self.search_lineEdit = QtW.QLineEdit()
+        self.search_lineEdit.setPlaceholderText('search this page')
+        self.h_layout.addWidget(self.search_lineEdit)
         self.v_layout.addLayout(self.h_layout)
         self.show_cols = []
         self.view = None
         self.resize_timer = QTimer()
-        # self.display_table()
+
+        self.search_lineEdit.textChanged.connect(self.search)
+
         end_view_data_tab_time = time.time()
         logger_setup.get_logger().info(f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
 
@@ -111,15 +116,28 @@ class ViewDataTab(QtW.QWidget):
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)
             self.view.setSortingEnabled(True)
-            self.view.resizeColumnsToContents()
-            # Hide the ID columns
-            self.view.hideColumn(0)
-            self.view.hideColumn(1)
-            if self.child_type == 'Spot':
-                self.view.hideColumn(2)
-            if self.child_type == 'UPbAnalysis':
-                self.view.hideColumn(2)
-                self.view.hideColumn(3)
+            self.proxy_model.setFilterKeyColumn(-1)
+
+            if self.child_type != 'Aliquot':
+                self.view.resizeColumnsToContents()
+
+            match self.child_type:
+                case 'Sample':
+                    self.view.hideColumn(0)  # don't show SampleID column
+                case 'Aliquot':
+                    self.view.hideColumn(0)  # don't show AliquotID
+                    self.view.hideColumn(1)  # don't show ParentAliquotID
+                    self.view.hideColumn(2)  # don't show AliquotParentRow
+                    self.view.hideColumn(3)  # don't show SampleID
+                case 'Spot':
+                    self.view.hideColumn(0)  # don't show SpotID
+                    self.view.hideColumn(1)  # don't show SampleID
+                    self.view.hideColumn(2)  # don't show AliquotID
+                case 'UPbAnalysis':
+                    self.view.hideColumn(0)  # don't show UPbAnalysisID
+                    self.view.hideColumn(1)  # don't show SampleID
+                    self.view.hideColumn(2)  # don't show AliquotID
+                    self.view.hideColumn(3)  # don't show SpotID
         end_display_table_time = time.time()
         logger_setup.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')
 
@@ -142,3 +160,20 @@ class ViewDataTab(QtW.QWidget):
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             update_database()
             self.display_table()
+
+    def search(self):
+        """
+        Search the current table for the text in the search box
+        Check if the case-sensitive box is checked or not
+        :return:
+        """
+        self.search_lineEdit: QtW.QLineEdit
+
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(), options=QRegularExpression.PatternOption.CaseInsensitiveOption)
+        if self.child_type == 'Aliquot':
+            # self.proxy_model.setRecursiveFilteringEnabled(True)
+            self.proxy_model.setFilterRegularExpression(search_expression)
+            if search_expression != "":
+                self.view.expandAll()
+        else:
+            self.proxy_model.setFilterRegularExpression(search_expression)

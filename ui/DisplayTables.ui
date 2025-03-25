@@ -158,7 +158,7 @@
          </size>
         </property>
         <property name="placeholderText">
-         <string>search</string>
+         <string>search this page</string>
         </property>
        </widget>
       </item>

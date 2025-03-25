@@ -28,7 +28,7 @@ def process_json_to_sql(json_string, scope):
     group = json.loads(json_string)
     where, ctes = process_group(group)
     sql = ''
-    if ctes:
+    if len(ctes) > 0:
         sql += "WITH " + ",\n".join(ctes) + "\n"
 
     table_names = process_table_names(group)
@@ -46,7 +46,7 @@ def process_json_to_sql(json_string, scope):
         sql += f"SELECT * FROM Samples {join} WHERE {where};"
     else:
         logger_setup.get_logger().critical(f"Unknown scope: {scope}")
-    logger_setup.get_logger().debug(f"SQL generated successfully: {ctes} {sql}")
+    logger_setup.get_logger().debug(f"SQL generated successfully: {sql}")
     return sql, ctes
 
 
@@ -167,7 +167,12 @@ def _process_group_inner(group):
                 continue
 
             # Regular condition
-            condition = f"{field_key} {operator} {value}" if datatype == 'number' else f"{field_key} {operator} '{value}'"
+            if datatype == 'number':
+                condition = f"{field_key} {operator} {value}"
+            elif datatype == 'boolean':
+                condition = f"{field_key} {operator} {1 if value == 'True' else 0}"
+            else:
+                condition = f"{field_key} {operator} '{value}'"
             condition_strings.append(condition)
 
     for subgroup in group.get('subgroups', []):
@@ -505,6 +510,7 @@ class RuleWidget(QWidget):
             # Date-based fields
             match self.datatype:
                 case 'date':
+                    # todo: Change this to a date selector
                     date_range_regex = QRegularExpression(
                         r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01]),"
                         r"(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
@@ -519,12 +525,13 @@ class RuleWidget(QWidget):
                     self.value_input.setValidator(double_comma_double_validator)
                     self.value_input.setPlaceholderText("e.g. 0.0,0.0")
                     # Because it's numeric, let's allow the user to pick units (e.g. for an age)
-                    self.unit_combo.show()
+                    # self.unit_combo.show()
         else:
             # Single value conditions
             match self.datatype:
                 case 'date':
                     # Date-based
+                    # todo: Change this to a date selector
                     date_range_regex = QRegularExpression(
                         r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
                     )
@@ -536,6 +543,7 @@ class RuleWidget(QWidget):
                     self.value_input.setPlaceholderText("e.g. abc123")
                     self.value_input.setValidator(None)  # No numeric validator
                 case 'boolean':
+                    # todo: Change this to a combobox for True/False
                     self.value_input.setPlaceholderText("e.g. True/False")
                     self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(True|False)$")))
                 case 'number':
@@ -549,8 +557,8 @@ class RuleWidget(QWidget):
                     self.value_input.setPlaceholderText("e.g. 0.0")
                     self.value_input.setValidator(float_validator)
                     # Show units if it's numeric
-                    if "Age" in self.attribute_combo.currentText():
-                        self.unit_combo.show()
+                    # if "Age" in self.attribute_combo.currentText():
+                        # self.unit_combo.show()
 
     def lineedit_completer(self):
         if self.attribute_combo.currentText() == "":

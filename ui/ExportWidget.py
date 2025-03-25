@@ -19,11 +19,9 @@ from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
 import logger_setup
-from ui.DisplayTables import DisplayTables
 from ui.DisplayTablesSimplified import DisplayTablesSimplified
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import ExportDatabase, Settings_manager
-from Functions import FilterDatabase
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, CheckableComboBox, SQLiteTableModel

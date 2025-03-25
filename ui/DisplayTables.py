@@ -7,10 +7,11 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel, QTimer
+from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel, QTimer, \
+    QRegularExpression
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView, \
-    QStyle
+    QStyle, QApplication
 
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
@@ -67,7 +68,6 @@ class DisplayTables(QtW.QWidget):
         self.dbtree_list = SQLUtils.user_viewable_trees
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
 
-        self.sample_proxy_model = QtC.QSortFilterProxyModel()
         self.model = DisplayRoundedModel()
         self.query_model = DisplayRoundedQueryModel()
         self.tree_model = TreeModel()
@@ -404,20 +404,10 @@ class DisplayTables(QtW.QWidget):
         """
         self.search_lineEdit: QtW.QLineEdit
         self.dbtable_comboBox: QtW.QComboBox
-        # if self.case_checkBox.isChecked():
-        #     self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-        #     self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-        #     self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseSensitive)
-        # else:
 
-        # self.sample_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        # self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        # self.tree_proxy_model.setRecursiveFilteringEnabled(True)
-        # self.table_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
-        if self.table == 'Samples':
-            self.sample_proxy_model.setFilterRegularExpression(search_expression)
-        elif self.table in self.dbtree_list:
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(), options=QRegularExpression.PatternOption.CaseInsensitiveOption)
+        if self.table in self.dbtree_list:
+            self.tree_proxy_model.setRecursiveFilteringEnabled(True)
             self.tree_proxy_model.setFilterRegularExpression(search_expression)
             if search_expression != "":
                 self.dbTable_treeView.expandAll()
