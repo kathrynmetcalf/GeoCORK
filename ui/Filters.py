@@ -80,17 +80,23 @@ def process_group(group):
 
 # Developer-specified recursive targets
 RECURSIVE_TABLES = {
-    'Regions.RegionName': {
+    'Regions.[RegionName]': {
         'id_column': 'RegionID',
         'name_column': 'RegionName',
         'parent_column': 'ParentRegionID',
         'cte_name': 'RecursiveRegions'
     },
-    'RockTypes.RockTypeName': {
+    'RockTypes.[RockTypeName]': {
         'id_column': 'RockTypeID',
         'name_column': 'RockTypeName',
         'parent_column': 'ParentRockTypeID',
         'cte_name': 'RecursiveRockTypes'
+    },
+    'Units.[UnitName]': {
+        'id_column': 'UnitID',
+        'name_column': 'UnitName',
+        'parent_column': 'ParentUnitID',
+        'cte_name': 'RecursiveUnits'
     }
 }
 
@@ -118,11 +124,12 @@ def _process_group_inner(group):
         # If this field requires recursion
         if field_key in RECURSIVE_TABLES and operator in ['is', 'is on', '=']:
             meta = RECURSIVE_TABLES[field_key]
+            table = field_key.split('.')[0]
             cte = f"""
             {meta['cte_name']} AS (
-                SELECT {meta['id_column']}, {meta['name_column']}
-                FROM {field_key.split('.')[0]}
-                WHERE {meta['name_column']} = '{value}'
+                SELECT {table}.{meta['id_column']}, {table}.{meta['name_column']}
+                FROM {table}
+                WHERE {table}.{meta['name_column']} = '{value}'
                 UNION ALL
                 SELECT t.{meta['id_column']}, t.{meta['name_column']}
                 FROM {field_key.split('.')[0]} t
@@ -130,7 +137,7 @@ def _process_group_inner(group):
             )
             """
             condition_strings.append(
-                f"{meta['id_column']} IN (SELECT {meta['id_column']} FROM {meta['cte_name']})"
+                f"{table}.{meta['id_column']} IN (SELECT {meta['id_column']} FROM {meta['cte_name']})"
             )
             ctes.append(cte.strip())
         else:
@@ -999,16 +1006,16 @@ class QueryBuilder(QWidget):
 
     def get_sql(self, type=None):
         structure = self.main_group_box.get_structure()
-        where_clause, cte_list = process_group(my_group)
+        where_clause, cte_list = process_group(structure)
         full_sql = ""
 
         if cte_list:
             full_sql += "WITH " + ",\n".join(cte_list) + "\n"
 
-
-
         join = SQLUtils.get_join_from_table("", self.main_group_box.get_tables())
+        logger_setup.get_logger().debug(f'SQL Join: {join}')
         selects = self.main_group_box.get_selects()
+        logger_setup.get_logger().debug(f'SQL Selects: {selects}')
 
         def extract_as_tables(join):
             as_tables = None
@@ -1036,7 +1043,7 @@ class QueryBuilder(QWidget):
 
         if type == 'Samples':
             sql_query = full_sql + f"""
-            SELECT DISTINCT SampleID
+            SELECT DISTINCT Samples.SampleID
             FROM Samples
             {join}
             WHERE {where_clause}
@@ -1044,7 +1051,7 @@ class QueryBuilder(QWidget):
         elif type == 'Aliquots':
             join = SQLUtils.get_join_from_table(join, ['Aliquots'])
             sql_query = (
-                f"SELECT DISTINCT AliquotID FROM ("
+                f"SELECT DISTINCT Aliquots.AliquotID FROM ("
                 f"SELECT Aliquots.AliquotID, {selects} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause}) "
@@ -1053,7 +1060,7 @@ class QueryBuilder(QWidget):
         elif type == 'Spots':
             join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = (
-                f"SELECT DISTINCT SpotID FROM ("
+                f"SELECT DISTINCT Spots.SpotID FROM ("
                 f"SELECT Spots.SpotID, {selects} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause}) "
@@ -1062,7 +1069,7 @@ class QueryBuilder(QWidget):
         elif type == 'UPbAnalyses':
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
             sql_query = (
-                f"SELECT DISTINCT UPbAnalysisID FROM ("
+                f"SELECT DISTINCT UPbAnalyses.UPbAnalysisID FROM ("
                 f"SELECT UPbAnalyses.UPbAnalysisID, {selects} "
                 f"FROM Samples {join} "
                 f"WHERE {where_clause}) "
