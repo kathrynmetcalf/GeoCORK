@@ -26,26 +26,28 @@ def process_json_to_sql(json_string, scope):
     logger_setup.get_logger().debug(f'Processing with scope: {scope}: {json_string}')
     json_string = json_string.replace("'", "\"")
     group = json.loads(json_string)
-    where = process_group(group)
+    where, ctes = process_group(group)
+    sql = ''
+    if ctes:
+        sql += "WITH " + ",\n".join(ctes) + "\n"
 
     table_names = process_table_names(group)
     join = SQLUtils.get_join_from_table("", table_names)
-    sql = None
     if scope == 'Samples':
-        sql = f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'Aliquots':
         join = SQLUtils.get_join_from_table(join, ['Aliquots'])
-        sql = f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'Spots':
         join = SQLUtils.get_join_from_table(join, ['Spots'])
-        sql = f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where};"
     elif scope == 'UPbAnalyses':
         join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
-        sql = f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where};"
     else:
         logger_setup.get_logger().critical(f"Unknown scope: {scope}")
-    logger_setup.get_logger().debug(f"SQL generated successfully: {sql}")
-    return sql
+    logger_setup.get_logger().debug(f"SQL generated successfully: {ctes} {sql}")
+    return sql, ctes
 
 
 def process_table_names(data):
@@ -79,26 +81,7 @@ def process_group(group):
     return ' AND '.join(condition_strings), ctes
 
 # Developer-specified recursive targets
-RECURSIVE_TABLES = {
-    'Regions.[RegionName]': {
-        'id_column': 'RegionID',
-        'name_column': 'RegionName',
-        'parent_column': 'ParentRegionID',
-        'cte_name': 'RecursiveRegions'
-    },
-    'RockTypes.[RockTypeName]': {
-        'id_column': 'RockTypeID',
-        'name_column': 'RockTypeName',
-        'parent_column': 'ParentRockTypeID',
-        'cte_name': 'RecursiveRockTypes'
-    },
-    'Units.[UnitName]': {
-        'id_column': 'UnitID',
-        'name_column': 'UnitName',
-        'parent_column': 'ParentUnitID',
-        'cte_name': 'RecursiveUnits'
-    }
-}
+
 
 
 def _process_group_inner(group):
@@ -122,8 +105,8 @@ def _process_group_inner(group):
             raise ValueError(f"Unknown unit: {unit}")
 
         # If this field requires recursion
-        if field_key in RECURSIVE_TABLES and operator in ['is', 'is on', '=']:
-            meta = RECURSIVE_TABLES[field_key]
+        if field_key in SQLUtils.tree_tables_schema and operator in ['is', 'is on', '=']:
+            meta = SQLUtils.tree_tables_schema[field_key]
             table = field_key.split('.')[0]
             cte = f"""
             {meta['cte_name']} AS (
@@ -1050,31 +1033,26 @@ class QueryBuilder(QWidget):
             """
         elif type == 'Aliquots':
             join = SQLUtils.get_join_from_table(join, ['Aliquots'])
-            sql_query = (
-                f"SELECT DISTINCT Aliquots.AliquotID FROM ("
-                f"SELECT Aliquots.AliquotID, {selects} "
-                f"FROM Samples {join} "
-                f"WHERE {where_clause}) "
-                f"WHERE AliquotID IS NOT NULL;"
-            )
+            sql_query = full_sql + f"""SELECT DISTINCT AliquotID FROM (
+                SELECT Aliquots.AliquotID, {selects}
+                FROM Samples {join}
+                WHERE {where_clause})
+                WHERE AliquotID IS NOT NULL;"""
         elif type == 'Spots':
             join = SQLUtils.get_join_from_table(join, ['Spots'])
-            sql_query = (
-                f"SELECT DISTINCT Spots.SpotID FROM ("
-                f"SELECT Spots.SpotID, {selects} "
-                f"FROM Samples {join} "
-                f"WHERE {where_clause}) "
-                f"WHERE SpotID IS NOT NULL;"
-            )
+            sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (
+                SELECT Spots.SpotID, {selects}
+                FROM Samples {join}
+                WHERE {where_clause})
+                WHERE SpotID IS NOT NULL;"""
         elif type == 'UPbAnalyses':
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
-            sql_query = (
-                f"SELECT DISTINCT UPbAnalyses.UPbAnalysisID FROM ("
-                f"SELECT UPbAnalyses.UPbAnalysisID, {selects} "
-                f"FROM Samples {join} "
-                f"WHERE {where_clause}) "
-                f"WHERE UPbAnalysisID IS NOT NULL;"
-            )
+            sql_query = full_sql + f"""SELECT DISTINCT UPbAnalysisID FROM (
+                SELECT UPbAnalyses.UPbAnalysisID, {selects}
+                FROM Samples {join}
+                WHERE {where_clause})
+                WHERE UPbAnalysisID IS NOT NULL;"""
+
         else:
             logger_setup.get_logger().critical(f'Unknown Type Given: {type}')
             return None

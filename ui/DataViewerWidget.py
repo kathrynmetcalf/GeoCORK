@@ -364,8 +364,10 @@ class DataViewerWidget(QWidget):
 
             aliquot_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(aliquot_proxy_model)
-            dbTable_tableView.hideColumn(0)  # don't show ID column
-            dbTable_tableView.hideColumn(1)  # don't show SampleID column
+            dbTable_tableView.hideColumn(0)  # don't show AliquotID
+            dbTable_tableView.hideColumn(1)  # don't show ParentAliquotID
+            dbTable_tableView.hideColumn(2)  # don't show AliquotParentRow
+            dbTable_tableView.hideColumn(3)  # don't show SampleID
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
@@ -385,9 +387,9 @@ class DataViewerWidget(QWidget):
 
             spot_proxy_model.setFilterKeyColumn(-1)  # search all columns
             dbTable_tableView.setModel(spot_proxy_model)
-            dbTable_tableView.hideColumn(0)  # don't show ID column
-            dbTable_tableView.hideColumn(1)  # don't show SampleID column
-            dbTable_tableView.hideColumn(2)  # don't show AliquotID column
+            dbTable_tableView.hideColumn(0)  # don't show SpotID
+            dbTable_tableView.hideColumn(1)  # don't show SampleID
+            dbTable_tableView.hideColumn(2)  # don't show AliquotID
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
@@ -407,7 +409,10 @@ class DataViewerWidget(QWidget):
                                         self.dbTable_comboBox))
 
             dbTable_tableView.setModel(upb_proxy_model)
-            dbTable_tableView.hideColumn(0)  # don't show ID column
+            dbTable_tableView.hideColumn(0)  # don't show UPbAnalysisID
+            dbTable_tableView.hideColumn(1) # don't show SampleID
+            dbTable_tableView.hideColumn(2)  # don't show AliquotID
+            dbTable_tableView.hideColumn(3)  # don't show SpotID
             dbTable_tableView.resizeColumnsToContents()
             dbTable_tableView.setSortingEnabled(True)
             # self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.OnManualSubmit)
