@@ -202,7 +202,6 @@ class DisplayTables(QtW.QWidget):
         """
         Slot to go to a specific record display name for the displayed table.
         """
-        # todo connect this to a new button.
         try:
             text = self.goto_line_edit.text().strip()
             if not text:
@@ -409,7 +408,7 @@ class DisplayTables(QtW.QWidget):
         if self.table in self.dbtree_list:
             self.tree_proxy_model.setRecursiveFilteringEnabled(True)
             self.tree_proxy_model.setFilterRegularExpression(search_expression)
-            if search_expression != "":
+            if self.search_lineEdit.text() != "":
                 self.dbTable_treeView.expandAll()
         else:
             self.table_proxy_model.setFilterRegularExpression(search_expression)

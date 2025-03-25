@@ -73,8 +73,8 @@ class DataViewerWidget(QWidget):
         self.rows_per_page_2 = 2000
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
 
-        self.goto_line_edit.textChanged.connect(self.go_to_record_1)
-        self.goto_line_edit_2.textChanged.connect(self.go_to_record_2)
+        self.goto_line_edit.editingFinished.connect(self.go_to_record_1)
+        self.goto_line_edit_2.editingFinished.connect(self.go_to_record_2)
 
         # display sample table information first time
         self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
@@ -155,7 +155,6 @@ class DataViewerWidget(QWidget):
         """
         Slot to go to a specific record ID for the sample table.
         """
-        # todo connect this to a new button.
         try:
             text = self.goto_line_edit.text().strip()
             if not text:
@@ -182,7 +181,6 @@ class DataViewerWidget(QWidget):
         """
         Slot to go to a specific record ID for the filter table
         """
-        # todo fix, this slot is not connected to a signal
         try:
             record_id = int(self.goto_line_edit_2.plainText())
             index = self.get_record_index(record_id, self.dbTable_comboBox_2)

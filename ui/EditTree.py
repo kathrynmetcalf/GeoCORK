@@ -4,6 +4,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6.QtCore import QRegularExpression
 from PyQt6.uic import loadUi
 from Functions.Settings_manager import settings
 import logger_setup
@@ -93,10 +94,11 @@ class EditTree(QtW.QDialog):
 
     def search(self):
         self.search_lineEdit: QtW.QLineEdit
-        self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.tree_proxy_model.setRecursiveFilteringEnabled(True)
-        search_expression = QtC.QRegularExpression(self.search_lineEdit.text())
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(), options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
+        if self.search_lineEdit.text() != '':
+            self.edit_treeView.expandAll()
 
     def show_context_menu(self, pos):
         """

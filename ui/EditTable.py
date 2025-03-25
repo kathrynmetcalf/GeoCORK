@@ -28,7 +28,7 @@ from ui.New_reference import NewReference
 class EditTable(QtW.QDialog):
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
-
+        # todo add search logic
         self.loading_manager = LoadingDialogManager.get_instance()
         logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))

@@ -75,6 +75,7 @@ class GeoCORK(QtW.QMainWindow):
         actionCreateBackup = QtG.QAction('Create Backup', self)
         actionRestoreBackup = QtG.QAction('Restore Backup', self)
         actionExport = QtG.QAction('Export', self)
+        actionExport.setShortcut(QtG.QKeySequence('Ctrl+E'))
         actionQuit = QtG.QAction('Quit', self)
         actionQuit.setShortcut(QtG.QKeySequence('Ctrl+Q'))
         file_menu.addActions([actionNew, actionOpen, actionImport])
