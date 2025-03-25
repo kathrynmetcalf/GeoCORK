@@ -50,7 +50,8 @@ class LandingPage(QWidget):
         self.opendatabase_button.clicked.connect(self.showFileDialog)
 
         self.github_button: QPushButton
-        self.github_button.setIcon(qtawesome.icon('fa6b.github', color='white', scale_factor=1.5))
+        self.github_button.setIcon(qtawesome.icon('fa6b.github', color='black', scale_factor=1.0))
+        self.github_button.setIconSize(QSize(35,35))
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
 
@@ -210,7 +211,7 @@ class LandingPage(QWidget):
             self.open_geo_cork(skip_update=True)
 
     def open_github(self):
-        webbrowser.open('http://github.com')
+        webbrowser.open('https://github.com/kathrynmetcalf/GeoCORK')
 
     def showFileDialog(self):
         self.db = None
