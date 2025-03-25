@@ -409,6 +409,93 @@ conditionally_editable_trees = ['Aliquots']
 trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView', 'UPbAnalyses',
                   'UPbView', 'UPbEditView']
 
+tree_tables_schema = {
+    'AgeConstraints.[AgeConstraintName]': {
+        'id_column': 'AgeConstraintID',
+        'name_column': 'AgeConstraintName',
+        'parent_column': 'ParentAgeConstraintID',
+        'cte_name': 'RecursiveAgeConstraints'
+    },
+    'AgeInterpretations.[AgeInterpretationName]': {
+        'id_column': 'AgeInterpretationID',
+        'name_column': 'AgeInterpretationName',
+        'parent_column': 'ParentAgeInterpretationID',
+        'cte_name': 'RecursiveAgeInterpretations'
+    },
+    'AgeSignatures.[AgeSignatureName]': {
+        'id_column': 'AgeSignatureID',
+        'name_column': 'AgeSignatureName',
+        'parent_column': 'ParentAgeSignatureID',
+        'cte_name': 'RecursiveAgeSignatures'
+    },
+    'Ages.[AgeName]': {
+        'id_column': 'AgeID',
+        'name_column': 'AgeName',
+        'parent_column': 'ParentAgeID',
+        'cte_name': 'RecursiveAges'
+    },
+    'AliquotContexts.[AliquotContextName]': {
+        'id_column': 'AliquotContextID',
+        'name_column': 'AliquotContextName',
+        'parent_column': 'ParentAliquotContextID',
+        'cte_name': 'RecursiveAliquotContexts'
+    },
+    'Regions.[RegionName]': {
+        'id_column': 'RegionID',
+        'name_column': 'RegionName',
+        'parent_column': 'ParentRegionID',
+        'cte_name': 'RecursiveRegions'
+    },
+    'RockTypes.[RockTypeName]': {
+        'id_column': 'RockTypeID',
+        'name_column': 'RockTypeName',
+        'parent_column': 'ParentRockTypeID',
+        'cte_name': 'RecursiveRockTypes'
+    },
+    'SampleContexts.[SampleContextName]': {
+        'id_column': 'SampleContextID',
+        'name_column': 'SampleContextName',
+        'parent_column': 'ParentSampleContextID',
+        'cte_name': 'RecursiveSampleContexts'
+    },
+    'SamplingMethods.[SamplingMethodName]': {
+        'id_column': 'SamplingMethodID',
+        'name_column': 'SamplingMethodName',
+        'parent_column': 'ParentSamplingMethodID',
+        'cte_name': 'RecursiveSamplingMethods'
+    },
+    'Settings.[SettingName]': {
+        'id_column': 'SettingID',
+        'name_column': 'SettingName',
+        'parent_column': 'ParentSettingID',
+        'cte_name': 'RecursiveSettings'
+    },
+    'SpotCompositions.[SpotCompositionName]': {
+        'id_column': 'SpotCompositionID',
+        'name_column': 'SpotCompositionName',
+        'parent_column': 'ParentSpotCompositionID',
+        'cte_name': 'RecursiveSpotCompositions'
+    },
+    'SpotContexts.[SpotContextName]': {
+        'id_column': 'SpotContextID',
+        'name_column': 'SpotContextName',
+        'parent_column': 'ParentSpotContextID',
+        'cte_name': 'RecursiveSpotContexts'
+    },
+    'UPbAnalysisMethods.[UPbAnalysisMethodName]': {
+        'id_column': 'UPbAnalysisMethodID',
+        'name_column': 'UPbAnalysisMethodName',
+        'parent_column': 'ParentUPbAnalysisMethodID',
+        'cte_name': 'RecursiveUPbAnalysisMethods'
+    },
+    'Units.[UnitName]': {
+        'id_column': 'UnitID',
+        'name_column': 'UnitName',
+        'parent_column': 'ParentUnitID',
+        'cte_name': 'RecursiveUnits'
+    }
+}
+
 static_foreign_key_tables = [
     'AgeUnitConversions',
     'AgeUnits',

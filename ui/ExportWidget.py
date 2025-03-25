@@ -645,7 +645,7 @@ class ExportWidget(QWidget):
         for filter_id, filter_json in self.checked_filter_list:
 
             #loops through each filter in the checked filter list, processes the json to sql
-            filtered_where_clause = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
+            filtered_where_clause, ctes = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
@@ -691,7 +691,7 @@ class ExportWidget(QWidget):
             ids = set()
             logger_setup.get_logger().info('Fetching Filters for Grouped Filter List')
             # loops through each filter in the checked filter list, processes the json to sql
-            filtered_where_clause = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
+            filtered_where_clause, ctes = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
