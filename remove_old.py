@@ -142,4 +142,5 @@ def remove_old(db_file):
 
 
 if __name__ == "__main__":
-    remove_old("/Users/kametcalf/Documents/Research/GeoChron_non_git/GeoChron v.0 copy.db")
+    # remove_old("/Users/kametcalf/Documents/Research/GeoChron_non_git/GeoChron v.0 copy.db")
+    remove_old("C:/Users/jburges/Downloads/GeoChronDB/new geochron.db")
