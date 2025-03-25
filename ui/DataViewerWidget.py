@@ -317,6 +317,25 @@ class DataViewerWidget(QWidget):
         db_stackedWidget: QtW.QStackedWidget
         db_stackedWidget.setCurrentIndex(1)
 
+    def hide_columns(self, dbTable_tableView, table):
+        match table:
+            case 'SampleView':
+                dbTable_tableView.hideColumn(0)  # don't show SampleID column
+            case 'AliquotView':
+                dbTable_tableView.hideColumn(0)  # don't show AliquotID
+                dbTable_tableView.hideColumn(1)  # don't show ParentAliquotID
+                dbTable_tableView.hideColumn(2)  # don't show AliquotParentRow
+                dbTable_tableView.hideColumn(3)  # don't show SampleID
+            case 'SpotView':
+                dbTable_tableView.hideColumn(0)  # don't show SpotID
+                dbTable_tableView.hideColumn(1)  # don't show SampleID
+                dbTable_tableView.hideColumn(2)  # don't show AliquotID
+            case 'UPbView':
+                dbTable_tableView.hideColumn(0)  # don't show UPbAnalysisID
+                dbTable_tableView.hideColumn(1) # don't show SampleID
+                dbTable_tableView.hideColumn(2)  # don't show AliquotID
+                dbTable_tableView.hideColumn(3)  # don't show SpotID
+
     def display_sample_table(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
         """
         Displays the sample table
@@ -335,39 +354,28 @@ class DataViewerWidget(QWidget):
             model = SQLiteTableModel(
                 f'SELECT {show_cols} FROM SampleView WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
-            dbTable_tableView.hideColumn(0)  # don't show ID column
-
         elif table == 'Aliquots':
             # todo make aliquots a tree model
+            table = 'AliquotView'
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('aliquot_view_columns'))
             model = SQLiteTableModel(
                 f'SELECT {show_cols} FROM AliquotView WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
-            dbTable_tableView.hideColumn(0)  # don't show AliquotID
-            dbTable_tableView.hideColumn(1)  # don't show ParentAliquotID
-            dbTable_tableView.hideColumn(2)  # don't show AliquotParentRow
-            dbTable_tableView.hideColumn(3)  # don't show SampleID
-
         elif table == 'Spots':
+            table = 'SpotView'
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('spot_view_columns'))
             model = SQLiteTableModel(
                 f'SELECT {show_cols} FROM SpotView WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
-            dbTable_tableView.hideColumn(0)  # don't show SpotID
-            dbTable_tableView.hideColumn(1)  # don't show SampleID
-            dbTable_tableView.hideColumn(2)  # don't show AliquotID
         elif table == 'UPbAnalyses':
+            table = 'UPbView'
             self.switch_to_table(db_stackedWidget)
             show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
             model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM UPbView WHERE UPbAnalysisID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
 
-            dbTable_tableView.hideColumn(0)  # don't show UPbAnalysisID
-            dbTable_tableView.hideColumn(1) # don't show SampleID
-            dbTable_tableView.hideColumn(2)  # don't show AliquotID
-            dbTable_tableView.hideColumn(3)  # don't show SpotID
         else:
             logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree...")
 
@@ -382,6 +390,7 @@ class DataViewerWidget(QWidget):
         dbTable_tableView.setItemDelegate(WordWrapDelegate(dbTable_tableView))
         dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         dbTable_tableView.verticalHeader().hide()
+        self.hide_columns(dbTable_tableView, table)
 
         name_column = get_name_column(table)
         name_header = model.headerData(name_column, QtC.Qt.Orientation.Horizontal,

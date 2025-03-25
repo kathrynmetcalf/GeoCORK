@@ -87,28 +87,28 @@ def default_settings():
         'RejectionReasonName', 'UPbReference', 'SampleCreated', 'SampleModified'
     ])
     settings.setValue('default_aliquot_view_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
+        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SampleID', 'AliquotName', 'SampleName',
         'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
         'UPbReference', 'AliquotCreated', 'AliquotModified'
     ])
     settings.setValue('default_aliquot_edit_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName', 'AliquotContextName',
+        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SampleID', 'AliquotName', 'SampleName', 'AliquotContextName',
         'AliquotCreated', 'AliquotModified'
     ])
     settings.setValue('default_spot_view_columns', [
-        'SpotID', 'SampleID', 'AliquotID', 'SpotName', 'SampleName', 'AliquotName', 'SpotCompositionName',
+        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'SpotCompositionName',
         'SpotContextName', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
         'Rejected', 'RejectionReasonName', 'UPbReference', 'SpotCreated', 'SpotModified'
     ])
     settings.setValue('default_spot_edit_columns', [
-        'SpotID', 'SampleID', 'AliquotID', 'SpotName', 'SampleName', 'AliquotName', 'SpotCompositionName',
+        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'SpotCompositionName',
         'SpotContextName', 'SpotCreated', 'SpotModified'
     ])
     settings.setValue('default_upb_analysis_view_columns', [
-        'UPbAnalysisID', 'SampleID', 'AliquotID', 'SpotID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
+        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
         'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
         '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
         '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"', '"Calculated207Pb/206PbError"',
@@ -127,7 +127,7 @@ def default_settings():
         'UPbAnalysisModified'
     ])
     settings.setValue('default_upb_analysis_edit_columns', [
-        'UPbAnalysisID', 'SampleID', 'AliquotID', 'SpotID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
+        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
         'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
         '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
         '"206Pb/207Pb"', '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"',

@@ -60,7 +60,7 @@ qcolumn_modified = 'ColumnModified AS ColumnModified'
 
 # Aliquot view columns
 qaliquot_count = 'COUNT(DISTINCT Aliquots.AliquotID) AS AliquotCount'
-qaliquot = 'AliquotName AS AliquotName'
+qaliquot_name = 'AliquotName AS AliquotName'
 qaliquots = 'GROUP_CONCAT(DISTINCT AliquotName) AS AliquotName'
 qaliquot_parent_id = 'ParentAliquotID AS ParentAliquotID'
 qaliquot_parent_row = 'AliquotParentRow AS AliquotParentRow'
@@ -77,7 +77,7 @@ qaliquot_modified = 'AliquotModified AS AliquotModified'
 
 # Spot view columns
 qspot_count = 'COUNT(DISTINCT Spots.SpotID) AS SpotCount'
-qspot = 'SpotName AS SpotName'
+qspot_name = 'SpotName AS SpotName'
 qspots = 'GROUP_CONCAT(DISTINCT SpotName) AS SpotName'
 qspot_composition = 'SpotCompositionName AS SpotCompositionName'
 qspot_compositions = 'GROUP_CONCAT(DISTINCT SpotCompositionName) AS SpotCompositionName'
@@ -873,7 +873,7 @@ view_attributes_dict = {
     ],
     'AliquotView': [
         f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
-        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qaliquot_sample.split('AS ')[1]}",
+        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qaliquot_sample.split('AS ')[1]}",
         f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}",
         f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qupb_count.split('AS ')[1]}",
         f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
@@ -885,14 +885,14 @@ view_attributes_dict = {
     ],
     'AliquotEditView': [
         f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
-        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
         f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
         f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
     ],
     'SpotView': [
         f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
         f"{qspots.split('AS ')[1]}",
-        f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}",
+        f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}",
         f"{qspot_contexts.split('AS ')[1]}",
         f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
@@ -903,12 +903,12 @@ view_attributes_dict = {
     ],
     'SpotEditView': [
         f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
-        f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
         f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
         f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
     'UPbView': [
-        f"{qupb_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qupb_id.split('AS ')[1]}", f"{qspot_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
         f"{qsample_name.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
         f"{qupb_lab_facilities.split('AS ')[1]}",
         f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", '"Pb204cps"', '"Pb206cps"',
@@ -944,7 +944,7 @@ view_attributes_dict = {
     ],
     'UPbEditView': [
         f"{qupb_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
-        f"{qspot_id.split('AS ')[1]}", f"{qspot.split('AS ')[1]}", f"{qaliquot.split('AS ')[1]}",
+        f"{qspot_id.split('AS ')[1]}", f"{qspot_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
         f"{qsample_name.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
         f"{qupb_instruments.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",

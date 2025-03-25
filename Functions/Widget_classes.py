@@ -874,6 +874,14 @@ def get_name_column(table: str) -> int | None:
         return 16
     elif table in SQLUtils.user_viewable_tables or table in ['Spots', 'GPSLocations', 'FilterGroups']:
         return 1
+    elif table == 'SampleView':
+        return 2
+    elif table == 'AliquotView':
+        return 5
+    elif table == 'SpotView':
+        return 5
+    elif table == 'UPbView':
+        return 5
     else:
         return None
 
