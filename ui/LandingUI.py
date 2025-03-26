@@ -33,7 +33,7 @@ class LandingPage(QWidget):
         self.loading_manager = LoadingDialogManager.get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file =os.path.join(base_path,  "landingpage.ui")
+        sources_ui_file =os.path.join(base_path,  "ImportWizard.ui")
         loadUi(sources_ui_file, self)
         self.setWindowTitle('GeoCORK')
         update_stylesheet()
@@ -238,6 +238,11 @@ class LandingPage(QWidget):
             return
 
     def recents_context_menu(self, pos):
+        """
+
+        :param pos:
+        :return:
+        """
         item = self.listWidget.itemAt(pos)
         if item:
             context_menu = QtWidgets.QMenu()

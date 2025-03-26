@@ -1,55 +1,56 @@
-import sys
-import os
 import json
-import sqlite3
-from dataclasses import field
+import os
+import sys
 
 import pandas as pd
 import qtawesome
-from difflib import get_close_matches
-
 from PyQt6 import QtCore
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlRecord, QSqlTableModel
-from openpyxl import load_workbook
-from openpyxl.styles import Font, Color, PatternFill
-
+from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel
+from PyQt6.QtGui import QBrush, QColor, QFont, QAction
+from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
-    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QTableView, QCheckBox,
-    QProgressDialog, QListWidget, QAbstractButton, QListView, QDialogButtonBox
+    QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QCheckBox,
+    QProgressDialog, QListWidget, QListView, QDialogButtonBox
 )
-from PyQt6.QtCore import Qt, QPoint, QSize, QEventLoop, QStringListModel
-from PyQt6.QtGui import QBrush, QColor, QFont, QAction
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
 
 import logger_setup
-from Functions import SQLUtils, Savepoint_manager
+from Functions import SQLUtils
 from Functions.Database_manager import update_database
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, rollback_savepoint, release_savepoint
 from Functions.LoadingDialog_manager import LoadingDialogManager
-
+from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (
-    get_selected_tree_ids, CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
+    CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
     CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers,
     CheckableSqlQueryModel, get_view_name_column)
-from ui.EditTable import EditTable
-from ui.EditTree import EditTree
+from Functions.Widget_classes import CompleterInputDialog
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
-from Functions.Widget_classes import CompleterInputDialog
+from ui.EditTable import EditTable
+from ui.EditTree import EditTree
 
 CONFIG_FILE = 'column_mappings.json'
 
+
 class ColumnMapDialog(QDialog):
     """
-    Dialog that creates one ComboBox per dictionary key, ensuring only
-    one ComboBox can be non-'None' at a time.
+    Class to load a helper dialog to assist the user in selecting pre-defined values of columns to a known database column.
+    The list of available categories and columns is defined by SQLUtils.upb_possible_user_input_fields.
+
     """
-    def __init__(self, original_header, current_field, parent=None):
+
+    def __init__(self, original_header: str, current_field:str, parent: QWidget):
         """
-        :param fields_dict: Dict[str, List[str]] of possible values for each field.
-                            e.g. {"Sample Name": ["opt1","opt2"], "Aliquot Name": ["optA","optB"]}
+        Creates a ColumnMapDialog instance with the original text of the header, typically a number, the current field,
+        if defined, and a parent widget.
+
+        :param str original_header:
+        :param current_field:
+        :param parent:
         """
         super().__init__(parent)
         self.setWindowTitle(f"Column Mapper {original_header}")
@@ -93,11 +94,9 @@ class ColumnMapDialog(QDialog):
         main_layout.addWidget(self.btn_ok)
         self.setLayout(main_layout)
 
-
-
     def on_combo_changed(self):
         """
-        Triggered whenever the current index of any combo changes.
+        Triggered whenever the current index of any ComboBox changes.
         Ensures only one combo has a non-'None' value at a time.
         """
         if self._is_updating:
@@ -132,8 +131,16 @@ class ColumnMapDialog(QDialog):
                 return combo.currentText()
         return "None"
 
+
 class LoadMappingDialog(QDialog):
-    def __init__(self, parent: QWidget):
+    """
+    Class to load a helper dialog to assist the user in selecting previously saved column mappings to the column map dictionary.
+    """
+    def __init__(self, parent: QWidget) -> None:
+        """
+        Creates a LoadMappingDialog instance with a defined parent widget
+        :param parent:
+        """
         super().__init__(parent)
 
         try:
@@ -175,9 +182,12 @@ class LoadMappingDialog(QDialog):
         self.button_box.accepted.connect(self.accept)
         self.button_box.rejected.connect(self.reject)
         self.list_view.customContextMenuRequested.connect(self.show_context_menu)
-        self.list_view.selectionModel().selectionChanged.connect(self.get_selected_name)
+        self.list_view.selectionModel().selectionChanged.connect(self.update_selected_name)
 
-    def display_mapping_list(self):
+    def display_mapping_list(self) -> None:
+        """
+        Gathers and displays a list of recent mappings from SettingsManager to the QListView.
+        """
         items = list(self.configs.keys())
         recent_mappings = settings.value("recent_mappings", [])
         items_sorted = []
@@ -191,7 +201,10 @@ class LoadMappingDialog(QDialog):
         self.list_model.setStringList(items_sorted)
         self.list_view.setModel(self.list_model)
 
-    def get_selected_name(self):
+    def update_selected_name(self):
+        """
+        Updates selected_name to the currently selected value in the QListView
+        """
         index = self.list_view.currentIndex()
         if not index.isValid():
             self.selected_name = ''
@@ -199,6 +212,10 @@ class LoadMappingDialog(QDialog):
         self.selected_name = index.data()
 
     def show_context_menu(self, pos):
+        """
+        Shows the context menu at a given position. Pos is automatically passed when called from a signal/slot combo.
+        :param pos: Position of the context menu to be displayed at.
+        """
         menu = QMenu()
         menu.addAction("Rename", self.rename_mapping)
         menu.addAction("Delete", self.delete_mapping)
@@ -228,7 +245,8 @@ class LoadMappingDialog(QDialog):
         if not index.isValid():
             return
         name = index.data()
-        response = QMessageBox.question(self, "Delete Mapping", f"Are you sure you want to delete the mapping '{name}'?",
+        response = QMessageBox.question(self, "Delete Mapping",
+                                        f"Are you sure you want to delete the mapping '{name}'?",
                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if response == QMessageBox.StandardButton.Yes:
             del self.configs[name]
@@ -248,17 +266,19 @@ class LoadMappingDialog(QDialog):
             return
         super().accept()
 
+
 class ImportWizardDialog(QWidget):
     """
-    Main window of the application:
+    Main dialog used for assisting the user in importing UPbAnalyses into the database.
       - Left table (pinned): Sample ID, Aliquot ID, Spot ID (editable).
       - Right table (main): Excel data + 4 optional columns appended
-        for Lab Facilities, Source, Analysis Method, Instrument (all editable).
+        for Lab Facilities, References, UPb Analysis Method, Instrument (all editable).
       - Context menus in both tables to set selected cells to a user-defined value.
     """
     data_imported = QtCore.pyqtSignal(list)
-    def __init__(self):
-        super().__init__()
+
+    def __init__(self, parent: QWidget):
+        super().__init__(parent)
 
         self.setWindowTitle("UPb Import Wizard")
         self.loadWindowState()
@@ -303,7 +323,8 @@ class ImportWizardDialog(QWidget):
 
         combo_box_layout.addStretch(1)
 
-        combo_box_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables.   "), 1, Qt.AlignmentFlag.AlignLeft)
+        combo_box_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables.   "), 1,
+                                   Qt.AlignmentFlag.AlignLeft)
 
         # ComboBox for setting Reference
         self.combo_reference_comboBox = CheckableComboBox()
@@ -381,7 +402,6 @@ class ImportWizardDialog(QWidget):
         self.btn_add_column.clicked.connect(lambda: self.add_column(None, False))
         formats_layout.addWidget(self.btn_add_column)
 
-
         self.get_valid_unit_formats()
 
         self.ratio_error_combobox = QComboBox()
@@ -425,7 +445,6 @@ class ImportWizardDialog(QWidget):
         self.conc_error_combobox.setCurrentText(settings.value('concordance_format_abbreviation'))
 
         main_layout.addLayout(formats_layout)
-
 
         # Splitter for left (pinned) vs right (main) tables
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -525,14 +544,14 @@ class ImportWizardDialog(QWidget):
 
         self.right_table.verticalHeader().sectionDoubleClicked.connect(self.handle_vertical_header_double_click)
 
-
         # todo fix these context menus and methods to allow for multi-column set values
 
         self.right_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.right_table.horizontalHeader().customContextMenuRequested.connect(self.show_right_header_context_menu)
 
         self.right_table.verticalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.right_table.verticalHeader().customContextMenuRequested.connect(self.show_right_table_vertical_header_context_menu)
+        self.right_table.verticalHeader().customContextMenuRequested.connect(
+            self.show_right_table_vertical_header_context_menu)
 
         self.left_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.left_table.horizontalHeader().customContextMenuRequested.connect(self.show_left_header_context_menu)
@@ -644,7 +663,7 @@ class ImportWizardDialog(QWidget):
         # item = QTableWidgetItem(name)
 
         self.right_table.setItem(row, field_to_column[header_name], QTableWidgetItem(name))
-        self.right_table.setItem(row, field_to_column[header_name]+1, QTableWidgetItem(str(id)))
+        self.right_table.setItem(row, field_to_column[header_name] + 1, QTableWidgetItem(str(id)))
 
     def get_valid_unit_formats(self):
         age_unit_query = QSqlQuery()
@@ -660,8 +679,6 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().debug(f"Error: {age_unit_query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {age_unit_query.lastQuery()}")
 
-
-
         distance_units_query = QSqlQuery()
         distance_units_query.prepare(
             'SELECT DistanceUnitAbbreviation, DistanceUnitID From DistanceUnits')
@@ -675,8 +692,6 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().debug(f"Error: {distance_units_query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {distance_units_query.lastQuery()}")
 
-
-
         concordance_units_query = QSqlQuery()
         concordance_units_query.prepare(
             'SELECT ConcordanceFormatAbbreviation, ConcordanceFormatID From ConcordanceFormats')
@@ -689,8 +704,6 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().error(f"Failed to find concordance formats")
             logger_setup.get_logger().debug(f"Error: {concordance_units_query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {concordance_units_query.lastQuery()}")
-
-
 
         error_type_format_query = QSqlQuery()
         error_type_format_query.prepare(
@@ -741,11 +754,13 @@ class ImportWizardDialog(QWidget):
 
         # find values where AliquotName and SampleID match in the database.
         aliquot_query = QSqlQuery()
-        aliquot_query.prepare("SELECT AliquotID FROM Aliquots WHERE AliquotName = :aliquot_name COLLATE NOCASE AND SampleID = :sample_id")
+        aliquot_query.prepare(
+            "SELECT AliquotID FROM Aliquots WHERE AliquotName = :aliquot_name COLLATE NOCASE AND SampleID = :sample_id")
 
         # find values where SpotName and AliquotID match in the database.
         spot_query = QSqlQuery()
-        spot_query.prepare("SELECT SpotID FROM Spots WHERE SpotName = :spot_name COLLATE NOCASE AND AliquotID = :aliquot_id COLLATE NOCASE")
+        spot_query.prepare(
+            "SELECT SpotID FROM Spots WHERE SpotName = :spot_name COLLATE NOCASE AND AliquotID = :aliquot_id COLLATE NOCASE")
 
         # Iterate through rows in the left_table
         for row in range(self.left_table.rowCount()):
@@ -782,7 +797,7 @@ class ImportWizardDialog(QWidget):
             if sample_match:
                 item = self.left_table.item(row, 0)
                 if item:
-                    item.setBackground(QColor('#FFDEB8')) # Light orange
+                    item.setBackground(QColor('#FFDEB8'))  # Light orange
             else:
                 item = self.left_table.item(row, 0)
                 if item:
@@ -791,7 +806,7 @@ class ImportWizardDialog(QWidget):
             if aliquot_match:
                 item = self.left_table.item(row, 1)
                 if item:
-                    item.setBackground(QColor('#FFDEB8')) # Light orange
+                    item.setBackground(QColor('#FFDEB8'))  # Light orange
             else:
                 item = self.left_table.item(row, 1)
                 if item:
@@ -800,7 +815,7 @@ class ImportWizardDialog(QWidget):
             if spot_match:
                 item = self.left_table.item(row, 2)
                 if item:
-                    item.setBackground(QColor('#FFDEB8')) # Light orange
+                    item.setBackground(QColor('#FFDEB8'))  # Light orange
             else:
                 item = self.left_table.item(row, 2)
                 if item:
@@ -897,7 +912,6 @@ class ImportWizardDialog(QWidget):
         elif action == set_blank_action:
             self.set_column_to_blank(column, self.left_table)
 
-
     def show_right_header_context_menu(self, pos):
         """
         Show a context menu on the horizontal header to set column values or insert columns.
@@ -963,7 +977,6 @@ class ImportWizardDialog(QWidget):
                 table.setItem(row, column, item)
             item.setText("")
 
-
     def handle_vertical_header_double_click(self, logical_index):
         """
         Handle double-clicks on vertical headers to mark rows as rejected.
@@ -975,7 +988,6 @@ class ImportWizardDialog(QWidget):
             self.mark_selected_rows_rejected([item], False)
         else:
             self.mark_selected_rows_rejected([item], True)
-
 
     # ---------------------------
     #    Context Menu Methods
@@ -1093,7 +1105,6 @@ class ImportWizardDialog(QWidget):
     #     item.setText(str(checked_item_name))
     #     self.right_table.blockSignals(False)
 
-
     def add_column(self, column_index=None, before=False, field=None):
         """
         Adds a column to the right QTableWidget
@@ -1157,7 +1168,7 @@ class ImportWizardDialog(QWidget):
             self.right_table.setItem(row, column_index, QTableWidgetItem(""))
         self.right_table.blockSignals(False)
 
-        #add additional ID column if column is References, Instruments, Analysis Methods, or Lab Facilities
+        # add additional ID column if column is References, Instruments, Analysis Methods, or Lab Facilities
         if selected_field in ["Reference Display", "Instrument Name", "Lab Facility Name", "UPb Analysis Method Name"]:
             # ADD ID Column to the tablewidget
             # Insert the new column at the end of the table
@@ -1343,10 +1354,9 @@ class ImportWizardDialog(QWidget):
 
         if bypass:
             if QMessageBox.question(self, "Confirmation", "Loading this sheet will clear all existing data. Continue?",
-                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                 QMessageBox.StandardButton.Yes) == QMessageBox.StandardButton.No:
+                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                    QMessageBox.StandardButton.Yes) == QMessageBox.StandardButton.No:
                 return
-
 
         if not hasattr(self, 'selected_file_path') or not self.selected_file_path:
             QMessageBox.warning(self, "No File", "Please select an Excel file first.")
@@ -1407,7 +1417,7 @@ class ImportWizardDialog(QWidget):
         for r in range(rows):
             row_rejected = False
             for c in range(cols):
-                cell = sheet.cell(row=r+1, column=c+1)
+                cell = sheet.cell(row=r + 1, column=c + 1)
                 value = self.df.iat[r, c]
                 disp_val = "NULL" if pd.isna(value) or value == "" else str(value)
 
@@ -1520,8 +1530,8 @@ class ImportWizardDialog(QWidget):
                     table = model.tableName()
                 name_column = get_name_column(table)
             except AttributeError:
-                table = model.table # for trees
-                name_column = 0 # for trees
+                table = model.table  # for trees
+                name_column = 0  # for trees
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None
@@ -1540,14 +1550,14 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
         else:
             # Get the checked item from the tree
-            checked_items, partially_checked_items, checked_indices, partially_checked_indices = model.traverse_checkable_tree(QtCore.QModelIndex())
+            checked_items, partially_checked_items, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
+                QtCore.QModelIndex())
             if checked_items:
                 checked_item_name = checked_items[0]
                 checked_item_id = get_id_from_name(table, checked_item_name)
                 source_checked_row = checked_indices[0].row()
             else:
                 return
-
 
         field_to_column = {
             "ReferenceID": self.get_column_index("ReferenceID"),
@@ -1707,7 +1717,7 @@ class ImportWizardDialog(QWidget):
                 header_item.setIcon(self.accepted_icon)
             self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
-    def mark_selected_rows_rejected(self, rows: list[QTableWidgetItem],  rejected: bool):
+    def mark_selected_rows_rejected(self, rows: list[QTableWidgetItem], rejected: bool):
 
         selected_rows = {i.row() for i in rows}
         if not selected_rows:
@@ -1745,7 +1755,7 @@ class ImportWizardDialog(QWidget):
                 self.column_mappings[logical_index] = (new_field)
                 item.setText(f"{new_field}")
                 item.setBackground(QColor("#C0FFB8")  # Green
-                )
+                                   )
 
                 # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
                 if new_field in ["Sample Name", "Aliquot Name", "Spot Name"]:
@@ -1874,7 +1884,8 @@ class ImportWizardDialog(QWidget):
             if not items:
                 name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
             else:
-                dlg = CompleterInputDialog(self, "Save Mapping", "Enter or select a name for this mapping:", items, True)
+                dlg = CompleterInputDialog(self, "Save Mapping", "Enter or select a name for this mapping:", items,
+                                           True)
                 if dlg.exec() == QDialog.DialogCode.Accepted:
                     name = dlg.get_input()
                     if not name:
@@ -1899,7 +1910,6 @@ class ImportWizardDialog(QWidget):
             with open(CONFIG_FILE, 'w') as f:
                 json.dump(configs, f, indent=4)
             QMessageBox.information(self, "Saved", f"Mapping '{name}' saved successfully.")
-
 
     def load_mapping(self):
         if not os.path.exists(CONFIG_FILE):
@@ -1998,7 +2008,9 @@ class ImportWizardDialog(QWidget):
 
     def fill_empty_cells_with_defaults(self, empty_cells):
         """
-        Fill the empty cells in the left table with default values.
+        Method to fill the left table with default values. SampleNames are set to "DefaultSample", AliquotNames are
+         set its associated SampleName, finally SpotNames are set to its associted AliquotName with a dash counter.
+        :param empty_cells:
         """
         self.left_table.blockSignals(True)
 
@@ -2014,7 +2026,8 @@ class ImportWizardDialog(QWidget):
             elif col == 1:  # Aliquot Name
                 # If Aliquot Name is missing, set equal to Sample Name value
                 if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
-                    self.left_table.setItem(row, col, QTableWidgetItem(self.left_table.item(row, col - 1).text().strip()))
+                    self.left_table.setItem(row, col,
+                                            QTableWidgetItem(self.left_table.item(row, col - 1).text().strip()))
 
             elif col == 2:  # Spot ID
                 # If Aliquot Name exists, create Spot Name with the counter
@@ -2028,12 +2041,17 @@ class ImportWizardDialog(QWidget):
                     self.left_table.setItem(row, col, QTableWidgetItem(f"{aliquot_id}-{spot_counter}"))
 
             # Highlight the updated cell
-            self.left_table.item(row, col).setBackground(QColor("#D4B8FF")) # Light purple
+            self.left_table.item(row, col).setBackground(QColor("#D4B8FF"))  # Light purple
 
         self.left_table.blockSignals(False)
         self.left_table.resizeColumnsToContents()
 
-    def check_and_import(self):
+    def check_and_import(self) -> None:
+        """
+        Main method used when the import button is clicked. Used to first check the left table for empty values, prompt
+        the user for default values, checks then for conflicts in the database. If all checks are passed then the list
+        of rows to be imported is inserted into the database.
+        """
         # Step 1: Check for empty cells in the left table
         empty_cells = self.check_empty_cells_in_left_table()
 
@@ -2055,6 +2073,9 @@ class ImportWizardDialog(QWidget):
                 self.import_to_db()
 
     def check_for_conflicts(self):
+        """Checks values of SampleName, AliquotName, and SpotName in the left table for import against the database.
+         Ensures no values are attempted to be inserted that could raise Unique Constraint Errors by the database.
+         If values are found the list of rows to be imported gets ammended with primary IDs from inside the datbase."""
         upb_matches = []
         for row_idx in range(self.left_table.rowCount()):
             sample_name = self.left_table.item(row_idx, 0).data(Qt.ItemDataRole.DisplayRole)
@@ -2094,11 +2115,12 @@ class ImportWizardDialog(QWidget):
                 return True
         return True
 
-    # ---------------------------
-    #      Import to DB
-    # ---------------------------
 
     def import_to_db(self):
+        """
+        Main method to import values in the QTableWidgets into the SQLite Database. Assumes using QSqlDatabase() default
+        connection.
+        """
         row_count = self.right_table.rowCount()
         if row_count == 0:
             QMessageBox.warning(self, "No Data", "There are no rows to import.")
@@ -2129,18 +2151,19 @@ class ImportWizardDialog(QWidget):
                 else:
                     record['Rejected'] = False
 
-                record['RatioErrorFormatID'] = self.ratio_error_combobox.itemData(self.ratio_error_combobox.currentIndex())
+                record['RatioErrorFormatID'] = self.ratio_error_combobox.itemData(
+                    self.ratio_error_combobox.currentIndex())
                 record['AgeErrorFormatID'] = self.age_error_combobox.itemData(self.age_error_combobox.currentIndex())
-                record['ConcordanceFormatID'] = self.conc_error_combobox.itemData(self.conc_error_combobox.currentIndex())
+                record['ConcordanceFormatID'] = self.conc_error_combobox.itemData(
+                    self.conc_error_combobox.currentIndex())
                 record['AgeUnitID'] = self.age_unit_combobox.itemData(self.age_unit_combobox.currentIndex())
-                record['SpotSizeUnitID'] = self.spot_size_unit_combobox.itemData(self.spot_size_unit_combobox.currentIndex())
-
+                record['SpotSizeUnitID'] = self.spot_size_unit_combobox.itemData(
+                    self.spot_size_unit_combobox.currentIndex())
 
                 # Populate the left-table items (sample_id, aliquot_id, spot_id)
                 sample_id_item = self.left_table.item(row_idx, 0)
                 aliquot_id_item = self.left_table.item(row_idx, 1)
                 spot_id_item = self.left_table.item(row_idx, 2)
-
 
                 record["Sample Name"] = sample_id_item.text().strip() if sample_id_item else None
                 record["Aliquot Name"] = aliquot_id_item.text().strip() if aliquot_id_item else None
@@ -2167,10 +2190,10 @@ class ImportWizardDialog(QWidget):
                             record["SampleID"] = create_sample.lastInsertId()
                             self.sample_ids.append(record["SampleID"])
 
-
                 # Find matching Aliquot Name or create new
                 aliquot_query = QSqlQuery()
-                aliquot_query.prepare('SELECT AliquotID FROM Aliquots WHERE AliquotName=:name COLLATE NOCASE AND SampleID=:sample_id')
+                aliquot_query.prepare(
+                    'SELECT AliquotID FROM Aliquots WHERE AliquotName=:name COLLATE NOCASE AND SampleID=:sample_id')
                 aliquot_query.bindValue(":name", record["Aliquot Name"])
                 aliquot_query.bindValue(":sample_id", record["SampleID"])
 
@@ -2181,7 +2204,8 @@ class ImportWizardDialog(QWidget):
                     else:
                         # no matching samplename in database, will create new one.
                         create_aliquot = QSqlQuery()
-                        create_aliquot.prepare('INSERT INTO Aliquots (AliquotName, SampleID) VALUES (:name, :sample_id)')
+                        create_aliquot.prepare(
+                            'INSERT INTO Aliquots (AliquotName, SampleID) VALUES (:name, :sample_id)')
                         create_aliquot.bindValue(":name", record["Aliquot Name"])
                         create_aliquot.bindValue(":sample_id", record["SampleID"])
 
@@ -2227,9 +2251,6 @@ class ImportWizardDialog(QWidget):
                     logger_setup.get_logger().debug(f'Error: {spot_query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {spot_query.executedQuery()}')
 
-
-
-
                 # by this point a valid Sample, Aliquot, and Spot should be created.
                 # Check if the spot already has a UPbAnalysis, if so, skip or overwrite
                 upb_match = False
@@ -2251,7 +2272,6 @@ class ImportWizardDialog(QWidget):
                         logger_setup.get_logger().warning("Failed to overwrite existing UPbAnalysis")
                         logger_setup.get_logger().debug(f"Error: {delete_query.lastError().text()}")
                         logger_setup.get_logger().debug(f"SQL query: {delete_query.executedQuery()}")
-
 
                 field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
 
@@ -2309,7 +2329,8 @@ class ImportWizardDialog(QWidget):
                                 # table is editable, so we can add new items
                                 # no matching ID in database, will create new one.
                                 create_item = QSqlQuery()
-                                if not create_item.prepare(f'INSERT INTO {table} ({field_name.replace(' ','')}) VALUES (:name)'):
+                                if not create_item.prepare(
+                                        f'INSERT INTO {table} ({field_name.replace(' ', '')}) VALUES (:name)'):
                                     logger_setup.get_logger().error(f'Failed to prepare data for {field_name}')
                                     logger_setup.get_logger().debug(f'Error: {create_item.lastError().text()}')
                                     logger_setup.get_logger().debug(f'SQL query: {create_item.executedQuery()}')
@@ -2374,7 +2395,8 @@ class ImportWizardDialog(QWidget):
                             create_rejection.bindValue(":name", record["Rejection Reason"])
 
                             if not create_rejection.exec():
-                                logger_setup.get_logger().warning(f'Failed to add rejection reason: {record["Rejection Reason"]}')
+                                logger_setup.get_logger().warning(
+                                    f'Failed to add rejection reason: {record["Rejection Reason"]}')
                                 logger_setup.get_logger().debug(f'Error: {create_rejection.lastError().text()}')
                                 logger_setup.get_logger().debug(f'SQL query: {create_rejection.executedQuery()}')
                             else:
@@ -2388,9 +2410,12 @@ class ImportWizardDialog(QWidget):
                             create_upb_rejection_assoc.bindValue(":rejection_reason_id", record["RejectionReasonID"])
 
                             if not create_upb_rejection_assoc.exec():
-                                logger_setup.get_logger().warning(f'Failed to associate rejection reason "{record["Rejection Reason"]}" with analysis')
-                                logger_setup.get_logger().debug(f'Error: {create_upb_rejection_assoc.lastError().text()}')
-                                logger_setup.get_logger().debug(f'SQL query: {create_upb_rejection_assoc.executedQuery()}')
+                                logger_setup.get_logger().warning(
+                                    f'Failed to associate rejection reason "{record["Rejection Reason"]}" with analysis')
+                                logger_setup.get_logger().debug(
+                                    f'Error: {create_upb_rejection_assoc.lastError().text()}')
+                                logger_setup.get_logger().debug(
+                                    f'SQL query: {create_upb_rejection_assoc.executedQuery()}')
 
                 inserted_count += 1
 
@@ -2405,7 +2430,15 @@ class ImportWizardDialog(QWidget):
         self.data_imported.emit(self.sample_ids)
         self.close()
 
-    def find_matching_id(self, table, field_name, value):
+    def find_matching_id(self, table, field_name, value) -> int :
+        """
+
+        :param table: table in the database to query from
+        :param field_name: field in the table to search for
+        :param value: value to find within the field
+        :return: a table's primary key that matches value if found, otherwise none
+        :rtype int
+        """
         query = QSqlQuery()
         id_field = f"{table.strip('s')}ID"
         query.prepare(f"SELECT {id_field} FROM {table} WHERE {field_name}=:value COLLATE NOCASE")
@@ -2426,11 +2459,3 @@ class ImportWizardDialog(QWidget):
     def loadWindowState(self):
         self.move(settings.value("ui/ImportWizard/pos", defaultValue=QPoint(410, 241)))
         self.resize(settings.value("ui/ImportWizard/size", defaultValue=QSize(810, 569)))
-
-
-if __name__ == "__main__":
-
-    app = QApplication(sys.argv)
-    window = ImportWizardDialog()
-    window.show()
-    sys.exit(app.exec())

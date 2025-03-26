@@ -19,7 +19,7 @@ from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database, turn_off_foreign_keys, turn_on_foreign_keys
-import ui.import_wizard
+import ui.ImportWizard
 import ui.New_reference
 from ui.SampleInformation import SampleInformation
 
@@ -181,7 +181,7 @@ class GeoCORK(QtW.QMainWindow):
         :return:
         """
 
-        import_wizard = ui.import_wizard.ImportWizardDialog()
+        import_wizard = ui.ImportWizard.ImportWizardDialog()
         import_wizard.data_imported.connect(self.edit_sample_information)
         import_wizard.show()
 

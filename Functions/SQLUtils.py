@@ -1,5 +1,4 @@
-from Functions.Settings_manager import settings
-from PyQt6.QtSql import QSqlQueryModel
+
 
 # ID columns
 qsample_id = 'Samples.SampleID AS SampleID'
@@ -396,12 +395,15 @@ user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures',
                         'Columns', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
                         'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'SpotCompositions',
                         'SpotContexts', 'UPbAnalysisMethods', 'Units']
+"""List of all user-viewable tables and trees used throughout GeoCORK."""
 
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                        'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
                        'SpotContexts', 'UPbAnalysisMethods', 'Units']
+"""List of all user-viewable trees used throughout GeoCORK. If a table is included in this list it is assumed to be in the correct format"""
 
 export_database_tables_viewable = sorted(user_viewable_tables + ['UPbAnalyses', 'Aliquots', 'Spots'])
+"""List of all tables to be viewed in the ExporterWidget for exporting a database. Extra tables are included for sanity checking."""
 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
@@ -496,6 +498,8 @@ tree_tables_schema = {
     }
 }
 
+# Used in MergeDatabase.py as tables to skip if found for foreign key references.
+# Since these tables should be static across any database and is modified/created exclusively by code
 static_foreign_key_tables = [
     'AgeUnitConversions',
     'AgeUnits',
@@ -510,6 +514,23 @@ static_foreign_key_tables = [
     'GPSFormats'
 ]
 
+# Used in ExportDatabase.py as tables to skip if found exporting.
+# Since these tables should be static across any database and is modified/created exclusively by code
+static_tables = ['About',
+                 'Ages',
+                 'AgeUnitConversions',
+                 'AgeUnits',
+                 'ConcordanceFormatConversions',
+                 'ConcordanceFormats',
+                 'DirectionUnits',
+                 'DistanceUnitConversions',
+                 'DistanceUnits',
+                 'ErrorFormatConversions',
+                 'ErrorFormats',
+                 'GPSFormatConversions',
+                 'GPSFormats']
+
+# Used in MergeDatabase.py as list of tables that have foreign key references to checkover.
 foreign_key_tables = [
     'SampleAges_AgeConstraints',
     'SampleAges_AgeInterpretations',
@@ -533,6 +554,9 @@ foreign_key_tables = [
     'Columns'
 ]
 
+# Used in MergeDatabase.py as the order of tables to merge first to last.
+# Since the database is relational it must be merged so the related data is merged last so updated
+# primary keys can be properly generated
 database_ordered_tables = ['AgeUnits',
                            'ConcordanceFormats',
                            'DirectionUnits',
@@ -585,15 +609,18 @@ database_ordered_tables = ['AgeUnits',
                            'UPbAnalyses_RejectionReasons',
                            'FilterGroups'
                            ]
-
+# List of all views in the database. These views pull information from other tables for a comprehensive view of data
+# See Database_views.py for further
 views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
          'UPbEditView', 'ColumnView', 'ColumnEditView']
 
+# Static list of valid age units. Used to create AgeUnits table.
 age_units = [('Billion years', 'Ga', '1000000000'),
              ('Million years', 'Ma', '1000000'),
              ('Thousand years', 'ka', '1000'),
              ('Years', 'a', '1')]
 
+# Static list of valid concordance formats. Used to create ConcordanceFormats table.
 concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
                        ('Concordance percent', 'Con%',
                         'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
@@ -602,11 +629,13 @@ concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the
                        ('Discordance percent', 'Dis%',
                         'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
 
+# Static list of valid direction units. Used to create DirectionUnits table.
 direction_units = [('North', 'N','positive north'),
                    ('South', 'S','positive south'),
                    ('East', 'E','positive east'),
                    ('West', 'W','positive west')]
 
+# Static list of valid distance units. Used to create DistanceUnits table.
 distance_units = [('Kilometers', 'km', '1000'),
                   ('Meters', 'm', '1'),
                   ('Centimeters', 'cm', '0.01'),
@@ -617,11 +646,13 @@ distance_units = [('Kilometers', 'km', '1000'),
                   ('Feet', 'ft', '1'),
                   ('Inches', 'in', f'(1/12)')]
 
+# Static list of valid error formats. Used to create ErrorFormats table.
 error_formats = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
                  ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
                  ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
                  ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
 
+# Static list of valid GPS formats. Used to create GPSFormats table.
 gps_formats = [
     ('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
     ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
@@ -633,20 +664,9 @@ gps_formats = [
     ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
     ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
 
-static_tables = ['About',
-                 'Ages',
-                 'AgeUnitConversions',
-                 'AgeUnits',
-                 'ConcordanceFormatConversions',
-                 'ConcordanceFormats',
-                 'DirectionUnits',
-                 'DistanceUnitConversions',
-                 'DistanceUnits',
-                 'ErrorFormatConversions',
-                 'ErrorFormats',
-                 'GPSFormatConversions',
-                 'GPSFormats']
-
+# Static list of foreign key references found in tables and their associated table.
+# Issues with database properly keeping track of this through pragma queries have led to this
+# to ensure values are not missed
 as_table_dict = {
     'DirectAgeErrorFormats': 'ErrorFormats',
     'OldAge': 'Ages',
@@ -670,6 +690,9 @@ as_table_dict = {
     'UPbRejectionReasons': 'RejectionReasons'
 }
 
+# List of all columns visible to the user.
+# Used in ExporterWidget.py as valid columns able to be exported
+# Used in Filters.py as valid columns to be filtered
 table_attributes_dict = {
     'AgeConstraints': [
         "AgeConstraintName", "AgeConstraintDescription",
@@ -991,6 +1014,7 @@ view_attributes_dict = {
     ]
 }
 
+# dictionary of Views and their associated settings_value for columns to display throughout GeoCORK
 view_setting_dict = {
     'SampleView': 'sample_view_columns',
     'SampleEditView': 'sample_edit_columns',
@@ -1005,6 +1029,9 @@ view_setting_dict = {
     'ReferenceView': 'reference_view_columns',
 }
 
+# List of valid columns to be entered through the importer.
+# No Calculated values should be in this list
+# Used to create the insert statement with SQL
 upb_possible_database_input_fields = [
     'SpotID',
     'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
@@ -1104,9 +1131,18 @@ upb_possible_user_input_fields = {
         'Uppm', 'Thppm'
     ]
 }
+"""List of User-readable columns/info able to be imported into the database"""
 
 
-def get_join_from_table(join, tables: list[str]) -> str:
+def get_join_from_table(join: str, tables: list[str]) -> str:
+    """
+    Function to take a current SQL join string and append other join strings based upon a list of tables.
+
+    :param str join: Current join statement to add to
+    :param list[str] tables: List of tables to append to the join statement
+    :return: Final join with added tables
+    :rtype: str
+    """
     for table in tables:
         match table:
             case 'AgeConstraints':

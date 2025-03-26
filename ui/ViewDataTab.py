@@ -11,7 +11,7 @@ import logger_setup
 import time
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
-from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel
+from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.EditView import EditView
@@ -111,7 +111,22 @@ class ViewDataTab(QtW.QWidget):
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             table_query = None
         if table_query is not None:
-            self.model = SQLiteTableModel(table_query)
+
+            if self.child_type == 'Aliquot':
+                query = (f'SELECT * FROM AliquotView WHERE AliquotID IN ( '
+                                f'WITH RECURSIVE ParentTree AS '
+                                f'(SELECT * FROM AliquotView '
+                                f'WHERE SampleID = {self.parent_id} '
+                                f'UNION ALL '
+                                f'SELECT AliquotView.* FROM AliquotView '
+                                f'INNER JOIN ParentTree ON AliquotView.AliquotID = ParentTree.ParentAliquotID) '
+                                f'SELECT AliquotID FROM ParentTree) ')
+                logger_setup.get_logger().debug(f'SQL command: {query}')
+                self.model = SQLiteTableModel(query, None)
+
+                self.model = TreeModel(self.model, None)
+            else:
+                self.model = SQLiteTableModel(table_query)
             self.proxy_model = ReadableProxyModel()
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)
@@ -146,15 +161,15 @@ class ViewDataTab(QtW.QWidget):
         if self.child_type == 'Aliquot':
             table = 'Aliquots'
             dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
-            dlg = EditTree(table, **dlg_args)
+            dlg = EditTree(self, table, **dlg_args)
         elif self.child_type == 'Spot':
             table = 'Spots'
             dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
-            dlg = EditView(table, **dlg_args)
+            dlg = EditView(self, table, **dlg_args)
         elif self.child_type == 'UPbAnalysis':
             table = 'UPbAnalyses'
             dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
-            dlg = EditView(table, **dlg_args)
+            dlg = EditView(self, table, **dlg_args)
         else:
             return
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
