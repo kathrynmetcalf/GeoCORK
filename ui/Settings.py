@@ -25,6 +25,23 @@ settings_list = [
     'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page'
 ]
 
+def update_stylesheet():
+    # Apply the stylesheet to the active QApplication object
+    app = QtW.QApplication.instance()
+    set_font = QFont(settings.value('font_family'), int(settings.value('font_size')))
+    app.setFont(set_font)
+    app.setStyleSheet(f'''
+        QTableView {{
+            font-size: {settings.value('table_font_size')}pt;
+        }}
+        QTreeView {{
+            font-size: {settings.value('table_font_size')}pt;
+        }}
+        QListView {{
+            font-size: {settings.value('table_font_size')}pt;
+        }}
+        ''')
+
 def populate_app_defaults():
     app = QtW.QApplication.instance()
     settings.setValue('default_font_family', app.font().family())
@@ -33,15 +50,7 @@ def populate_app_defaults():
 
     # If other settings have been set, update the font and stylesheet
     if settings.value('default_settings') == 'false':
-        app.setFont(QFont(f'{settings.value('font_family')}, {settings.value('font_size')}'))
-        app.setStyleSheet(f'''
-                QTableView {{
-                    font-size: {settings.value('table_font_size')}pt;
-                }}
-                QTreeView {{
-                    font-size: {settings.value('table_font_size')}pt;
-                }}
-                ''')
+        update_stylesheet()
 
 def default_settings():
     # set the default settings values
@@ -174,16 +183,7 @@ def reset_to_default_settings():
                 settings.setValue(setting, settings.value(f'default_{setting}'))
 
         # Apply the stylesheet to the active QApplication object
-        app = QtW.QApplication.instance()
-        app.setFont(QFont(settings.value('default_font_family'), settings.value('default_font_size')))
-        app.setStyleSheet(f'''
-            QTableView {{
-                font-size: {settings.value('default_table_font_size')}pt;
-            }}
-            QTreeView {{
-                font-size: {settings.value('default_table_font_size')}pt;
-            }}
-            ''')
+        update_stylesheet()
 
 def check_missing_settings():
     # Check if any of the settings are missing, if so, set them to the default
@@ -331,9 +331,9 @@ class SettingsDialog(QtW.QDialog):
         # List of font sizes to populate the font size comboboxes
         font_sizes = [str(i) for i in range(6, 21)]
         self.font_size_comboBox.addItems(font_sizes)
-        self.font_size_comboBox.setCurrentText(str(settings.value('font_size')))
+        self.font_size_comboBox.setCurrentText(str(int(settings.value('font_size'))))
         self.table_font_size_comboBox.addItems(font_sizes)
-        self.table_font_size_comboBox.setCurrentText(str(settings.value('table_font_size')))
+        self.table_font_size_comboBox.setCurrentText(str(int(settings.value('table_font_size'))))
         # If the default font is not in the font family list, add it
         if settings.value('font_family') not in QFontDatabase.families():
             self.fontComboBox.addItems([settings.value('font_family')])
@@ -385,21 +385,11 @@ class SettingsDialog(QtW.QDialog):
         update_setting('checkable_combobox_width_scaler', self.combobox_width_scaler_spinbox.value())
 
 
-        update_setting('font_size', self.font_size_comboBox.currentText())
-        update_setting('table_font_size', self.table_font_size_comboBox.currentText())
+        update_setting('font_size', float(self.font_size_comboBox.currentText()))
+        update_setting('table_font_size', float(self.table_font_size_comboBox.currentText()))
         update_setting('font_family', self.fontComboBox.currentFont().family())
 
-        app = QtW.QApplication.instance()
-        new_font = QFont(self.fontComboBox.currentFont().family(), int(self.font_size_comboBox.currentText()))
-        app.setFont(new_font)
-        app.setStyleSheet(f'''
-            QTableView {{
-                font-size: {self.table_font_size_comboBox.currentText()}pt;
-            }}
-            QTreeView {{
-                font-size: {self.table_font_size_comboBox.currentText()}pt;
-            }}
-            ''')
+        update_stylesheet()
 
         self.populate_fields()
 

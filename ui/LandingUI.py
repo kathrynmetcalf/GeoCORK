@@ -22,7 +22,7 @@ from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 # from Functions.Create_database import create_tables
-# from ui.Settings import SettingsDialog, settings_ids
+from ui.Settings import update_stylesheet
 
 
 class LandingPage(QWidget):
@@ -35,6 +35,7 @@ class LandingPage(QWidget):
         sources_ui_file =os.path.join(base_path,  "landingpage.ui")
         loadUi(sources_ui_file, self)
         self.setWindowTitle('GeoCORK')
+        update_stylesheet()
 
         self.db = None
 
