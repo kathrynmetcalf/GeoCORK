@@ -99,6 +99,13 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="mergedatabase_button">
+         <property name="text">
+          <string>Merge Database</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <spacer name="verticalSpacer_4">
          <property name="orientation">
           <enum>Qt::Vertical</enum>

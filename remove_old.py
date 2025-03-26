@@ -38,7 +38,8 @@ def remove_old(db_file):
              'Samples_SamplingMethods': Create_db.CREATE_SAMPLES_SAMPLINGMETHODS_TABLE,
              'Samples_Settings': Create_db.CREATE_SAMPLES_SETTINGS_TABLE,
              'Samples_Units': Create_db.CREATE_SAMPLES_UNITS_TABLE},
-        'References_old': {'SampleAges_References': Create_db.CREATE_SAMPLEAGES_REFERENCES_TABLE},
+        'References_old': {'SampleAges_References': Create_db.CREATE_SAMPLEAGES_REFERENCES_TABLE,
+                           'UPbAnalyses': Create_db.CREATE_UPBANALYSES_TABLE},
         'UPbAnalyses_old': {'UPbAnalyses_RejectionReasons': Create_db.CREATE_UPBANALYSES_REJECTIONREASONS_TABLE},
     }
 
@@ -144,4 +145,6 @@ def remove_old(db_file):
 if __name__ == "__main__":
     # remove_old("/Users/kametcalf/Documents/Research/GeoChron_non_git/GeoChron v.0 copy.db")
     # remove_old("C:/Users/jburges/Downloads/GeoChronDB/new geochron.db")
-    remove_old("C:/Users/jburges/Downloads/Klamaths.db")
+    # remove_old("C:/Users/jburges/Downloads/Klamaths.db")
+    remove_old("C:/Users/jburges/Downloads/db merge/klam.db")
+    remove_old("C:/Users/jburges/Downloads/db merge/klam2.db")

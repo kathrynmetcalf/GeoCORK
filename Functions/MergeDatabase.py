@@ -1,12 +1,8 @@
 import sqlite3
-from _ast import pattern
-from typing import Dict, List, Tuple
-import re
-import sqlite3
 from typing import Dict, List
-from Widget_classes import get_name_column
+from Functions.Widget_classes import get_name_column
 
-import SQLUtils
+import Functions.SQLUtils as SQLUtils
 import logger_setup
 
 
@@ -437,11 +433,11 @@ def merge_database(source_db_path: str, incoming_db_path: str):
             # For each foreign key, rewrite the column
             for fk in fks:
                 ref_table = fk["ref_table"]  # e.g. "Samples"
-                from_col = fk["from_col"]  # e.g. "SampleID"
-                to_col = fk["to_col"]  # typically the PK of the referenced table
-
                 if ref_table.replace('"', '') in SQLUtils.static_foreign_key_tables:
                     continue
+
+                from_col = fk["from_col"]  # e.g. "SampleID"
+                to_col = fk["to_col"]  # typically the PK of the referenced table
 
                 old_fk_val = row_dict[from_col]
                 if old_fk_val is None:
@@ -469,6 +465,9 @@ def merge_database(source_db_path: str, incoming_db_path: str):
 
             while True:
                 try:
+                    # print(to_insert)
+                    if '"Samples"' == ref_table:
+                        logger_setup.get_logger().debug(f"{to_insert}")
                     source_conn.execute(insert_sql, to_insert)
                     break  # success: break out of loop
                 except sqlite3.IntegrityError as e:
@@ -476,6 +475,11 @@ def merge_database(source_db_path: str, incoming_db_path: str):
                         # We got a uniqueness collision, so increment or append '(1)'
                         current_value = str(to_insert[name_index])
                         to_insert[name_index] = current_value + '(1)'
+                    elif "NOT NULL constraint failed" in str(e):
+                        logger_setup.get_logger().info(f'Not null contrainst failed')
+                        logger_setup.get_logger().debug(f"{to_insert}")
+                        logger_setup.get_logger().debug(f'{str(e)}')
+                        break
                     else:
                         # It's another error we don't want to handle here; re-raise
                         raise
@@ -501,12 +505,12 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         elif t in self_ref_tables.keys():
             print(f"Merging self-referential tree table: {t}")
             merge_self_ref_table(t)
-        elif t in mtm_tables:
-            print(f"Merging mtm table: {t}")
-            merge_m2m_bridge_table(t)
         elif t in fk_tables:
             print(f"Merging table with FKs: {t}")
             merge_table_with_foreign_keys(t)
+        elif t in mtm_tables:
+            print(f"Merging mtm table: {t}")
+            merge_m2m_bridge_table(t)
 
     # ----------------------------------------------------------------
     # 8. Commit and re-enable foreign_keys

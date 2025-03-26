@@ -21,6 +21,7 @@ from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
+from ui.MergeDatabaseUI import MergeDatabaseDialog
 # from Functions.Create_database import create_tables
 from ui.Settings import update_stylesheet
 
@@ -49,6 +50,8 @@ class LandingPage(QWidget):
         self.newdatabase_button.clicked.connect(self.new_database_dialog)
 
         self.opendatabase_button.clicked.connect(self.showFileDialog)
+
+        self.mergedatabase_button.clicked.connect(self.show_merge_db)
 
         self.github_button: QPushButton
         self.github_button.setIcon(qtawesome.icon('fa6b.github', color='black', scale_factor=1.0))
@@ -228,6 +231,11 @@ class LandingPage(QWidget):
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
             self.hide()
             self.open_geo_cork()
+
+    def show_merge_db(self):
+        merge_dialog = MergeDatabaseDialog()
+        if merge_dialog.exec():
+            return
 
     def recents_context_menu(self, pos):
         item = self.listWidget.itemAt(pos)
