@@ -4,7 +4,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import QModelIndex
+from PyQt6.QtCore import QModelIndex, QRegularExpression
 from PyQt6.uic import loadUi
 
 import logger_setup
@@ -50,8 +50,7 @@ class EditTable(QtW.QDialog):
         self.total_records = 0
 
         self.model = EditableSqlQueryModel()
-        # self.model = QtS.QSqlTableModel()
-        self.proxy_model = ReadableProxyModel()
+        self.table_proxy_model = ReadableProxyModel()
         self.name_column = None
         self.name_header = None
         self.table_headers = None
@@ -60,6 +59,7 @@ class EditTable(QtW.QDialog):
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
+        self.search_lineEdit.textChanged.connect(self.search)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
@@ -69,17 +69,24 @@ class EditTable(QtW.QDialog):
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
+    def search(self):
+        self.search_lineEdit: QtW.QLineEdit
+        self.table_proxy_model.setRecursiveFilteringEnabled(True)
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(), options=QRegularExpression.PatternOption.CaseInsensitiveOption)
+        self.table_proxy_model.setFilterRegularExpression(search_expression)
+
     def create_model(self):
         self.model.setQuery(f'SELECT * FROM {self.table} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
         # set_table(self.model, self.table)
         self.table_headers = get_headers(self.table)
-        self.proxy_model.setSourceModel(self.model)
+        self.table_proxy_model.setSourceModel(self.model)
+        self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
         self.name_column = get_name_column(self.table)
         self.name_header = self.table_headers[self.name_column]
 
         # Sort the table by the name column
-        self.proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
+        self.table_proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.display_table()
 
     def change_rows_per_page(self):
@@ -127,7 +134,7 @@ class EditTable(QtW.QDialog):
             # get all the rows in the selected indexes
             rows = []
             for index in indexes:
-                model_index = self.proxy_model.mapToSource(index)
+                model_index = self.table_proxy_model.mapToSource(index)
                 if model_index.row() not in rows:
                     rows.append(model_index.row())
             if len(rows) == 1:
@@ -148,9 +155,9 @@ class EditTable(QtW.QDialog):
     def display_table(self):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
-        self.edit_tableView.setModel(self.proxy_model)
+        self.edit_tableView.setModel(self.table_proxy_model)
         # self.edit_tableView.setModel(self.filter_proxy_model)
-        for column in range(self.proxy_model.columnCount()):
+        for column in range(self.table_proxy_model.columnCount()):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if 'ID' in header:
                 self.edit_tableView.hideColumn(column)
@@ -188,7 +195,7 @@ class EditTable(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
-        current_model_index = self.proxy_model.mapToSource(self.edit_tableView.currentIndex())
+        current_model_index = self.table_proxy_model.mapToSource(self.edit_tableView.currentIndex())
         if self.edit_tableView.currentIndex().isValid() and not self.model.setData(current_model_index, self.edit_tableView.currentIndex().data(), QtC.Qt.ItemDataRole.EditRole):
             # There is a valid index selected and submitting data failed
             logger_setup.get_logger().critical('Failed to save changes')
