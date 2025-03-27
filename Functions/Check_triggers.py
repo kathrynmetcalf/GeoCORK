@@ -1,8 +1,16 @@
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 
+import logger_setup
+
 
 def update_modified_timestamp(table: str, record_ids: list):
+    """
+
+    :param str table: table to be updated
+    :param list record_ids: list of record ids to be updated
+    :return:
+    """
     """
     Update the ModifiedTimestamp field for the given records
     @param table: table to be updated
@@ -15,13 +23,18 @@ def update_modified_timestamp(table: str, record_ids: list):
     table_model.select()
     record_id_header = table_model.record().fieldName(0)
     query = QtS.QSqlQuery()
+    logger_setup.get_logger().debug('Updating {')
     if len(record_ids) > 1:
         record_ids = ', '.join(str(id) for id in record_ids)
         if not query.exec(f'UPDATE {table} SET ModifiedTimestamp = CURRENT_TIMESTAMP WHERE {record_id_header} IN ({record_ids})'):
-            return f'Unable to update modified timestamps for {table}: {query.lastError().text()}'
+            logger_setup.get_logger().error(
+                f'Unable to update modified timestamps for {table}')
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
     if len(record_ids) == 1:
         if not query.exec(f'UPDATE {table} SET ModifiedTimestamp = CURRENT_TIMESTAMP WHERE {record_id_header} = {record_ids[0]}'):
-            return f'Unable to update modified timestamps for {table}: {query.lastError().text()}'
+            logger_setup.get_logger().error(
+                f'Unable to update modified timestamps for {table}')
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
 
 
 def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | None):
@@ -29,11 +42,11 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
     Check that the values being inserted into the database are valid
     The corresponding columns and values should be in the same index in their respective lists
     Tables that need to be validated are in SQLUtils.trigger_tables
-    @param table: table to be inserted into
-    @param columns: list of names of columns to be inserted into
-    @param values: list of values to be inserted into the columns
-    @param GPSFormatID: the id of the GPS format to be used for the GPS location, if applicable
-    @return: None if successful, error message if not
+    :param str table: table to be inserted into
+    :param list columns: list of names of columns to be inserted into
+    :param list values: list of values to be inserted into the columns
+    :param int GPSFormatID: the id of the GPS format to be used for the GPS location, if applicable
+    :return:
     """
     if len(columns) != len(values):
         return "Number of columns to set does not match number of values given", None
@@ -127,11 +140,11 @@ def validate_update(table: str, columns: list, values: list, where: str):
     Check that the values being updated in the database are valid
     The corresponding columns and values should be in the same index in their respective lists
     Tables that need to be validated are in SQLUtils.trigger_tables
-    @param table: the table to be updated
-    @param columns: the columns to be updated
-    @param values: the string values to be entered into the database. Null values should be 'Null'
-    @param where: the text that would come after WHERE in a sql statement
-    @return: None if successful, error message if not
+    :param table: the table to be updated
+    :param columns: the columns to be updated
+    :param values: the string values to be entered into the database. Null values should be 'Null'
+    :param where: the text that would come after WHERE in a sql statement
+    :return:
     """
     if len(columns) != len(values):
         return "Number of columns to set does not match number of values given", None
@@ -244,12 +257,11 @@ def validate_update(table: str, columns: list, values: list, where: str):
 def check_update_units(all_records: list, value_col: str, unit_id_col: str):
     """
     Check that the value and unit id are both being set, both not set, or the value is not being set without a unit id
-    @param all_records: list of lists [column_name, new_value, old_values] for each column in the table
-    @param value_col: the name of the column that holds the value
-    @param unit_id_col: the name of the column that holds the unit id
-    @return: Nothing if successful, error message if not
+    :param list all_records: list of lists [column_name, new_value, old_values] for each column in the table
+    :param str value_col: the name of the column that holds the value
+    :param str unit_id_col: the name of the column that holds the unit id
+    :return:
     """
-
     new_value = ''
     new_unit_id = ''
     old_unit_ids = []
@@ -272,7 +284,13 @@ def check_update_units(all_records: list, value_col: str, unit_id_col: str):
     # A unit id missing a value is not problematic
     return None, None
 
-def check_insert_pairs(pairs: list, column1, column2):
+def check_insert_pairs(pairs: list, column1: str, column2: str) -> None:
+    """
+    Checks a pair of columns that should have data in both columns or both be NULL.
+    :param list pairs: list of values to validate
+    :param str column1: column value 1 to check
+    :param str column2: column value 2 to check
+    """
     for pair in pairs:
         if pair[0] == column1:
             new_column1 = pair[1]

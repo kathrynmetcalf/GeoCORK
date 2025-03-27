@@ -1,17 +1,20 @@
+import time
+
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
 
 import Functions.Database_views as DB_views
 import logger_setup
-from Functions.Settings_manager import settings
-import time
 
-def turn_on_foreign_keys(pyqt_connection: str='default'):
+
+def turn_on_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
-    Turn on foreign keys for the database connection
-    :param pyqt_connection: Name of the PyQt connection to use, default is 'default'
-    :return: True or False
+    Turn on foreign keys for a given database connection, if no database is provided the default database will be used.
+    :param QSqlDatabase database: QSqlDatabase instance to enable foreign keys
+    :return: True for success, False for failure
+    :rtype: bool
     """
-    query = QSqlQuery(pyqt_connection)
+    query = QSqlQuery(database)
+    logger_setup.get_logger().debug(f'Turning on foreign keys for database: {database.connectionName()}')
     if not query.exec('PRAGMA foreign_keys=ON'):
         logger_setup.get_logger().critical(f'Could not turn on foreign keys: {query.lastError().text()}')
         return False
@@ -26,13 +29,18 @@ def turn_on_foreign_keys(pyqt_connection: str='default'):
             logger_setup.get_logger().critical('Failed to re-enable foreign keys')
             return False
 
-def turn_off_foreign_keys(pyqt_connection: str='default'):
+    return False
+
+
+def turn_off_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
     """
-    Turn off foreign keys for the database connection
-    :param pyqt_connection: Name of the PyQt connection to use, default is 'default'
-    :return: True or False
+    Turn off foreign keys for a given database connection, if no database is provided the default database will be used.
+    :param QSqlDatabase database: QSqlDatabase instance to enable foreign keys
+    :return: True for success, False for failure
+    :rtype: bool
     """
-    query = QSqlQuery(pyqt_connection)
+    query = QSqlQuery(database)
+    logger_setup.get_logger().debug(f'Turning off foreign keys for database: {database.connectionName()}')
     if not query.exec('PRAGMA foreign_keys=OFF'):
         logger_setup.get_logger().critical(f'Could not turn off foreign keys: {query.lastError().text()}')
         return False
@@ -47,12 +55,17 @@ def turn_off_foreign_keys(pyqt_connection: str='default'):
             logger_setup.get_logger().critical('Failed to disable foreign keys')
             return False
 
-def update_database():
+    return False
+
+
+def update_database() -> bool:
     """
     Run this on startup and when settings are changed.
     The database has generated columns that set display values based on units and formats in settings. These need to be
     updated if the settings are changed. This function will drop and recreate the generated columns.
     Uses the default connection established with the database file in GeoCORKMain.py
+    :return: True for success, False for failure
+    :rtype: bool
     """
     start_time = time.time()
     logger_setup.get_logger().info("Updating database")
@@ -62,16 +75,16 @@ def update_database():
     if not db.commit():
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error committing database: {db.lastError().text()}")
-            return
+            return False
     if not db.close():
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error closing database: {db.lastError().text()}")
-            return
+            return False
     if not db.open():
         logger_setup.get_logger().critical(f"Error opening database: {db.lastError().text()}")
-        return
+        return False
     if not turn_on_foreign_keys():
-        return
+        return False
 
     from Functions import Create_database as Create_db, Create_indexes
     from Functions import Alter_database as Alter_db
@@ -87,3 +100,4 @@ def update_database():
     end_time = time.time()
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")
 
+    return True

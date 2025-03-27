@@ -270,8 +270,8 @@ class LandingPage(QWidget):
             self.list_recents.remove(str(item.text()))
             settings.setValue('ui/LandingPage/recentlist', self.list_recents)
 
-        row = self.listWidget.row(item)
-        self.listWidget.takeItem(row)
+            row = self.listWidget.row(item)
+            self.listWidget.takeItem(row)
 
 
     def get_filename(self):

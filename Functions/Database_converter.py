@@ -1,5 +1,7 @@
 import PyQt6
 from PyQt6 import QtSql as QtS
+from PyQt6.QtSql import QSqlDatabase
+
 import Functions.Create_database as Create_db
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 
@@ -371,6 +373,12 @@ def get_database_schema(db: QtS.QSqlDatabase):
     return schema
 
 def compare_schemas(input_schema, current_schema):
+    """
+    Compares two schemas
+    :param input_schema:
+    :param current_schema:
+    :return:
+    """
     differences = {
         'only_in_input_schema': [],
         'only_in_current_schema': [],
@@ -386,11 +394,17 @@ def compare_schemas(input_schema, current_schema):
             differences['only_in_current_schema'].append(key)
     return differences
 
-def drop_table(table_name: str):
+def drop_table(table_name: str, database: QSqlDatabase = QSqlDatabase()) -> bool:
+    """
+    Drops a specified table from a specified database. If no database is provided the default database will
+    be used.
+    :param str table_name: table name in the database to drop
+    :param QSqlDatabase database: database to drop from
+    :return: True for success, False for failure
+    """
     query = QtS.QSqlQuery()
-    db = QtS.QSqlDatabase.database()
-    if db.transaction():
-        db.commit()
+    if database.transaction():
+        database.commit()
     if not query.exec(f'DROP TABLE IF EXISTS {table_name}'):
         print(f'Failed to drop table {table_name}: {query.lastError().text()}')
         return False

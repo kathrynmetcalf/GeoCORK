@@ -1,26 +1,43 @@
-import PyQt6
-from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
-from PyQt6.QtSql import QSqlDatabase
+from PyQt6 import QtSql as QtS
 
-import logger_setup
-from Functions.Settings_manager import settings
-
-import pyproj
 import Functions.Create_database as Create_db
-from Functions.Widget_classes import set_table, get_columns
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+import logger_setup
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
-import Functions.GPS_conversions as GPS # gps conversions
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Settings_manager import settings
+from Functions.Widget_classes import set_table, get_columns
+
 
 def settings_reset():
-    tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE], ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
-                       ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE], ['Samples', Create_db.CREATE_SAMPLES_TABLE],
+    """
+
+    :return: True for success, False for failure
+    :rtype: bool
+    """
+    tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE],
+                       ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
+                       ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE],
+                       ['Samples', Create_db.CREATE_SAMPLES_TABLE],
                        ['Columns', Create_db.CREATE_COLUMNS_TABLE], ['References', Create_db.CREATE_REFERENCES_TABLE]]
     if drop_virtual_columns(tables_affected):
-        populate_generated_columns()
+        if populate_generated_columns():
+            return True
+        else:
+            return False
+    else:
+        return False
 
-def drop_virtual_columns(tables_affected: list, edit_table: str = None):
+
+def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = None) -> bool:
+    """
+     Function to drop virtual columns from tables and regenerate them. Function creates new table with no virtual columns,
+    copies data from old table, deletes old table, and renames the new table to the old table.
+    :param list[list[str]] tables_affected: List of tables affected where index 0 is table_name and index 1 is SQL create string
+    :param edit_table:
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     logger_setup.get_logger().info(f'Turning off foreign keys')
     if not turn_off_foreign_keys():
         return False
@@ -79,10 +96,10 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
             alter_table_qry = f'ALTER TABLE {table}_new RENAME TO "{table}"'
             logger_setup.get_logger().info(f'Altering table rename: {table}_new to {table}')
             if not query.exec(f'ALTER TABLE {table}_new RENAME TO "{table}"'):
-                        logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL command: {alter_table_qry}')
-                        rollback_savepoint('before_drop')
-                        return False
+                logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {alter_table_qry}')
+                rollback_savepoint('before_drop')
+                return False
             logger_setup.get_logger().info(f'Successfully altered table rename: {table}_new to {table}')
 
             # Get the columns of the new table to compare to the original table
@@ -99,88 +116,109 @@ def drop_virtual_columns(tables_affected: list, edit_table: str = None):
         return False
     return True
 
-def populate_generated_columns():
+
+def populate_generated_columns() -> bool:
+    """
+    Function to populate generated columns for all tables with virtual columns based on current user settings.
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     create_savepoint('before_populate')
     # Retrieve the settings
-    age_unit_id = settings._instance.value('age_unit_id') #default to Ma
-    elevation_unit_id = settings._instance.value('elevation_unit_id') # default to m
-    gps_format_id = settings._instance.value('gps_format_id') # default to DD +/-
-    heightdepth_unit_id = settings._instance.value('heightdepth_unit_id') # default to m
-    spotsize_unit_id = settings._instance.value('spotsize_unit_id') # default to um
-    age_error_format_id = settings._instance.value('age_error_format_id') # default to 1 sigma abs
-    ratio_error_format_id = settings._instance.value('ratio_error_format_id') # default to 1 sigma abs
-    concordance_format_id = settings._instance.value('concordance_format_id') # default conc ratio
+    age_unit_id = settings._instance.value('age_unit_id')  # default to Ma
+    elevation_unit_id = settings._instance.value('elevation_unit_id')  # default to m
+    gps_format_id = settings._instance.value('gps_format_id')  # default to DD +/-
+    heightdepth_unit_id = settings._instance.value('heightdepth_unit_id')  # default to m
+    spotsize_unit_id = settings._instance.value('spotsize_unit_id')  # default to um
+    age_error_format_id = settings._instance.value('age_error_format_id')  # default to 1 sigma abs
+    ratio_error_format_id = settings._instance.value('ratio_error_format_id')  # default to 1 sigma abs
+    concordance_format_id = settings._instance.value('concordance_format_id')  # default conc ratio
     reference_format = settings._instance.value('reference_format')
 
     # Affected list format: [[table1, [unit/type ID headers], column1, column2, ...], [table2, [unit/type ID headers], column1, column2, ...], ...]
     # Save age errors to handle both age unit and age error type
     age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge'],
-                         ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge', 'BestAge']]
+                         ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge',
+                          '208Pb/232ThAge', 'BestAge']]
     elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
     gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
-    heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'], ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
+    heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'],
+                                 ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
     spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
     concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance']]
     upb_analyses_model = QtS.QSqlTableModel()
     set_table(upb_analyses_model, 'UPbAnalyses')
     affected_upb_ratio = ['UPbAnalyses', 'RatioErrorFormatID']
-    affected_upb_age = ['UPbAnalyses', ['AgeErrorFormatID','AgeUnitID']]
+    affected_upb_age = ['UPbAnalyses', ['AgeErrorFormatID', 'AgeUnitID']]
     for col in range(upb_analyses_model.columnCount()):
         if upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole).endswith(
                 'AgeError'):
             affected_upb_age.append(
                 upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
         elif upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal,
-                                             QtC.Qt.ItemDataRole.DisplayRole).endswith('Error'):
+                                           QtC.Qt.ItemDataRole.DisplayRole).endswith('Error'):
             affected_upb_ratio.append(
                 upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
-    age_error_format_affected = [['SampleAges', ['DirectAgeErrorFormatID','DirectAgeUnitID'], 'DirectAgeError'], affected_upb_age]
+    age_error_format_affected = [['SampleAges', ['DirectAgeErrorFormatID', 'DirectAgeUnitID'], 'DirectAgeError'],
+                                 affected_upb_age]
     ratio_error_format_affected = [affected_upb_ratio]
 
     # Convert the columns and catch any errors
-    output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
-    if output == "error":
+    if not convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id]):
         rollback_savepoint('before_populate')
-        return
-    output = convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [elevation_unit_id])
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id])
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id])
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'], [concordance_format_id])
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'], ['ErrorFormat','AgeUnit'], [age_error_format_id, age_unit_id])
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'], [ratio_error_format_id])
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = generate_reference_column('References', 'ReferenceID', reference_format)
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    output = generate_age_display_column('SampleAges', 'SampleAgeID')
-    if output == "error":
-        rollback_savepoint('before_populate')
-        return
-    release_savepoint('before_populate')
+        return False
 
-def convert_columns(affected: list, conversion_table: list, id_header_base: list, selected_id: list):
+    if not convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                           [elevation_unit_id]):
+        rollback_savepoint('before_populate')
+        return False
+
+    if not convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id]):
+        rollback_savepoint('before_populate')
+        return False
+
+    if not convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                           [heightdepth_unit_id]):
+        rollback_savepoint('before_populate')
+        return False
+
+    if not convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [spotsize_unit_id]):
+        rollback_savepoint('before_populate')
+        return False
+
+    if not convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'],
+                           [concordance_format_id]):
+        rollback_savepoint('before_populate')
+        return False
+    if not convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
+                           ['ErrorFormat', 'AgeUnit'], [age_error_format_id, age_unit_id]):
+        rollback_savepoint('before_populate')
+        return False
+    if not convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'],
+                           [ratio_error_format_id]):
+        rollback_savepoint('before_populate')
+        return False
+    if not generate_reference_column('References', 'ReferenceID', reference_format):
+        rollback_savepoint('before_populate')
+        return False
+    if not generate_age_display_column('SampleAges', 'SampleAgeID'):
+        rollback_savepoint('before_populate')
+        return False
+    release_savepoint('before_populate')
+    return True
+
+
+def convert_columns(affected: list[list[str]], conversion_table: list[str], id_header_base: list,
+                    selected_id: list) -> bool:
+    """
+    Helper function to generate virtual columns used in the database based on parameters
+    :param list[list[str]] affected: Affected tables/column list. Index 0 is table_name, indexes n+1 are columns affected and need to be converted.
+    :param list[str] conversion_table: List of conversion helper tables used for affected list
+    :param id_header_base: The first part of the column ID header for conversion
+    :param selected_id: The format ID used to define what format to convert everything to
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     if id_header_base[0] in ['AgeUnit', 'DistanceUnit', 'ErrorFormat', 'GPSFormat', 'ConcordanceFormat']:
         for table_list in affected:
             table = table_list.pop(0)
@@ -191,26 +229,35 @@ def convert_columns(affected: list, conversion_table: list, id_header_base: list
                 table_id_header = table_list.pop(0)
             affected_column_names = table_list
 
-            conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0])
-            if conversions == "error":
-                return "error"
+            try:
+                conversions = retrieve_conversions(conversion_table[0], id_header_base[0], selected_id[0])
+            except NotImplementedError:
+                return False
             if len(conversion_table) > 1:
-                age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1])
-                if age_conversions == "error":
-                    return "error"
-                output = generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id, conversions, age_conversions)
-                if output == "error":
-                    return "error"
+                try:
+                    age_conversions = retrieve_conversions(conversion_table[1], id_header_base[1], selected_id[1])
+                except NotImplementedError:
+                    return False
+                if not generate_age_error_columns(affected_column_names, table, table_id_headers, selected_id,
+                                                  conversions, age_conversions):
+                    return False
             elif id_header_base[0] == 'GPSFormat':
-                output = generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions)
-                if output == "error":
-                    return "error"
+                if not generate_gps_column(affected_column_names, table, table_id_header, selected_id[0], conversions):
+                    return False
             else:
-                output = generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions)
-                if output == "error":
-                    return "error"
+                if not generate_columns(affected_column_names, table, table_id_header, selected_id[0], conversions):
+                    return False
+    return True
 
-def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int):
+
+def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int) -> list[tuple[any, any]]:
+    """
+    :param str conversion_table:
+    :param str id_header_base:
+    :param int selected_id:
+    :raises NotImplementedError: Raised if no calculation column and from columns not found.
+    :return: List of from_ids and conversion logic.
+    """
     unit_conversion_model = QtS.QSqlTableModel()
     set_table(unit_conversion_model, conversion_table)
     unit_conversion_model.setFilter(f'To{id_header_base}ID={selected_id}')
@@ -222,14 +269,14 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
                                                              QtC.Qt.ItemDataRole.DisplayRole):
             calculation_col = col
         elif 'From' in unit_conversion_model.headerData(col, QtC.Qt.Orientation.Horizontal,
-                                                      QtC.Qt.ItemDataRole.DisplayRole):
+                                                        QtC.Qt.ItemDataRole.DisplayRole):
             from_id_col = col
         if calculation_col != 'None' and from_id_col != 'None':
             break
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
         logger_setup.get_logger().critical(f'Calculation: {calculation_col} and from columns:{from_id_col} not found')
-        return "error"
+        raise NotImplementedError('Calculation not implemented.')
     conversions = []
     for row in range(unit_conversion_model.rowCount()):
         conversion = unit_conversion_model.record(row).value(calculation_col)
@@ -237,7 +284,18 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
         conversions.append((from_id, conversion))
     return conversions
 
-def generate_columns(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list):
+
+def generate_columns(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int,
+                     conversions: list) -> bool:
+    """
+
+    :param affected_column_names:
+    :param table:
+    :param table_id_header:
+    :param selected_id:
+    :param conversions:
+    :return: True for success, False for failure
+    """
     query = QtS.QSqlQuery()
     for column in affected_column_names:
         if '/' in column:
@@ -262,10 +320,19 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
                 f'Error adding the calculated column {column}: {query.lastError().text()}')
             logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
             rollback_savepoint('before_populate')
-            return "error"
+            return False
         logger_setup.get_logger().info(f'Successfully updated {column}')
+    return True
 
-def generate_age_display_column(table: str, table_id_header: str):
+
+def generate_age_display_column(table: str, table_id_header: str) -> bool:
+    """
+
+    :param table:
+    :param table_id_header:
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     query = QtS.QSqlQuery()
     column = 'SampleAgeDisplay'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || "±" || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
@@ -274,10 +341,24 @@ def generate_age_display_column(table: str, table_id_header: str):
     if not query.exec(sql_alter):
         logger_setup.get_logger().critical(f'Error adding the calculated column {column}: {query.lastError().text()}')
         logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
-        return "error"
+        return False
     logger_setup.get_logger().info(f'Successfully updated {column}')
+    return True
 
-def generate_age_error_columns(affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list, err_conversions: list, age_conversions: list):
+
+def generate_age_error_columns(affected_column_names: list[str], table: str, table_id_headers: list, selected_id: list,
+                               err_conversions: list, age_conversions: list) -> bool:
+    """
+
+    :param affected_column_names:
+    :param table:
+    :param table_id_headers:
+    :param selected_id:
+    :param err_conversions:
+    :param age_conversions:
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     table_error_id_header = table_id_headers[0]
     table_age_id_header = table_id_headers[1]
     selected_error_type_id = selected_id[0]
@@ -314,10 +395,23 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
                 f'Error adding the calculated column {err_column}')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             rollback_savepoint('before_populate')
-            return "error"
+            return False
         logger_setup.get_logger().info(f'Successfully updated {err_column}')
+    return True
 
-def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int, conversions: list):
+
+def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int,
+                        conversions: list) -> bool:
+    """
+
+    :param affected_column_names:
+    :param table:
+    :param table_id_header:
+    :param selected_id:
+    :param conversions:
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     query = QtS.QSqlQuery()
     column = 'GPSLocationConverted'
     variables = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
@@ -337,14 +431,15 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
         sql_lon_alter = f'ALTER TABLE {table} ADD COLUMN CalculatedLon VIRTUAL'
         sql_gps_alters = [sql_lat_alter, sql_lon_alter]
     for sql_gps_alter in sql_gps_alters:
-        logger_setup.get_logger().info(f'Adding the calculated column {sql_gps_alter.split("COLUMN ")[1].split(" VIRTUAL")[0]}')
+        logger_setup.get_logger().info(
+            f'Adding the calculated column {sql_gps_alter.split("COLUMN ")[1].split(" VIRTUAL")[0]}')
         logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
         if not query.exec(sql_gps_alter):
             logger_setup.get_logger().critical(
                 f'Error adding the calculated column {sql_gps_alter.split("COLUMN ")[1]}')
             logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
             rollback_savepoint('before_populate')
-            return "error"
+            return False
     for row in range(gps_model.rowCount()):
         gps_id = gps_model.record(row).value('GPSLocationID')
         gps_format_id = gps_model.record(row).value('GPSFormatID')
@@ -381,7 +476,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                         f'Error adding the calculated column {column}: {query.lastError().text()}')
                     logger_setup.get_logger().critical(f'SQL command: {query.lastQuery()}')
                     rollback_savepoint('before_populate')
-                    return "error"
+                    return False
                 gps_elements = gps_display.split(', ')
                 for sql_gps_alter in sql_gps_alters:
                     gps_column = sql_gps_alter.split('COLUMN ')[1].split(" VIRTUAL")[0]
@@ -392,12 +487,22 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                             f'Error adding the calculated column {gps_column}')
                         logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
                         rollback_savepoint('before_populate')
-                        return "error"
+                        return False
                     logger_setup.get_logger().info(f'Successfully updated {gps_column}')
                 logger_setup.get_logger().info(f'Successfully updated {column}')
                 break
+    return True
 
-def generate_reference_column(table: str, table_id_header: str, constructor: str):
+
+def generate_reference_column(table: str, table_id_header: str, constructor: str) -> bool:
+    """
+
+    :param table:
+    :param table_id_header:
+    :param constructor:
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     query = QtS.QSqlQuery()
     column = 'ReferenceDisplay'
 
@@ -408,10 +513,16 @@ def generate_reference_column(table: str, table_id_header: str, constructor: str
         logger_setup.get_logger().critical(f'Error adding the calculated column {column}: {query.lastError().text()}')
         logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
         rollback_savepoint('before_populate')
-        return "error"
+        return False
     logger_setup.get_logger().info(f'Successfully updated {column}')
 
-def update_generated_columns(table: str):
+
+def update_generated_columns(table: str) -> bool:
+    """
+    Updates all of the generated columns for a given table.
+    :param str table:
+    :return: True for success, False for failure
+    """
     if table == 'GPSLocations':
         # Drop the virtual columns
         tables_affected = [[['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE]]]
@@ -423,15 +534,12 @@ def update_generated_columns(table: str):
         # Convert the columns and catch any errors
         elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
         gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
-        output = convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
-                                 [elevation_unit_id])
-        if output == "error":
-            return
-        output = convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id])
-        if output == "error":
-            return
+        if not convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                               [elevation_unit_id]):
+            return False
+        if not convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'], [gps_format_id]):
+            return False
         release_savepoint('before_populate')
-        return True
     elif table == 'SampleAges':
         # Drop the virtual columns
         tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE]]
@@ -442,16 +550,15 @@ def update_generated_columns(table: str):
         age_error_type_id = settings._instance.value('age_error_type_id')
         # Convert the columns and catch any errors
         age_unit_affected = [['SampleAges', 'DirectAgeUnitID', 'DirectAge', 'OldestDirectAge', 'YoungestDirectAge']]
-        age_error_type_affected = [['SampleAges', ['DirectAgeErrorFormatID','DirectAgeUnitID'], 'DirectAgeError']]
-        output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
-        if output == "error":
-            return
-        output = convert_columns(age_error_type_affected, ['ErrorFormatConversions', 'AgeUnitConversions'], ['ErrorFormat','AgeUnit'],
-                                 [age_error_type_id, age_unit_id])
-        if output == "error":
-            return
+        age_error_type_affected = [['SampleAges', ['DirectAgeErrorFormatID', 'DirectAgeUnitID'], 'DirectAgeError']]
+        if not convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id]):
+            return False
+
+        if not convert_columns(age_error_type_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
+                               ['ErrorFormat', 'AgeUnit'],
+                               [age_error_type_id, age_unit_id]):
+            return False
         release_savepoint('before_populate')
-        return True
     elif table == 'UPbAnalyses':
         # Drop the virtual columns
         tables_affected = [['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE]]
@@ -477,7 +584,7 @@ def update_generated_columns(table: str):
         for col in range(upb_analyses_model.columnCount()):
             if upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal,
                                              QtC.Qt.ItemDataRole.DisplayRole).endswith(
-                    'AgeError'):
+                'AgeError'):
                 affected_upb_age.append(
                     upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
             elif upb_analyses_model.headerData(col, QtC.Qt.Orientation.Horizontal,
@@ -489,27 +596,26 @@ def update_generated_columns(table: str):
         ratio_error_format_affected = [affected_upb_ratio]
 
         # Convert the columns and catch any errors
-        output = convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id])
-        if output == "error":
-            return
-        output = convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
-                                 [spotsize_unit_id])
-        if output == "error":
-            return
-        output = convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'],
-                                 [concordance_format_id])
-        if output == "error":
-            return
-        output = convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
-                                 ['ErrorFormat', 'AgeUnit'], [age_error_format_id, age_unit_id])
-        if output == "error":
-            return
-        output = convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'],
-                                 [ratio_error_format_id])
-        if output == "error":
-            return
+        if not convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'], [age_unit_id]):
+            return False
+
+        if not convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                               [spotsize_unit_id]):
+            return False
+
+        if not convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'],
+                               [concordance_format_id]):
+            return False
+
+        if not convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
+                               ['ErrorFormat', 'AgeUnit'], [age_error_format_id, age_unit_id]):
+            return False
+
+        if not convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'],
+                               [ratio_error_format_id]):
+            return False
+
         release_savepoint('before_populate')
-        return True
     elif table == 'References':
         # Drop the virtual columns
         tables_affected = [['References', Create_db.CREATE_REFERENCES_TABLE]]
@@ -518,11 +624,9 @@ def update_generated_columns(table: str):
         # Retrieve the settings
         reference_format = settings._instance.value('reference_format')
         # Convert the columns and catch any errors
-        output = generate_reference_column(table, 'ReferenceID', reference_format)
-        if output == "error":
-            return
+        if not generate_reference_column(table, 'ReferenceID', reference_format):
+            return False
         release_savepoint('before_populate')
-        return True
     elif table == 'Samples':
         # Drop the virtual columns
         tables_affected = [['Samples', Create_db.CREATE_SAMPLES_TABLE]]
@@ -532,11 +636,10 @@ def update_generated_columns(table: str):
         heightdepth_unit_id = settings._instance.value('heightdepth_unit_id')
         # Convert the columns and catch any errors
         heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError']]
-        output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
-        if output == "error":
-            return
+        if not convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                               [heightdepth_unit_id]):
+            return False
         release_savepoint('before_populate')
-        return True
     elif table == 'Columns':
         # Drop the virtual columns
         tables_affected = [['Columns', Create_db.CREATE_COLUMNS_TABLE]]
@@ -548,18 +651,25 @@ def update_generated_columns(table: str):
         # Convert the columns and catch any errors
         heightdepth_unit_affected = [['Columns', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError']]
         column_total_heightdepth_unit_affected = [['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
-        output = convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [heightdepth_unit_id])
-        if output == "error":
-            return
-        output = convert_columns(column_total_heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'], [column_total_heightdepth_unit_id])
-        if output == "error":
-            return
-        release_savepoint('before_populate')
-        return True
-    else:
-        return
+        if not convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                               [heightdepth_unit_id]):
+            return False
 
-def convert_gps_location(gps_id: int):
+        if not convert_columns(column_total_heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
+                               [column_total_heightdepth_unit_id]):
+            return False
+        release_savepoint('before_populate')
+    else:
+        return False
+    return True
+
+
+def convert_gps_location(gps_id: int) -> bool:
+    """
+
+    :param gps_id:
+    :return: True for success, False for failure
+    """
     gps_model = QtS.QSqlTableModel()
     set_table(gps_model, 'GPSLocations')
     gps_model.setFilter(f'GPSLocationID={gps_id}')
@@ -588,8 +698,9 @@ def convert_gps_location(gps_id: int):
     min_symbol = "'"
     sec_symbol = '"'
     local_vars = {name: locals()[name] for name in variables}
-    conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormat', gps_format_id)
-    if conversions == "error":
+    try:
+        conversions = retrieve_conversions('GPSFormatConversions', 'GPSFormat', gps_format_id)
+    except NotImplementedError:
         return False
     create_savepoint('before_populate_gps')
     for conversion in conversions:
@@ -619,7 +730,13 @@ def convert_gps_location(gps_id: int):
     release_savepoint('before_populate_gps')
     return True
 
-def convert_sample_age(sample_age_id: int):
+
+def convert_sample_age(sample_age_id: int) -> bool:
+    """
+
+    :param sample_age_id:
+    :return: True for success, False for failure
+    """
     sample_age_model = QtS.QSqlTableModel()
     set_table(sample_age_model, 'SampleAges')
     sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
@@ -637,8 +754,9 @@ def convert_sample_age(sample_age_id: int):
     OldestDirectAge = sample_age_model.record(0).value('OldestDirectAge')
     YoungestDirectAge = sample_age_model.record(0).value('YoungestDirectAge')
     local_vars = {name: locals()[name] for name in variables}
-    conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', DirectAgeUnitID)
-    if conversions == "error":
+    try:
+        conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', DirectAgeUnitID)
+    except NotImplementedError:
         return False
     create_savepoint('before_populate_age')
     for conversion in conversions:
