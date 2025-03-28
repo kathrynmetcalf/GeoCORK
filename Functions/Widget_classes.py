@@ -253,8 +253,10 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
             header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             value = super().data(index, role)
             if isinstance(value, str):
-                if f'({settings.value('age_unit_abbreviation')})' in header:
-                    return display_age(value)
+                if 'Age' in header:
+                    for age_string in [f'({settings.value("age_unit_abbreviation")})', 'AgeCalculated', 'AgeDisplay']:
+                        if age_string in header:
+                            return display_age(value)
                 elif 'GPS' in header and 'Format' not in header:
                     return display_gps(value)
                 elif 'Elevation' in header or 'Height' in header or 'Depth' in header and 'Unit' not in header:
@@ -318,8 +320,10 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
             header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             value = super().data(index, role)
             if isinstance(value, str):
-                if f'({settings.value('age_unit_abbreviation')})' in header:
-                    return display_age(value)
+                if 'Age' in header:
+                    for age_string in [f'({settings.value("age_unit_abbreviation")})', 'AgeCalculated', 'AgeDisplay']:
+                        if age_string in header:
+                            return display_age(value)
                 elif 'GPS' in header:
                     return display_gps(value)
                 elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
@@ -2519,7 +2523,7 @@ class FocusGroupBox(QGroupBox):
             return
         if isinstance(child, QtW.QLineEdit):
             if child.text() != initial_value:
-                # logger_setup.get_logger().info(f'{child.objectName()} was edited')
+                logger_setup.get_logger().info(f'{child.objectName()} was edited')
                 self.edited = True
         elif isinstance(child, QtW.QComboBox):
             if child.currentIndex() != initial_value:
@@ -2720,6 +2724,7 @@ class CheckableComboBox(QtW.QComboBox):
     closing = QtC.pyqtSignal()
     edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
     add_triggered = QtC.pyqtSignal(QtW.QComboBox)
+    delete_triggered = QtC.pyqtSignal(QtW.QComboBox)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
@@ -2785,10 +2790,12 @@ class CheckableComboBox(QtW.QComboBox):
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = menu.addAction("Clear All Checks")
+            delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
         else:
             edit_action = None
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = None
+            delete_action = None
         action = menu.exec(self.mapToGlobal(event.pos()))
         if action == edit_action:
             self.edit_triggered.emit(self)
@@ -2796,6 +2803,8 @@ class CheckableComboBox(QtW.QComboBox):
             self.add_triggered.emit(self)
         elif action == clear_all_action:
             self.clear_all_checks()
+        elif action == delete_action:
+            self.delete_triggered.emit(self)
 
     def set_single_click(self, single_click: bool):
         self.single_click = single_click

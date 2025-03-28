@@ -124,7 +124,7 @@ CREATE_ALIQUOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Aliquots(
                     ParentAliquotID INTEGER,
                     AliquotParentRow INTEGER,
                     AliquotName TEXT NOT NULL CHECK (AliquotName <> ''),
-                    SampleID INTEGER,
+                    SampleID INTEGER NOT NULL,
                     AliquotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AliquotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE (AliquotName COLLATE NOCASE, ParentAliquotID, SampleID),
@@ -673,7 +673,7 @@ CREATE_SPOT_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS SpotContexts(
 CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     SpotID INTEGER PRIMARY KEY,
                     SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
-                    AliquotID INTEGER,
+                    AliquotID INTEGER NOT NULL,
                     SpotCompositionID INTEGER,
                     SpotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SpotModified DATETIME DEFAULT CURRENT_TIMESTAMP,

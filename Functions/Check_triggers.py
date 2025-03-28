@@ -17,21 +17,31 @@ def update_modified_timestamp(table: str, record_ids: list):
     @param record_ids: list of record ids to be updated
     @return: None if successful, error message if not
     """
+    # todo: test that this is working now
     # Get the header for the first column, the ID column
     table_model = QtS.QSqlTableModel()
     table_model.setTable(table)
     table_model.select()
-    record_id_header = table_model.record().fieldName(0)
+    from Functions.Widget_classes import get_headers
+    headers = get_headers(table)
+    modified_header = None
+    for header in headers:
+        if 'Modified' in header:
+            modified_header = header
+            break
+    if not modified_header:
+        return f'Unable to find modified header for {table}'
+    record_id_header = headers[0]
     query = QtS.QSqlQuery()
     logger_setup.get_logger().debug('Updating {')
     if len(record_ids) > 1:
         record_ids = ', '.join(str(id) for id in record_ids)
-        if not query.exec(f'UPDATE {table} SET ModifiedTimestamp = CURRENT_TIMESTAMP WHERE {record_id_header} IN ({record_ids})'):
+        if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {record_id_header} IN ({record_ids})'):
             logger_setup.get_logger().error(
                 f'Unable to update modified timestamps for {table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
     if len(record_ids) == 1:
-        if not query.exec(f'UPDATE {table} SET ModifiedTimestamp = CURRENT_TIMESTAMP WHERE {record_id_header} = {record_ids[0]}'):
+        if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {record_id_header} = {record_ids[0]}'):
             logger_setup.get_logger().error(
                 f'Unable to update modified timestamps for {table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")

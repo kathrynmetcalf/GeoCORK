@@ -46,6 +46,7 @@ class SampleInformation(QtW.QDialog):
         self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit Sample Information")
         self.setModal(True)
+        # todo: logger message got hidden behind dialog, not accessible
 
         sources_ui_file = "ui/SampleInformation.ui"
         loadUi(sources_ui_file, self)
@@ -76,6 +77,9 @@ class SampleInformation(QtW.QDialog):
         self.cancel_pushButton.setAutoDefault(False)
         self.updated = False
         self.commit_timer = None
+        self.focus_timer = QtC.QTimer(self)
+        self._isApplicationFocused = True
+        QtW.QApplication.instance().installEventFilter(self)
 
         # Sample information models
         self.samples_table = None
@@ -212,13 +216,7 @@ class SampleInformation(QtW.QDialog):
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
-        self.column_name_comboBox.currentTextChanged.connect(lambda: self.update_id('SampleColumnID', 'ColumnName', self.column_name_comboBox.currentText(), 'Columns'))
-        self.column_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
-        self.height_depth_lineEdit.editingFinished.connect(
-            lambda: self.update_field('HeightDepth', self.height_depth_lineEdit.text()))
-        self.height_depth_error_lineEdit.editingFinished.connect(
-            lambda: self.update_field('HeightDepthError', self.height_depth_error_lineEdit.text()))
-        self.height_depth_unit_comboBox.currentTextChanged.connect(lambda: self.update_id('HeightDepthUnitID', 'DistanceUnitAbbreviation', self.height_depth_unit_comboBox.currentText(), 'DistanceUnits'))
+        self.column_groupBox.focusLost.connect(self.focus_lost_delay)
         self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_comboBox))
         self.sample_context_comboBox.add_triggered.connect(self.add_popup)
         self.sample_context_comboBox.edit_triggered.connect(self.edit_popup)
@@ -250,15 +248,7 @@ class SampleInformation(QtW.QDialog):
         except TypeError:
             pass
         try:
-            self.height_depth_lineEdit.editingFinished.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.height_depth_error_lineEdit.editingFinished.disconnect()
-        except TypeError:
-            pass
-        try:
-            self.height_depth_unit_comboBox.currentTextChanged.disconnect()
+            self.column_groupBox.focusLost.disconnect()
         except TypeError:
             pass
         try:
@@ -598,6 +588,53 @@ class SampleInformation(QtW.QDialog):
             # logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples")
             release_savepoint('before_update')
 
+    def update_column_info(self):
+        logger_setup.get_logger().info("Update column height called")
+        if not self.column_groupBox.edited:
+            logger_setup.get_logger().info(f"No changes to column height")
+            return
+        if len(self.checked_sample_list) == 0:
+            logger_setup.get_logger().info("No samples selected")
+            return
+        start_update_column_height_time = time.time()
+        create_savepoint('before_update')
+        query = QtS.QSqlQuery()
+        if not query.exec(f"SELECT ColumnID FROM Columns WHERE ColumnName = '{self.column_name_comboBox.currentText()}'"):
+            logger_setup.get_logger().critical(f"Failed to select ColumnID for {self.column_name_comboBox.currentText()}")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('before_update')
+            return
+        query.next()
+        column_id = query.value(0)
+        if not query.exec(f"SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = '{self.height_depth_unit_comboBox.currentText()}'"):
+            logger_setup.get_logger().critical(f"Failed to select DistanceUnitID for {self.height_depth_unit_comboBox.currentText()}")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('before_update')
+            return
+        query.next()
+        unit_id = query.value(0)
+        for sample_id in self.checked_sample_list:
+            query.prepare(f'''UPDATE Samples SET SampleColumnID = :columnID, HeightDepth = :height, 
+                            HeightDepthError = :error, HeightDepthUnitID = :unitID WHERE SampleID = :sample_id''')
+            query.bindValue(":columnID", column_id)
+            query.bindValue(":height", self.height_depth_lineEdit.text())
+            query.bindValue(":error", self.height_depth_error_lineEdit.text())
+            query.bindValue(":unitID", unit_id)
+            query.bindValue(":sample_id", sample_id)
+            if not query.exec():
+                logger_setup.get_logger().critical(f"Failed to update column information")
+                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                rollback_savepoint('before_update')
+                return
+        update_modified_timestamp('Samples', self.checked_sample_list)
+        self.updated = True
+        end_update_column_height_time = time.time()
+        logger_setup.get_logger().info(f"Updated column height in {end_update_column_height_time - start_update_column_height_time} seconds")
+        release_savepoint('before_update')
+
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         if isinstance(combo.model(), TreeModel):
             table = combo.model().table
@@ -660,6 +697,14 @@ class SampleInformation(QtW.QDialog):
             self.column_groupBox.focusLost.emit()
         if self.sample_description_lineEdit.hasFocus():
             self.sample_description_lineEdit.editingFinished.emit()
+
+    def focus_lost_delay(self):
+        if self._isApplicationFocused:
+            self.lost_group_box = self.sender()
+            self.focus_timer.setSingleShot(True)
+            if self.lost_group_box == self.column_groupBox:
+                self.focus_timer.timeout.connect(self.update_column_info)
+                self.focus_timer.start(100)
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()
