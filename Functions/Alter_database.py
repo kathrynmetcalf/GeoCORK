@@ -7,7 +7,11 @@ from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_ke
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import set_table, get_columns
+# the below imports are required for GPS conversions, pycharm detects no usage do not remove
+# below comments are for pycharm to ignore issues
+# noinspection PyUnresolvedReferences
 import pyproj
+# noinspection PyUnresolvedReferences
 import Functions.GPS_conversions as GPS
 
 

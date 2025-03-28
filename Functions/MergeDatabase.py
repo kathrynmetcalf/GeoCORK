@@ -6,14 +6,16 @@ import Functions.SQLUtils as SQLUtils
 import logger_setup
 
 
-def merge_database(source_db_path: str, incoming_db_path: str):
+def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
     """
     Merge 'incoming_db_path' into 'source_db_path', handling self-referential
     'tree' tables by inserting parent rows first so the parent's new PK is known.
+    :return: True if successful, False for failure.
+    :rtype: bool
     """
 
     # ----------------------------------------------------------------
-    # 1. Connect to both databases, turn off foreign_keys in source
+    # 1. Open the connections for both source and incoming, return errors and exit merge if failed
     # ----------------------------------------------------------------
     try:
         source_conn = sqlite3.connect(source_db_path)
@@ -21,7 +23,8 @@ def merge_database(source_db_path: str, incoming_db_path: str):
     except sqlite3.Error as e:
         logger_setup.get_logger().critical(f"Error opening database: {e.sqlite_errorname}")
         logger_setup.get_logger().debug(f"Error: {e}")
-        return
+        return False
+
 
     # For faster inserts
     source_conn.isolation_level = None
@@ -33,16 +36,22 @@ def merge_database(source_db_path: str, incoming_db_path: str):
     # ----------------------------------------------------------------
     # 2. Utility: get tables, schema, detect PK column, detect FKs
     # ----------------------------------------------------------------
-    def get_tables(conn: sqlite3.Connection) -> List[str]:
+    def get_tables(conn: sqlite3.Connection) -> list[str] :
+        """
+        Gets all tables in the database, returning a list
+        :param sqlite3.Connection conn:
+        :return list[str]: list of all table names, exludes sqlite core tables
+        """
         try:
+            # get all tables in the database from the connection
             rows = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
             ).fetchall()
         except sqlite3.Error as e:
             logger_setup.get_logger().critical(f"Error opening database and executing query: {e.sqlite_errorname}")
-            logger_setup.get_logger().debug(f"Query: SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
-            logger_setup.get_logger().debug(f"Error: {e}")
-            return []
+            logger_setup.get_logger().debug(f'SQl error: {e.__str__()}')
+            raise e
+
         table_names = ["\"" + r[0] + "\"" for r in rows]
         for table in SQLUtils.static_tables:
             table = "\"" + table + "\""
@@ -52,44 +61,65 @@ def merge_database(source_db_path: str, incoming_db_path: str):
 
     def get_table_info(conn: sqlite3.Connection, table: str):
         """
-        PRAGMA table_info(table):
-         Each row: (cid, name, type, notnull, dflt_value, pk)
+        Pragmas the given connection for information on the table.
+         Each row returned: (cid, name, type, notnull, dflt_value, pk)
+        :param sqlite3.Connection conn:
+        :param str table:
+        :return list[dict[]]: list of dictionaries containing all table info from pragma
         """
-        info = []
-        for row in conn.execute(f"PRAGMA table_info({table});"):
-            cid, name, ctype, notnull, dflt_value, pk = row
-            if "Calculated" not in name:
-                info.append({
-                    "cid": cid,
-                    "name": "[" + name + "]",  # escape names
-                    "type": ctype,
-                    "notnull": notnull,
-                    "dflt_value": dflt_value,
-                    "pk": pk
-                })
-        return info
+        try:
+            info = []
+            for row in conn.execute(f"PRAGMA table_info({table});"):
+                cid, name, ctype, notnull, dflt_value, pk = row
+                if "Calculated" not in name:
+                    info.append({
+                        "cid": cid,
+                        "name": "[" + name + "]",  # escape names
+                        "type": ctype,
+                        "notnull": notnull,
+                        "dflt_value": dflt_value,
+                        "pk": pk
+                    })
+            return info
+
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f'Error acquiring foreign key list: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQl error: {e.__str__()}')
+            raise e
 
     def get_foreign_key_info(conn: sqlite3.Connection, table: str):
         """
-        PRAGMA foreign_key_list(table):
-         Each row: (id, seq, ref_table, from_col, to_col, on_update, on_delete, match)
+        Pragmas the given connection for information on the table.
+         Each row returned: (id, seq, ref_table, from_col, to_col, on_update, on_delete, match)
+        :param sqlite3.Connection conn:
+        :param str table:
+        :return list[dict[]]: list of dictionaries containing all table info from pragma
         """
-        fks = []
-        for row in conn.execute(f"PRAGMA foreign_key_list({table});"):
-            fks.append({
-                "id": row[0],
-                "seq": row[1],
-                "ref_table": '\"' + row[2].replace('_old','') + '\"',
-                "from_col": "[" + row[3] + "]",
-                "to_col": "[" + row[4] + "]",
-                "on_update": row[5],
-                "on_delete": row[6],
-                "match": row[7]
-            })
-        return fks
+        try:
+            fks = []
+            for row in conn.execute(f"PRAGMA foreign_key_list({table});"):
+                fks.append({
+                    "id": row[0],
+                    "seq": row[1],
+                    "ref_table": '\"' + row[2].replace('_old','') + '\"',
+                    "from_col": "[" + row[3] + "]",
+                    "to_col": "[" + row[4] + "]",
+                    "on_update": row[5],
+                    "on_delete": row[6],
+                    "match": row[7]
+                })
+            return fks
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f'Error acquiring foreign key list: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQl error: {e.__str__()}')
+            raise e
 
-    source_tables = get_tables(source_conn)
-    incoming_tables = get_tables(incoming_conn)
+
+    try:
+        source_tables = get_tables(source_conn)
+        incoming_tables = get_tables(incoming_conn)
+    except Exception as e:
+        return False
 
     # We assume identical sets of tables:
     common_tables = sorted(set(source_tables) & set(incoming_tables))
@@ -97,8 +127,12 @@ def merge_database(source_db_path: str, incoming_db_path: str):
     # Build schema metadata
     table_schemas = {}
     for t in common_tables:
-        info = get_table_info(source_conn, t)
-        fks  = get_foreign_key_info(source_conn, t)
+        try:
+            info = get_table_info(source_conn, t)
+            fks = get_foreign_key_info(source_conn, t)
+        except Exception as e:
+            return False
+
         pk_cols = [c["name"] for c in info if c["pk"] == 1]
         pk_col = pk_cols[0] if pk_cols else None
 
@@ -109,12 +143,9 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         }
 
     # ----------------------------------------------------------------
-    # 3. Identify which tables are "self-referential"
+    # 3. Identify which tables are "self-referential" aka Trees
     #    i.e., the table references itself in a foreign_key.
     # ----------------------------------------------------------------
-    # E.g. if table "Foo" has an FK referencing "Foo", or if there's a column "ParentFooID"
-    # referencing the same table's PK. We'll store them in a separate list so we can do
-    # a special "tree merge" for them.
     #
     # We'll also record the "parent_col" so we know which column references the PK.
     self_ref_tables = {}  # table_name -> from_col (that references itself)
@@ -157,10 +188,6 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         elif t.replace("\"","") not in SQLUtils.user_viewable_trees:
             normal_tables.append(t)
 
-    # We'll keep them separate so we can handle "normal tables" vs "tree tables."
-    # (Of course, some tables might also reference other tables, so real merges
-    # often need topological ordering. This is a simplified example.)
-
     # ----------------------------------------------------------------
     # 4. ID mapping: store old_pk -> new_pk for each table
     # ----------------------------------------------------------------
@@ -169,11 +196,14 @@ def merge_database(source_db_path: str, incoming_db_path: str):
     # ----------------------------------------------------------------
     # 5. Insertion function for normal (non-self-ref) tables
     # ----------------------------------------------------------------
-    def merge_non_self_ref_table(table_name: str):
+    def merge_non_self_ref_table(table_name: str) -> bool:
         """
         Merge rows from the incoming DB to source DB, ignoring the old PK
         (letting source auto-generate) but preserving all other columns.
+        :param str table_name:
+        :return: True for success, False for failure
         """
+
         schema = table_schemas[table_name]
         pk_col = schema["primary_key"]
         col_names = [c["name"] for c in schema["columns"]]
@@ -181,7 +211,16 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         # SELECT all rows from incoming
         col_list_str = ", ".join(col_names)
         select_sql = f"SELECT {col_list_str} FROM {table_name};"
-        incoming_rows = incoming_conn.execute(select_sql).fetchall()
+
+        try:
+            incoming_rows = incoming_conn.execute(select_sql).fetchall()
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(
+                f'Could not select largest parent row for null parents: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            return False
+
 
         # Prepare insert statement skipping pk_col
         insert_cols = [c for c in col_names if c != pk_col]
@@ -205,35 +244,51 @@ def merge_database(source_db_path: str, incoming_db_path: str):
             elif table_name != '"UPbAnalyses"':
                 name_index = get_name_column(table_name) - 1
 
+            # while loop to constantly try new values to insert into the table in case
+            # there are duplicate entries, such as source db and incoming db RockTypeName = "Sandstone"
+            # the incoming db RockTypeName would change to append '(1)' creating "Sandstone (1).
+            # todo: Change to increment rather than append, so '(1)(1)' would becoming '(2)'
             while True:
                 try:
                     source_conn.execute(insert_sql, to_insert)
                     break  # success: break out of loop
-                except sqlite3.IntegrityError as e:
+                except sqlite3.Error as e:
                     if "UNIQUE constraint failed" in str(e):
-                        # We got a uniqueness collision, so increment or append '(1)'
                         current_value = str(to_insert[name_index])
                         to_insert[name_index] = current_value + '(1)'
                     else:
-                        # It's another error we don't want to handle here; re-raise
-                        raise
+                        logger_setup.get_logger().critical(
+                            f'Could not insert row into database: {e.sqlite_errorname}')
+                        logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+                        logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
+                        logger_setup.get_logger().debug(f'SQL row: {to_insert}')
+                        return False
 
             # Retrieve new pk
             if pk_col:
-                new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                try:
+                    new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                except sqlite3.Error as e:
+                    logger_setup.get_logger().critical(f'Error acquiring last insert primary key: {e.sqlite_errorname}')
+                    logger_setup.get_logger().debug(f'SQl error: {e.__str__()}')
+                    return False
+
                 id_map[table_name][old_pk_val] = new_pk_val
+        return True
 
     # ----------------------------------------------------------------
     # 6. Merge a self-referential "tree" table
     # ----------------------------------------------------------------
-    def merge_self_ref_table(table_name: str):
+    def merge_self_ref_table(table_name: str) -> bool:
         """
-        For a table that references itself in a parent-child relationship,
-        we do multiple passes or a BFS approach:
+        For a table that references itself in a parent-child relationship, we do multiple passes or a BFS approach:
           - Insert all rows with no parent (NULL or 0).
           - Then insert rows whose parent is already inserted.
           - Repeat until all are inserted.
+        :param str table_name:
+        :return: True for success, False for failure
         """
+
         schema = table_schemas[table_name]
         pk_col = schema["primary_key"]
         parent_fk_col = self_ref_tables[table_name]["parent_fk_col"]
@@ -242,7 +297,13 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         # Read all rows from incoming
         col_list_str = ", ".join(col_names)
         select_sql = f"SELECT {col_list_str} FROM {table_name};"
-        all_rows = incoming_conn.execute(select_sql).fetchall()
+        try:
+            all_rows = incoming_conn.execute(select_sql).fetchall()
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f'Could not select rows from database: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            return False
 
         # Convert to dict: old_pk -> row_dict
         incoming_dict = {}
@@ -263,9 +324,17 @@ def merge_database(source_db_path: str, incoming_db_path: str):
             VALUES ({placeholders_str});
         """
 
-        largest_null_parentrow = source_conn.execute(f"SELECT MAX({insert_cols[1]}) FROM {table_name} WHERE {insert_cols[0]} is NULL;").fetchone()[0]
-        if largest_null_parentrow is None:
-            largest_null_parentrow = -1
+        try:
+            parentrow_sql = f"SELECT MAX({insert_cols[1]}) FROM {table_name} WHERE {insert_cols[0]} is NULL;"
+            largest_null_parentrow = source_conn.execute(parentrow_sql).fetchone()[0]
+            if largest_null_parentrow is None:
+                largest_null_parentrow = -1
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(
+                f'Could not select largest parent row for null parents: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+            logger_setup.get_logger().debug(f"SQL command: {parentrow_sql}")
+            return False
 
         # Repeatedly scan all rows; insert any row whose parent is inserted or NULL
         # Keep going until no more can be inserted.
@@ -303,6 +372,10 @@ def merge_database(source_db_path: str, incoming_db_path: str):
                     # Insert
                     to_insert = [row_for_insert[c] for c in insert_cols]
 
+                    # while loop to constantly try new values to insert into the table in case
+                    # there are duplicate entries, such as source db and incoming db RockTypeName = "Sandstone"
+                    # the incoming db RockTypeName would change to append '(1)' creating "Sandstone (1).
+                    # todo: Change to increment rather than append, so '(1)(1)' would becoming '(2)'
                     while True:
                         try:
                             source_conn.execute(insert_sql, to_insert)
@@ -313,11 +386,22 @@ def merge_database(source_db_path: str, incoming_db_path: str):
                                 current_value = str(to_insert[2])
                                 to_insert[2] = current_value + '(1)'
                             else:
-                                # It's another error we don't want to handle here; re-raise
-                                raise
+                                logger_setup.get_logger().critical(
+                                    f'Could not insert row into database: {e.sqlite_errorname}')
+                                logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+                                logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
+                                logger_setup.get_logger().debug(f'SQL row: {to_insert}')
+                                return False
 
                     # Get new PK
-                    new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                    try:
+                        new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                    except sqlite3.Error as e:
+                        logger_setup.get_logger().critical(
+                            f'Error acquiring last insert primary key: {e.sqlite_errorname}')
+                        logger_setup.get_logger().debug(f'SQl error: {e.__str__()}')
+                        return False
+
                     id_map[table_name][old_pk] = new_pk_val
 
                     # Mark it inserted
@@ -329,18 +413,22 @@ def merge_database(source_db_path: str, incoming_db_path: str):
                 for pk in inserted_this_round:
                     inserted.add(pk)
                     rows_to_insert.remove(pk)
+        return True
 
         # If rows_to_insert is still not empty, it might indicate a cycle
         # or references to a parent that doesn't exist. For a real "tree," we expect
         # everything to eventually get inserted.
 
-    def merge_m2m_bridge_table(table_name: str):
+    def merge_m2m_bridge_table(table_name: str) -> bool:
         """
         M2M table referencing exactly 2 other distinct tables.
         We'll read all rows from incoming, rewrite the FK columns
         to point to the new IDs from id_map, and insert them.
         If the table has its own PK, we skip it as usual so new PK is assigned.
+        :param table_name:
+        :return: True for success, False for failure
         """
+
         schema = table_schemas[table_name]
         pk_col = schema["primary_key"]
         all_cols = [c["name"] for c in schema["columns"]]
@@ -352,7 +440,13 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         # read all from incoming
         col_list_str = ", ".join(all_cols)
         select_sql = f"SELECT {col_list_str} FROM {table_name};"
-        rows = incoming_conn.execute(select_sql).fetchall()
+        try:
+            rows = incoming_conn.execute(select_sql).fetchall()
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f'Could not select rows from database: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            return False
 
         # We'll skip the bridging table's PK column (if any) so it re-generates
         insert_cols = [c for c in all_cols if c != pk_col]
@@ -384,20 +478,34 @@ def merge_database(source_db_path: str, incoming_db_path: str):
 
             try:
                 source_conn.execute(insert_sql, to_insert)
-            except sqlite3.IntegrityError as e:
+            except sqlite3.Error as e:
                 if "UNIQUE constraint failed" in e.__str__():
                     logger_setup.get_logger().info(f"Relationship already in table {table_name}. Skipping")
                     logger_setup.get_logger().debug(f"{to_insert}")
                 elif "NOT NULL constraint failed" in e.__str__():
+                    # removes 'orphaned' data
                     logger_setup.get_logger().info(f"One of the {table_name} does not exist in the original or merged database. Skipping")
                     logger_setup.get_logger().debug(f"{to_insert}")
+                else:
+                    logger_setup.get_logger().critical(f'Could not insert row into database: {e.sqlite_errorname}')
+                    logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+                    logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
+                    logger_setup.get_logger().debug(f'SQL row: {to_insert}')
+                    return False
 
             # If bridging table has a PK, update the map
             # (Often bridging tables might not need an id_map, but let's keep it consistent)
             if pk_col:
                 old_pk_val = row_dict[pk_col]
-                new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                try:
+                    new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                except sqlite3.Error as e:
+                    logger_setup.get_logger().critical(f'Error acquiring last insert primary key: {e.sqlite_errorname}')
+                    logger_setup.get_logger().debug(f'SQl error: {e.__str__()}')
+                    return False
+
                 id_map[table_name][old_pk_val] = new_pk_val
+        return True
 
     def merge_table_with_foreign_keys(table_name: str):
         """
@@ -405,7 +513,9 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         rewriting foreign keys from old IDs to new IDs using `id_map`.
         If the table has its own PK, skip that column so the source auto-generates
         a new PK, and record old_pk->new_pk in id_map.
+        :param str table_name:
         """
+
         schema = table_schemas[table_name]
         pk_col = schema["primary_key"]
         all_cols = [c["name"] for c in schema["columns"]]
@@ -414,7 +524,13 @@ def merge_database(source_db_path: str, incoming_db_path: str):
         # We'll read all rows from incoming
         col_list_str = ", ".join(all_cols)
         select_sql = f"SELECT {col_list_str} FROM {table_name};"
-        incoming_rows = incoming_conn.execute(select_sql).fetchall()
+        try:
+            incoming_rows = incoming_conn.execute(select_sql).fetchall()
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f'Could not select rows from database: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQL error: {e.__str__()}')
+            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            return False
 
         # Prepare an INSERT statement for all columns except the PK
         insert_cols = [c for c in all_cols if c != pk_col]
@@ -465,13 +581,12 @@ def merge_database(source_db_path: str, incoming_db_path: str):
 
             while True:
                 try:
-                    # print(to_insert)
-                    if '"Samples"' == ref_table:
-                        logger_setup.get_logger().debug(f"{to_insert}")
                     source_conn.execute(insert_sql, to_insert)
                     break  # success: break out of loop
                 except sqlite3.IntegrityError as e:
                     if "UNIQUE constraint failed" in str(e):
+                        print(str(e))
+                        print(to_insert)
                         # We got a uniqueness collision, so increment or append '(1)'
                         current_value = str(to_insert[name_index])
                         to_insert[name_index] = current_value + '(1)'
@@ -486,43 +601,200 @@ def merge_database(source_db_path: str, incoming_db_path: str):
 
             # If this table has a PK, record old->new in id_map
             if pk_col:
-                new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                try:
+                    new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                except sqlite3.Error as e:
+                    logger_setup.get_logger().critical(f'Error acquiring last insert primary key: {e.sqlite_errorname}')
+                    logger_setup.get_logger().debug(f'SQl error: {e.__str__()}')
+                    return False
                 id_map[table_name][old_pk_val] = new_pk_val
+        return True
+
+    def merge_self_ref_table_with_foreign_keys(table_name: str) -> bool:
+        """
+        For a self-referencing table (i.e. table that references itself in a
+        parent->child relationship), merge data from incoming -> source.
+
+        Similar to merge_table_with_foreign_keys, but we do multiple passes (BFS)
+        so that a child row is only inserted after its parent is inserted.
+        Also rewrites other foreign keys the same way we do in merge_table_with_foreign_keys.
+
+        :param table_name: e.g. '"RockTypes"'
+        :return: True if success, False otherwise
+        """
+
+        schema = table_schemas[table_name]
+        pk_col = schema["primary_key"]
+        parent_fk_col = self_ref_tables[table_name]["parent_fk_col"]
+        col_names = [c["name"] for c in schema["columns"]]
+        fks = schema["fks"]
+
+        # 1) Read all rows from incoming
+        col_list_str = ", ".join(col_names)
+        select_sql = f"SELECT {col_list_str} FROM {table_name};"
+        try:
+            all_rows = incoming_conn.execute(select_sql).fetchall()
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f'[{table_name}] Could not select rows from DB: {e.sqlite_errorname}')
+            logger_setup.get_logger().debug(f'SQL error: {e}')
+            logger_setup.get_logger().debug(f"SQL command: {select_sql}")
+            return False
+
+        # Convert to dict: old_pk -> row_dict
+        incoming_dict = {}
+        for row in all_rows:
+            row_dict = dict(zip(col_names, row))
+            old_pk = row_dict[pk_col]
+            incoming_dict[old_pk] = row_dict
+
+        inserted = set()  # which old PKs have been inserted
+        rows_to_insert = set(incoming_dict.keys())  # all old PKs that need insertion
+
+        # 2) Prepare the insert statement (skipping pk_col)
+        insert_cols = [c for c in col_names if c != pk_col]
+        insert_cols_str = ", ".join(insert_cols)
+        placeholders_str = ", ".join("?" for _ in insert_cols)
+        insert_sql = f"""
+            INSERT INTO {table_name} ({insert_cols_str})
+            VALUES ({placeholders_str});
+        """
+
+        # Helper to rewrite foreign keys for a single row_dict
+        # including other foreign keys + the self-ref parent
+        def rewrite_foreign_keys_for_self_ref(row_dict):
+            # (a) rewrite normal foreign keys
+            for fk in fks:
+                ref_table = fk["ref_table"]
+                if ref_table.replace('"', '') in SQLUtils.static_foreign_key_tables:
+                    continue
+
+                from_col = fk["from_col"]
+                old_val = row_dict[from_col]
+                if old_val is None:
+                    continue
+                if old_val in id_map[ref_table]:
+                    row_dict[from_col] = id_map[ref_table][old_val]
+                else:
+                    row_dict[from_col] = None
+
+            # (b) rewrite the self parent foreign key
+            parent_old_id = row_dict[parent_fk_col]
+            if parent_old_id and parent_old_id in id_map[table_name]:
+                row_dict[parent_fk_col] = id_map[table_name][parent_old_id]
+            else:
+                # If parent's not inserted or is 0, set to None
+                if not parent_old_id or parent_old_id == 0:
+                    row_dict[parent_fk_col] = None
+
+        # Attempt BFS insertion
+        progress = True
+        while progress and rows_to_insert:
+            progress = False
+            inserted_this_pass = []
+
+            for old_pk in list(rows_to_insert):
+                row_dict = incoming_dict[old_pk]
+                parent_old_id = row_dict[parent_fk_col]
+
+                # Condition: if parent is None (or 0) or parent is already inserted
+                if parent_old_id is None or parent_old_id == 0 or parent_old_id in inserted:
+                    # rewrite foreign keys (including the self-ref parent)
+                    rewrite_foreign_keys_for_self_ref(row_dict)
+
+                    # Build the row minus the PK
+                    to_insert = [row_dict[c] for c in insert_cols]
+
+                    # If you have a name column for collisions, find its index:
+                    try:
+                        name_index = get_name_column(table_name) - 1
+                        # Adjust for skipping pk_col if pk_col's index < name_index
+                        # but let's keep it simple if your code assumes it is the second or third column
+                    except:
+                        name_index = None
+
+                    # Attempt the insert (handle collisions by appending "(1)")
+                    while True:
+                        try:
+                            source_conn.execute(insert_sql, to_insert)
+                            break
+                        except sqlite3.IntegrityError as e:
+                            err_str = str(e)
+                            if "UNIQUE constraint failed" in err_str and name_index is not None and 0 <= name_index < len(
+                                    to_insert):
+                                current_value = str(to_insert[name_index])
+                                to_insert[name_index] = current_value + "(1)"
+                            else:
+                                logger_setup.get_logger().critical(f'[{table_name}] Could not insert row: {e.sqlite_errorname}')
+                                logger_setup.get_logger().debug(f'SQL error: {e}')
+                                logger_setup.get_logger().debug(f"SQL command: {insert_sql}")
+                                logger_setup.get_logger().debug(f"Row data: {to_insert}")
+                                return False
+
+                    # If table has a PK, fetch the new PK
+                    if pk_col:
+                        try:
+                            new_pk_val = source_conn.execute("SELECT last_insert_rowid();").fetchone()[0]
+                        except sqlite3.Error as e:
+                            logger_setup.get_logger().critical(f"[{table_name}] Error acquiring last_insert_rowid: {e.sqlite_errorname}")
+                            logger_setup.get_logger().debug(f"SQL error: {e}")
+                            return False
+                        # record old_pk->new_pk
+                        id_map[table_name][old_pk] = new_pk_val
+
+                    inserted.add(old_pk)
+                    inserted_this_pass.append(old_pk)
+
+            if inserted_this_pass:
+                for pk_val in inserted_this_pass:
+                    rows_to_insert.remove(pk_val)
+                progress = True
+
+        if rows_to_insert:
+            # Some rows never got inserted, possibly cyclical references or a missing parent
+            logger_setup.get_logger().critical(f"[{table_name}] Not all rows were inserted. Possibly a cycle. Remaining: {rows_to_insert}")
+
+        return True
 
     # ----------------------------------------------------------------
-    # 7. Merge logic
-    #    For demonstration, let's do all "normal" tables first,
-    #    then the self-referential tables. Real merges often need
-    #    a more careful order or multiple passes.
+    # 7. Merge logic, tables are merged in an ordered way. Tables with no related data from other tables are merged
+    # first, then tables that are least to most related.
     # ----------------------------------------------------------------
 
     all_tables = SQLUtils.database_ordered_tables
     for t in all_tables:
         t = f'"{t}"'
-        if t in normal_tables:
+        if t == '"Aliquots"':
+            if not merge_self_ref_table_with_foreign_keys(t):
+                return False
+            continue
+        elif t in normal_tables:
             print(f"Merging normal table: {t}")
-            merge_non_self_ref_table(t)
+            if not merge_non_self_ref_table(t):
+                return False
         elif t in self_ref_tables.keys():
             print(f"Merging self-referential tree table: {t}")
-            merge_self_ref_table(t)
+            if not merge_self_ref_table(t):
+                return False
         elif t in fk_tables:
             print(f"Merging table with FKs: {t}")
-            merge_table_with_foreign_keys(t)
+            if not merge_table_with_foreign_keys(t):
+                return False
         elif t in mtm_tables:
             print(f"Merging mtm table: {t}")
-            merge_m2m_bridge_table(t)
+            if not merge_m2m_bridge_table(t):
+                return False
 
     # ----------------------------------------------------------------
     # 8. Commit and re-enable foreign_keys
     # ----------------------------------------------------------------
+
     source_conn.execute("COMMIT;")
     source_conn.execute("PRAGMA foreign_keys = ON;")
 
     # Close
     source_conn.close()
     incoming_conn.close()
-
-    print("Merge completed with tree handling.")
+    return True
 
 
 if __name__ == "__main__":

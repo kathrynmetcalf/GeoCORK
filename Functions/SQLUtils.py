@@ -397,7 +397,7 @@ user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures',
                         'SpotContexts', 'UPbAnalysisMethods', 'Units']
 """List of all user-viewable tables and trees used throughout GeoCORK."""
 
-user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
+user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Aliquots',
                        'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
                        'SpotContexts', 'UPbAnalysisMethods', 'Units']
 """List of all user-viewable trees used throughout GeoCORK. If a table is included in this list it is assumed to be in the correct format"""
