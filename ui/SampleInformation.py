@@ -707,9 +707,9 @@ class SampleInformation(QtW.QDialog):
                 self.focus_timer.start(100)
 
     def delete_question(self):
-        msg_box = QtW.QMessageBox()
+        msg_box = QtW.QMessageBox(self)
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to delete these items and all associated data?')
+        msg_box.setText('Are you sure you want to delete these samples and all associated data?')
         msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
         msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
         response = msg_box.exec()

@@ -5,6 +5,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from numpy import integer
 from pandas.core import indexes
 
 import Functions.Text_manipulations as TxM
@@ -1197,6 +1198,32 @@ def return_rounded(value: str | float | int):
     else:
         rounded_value = value
     return rounded_value
+
+def return_number(value: str | float | int):
+    """
+    Convert a string to a number, if possible. If not, return it as is.
+    :param value: string, float, or integer to convert to the best number format
+    :return: value as a number or the original string if it was not a number
+    """
+    if isinstance(value, str):
+        if value == '':
+            return value
+        try:
+            return_value = int(value)
+        except ValueError:
+            try:
+                return_value = float(value)
+            except ValueError:
+                return_value = value
+        return return_value
+    elif isinstance(value, float):
+        try:
+            return_value = int(value)
+        except ValueError:
+            return_value = value
+        return return_value
+    if isinstance(value, int):
+        return value
 
 
 def delete_query(table, ids, id_name):
@@ -2450,7 +2477,6 @@ class FocusGroupBox(QGroupBox):
         self.initial_values = []
         self.edited = False
         self.installEventFilter(self)
-        # self.install_children_event_filter()
         self.reset_edited()
 
     def reset_edited(self):
@@ -2472,8 +2498,6 @@ class FocusGroupBox(QGroupBox):
                     child.currentIndexChanged.disconnect(self.set_edited)
                 except TypeError:
                     pass
-                # logger_setup.get_logger().info(
-                #     f'Connecting signals for {child.objectName()}, child of {child.parent().objectName()}')
                 self.initial_values.append([child, child.currentIndex()])
                 child.currentIndexChanged.connect(lambda ch=child: self.set_edited(ch))
             elif isinstance(child, QtW.QCheckBox):
@@ -2481,11 +2505,8 @@ class FocusGroupBox(QGroupBox):
                     child.stateChanged.disconnect(self.set_edited)
                 except TypeError:
                     pass
-                # logger_setup.get_logger().info(
-                #     f'Connecting signals for {child.objectName()}, child of {child.parent().objectName()}')
                 self.initial_values.append([child, child.isChecked()])
                 child.stateChanged.connect(lambda ch=child: self.set_edited(ch))
-        for child in self.findChildren(QtW.QWidget):
             child.installEventFilter(self)
 
     def disconnect_child_signals(self):
@@ -2508,12 +2529,9 @@ class FocusGroupBox(QGroupBox):
         for child in self.findChildren(QtW.QWidget):
             child.removeEventFilter(self)
 
-
-
     def set_edited(self, child: QtW.QWidget):
-        try: child.objectName()
-        except AttributeError: return
-        # logger_setup.get_logger().info(f'{child.objectName()} called set_edited')
+        if not isinstance(child, QtW.QWidget):
+            child = self.sender()
         initial_value = None
         for pair in self.initial_values:
             if pair[0] == child:
@@ -2533,8 +2551,6 @@ class FocusGroupBox(QGroupBox):
                 self.edited = True
 
     def eventFilter(self, obj, event):
-        if event.type() == QtC.QEvent.Type.MouseButtonPress:
-            pass
         if event.type() == QtC.QEvent.Type.FocusOut:
             self.focus_lost_timer.start(100)
         return super().eventFilter(obj, event)

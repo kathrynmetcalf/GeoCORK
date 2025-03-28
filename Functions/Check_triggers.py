@@ -17,7 +17,6 @@ def update_modified_timestamp(table: str, record_ids: list):
     @param record_ids: list of record ids to be updated
     @return: None if successful, error message if not
     """
-    # todo: test that this is working now
     # Get the header for the first column, the ID column
     table_model = QtS.QSqlTableModel()
     table_model.setTable(table)
@@ -33,19 +32,20 @@ def update_modified_timestamp(table: str, record_ids: list):
         return f'Unable to find modified header for {table}'
     record_id_header = headers[0]
     query = QtS.QSqlQuery()
-    logger_setup.get_logger().debug('Updating {')
+    logger_setup.get_logger().info('Updating modified timestamp')
     if len(record_ids) > 1:
         record_ids = ', '.join(str(id) for id in record_ids)
         if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {record_id_header} IN ({record_ids})'):
             logger_setup.get_logger().error(
                 f'Unable to update modified timestamps for {table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
     if len(record_ids) == 1:
         if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {record_id_header} = {record_ids[0]}'):
             logger_setup.get_logger().error(
                 f'Unable to update modified timestamps for {table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
 
 def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | None):
     """
@@ -350,33 +350,33 @@ def check_gps_format_insert(pairs: list, format_id: int):
     gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
     for pair in pairs:
         if pair[0] == 'GPSLatDeg':
-            new_latdeg = pair[1]
+            new_latdeg = f'{pair[1]}'
         if pair[0] == 'GPSLatMin':
-            new_latmin = pair[1]
+            new_latmin = f'{pair[1]}'
         if pair[0] == 'GPSLatSec':
-            new_latsec = pair[1]
+            new_latsec = f'{pair[1]}'
         if pair[0] == 'GPSLatDirectionID':
-            new_latdir = pair[1]
+            new_latdir = f'{pair[1]}'
         if pair[0] == 'GPSLonDeg':
-            new_londeg = pair[1]
+            new_londeg = f'{pair[1]}'
         if pair[0] == 'GPSLonMin':
-            new_lonmin = pair[1]
+            new_lonmin = f'{pair[1]}'
         if pair[0] == 'GPSLonSec':
-            new_lonsec = pair[1]
+            new_lonsec = f'{pair[1]}'
         if pair[0] == 'GPSLonDirectionID':
-            new_londir = pair[1]
+            new_londir = f'{pair[1]}'
         if pair[0] == 'GPSUTMZone':
-            new_utmzone = pair[1]
+            new_utmzone = f'{pair[1]}'
         if pair[0] == 'GPSUTMN':
-            new_utmn = pair[1]
+            new_utmn = f'{pair[1]}'
         if pair[0] == 'GPSUTME':
-            new_utme = pair[1]
+            new_utme = f'{pair[1]}'
         if pair[0] == 'GPSElev':
-            new_elev = pair[1]
+            new_elev = f'{pair[1]}'
         if pair[0] == 'GPSElevError':
-            new_elev_error = pair[1]
+            new_elev_error = f'{pair[1]}'
         if pair[0] == 'GPSElevUnitID':
-            new_elev_unit = pair[1]
+            new_elev_unit = f'{pair[1]}'
 
     if 'D' in gps_format_abbreviation:
         # DD, DDM, or DMS
