@@ -1691,7 +1691,7 @@ def populate_gps_conversions():
                     elif gps_formats[format1][1] == 'DD +/-' and gps_formats[format2][1] == 'DDM NSEW':
                         conversion1to2 = f'''lat, lon = GPS.convert_dd_to_ddm([GPSLatDeg], [GPSLonDeg])\n{convert_to_direction}'''
                         conversion1to2 += '''\nconverted = f"{lat[0]}°{lat[1]}{min_symbol} {lat[2]}, {lon[0]}°{lon[1]}{min_symbol} {lon[2]}'"'''
-                        conversion2to1 = f'''{convert_ddm_to_sign}\nlat, lon = GPS.convert_ddm_to_dd([GPSLatDeg, GPSLatMin], [GPSLonDeg, GPSLonMin])'''
+                        conversion2to1 = f'''{convert_ddm_to_sign}\nlat, lon = GPS.convert_ddm_to_dd(lat, lon)'''
                         conversion2to1 += '''\nconverted = f"{lat[0]}°, {lon[0]}°"'''
                     elif gps_formats[format1][1] == 'DD +/-' and gps_formats[format2][1] == 'DMS NSEW':
                         conversion1to2 = f'''lat, lon = GPS.convert_dd_to_dms([GPSLatDeg], [GPSLonDeg])\n{convert_to_direction}'''

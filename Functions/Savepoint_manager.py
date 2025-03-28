@@ -50,7 +50,8 @@ def create_savepoint(savepoint_name: str, database: QSqlDatabase=QSqlDatabase())
     query = QtS.QSqlQuery()
     logger_setup.get_logger().info(f'Creating savepoint {savepoint_name} on {database.connectionName()}')
     if not query.exec(f'SAVEPOINT {savepoint_name}'):
-        logger_setup.get_logger().critical(f'Failed to create savepoint {savepoint_name}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Failed to create savepoint {savepoint_name}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         return False
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.add_savepoint(savepoint_name)
@@ -76,7 +77,7 @@ def release_savepoint(savepoint_name: str, database : QSqlDatabase=QSqlDatabase(
 
 def rollback_savepoint(savepoint_name: str, database : QSqlDatabase=QSqlDatabase()) -> bool:
     """
-    Function to rollback the given database to the provided savepoint name.
+    Function to roll back the given database to the provided savepoint name.
     :param str savepoint_name: string of the savepoint name to rollback
     :param QSqlDatabase database: database to rollback on, if not provided to default connection
     :return: True for success, False for failure
@@ -85,7 +86,8 @@ def rollback_savepoint(savepoint_name: str, database : QSqlDatabase=QSqlDatabase
     query = QtS.QSqlQuery(database)
     logger_setup.get_logger().info(f'Rolling back to savepoint {savepoint_name} on {database.connectionName()}')
     if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
-        logger_setup.get_logger().critical(f'Failed to rollback to savepoint {savepoint_name}: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Failed to undo changes')
+        logger_setup.get_logger().debug(f'Failed to rollback to savepoint {savepoint_name}: {query.lastError().text()}')
         return False
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.rollback_savepoint(savepoint_name)

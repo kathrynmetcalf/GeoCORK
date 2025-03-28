@@ -38,7 +38,7 @@ CREATE_ALIQUOTS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Aliquots_AliquotID ON Aliquots(AliquotID)'''
 
 CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX = '''
-                    CREATE INDEX IF NOT EXISTS idx_Aliquots_Aliquots_AliquotContextID ON Aliquots_AliquotContexts(Aliquots_AliquotContextID)'''
+                    CREATE INDEX IF NOT EXISTS idx_Aliquots_Aliquots_AliquotContextID ON Aliquots_AliquotContexts(AliquotID, AliquotContextID)'''
 
 CREATE_COLUMNS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Columns_ColumnID ON Columns(ColumnID)'''

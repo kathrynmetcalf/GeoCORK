@@ -7,6 +7,8 @@ from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_ke
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import set_table, get_columns
+import pyproj
+import Functions.GPS_conversions as GPS
 
 
 def settings_reset():
@@ -515,6 +517,7 @@ def generate_reference_column(table: str, table_id_header: str, constructor: str
         rollback_savepoint('before_populate')
         return False
     logger_setup.get_logger().info(f'Successfully updated {column}')
+    return True
 
 
 def update_generated_columns(table: str) -> bool:

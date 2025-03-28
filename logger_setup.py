@@ -28,8 +28,8 @@ class CustomLogger(logging.getLoggerClass()):
     """Custom logger that captures critical errors and shows a PyQt6 message box."""
     # todo: add an optional parent argument to the critical and error methods for the message box
 
-    def critical(self, msg, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
-        button = QMessageBox.critical(None,
+    def critical(self, msg, parent=None, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
+        button = QMessageBox.critical(parent,
                                       "Unexpected Critical Error",
                                       f"{msg}",
                                       buttons=QMessageBox.StandardButton.Ok,
@@ -37,8 +37,8 @@ class CustomLogger(logging.getLoggerClass()):
 
         super().critical(msg, *args, exc_info=exc_info, stack_info=stack_info, stacklevel=stacklevel, extra=extra)
 
-    def error(self, msg, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
-        button = QMessageBox.critical(None,
+    def error(self, msg, parent=None, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
+        button = QMessageBox.critical(parent,
                                       "Error",
                                       f"{msg}",
                                       buttons=QMessageBox.StandardButton.Ok,
