@@ -56,7 +56,7 @@
            </widget>
           </item>
           <item>
-           <widget class="CheckableComboBox" name="edit_age_comboBox">
+           <widget class="SearchableSQLComboBox" name="edit_age_comboBox">
             <property name="currentText">
              <string/>
             </property>
@@ -427,6 +427,11 @@
    <class>CheckableComboBox</class>
    <extends>QComboBox</extends>
    <header location="global">Functions/Widget_classes.h</header>
+  </customwidget>
+  <customwidget>
+   <class>SearchableSQLComboBox</class>
+   <extends>QComboBox</extends>
+   <header>Functions/Widget_classes.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

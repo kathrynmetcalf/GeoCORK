@@ -819,7 +819,7 @@ class SampleAgeTableModel(CheckableSqlQueryModel):
 
 
 def set_table(model: QtS.QSqlTableModel, table: str):
-    logger_setup.get_logger().info(f"Setting table to {table}")
+    # logger_setup.get_logger().info(f"Setting table to {table}")
     model.setTable(table)
     if model.lastError().text():
         logger_setup.get_logger().critical(f"Failed to set table to {table})")
@@ -2488,21 +2488,21 @@ class FocusGroupBox(QGroupBox):
         for child in self.findChildren(QtW.QWidget):
             if isinstance(child, QtW.QLineEdit):
                 try:
-                    child.editingFinished.disconnect(self.set_edited)
+                    child.editingFinished.disconnect()
                 except TypeError:
                     pass
                 self.initial_values.append([child, child.text()])
                 child.editingFinished.connect(lambda ch=child: self.set_edited(ch))
             elif isinstance(child, QtW.QComboBox):
                 try:
-                    child.currentIndexChanged.disconnect(self.set_edited)
+                    child.currentIndexChanged.disconnect()
                 except TypeError:
                     pass
                 self.initial_values.append([child, child.currentIndex()])
                 child.currentIndexChanged.connect(lambda ch=child: self.set_edited(ch))
             elif isinstance(child, QtW.QCheckBox):
                 try:
-                    child.stateChanged.disconnect(self.set_edited)
+                    child.stateChanged.disconnect()
                 except TypeError:
                     pass
                 self.initial_values.append([child, child.isChecked()])
@@ -2513,20 +2513,19 @@ class FocusGroupBox(QGroupBox):
         for child in self.findChildren(QtW.QWidget):
             if isinstance(child, QtW.QLineEdit):
                 try:
-                    child.editingFinished.disconnect(self.set_edited)
+                    child.editingFinished.disconnect()
                 except TypeError:
                     pass
             elif isinstance(child, QtW.QComboBox):
                 try:
-                    child.currentIndexChanged.disconnect(self.set_edited)
+                    child.currentIndexChanged.disconnect()
                 except TypeError:
                     pass
             elif isinstance(child, QtW.QCheckBox):
                 try:
-                    child.stateChanged.disconnect(self.set_edited)
+                    child.stateChanged.disconnect()
                 except TypeError:
                     pass
-        for child in self.findChildren(QtW.QWidget):
             child.removeEventFilter(self)
 
     def set_edited(self, child: QtW.QWidget):
@@ -2834,13 +2833,14 @@ class CheckableComboBox(QtW.QComboBox):
     def clear_all_checks(self):
         for row in range(self.model().rowCount()):
             index = self.model().index(row, self.name_col)
-            if row == self.view().currentIndex().row():
-                self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-            else:
-                self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-            logger_setup.get_logger().info(
-                f"Changed {self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)} state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}"
-            )
+            # if row == self.view().currentIndex().row():
+            #     self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+            # else:
+            self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+            # logger_setup.get_logger().info(
+            #     f"Changed {self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)} state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}"
+            # )
+        logger_setup.get_logger().info(f'Cleared all checks in {self.table} combo box')
 
     def showPopup(self):
         super().showPopup()
@@ -2907,24 +2907,59 @@ class CheckableComboBox(QtW.QComboBox):
 
 class SearchableSQLComboBox(QtW.QComboBox):
     closing = QtC.pyqtSignal()
+    delete_triggered = QtC.pyqtSignal(QtW.QComboBox)
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setEditable(True)
+        self.context_menu = False
+        self.name_col = None
+        self.userTyped = False
+        self.previous_index = self.currentIndex()
         self.proxy_model = QtC.QSortFilterProxyModel()
-        self.lineEdit().textChanged.connect(self.search_items)
 
-    def setModel(self, model: QtS.QSqlTableModel | VerifiableSqlViewModel):
+    def setModel(self, model: QtS.QSqlTableModel | QtS.QSqlQueryModel | SQLiteTableModel):
         self.proxy_model.setSourceModel(model)
         super().setModel(self.proxy_model)
-        self.setModelColumn(get_name_column(model.tableName()))
+        self.name_col = None
+        try:
+            if model.view != '':
+                name_col = get_view_name_column(model.view)
+        except AttributeError:
+            pass
+        if not self.name_col:
+            self.name_col = get_name_column(model.tableName())
+        self.setModelColumn(self.name_col)
 
     def search_items(self, text):
+        self.userTyped = True
         self.proxy_model.setFilterFixedString(text)
         self.showPopup()
         if self.proxy_model.rowCount() > 0:
             self.setCurrentIndex(0)
         else:
             self.setCurrentIndex(0)
+
+    def enable_context_menu(self, show_context_menu: bool):
+        self.context_menu = show_context_menu
+        if self.context_menu:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+            # self.customContextMenuRequested.connect(self.contextMenuEvent)
+        else:
+            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
+
+    def contextMenuEvent(self, event):
+        menu = QtW.QMenu(self)
+        if self.model().rowCount() !=0:
+            delete_action = menu.addAction(f"Delete item")
+        else:
+            delete_action = None
+        action = menu.exec(self.mapToGlobal(event.pos()))
+        if action == delete_action:
+            self.delete_triggered.emit(self)
+
+    def hidePopup(self):
+        super().hidePopup()
+        self.closing.emit()
+        # self.update_line_edit()
 
 class SearchableComboBox(QtW.QComboBox):
     selection_changed = QtC.pyqtSignal(QtW.QComboBox)
@@ -2938,7 +2973,6 @@ class SearchableComboBox(QtW.QComboBox):
         self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
         self.lineEdit().setCompleter(self.completer())
-
         self.lineEdit().editingFinished.connect(self.validate_input)
 
     def addItem(self, text: str):
@@ -3286,7 +3320,7 @@ class CheckableTreeCombobox(TreeCombobox):
                         # Was the only selected item unchecked? If so, set the current index to the root before clearing all checks
                         checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.model().traverse_checkable_tree(
                             QtC.QModelIndex())
-                        if self.currentIndex() in checked_items:
+                        if self.treeView.currentIndex() in checked_indices:
                             self.treeView.setCurrentIndex(QtC.QModelIndex())
                         self.clear_all_checks()
                         self.treeView.toggle_check_state(self.treeView.currentIndex())
@@ -3358,6 +3392,10 @@ class TreeContextMenu(QtW.QMenu):
         collapse_children_action = collapse_menu.addAction('Collapse children')
         collapse_all_children_action = collapse_menu.addAction('Collapse all children')
         collapse_all_action = collapse_menu.addAction('Collapse all')
+
+    def add_checkable_actions(self):
+        if isinstance(self.tree_view, CheckableTreeView):
+            clear_action = self.addAction('Clear checks')
 
 
 class FrozenTableView(QtW.QTableView):
