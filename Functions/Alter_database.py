@@ -258,9 +258,9 @@ def convert_columns(affected: list[list[str]], conversion_table: list[str], id_h
 
 def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id: int) -> list[tuple[any, any]]:
     """
-    :param str conversion_table:
-    :param str id_header_base:
-    :param int selected_id:
+    :param str conversion_table: Table in the database which stores conversion information
+    :param str id_header_base: The first part of the column ID header for conversion
+    :param int selected_id: The format ID used to define what format to convert everything to
     :raises NotImplementedError: Raised if no calculation column and from columns not found.
     :return: List of from_ids and conversion logic.
     """
@@ -737,6 +737,75 @@ def convert_gps_location(gps_id: int) -> bool:
     release_savepoint('before_populate_gps')
     return True
 
+def return_sample_age_display(sample_age_id: int) -> str:
+    """
+    During a transaction, this function will return the display string for a sample age.
+    :param sample_age_id: The sample age ID to convert
+    :return: age_display: The string representation of the sample age
+    """
+    selected_age_unit_id = settings.value('age_unit_id')
+    selected_error_type_id = settings.value('age_error_format_id')
+    sample_age_model = QtS.QSqlTableModel()
+    set_table(sample_age_model, 'SampleAges')
+    sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
+    if sample_age_model.lastError().text() != '':
+        logger_setup.get_logger().critical(f'Error getting SampleAges: {sample_age_model.lastError().text()}')
+        return ''
+    if sample_age_model.rowCount() == 0:
+        logger_setup.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
+        return ''
+    query = QtS.QSqlQuery()
+    column = 'SampleAgeDisplay'
+    variables = ['DirectAge', 'DirectAgeError', 'DirectAgeUnitID', 'DirectAgeErrorFormatID', 'OldestDirectAge',
+                 'YoungestDirectAge']
+    modules = ['GPS', 'pyproj']
+    global_vars = {name: globals()[name] for name in modules}
+    DirectAge = sample_age_model.record(0).value('DirectAge')
+    DirectAgeError = sample_age_model.record(0).value('DirectAgeError')
+    DirectAgeUnitID = sample_age_model.record(0).value('DirectAgeUnitID')
+    DirectAgeErrorFormatID = sample_age_model.record(0).value('DirectAgeErrorFormatID')
+    OldestDirectAge = sample_age_model.record(0).value('OldestDirectAge')
+    YoungestDirectAge = sample_age_model.record(0).value('YoungestDirectAge')
+    OldestAgeID = sample_age_model.record(0).value('OldestAgeID')
+    YoungestAgeID = sample_age_model.record(0).value('YoungestAgeID')
+    local_vars = {name: locals()[name] for name in variables}
+    try:
+        age_conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', selected_age_unit_id)
+        error_conversions = retrieve_conversions('ErrorFormatConversions', 'ErrorFormat', selected_error_type_id)
+    except NotImplementedError:
+        return ''
+    calc_age_columns = ['DirectAge', 'DirectAgeError', 'OldestDirectAge', 'YoungestDirectAge', 'SampleAgeDisplay']
+    age_calculation = 'x*1'
+    for conversion in age_conversions:
+        if conversion[0] == DirectAgeUnitID:
+            age_calculation = conversion[1]
+            break
+    error_calculation = 'x*1'
+    for conversion in error_conversions:
+        if conversion[0] == DirectAgeErrorFormatID:
+            error_calculation = conversion[1]
+            # x is the original error and y is the original direct age
+            if 'y' in error_calculation:
+                error_calculation = error_calculation.replace('y', 'DirectAge')
+            if selected_error_type_id != 2 or selected_error_type_id != 3:
+                # Converting to an absolute error, so need to convert the age
+                error_calculation = age_calculation.replace('x', f'({error_calculation})')
+            break
+    error_calculation = error_calculation.replace('x', 'DirectAgeError')
+    calc_age_values = []
+    calculated = None
+    for column in calc_age_columns:
+        if 'Error' in column:
+            calculated_error = eval(error_calculation)
+            calc_age_values.append(calculated_error)
+        elif 'DirectAge' in column:
+            calculation = age_calculation.replace('x', f'{column}')
+            calculated_age = eval(calculation)
+            calc_age_values.append(calculated_age)
+        else:
+            pass
+    age_display = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
+    return age_display
 
 def convert_sample_age(sample_age_id: int) -> bool:
     """
@@ -744,6 +813,7 @@ def convert_sample_age(sample_age_id: int) -> bool:
     :param sample_age_id:
     :return: True for success, False for failure
     """
+    selected_error_type_id = settings._instance.value('age_error_format_id')
     sample_age_model = QtS.QSqlTableModel()
     set_table(sample_age_model, 'SampleAges')
     sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
@@ -752,35 +822,73 @@ def convert_sample_age(sample_age_id: int) -> bool:
         return False
     query = QtS.QSqlQuery()
     column = 'SampleAgeDisplay'
-    variables = ['DirectAge', 'DirectAgeError', 'DirectAgeUnitID', 'OldestDirectAge', 'YoungestDirectAge']
+    variables = ['DirectAge', 'DirectAgeError', 'DirectAgeUnitID', 'DirectAgeErrorFormatID', 'OldestDirectAge',
+                 'YoungestDirectAge']
     modules = ['GPS', 'pyproj']
     global_vars = {name: globals()[name] for name in modules}
     DirectAge = sample_age_model.record(0).value('DirectAge')
     DirectAgeError = sample_age_model.record(0).value('DirectAgeError')
     DirectAgeUnitID = sample_age_model.record(0).value('DirectAgeUnitID')
+    DirectAgeErrorFormatID = sample_age_model.record(0).value('DirectAgeErrorFormatID')
     OldestDirectAge = sample_age_model.record(0).value('OldestDirectAge')
     YoungestDirectAge = sample_age_model.record(0).value('YoungestDirectAge')
+    OldestAgeID = sample_age_model.record(0).value('OldestAgeID')
+    YoungestAgeID = sample_age_model.record(0).value('YoungestAgeID')
     local_vars = {name: locals()[name] for name in variables}
     try:
-        conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', DirectAgeUnitID)
+        age_conversions = retrieve_conversions('AgeUnitConversions', 'AgeUnit', DirectAgeUnitID)
+        error_conversions = retrieve_conversions('ErrorFormatConversions', 'ErrorFormat', DirectAgeErrorFormatID)
     except NotImplementedError:
         return False
     create_savepoint('before_populate_age')
-    for conversion in conversions:
+    calc_age_columns = ['DirectAge', 'DirectAgeError', 'OldestDirectAge', 'YoungestDirectAge', 'SampleAgeDisplay']
+    age_calculation = 'x*1'
+    for conversion in age_conversions:
         if conversion[0] == DirectAgeUnitID:
-            age_code = conversion[1]
-            exec(age_code, global_vars, locals())
-            age_display = locals().get('converted')
-            sql_alter = f'UPDATE SampleAges SET {column}="{age_display}" WHERE "SampleAgeID"={sample_age_id}'
-            logger_setup.get_logger().info(f'Updating the calculated {column}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
-            if not query.exec(sql_alter):
-                logger_setup.get_logger().critical(
-                    f'Error adding the calculated column {column}: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
-                rollback_savepoint('before_populate_age')
-                return False
-            logger_setup.get_logger().info(f'Successfully updated SampleAge display')
+            age_calculation = conversion[1]
             break
+    error_calculation = 'x*1'
+    for conversion in error_conversions:
+        if conversion[0] == DirectAgeErrorFormatID:
+            # x is the original error and y is the original direct age
+            if 'y' in error_calculation:
+                error_calculation = error_calculation.replace('y', 'DirectAge')
+            if selected_error_type_id != 2 or selected_error_type_id != 3:
+                # Converting to an absolute error, so need to convert the age
+                error_calculation = age_calculation.replace('x', f'({error_calculation})')
+            break
+    error_calculation = error_calculation.replace('x', 'DirectAgeError')
+    calc_age_values = []
+    calculated = None
+    for column in calc_age_columns:
+        if 'Error' in column:
+            calculated_error = eval(error_calculation)
+            calc_age_values.append(calculated_error)
+        elif 'DirectAge' in column:
+            calculation = age_calculation.replace('x', f'{column}')
+            calculated_age = eval(calculation)
+            calc_age_values.append(calculated_age)
+        else:
+            pass
+    age_display = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'
+    calc_age_values.append(age_display)
+    sql_placeholders = ", ".join('?' * len(calc_age_values))
+    if not query.prepare(f'UPDATE SampleAges SET ({', '.join(calc_age_columns)}) = ({sql_placeholders}) WHERE "SampleAgeID"={sample_age_id}'):
+        logger_setup.get_logger().error(
+            f'Error updating the age display. Displays will update on returning to main page')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
+        rollback_savepoint('before_populate_age')
+        return False
+    for i, value in enumerate(calc_age_values):
+        query.bindValue(i, value)
+    if not query.exec():
+        logger_setup.get_logger().error(
+            f'Error updating the age display. Displays will update on returning to main page')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
+        rollback_savepoint('before_populate_age')
+        return False
+    logger_setup.get_logger().info(f'Successfully updated SampleAge display')
     release_savepoint('before_populate_age')
     return True

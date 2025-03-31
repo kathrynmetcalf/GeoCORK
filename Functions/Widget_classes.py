@@ -280,6 +280,7 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
         self.table = ''
         self.table_name_col = ''
         self.db = db
+        self.rounded = True
 
     def setQuery(self, query):
         super().setQuery(query, self.db)
@@ -329,8 +330,8 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
                     return display_gps(value)
                 elif 'Elevation' in header or 'Height' in header or 'Depth' in header:
                     return display_value_with_error(value)
-            # if the value is a number but not an integer
-            elif value is not None and isinstance(value, (int, float)):
+            # if the value is a number but not an integer, and rounded is True
+            elif value is not None and isinstance(value, (int, float)) and self.rounded:
                 return return_rounded(value)
             else:
                 return value
@@ -599,6 +600,28 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             return self.compare_parts(left_parts, right_parts)
         else:
             return super().lessThan(left, right)
+
+class SampleAgeProxyModel(QtC.QSortFilterProxyModel):
+    """
+    Proxy model to display updated SampleAgeDisplay while generated columns cannot update during a transaction.
+    """
+    def __init__(self):
+        super().__init__()
+
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        if not index.isValid():
+            return False
+        if role == QtC.Qt.ItemDataRole.DisplayRole:
+            name_col = get_name_column('SampleAges')
+            if index.column() == name_col:
+                from Functions.Alter_database import return_sample_age_display
+                id = self.sourceModel().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if id is not None:
+                    # get the updated sample age display calculated from the database
+                    age_display = return_sample_age_display(id)
+                    if age_display is not None:
+                        # return the user-readable age display
+                        return display_age(age_display)
 
 class CheckableSqlTableModel(DisplayRoundedModel):
     def __init__(self):
@@ -3676,6 +3699,11 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             view = model.tableView()
         except AttributeError:
             pass
+        if table == 'SampleAges':
+            model.rounded = False
+            proxy_model = SampleAgeProxyModel()
+            proxy_model.setSourceModel(model)
+            model = proxy_model
     elif 'View' in table:
         view = table
         model = DisplayRoundedQueryModel()
