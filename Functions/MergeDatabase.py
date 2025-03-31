@@ -585,15 +585,12 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                     break  # success: break out of loop
                 except sqlite3.IntegrityError as e:
                     if "UNIQUE constraint failed" in str(e):
-                        print(str(e))
-                        print(to_insert)
                         # We got a uniqueness collision, so increment or append '(1)'
                         current_value = str(to_insert[name_index])
                         to_insert[name_index] = current_value + '(1)'
                     elif "NOT NULL constraint failed" in str(e):
-                        logger_setup.get_logger().info(f'Not null contrainst failed')
+                        logger_setup.get_logger().info(f'{str(e)}')
                         logger_setup.get_logger().debug(f"{to_insert}")
-                        logger_setup.get_logger().debug(f'{str(e)}')
                         break
                     else:
                         # It's another error we don't want to handle here; re-raise
@@ -763,24 +760,21 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
     all_tables = SQLUtils.database_ordered_tables
     for t in all_tables:
         t = f'"{t}"'
+        logger_setup.get_logger().info(f"Merging table {t}")
         if t == '"Aliquots"':
             if not merge_self_ref_table_with_foreign_keys(t):
                 return False
             continue
         elif t in normal_tables:
-            print(f"Merging normal table: {t}")
             if not merge_non_self_ref_table(t):
                 return False
         elif t in self_ref_tables.keys():
-            print(f"Merging self-referential tree table: {t}")
             if not merge_self_ref_table(t):
                 return False
         elif t in fk_tables:
-            print(f"Merging table with FKs: {t}")
             if not merge_table_with_foreign_keys(t):
                 return False
         elif t in mtm_tables:
-            print(f"Merging mtm table: {t}")
             if not merge_m2m_bridge_table(t):
                 return False
 
@@ -794,6 +788,8 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
     # Close
     source_conn.close()
     incoming_conn.close()
+
+    logger_setup.get_logger().info('Merged successfully')
     return True
 
 

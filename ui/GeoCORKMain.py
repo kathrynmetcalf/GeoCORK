@@ -1,18 +1,24 @@
 import os
+import sqlite3
 import sys
+from datetime import datetime
 
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
-from PyQt6.QtCore import QPoint, QSize
+from PyQt6.QtCore import QPoint, QSize, QStandardPaths
 from PyQt6.QtGui import QAction
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from PyQt6.QtWidgets import QMenu, QStatusBar
+from PyQt6.QtWidgets import QMenu, QStatusBar, QFileDialog, QProgressBar, QProgressDialog
 
 from PyQt6.uic import loadUi
+from tzlocal import get_localzone
+
 import Functions.Database_views as DB_views
+from Functions.BackupDatabase import BackupThread, RestoreThread
 from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Savepoint_manager import SavepointManager
 from Functions.Widget_classes import get_name_from_id, show_loading_dialog, close_loading_dialog
 import logger_setup
 from Functions import SQLUtils
@@ -91,11 +97,10 @@ class GeoCORK(QtW.QMainWindow):
         settings.setValue('db_file', self.db_file)
         logger_setup.get_logger().info(f"Setting database file to: {self.db_file}")
         if '/' in self.db_file:
-            self.db_name = self.db_file.split('/')[-1]
+            self.db_name: str = self.db_file.split('/')[-1]
         elif '\\' in self.db_file:
-            self.db_name = self.db_file.split('\\')[-1]
+            self.db_name: str = self.db_file.split('\\')[-1]
         if self.db.isOpen():
-            print('database not open:', self.db.isOpen())
             if self.db.open():
                 logger_setup.get_logger().info(f"Database opened successfully")
                 self.setWindowTitle(f"GeoCORK - {self.db_name}")
@@ -125,12 +130,13 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget.currentChanged.connect(self.on_tab_changed)
 
         actionOpen.triggered.connect(self.landingpage.showFileDialog)
-        # actionCreateBackup.triggered.connect(self.create_backup)
-        # actionRestoreBackup.triggered.connect(self.restore_backup)
+        actionCreateBackup.triggered.connect(self.create_backup)
+        actionRestoreBackup.triggered.connect(self.restore_backup)
         actionImport.triggered.connect(self.show_import_wizard_dialog)
         actionSettings.triggered.connect(self.show_settings_dialog)
         actionExport.triggered.connect(self.switch_to_export_tab)
         actionQuit.triggered.connect(self.close)
+        actionNew.triggered.connect(self.new_database)
 
         self.loading_manager.close_loading_dialog('Opening', f'Opening {self.db_name}...')
         self.showMaximized()
@@ -156,6 +162,26 @@ class GeoCORK(QtW.QMainWindow):
     def open_recent_file(self, file_path):
         """Simulate opening a recent file."""
         self.landingpage.selected_files = file_path
+        self.landingpage.db = None
+        self.landingpage.open_geo_cork()
+
+    def new_database(self):
+        file_name, _ = QFileDialog.getSaveFileName(
+            None,
+            "Save Database File",
+            "",
+            "Database Files (*.db)"
+        )
+        if not file_name:
+            return
+
+        # Ensure the filename ends with .db
+        if not file_name.lower().endswith(".db"):
+            if '.' in file_name:
+                # If there's already an extension, replace it with .db
+                file_name = file_name.split('.')[0] + ".db"
+
+        self.landingpage.selected_files = file_name
         self.landingpage.db = None
         self.landingpage.open_geo_cork()
 
@@ -188,6 +214,53 @@ class GeoCORK(QtW.QMainWindow):
 
     def switch_to_export_tab(self):
         self.tabWidget.setCurrentIndex(2)
+
+    def create_backup(self):
+        logger_setup.get_logger().info(f'Creating backup of {self.db_name}:')
+        local_timezone = get_localzone()
+        current_time = datetime.now(local_timezone)
+        formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
+
+        backup_file = (QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) +
+                       rf"/backups/{self.db_name.replace('.db', '')}/{os.path.basename(self.db_file).replace('.db', '')}-{formatted_timestamp}.db")
+
+        backup_dir = os.path.dirname(backup_file)
+        if backup_dir and not os.path.exists(backup_dir):
+            os.makedirs(backup_dir, exist_ok=True)
+
+        logger_setup.get_logger().info(f'Backing up to {backup_file}')
+
+        if not SavepointManager.get_instance().active_savepoints():
+            self.progressBar = QProgressDialog()
+            self.progressBar.setLabelText('Backing up database...')
+            self.progressBar.setCancelButtonText(None)
+            self.progressBar.show()
+
+            # Create and start the backup thread
+            self.thread = BackupThread(self.db_file, backup_file)
+            self.thread.progress_updated.connect(self.progressBar.setValue)
+            self.thread.start()
+
+        else:
+            logger_setup.get_logger().critical('Active Save Points exist cannot backup')
+            logger_setup.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
+
+    def restore_backup(self):
+        logger_setup.get_logger().info(f'Restoring backup to {self.db_name}:')
+
+        backup_file = (QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) +
+                       rf"/backups/{self.db_name.replace('.db', '')}/")
+
+        backup_dir = os.path.dirname(backup_file)
+        if backup_dir and not os.path.exists(backup_dir):
+            os.makedirs(backup_dir, exist_ok=True)
+
+        backup_file, _ = QFileDialog(self).getOpenFileName(self, "Select Database File", backup_dir, "Database Files (*.db)")
+
+        if backup_file:
+            if not SavepointManager.get_instance().active_savepoints():
+                self.landingpage.restore_backup(self.db_file, backup_file)
+
 
     def edit_sample_information(self, sample_ids: list[int]):
         """

@@ -270,6 +270,7 @@ class SettingsDialog(QtW.QDialog):
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.restore_defaults)
 
         self.openlogs_pushButton.clicked.connect(self.open_logs)
+        self.openbackup_pushButton.clicked.connect(self.open_backups)
 
     def display_tab(self, index):
         self.settings_tabWidget.setCurrentIndex(index)
@@ -502,6 +503,10 @@ class SettingsDialog(QtW.QDialog):
 
     def open_logs(self):
         dirname = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) + f"/logs/"
+        QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(dirname))
+
+    def open_backups(self):
+        dirname = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) + f"/backups/"
         QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(dirname))
 
     def close(self):

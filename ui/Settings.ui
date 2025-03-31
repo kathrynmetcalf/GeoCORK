@@ -460,7 +460,14 @@
          <item>
           <widget class="QPushButton" name="openlogs_pushButton">
            <property name="text">
-            <string>Open Logs</string>
+            <string>Open Logs Folder</string>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QPushButton" name="openbackup_pushButton">
+           <property name="text">
+            <string>Open Backups Folder</string>
            </property>
           </widget>
          </item>

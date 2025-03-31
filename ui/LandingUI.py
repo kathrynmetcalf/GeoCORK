@@ -16,6 +16,7 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import Savepoint_manager
+from Functions.BackupDatabase import RestoreThread
 from Functions.Create_database import create_tables
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import settings
@@ -132,6 +133,21 @@ class LandingPage(QWidget):
         # Repopulate the QListWidget with new items
         for item in self.list_recents:
             self.listWidget.addItem(str(item))
+
+    def restore_backup(self, db_file, backup_file):
+        self.selected_files = db_file
+        self.db = None
+        QtWidgets.QApplication.processEvents()
+        from ui.GeoCORKMain import GeoCORK
+        for widget in QApplication.allWidgets():
+            if widget.objectName() == 'GeoCORKMain':
+                Savepoint_manager.SavepointManager.reset()
+                widget.close()
+
+        # Create and start the backup thread
+        self.thread = RestoreThread(db_file, backup_file)
+        self.thread.start()
+        self.thread.restore_finished.connect(lambda: self.open_geo_cork(skip_update=False))
 
     def cancel_open(self):
         self.loading_manager.close_loading_dialog("Opening", f"Opening {self.selected_files[0]}")

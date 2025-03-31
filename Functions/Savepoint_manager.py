@@ -10,7 +10,7 @@ class SavepointManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(SavepointManager, cls).__new__(cls)
-            cls._instance.savepoint_list = []
+            cls._instance.savepoint_list: list = []
         return cls._instance
 
     @classmethod
@@ -36,8 +36,24 @@ class SavepointManager:
             self.savepoint_list.remove(savepoint_name)
         # print(self.savepoint_list)
 
-    def active_savepoints(self):
+    def active_savepoints_names(self) -> list:
+        """
+        Returns a list of active savepoint names.
+        :return: list of active savepoint names
+        :rtype: list
+        """
         return self.savepoint_list
+
+    def active_savepoints(self) -> bool:
+        """
+        Returns if active savepoints exist.
+        :return: True if savepoints exist, False otherwise
+        :rtype: bool
+        """
+        if len(self.savepoint_list) > 0:
+            return True
+        else:
+            return False
 
 def create_savepoint(savepoint_name: str, database: QSqlDatabase=QSqlDatabase()):
     """
