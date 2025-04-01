@@ -76,7 +76,9 @@ class SampleInformation(QtW.QDialog):
         self.commit_pushButton.setAutoDefault(False)
         self.cancel_pushButton.setAutoDefault(False)
         self.updated = False
-        self.commit_timer = None
+        self.commit_timer = QtC.QTimer(self)
+        self.commit_timer.setSingleShot(True)
+        self.commit_pushed = False
         self.focus_timer = QtC.QTimer(self)
         self._isApplicationFocused = True
         QtW.QApplication.instance().installEventFilter(self)
@@ -215,7 +217,7 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info("Connecting signals")
         # Connect signals and slots
         self.upb_analysis_pushButton.clicked.connect(self.edit_upb_popup)
-        self.commit_pushButton.clicked.connect(self.commit_question)
+        self.commit_pushButton.clicked.connect(self.commit_delay)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
@@ -710,6 +712,13 @@ class SampleInformation(QtW.QDialog):
                 self.focus_timer.timeout.connect(self.update_column_info)
                 self.focus_timer.start(100)
 
+    def commit_delay(self):
+        if not self.commit_pushed:
+            self.commit_pushed = True
+            self.commit_timer.setSingleShot(True)
+            self.commit_timer.timeout.connect(self.commit_question)
+            self.commit_timer.start(100)
+
     def delete_question(self):
         msg_box = QtW.QMessageBox(self)
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
@@ -748,33 +757,27 @@ class SampleInformation(QtW.QDialog):
             self.close_by_dialog = False
 
     def commit_question(self):
-        logger_setup.get_logger().info("Commit question called")
-
-        def after_timer():
-            logger_setup.get_logger().info("Commit timer timed out. Preparing commit question.")
-            self.age.check_focus()
-            self.gps.check_focus()
-            self.check_focus()
-            if self.updated or self.gps.updated or self.age.updated:
-                msg_box = QtW.QMessageBox()
-                msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-                msg_box.setText('Are you sure you want to commit all changes to the database?')
-                msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-                msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-                response = msg_box.exec()
-                if response == QtW.QMessageBox.StandardButton.Yes:
-                    self.commit()
-                else:
-                    pass
+        logger_setup.get_logger().info("Commit timer timed out. Preparing commit question.")
+        self.age.check_focus()
+        self.gps.check_focus()
+        self.check_focus()
+        if self.updated or self.gps.updated or self.age.updated:
+            msg_box = QtW.QMessageBox()
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setText('Are you sure you want to commit all changes to the database?')
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                self.commit()
             else:
-                self.reject()
-                self.close_by_dialog = True
-                self.close()
-                self.close_by_dialog = False
-
-        # Let all the focus shifts occur before asking the question
-        if not self.commit_timer:
-            self.commit_timer = QtC.QTimer.singleShot(100, after_timer)
+                self.commit_pushed = False
+                pass
+        else:
+            self.reject()
+            self.close_by_dialog = True
+            self.close()
+            self.close_by_dialog = False
 
     def commit(self):
         release_savepoint('before_edit_samples')

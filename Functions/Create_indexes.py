@@ -43,6 +43,9 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX = '''
 CREATE_COLUMNS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Columns_ColumnID ON Columns(ColumnID)'''
 
+CREATE_COLUMNS_GPSLOCATIONS_INDEX = '''
+                    CREATE INDEX IF NOT EXISTS idx_Columns_GPSLocations_ColumnID ON Columns(ColumnID, ColumnBaseGPSID)'''
+
 CREATE_CONCORDANCE_FORMATS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_ConcordanceFormats_ConcordanceFormatID ON ConcordanceFormats(ConcordanceFormatID)'''
 
@@ -114,6 +117,9 @@ CREATE_SAMPLES_INDEX = '''
 
 CREATE_SAMPLES_AGESIGNATURES_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Samples_AgeSignatures_SampleID ON Samples_AgeSignatures(SampleID, AgeSignatureID)'''
+
+CREATE_SAMPLES_GPSLOCATIONS_INDEX = '''
+                    CREATE INDEX IF NOT EXISTS idx_Samples_GPSLocations_GPSLocationID ON Samples(SampleID, SampleGPSLocationID)'''
 
 CREATE_SAMPLES_REGIONS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Samples_Regions_SampleID ON Samples_Regions(SampleID, RegionID)'''
@@ -449,6 +455,17 @@ def create_indexes() -> bool:
     if not query.exec(CREATE_FILTER_GROUPS_INDEX):
         logger_setup.get_logger().critical(f'Error creating FilterGroups index: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {CREATE_FILTER_GROUPS_INDEX}')
+        return False
+
+    # Create foreign key indexes
+    if not query.exec(CREATE_COLUMNS_GPSLOCATIONS_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Columns_GPSLocations index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_COLUMNS_GPSLOCATIONS_INDEX}')
+        return False
+
+    if not query.exec(CREATE_SAMPLES_GPSLOCATIONS_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Samples_GPSLocations index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_GPSLOCATIONS_INDEX}')
         return False
 
     end_time = time.time()

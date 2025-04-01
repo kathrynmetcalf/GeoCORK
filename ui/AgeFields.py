@@ -86,12 +86,13 @@ class AgeFields(QtW.QWidget):
 
     def update_age_unit(self):
         sender = self.sender()
-        logger_setup.get_logger().info("Updating age unit")
         if sender == self.direct_age_unit_comboBox:
             if self.direct_age_unit_comboBox.currentIndex() != self.direct_unit_comboBox.currentIndex():
+                logger_setup.get_logger().info("Updating age unit")
                 self.direct_unit_comboBox.setCurrentIndex(self.direct_age_unit_comboBox.currentIndex())
         elif sender == self.direct_unit_comboBox:
             if self.direct_unit_comboBox.currentIndex() != self.direct_age_unit_comboBox.currentIndex():
+                logger_setup.get_logger().info("Updating age unit")
                 self.direct_age_unit_comboBox.setCurrentIndex(self.direct_unit_comboBox.currentIndex())
         else:
             return
@@ -172,6 +173,8 @@ class AgeFields(QtW.QWidget):
             self.default_age_ids = []
             populate_combo_box(self.edit_age_comboBox, **{'query': 'SELECT * FROM SampleAges WHERE SampleAgeID IS NULL'})
             self.clear_fields()
+            self.disable_groups()
+            self.sample_age_id = None
             self.edit_age_comboBox.setPlaceholderText('No ages')
             QtC.QTimer.singleShot(100, self.set_focus)
             return
@@ -195,6 +198,7 @@ class AgeFields(QtW.QWidget):
         populate_combo_box(self.edit_age_comboBox, **{'query': sample_age_model_query})
         self.age_proxy_model = self.edit_age_comboBox.model()
         self.sample_age_model = self.age_proxy_model.sourceModel()
+        self.enable_groups()
         end_populate_age_dropdown_time = time.time()
         logger_setup.get_logger().info(f"Populated sample age dropdown in {end_populate_age_dropdown_time - start_populate_age_dropdown_time} seconds")
 
@@ -340,23 +344,22 @@ class AgeFields(QtW.QWidget):
             logger_setup.get_logger().info("No sample ages to populate. Clearing fields")
             reset_fields = True
         if not self.sample_age_id:
-            logger_setup.get_logger().info("No sample age selected. Selecting the first one")
-            # If no age is selected, select the first one
-            self.edit_age_comboBox.setCurrentIndex(0)
-            self.sample_age_id = self.sample_age_model.data(self.sample_age_model.index(0, 0),
-                                                       QtC.Qt.ItemDataRole.DisplayRole)
-        else:
-            # Find the sample age ID in the model and set the current index
-            sample_age_row = None
+            logger_setup.get_logger().info("No sample age selected. Selecting the first default one")
+            # If no age is selected, select the first default one
             for row in range(self.sample_age_model.rowCount()):
-                if self.sample_age_model.index(row, 0).data() == self.sample_age_id:
-                    sample_age_row = row
-                    break
-            if not sample_age_row:
-                logger_setup.get_logger().info("Sample age ID not found in model. Selecting the first one")
-                sample_age_row = 0
-                self.sample_age_id = self.sample_age_model.index(0, 0).data()
-            self.edit_age_comboBox.setCurrentIndex(sample_age_row)
+                if self.sample_age_model.index(row, 0).data() in self.default_age_ids:
+                    self.sample_age_id = self.sample_age_model.index(row, 0).data()
+        # Find the sample age ID in the model and set the current index
+        sample_age_row = None
+        for row in range(self.sample_age_model.rowCount()):
+            if self.sample_age_model.index(row, 0).data() == self.sample_age_id:
+                sample_age_row = row
+                break
+        if not sample_age_row:
+            logger_setup.get_logger().info("Sample age ID not found in model. Selecting the first one")
+            sample_age_row = 0
+            self.sample_age_id = self.sample_age_model.index(0, 0).data()
+        self.edit_age_comboBox.setCurrentIndex(sample_age_row)
         if self.sample_age_id in self.default_age_ids:
             self.default_age_checkBox.setChecked(True)
         else:
@@ -1175,6 +1178,7 @@ class AgeFields(QtW.QWidget):
                 if self.sample_age_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == self.sample_age_id:
                     self.edit_age_comboBox.setCurrentIndex(row)
                     break
+            self.populate_fields()
 
     def delete_age(self):
         logger_setup.get_logger().info("Delete age called")

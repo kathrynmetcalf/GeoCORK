@@ -2387,13 +2387,7 @@ class CheckableTreeModel(TreeModel):
             logger_setup.get_logger().error(f'No item IDs provided for updating many-to-many table {self.many_to_many}')
             return False
         checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.traverse_checkable_tree(QtC.QModelIndex())
-        checked_ids = []
-        partially_checked_ids = []
-        for index in checked_indices:
-            checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
-        for index in partially_checked_indices:
-            partially_checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
-        if update_many_table_with_checks(self.table, checked_ids, partially_checked_ids, many_table, item_ids):
+        if update_many_table_with_checks(self.table, checked_items, partially_checked_items, many_table, item_ids):
             return True
         else:
             return False
@@ -4164,6 +4158,13 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     else:
         logger_setup.get_logger().error(f'No item IDs given for {first_table}')
         return False
+    query_model.setQuery(
+        f'SELECT {second_table_id_header} FROM {many_table} WHERE {first_table_id_header} {query_where_str}')
+    current_ids = []
+    for row in range(query_model.rowCount()):
+        current_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if current_id not in current_ids:
+            current_ids.append(current_id)
     query_model.setQuery(f"SELECT {second_table_id_header} FROM {second_table}")
     if query_model.lastError().isValid():
         logger_setup.get_logger().error(
@@ -4174,22 +4175,23 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     to_add = []
     for row in range(query_model.rowCount()):
         second_table_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        if second_table_id in checked_ids:
+        if second_table_id in checked_ids and second_table_id not in current_ids:
             to_add.append(second_table_id)
         elif second_table_id in partially_checked_ids:
             pass
-        else:
+        elif second_table_id not in checked_ids and second_table_id in current_ids:
             to_remove.append(second_table_id)
     for id in to_remove:
-        query.prepare(
-            f"DELETE FROM {many_table} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
-        if not query.exec():
-            logger_setup.get_logger().error(
-                f"Error removing {id} associated with item IDs from {many_table}")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.executedQuery()}")
-            rollback_savepoint('update_many_table')
-            return False
+        if id in current_ids:
+            query.prepare(
+                f"DELETE FROM {many_table} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
+            if not query.exec():
+                logger_setup.get_logger().error(
+                    f"Error removing {id} associated with item IDs from {many_table}")
+                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                logger_setup.get_logger().debug(f"SQL query: {query.executedQuery()}")
+                rollback_savepoint('update_many_table')
+                return False
     logger_setup.get_logger().info(f"Removed {to_remove} associated with item IDs {first_table_ids} from {many_table}")
     for id in to_add:
         query.prepare(

@@ -52,7 +52,7 @@ class GPSFields(QtW.QWidget):
         self._isApplicationFocused = True
         QtW.QApplication.instance().installEventFilter(self)
 
-        self.item_model = None
+        self.item_model = QtS.QSqlQueryModel()
         self.gps_format_model = QtS.QSqlTableModel()
         self.gps_location_model = QtS.QSqlTableModel()
         self.direction_unit_model = QtS.QSqlTableModel()
@@ -151,7 +151,7 @@ class GPSFields(QtW.QWidget):
         else:
             query_where_str = ''
         self.item_model = QtS.QSqlQueryModel()
-        self.item_model.setQuery(f'SELECT {self.item_view_gps_header} FROM {self.item_edit_view}{query_where_str}')
+        self.item_model.setQuery(f'SELECT {self.table_gps_id_header} FROM {self.table}{query_where_str}')
         logger_setup.get_logger().info(f'Set {self.table} model query')
         if self.item_model.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
@@ -490,9 +490,9 @@ class GPSFields(QtW.QWidget):
             logger_setup.get_logger().info(f"GPS location already exists with ID {duplicate_id}. Updating.")
             gps_id = duplicate_id
         if len(self.item_ids) > 1:
-            self.item_model = SQLiteTableModel(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} in {tuple(self.item_ids)}")
+            self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} in {tuple(self.item_ids)}")
         elif len(self.item_ids) == 1:
-            self.item_model = SQLiteTableModel(f"SELECT {self.item_view_gps_header} FROM {self.item_edit_view} WHERE {self.item_id_header} = {self.item_ids[0]}")
+            self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} = {self.item_ids[0]}")
         gps_ids = []
         for row in range(self.item_model.rowCount()):
             id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -503,9 +503,9 @@ class GPSFields(QtW.QWidget):
         if len(gps_ids) > 0:
             logger_setup.get_logger().info(f"Checking {len(gps_ids)} GPS locations associated with the {self.table}")
             for gps in gps_ids:
-                self.item_model = SQLiteTableModel(f"SELECT {self.item_id_header} FROM {self.item_edit_view} WHERE {self.table_gps_id_header} = {gps}")
+                self.item_model.setQuery(f"SELECT {self.item_id_header} FROM {self.table} WHERE {self.table_gps_id_header} = {gps}")
                 other_item_model = QtS.QSqlQueryModel()
-                other_item_model.setQuery(f"SELECT {self.other_table_id_header} FROM {self.other_edit_view} WHERE {self.other_table_gps_id_header} = {gps}")
+                other_item_model.setQuery(f"SELECT {self.other_table_id_header} FROM {self.other_table} WHERE {self.other_table_gps_id_header} = {gps}")
                 if self.item_model.rowCount() == 0 and other_item_model.rowCount() == 0:
                     logger_setup.get_logger().info(f"GPS location {gps} is not associated with any other samples or columns")
                     if not gps_id:
