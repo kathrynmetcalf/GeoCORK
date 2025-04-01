@@ -1,6 +1,7 @@
 import ast
 import json
 import re
+from typing import LiteralString, Literal
 
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEventLoop, QRegularExpression
@@ -211,49 +212,6 @@ def process_selects(group):
 
     return fields
 
-
-# def parse_sql_to_structure(sql):
-#     """
-#     (Demonstration) Parses a SQL WHERE clause into a structured format.
-#     """
-#     import re
-#
-#     sql = sql.strip()
-#
-#     def parse_expression(expression):
-#         expression = expression.strip()
-#         if '(' in expression:
-#             depth, start = 0, None
-#             for i, char in enumerate(expression):
-#                 if char == '(':
-#                     if depth == 0:
-#                         start = i
-#                     depth += 1
-#                 elif char == ')':
-#                     depth -= 1
-#                     if depth == 0:
-#                         subgroup = parse_expression(expression[start + 1:i])
-#                         return [subgroup] + parse_expression(expression[i + 1:])
-#         return [parse_conditions(expression)]
-#
-#     def parse_conditions(conditions):
-#         conditions = re.split(r'\s(AND|OR)\s', conditions)
-#         structured_conditions = []
-#         operator = None
-#         for condition in conditions:
-#             if condition.upper() in ['AND', 'OR']:
-#                 operator = condition
-#             else:
-#                 parts = condition.split()
-#                 if len(parts) >= 3:
-#                     field = parts[0]
-#                     op = parts[1]
-#                     value = ' '.join(parts[2:]).strip("'")
-#                     structured_conditions.append({'field': field, 'operator': op, 'value': value, 'logic': operator})
-#                     operator = None
-#         return structured_conditions
-#
-#     return parse_expression(sql)
 
 class Filters(QWidget):
     def __init__(self, parent=None):
@@ -496,100 +454,19 @@ class RuleWidget(QWidget):
         self.delete_button.clicked.connect(lambda: self.deleteLater())
         self.layout.addWidget(self.delete_button)
 
-
-    def lineedit_switcher(self):
+    def table_switcher(self) -> None:
         """
-        Show or hide the unit combo (Ga, Ma, ka) and set up appropriate validators
-        based on the chosen operator/attribute.
+        Slot to change the attribute combobox values based on the current text of table combo. E.g. if a
+        Samples table is in the table combo, then Samples columns from SQLUtils.table_attributes_dict
         """
-        # Hide the unit combo by default, show only for numeric/time-based fields
-        self.unit_combo.hide()
-        self.value_input.clear()
+        self.attribute_combo.clear()
+        self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
 
-        if 'between' in self.operator_combo.currentText():
-            # Date-based fields
-            match self.datatype:
-                case 'date':
-                    # todo: Change this to a date selector
-                    date_range_regex = QRegularExpression(
-                        r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01]),"
-                        r"(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
-                    )
-                    date_range_validator = QRegularExpressionValidator(date_range_regex)
-                    self.value_input.setValidator(date_range_validator)
-                    self.value_input.setPlaceholderText("e.g. YYYY-MM-DD,YYYY-MM-DD")
-                case 'number':
-                    # Numeric fields
-                    double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
-                    double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
-                    self.value_input.setValidator(double_comma_double_validator)
-                    self.value_input.setPlaceholderText("e.g. 0.0,0.0")
-                    # Because it's numeric, let's allow the user to pick units (e.g. for an age)
-                    # self.unit_combo.show()
-        else:
-            # Single value conditions
-            match self.datatype:
-                case 'date':
-                    # Date-based
-                    # todo: Change this to a date selector
-                    date_range_regex = QRegularExpression(
-                        r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
-                    )
-                    date_range_validator = QRegularExpressionValidator(date_range_regex)
-                    self.value_input.setPlaceholderText("e.g. YYYY-MM-DD")
-                    self.value_input.setValidator(date_range_validator)
-                case 'string':
-                    # Text-based
-                    self.value_input.setPlaceholderText("e.g. abc123")
-                    self.value_input.setValidator(None)  # No numeric validator
-                case 'boolean':
-                    # todo: Change this to a combobox for True/False
-                    self.value_input.setPlaceholderText("e.g. True/False")
-                    self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(True|False)$")))
-                case 'number':
-                    # Numeric fields, e.g. Ages
-                    float_validator = QDoubleValidator(
-                        bottom=-999999999999.0,
-                        top=999999999999.0,
-                        decimals=2
-                    )
-                    float_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
-                    self.value_input.setPlaceholderText("e.g. 0.0")
-                    self.value_input.setValidator(float_validator)
-                    # Show units if it's numeric
-                    # if "Age" in self.attribute_combo.currentText():
-                        # self.unit_combo.show()
-
-    def lineedit_completer(self):
-        if self.attribute_combo.currentText() == "":
-            self.value_input.setCompleter(None)
-            return
-        name_column = get_name_column(self.table_combo.currentText())
-        if not name_column:
-            self.value_input.setCompleter(None)
-            return
-        name_header = get_headers(self.table_combo.currentText())[name_column]
-        if self.attribute_combo.currentText() == name_header and self.value_input.placeholderText() == "e.g. abc123":
-            # Populate the value input with a completer based on the selected attribute
-            value_completer = QtWidgets.QCompleter()
-            query = QSqlQuery()
-            sql_query = f"SELECT DISTINCT {self.attribute_combo.currentText()} FROM {self.table_combo.currentText()}"
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-            if not query.exec(sql_query):
-                logger_setup.get_logger().info(f'Error creating the completer for input')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            values = []
-            while query.next():
-                values.append(query.value(0))
-            value_completer.setModel(QtCore.QStringListModel(values))
-            value_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
-            value_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
-            value_completer.setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
-            self.value_input.setCompleter(value_completer)
-
-    def attribute_switcher(self):
+    def attribute_switcher(self) -> None:
         """
-        Based on the attribute selected, populate the operator combo and the value line edit completer.
+        Slot to change the operator combobox values based on the current text of attribute combo. E.g. if a
+        date column is in the attribute combo, then date operators 'is on, before...' should be visible. Calls
+        lineedit switchers and validators so they update.
         """
         if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
                 operator_items = [
@@ -648,21 +525,123 @@ class RuleWidget(QWidget):
         self.lineedit_switcher()
         self.lineedit_completer()
 
-    def table_switcher(self):
+
+    def lineedit_switcher(self):
         """
-        When the table changes, re-populate the attribute combo with valid fields from SQLUtils.table_attributes_dict.
+        Show or hide the unit combo (Ga, Ma, ka) and set up appropriate validators
+        based on the chosen operator/attribute.
+        :return:
         """
-        self.attribute_combo.clear()
-        self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
+        # Hide the unit combo by default, show only for numeric/time-based fields
+        self.unit_combo.hide()
+        self.value_input.clear()
+
+        if 'between' in self.operator_combo.currentText():
+            # Date-based fields
+            match self.datatype:
+                case 'date':
+                    # todo: Change this to a date selector
+                    date_range_regex = QRegularExpression(
+                        r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01]),"
+                        r"(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
+                    )
+                    date_range_validator = QRegularExpressionValidator(date_range_regex)
+                    self.value_input.setValidator(date_range_validator)
+                    self.value_input.setPlaceholderText("e.g. YYYY-MM-DD,YYYY-MM-DD")
+                case 'number':
+                    # Numeric fields
+                    double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
+                    double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
+                    self.value_input.setValidator(double_comma_double_validator)
+                    self.value_input.setPlaceholderText("e.g. 0.0,0.0")
+                    # Because it's numeric, let's allow the user to pick units (e.g. for an age)
+                    # currently not implemented as filters used CalculatedAge values rather than actual values.
+                    # the user should know what unit to search in.
+                    # self.unit_combo.show()
+        else:
+            # Single value conditions
+            match self.datatype:
+                case 'date':
+                    # Date-based
+                    # todo: Change this to a date selector
+                    date_range_regex = QRegularExpression(
+                        r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
+                    )
+                    date_range_validator = QRegularExpressionValidator(date_range_regex)
+                    self.value_input.setPlaceholderText("e.g. YYYY-MM-DD")
+                    self.value_input.setValidator(date_range_validator)
+                case 'string':
+                    # Text-based
+                    self.value_input.setPlaceholderText("e.g. abc123")
+                    self.value_input.setValidator(None)  # No numeric validator
+                case 'boolean':
+                    # todo: Change this to a combobox for True/False
+                    self.value_input.setPlaceholderText("e.g. True/False")
+                    self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(True|False)$")))
+                case 'number':
+                    # Numeric fields, e.g. Ages
+                    float_validator = QDoubleValidator(
+                        bottom=-999999999999.0,
+                        top=999999999999.0,
+                        decimals=2
+                    )
+                    float_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
+                    self.value_input.setPlaceholderText("e.g. 0.0")
+                    self.value_input.setValidator(float_validator)
+                    # currently not implemented as filters used CalculatedAge values rather than actual values.
+                    # the user should know what unit to search in.
+                    # Show units if it's numeric
+                    # if "Age" in self.attribute_combo.currentText():
+                        # self.unit_combo.show()
+
+    def lineedit_completer(self) -> None:
+        """
+        Adds a line edit completer based on the current attribute in the combobox. The completer only is created for
+        name columns, e.g. SampleName, RockTypeName,... this allows the user to easily select values within the
+        database without having to memorize specifics.
+        """
+        # escape if attribute combo is not set
+        if self.attribute_combo.currentText() == "":
+            self.value_input.setCompleter(None)
+            return
+        name_column = get_name_column(self.table_combo.currentText())
+        if not name_column:
+            self.value_input.setCompleter(None)
+            return
+        name_header = get_headers(self.table_combo.currentText())[name_column]
+        # only add completer if the attribute is a Name header and placeholder text is for strings
+        if self.attribute_combo.currentText() == name_header and self.value_input.placeholderText() == "e.g. abc123":
+            # Populate the value input with a completer based on the selected attribute
+            value_completer = QtWidgets.QCompleter()
+            query = QSqlQuery()
+            sql_query = f"SELECT DISTINCT {self.attribute_combo.currentText()} FROM {self.table_combo.currentText()}"
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            if not query.exec(sql_query):
+                logger_setup.get_logger().critical(f'Error creating the completer for input')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            values = []
+            while query.next():
+                values.append(query.value(0))
+            value_completer.setModel(QtCore.QStringListModel(values))
+            value_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
+            value_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
+            value_completer.setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
+            self.value_input.setCompleter(value_completer)
 
 
 class GroupBox(QGroupBox):
+    """
+    A GroupBox contains RuleWidgets that either need to Match all, any, or none. A GroupBox can contain other
+    GroupBoxes.
+    """
     def __init__(self, group=None, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
 
         self.conditions = []
+        """RuleWidgets found within this GroupBox"""
         self.subgroups = []
+        """Other GroupBoxes found within this GroupBox"""
 
         self.setTitle('Group')
         self.dummy_label = QLabel(self.title())
@@ -683,7 +662,6 @@ class GroupBox(QGroupBox):
         self.add_group_button.clicked.connect(lambda: self.add_group(None))
 
         self.delete_button = QPushButton('Delete')
-        # self.delete_button.clicked.connect(self.delete_group)
 
         buttons_layout.addWidget(self.add_rule_button)
         buttons_layout.addWidget(self.add_group_button)
@@ -693,13 +671,15 @@ class GroupBox(QGroupBox):
         self.layout.addStretch(1)
         self.populate_from_group(group)
 
-    def populate_from_group(self, group):
+    def populate_from_group(self, group: dict):
         """
-        If 'group' is provided, load existing conditions/subgroups.
-        Otherwise, add one empty rule by default.
+        Populates the GroupBox from a given group json dict. If none is provided then add a blank rule by default.
+        Group in the format of dict['type': 'Match all|Match any|Match none', 'conditions': list, 'subgroups': list]
+        :param group: Group to populate from
         """
         if group is not None:
             self.group_operator_combo.setCurrentText(group['type'])
+            # if there are conditions then add them with provided values
             for condition in group.get('conditions', []):
                 self.add_rule(condition['field'], condition['operator'], condition['value'], condition['unit'], condition['datatype'])
             for subgroup in group.get('subgroups', []):
@@ -708,6 +688,10 @@ class GroupBox(QGroupBox):
             self.add_rule(None, None, None, None, None)
 
     def mouseDoubleClickEvent(self, a0):
+        """
+        Overridden double click event and test for if the click was on the title of the groupbox to allow
+        the user to rename the groupbox
+        """
         super().mouseDoubleClickEvent(a0)
         if self.isDoubleClickOnTitle(a0.pos()):
             new_title, ok = QInputDialog.getText(self, "Edit Title", "Enter new title:")
@@ -715,7 +699,13 @@ class GroupBox(QGroupBox):
                 self.setTitle(new_title)
                 self.updateDummyLabelFont()
 
-    def isDoubleClickOnTitle(self, pos):
+    def isDoubleClickOnTitle(self, pos: QtCore.QPoint) -> bool:
+        """
+        Checks if the given pos is within 10 pixels (width) and 5 pixels (height) of the GroupBox title.
+        :param QPoint: pos:
+        :return: True if within bounds, False if not
+        :rtype: bool
+        """
         titleSize = QFontMetrics(self.dummy_label.font()).size(QtCore.Qt.TextFlag.TextSingleLine, self.title())
         titleRect = QRect(0, 0, titleSize.width() + 10, titleSize.height() + 5)
         self.setObjectName(self.title())
@@ -726,24 +716,45 @@ class GroupBox(QGroupBox):
         font.setBold(True)
         self.dummy_label.setFont(font)
 
-    def add_rule(self, field, operator, value, unit, datatype):
-        #todo not populating line edit with value
+    def add_rule(self, field, operator, value, unit, datatype: Literal['number', 'boolean', 'string', 'date']):
+        """
+        Adds a rule widget to the GroupBox with provided values.
+        :param field: table and attribute in the format of 'table.[attribute]'
+        :param operator: operator to set the combobox to
+        :param value: value of the line edit
+        :param str unit: Not currently used.
+        :param str datatype: type of data being inputted
+        """
         rule_widget = RuleWidget(field, operator, value, unit, datatype)
         self.layout.insertWidget(self.layout.count() - 1, rule_widget)
         self.conditions.append(rule_widget)
         rule_widget.delete_button.clicked.connect(lambda: self.delete_condition(rule_widget))
 
     def add_group(self, group):
+        """
+        Adds a group widget to the GroupBox with provided GroupBox dict.
+        :param dict group: dictionary containing groupbox type, conditions, and subgroups
+        """
         group_widget = GroupBox(group)
         self.layout.insertWidget(self.layout.count() - 1, group_widget)
         self.subgroups.append(group_widget)
         group_widget.delete_button.clicked.connect(lambda: self.delete_group(group_widget))
 
-    def delete_condition(self, condition_widget):
-        condition_widget.deleteLater()
-        self.conditions.remove(condition_widget)
+    def delete_condition(self, rule_widget):
+        """
+        Deletes a given RuleWidget object and removes from the list
+        :param rule_widget:
+        :return:
+        """
+        rule_widget.deleteLater()
+        self.conditions.remove(rule_widget)
 
     def delete_group(self, group_widget):
+        """
+        Deletes a given GroupBox object and removes from the list
+        :param group_widget:
+        :return:
+        """
         group_widget.deleteLater()
         self.subgroups.remove(group_widget)
 
@@ -771,9 +782,10 @@ class GroupBox(QGroupBox):
             })
         return structure
 
-    def get_selects(self):
+    def get_selects(self) -> str:
         """
-        Returns a comma-separated list of fields for SELECT statements.
+        Returns a comma-separated string of fields for SELECT statements.
+        The format is table.[attribute], table.[attribute].
         """
         list_of_fields = ''
         for ruleWidget in self.findChildren(RuleWidget):
@@ -783,9 +795,14 @@ class GroupBox(QGroupBox):
                 list_of_fields += combined + ', \n'
         return list_of_fields[0:-3] + '\n'
 
-    def get_tables(self):
+    def get_tables(self) -> list:
         """
         Returns all unique table names from conditions in this group (and nested subgroups).
+        :return: table names
+        :rtype: list
+        """
+        """
+        
         """
         tables = []
         for ruleWidget in self.findChildren(RuleWidget):
@@ -796,13 +813,14 @@ class GroupBox(QGroupBox):
 
 class QueryBuilder(QWidget):
     """
-    Main Query Builder widget that uses a GroupBox as the root group.
+    Main Query Builder widget that allows the user to filter and display data. The query builder allows nested
+    GroupBoxes to allow full customization. A single root GroupBox is created on initialization and build beneath.
     """
     def __init__(self, parent):
         super().__init__(parent)
 
+        # Filter list widget that stores current filters found in FilterGroups
         self.listWidget: QListWidget = self.parentWidget().findChild(QListWidget, 'listWidget')
-
         self.update_filter_list()
         self.listWidget.itemDoubleClicked.connect(lambda state: self.populate_filters(state))
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -818,6 +836,7 @@ class QueryBuilder(QWidget):
         self.scrollarea.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
 
+        # the root level GroupBox that all filters are within
         self.main_group_box = GroupBox()
         self.main_group_box.setParent(self)
         self.layout1.addWidget(self.scrollarea)
@@ -825,23 +844,28 @@ class QueryBuilder(QWidget):
 
         self.layout1.addWidget(QLabel('Note: Select which view based on desired filtered subset'))
 
+        # views Samples that match the criteria
         buttons_layout = QHBoxLayout(self)
         self.view_samples_button = QPushButton('View Samples')
         buttons_layout.addWidget(self.view_samples_button)
         self.view_samples_button.clicked.connect(self.view_samples)
 
+        # views Aliquots that match the criteria
         self.view_aliquots_button = QPushButton('View Aliquots')
         buttons_layout.addWidget(self.view_aliquots_button)
         self.view_aliquots_button.clicked.connect(self.view_aliquots)
 
+        # views Spots that match the criteria
         self.view_spots_button = QPushButton('View Spots')
         buttons_layout.addWidget(self.view_spots_button)
         self.view_spots_button.clicked.connect(self.view_spots)
 
+        # views UPbAnalyses that match the criteria
         self.view_analysis_button = QPushButton('View Analysis')
         buttons_layout.addWidget(self.view_analysis_button)
         self.view_analysis_button.clicked.connect(self.view_analysis)
 
+        # Saves the current filter
         self.save_filter_button = QPushButton('Save Filter')
         buttons_layout.addWidget(self.save_filter_button)
         self.save_filter_button.clicked.connect(self.save_filter)
@@ -851,15 +875,24 @@ class QueryBuilder(QWidget):
         self.search_bar: QLineEdit = self.parentWidget().findChild(QLineEdit, 'filter_search_lineEdit')
         self.search_bar.textChanged.connect(self.filter_items)
 
-    def filter_items(self, text):
+    def filter_items(self, text: str):
+        """
+        Filters the list widget of Filters by a given text value
+        :param str text:
+        """
+        # todo: Change this regex
         # Loop through all items in the list widget
         for row in range(self.listWidget.count()):
             item = self.listWidget.item(row)
             # Show or hide items based on the search text
             item.setHidden(text.lower() not in item.text().lower())
 
-    def filter_context_menu(self, pos):
-        item = self.listWidget.itemAt(pos)
+    def filter_context_menu(self, pos: QtCore.QPoint):
+        """
+        Shows the context menu for filters list widget. Allows the user to delete the selected filter.
+        :param pos:
+        """
+        item: QListWidgetItem = self.listWidget.itemAt(pos)
         if item:
             context_menu = QtWidgets.QMenu()
             delete_action = QAction("Delete", self.listWidget)
@@ -867,7 +900,11 @@ class QueryBuilder(QWidget):
             context_menu.addAction(delete_action)
             context_menu.exec(self.listWidget.mapToGlobal(pos))
 
-    def delete_filter(self, item):
+    def delete_filter(self, item: QListWidgetItem) -> None:
+        """
+        Deletes a filter from the database and filter list widget given a ListWidgetItem
+        :param QListWidgetItem item:
+        """
         reply = QMessageBox.question(
             self.listWidget,
             "Confirm Deletion",
@@ -895,7 +932,12 @@ class QueryBuilder(QWidget):
             else:
                 logger_setup.get_logger().info(f'Filter {item.text()} deleted')
 
-    def populate_filters(self, filter_name):
+    def populate_filters(self, filter_name) -> None:
+        """
+        Populates the QueryBuilder based on a given filter name.
+        :param str filter_name:
+        """
+        # query for the SQLQuery and name for a given name
         query = QSqlQuery()
         sql_query = """
                 SELECT SQLQuery, FilterGroupName 
@@ -909,8 +951,9 @@ class QueryBuilder(QWidget):
             if query.next():
                 sql_query_result = query.value(0)
 
-                # Rebuild UI
+                # Rebuild UI, delete old groupbox
                 self.main_group_box.deleteLater()
+                # give the groupbox a sql query to build from
                 self.main_group_box = GroupBox(ast.literal_eval(sql_query_result[1:-1]))
                 self.main_group_box.setParent(self)
                 self.layout1.insertWidget(0, self.scrollarea)
@@ -925,46 +968,10 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
-    def view_analysis(self):
-        filtered_ids = self.get_filtered_ids('UPbAnalyses')
-        if filtered_ids is None:
-            logger_setup.get_logger().critical(
-                f'No matching UPb Analyses for given filter(s)')
-            return
-        dataviewer = DataViewerWidget(filtered_ids, 'UPbAnalyses')
-        dataviewer.setWindowTitle("Filtered Analysis View")
-        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        loop = QEventLoop()
-        dataviewer.destroyed.connect(loop.quit)
-        loop.exec()
-
-    def view_spots(self):
-        filtered_ids = self.get_filtered_ids('Spots')
-        if filtered_ids is None:
-            logger_setup.get_logger().critical(
-                f'No matching Spots for given filter(s)')
-            return
-        dataviewer = DataViewerWidget(filtered_ids, 'Spots')
-        dataviewer.setWindowTitle("Filtered Spot View")
-        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        loop = QEventLoop()
-        dataviewer.destroyed.connect(loop.quit)
-        loop.exec()
-
-    def view_aliquots(self):
-        filtered_ids = self.get_filtered_ids('Aliquots')
-        if filtered_ids is None:
-            logger_setup.get_logger().critical(
-                f'No matching Aliquots for given filter(s)')
-            return
-        dataviewer = DataViewerWidget(filtered_ids, 'Aliquots')
-        dataviewer.setWindowTitle("Filtered Aliquot View")
-        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        loop = QEventLoop()
-        dataviewer.destroyed.connect(loop.quit)
-        loop.exec()
-
     def view_samples(self):
+        """
+        Opens a DataviewerWidget with Samples filtered IDs.
+        """
         filtered_ids = self.get_filtered_ids('Samples')
         if filtered_ids is None:
             logger_setup.get_logger().critical(
@@ -977,7 +984,60 @@ class QueryBuilder(QWidget):
         dataviewer.destroyed.connect(loop.quit)
         loop.exec()
 
-    def get_filtered_ids(self, type):
+    def view_aliquots(self):
+        """
+        Opens a DataviewerWidget with Aliquots filtered IDs.
+        """
+        filtered_ids = self.get_filtered_ids('Aliquots')
+        if filtered_ids is None:
+            logger_setup.get_logger().critical(
+                f'No matching Aliquots for given filter(s)')
+            return
+        dataviewer = DataViewerWidget(filtered_ids, 'Aliquots')
+        dataviewer.setWindowTitle("Filtered Aliquot View")
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def view_spots(self):
+        """
+        Opens a DataviewerWidget with Spots filtered IDs.
+        """
+        filtered_ids = self.get_filtered_ids('Spots')
+        if filtered_ids is None:
+            logger_setup.get_logger().critical(
+                f'No matching Spots for given filter(s)')
+            return
+        dataviewer = DataViewerWidget(filtered_ids, 'Spots')
+        dataviewer.setWindowTitle("Filtered Spot View")
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def view_analysis(self):
+        """
+        Opens a DataviewerWidget with UPbAnalyses filtered IDs.
+        """
+        filtered_ids = self.get_filtered_ids('UPbAnalyses')
+        if filtered_ids is None:
+            logger_setup.get_logger().critical(
+                f'No matching UPb Analyses for given filter(s)')
+            return
+        dataviewer = DataViewerWidget(filtered_ids, 'UPbAnalyses')
+        dataviewer.setWindowTitle("Filtered Analysis View")
+        dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        loop = QEventLoop()
+        dataviewer.destroyed.connect(loop.quit)
+        loop.exec()
+
+    def get_filtered_ids(self, type) -> list | None:
+        '''
+        Queries the database with the generated filter sql query at the given type scope
+        :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
+        :return: list of ids or None
+        '''
         sql_query = self.get_sql(type)
         query = QSqlQuery()
         logger_setup.get_logger().info('Gathering filtered ids')
@@ -995,14 +1055,25 @@ class QueryBuilder(QWidget):
         logger_setup.get_logger().info('Gathered filtered ids successfully')
         return results if results else None
 
-    def get_sql(self, type=None):
+    def get_sql(self, type:str) -> str:
+        """
+        Generates a full SQL query based on the given main group box structuree of RuleWidgets and GroupBoxes
+        :param type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
+        :return: final SQL query
+        :rtype str
+        """
+        # json dict containing the nested filters
         structure = self.main_group_box.get_structure()
+        # converts json to sql
         where_clause, cte_list = process_group(structure)
         full_sql = ""
 
+        # code to allow for tree like tables to work as expected. If a parent item is being filtered, then child
+        # items should be included.
         if cte_list:
             full_sql += "WITH " + ",\n".join(cte_list) + "\n"
 
+        # gathers the join statements with found tables
         join = SQLUtils.get_join_from_table("", self.main_group_box.get_tables())
         logger_setup.get_logger().debug(f'SQL Join: {join}')
         selects = self.main_group_box.get_selects()
@@ -1032,6 +1103,8 @@ class QueryBuilder(QWidget):
                 if replace_table in where_tables:
                     where_clause = where_clause.replace(replace_table, as_table)
 
+        # final code to determine the scope of query based on type, also ensures the selected type's table is found
+        # in the join code
         if type == 'Samples':
             sql_query = full_sql + f"""
             SELECT DISTINCT Samples.SampleID
@@ -1070,6 +1143,9 @@ class QueryBuilder(QWidget):
 
 
     def update_filter_list(self):
+        """
+        Updates the filter list widget by querying the database for filters and repopulating the listwidget.
+        """
         self.listWidget.clear()
         query = QSqlQuery()
         sql_query = "SELECT * FROM FilterGroups;"
@@ -1086,6 +1162,9 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
     def save_filter(self):
+        """
+        Saves a filter from the QueryBuilder to the database
+        """
         # if a filter is already selected to the left, ask if the user wants to update it or create a new filter
         if self.listWidget.currentItem():
             filter_name = self.listWidget.currentItem().text()
