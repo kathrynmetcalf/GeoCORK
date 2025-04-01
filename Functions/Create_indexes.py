@@ -40,7 +40,7 @@ CREATE_ALIQUOTS_INDEX = '''
 CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Aliquots_Aliquots_AliquotContextID ON Aliquots_AliquotContexts(AliquotID, AliquotContextID)'''
 
-CREATE_ALIQUOTS_SAMPLES_INDEX = '''CREATE INDEX idx_Aliquots_SampleID ON Aliquots(SampleID)'''
+CREATE_ALIQUOTS_SAMPLES_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Aliquots_SampleID ON Aliquots(SampleID)'''
 
 CREATE_COLUMNS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Columns_ColumnID ON Columns(ColumnID)'''
@@ -162,7 +162,7 @@ CREATE_SPOTS_INDEX = '''
 CREATE_SPOTS_SPOTCONTEXT_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Spots_SpotContexts_SpotID ON Spots_SpotContexts(SpotID)'''
 
-CREATE_SPOTS_ALIQUOT_INDEX = '''CREATE INDEX idx_Spots_AliquotID ON Spots(AliquotID)'''
+CREATE_SPOTS_ALIQUOT_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Spots_AliquotID ON Spots(AliquotID)'''
 
 CREATE_UNITS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Units_UnitID ON Units(UnitID)'''
@@ -173,15 +173,15 @@ CREATE_UPBANALYSES_INDEX = '''
 CREATE_UPBANALYSES_REJECTIONREASONS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_UPbAnalysisID_UPbAnalyses_RejectionReasons_RejectionReasonID ON UPbAnalyses_RejectionReasons(UPbAnalysisID, RejectionReasonID)'''
 
-CREATE_UPBANALYSES_SPOTS_INDEX = '''CREATE INDEX idx_UPbAnalyses_SpotID ON UPbAnalyses(SpotID)'''
+CREATE_UPBANALYSES_SPOTS_INDEX = '''CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_SpotID ON UPbAnalyses(SpotID)'''
 
-CREATE_UPBANALYSES_REFERENCE_INDEX = '''CREATE INDEX idx_UPbAnalyses_ReferenceID ON UPbAnalyses(ReferenceID);'''
+CREATE_UPBANALYSES_REFERENCE_INDEX = '''CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_ReferenceID ON UPbAnalyses(ReferenceID);'''
 
-CREATE_UPBANALYSES_LABFACILITY_INDEX = '''CREATE INDEX idx_UPbAnalyses_LabFacilityID ON UPbAnalyses(LabFacilityID);'''
+CREATE_UPBANALYSES_LABFACILITY_INDEX = '''CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_LabFacilityID ON UPbAnalyses(LabFacilityID);'''
 
-CREATE_UPBANALYSES_INSTRUMENT_INDEX = '''CREATE INDEX idx_UPbAnalyses_InstrumentID ON UPbAnalyses(InstrumentID);'''
+CREATE_UPBANALYSES_INSTRUMENT_INDEX = '''CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_InstrumentID ON UPbAnalyses(InstrumentID);'''
 
-CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX = '''CREATE INDEX idx_UPbAnalyses_UPbAnalysisMethodID ON UPbAnalyses(UPbAnalysisMethodID);'''
+CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX = '''CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_UPbAnalysisMethodID ON UPbAnalyses(UPbAnalysisMethodID);'''
 
 CREATE_UPBANALYSIS_METHOD_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_UPbAnalysisMethods_UPbAnalysisMethodID ON UPbAnalysisMethods(UPbAnalysisMethodID)'''
