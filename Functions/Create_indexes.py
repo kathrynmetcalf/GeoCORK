@@ -40,6 +40,8 @@ CREATE_ALIQUOTS_INDEX = '''
 CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Aliquots_Aliquots_AliquotContextID ON Aliquots_AliquotContexts(AliquotID, AliquotContextID)'''
 
+CREATE_ALIQUOTS_SAMPLES_INDEX = '''CREATE INDEX idx_Aliquots_SampleID ON Aliquots(SampleID)'''
+
 CREATE_COLUMNS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Columns_ColumnID ON Columns(ColumnID)'''
 
@@ -160,6 +162,8 @@ CREATE_SPOTS_INDEX = '''
 CREATE_SPOTS_SPOTCONTEXT_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Spots_SpotContexts_SpotID ON Spots_SpotContexts(SpotID)'''
 
+CREATE_SPOTS_ALIQUOT_INDEX = '''CREATE INDEX idx_Spots_AliquotID ON Spots(AliquotID)'''
+
 CREATE_UNITS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Units_UnitID ON Units(UnitID)'''
 
@@ -168,6 +172,16 @@ CREATE_UPBANALYSES_INDEX = '''
 
 CREATE_UPBANALYSES_REJECTIONREASONS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_UPbAnalysisID_UPbAnalyses_RejectionReasons_RejectionReasonID ON UPbAnalyses_RejectionReasons(UPbAnalysisID, RejectionReasonID)'''
+
+CREATE_UPBANALYSES_SPOTS_INDEX = '''CREATE INDEX idx_UPbAnalyses_SpotID ON UPbAnalyses(SpotID)'''
+
+CREATE_UPBANALYSES_REFERENCE_INDEX = '''CREATE INDEX idx_UPbAnalyses_ReferenceID ON UPbAnalyses(ReferenceID);'''
+
+CREATE_UPBANALYSES_LABFACILITY_INDEX = '''CREATE INDEX idx_UPbAnalyses_LabFacilityID ON UPbAnalyses(LabFacilityID);'''
+
+CREATE_UPBANALYSES_INSTRUMENT_INDEX = '''CREATE INDEX idx_UPbAnalyses_InstrumentID ON UPbAnalyses(InstrumentID);'''
+
+CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX = '''CREATE INDEX idx_UPbAnalyses_UPbAnalysisMethodID ON UPbAnalyses(UPbAnalysisMethodID);'''
 
 CREATE_UPBANALYSIS_METHOD_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_UPbAnalysisMethods_UPbAnalysisMethodID ON UPbAnalysisMethods(UPbAnalysisMethodID)'''
@@ -468,6 +482,80 @@ def create_indexes() -> bool:
         logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_GPSLOCATIONS_INDEX}')
         return False
 
+    if not query.exec(CREATE_ALIQUOTS_SAMPLES_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Aliquots_Samples index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOTS_SAMPLES_INDEX}')
+        return False
+
+    if not query.exec(CREATE_SPOTS_ALIQUOT_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Spots_Aliquots index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_ALIQUOT_INDEX}')
+        return False
+
+    if not query.exec(CREATE_UPBANALYSES_SPOTS_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_SPOTS_INDEX}')
+        return False
+
+    if not query.exec(CREATE_UPBANALYSES_REFERENCE_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_REFERENCE_INDEX}')
+        return False
+
+    if not query.exec(CREATE_UPBANALYSES_LABFACILITY_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_LabFacilities index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_LABFACILITY_INDEX}')
+        return False
+
+    if not query.exec(CREATE_UPBANALYSES_INSTRUMENT_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalsyses_Instruments index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_INSTRUMENT_INDEX}')
+        return False
+
+    if not query.exec(CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_UPbAnalysisMethodsindex: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX}')
+        return False
+
+
     end_time = time.time()
     logger_setup.get_logger().info(f'Database indexes created in {end_time - start_time} seconds')
+    return True
+
+def drop_all_indexes() -> bool:
+    """
+        Connect to the database and execute the sql strings defined above to create the database tables
+        Only creates tables that do not already exist - does not overwrite existing tables
+        If the Ages table is empty, it will fill it from the Geologic timescale xml file
+        Populates the units, formats, and conversion tables
+        Uses the default database connection
+        :return: True on success, False on failure
+        :rtype: bool
+        """
+    start_time = time.time()
+    logger_setup.get_logger().info('Dropping all database indexes')
+    query = QtSql.QSqlQuery()
+
+    # Fetch all index names from sqlite_master
+    if not query.exec("SELECT name FROM sqlite_master WHERE type='index'"):
+        logger_setup.get_logger().critical(f"Failed to list indexes: {query.lastError().text()}")
+        return False
+
+    index_names = []
+    while query.next():
+        if 'sqlite' not in query.value(0):
+            index_names.append(query.value(0))
+
+    # Drop each index
+    for idx_name in index_names:
+        drop_statement = f"DROP INDEX IF EXISTS [{idx_name}]"
+        if not query.exec(drop_statement):
+            logger_setup.get_logger().critical(f"Error dropping index '{idx_name}': {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL command: {drop_statement}")
+            return False
+        else:
+            logger_setup.get_logger().debug(f"Successfully dropped index '{idx_name}'")
+
+    end_time = time.time()
+    logger_setup.get_logger().info(f'Database indexes dropped in {end_time - start_time} seconds')
     return True

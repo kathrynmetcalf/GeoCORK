@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 
 from PyQt6 import QtCore as QtC, QtWidgets
 from PyQt6 import QtSql as QtS
@@ -25,6 +26,7 @@ from ui.EditView import EditView
 
 class DataViewerWidget(QWidget):
     def __init__(self, ids_to_show, table_type):
+        start_time = time.time()
         super().__init__()
         self.loading_manager = LoadingDialogManager.get_instance()
         self.table_type = table_type
@@ -107,6 +109,8 @@ class DataViewerWidget(QWidget):
                                       self.edit_pushButton_2, self.dbTable_tableView, self.table_type)))
 
         self.show()
+        end_time = time.time()
+        logger_setup.get_logger().info(f'Displayed filtered view in {end_time - start_time} seconds')
 
     def closeEvent(self, a0):
         self.saveWindowState()
