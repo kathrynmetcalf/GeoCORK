@@ -154,8 +154,12 @@ class SampleInformation(QtW.QDialog):
                 self.checked_sample_list.append(self.sample_names_model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
         if len(checked_sample_names) > 1:
             self.checked_sample_names = ", ".join(checked_sample_names)
+            self.sample_name_lineEdit.setEnabled(False)
+            self.sample_igsn_lineEdit.setEnabled(False)
         elif len(checked_sample_names) == 1:
             self.checked_sample_names = checked_sample_names[0]
+            self.sample_name_lineEdit.setEnabled(True)
+            self.sample_igsn_lineEdit.setEnabled(True)
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
@@ -747,6 +751,7 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info("Commit question called")
 
         def after_timer():
+            logger_setup.get_logger().info("Commit timer timed out. Preparing commit question.")
             self.age.check_focus()
             self.gps.check_focus()
             self.check_focus()

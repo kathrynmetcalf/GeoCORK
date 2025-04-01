@@ -2510,19 +2510,28 @@ class FocusGroupBox(QGroupBox):
         self.initial_values = []
         for child in self.findChildren(QtW.QWidget):
             if isinstance(child, QtW.QLineEdit):
+                if isinstance(child.parent(), QtW.QComboBox):
+                    continue
                 try:
                     child.editingFinished.disconnect()
                 except TypeError:
                     pass
                 self.initial_values.append([child, child.text()])
                 child.editingFinished.connect(lambda ch=child: self.set_edited(ch))
+            elif isinstance(child, CheckableComboBox | CheckableTreeCombobox):
+                try:
+                    child.currentTextChanged.disconnect()
+                except TypeError:
+                    pass
+                self.initial_values.append([child, child.currentText()])
+                child.currentTextChanged.connect(lambda ch=child: self.set_edited(ch))
             elif isinstance(child, QtW.QComboBox):
                 try:
-                    child.currentIndexChanged.disconnect()
+                    child.activated.disconnect()
                 except TypeError:
                     pass
                 self.initial_values.append([child, child.currentIndex()])
-                child.currentIndexChanged.connect(lambda ch=child: self.set_edited(ch))
+                child.activated.connect(lambda ch=child: self.set_edited(ch))
             elif isinstance(child, QtW.QCheckBox):
                 try:
                     child.stateChanged.disconnect()
@@ -2539,9 +2548,14 @@ class FocusGroupBox(QGroupBox):
                     child.editingFinished.disconnect()
                 except TypeError:
                     pass
+            elif isinstance(child, CheckableComboBox | CheckableTreeCombobox):
+                try:
+                    child.currentTextChanged.disconnect()
+                except TypeError:
+                    pass
             elif isinstance(child, QtW.QComboBox):
                 try:
-                    child.currentIndexChanged.disconnect()
+                    child.activated.disconnect()
                 except TypeError:
                     pass
             elif isinstance(child, QtW.QCheckBox):
@@ -2554,6 +2568,9 @@ class FocusGroupBox(QGroupBox):
     def set_edited(self, child: QtW.QWidget):
         if not isinstance(child, QtW.QWidget):
             child = self.sender()
+        if isinstance(child, QtW.QLineEdit) and isinstance(child.parent(), QtW.QComboBox):
+            # The line edit of the combo box completer has been triggered, but wait until the index changes
+            return
         initial_value = None
         for pair in self.initial_values:
             if pair[0] == child:

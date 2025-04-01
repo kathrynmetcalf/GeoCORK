@@ -38,7 +38,7 @@ class CustomLogger(logging.getLoggerClass()):
         super().critical(msg, *args, exc_info=exc_info, stack_info=stack_info, stacklevel=stacklevel, extra=extra)
 
     def error(self, msg, parent=None, *args, exc_info=None, stack_info=False, stacklevel=2, extra=None):
-        button = QMessageBox.critical(parent,
+        button = QMessageBox.warning(parent,
                                       "Error",
                                       f"{msg}",
                                       buttons=QMessageBox.StandardButton.Ok,
