@@ -32,10 +32,12 @@ class EditTable(QtW.QDialog):
         loadUi(sources_ui_file, self)
         self.setModal(True)
         self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
+        self.add_pushButton.setText(f'Add {TxM.add_spaces_camel(table_name)}')
         self.updated = False
 
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox(self)
+
 
         # Pagination variables
         self.show_per_page_comboBox: QtW.QComboBox
@@ -55,7 +57,7 @@ class EditTable(QtW.QDialog):
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
-        self.search_lineEdit.textChanged.connect(self.search)
+        self.search_lineEdit.editingFinished.connect(self.search)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)

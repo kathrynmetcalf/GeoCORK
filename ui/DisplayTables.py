@@ -8,7 +8,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel, QTimer, \
-    QRegularExpression
+    QRegularExpression, QSortFilterProxyModel
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView, \
     QStyle, QApplication
@@ -71,7 +71,7 @@ class DisplayTables(QtW.QWidget):
         self.model = DisplayRoundedModel()
         self.query_model = DisplayRoundedQueryModel()
         self.tree_model = TreeModel()
-        self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
+        self.tree_proxy_model = QSortFilterProxyModel()
         self.table_proxy_model = ReadableProxyModel()
         self.table = ''
         self.previous_table = ''
@@ -101,7 +101,7 @@ class DisplayTables(QtW.QWidget):
         # Signal for table combo box
         self.dbTable_comboBox.currentIndexChanged.connect(self.display_table)
         # Signal for search bar
-        self.search_lineEdit.textChanged.connect(self.search)
+        self.search_lineEdit.editingFinished.connect(self.search)
         # Signal for clicked edit button
         self.edit_pushButton.clicked.connect(self.edit_popup)
         # Signal for clicked edit samples button
@@ -240,7 +240,6 @@ class DisplayTables(QtW.QWidget):
         self.dbTable_treeView: QtW.QTreeView
         self.dbTable_comboBox: QtW.QComboBox
         self.add_pushButton: QtW.QPushButton
-        self.case_checkBox: QtW.QCheckBox
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
         logger_setup.get_logger().info(f'Displaying {self.table}')

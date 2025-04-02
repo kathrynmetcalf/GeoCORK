@@ -1,6 +1,5 @@
 import json
 import os
-import sys
 
 import pandas as pd
 import qtawesome
@@ -40,7 +39,6 @@ class ColumnMapDialog(QDialog):
     """
     Class to load a helper dialog to assist the user in selecting pre-defined values of columns to a known database column.
     The list of available categories and columns is defined by SQLUtils.upb_possible_user_input_fields.
-
     """
 
     def __init__(self, original_header: str, current_field:str, parent: QWidget):
@@ -156,7 +154,7 @@ class LoadMappingDialog(QDialog):
                 configs = {}
                 return
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save mapping:\n{e}")
+            logger_setup.get_logger().critical(f'Failed to save mapping: {e}')
             return
 
         self.configs = configs
@@ -222,6 +220,9 @@ class LoadMappingDialog(QDialog):
         menu.exec(self.list_view.mapToGlobal(pos))
 
     def rename_mapping(self):
+        """
+        Helper method to open dialogs to rename a given mapping.
+        """
         index = self.list_view.currentIndex()
         if not index.isValid():
             return
@@ -241,6 +242,9 @@ class LoadMappingDialog(QDialog):
             self.display_mapping_list()
 
     def delete_mapping(self):
+        """
+        Helper method to open dialogs to delete a given mapping.
+        """
         index = self.list_view.currentIndex()
         if not index.isValid():
             return
@@ -540,8 +544,6 @@ class ImportWizardDialog(QWidget):
 
         self.right_table.cellDoubleClicked.connect(self.on_cell_clicked)
 
-        # self.right_table.cellClicked.connect(self.handle_cell_click)
-
         self.right_table.verticalHeader().sectionDoubleClicked.connect(self.handle_vertical_header_double_click)
 
         # todo fix these context menus and methods to allow for multi-column set values
@@ -568,6 +570,9 @@ class ImportWizardDialog(QWidget):
         super().closeEvent(a0)
 
     def deactivate_widgets(self):
+        """
+        Disables all widgets within the import wizard.
+        """
         self.btn_save_mapping.setEnabled(False)
         self.btn_load_mapping.setEnabled(False)
         self.btn_import.setEnabled(False)
@@ -586,6 +591,9 @@ class ImportWizardDialog(QWidget):
         self.conc_error_combobox.setEnabled(False)
 
     def activate_widgets(self):
+        """
+        Enables all widgets within the import wizard.
+        """
         self.btn_save_mapping.setEnabled(True)
         self.btn_load_mapping.setEnabled(True)
         self.btn_import.setEnabled(True)

@@ -6,7 +6,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QRegularExpression
+from PyQt6.QtCore import QRegularExpression, QSortFilterProxyModel
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -43,6 +43,8 @@ class EditTree(QtW.QDialog):
         for key, value in kwargs.items():
             setattr(self, key, value)
 
+
+
         # Set the model and table
         self.table = TxM.remove_spaces(table_name)
         logger_setup.get_logger().info(f'Setting up {table_name} tree model')
@@ -52,8 +54,9 @@ class EditTree(QtW.QDialog):
         self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
         self.tree_model = TreeModel(self.model)
         self.setWindowTitle(f'Edit {table_name}')
+        self.add_pushButton.setText(f'Add {table_name}')
         logger_setup.get_logger().info('Setting up proxy model')
-        self.tree_proxy_model = ReadableProxyModel()
+        self.tree_proxy_model = QSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
@@ -66,7 +69,7 @@ class EditTree(QtW.QDialog):
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
-        self.search_lineEdit.textChanged.connect(self.search)
+        self.search_lineEdit.editingFinished.connect(self.search)
         self.tree_model.save_state.connect(
             lambda: save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView))
         self.tree_model.dataEdited.connect(self.update_proxy)

@@ -208,7 +208,7 @@ class GeoCORK(QtW.QMainWindow):
         :return:
         """
 
-        import_wizard = ui.ImportWizard.ImportWizardDialog()
+        import_wizard = ui.ImportWizard.ImportWizardDialog(None)
         import_wizard.data_imported.connect(self.edit_sample_information)
         import_wizard.show()
 

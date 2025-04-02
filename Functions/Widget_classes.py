@@ -2435,15 +2435,12 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
                 continue  # Skip hidden columns
 
             index = model.index(source_row, column, source_parent)
-
             # If the filter pattern is empty, accept all rows
             if self.filterRegularExpression().pattern() == '':
                 return True
-
             # If the current column's data matches the filter, accept this row
             if index.data() is not None and self.filterRegularExpression().match(str(index.data())).hasMatch():
                 return True
-
         # If no column matches, reject this row
         return False
 
@@ -3656,13 +3653,13 @@ def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
     settings.setValue(f'expanded_ids_{table}', expanded_ids)
 
 def restore_expanded_state(table: str, model, treeView: QtW.QTreeView):
-    '''
+    """
     Restore the expanded state of the tree view from the settings
-    @param table: Name of table with parent-child relationships
-    @param model: The model to restore the state to, some kind of QSqlTableModel or QSortFilterProxyModel
-    @param treeView: The view to display the model
-    @return:
-    '''
+    :param table: Name of table with parent-child relationships
+    :param model: The model to restore the state to, some kind of QSqlTableModel or QSortFilterProxyModel
+    :param treeView: The view to display the model
+    :return:
+    """
     logger_setup.get_logger().info(f'Restoring expanded state for {table} table')
     start_expand_tree_time = time.time()
     expanded_ids = settings.value(f'expanded_ids_{table}', set())
