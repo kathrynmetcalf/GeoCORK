@@ -52,7 +52,7 @@
         <property name="currentText">
          <string/>
         </property>
-        <property name="placeholderText">
+        <property name="placeholderText" stdset="0">
          <string/>
         </property>
        </widget>
@@ -93,6 +93,12 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>100</width>
+          <height>25</height>
+         </size>
+        </property>
         <property name="text">
          <string>Edit Selected</string>
         </property>
@@ -102,14 +108,14 @@
        <widget class="QPushButton" name="refreshbutton">
         <property name="minimumSize">
          <size>
-          <width>30</width>
-          <height>30</height>
+          <width>25</width>
+          <height>25</height>
          </size>
         </property>
         <property name="maximumSize">
          <size>
-          <width>30</width>
-          <height>30</height>
+          <width>25</width>
+          <height>25</height>
          </size>
         </property>
        </widget>
@@ -135,6 +141,12 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="minimumSize">
+         <size>
+          <width>0</width>
+          <height>25</height>
+         </size>
+        </property>
         <property name="text">
          <string>Search:</string>
         </property>
@@ -154,7 +166,7 @@
         <property name="minimumSize">
          <size>
           <width>100</width>
-          <height>0</height>
+          <height>25</height>
          </size>
         </property>
         <property name="placeholderText">
@@ -246,6 +258,12 @@
     <layout class="QHBoxLayout" name="horizontalLayout_5">
      <item>
       <widget class="QPushButton" name="prev_button">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Back</string>
        </property>
@@ -253,6 +271,12 @@
      </item>
      <item>
       <widget class="QPushButton" name="next_button">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Next</string>
        </property>
@@ -260,16 +284,35 @@
      </item>
      <item>
       <widget class="QLabel" name="label">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Show per page:</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="show_per_page_comboBox"/>
+      <widget class="QComboBox" name="show_per_page_comboBox">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QLabel" name="page_info_label">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>TextLabel</string>
        </property>
@@ -277,6 +320,12 @@
      </item>
      <item>
       <spacer name="horizontalSpacer_2">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
        </property>
@@ -295,6 +344,12 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
        </property>
        <property name="maximumSize">
         <size>

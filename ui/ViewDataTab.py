@@ -1,11 +1,12 @@
 import time
 
+import qtawesome
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QTimer, QRegularExpression
-from PyQt6.QtWidgets import QAbstractItemView, QHeaderView
+from PyQt6.QtWidgets import QAbstractItemView, QHeaderView, QLabel, QPushButton
 
 import logger_setup
 import time
@@ -18,7 +19,7 @@ from ui.EditView import EditView
 
 
 class ViewDataTab(QtW.QWidget):
-    def __init__(self, parent_id: int, parent_type: str, child_type: str):
+    def __init__(self, parent_id: int, parent_type: str, child_type: str, label: str):
         super().__init__()
         logger_setup.get_logger().info(f'Creating a new ViewDataTab for {child_type} with parent {parent_type} ID {parent_id}')
         start_view_data_tab_time = time.time()
@@ -28,13 +29,21 @@ class ViewDataTab(QtW.QWidget):
 
         self.v_layout = QtW.QVBoxLayout()
         self.setLayout(self.v_layout)
-        self.edit_pushButton = QtW.QPushButton('Edit')
-        self.edit_pushButton.clicked.connect(self.edit_popup)
         self.h_layout = QtW.QHBoxLayout()
+        self.edit_pushButton = QtW.QPushButton(f'Edit {label}')
+        self.edit_pushButton.clicked.connect(self.edit_popup)
         self.h_layout.addWidget(self.edit_pushButton)
-        self.h_layout.addStretch(6)
+        self.refresh_button = QPushButton()
+        self.refresh_button.setFixedSize(QtC.QSize(25, 25))
+        self.refresh_button.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
+        self.refresh_button.clicked.connect(self.display_table)
+        self.h_layout.addWidget(self.refresh_button)
+        self.h_layout.addStretch(2)
+        self.search_label = QLabel('Search: ')
         self.search_lineEdit = QtW.QLineEdit()
         self.search_lineEdit.setPlaceholderText('search this page')
+        self.search_lineEdit.setMinimumWidth(100)
+        self.h_layout.addWidget(self.search_label)
         self.h_layout.addWidget(self.search_lineEdit)
         self.v_layout.addLayout(self.h_layout)
         self.show_cols = []

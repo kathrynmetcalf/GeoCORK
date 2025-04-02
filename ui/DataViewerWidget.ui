@@ -20,6 +20,18 @@
       <layout class="QHBoxLayout" name="horizontalLayout_6">
        <item>
         <widget class="QPushButton" name="prev_button_2">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
           <string>Back</string>
          </property>
@@ -27,6 +39,18 @@
        </item>
        <item>
         <widget class="QPushButton" name="next_button_2">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
           <string>Next</string>
          </property>
@@ -34,6 +58,18 @@
        </item>
        <item>
         <widget class="QLabel" name="page_info_label_2">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
           <string>TextLabel</string>
          </property>
@@ -46,6 +82,12 @@
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
          </property>
          <property name="maximumSize">
           <size>
@@ -64,6 +106,18 @@
       <layout class="QHBoxLayout" name="horizontalLayout_5">
        <item>
         <widget class="QPushButton" name="prev_button">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
           <string>Back</string>
          </property>
@@ -71,6 +125,18 @@
        </item>
        <item>
         <widget class="QPushButton" name="next_button">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
           <string>Next</string>
          </property>
@@ -78,6 +144,18 @@
        </item>
        <item>
         <widget class="QLabel" name="page_info_label">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
           <string>TextLabel</string>
          </property>
@@ -90,6 +168,12 @@
            <horstretch>0</horstretch>
            <verstretch>0</verstretch>
           </sizepolicy>
+         </property>
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
          </property>
          <property name="maximumSize">
           <size>
@@ -149,6 +233,12 @@
             <height>25</height>
            </size>
           </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>25</height>
+           </size>
+          </property>
          </widget>
         </item>
         <item>
@@ -177,29 +267,6 @@
          </widget>
         </item>
         <item>
-         <widget class="QLabel" name="search_label_2">
-          <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
-            <horstretch>0</horstretch>
-            <verstretch>0</verstretch>
-           </sizepolicy>
-          </property>
-          <property name="text">
-           <string>Search:</string>
-          </property>
-         </widget>
-        </item>
-        <item>
-         <widget class="QLineEdit" name="search_lineEdit_2">
-          <property name="minimumSize">
-           <size>
-            <width>100</width>
-            <height>0</height>
-           </size>
-          </property>
-         </widget>
-        </item>
-        <item>
          <spacer name="horizontalSpacer_2">
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -211,6 +278,44 @@
            </size>
           </property>
          </spacer>
+        </item>
+        <item>
+         <widget class="QLabel" name="search_label_2">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>25</height>
+           </size>
+          </property>
+          <property name="text">
+           <string>Search:</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QLineEdit" name="search_lineEdit_2">
+          <property name="minimumSize">
+           <size>
+            <width>100</width>
+            <height>25</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>25</height>
+           </size>
+          </property>
+          <property name="placeholderText">
+           <string>search this page</string>
+          </property>
+         </widget>
         </item>
        </layout>
       </widget>
@@ -405,6 +510,12 @@
             <height>25</height>
            </size>
           </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>25</height>
+           </size>
+          </property>
           <property name="focusPolicy">
            <enum>Qt::StrongFocus</enum>
           </property>
@@ -414,7 +525,7 @@
           <property name="currentText">
            <string/>
           </property>
-          <property name="placeholderText">
+          <property name="placeholderText" stdset="0">
            <string/>
           </property>
          </widget>
@@ -468,6 +579,18 @@
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
+          <property name="minimumSize">
+           <size>
+            <width>0</width>
+            <height>25</height>
+           </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>25</height>
+           </size>
+          </property>
           <property name="text">
            <string>Search:</string>
           </property>
@@ -487,8 +610,17 @@
           <property name="minimumSize">
            <size>
             <width>100</width>
-            <height>0</height>
+            <height>25</height>
            </size>
+          </property>
+          <property name="maximumSize">
+           <size>
+            <width>16777215</width>
+            <height>25</height>
+           </size>
+          </property>
+          <property name="placeholderText">
+           <string>search this page</string>
           </property>
          </widget>
         </item>

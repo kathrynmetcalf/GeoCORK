@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1019</width>
-    <height>620</height>
+    <width>1000</width>
+    <height>600</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -24,6 +24,18 @@
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
       <widget class="QPushButton" name="add_pushButton">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Add</string>
        </property>
@@ -43,7 +55,30 @@
       </spacer>
      </item>
      <item>
-      <widget class="QLineEdit" name="search_lineEdit"/>
+      <widget class="QLabel" name="label_2">
+       <property name="text">
+        <string>Search:</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QLineEdit" name="search_lineEdit">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="placeholderText">
+        <string>search this page</string>
+       </property>
+      </widget>
      </item>
     </layout>
    </item>
@@ -58,6 +93,18 @@
     <layout class="QHBoxLayout" name="horizontalLayout_5">
      <item>
       <widget class="QPushButton" name="prev_button">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Back</string>
        </property>
@@ -65,6 +112,18 @@
      </item>
      <item>
       <widget class="QPushButton" name="next_button">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Next</string>
        </property>
@@ -72,16 +131,53 @@
      </item>
      <item>
       <widget class="QLabel" name="label">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Show per page:</string>
        </property>
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="show_per_page_comboBox"/>
+      <widget class="QComboBox" name="show_per_page_comboBox">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
+      </widget>
      </item>
      <item>
       <widget class="QLabel" name="page_info_label">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>TextLabel</string>
        </property>
@@ -107,6 +203,12 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
        </property>
        <property name="maximumSize">
         <size>
@@ -138,6 +240,18 @@
      </item>
      <item>
       <widget class="QPushButton" name="cancel_pushButton">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Cancel</string>
        </property>
@@ -145,6 +259,18 @@
      </item>
      <item>
       <widget class="QPushButton" name="commit_pushButton">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Commit</string>
        </property>

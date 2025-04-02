@@ -64,7 +64,7 @@
           </size>
          </property>
          <property name="placeholderText">
-          <string>search</string>
+          <string>search stored filters</string>
          </property>
         </widget>
        </item>

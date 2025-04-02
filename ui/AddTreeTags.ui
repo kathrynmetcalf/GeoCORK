@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>392</width>
-    <height>576</height>
+    <width>750</width>
+    <height>512</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -27,8 +27,20 @@
       <layout class="QVBoxLayout" name="verticalLayout">
        <item>
         <widget class="QLabel" name="newName_label">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff2600;&quot;&gt;*&lt;/span&gt;New Unique Parent Name&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff2600;&quot;&gt;*&lt;/span&gt;New Unique Name&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -43,8 +55,17 @@
          <property name="minimumSize">
           <size>
            <width>125</width>
-           <height>41</height>
+           <height>25</height>
           </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="placeholderText">
+          <string>e.g. abc123</string>
          </property>
         </widget>
        </item>
@@ -54,6 +75,18 @@
       <layout class="QVBoxLayout" name="verticalLayout_2">
        <item>
         <widget class="QLabel" name="newDescription_label">
+         <property name="minimumSize">
+          <size>
+           <width>0</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
          <property name="text">
           <string>New Description</string>
          </property>
@@ -64,8 +97,17 @@
          <property name="minimumSize">
           <size>
            <width>201</width>
-           <height>41</height>
+           <height>25</height>
           </size>
+         </property>
+         <property name="maximumSize">
+          <size>
+           <width>16777215</width>
+           <height>25</height>
+          </size>
+         </property>
+         <property name="placeholderText">
+          <string>e.g. abc123</string>
          </property>
         </widget>
        </item>
@@ -77,6 +119,18 @@
     <layout class="QHBoxLayout" name="horizontalLayout_2">
      <item>
       <widget class="QLabel" name="label">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; color:#ff2600;&quot;&gt;*&lt;/span&gt;Required&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
        </property>
@@ -103,6 +157,18 @@
          <verstretch>0</verstretch>
         </sizepolicy>
        </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Cancel</string>
        </property>
@@ -115,6 +181,18 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
        </property>
        <property name="text">
         <string>Ok</string>
@@ -135,6 +213,7 @@
      <property name="font">
       <font>
        <pointsize>15</pointsize>
+       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
@@ -163,6 +242,18 @@
      </item>
      <item>
       <widget class="QPushButton" name="finish_pushButton">
+       <property name="minimumSize">
+        <size>
+         <width>0</width>
+         <height>25</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>16777215</width>
+         <height>25</height>
+        </size>
+       </property>
        <property name="text">
         <string>Finish</string>
        </property>

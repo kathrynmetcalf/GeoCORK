@@ -1,5 +1,8 @@
 <?xml version='1.0' encoding='utf-8'?>
 <!-- GSA Geologic Time Scale v. 5.0 -->
+<!-- todo: Update this to version 6.0, this timescale should be changed to be pulled automatically from somewhere
+      or a script for conversion should be created. If desired future implementations allowing for swapping or
+      defining specific timescales could be added-->
 
 <TimeScale>
     <Eon name="Phanerozoic" oldest="541" youngest="0">

@@ -34,7 +34,7 @@ class LandingPage(QWidget):
         self.loading_manager = LoadingDialogManager.get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file =os.path.join(base_path,  "ImportWizard.ui")
+        sources_ui_file =os.path.join(base_path,  "LandingPage.ui")
         loadUi(sources_ui_file, self)
         self.setWindowTitle('GeoCORK')
         update_stylesheet()

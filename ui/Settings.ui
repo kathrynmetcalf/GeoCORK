@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="settings_tabWidget">
      <property name="currentIndex">
-      <number>2</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="units_formats_tab">
       <attribute name="title">
@@ -33,7 +33,20 @@
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
             <item>
-             <widget class="QComboBox" name="decimals_comboBox"/>
+             <widget class="QComboBox" name="decimals_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -45,7 +58,20 @@
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_2">
             <item>
-             <widget class="QComboBox" name="gps_format_comboBox"/>
+             <widget class="QComboBox" name="gps_format_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -64,7 +90,20 @@
              </widget>
             </item>
             <item row="0" column="1">
-             <widget class="QComboBox" name="elev_unit_comboBox"/>
+             <widget class="QComboBox" name="elev_unit_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
             <item row="1" column="0">
              <widget class="QLabel" name="column_unit_label">
@@ -74,7 +113,20 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QComboBox" name="column_unit_comboBox"/>
+             <widget class="QComboBox" name="column_unit_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
             <item row="2" column="0">
              <widget class="QLabel" name="spot_size_unit_label">
@@ -84,7 +136,20 @@
              </widget>
             </item>
             <item row="2" column="1">
-             <widget class="QComboBox" name="spot_size_unit_comboBox"/>
+             <widget class="QComboBox" name="spot_size_unit_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -107,7 +172,20 @@
              </widget>
             </item>
             <item row="0" column="1">
-             <widget class="QComboBox" name="upb_ratio_error_format_comboBox"/>
+             <widget class="QComboBox" name="upb_ratio_error_format_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
             <item row="1" column="0">
              <widget class="QLabel" name="upb_concordance_format_label">
@@ -117,7 +195,20 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QComboBox" name="upb_concordance_format_comboBox"/>
+             <widget class="QComboBox" name="upb_concordance_format_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -136,7 +227,20 @@
              </widget>
             </item>
             <item row="0" column="1">
-             <widget class="QComboBox" name="age_unit_comboBox"/>
+             <widget class="QComboBox" name="age_unit_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
             <item row="1" column="0">
              <widget class="QLabel" name="age_error_format_label">
@@ -146,7 +250,20 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="QComboBox" name="age_error_format_comboBox"/>
+             <widget class="QComboBox" name="age_error_format_comboBox">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
+             </widget>
             </item>
            </layout>
           </widget>
@@ -160,12 +277,37 @@
          </property>
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
-           <widget class="QLineEdit" name="reference_display_lineEdit"/>
+           <widget class="QLineEdit" name="reference_display_lineEdit">
+            <property name="minimumSize">
+             <size>
+              <width>0</width>
+              <height>25</height>
+             </size>
+            </property>
+            <property name="maximumSize">
+             <size>
+              <width>16777215</width>
+              <height>25</height>
+             </size>
+            </property>
+           </widget>
           </item>
           <item>
            <layout class="QHBoxLayout" name="horizontalLayout">
             <item>
              <widget class="QPushButton" name="authors_pushButton">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
               <property name="text">
                <string>Authors</string>
               </property>
@@ -173,6 +315,18 @@
             </item>
             <item>
              <widget class="QPushButton" name="year_pushButton">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
               <property name="text">
                <string>Year</string>
               </property>
@@ -180,6 +334,18 @@
             </item>
             <item>
              <widget class="QPushButton" name="title_pushButton">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
               <property name="text">
                <string>Title</string>
               </property>
@@ -187,6 +353,18 @@
             </item>
             <item>
              <widget class="QPushButton" name="source_pushButton">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
               <property name="text">
                <string>Source</string>
               </property>
@@ -194,6 +372,18 @@
             </item>
             <item>
              <widget class="QPushButton" name="doi_pushButton">
+              <property name="minimumSize">
+               <size>
+                <width>0</width>
+                <height>25</height>
+               </size>
+              </property>
+              <property name="maximumSize">
+               <size>
+                <width>16777215</width>
+                <height>25</height>
+               </size>
+              </property>
               <property name="text">
                <string>DOI</string>
               </property>
@@ -278,10 +468,36 @@
           </widget>
          </item>
          <item row="2" column="1">
-          <widget class="QComboBox" name="table_font_size_comboBox"/>
+          <widget class="QComboBox" name="table_font_size_comboBox">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+          </widget>
          </item>
          <item row="0" column="1">
-          <widget class="QFontComboBox" name="fontComboBox"/>
+          <widget class="QFontComboBox" name="fontComboBox">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+          </widget>
          </item>
          <item row="1" column="0">
           <widget class="QLabel" name="label_14">
@@ -310,7 +526,20 @@
           </widget>
          </item>
          <item row="1" column="1">
-          <widget class="QComboBox" name="font_size_comboBox"/>
+          <widget class="QComboBox" name="font_size_comboBox">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+          </widget>
          </item>
          <item row="4" column="0">
           <widget class="QLabel" name="label_2">
@@ -330,6 +559,18 @@
          </item>
          <item row="3" column="1">
           <widget class="QDoubleSpinBox" name="combobox_height_scaler_spinbox">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
            <property name="minimum">
             <double>1.000000000000000</double>
            </property>
@@ -343,6 +584,18 @@
          </item>
          <item row="4" column="1">
           <widget class="QDoubleSpinBox" name="combobox_width_scaler_spinbox">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
            <property name="minimum">
             <double>1.000000000000000</double>
            </property>
@@ -366,7 +619,23 @@
        <item>
         <layout class="QGridLayout" name="gridLayout_4">
          <item row="0" column="1">
-          <widget class="QLineEdit" name="db_name_lineEdit"/>
+          <widget class="QLineEdit" name="db_name_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. abc123</string>
+           </property>
+          </widget>
          </item>
          <item row="0" column="0">
           <widget class="QLabel" name="db_name_label">
@@ -384,15 +653,45 @@
          </item>
          <item row="1" column="1">
           <widget class="QLineEdit" name="db_description_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
            <property name="text">
             <string/>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. abc123</string>
            </property>
           </widget>
          </item>
          <item row="2" column="1">
           <widget class="QLineEdit" name="db_created_by_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
            <property name="text">
             <string/>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. abc123</string>
            </property>
           </widget>
          </item>
@@ -411,7 +710,23 @@
           </widget>
          </item>
          <item row="3" column="1">
-          <widget class="QLineEdit" name="db_authors_lineEdit"/>
+          <widget class="QLineEdit" name="db_authors_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. abc123</string>
+           </property>
+          </widget>
          </item>
          <item row="4" column="0">
           <widget class="QLabel" name="db_reference_label">
@@ -428,10 +743,42 @@
           </widget>
          </item>
          <item row="5" column="1">
-          <widget class="QLineEdit" name="db_reference_link_lineEdit"/>
+          <widget class="QLineEdit" name="db_reference_link_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="placeholderText">
+            <string>e.g doi or url</string>
+           </property>
+          </widget>
          </item>
          <item row="4" column="1">
-          <widget class="QLineEdit" name="db_reference_lineEdit"/>
+          <widget class="QLineEdit" name="db_reference_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. journal or publication source</string>
+           </property>
+          </widget>
          </item>
         </layout>
        </item>
@@ -479,6 +826,18 @@
    </item>
    <item>
     <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="minimumSize">
+      <size>
+       <width>0</width>
+       <height>25</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>16777215</width>
+       <height>25</height>
+      </size>
+     </property>
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
