@@ -1,18 +1,19 @@
-import sys
 import re
-from PyQt6.QtCore import QSettings, QPoint, QSize, QStandardPaths
+
+from PyQt6 import QtWidgets as QtW, QtCore
+from PyQt6.QtCore import QPoint, QSize, QStandardPaths
+from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices
+from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
 from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
-from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery
-from PyQt6 import QtWidgets as QtW, QtCore
-from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices
 
 import logger_setup
 from Functions.Settings_manager import settings
 from ui.SelectColumns import SelectColumns
 
 settings_list = [
-    'default_settings', 'age_unit_id', 'age_unit_abbreviation', 'elevation_unit_id', 'elevation_unit_abbreviation', 'gps_format_id',
+    'default_settings', 'age_unit_id', 'age_unit_abbreviation', 'elevation_unit_id', 'elevation_unit_abbreviation',
+    'gps_format_id',
     'gps_format_abbreviation', 'heightdepth_unit_id', 'heightdepth_unit_abbreviation', 'spotsize_unit_id',
     'spotsize_unit_abbreviation', 'age_error_format_id', 'age_error_format_abbreviation', 'ratio_error_format_id',
     'ratio_error_format_abbreviation', 'concordance_format_id', 'concordance_format_abbreviation', 'reference_format',
@@ -24,25 +25,29 @@ settings_list = [
     'reference_view_freeze', 'checkable_combobox_height_scaler',
     'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page'
 ]
+"""List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
 def update_stylesheet():
+    """
+    Updates the stylesheet of the application based on the current settings.
+    """
     # Apply the stylesheet to the active QApplication object
     app = QtW.QApplication.instance()
     set_font = QFont(settings.value('font_family'), int(settings.value('font_size')))
     app.setFont(set_font)
+    # setting the font size and family, by setting to lower class QAbstractItemView
+    # subclasses QTableView, QTreeView, QListView and created ones in Widget_classes.py are still affected
     app.setStyleSheet(f'''
-        QTableView {{
-            font-size: {settings.value('table_font_size')}pt;
-        }}
-        QTreeView {{
-            font-size: {settings.value('table_font_size')}pt;
-        }}
-        QListView {{
+        QAbstractItemView {{
             font-size: {settings.value('table_font_size')}pt;
         }}
         ''')
 
+
 def populate_app_defaults():
+    """
+    Populate the application with default settings. This is called when the application starts up.
+    """
     app = QtW.QApplication.instance()
     settings.setValue('default_font_family', app.font().family())
     settings.setValue('default_font_size', app.font().pointSize())
@@ -52,49 +57,60 @@ def populate_app_defaults():
     if settings.value('default_settings') == 'false':
         update_stylesheet()
 
+
 def default_settings():
+    """
+    Sets the default settings for the application. Every setting has a default variant with the prefix 'default_'.
+    """
     # set the default settings values
     # Unit and Format settings
-    settings.setValue('default_age_unit_id', 2) # Ma
+    settings.setValue('default_age_unit_id', 2)  # Ma
     settings.setValue('default_age_unit_abbreviation', 'Ma')
-    settings.setValue('default_elevation_unit_id', 2) # m
+    settings.setValue('default_elevation_unit_id', 2)  # m
     settings.setValue('default_elevation_unit_abbreviation', 'm')
-    settings.setValue('default_gps_format_id', 1) # DD +/-
-    settings.setValue('default_gps_format_abbreviation', 'DD +/-' )
-    settings.setValue('default_heightdepth_unit_id', 2) # m
+    settings.setValue('default_gps_format_id', 1)  # DD +/-
+    settings.setValue('default_gps_format_abbreviation', 'DD +/-')
+    settings.setValue('default_heightdepth_unit_id', 2)  # m
     settings.setValue('default_heightdepth_unit_abbreviation', 'm')
-    settings.setValue('default_spotsize_unit_id', 5) # µm
+    settings.setValue('default_spotsize_unit_id', 5)  # µm
     settings.setValue('default_spotsize_unit_abbreviation', 'µm')
-    settings.setValue('default_age_error_format_id', 1) # 1 sigma abs
+    settings.setValue('default_age_error_format_id', 1)  # 1 sigma abs
     settings.setValue('default_age_error_format_abbreviation', '1σ abs')
-    settings.setValue('default_ratio_error_format_id', 3) # 1 sigma %
+    settings.setValue('default_ratio_error_format_id', 3)  # 1 sigma %
     settings.setValue('default_ratio_error_format_abbreviation', '1σ %')
-    settings.setValue('default_concordance_format_id', 2) # Con%
+    settings.setValue('default_concordance_format_id', 2)  # Con%
     settings.setValue('default_concordance_format_abbreviation', 'Con%')
-    settings.setValue('default_reference_format', '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
+    # Reference format settings, sets to "Authors, Year, Source"
+    settings.setValue('default_reference_format',
+                      '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
     settings.setValue('default_decimals_to_show', 2)
 
     # Column display settings
     settings.setValue('default_sample_view_columns', [
         'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'GPSSampleLocationCalculated',
         'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
-        'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName', 'RegionName',
+        'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName',
+        'RegionName',
         'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName',
         'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
         'UPbReference', 'SampleCreated', 'SampleModified'
     ])
+
     settings.setValue('default_sample_edit_columns', [
         'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
-        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
+        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName',
+        'SampleAgeInterpretationName',
         'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth', 'ColumnHeightDepthUnitAbbreviation',
-        'SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName',
+        'SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName',
+        'SettingName',
         'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
         '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize',
         'RejectionReasonName', 'UPbReference', 'SampleCreated', 'SampleModified'
     ])
+
     settings.setValue('default_aliquot_view_columns', [
         'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SampleID', 'AliquotName', 'SampleName',
         'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
@@ -102,42 +118,60 @@ def default_settings():
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
         'UPbReference', 'AliquotCreated', 'AliquotModified'
     ])
+
     settings.setValue('default_aliquot_edit_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SampleID', 'AliquotName', 'SampleName', 'AliquotContextName',
+        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SampleID', 'AliquotName', 'SampleName',
+        'AliquotContextName',
         'AliquotCreated', 'AliquotModified'
     ])
+
     settings.setValue('default_spot_view_columns', [
         'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'SpotCompositionName',
         'SpotContextName', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
         'Rejected', 'RejectionReasonName', 'UPbReference', 'SpotCreated', 'SpotModified'
     ])
+
     settings.setValue('default_spot_edit_columns', [
         'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'SpotCompositionName',
         'SpotContextName', 'SpotCreated', 'SpotModified'
     ])
+
     settings.setValue('default_upb_analysis_view_columns', [
         'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
-        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
+        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"',
+        '"Pb208cps"',
         '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
-        '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"', '"Calculated207Pb/206PbError"',
-        '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"', '"Calculated235U/207Pb"', '"Calculated235U/207PbError"',
-        '"Calculated206Pb/238U"', '"Calculated206Pb/238UError"', '"Calculated238U/206Pb"', '"Calculated238U/206PbError"',
-        '"Calculated208Pb/232Th"', '"Calculated208Pb/232ThError"', '"Calculated232Th/208Pb"', '"Calculated232Th/208PbError"',
-        '"Calculated238U/232Th"', '"Calculated238U/232ThError"', '"Calculated232Th/238U"', '"Calculated232Th/238UError"',
-        '"Calculated204Pb/238U"', '"Calculated204Pb/238UError"', '"Calculated238U/204Pb"', '"Calculated238U/204PbError"',
-        '"Calculated206Pb/204Pb"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206Pb"', '"Calculated204Pb/206PbError"',
-        '"Calculated207Pb/204Pb"', '"Calculated207Pb/204PbError"', '"Calculated204Pb/207Pb"', '"Calculated204Pb/207PbError"',
-        '"Calculated208Pb/204Pb"', '"Calculated208Pb/204PbError"', '"Calculated204Pb/208Pb"', '"Calculated204Pb/208PbError"',
+        '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"',
+        '"Calculated207Pb/206PbError"',
+        '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"', '"Calculated235U/207Pb"',
+        '"Calculated235U/207PbError"',
+        '"Calculated206Pb/238U"', '"Calculated206Pb/238UError"', '"Calculated238U/206Pb"',
+        '"Calculated238U/206PbError"',
+        '"Calculated208Pb/232Th"', '"Calculated208Pb/232ThError"', '"Calculated232Th/208Pb"',
+        '"Calculated232Th/208PbError"',
+        '"Calculated238U/232Th"', '"Calculated238U/232ThError"', '"Calculated232Th/238U"',
+        '"Calculated232Th/238UError"',
+        '"Calculated204Pb/238U"', '"Calculated204Pb/238UError"', '"Calculated238U/204Pb"',
+        '"Calculated238U/204PbError"',
+        '"Calculated206Pb/204Pb"', '"Calculated206Pb/204PbError"', '"Calculated204Pb/206Pb"',
+        '"Calculated204Pb/206PbError"',
+        '"Calculated207Pb/204Pb"', '"Calculated207Pb/204PbError"', '"Calculated204Pb/207Pb"',
+        '"Calculated204Pb/207PbError"',
+        '"Calculated208Pb/204Pb"', '"Calculated208Pb/204PbError"', '"Calculated204Pb/208Pb"',
+        '"Calculated204Pb/208PbError"',
         '"ErrorCorr/Rho"', '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"', '"Calculated206Pb/238UAge"',
         '"Calculated206Pb/238UAgeError"', '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
-        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAge"', '"CalculatedBestAgeError"',
+        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAge"',
+        '"CalculatedBestAgeError"',
         '"CalculatedSpotSize"', '"CalculatedConcordance"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated',
         'UPbAnalysisModified'
     ])
+
     settings.setValue('default_upb_analysis_edit_columns', [
         'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
-        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"',
+        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"',
+        '"Pb208cps"',
         '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
         '"206Pb/207Pb"', '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"',
         '"207Pb/235U"', '"207Pb/235UError"', '"235U/207Pb"', '"235U/207PbError"',
@@ -148,20 +182,27 @@ def default_settings():
         '"206Pb/204Pb"', '"206Pb/204PbError"', '"204Pb/206Pb"', '"204Pb/206PbError"',
         '"207Pb/204Pb"', '"207Pb/204PbError"', '"204Pb/207Pb"', '"204Pb/207PbError"',
         '"208Pb/204Pb"', '"208Pb/204PbError"', '"204Pb/208Pb"', '"204Pb/208PbError"',
-        '"204Pb/208PbError"', 'RatioErrorFormatAbbreviation', '"ErrorCorr/Rho"', '"207Pb/206PbAge"', '"207Pb/206PbAgeError"',
-        '"207Pb/235UAge"', '"207Pb/235UAgeError"', '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
-        '"BestAge"', '"BestAgeError"', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"', 'ConcordanceFormatAbbreviation',
-        '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
+        '"204Pb/208PbError"', 'RatioErrorFormatAbbreviation', '"ErrorCorr/Rho"', '"207Pb/206PbAge"',
+        '"207Pb/206PbAgeError"',
+        '"207Pb/235UAge"', '"207Pb/235UAgeError"', '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"',
+        '"208Pb/232ThAgeError"',
+        '"BestAge"', '"BestAgeError"', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"',
+        'ConcordanceFormatAbbreviation',
+        '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated',
+        'UPbAnalysisModified'
     ])
+
     settings.setValue('default_column_view_columns', [
         'ColumnID', 'ColumnName', 'ColumnTotalHeightDepthCalculated', 'ColumnGPSLocationCalculated',
         'ColumnElevationCalculated', 'ColumnDescription', 'ColumnCreated', 'ColumnModified'
     ])
+
     settings.setValue('default_column_edit_columns', [
         'ColumnID', 'ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitAbbreviation',
         'ColumnGPSLocationDisplay', 'ColumnElevation', 'ColumnElevationUnitAbbreviation', 'ColumnDescription',
         'ColumnCreated', 'ColumnModified'
     ])
+
     settings.setValue('default_reference_view_columns', [
         'ReferenceID', 'ReferenceDisplay', 'Authors', 'Year', 'Title', 'Source', 'DOI', 'ReferenceDescription',
         'ReferenceCreated', 'ReferenceModified'
@@ -173,49 +214,76 @@ def default_settings():
     settings.setValue('default_debug_level', 'INFO')
     settings.setValue('default_show_per_page', 100)
 
+
 def reset_to_default_settings():
-    # get the default settings from the QSettings object
+    """
+    Reset the settings to utilize default_settings.
+    """
     if settings.value('default_settings') == 'true':
         for setting in settings_list:
             if setting == 'default_settings':
                 pass
             else:
+                # Set the value of setting to default_setting, e.g. sets 'decimals_to_show' to 'default_decimals_to_show'
+                # effectively resetting the setting to default, the rest of the app uses 'decimals_to_show'
                 settings.setValue(setting, settings.value(f'default_{setting}'))
 
         # Apply the stylesheet to the active QApplication object
         update_stylesheet()
 
+
 def check_missing_settings():
-    # Check if any of the settings are missing, if so, set them to the default
+    """
+    Check if any of the settings are missing, if so, set them to the default
+    """
     for setting in settings_list:
         if settings.value(setting) is None:
             settings.setValue(setting, settings.value(f'default_{setting}'))
 
-def update_setting(key, value):
-    # pass the key to update and user input, then change the value in settings
+
+def update_setting(key: str, value: str):
+    """
+    Sets the given setting key to the given value. Sets default_settings to false if it is true, since default settings
+    are no longer being utilized.
+    :param str key: setting key
+    :param value: setting value to set
+    """
     settings.setValue(key, value)
     if settings.value('default_settings') == 'true':
         settings.setValue('default_settings', 'false')
 
-def update_abbreviation(id_key: str):
+
+def update_abbreviation(id_key: str) -> bool:
+    """
+    Update the abbreviation for the given id_key in the settings.
+    :param str id_key: the id_key to update the setting to
+    :return: True for success, False for failure
+    :rtype: bool
+    """
     # Update the abbreviations in the settings file
     model = QSqlQueryModel()
     if id_key == 'age_unit_id':
         model.setQuery(f"SELECT AgeUnitAbbreviation FROM AgeUnits WHERE AgeUnitID = {settings.value(id_key)}")
     elif id_key == 'elevation_unit_id':
-        model.setQuery(f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value(id_key)}")
+        model.setQuery(
+            f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value(id_key)}")
     elif id_key == 'gps_format_id':
         model.setQuery(f"SELECT GPSFormatAbbreviation FROM GPSFormats WHERE GPSFormatID = {settings.value(id_key)}")
     elif id_key == 'heightdepth_unit_id':
-        model.setQuery(f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value(id_key)}")
+        model.setQuery(
+            f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value(id_key)}")
     elif id_key == 'spotsize_unit_id':
-        model.setQuery(f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value(id_key)}")
+        model.setQuery(
+            f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {settings.value(id_key)}")
     elif id_key == 'age_error_format_id':
-        model.setQuery(f"SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value(id_key)}")
+        model.setQuery(
+            f"SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value(id_key)}")
     elif id_key == 'ratio_error_format_id':
-        model.setQuery(f"SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value(id_key)}")
+        model.setQuery(
+            f"SELECT ErrorFormatAbbreviation FROM ErrorFormats WHERE ErrorFormatID = {settings.value(id_key)}")
     elif id_key == 'concordance_format_id':
-        model.setQuery(f"SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats WHERE ConcordanceFormatID = {settings.value(id_key)}")
+        model.setQuery(
+            f"SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats WHERE ConcordanceFormatID = {settings.value(id_key)}")
 
     if model.rowCount() == 0:
         logger_setup.get_logger().critical(f"Error: No results found for {id_key}: {model.lastError().text()}")
@@ -225,16 +293,11 @@ def update_abbreviation(id_key: str):
     return True
 
 
-
-settings_tables = ['AgeUnits', 'DistanceUnits', 'GPSFormats', 'ErrorFormats', 'ConcordanceFormats']
-settings_ids = ['age_unit_id', 'elevation_unit_id', 'gps_format_id', 'heightdepth_unit_id', 'spotsize_unit_id',
-                'age_error_format_id', 'ratio_error_format_id', 'concordance_format_id']
-settings_ids_tables = [['age_unit_id', 'AgeUnits'], ['elevation_unit_id', 'DistanceUnits'],
-                       ['gps_format_id', 'GPSFormats'], ['heightdepth_unit_id', 'DistanceUnits'],
-                       ['spotsize_unit_id', 'DistanceUnits'], ['age_error_format_id', 'ErrorFormats'],
-                       ['ratio_error_format_id', 'ErrorFormats'], ['concordance_format_id', 'ConcordanceFormats']]
-
 class SettingsDialog(QtW.QDialog):
+    """
+    SettingsDialog class allows the user to change the settings of the application. Contains other helper
+    functions/buttons that could be useful for the user.
+    """
     def __init__(self):
         super().__init__()
         logger_setup.get_logger().info('Opening settings dialog')
@@ -267,7 +330,8 @@ class SettingsDialog(QtW.QDialog):
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Ok).clicked.connect(self.update_settings_close)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Cancel).clicked.connect(self.close)
         self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.Apply).clicked.connect(self.update_settings)
-        self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(self.restore_defaults)
+        self.buttonBox.button(QtW.QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(
+            self.restore_defaults)
 
         self.openlogs_pushButton.clicked.connect(self.open_logs)
         self.openbackup_pushButton.clicked.connect(self.open_backups)
@@ -276,6 +340,9 @@ class SettingsDialog(QtW.QDialog):
         self.settings_tabWidget.setCurrentIndex(index)
 
     def populate_fields(self):
+        """
+        Populates all the fields with the current settings. This is called when the settings dialog is opened.
+        """
         logger_setup.get_logger().info('Populating fields with the current settings')
         decimals = [str(i) for i in range(0, 10)]
         self.decimals_comboBox.addItems(decimals)
@@ -298,6 +365,7 @@ class SettingsDialog(QtW.QDialog):
         self.age_error_format_comboBox.setCurrentText(settings.value('age_error_format_abbreviation'))
 
         reference_format = settings.value('reference_format')
+        # converts stored SQL code to user-friendly format
         if 'ifnull(Authors, "")' in reference_format:
             reference_format = reference_format.replace('ifnull(Authors, "")', '{Authors}')
         if 'ifnull(Year, "")' in reference_format:
@@ -313,9 +381,8 @@ class SettingsDialog(QtW.QDialog):
         if '" || ' in reference_format:
             reference_format = reference_format.replace('" || ', '')
         self.reference_display_lineEdit.setText(reference_format)
-        # '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))'''
 
-        self.about_db_model.setQuery('SELECT * FROM About')
+        self.about_db_model.setQuery('SELECT * FROM About WHERE AboutID = 1')
         self.db_name_lineEdit.setText(self.about_db_model.record(0).value('Name'))
         self.db_authors_lineEdit.setText(self.about_db_model.record(0).value('Authors'))
         self.db_description_lineEdit.setText(self.about_db_model.record(0).value('Description'))
@@ -326,7 +393,6 @@ class SettingsDialog(QtW.QDialog):
         self.select_columns.populate_stack()
 
         self.combobox_height_scaler_spinbox.setValue(float(settings.value('checkable_combobox_height_scaler')))
-        # print(float(settings.value('checkable_combobox_height_scaler')))
         self.combobox_width_scaler_spinbox.setValue(float(settings.value('checkable_combobox_width_scaler')))
 
         # List of font sizes to populate the font size comboboxes
@@ -335,6 +401,7 @@ class SettingsDialog(QtW.QDialog):
         self.font_size_comboBox.setCurrentText(str(int(settings.value('font_size'))))
         self.table_font_size_comboBox.addItems(font_sizes)
         self.table_font_size_comboBox.setCurrentText(str(int(settings.value('table_font_size'))))
+
         # If the default font is not in the font family list, add it
         if settings.value('font_family') not in QFontDatabase.families():
             self.fontComboBox.addItems([settings.value('font_family')])
@@ -342,9 +409,12 @@ class SettingsDialog(QtW.QDialog):
             self.fontComboBox.addItems([settings.value('default_font_family')])
         self.fontComboBox.setCurrentFont(QFont(settings.value('font_family')))
 
-    # def
 
     def update_settings(self):
+        """
+        Updates the settings to current values within the various comboboxes and lineedits. Updates the database
+        with new values of the About table.
+        """
         # No longer using default settings
         logger_setup.get_logger().info('Updating settings')
         settings.setValue('default_settings', 'false')
@@ -385,7 +455,6 @@ class SettingsDialog(QtW.QDialog):
         update_setting('checkable_combobox_height_scaler', self.combobox_height_scaler_spinbox.value())
         update_setting('checkable_combobox_width_scaler', self.combobox_width_scaler_spinbox.value())
 
-
         update_setting('font_size', float(self.font_size_comboBox.currentText()))
         update_setting('table_font_size', float(self.table_font_size_comboBox.currentText()))
         update_setting('font_family', self.fontComboBox.currentFont().family())
@@ -395,16 +464,27 @@ class SettingsDialog(QtW.QDialog):
         self.populate_fields()
 
     def update_settings_close(self):
+        """
+        Updates the settings and closes the dialog.
+        """
         self.update_settings()
         self.close()
 
     def restore_defaults(self):
+        """
+        Restores the default settings for the application. This is called when the user clicks the Restore Defaults
+        """
         logger_setup.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')
         reset_to_default_settings()
         self.populate_fields()
 
     def set_combobox(self, comboBox: QtW.QComboBox, model: QSqlQueryModel):
+        """
+        Sets the combobox to the current value of the setting. This is called when the settings dialog is opened.
+        :param QComboBox comboBox: combobox to set
+        :param QSqlQueryModel model: model to the value from
+        """
         table, column, id_header, setting_key = self.variables_from_combobox(comboBox)
 
         model.setQuery(f'SELECT {column} FROM {table} WHERE {id_header} = {settings.value(setting_key)}')
@@ -417,6 +497,12 @@ class SettingsDialog(QtW.QDialog):
             comboBox.setCurrentText(current_value)
 
     def update_from_combobox(self, comboBox: QtW.QComboBox, model: QSqlQueryModel):
+        """
+        Updates the settings to the value from the
+        :param QComboBox comboBox: combobox to get value from
+        :param QSqlQueryModel model:
+        :return:
+        """
         table, column, id_header, setting_key = self.variables_from_combobox(comboBox)
 
         selected_text = comboBox.currentText()
@@ -426,6 +512,11 @@ class SettingsDialog(QtW.QDialog):
             update_abbreviation(setting_key)
 
     def variables_from_combobox(self, comboBox: QtW.QComboBox):
+        """
+        Returns the table, column, id_header and setting_key for the given combobox.
+        :param QComboBox comboBox:
+        :return:
+        """
         if comboBox.objectName() == 'gps_format_comboBox':
             table = 'GPSFormats'
             column = 'GPSFormatAbbreviation'
@@ -464,7 +555,10 @@ class SettingsDialog(QtW.QDialog):
         return table, column, id_header, setting_key
 
     def add_reference_element(self):
-        # Add the selected reference element to the reference format lineEdit at the current cursor position
+        """
+        Add the selected reference element to the reference format lineEdit at the current cursor position
+        :return:
+        """
         button = self.sender()
         if button.objectName() == 'authors_pushButton':
             text = '{Authors}'
@@ -481,12 +575,18 @@ class SettingsDialog(QtW.QDialog):
         self.reference_display_lineEdit.insert(text)
 
     def update_reference_format(self):
+        """
+        Updates the reference format, converts from user-friendly format to SQL format.
+        :return:
+        """
         reference_format = self.reference_display_lineEdit.text()
         if '{' and '}' in reference_format:
             # identify any text between curly braced elements and replace with || "text" ||
             pattern = r'(?<=\})([^{}]+)(?=\{)'
+
             def replace_match(match):
                 return f' || "{match.group(0)}" || '
+
             reference_format = re.sub(pattern, replace_match, reference_format)
 
         if '{Authors}' in reference_format:
@@ -502,10 +602,16 @@ class SettingsDialog(QtW.QDialog):
         return reference_format
 
     def open_logs(self):
+        """
+        Opens the logs directory in the file explorer.
+        """
         dirname = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) + f"/logs/"
         QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(dirname))
 
     def open_backups(self):
+        """
+        Opens the backups directory in the file explorer.
+        """
         dirname = QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) + f"/backups/"
         QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(dirname))
 

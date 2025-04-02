@@ -1,34 +1,30 @@
 import os
 import sys
-from PyQt6 import QtWidgets as QtW
+
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
-from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import QModelIndex, QRegularExpression
+from PyQt6 import QtWidgets as QtW
+from PyQt6.QtCore import QRegularExpression
 from PyQt6.uic import loadUi
 
-import logger_setup
-# from pandas.plotting import table
-
-from Functions.Database_manager import update_database
-from Functions.Settings_manager import settings
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.LoadingDialog_manager import LoadingDialogManager
 import Functions.Text_manipulations as TxM
-from Functions.Widget_classes import (SQLiteTableModel, VerifiableSqlTableModel, VerifiableSqlViewModel, set_table,
-                                      get_headers,
+import logger_setup
+from Functions.Database_manager import update_database
+from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Settings_manager import settings
+from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel)
-import Functions.Alter_database as Alter_db
 from ui.AddTags import AddTags
-from ui.GPSDialog import GPSDialog
-import Functions.SQLUtils as SQLUtils
-from ui.New_reference import NewReference
 
 
 class EditTable(QtW.QDialog):
+    """
+    Opens an EditTable dialog used to edit a table in the database.
+    """
+
     def __init__(self, parent_window, table_name, **kwargs):
         super().__init__(parent=parent_window)
-        # todo add search logic
         self.loading_manager = LoadingDialogManager.get_instance()
         logger_setup.get_logger().info(f'Opening {table_name} edit dialog')
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -63,21 +59,29 @@ class EditTable(QtW.QDialog):
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
-        # self.model.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnFieldChange)
+
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
 
     def search(self):
+        """
+        Searches the table for the text in the search line edit using case-insensitive regex.
+        """
         self.search_lineEdit: QtW.QLineEdit
         self.table_proxy_model.setRecursiveFilteringEnabled(True)
-        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(), options=QRegularExpression.PatternOption.CaseInsensitiveOption)
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(),
+                                                   options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.table_proxy_model.setFilterRegularExpression(search_expression)
 
     def create_model(self):
-        self.model.setQuery(f'SELECT * FROM {self.table} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
-        # set_table(self.model, self.table)
+        """
+        Creates the model from the given table and paginates the table.
+        :return:
+        """
+        self.model.setQuery(
+            f'SELECT * FROM {self.table} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
         self.table_headers = get_headers(self.table)
         self.table_proxy_model.setSourceModel(self.model)
         self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
@@ -113,7 +117,11 @@ class EditTable(QtW.QDialog):
             self.current_page -= 1
             self.create_model()
 
-    def show_context_menu(self, pos):
+    def show_context_menu(self, pos: QtC.QPoint):
+        """
+        Shows a context menu for the table view. The context menu has options to clear a cell or delete a row.
+        :param QPoint pos:
+        """
         indexes = self.edit_tableView.selectedIndexes()
         if not indexes:
             return
@@ -148,11 +156,15 @@ class EditTable(QtW.QDialog):
             if response == QtW.QMessageBox.StandardButton.Yes:
                 for row in rows:
                     if not self.model.deleteRowFromTable(row):
-                        logger_setup.get_logger().critical(f'Failed to delete row {row} from {self.table}: {self.model.lastError().text()}')
+                        logger_setup.get_logger().critical(
+                            f'Failed to delete row {row} from {self.table}: {self.model.lastError().text()}')
                 self.create_model()
                 self.display_table()
 
     def display_table(self):
+        """
+        Dislays the table in the table view. Sets the model for the table view to the proxy model.
+        """
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.edit_tableView.setModel(self.table_proxy_model)
@@ -174,8 +186,9 @@ class EditTable(QtW.QDialog):
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
 
     def add_popup(self):
-        # if not self.add_pushButton.hasFocus():
-        #     return
+        """
+        Opens an AddTags dialog to add tags to the table.
+        """
         if not self.model.submit():
             errtxt = f'Failed to save changes to {self.table}: {self.model.lastError().text()}'
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
@@ -188,6 +201,9 @@ class EditTable(QtW.QDialog):
         self.create_model()
 
     def rollback(self):
+        """
+        Rolls back the changes to the database. Rejects the dialog and closes the the window.
+        """
         rollback_savepoint('before_edit')
         self.reject()
         self.close_by_dialog = True
@@ -195,8 +211,13 @@ class EditTable(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
+        """
+        Commits the changes to the database. If there is an active savepoint, it is released.
+        """
         current_model_index = self.table_proxy_model.mapToSource(self.edit_tableView.currentIndex())
-        if self.edit_tableView.currentIndex().isValid() and not self.model.setData(current_model_index, self.edit_tableView.currentIndex().data(), QtC.Qt.ItemDataRole.EditRole):
+        if self.edit_tableView.currentIndex().isValid() and not self.model.setData(current_model_index,
+                                                                                   self.edit_tableView.currentIndex().data(),
+                                                                                   QtC.Qt.ItemDataRole.EditRole):
             # There is a valid index selected and submitting data failed
             logger_setup.get_logger().critical('Failed to save changes')
             return
@@ -213,15 +234,21 @@ class EditTable(QtW.QDialog):
             self.accept()
 
     def discard_question(self):
-        self.msg.question(self, 'Discard changes', 'Are you sure you want to discard all changes?',QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        """
+        Asks the user if they want to discard changes. If they do, the changes are rolled back.
+        """
+        self.msg.question(self, 'Discard changes', 'Are you sure you want to discard all changes?',
+                          QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
         self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
         response = self.msg.exec()
         if response == QtW.QMessageBox.StandardButton.Yes:
             self.rollback()
-        else:
-            pass
 
     def closeEvent(self, event: QtG.QCloseEvent):
+        """
+        Overridden close event to handle the case where the user tries to close the dialog
+        :param QCloseEvent event:
+        """
         if not self.close_by_dialog:
             if self.updated:
                 self.discard_question()

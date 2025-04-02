@@ -1,37 +1,26 @@
-from idlelib import query
 import re
+import sqlite3
+import time
+import typing
+from collections import namedtuple
 
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from numpy import integer
-from pandas.core import indexes
-
-import Functions.Text_manipulations as TxM
-from Functions.Settings_manager import settings
-
-import sqlite3
-import typing
-from random import sample
-import time
-
-from collections import namedtuple
-
-from PyQt6.QtWidgets import QFileDialog, QMessageBox, QInputDialog, QCompleter, QComboBox, QTreeView, QListView, \
-    QTabBar, QGroupBox, QStyledItemDelegate
-from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlRecord, QSqlDatabase
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt
-from PyQt6.QtGui import QTextOption, QFont, QAction
+from PyQt6.QtGui import QTextOption, QAction
+from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
+from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate
 
-import logger_setup
-from Functions.Settings_manager import settings, SettingsManager
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions import SQLUtils
 import Functions.Text_manipulations as TxM
-from Functions.Check_triggers import update_modified_timestamp, validate_update, validate_insert
-
+import logger_setup
+from Functions import SQLUtils
+from Functions.Check_triggers import update_modified_timestamp, validate_update
+from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Settings_manager import settings
 
 
 # ---------------------------
@@ -39,16 +28,23 @@ from Functions.Check_triggers import update_modified_timestamp, validate_update,
 # ---------------------------
 
 class DecimalDelegate(QtW.QStyledItemDelegate):
+    """
+    Custom delegate to display numerical values with a fixed number of decimal places based upon user
+    settings.
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.decimal_places = settings.value('decimals_to_show', type=int)
 
-    def display_text(self, value):
+    def displayText(self, value, locale):
         if isinstance(value, float):
-
             return f'{value:.{self.decimal_places}f}'
+        return super().displayText(value, locale)
 
 class FontDelegate(QtW.QStyledItemDelegate):
+    """
+    Custom delegate to display text with a custom font.
+    """
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
         font = index.data(QtC.Qt.ItemDataRole.FontRole)
@@ -56,7 +52,9 @@ class FontDelegate(QtW.QStyledItemDelegate):
             option.font = font
 
 class WordWrapDelegate(QtW.QStyledItemDelegate):
-    """Custom delegate to enable word wrap in QTableView."""
+    """
+    Custom delegate to enable word wrap in QTableView.
+    """
 
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
@@ -74,6 +72,11 @@ age = table_model_cols("Age (Ma)", "Samples", ["AverageAge", "AverageAgeError"],
 age_signature = table_model_cols("Age Signatures", "AgeSignatures", ["AgeSignatureName"], "Samples_AgeSignatures")
 
 class SQLiteTableModel(QAbstractTableModel):
+    """
+    Custom QAbstractTableModel to display a query from a SQLite database. If database is not given, the database file
+    stored in settings will be used. This model was created due to the limitations of QSqlTableModel and QSqlQueryModel
+    with abnormally long query execution time.
+    """
     def __init__(self, query: str = '', database=None):
         from Functions.Settings_manager import settings
 
@@ -314,7 +317,7 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
     def tableView(self):
         return self.view
 
-    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+    def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = QtC.Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.DisplayRole:
@@ -337,7 +340,7 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
                 return value
         return super().data(index, role)
 
-    def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+    def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = QtC.Qt.ItemDataRole.DisplayRole):
         return super().data(index, role)
 
 class VerifiableSqlTableModel(DisplayRoundedModel):

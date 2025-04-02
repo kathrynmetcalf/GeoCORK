@@ -373,7 +373,7 @@ one_editable = {
                     'SpotSizeUnitAbbreviation': 'DistanceUnits'},
     'References': {}
 }
-# Non-editable columns for each table key, key-value pairs for column in the view and table the to edit that information, populate single selection dropdowns
+
 non_editable = {
     'Samples': ['SpotCount', 'Accepted/TotalUPbAnalyses', 'RejectionReasonName', 'SampleCreated', 'SampleModified'],
     'Columns': ['ColumnCreated', 'ColumnModified'],
@@ -382,7 +382,9 @@ non_editable = {
     'UPbAnalyses': ['UPbAnalysisCreated', 'UPbAnalysisModified'],
     'References': ['ReferenceDisplay', 'ReferenceCreated', 'ReferenceModified']
 }
-# Columns that cannot be null
+"""Non-editable columns for each table key, key-value pairs for column in the view and table the to edit that 
+information, populate single selection dropdowns"""
+
 not_null = {
     'Samples': ['SampleName'],
     'Columns': ['ColumnName'],
@@ -390,6 +392,7 @@ not_null = {
     'Spots': ['SpotName', 'AliquotName', 'SampleName'],
     'UPbAnalyses': ['SpotName', 'AliquotName', 'SampleName']
 }
+"Tables and their columns that cannot be null"
 
 user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                         'Columns', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
@@ -498,8 +501,6 @@ tree_tables_schema = {
     }
 }
 
-# Used in MergeDatabase.py as tables to skip if found for foreign key references.
-# Since these tables should be static across any database and is modified/created exclusively by code
 static_foreign_key_tables = [
     'AgeUnitConversions',
     'AgeUnits',
@@ -513,9 +514,9 @@ static_foreign_key_tables = [
     'GPSFormatConversions',
     'GPSFormats'
 ]
+"""Used in MergeDatabase.py as tables to skip if found for foreign key references.
+Since these tables should be static across any database and is modified/created exclusively by code"""
 
-# Used in ExportDatabase.py as tables to skip if found exporting.
-# Since these tables should be static across any database and is modified/created exclusively by code
 static_tables = ['About',
                  'Ages',
                  'AgeUnitConversions',
@@ -529,8 +530,9 @@ static_tables = ['About',
                  'ErrorFormats',
                  'GPSFormatConversions',
                  'GPSFormats']
+"""Used in ExportDatabase.py as tables to skip if found exporting.
+Since these tables should be static across any database and is modified/created exclusively by code"""
 
-# Used in MergeDatabase.py as list of tables that have foreign key references to checkover.
 foreign_key_tables = [
     'SampleAges_AgeConstraints',
     'SampleAges_AgeInterpretations',
@@ -553,10 +555,8 @@ foreign_key_tables = [
     'Samples',
     'Columns'
 ]
+"""List of all tables that have foreign key references to other tables in the database."""
 
-# Used in MergeDatabase.py as the order of tables to merge first to last.
-# Since the database is relational it must be merged so the related data is merged last so updated
-# primary keys can be properly generated
 database_ordered_tables = ['AgeUnits',
                            'ConcordanceFormats',
                            'DirectionUnits',
@@ -609,18 +609,20 @@ database_ordered_tables = ['AgeUnits',
                            'UPbAnalyses_RejectionReasons',
                            'FilterGroups'
                            ]
-# List of all views in the database. These views pull information from other tables for a comprehensive view of data
-# See Database_views.py for further
+"""Used in MergeDatabase.py as the order of tables to merge first to last. Since the database is relational it must 
+be merged so the related data is merged last so updated primary keys can be properly generated"""
+
 views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
          'UPbEditView', 'ColumnView', 'ColumnEditView']
+"""List of all views in the database. These views pull information from other tables for a comprehensive view of data
+See Database_views.py for further"""
 
-# Static list of valid age units. Used to create AgeUnits table.
 age_units = [('Billion years', 'Ga', '1000000000'),
              ('Million years', 'Ma', '1000000'),
              ('Thousand years', 'ka', '1000'),
              ('Years', 'a', '1')]
+"""Static list of valid age units. Used to create AgeUnits table."""
 
-# Static list of valid concordance formats. Used to create ConcordanceFormats table.
 concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the 206Pb/238U age to the 207Pb/235U age'),
                        ('Concordance percent', 'Con%',
                         'Percent agreement between the 206Pb/238U age and the 207Pb/235U age'),
@@ -628,14 +630,14 @@ concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the
                         'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
                        ('Discordance percent', 'Dis%',
                         'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
+"""Static list of valid concordance formats. Used to create ConcordanceFormats table."""
 
-# Static list of valid direction units. Used to create DirectionUnits table.
 direction_units = [('North', 'N','positive north'),
                    ('South', 'S','positive south'),
                    ('East', 'E','positive east'),
                    ('West', 'W','positive west')]
+"""Static list of valid direction units. Used to create DirectionUnits table."""
 
-# Static list of valid distance units. Used to create DistanceUnits table.
 distance_units = [('Kilometers', 'km', '1000'),
                   ('Meters', 'm', '1'),
                   ('Centimeters', 'cm', '0.01'),
@@ -645,14 +647,14 @@ distance_units = [('Kilometers', 'km', '1000'),
                   ('Yards', 'yd', '3'),
                   ('Feet', 'ft', '1'),
                   ('Inches', 'in', f'(1/12)')]
+"""Static list of valid distance units. Used to create DistanceUnits table."""
 
-# Static list of valid error formats. Used to create ErrorFormats table.
 error_formats = [('1 sigma absolute', '1σ abs', '1σ absolute uncertainty'),
                  ('2 sigma absolute', '2σ abs', '2σ absolute uncertainty'),
                  ('1 sigma percent', '1σ %', '1σ percent uncertainty'),
                  ('2 sigma percent', '2σ %', '2σ percent uncertainty')]
+"""Static list of valid error formats. Used to create ErrorFormats table."""
 
-# Static list of valid GPS formats. Used to create GPSFormats table.
 gps_formats = [
     ('Decimal degrees positive/negative', 'DD +/-', 'Decimal degrees with positive N and E and negative S and W'),
     ('Decimal degrees cardinal', 'DD NSEW', 'Decimal degrees with cardinal directions'),
@@ -663,10 +665,8 @@ gps_formats = [
      'Degrees, minutes, and seconds with positive N and E and negative S and W'),
     ('Degrees minutes seconds cardinal', 'DMS NSEW', 'Degrees, minutes, and seconds with cardinal directions'),
     ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
+"""Static list of valid GPS formats. Used to create GPSFormats table."""
 
-# Static list of foreign key references found in tables and their associated table.
-# Issues with database properly keeping track of this through pragma queries have led to this
-# to ensure values are not missed
 as_table_dict = {
     'DirectAgeErrorFormats': 'ErrorFormats',
     'OldAge': 'Ages',
@@ -689,10 +689,10 @@ as_table_dict = {
     'SpotSizeUnits': 'DistanceUnits',
     'UPbRejectionReasons': 'RejectionReasons'
 }
+"""Static list of foreign key references found in tables and their associated table.
+Issues with database properly keeping track of this through pragma queries have led to this
+to ensure values are not missed"""
 
-# List of all columns visible to the user.
-# Used in ExporterWidget.py as valid columns able to be exported
-# Used in Filters.py as valid columns to be filtered
 table_attributes_dict = {
     'AgeConstraints': [
         "AgeConstraintName", "AgeConstraintDescription",
@@ -860,6 +860,9 @@ table_attributes_dict = {
         "UnitCreated", "UnitModified"
     ]
 }
+"""List of all columns visible to the user.
+Used in ExporterWidget.py as valid columns able to be exported
+Used in Filters.py as valid columns to be filtered"""
 
 view_attributes_dict = {
     'SampleView': [
@@ -1029,9 +1032,6 @@ view_setting_dict = {
     'ReferenceView': 'reference_view_columns',
 }
 
-# List of valid columns to be entered through the importer.
-# No Calculated values should be in this list
-# Used to create the insert statement with SQL
 upb_possible_database_input_fields = [
     'SpotID',
     'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
@@ -1078,6 +1078,9 @@ upb_possible_database_input_fields = [
     'InstrumentID',
     'UPbAnalysisMethodID'
 ]
+"""List of valid columns to be entered through the importer.
+No Calculated values should be in this list
+Used to create the insert statement with SQL"""
 
 upb_possible_user_input_fields = {
     'Base Info': [

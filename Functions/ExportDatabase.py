@@ -18,7 +18,12 @@ from ui.GPSDialog import GPSDialog
 
 def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
     """
-    Convenience to open a QSQLITE database under a unique connection name.
+    Open a SQLite database file and return the QSqlDatabase object.
+    :param str db_path: full file path to the SQLite database file.
+    :param str connection_name: connection name to open the database with.
+    :return: The opened QSqlDatabase object.
+    :rtype: QSqlDatabase
+    :raises RuntimeError: If the database could not be opened.
     """
     db = QSqlDatabase.addDatabase('QSQLITE', connection_name)
     db.setDatabaseName(db_path)
@@ -40,12 +45,17 @@ def copy_table(table_name, conn_source, conn_target):
     if results:
         insert_rows(conn_target, table_name, results, insert_cols_info)
 
-def fetchall(query_str: str, db: QSqlDatabase, params: Optional[Tuple] = None) -> List[tuple]:
+def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Optional[Tuple] = None) -> List[tuple]:
     """
-    Emulate a 'fetchall' using QSqlQuery. Returns rows as list of tuples.
+    Emulates a 'fetchall' using QSqlQuery and a given database connection, if no database is
+    provided the default database will be used. Returns rows as list of tuples.
+    :param query_str: SQL query to execute on the database
+    :param QSqlDatabase database: QSqlDatabase instance to enable foreign keys
+    :param Optional[Tuple] params: list of parameters to bind to the query
+    :return: list of tuples containing the rows returned by the query
     """
     result_rows = []
-    query = QSqlQuery(db)
+    query = QSqlQuery(database)
     query.prepare(query_str)
     if params:
         for i, val in enumerate(params):
@@ -64,19 +74,27 @@ def fetchall(query_str: str, db: QSqlDatabase, params: Optional[Tuple] = None) -
 
     return result_rows
 
-def execute_sql(statement: str, db: QSqlDatabase) -> bool:
+def execute_sql(query_str: str, database: QSqlDatabase) -> bool:
     """
-    Helper to execute a single SQL statement (without parameters).
+    Helper function to execute a single SQL query on a given database connection.
+    :param query_str:
+    :param database:
+    :return:
     """
-    query = QSqlQuery(db)
-    if not query.exec(statement):
+    query = QSqlQuery(database)
+    if not query.exec(query_str):
         logger_setup.get_logger().critical(f'Error executing SQL: {query.lastError().text()}')
         return False
     return True
 
-def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], insert_cols: List[str]):
+def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], insert_cols: list[str]):
     """
     Inserts multiple rows into the given table. Equivalent to 'executemany'.
+    :param QSqlDatabase database:
+    :param str table_name:
+    :param list[tuple] rows:
+    :param insert_cols:
+    :return:
     """
     if not rows:
         return
@@ -86,7 +104,7 @@ def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], insert_col
     table_name = table_name.replace('_old', '')
     insert_stmt = f"INSERT INTO '{table_name}' ({','.join(insert_cols)}) VALUES ({", ".join(["?"] * len(insert_cols))})"
 
-    query = QSqlQuery(db)
+    query = QSqlQuery(database)
     logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
     for row in rows:
         query.prepare(insert_stmt)
@@ -101,16 +119,15 @@ def insert_rows(db: QSqlDatabase, table_name: str, rows: List[tuple], insert_col
             else:
                 logger_setup.get_logger().critical(
                 f'Error fetching total records: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {insert_stmt}')
-
-###############################################################################
-# 1. SCHEMA COPY
-###############################################################################
+                logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
 
 def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
     """
     Copy all user-defined table schemas from the source DB to the target DB.
     Ignores 'sqlite_' internal tables or views.
+    :param conn_source:
+    :param conn_target:
+    :return:
     """
     # Read all tables + their CREATE statements from the source
     table_rows = fetchall(
@@ -149,24 +166,30 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
                 logger_setup.get_logger().critical(f'SQL command: {create_view_sql}')
 
 
-def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
+def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> None:
+    """
+    Helper function to copy over the static tables that are always present in the database.
+    :param QSqlDatabase conn_source:
+    :param QSqlDatabase conn_target:
+    """
     for table in SQLUtils.static_tables:
         logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
         copy_table(table, conn_source, conn_target)
 
-###############################################################################
-# 2. DETECTING MANY-TO-MANY BRIDGE TABLES
-###############################################################################
 
-def find_bridge_tables(conn: QSqlDatabase, samples_table_name="Samples") -> List[Dict[str, Any]]:
+def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> List[Dict[str, Any]]:
     """
-    Dynamically discover many-to-many 'bridge' tables that reference the
-    'Samples' table and exactly one other table (2 foreign keys total).
+    Dynamically discover many-to-many 'bridge' tables in a dataabase that reference the
+    given table and exactly one other table (2 foreign keys total). If no database is provided
+    the default database will be used.
+    :param QSqlDatabase database: database connection to search
+    :param str table:
+    :return:
     """
     # All tables
     table_rows = fetchall(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-        conn
+        database
     )
     all_tables = [row[0] for row in table_rows]
 
@@ -175,11 +198,11 @@ def find_bridge_tables(conn: QSqlDatabase, samples_table_name="Samples") -> List
     for table_name in all_tables:
         # Check foreign key list
         table_name = table_name.replace('_old', '')
-        fk_list = fetchall(f"PRAGMA foreign_key_list('{table_name}')", conn)
+        fk_list = fetchall(f"PRAGMA foreign_key_list('{table_name}')", database)
         # PRAGMA result shape: (id, seq, table, from_col, to_col, on_update, on_delete, match)
 
-        # We want exactly 2 foreign keys, one referencing 'Samples'
-        if any(fk[2].replace('_old', '') == samples_table_name.replace('_old', '') for fk in fk_list):
+        # We want exactly 2 foreign keys, one referencing table
+        if any(fk[2].replace('_old', '') == table.replace('_old', '') for fk in fk_list):
             ref_data = []
             for fk in fk_list:
                 ref_data.append({
@@ -188,8 +211,8 @@ def find_bridge_tables(conn: QSqlDatabase, samples_table_name="Samples") -> List
                     "parent_col":   fk[4],  # column in parent_table
                 })
 
-            # Check if one references samples_table_name
-            if any(rd["parent_table"] == samples_table_name for rd in ref_data):
+            # Check if one references table
+            if any(rd["parent_table"] == table for rd in ref_data):
                 bridge_tables_info.append({
                     "bridge_table": table_name,
                     "refs": ref_data
@@ -722,11 +745,7 @@ def subset_sample_ages_m2m(
                 if ageinterpretations_rows:
                     insert_rows(conn_target, "AgeInterpretations", ageinterpretations_rows, insert_cols_ageinterpretations)
 
-def subset_database(
-    conn_source: QSqlDatabase,
-    conn_target: QSqlDatabase,
-    sample_ids: list[int]
-):
+def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, sample_ids: list[int]) -> bool:
     """
     Creates a new subset DB that includes:
       - The specified SampleID row from 'Samples',
@@ -754,7 +773,7 @@ def subset_database(
         if not row:
             conn_source.close()
             conn_target.close()
-            return
+            return False
 
         # Insert the sample row
         insert_cols_info_samples = [c[1] for c in col_info_samples]
@@ -762,7 +781,7 @@ def subset_database(
         sample_ids = {sample_id}
 
         # 4) Dynamically find bridging (many-to-many) tables referencing Samples
-        bridges_info = find_bridge_tables(conn_source, "Samples")
+        bridges_info = find_bridge_tables('Samples', conn_source)
 
         # 5) Subset those bridging tables + their 'other' table references
         subset_many_to_many_bridges(
@@ -822,32 +841,5 @@ def subset_database(
     QSqlDatabase.removeDatabase(conn_source.connectionName())
     QSqlDatabase.removeDatabase(conn_target.connectionName())
 
+    return True
 
-# EXAMPLE USAGE
-if __name__ == "__main__":
-    app = QCoreApplication(sys.argv)
-
-    src_db_file = "C:\\Users\\jburges\\Downloads\\GeoChronDB\\GeoChron.db"
-
-    if os.path.isfile("C:\\Users\\jburges\\Downloads\\GeoChronDB\\test.db"):
-        os.remove("C:\\Users\\jburges\\Downloads\\GeoChronDB\\test.db")
-
-    tgt_db_file = "C:\\Users\\jburges\\Downloads\\GeoChronDB\\test.db"
-    conn = sqlite3.connect(tgt_db_file)
-
-    # Close the connection (creates an empty database file)
-    conn.close()
-
-    sample_id_to_subset = [191]  # Provide the SampleID you want to subset
-    # sample id 191 should get rocktype id 100
-    srcDatabase = QtSql.QSqlDatabase.addDatabase('QSQLITE', 'src')
-    srcDatabase.setDatabaseName(src_db_file)
-
-    tgtDatabase = QtSql.QSqlDatabase.addDatabase('QSQLITE', 'tgt')
-    tgtDatabase.setDatabaseName(tgt_db_file)
-
-    srcDatabase.open()
-    tgtDatabase.open()
-
-    print('Subsetting db')
-    subset_database(srcDatabase, tgtDatabase, sample_id_to_subset)

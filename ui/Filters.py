@@ -1,16 +1,16 @@
 import ast
 import json
 import re
-from typing import LiteralString, Literal
+from typing import Literal
 
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEventLoop, QRegularExpression
-from PyQt6.QtGui import QFontMetrics, QColor, QAction, QRegularExpressionValidator, \
-    QDoubleValidator, QGuiApplication
-from PyQt6.QtSql import QSqlDatabase, QSqlQuery
+from PyQt6.QtGui import QFontMetrics, QAction, QRegularExpressionValidator, \
+    QDoubleValidator
+from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QComboBox, QLineEdit, QPushButton, QGroupBox, QLabel,
-    QInputDialog, QMessageBox, QScrollArea, QSizePolicy, QListWidget, QDialog, QColorDialog, QTextEdit, QListWidgetItem
+    QInputDialog, QMessageBox, QScrollArea, QSizePolicy, QListWidget, QDialog, QTextEdit, QListWidgetItem
 )
 from PyQt6.uic import loadUi
 
@@ -53,6 +53,7 @@ def process_json_to_sql(json_string, scope):
 
 def process_table_names(data):
     table_names = set()
+
     def collect_table_names(group):
         conditions = group.get('conditions', [])
         subgroups = group.get('subgroups', [])
@@ -69,7 +70,12 @@ def process_table_names(data):
     return table_names
 
 
-def extract_table_name(field):
+def extract_table_name(field: str):
+    """
+    Helper function to extract the table name from a field string.
+    :param str field: field in the format of table_name.[attribute_name]
+    :return:
+    """
     if '.' in field:
         parts = field.split('.')
         return parts[0]
@@ -78,14 +84,22 @@ def extract_table_name(field):
 
 
 def process_group(group):
+    """
+    Recursively processes a group of conditions and subgroups to create a SQL WHERE clause. CTES are tables created
+    during the query as a WITH statement to allow for tree structures to work properly.
+    :param group:
+    :return: SQL Where clause and CTEs
+    """
     condition_strings, ctes = _process_group_inner(group)
     return ' AND '.join(condition_strings), ctes
 
-# Developer-specified recursive targets
-
-
 
 def _process_group_inner(group):
+    """
+    Recursive function to process a group of conditions and subgroups to create a SQL WHERE clause and CTEs
+    :param group:
+    :return:
+    """
     condition_strings = []
     ctes = []
 
@@ -221,8 +235,18 @@ class Filters(QWidget):
         self.querybuilder = QueryBuilder(self)
         self.horizontalLayout_2.addWidget(self.querybuilder)
 
+
 class InsertFilterGroupDialog(QDialog):
+    """
+    Assists the user with inserting or updating FilterGroups within the database
+    """
+
     def __init__(self, sql_structure, update_id=None, parent=None):
+        """
+        :param sql_structure: json dict structure for the filter group
+        :param update_id: id of the filter group to update, None if inserting a new one
+        :param parent:
+        """
         super().__init__(parent)
         self.sql_structure = sql_structure
         self.update_id = update_id
@@ -268,6 +292,10 @@ class InsertFilterGroupDialog(QDialog):
             self.populate_fields()
 
     def populate_fields(self):
+        """
+        Populates the fields with the existing filter group data.
+        :return:
+        """
         query = QSqlQuery()
         sql_query = """
             SELECT FilterGroupName, FilterGroupDescription 
@@ -292,6 +320,10 @@ class InsertFilterGroupDialog(QDialog):
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
     def insert_data(self):
+        """
+        Inserts a new filter group into the database. If the name already exists, it prompts the user to update
+        the existing one
+        """
         name = self.name_input.text()
         description = self.description_input.toPlainText()
 
@@ -322,9 +354,6 @@ class InsertFilterGroupDialog(QDialog):
                 self.update_data()
             else:
                 return
-            # self.warning_label.show()
-            # self.warning_label.setText('<font color="red">Name must be unique</font>')
-            # self.warning_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         else:
             insert_query = """
                 INSERT INTO FilterGroups (FilterGroupName, SQLQuery, FilterGroupDescription)
@@ -374,6 +403,7 @@ class FocusWheelComboBox(QComboBox):
     A QComboBox that ignores mouse wheel events when focused, so the user can't accidentally
     scroll away from the intended selection.
     """
+
     def __init__(self):
         super().__init__()
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -384,14 +414,9 @@ class FocusWheelComboBox(QComboBox):
 
 class RuleWidget(QWidget):
     """
-    A single condition row in the query builder, comprising:
-      - A table selection
-      - An attribute selection
-      - An operator selection
-      - A value input
-      - A unit combobox (Ga, Ma, ka)
-      - A delete button
+    Rulewidget contains the table and attribute comboboxes, operator combobox, value lineedit, and unit combobox.
     """
+
     def __init__(self, field=None, operator=None, value=None, unit=None, datatype=None):
         super().__init__()
         self.layout = QHBoxLayout(self)
@@ -469,44 +494,44 @@ class RuleWidget(QWidget):
         lineedit switchers and validators so they update.
         """
         if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
-                operator_items = [
-                    "is on",
-                    "is not on",
-                    "is after",
-                    "is before",
-                    "is between",
-                    "is not between"
-                ]
-                self.operator_combo.clear()
-                self.operator_combo.addItems(operator_items)
-                self.datatype = "date"
+            operator_items = [
+                "is on",
+                "is not on",
+                "is after",
+                "is before",
+                "is between",
+                "is not between"
+            ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            self.datatype = "date"
         elif (("Description" in self.attribute_combo.currentText() or
-              "Name" in self.attribute_combo.currentText() or
-              "ErrorSigma" in self.attribute_combo.currentText() or
-              "Unit" in self.attribute_combo.currentText()) or
-             self.table_combo.currentText() == '"References"'):
-                operator_items = [
-                    "is",
-                    "is not",
-                    "starts with",
-                    "ends with",
-                    "contains",
-                    "does not contain",
-                    "is blank",
-                    "is not blank"
-                ]
-                self.operator_combo.clear()
-                self.operator_combo.addItems(operator_items)
-                self.datatype = "string"
+               "Name" in self.attribute_combo.currentText() or
+               "ErrorSigma" in self.attribute_combo.currentText() or
+               "Unit" in self.attribute_combo.currentText()) or
+              self.table_combo.currentText() == '"References"'):
+            operator_items = [
+                "is",
+                "is not",
+                "starts with",
+                "ends with",
+                "contains",
+                "does not contain",
+                "is blank",
+                "is not blank"
+            ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            self.datatype = "string"
         elif "Rejected" in self.attribute_combo.currentText():
-                # Numeric fields (e.g. Ages, numeric measurements)
-                operator_items = [
-                    "is",
-                    "is not"
-                ]
-                self.operator_combo.clear()
-                self.operator_combo.addItems(operator_items)
-                self.datatype = "boolean"
+            # Numeric fields (e.g. Ages, numeric measurements)
+            operator_items = [
+                "is",
+                "is not"
+            ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            self.datatype = "boolean"
         else:
             # Numeric fields (e.g. Ages, numeric measurements)
             operator_items = [
@@ -524,7 +549,6 @@ class RuleWidget(QWidget):
             self.datatype = 'number'
         self.lineedit_switcher()
         self.lineedit_completer()
-
 
     def lineedit_switcher(self):
         """
@@ -592,7 +616,7 @@ class RuleWidget(QWidget):
                     # the user should know what unit to search in.
                     # Show units if it's numeric
                     # if "Age" in self.attribute_combo.currentText():
-                        # self.unit_combo.show()
+                    # self.unit_combo.show()
 
     def lineedit_completer(self) -> None:
         """
@@ -634,6 +658,7 @@ class GroupBox(QGroupBox):
     A GroupBox contains RuleWidgets that either need to Match all, any, or none. A GroupBox can contain other
     GroupBoxes.
     """
+
     def __init__(self, group=None, parent=None):
         super().__init__(parent)
         self.setSizePolicy(QSizePolicy.Policy.MinimumExpanding, QSizePolicy.Policy.MinimumExpanding)
@@ -681,7 +706,8 @@ class GroupBox(QGroupBox):
             self.group_operator_combo.setCurrentText(group['type'])
             # if there are conditions then add them with provided values
             for condition in group.get('conditions', []):
-                self.add_rule(condition['field'], condition['operator'], condition['value'], condition['unit'], condition['datatype'])
+                self.add_rule(condition['field'], condition['operator'], condition['value'], condition['unit'],
+                              condition['datatype'])
             for subgroup in group.get('subgroups', []):
                 self.add_group(subgroup)
         else:
@@ -801,9 +827,6 @@ class GroupBox(QGroupBox):
         :return: table names
         :rtype: list
         """
-        """
-        
-        """
         tables = []
         for ruleWidget in self.findChildren(RuleWidget):
             if ruleWidget.table_combo.currentText() not in tables:
@@ -816,6 +839,7 @@ class QueryBuilder(QWidget):
     Main Query Builder widget that allows the user to filter and display data. The query builder allows nested
     GroupBoxes to allow full customization. A single root GroupBox is created on initialization and build beneath.
     """
+
     def __init__(self, parent):
         super().__init__(parent)
 
@@ -1055,7 +1079,7 @@ class QueryBuilder(QWidget):
         logger_setup.get_logger().info('Gathered filtered ids successfully')
         return results if results else None
 
-    def get_sql(self, type:str) -> str:
+    def get_sql(self, type: str) -> str:
         """
         Generates a full SQL query based on the given main group box structuree of RuleWidgets and GroupBoxes
         :param type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
@@ -1141,7 +1165,6 @@ class QueryBuilder(QWidget):
         logger_setup.get_logger().debug(f'Filtered SQL command: {sql_query}')
         return sql_query
 
-
     def update_filter_list(self):
         """
         Updates the filter list widget by querying the database for filters and repopulating the listwidget.
@@ -1154,7 +1177,7 @@ class QueryBuilder(QWidget):
             while query.next():
                 item = QListWidgetItem()
                 item.setToolTip(query.value(4))  # description
-                item.setText(query.value(1))     # FilterGroupName
+                item.setText(query.value(1))  # FilterGroupName
                 self.listWidget.addItem(item)
         else:
             logger_setup.get_logger().info(f'Failed to get all filters from the database')

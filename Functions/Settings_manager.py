@@ -1,6 +1,10 @@
 from PyQt6.QtCore import QSettings
 
+
 class SettingsManager:
+    """
+    Singleton class to manage application settings.
+    """
     _instance = None
 
     def __new__(cls):
@@ -11,10 +15,6 @@ class SettingsManager:
 
     def __getattr__(self, name):
         return getattr(self.settings, name)
-
-    # def init_settings(self):
-    #     self.settings = QSettings()
-
 
 
 settings = SettingsManager()

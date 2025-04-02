@@ -1,22 +1,25 @@
 import os
 import sys
-from pathlib import Path
-import sqlite3
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
+
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
+from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 
+import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.LoadingDialog_manager import LoadingDialogManager
-import Functions.Text_manipulations as TxM
+from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column
-import Functions.Check_triggers as Ct
+
 
 class AddTags(QtW.QDialog):
+    """
+    A dialog for adding tags to a table in the database.
+    """
+
     def __init__(self, parent_window, table):
         super().__init__(parent=parent_window)
         self.loading_manager = LoadingDialogManager.get_instance()
@@ -59,9 +62,13 @@ class AddTags(QtW.QDialog):
         self.loading_manager.close_loading_dialog('Loading', f'Opening add window for {self.table}...')
 
     def display_tags(self):
+        """
+        Displays the tags in the table view.
+        :return:
+        """
         self.tags_tableView.setModel(self.filter_proxy_model)
         self.tags_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tags_tableView.hideColumn(0)
+        self.tags_tableView.hideColumn(0)  # Hide the ID column
         self.tags_tableView.resizeColumnsToContents()
         self.tags_tableView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
         query = QtS.QSqlQuery()
@@ -69,7 +76,8 @@ class AddTags(QtW.QDialog):
         # Get a list of the existing tag names
         query.prepare(f'SELECT {self.name_column} FROM {self.table}')
         if not query.exec():
-            logger_setup.get_logger().critical(f'Error selecting display column from {self.table}: {query.lastError().text()}')
+            logger_setup.get_logger().critical(
+                f'Error selecting display column from {self.table}: {query.lastError().text()}')
             return False
         while query.next():
             self.existing_names.append(query.value(0))
@@ -77,9 +85,17 @@ class AddTags(QtW.QDialog):
         self.newName_lineEdit.setCompleter(completer)
 
     def clear_warning(self):
+        """
+        Hide the warning label if it is visible. Warning label is used when a duplicate name is entered.
+        """
         self.warning_label.hide()
 
     def add_tag(self):
+        """
+        Adds the tag to the database. Since a savepoint is created before the dialog is opened, this function
+        is not commited to the database, ensures any errors are rolled back.
+        :return:
+        """
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         query = QtS.QSqlQuery()
@@ -97,7 +113,8 @@ class AddTags(QtW.QDialog):
                 for entry in self.existing_names:
                     if name.casefold() == entry.casefold():
                         duplicates.append(entry)
-                logger_setup.get_logger().critical(f'Each entry in {header} must be unique (case insensitive)\nDuplicates: {duplicates}')
+                logger_setup.get_logger().critical(
+                    f'Each entry in {header} must be unique (case insensitive)\nDuplicates: {duplicates}')
                 logger_setup.get_logger().debug(f'Error: {error}')
                 logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
             elif 'CHECK constraint failed:' in error:
@@ -121,6 +138,9 @@ class AddTags(QtW.QDialog):
         logger_setup.get_logger().info(f'Successfully inserted {name}, {description} into {self.table}')
 
     def discard_question(self):
+        """
+        Asks the user if they want to discard changes. If they do, the changes are rolled back.
+        """
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
         msg_box.setText('Are you sure you want to discard all changes?')
@@ -129,18 +149,21 @@ class AddTags(QtW.QDialog):
         response = msg_box.exec()
         if response == QtW.QMessageBox.StandardButton.Yes:
             self.rollback()
-        else:
-            pass
 
     def rollback(self):
+        """
+        Rolls back the changes to the database. Rejects the dialog and closes the the window.
+        """
         rollback_savepoint('before_add')
-        # self.model.revertAll()
         self.reject()
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
 
     def commit(self):
+        """
+        Commits the changes to the database. If there is an active savepoint, it is released.
+        """
         if self.newName_lineEdit.text():
             if not self.add_tag():
                 return False
@@ -156,6 +179,10 @@ class AddTags(QtW.QDialog):
         self.close_by_dialog = False
 
     def closeEvent(self, event: QtG.QCloseEvent):
+        """
+        Overridden close event to handle the case where the user tries to close the dialog
+        :param QCloseEvent event:
+        """
         if not self.close_by_dialog:
             if self.updated:
                 self.discard_question()

@@ -190,7 +190,7 @@ class DisplayTables(QtW.QWidget):
             self.current_page += 1
             self.display_table()
 
-    def previous_page(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
+    def previous_page(self):
         """
         Slot to move to the previous page for the displayed table
         """

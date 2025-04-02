@@ -6,16 +6,10 @@ import logger_setup
 
 def update_modified_timestamp(table: str, record_ids: list):
     """
-
+    Update the ModifiedTimestamp field for the given records.
     :param str table: table to be updated
     :param list record_ids: list of record ids to be updated
     :return:
-    """
-    """
-    Update the ModifiedTimestamp field for the given records
-    @param table: table to be updated
-    @param record_ids: list of record ids to be updated
-    @return: None if successful, error message if not
     """
     # Get the header for the first column, the ID column
     table_model = QtS.QSqlTableModel()

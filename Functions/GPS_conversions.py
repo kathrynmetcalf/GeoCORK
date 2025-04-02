@@ -1,8 +1,18 @@
 import math
-import pyproj
-from PyQt6 import QtSql as QtS
 
-def convert_dd_to_ddm(ddlat: list, ddlon: list):
+import pyproj
+
+import SQLUtils
+
+
+def convert_dd_to_ddm(ddlat: list[float], ddlon: list[float]):
+    """
+    Convert decimal degrees (DD) to degrees, decimal minutes (DDM)
+    :param list dmslat: list of values in [decimal_degrees]
+    :param list dmslon: list of values in [decimal_degrees]
+    :return: List of latitude and longitude values in the order [degrees, decimal_minutes] or "Invalid input"
+    """
+    # todo: change to raise errors rather than returning strings
     if len(ddlat) != 1 or len(ddlon) != 1:
         return "Invalid input"
     if ddlat[0] == '':
@@ -19,7 +29,15 @@ def convert_dd_to_ddm(ddlat: list, ddlon: list):
         lon_min = (abs(ddlon[0]) - abs(lon_deg)) * 60
     return [lat_deg, lat_min], [lon_deg, lon_min]
 
+
 def convert_ddm_to_dd(ddmlat: list, ddmlon: list):
+    """
+    Convert degrees, decimal minutes (DDM) to decimal degrees (DD)
+    :param list dmslat: list of values in [degrees, decimal_minutes]
+    :param list dmslon: list of values in [degrees, decimal_minutes]
+    :return: List of latitude and longitude values in the order [decimal_degrees] or "Invalid input"
+    """
+    # todo: change to raise errors rather than returning strings
     if len(ddmlat) != 2 or len(ddmlon) != 2:
         return "Invalid input"
     if ddmlat[0] == '':
@@ -40,7 +58,15 @@ def convert_ddm_to_dd(ddmlat: list, ddmlon: list):
         lon_deg = ddmlon[0] - ddmlon[1] / 60
     return [lat_deg], [lon_deg]
 
-def convert_dd_to_dms(ddlat: list, ddlon: list):
+
+def convert_dd_to_dms(ddlat: list[float], ddlon: list[float]):
+    """
+    Convert decimal degrees (DD) to degrees, minutes, seconds (DMS)
+    :param list dmslat: list of values in [decimal_degrees]
+    :param list dmslon: list of values in [decimal_degrees]
+    :return: List of latitude and longitude values in the order [degrees, minutes, seconds] or "Invalid input"
+    """
+    # todo: change to raise errors rather than returning strings
     if len(ddlat) != 1 or len(ddlon) != 1:
         return "Invalid input"
     if ddlat[0] == '':
@@ -63,7 +89,15 @@ def convert_dd_to_dms(ddlat: list, ddlon: list):
         lon_sec = (lon_dm - lon_min) * 60
     return [lat_deg, lat_min, lat_sec], [lon_deg, lon_min, lon_sec]
 
+
 def convert_dms_to_dd(dmslat: list, dmslon: list):
+    """
+    Convert degrees, minutes, seconds (DMS) to decimal degrees (DD)
+    :param list dmslat: list of values in [degrees, minutes, seconds]
+    :param list dmslon: list of values in [degrees, minutes, seconds]
+    :return: List of latitude and longitude values in the order [decimal degrees] or "Invalid input"
+    """
+    # todo: change to raise errors rather than returning strings
     if len(dmslat) != 3 or len(dmslon) != 3:
         return "Invalid input"
     if dmslat[0] == '':
@@ -96,13 +130,15 @@ def convert_dms_to_dd(dmslat: list, dmslon: list):
             lon_deg = dmslon[0] - dmslon[1] / 60 - dmslon[2] / 3600
     return [lat_deg], [lon_deg]
 
-def convert_ddm_to_dms(ddmlat: list, ddmlon: list):
+
+def convert_ddm_to_dms(ddmlat: list[float, float], ddmlon: list[float, float, float]):
     """
     Convert degrees, decimal minutes (DDM) to degrees, minutes, seconds (DMS)
-    @param ddmlat: [degrees, decimal_minutes]
-    @param ddmlon: [degrees, decimal_minutes]
-    @return: List of latitude and longitude values in the order [degrees, minutes, seconds] or "Invalid input"
+    :param list ddmlat: list of values in [degrees, decimal_minutes]
+    :param list ddmlon: list of values in [degrees, decimal_minutes]
+    :return: List of latitude and longitude values in the order [degrees, minutes, seconds] or "Invalid input"
     """
+    # todo: change to raise errors rather than returning strings
     if len(ddmlat) != 2 or len(ddmlon) != 2:
         return "Invalid input"
     if ddmlat[0] == '':
@@ -131,13 +167,15 @@ def convert_ddm_to_dms(ddmlat: list, ddmlon: list):
             lon_sec = (ddmlon[1] - lon_min) * 60
     return [lat_deg, lat_min, lat_sec], [lon_deg, lon_min, lon_sec]
 
-def convert_dms_to_ddm(dmslat: list, dmslon: list):
+
+def convert_dms_to_ddm(dmslat: list[float, float, float], dmslon: list[float, float]):
     """
     Convert degrees, minutes, seconds (DMS) to degrees, decimal minutes (DDM)
-    @param dmslat: [degrees, minutes, seconds]
-    @param dmslon: [degrees, minutes, seconds]
-    @return: List of latitude and longitude values in the order [degrees, decimal_minutes] or "Invalid input"
+    :param dmslat: list of values in [degrees, minutes, seconds]
+    :param dmslon: list of values in [degrees, minutes, seconds]
+    :return: List of latitude and longitude values in the order [degrees, decimal_minutes] or "Invalid input"
     """
+    # todo: change to raise errors rather than returning strings
     if len(dmslat) != 3 or len(dmslon) != 3:
         return "Invalid input"
     if dmslat[0] == '':
@@ -166,13 +204,15 @@ def convert_dms_to_ddm(dmslat: list, dmslon: list):
                 lon_min = dmslon[1] + dmslon[2] / 60
     return [lat_deg, lat_min], [lon_deg, lon_min]
 
-def convert_sign_to_direction(lat: list, lon: list):
+
+def convert_sign_to_direction(lat: list[float, float, float], lon: list[float, float, float]):
     """
     Convert DD, DDM, or DMS values with a sign to the same format with a direction
-    @param lat: list of latitude values in the order [degrees, minutes, seconds]
-    @param lon: list of longitude values in the order [degrees, minutes, seconds]
-    @return: list each of latitude and longitude values in the order [degrees, minutes, seconds, direction_abbreviation] or "Invalid input"
+    :param lat: list of latitude values in the order [degrees, minutes, seconds]
+    :param lon: list of longitude values in the order [degrees, minutes, seconds]
+    :return: list each of latitude and longitude values in the order [degrees, minutes, seconds, direction_abbreviation] or "Invalid input"
     """
+    # todo: change to raise errors rather than returning strings
     if lat[0] == '':
         lat_deg = ''
         lat_dir = ''
@@ -195,13 +235,14 @@ def convert_sign_to_direction(lat: list, lon: list):
         return "Invalid input"
 
 
-def convert_direction_to_sign(lat: list, lon: list):
+def convert_direction_to_sign(lat: list[float, float, float], lon: list[float, float, float]):
     """
     Convert DD, DDM, or DMS values with direction to the same format with a sign
-    @param lat: list of latitude values in the order [degrees, minutes, seconds, direction_unit_id], skip any values not present
-    @param lon: list of longitude values in the order [degrees, minutes, seconds, direction_unit_id], skip any values not present
-    @return: list each of latitude and longitude values in the order [degrees, minutes, seconds] as appropriate or "Invalid input"
+    :param lat: list of latitude values in the order [degrees, minutes, seconds, direction_unit_id], skip any values not present
+    :param lon: list of longitude values in the order [degrees, minutes, seconds, direction_unit_id], skip any values not present
+    :return: list each of latitude and longitude values in the order [degrees, minutes, seconds] as appropriate or "Invalid input"
     """
+    # todo: change to raise errors rather than returning strings
     if len(lat) == 2:
         direction_index = 1
     elif len(lat) == 3:
@@ -227,27 +268,32 @@ def convert_direction_to_sign(lat: list, lon: list):
     elif len(lat) == 4:
         return [lat_deg, lat[1], lat[2]], [lon_deg, lon[1], lon[2]]
 
-def convert_direction_id_to_abbreviation(direction_id: str):
-    """
-    Convert direction unit ID to abbreviation
-    @param direction_id: DirectionUnitID as string
-    @return: DirectionUnitAbbreviation as string or None
-    """
-    direction_model = QtS.QSqlTableModel()
-    direction_model.setTable('DirectionUnits')
-    direction_model.select()
-    direction_model.setFilter(f'DirectionUnitID = "{direction_id}"')
-    if direction_model.rowCount() == 0:
-        return None
-    return direction_model.record(0).value('DirectionUnitAbbreviation')
 
-def convert_dd_to_utm(ddlat: list, ddlon: list):
+def convert_direction_id_to_abbreviation(direction_id: str) -> str:
+    """
+    Converts a DirectionUnitID to abbreviation
+    :param str direction_id: DirectionUnitID from DirectionUnits table as string
+    :return:
+    """
+    # direction_model = QtS.QSqlTableModel()
+    # direction_model.setTable('DirectionUnits')
+    # direction_model.select()
+    # direction_model.setFilter(f'DirectionUnitID = "{direction_id}"')
+    # if direction_model.rowCount() == 0:
+    #     return None
+    # Converted to static SQLUtils for less overhead
+    return SQLUtils.direction_units[int(direction_id) - 1][1]
+
+
+def convert_dd_to_utm(ddlat: list[float], ddlon: list[float]):
     """
     Convert latitude and longitude in decimal degrees to UTM coordinates using WGS84 datum
-    @param ddlat: latitude in decimal degrees as real number
-    @param ddlon: longitude in decimal degrees as real number
-    @return: UTMN, UTME, zone with N or S, or "Invalid input"
+    :param list ddlat: list of values in [decimal_degrees]
+    :param list ddlon: list of values in [decimal_degrees]
+    :return: UTMN, UTME, zone with N or S
     """
+    # todo: change to raise errors rather than returning strings
+    # todo: add functionality to handle different datums, rather than just WGS84
     if len(ddlat) != 1 or len(ddlon) != 1:
         return "Invalid input"
     lat_deg = ddlat[0]
@@ -260,7 +306,7 @@ def convert_dd_to_utm(ddlat: list, ddlon: list):
     if lon_deg < -180 or lon_deg >= 180:
         return f"Invalid longitude: {lon_deg}"
     if lat_deg < 56 or lat_deg >= -80:
-        zone = math.floor((ddlon[0] + 180)/6) + 1
+        zone = math.floor((ddlon[0] + 180) / 6) + 1
     elif 72 <= lat_deg < 84:
         if 0 <= lon_deg < 9:
             zone = 31
@@ -285,14 +331,18 @@ def convert_dd_to_utm(ddlat: list, ddlon: list):
     UTME, UTMN = proj_utm(lon_deg, lat_deg)
     return UTMN, UTME, zone_txt
 
-def convert_utm_to_dd(zone_txt, UTME, UTMN):
+
+def convert_utm_to_dd(zone_txt: str, UTME: float, UTMN: float):
     """
     Convert UTM coordinates to latitude and longitude in decimal degrees using WGS84 datum
-    @param zone_txt: UTM zone as string with N or S to indicate hemisphere, e.g. "10N", assumes N if no direction given
-    @param UTME: UTM easting as real number
-    @param UTMN: UTM northing as real number
-    @return: decimal degree latitude and longitude as real numbers or "Invalid input"
+    :param str zone_txt: UTM zone as string with N or S to indicate hemisphere, e.g. "10N", assumes N if no direction given
+    :param float UTME: UTM easting as real number
+    :param float UTMN: UTM northing as real number
+    :return: list of values in [decimal_degrees]
+    :rtype: list
     """
+    # todo: change to raise errors rather than returning strings
+    # todo: add functionality to handle different datums, rather than just WGS84
     # remove any spaces in the zone text
     zone_txt = zone_txt.replace(" ", "")
     if zone_txt == '' or UTME == '' or UTMN == '':

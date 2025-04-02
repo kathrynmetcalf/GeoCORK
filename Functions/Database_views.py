@@ -1,12 +1,10 @@
-import sqlite3
+import time
 
 from PyQt6 import QtSql as QtS
-from PyQt6 import QtCore as QtC
-from PyQt6 import QtWidgets as QtW
+
 import Functions.SQLUtils as SQLUtils
 import logger_setup
-from Functions.Widget_classes import set_table, get_headers
-import time
+from Functions.Widget_classes import get_headers
 
 
 def SampleViewQuery():
@@ -89,6 +87,7 @@ def SampleViewQuery():
 
     # print(sample_query)
     return sample_query
+
 
 def SampleEditViewQuery():
     # Select columns
@@ -183,7 +182,6 @@ def SampleEditViewQuery():
 
 
 def AliquotViewQuery():
-
     aliquot_query = f'''
                 {SQLUtils.qupb_count_aliquot_subquery}
                 SELECT
@@ -232,8 +230,8 @@ def AliquotViewQuery():
 
     return aliquot_query
 
-def AliquotEditViewQuery():
 
+def AliquotEditViewQuery():
     aliquot_query = f'''
                 SELECT
                     {SQLUtils.qaliquot_id},
@@ -253,8 +251,8 @@ def AliquotEditViewQuery():
 
     return aliquot_query
 
-def SpotViewQuery():
 
+def SpotViewQuery():
     spot_query = f'''
                 SELECT
                     {SQLUtils.qspot_id},
@@ -298,8 +296,8 @@ def SpotViewQuery():
 
     return spot_query
 
-def SpotEditViewQuery():
 
+def SpotEditViewQuery():
     spot_query = f'''
                 SELECT
                     {SQLUtils.qspot_id},
@@ -321,6 +319,7 @@ def SpotEditViewQuery():
                 '''
 
     return spot_query
+
 
 def UPbViewQuery():
     headers = get_headers('UPbAnalyses')
@@ -375,6 +374,7 @@ def UPbViewQuery():
                 GROUP BY UPbAnalyses.UPbAnalysisID
                 '''
     return upb_query
+
 
 def UPbEditViewQuery():
     headers = get_headers('UPbAnalyses')
@@ -433,6 +433,7 @@ def UPbEditViewQuery():
                 '''
     return upb_query
 
+
 def ColumnViewQuery():
     # Select columns
 
@@ -451,6 +452,7 @@ def ColumnViewQuery():
                 GROUP BY Columns.ColumnID
                 '''
     return column_query
+
 
 def ColumnEditViewQuery():
     # Select columns
@@ -478,6 +480,7 @@ def ColumnEditViewQuery():
     # print(column_query)
     return column_query
 
+
 def ReferenceViewQuery():
     # Select columns
 
@@ -498,6 +501,7 @@ def ReferenceViewQuery():
     # print(reference_query)
     return reference_query
 
+
 def create_sample_view():
     sample_query = SampleViewQuery()
     query = QtS.QSqlQuery()
@@ -512,6 +516,7 @@ def create_sample_view():
         return False
     logger_setup.get_logger().info(f'Successfully created SampleView')
 
+
 def create_sample_edit_view():
     sample_query = SampleEditViewQuery()
     query = QtS.QSqlQuery()
@@ -524,6 +529,7 @@ def create_sample_edit_view():
         logger_setup.get_logger().debug(f'SQL command: {sample_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleEditView')
+
 
 def create_aliquot_view():
     aliquot_query = AliquotViewQuery()
@@ -538,6 +544,7 @@ def create_aliquot_view():
         return False
     logger_setup.get_logger().info(f'Successfully created AliquotView')
 
+
 def create_aliquot_edit_view():
     aliquot_query = AliquotEditViewQuery()
     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotEditView AS {aliquot_query}'
@@ -550,6 +557,7 @@ def create_aliquot_edit_view():
         logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created AliquotEditView')
+
 
 def create_spot_view():
     spot_query = SpotViewQuery()
@@ -564,6 +572,7 @@ def create_spot_view():
         return False
     logger_setup.get_logger().info(f'Successfully created SpotView')
 
+
 def create_spot_edit_view():
     spot_query = SpotEditViewQuery()
     spot_view = f'CREATE VIEW IF NOT EXISTS SpotEditView AS {spot_query}'
@@ -576,6 +585,7 @@ def create_spot_edit_view():
         logger_setup.get_logger().debug(f'SQL command: {spot_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SpotEditView')
+
 
 def create_upb_view():
     upb_query = UPbViewQuery()
@@ -590,6 +600,7 @@ def create_upb_view():
         return False
     logger_setup.get_logger().info(f'Successfully created UPbView')
 
+
 def create_upb_edit_view():
     upb_query = UPbEditViewQuery()
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbEditView AS {upb_query}'
@@ -602,6 +613,7 @@ def create_upb_edit_view():
         logger_setup.get_logger().debug(f'SQL command: {upb_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created UPbEditView')
+
 
 def create_column_view():
     column_query = ColumnViewQuery()
@@ -616,6 +628,7 @@ def create_column_view():
         return False
     logger_setup.get_logger().info(f'Successfully created ColumnView')
 
+
 def create_column_edit_view():
     column_query = ColumnEditViewQuery()
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnEditView AS {column_query}'
@@ -629,6 +642,7 @@ def create_column_edit_view():
         return False
     logger_setup.get_logger().info(f'Successfully created ColumnEditView')
 
+
 def create_reference_view():
     reference_query = ReferenceViewQuery()
     reference_view = f'CREATE VIEW IF NOT EXISTS ReferenceView AS {reference_query}'
@@ -641,6 +655,7 @@ def create_reference_view():
         logger_setup.get_logger().debug(f'SQL command: {reference_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created ReferenceView')
+
 
 def create_all_views():
     start_time = time.time()
@@ -659,6 +674,7 @@ def create_all_views():
     end_time = time.time()
     logger_setup.get_logger().info(f'All views created in {end_time - start_time} seconds')
 
+
 def drop_view(view: str):
     query = QtS.QSqlQuery()
     sql = f'DROP VIEW IF EXISTS {view}'
@@ -670,6 +686,7 @@ def drop_view(view: str):
         logger_setup.get_logger().debug(f'SQL command: {sql}')
         return False
     logger_setup.get_logger().info(f'Successfully dropped view: {view}')
+
 
 def drop_all_views():
     start_time = time.time()

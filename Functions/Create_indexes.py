@@ -187,8 +187,6 @@ CREATE_UPBANALYSIS_METHOD_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_UPbAnalysisMethods_UPbAnalysisMethodID ON UPbAnalysisMethods(UPbAnalysisMethodID)'''
 
 
-
-
 def create_indexes() -> bool:
     """
     Connect to the database and execute the sql strings defined above to create the database tables
@@ -355,12 +353,14 @@ def create_indexes() -> bool:
         return False
 
     if not query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeConstraints index: {query.lastError().text()}')
+        logger_setup.get_logger().critical(
+            f'Error creating SampleAges_AgeConstraints index: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLEAGES_AGECONSTRAINTS_INDEX}')
         return False
 
     if not query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeInterpretations index: {query.lastError().text()}')
+        logger_setup.get_logger().critical(
+            f'Error creating SampleAges_AgeInterpretations index: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLEAGES_AGEINTERPRETATIONS_INDEX}')
         return False
 
@@ -383,7 +383,6 @@ def create_indexes() -> bool:
         logger_setup.get_logger().critical(f'Error creating Units index: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {CREATE_UNITS_INDEX}')
         return False
-
 
     # Create sample item and analysis indexes
     if not query.exec(CREATE_SAMPLES_INDEX):
@@ -447,7 +446,6 @@ def create_indexes() -> bool:
         logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_UNITS_INDEX}')
         return False
 
-
     # Create many-to-many aliquot tables
     if not query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX):
         logger_setup.get_logger().critical(f'Error creating Aliquots_AliquotContexts index: {query.lastError().text()}')
@@ -462,7 +460,8 @@ def create_indexes() -> bool:
 
     # Create many-to-many analysis tables
     if not query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_RejectionReasons index: {query.lastError().text()}')
+        logger_setup.get_logger().critical(
+            f'Error creating UPbAnalyses_RejectionReasons index: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_REJECTIONREASONS_INDEX}')
         return False
 
@@ -503,7 +502,8 @@ def create_indexes() -> bool:
         return False
 
     if not query.exec(CREATE_UPBANALYSES_LABFACILITY_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_LabFacilities index: {query.lastError().text()}')
+        logger_setup.get_logger().critical(
+            f'Error creating UPbAnalyses_LabFacilities index: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_LABFACILITY_INDEX}')
         return False
 
@@ -513,14 +513,15 @@ def create_indexes() -> bool:
         return False
 
     if not query.exec(CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_UPbAnalysisMethodsindex: {query.lastError().text()}')
+        logger_setup.get_logger().critical(
+            f'Error creating UPbAnalyses_UPbAnalysisMethodsindex: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX}')
         return False
-
 
     end_time = time.time()
     logger_setup.get_logger().info(f'Database indexes created in {end_time - start_time} seconds')
     return True
+
 
 def drop_all_indexes() -> bool:
     """

@@ -7,7 +7,6 @@ import logger_setup
 
 
 class BackupThread(QThread):
-
     def __init__(self, source_db, backup_db):
         super().__init__()
         self.source_db = source_db
@@ -21,7 +20,6 @@ class BackupThread(QThread):
         logger_setup.get_logger().info('Beginning Backup Thread')
 
         def progress(status, remaining, total):
-
             # Calculate progress percentage
             percent = 100 - int((remaining / total) * 100)
             if percent != self.last_percent:
@@ -34,6 +32,7 @@ class BackupThread(QThread):
         backup.close()
         src.close()
         self.backup_finished.emit()
+
 
 class RestoreThread(QThread):
     progress_updated = pyqtSignal(int)

@@ -1,9 +1,9 @@
-import PyQt6
 from PyQt6 import QtSql as QtS
 from PyQt6.QtSql import QSqlDatabase
 
 import Functions.Create_database as Create_db
-from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+
 
 def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
     # create a temporary database with Create_database, then compare its schema with the loaded file
@@ -43,7 +43,7 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
         ratio_error_format_id = 1  # 1-sigma absolute
         age_error_format_id = 1  # 1-sigma absolute
         concordance_format_id = 2  # Con%
-        spot_size_unit_id = 5 # µm
+        spot_size_unit_id = 5  # µm
         tables_to_convert = []
         create_savepoint('before_convert_schema')
         query = QtS.QSqlQuery()
@@ -228,7 +228,8 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
                         rollback_savepoint('before_convert_schema')
                         return
                 elif key == 'Aliquots':
-                    if not query.exec(f'INSERT INTO {key} (AliquotID, AliquotName, SampleID, AliquotCreated, AliquotModified) SELECT AliquotID, AliquotName, SampleID, AliquotCreated, AliquotModified FROM {key}_old'):
+                    if not query.exec(
+                            f'INSERT INTO {key} (AliquotID, AliquotName, SampleID, AliquotCreated, AliquotModified) SELECT AliquotID, AliquotName, SampleID, AliquotCreated, AliquotModified FROM {key}_old'):
                         print(f'Failed to copy data to {key}: {query.lastError().text()}')
                         rollback_savepoint('before_convert_schema')
                         return
@@ -236,7 +237,8 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
                         rollback_savepoint('before_convert_schema')
                         return
                 elif key == 'Spots':
-                    if not query.exec(f'INSERT INTO {key} (SpotID, SpotName, AliquotID, SpotCompositionID, SpotCreated, SpotModified) SELECT SpotID, SpotName, AliquotID, SpotCompositionID, SpotCreated, SpotModified FROM {key}_old'):
+                    if not query.exec(
+                            f'INSERT INTO {key} (SpotID, SpotName, AliquotID, SpotCompositionID, SpotCreated, SpotModified) SELECT SpotID, SpotName, AliquotID, SpotCompositionID, SpotCreated, SpotModified FROM {key}_old'):
                         print(f'Failed to copy data to {key}: {query.lastError().text()}')
                         rollback_savepoint('before_convert_schema')
                         return
@@ -266,7 +268,8 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
                         other_id = table_model.record(row).value(f'{other_table[:-1]}ID')
                         created = table_model.record(row).value(f'{key}Created')
                         modified = table_model.record(row).value(f'{key}Modified')
-                        if not query.exec(f'''INSERT INTO {key} ({item_table[:-1]}ID, {other_table[:-1]}ID, {key}Created, {key}Modified) 
+                        if not query.exec(
+                                f'''INSERT INTO {key} ({item_table[:-1]}ID, {other_table[:-1]}ID, {key}Created, {key}Modified) 
                                             VALUES ({item_id}, {other_id}, "{created}", "{modified}")'''):
                             if "UNIQUE constraint failed" not in query.lastError().text():
                                 print(f'Failed to copy data to {key}: {query.lastError().text()}')
@@ -323,12 +326,14 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
                     return
                 for row in range(table_model.rowCount()):
                     if table_model.record(row).value('Accepted') == 1:
-                        if not query.exec(f'UPDATE UPbAnalyses SET Rejected = 0 WHERE UPbAnalysisID = {table_model.record(row).value("UPbAnalysisID")}'):
+                        if not query.exec(
+                                f'UPDATE UPbAnalyses SET Rejected = 0 WHERE UPbAnalysisID = {table_model.record(row).value("UPbAnalysisID")}'):
                             print(f'Failed to update UPbAnalyses: {query.lastError().text()}')
                             rollback_savepoint('before_convert_schema')
                             return
                     elif table_model.record(row).value('Accepted') == 0:
-                        if not query.exec(f'UPDATE UPbAnalyses SET Rejected = 1 WHERE UPbAnalysisID = {table_model.record(row).value("UPbAnalysisID")}'):
+                        if not query.exec(
+                                f'UPDATE UPbAnalyses SET Rejected = 1 WHERE UPbAnalysisID = {table_model.record(row).value("UPbAnalysisID")}'):
                             print(f'Failed to update UPbAnalyses: {query.lastError().text()}')
                             rollback_savepoint('before_convert_schema')
                             return
@@ -356,6 +361,7 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
         release_savepoint('before_convert_schema')
         return database
 
+
 def get_database_schema(db: QtS.QSqlDatabase):
     db_query = QtS.QSqlQuery(db)
     db_query.prepare('SELECT * FROM sqlite_master')
@@ -371,6 +377,7 @@ def get_database_schema(db: QtS.QSqlDatabase):
         sql = db_query.value(4)
         schema[name] = {'type': type, 'tbl_name': tbl_name, 'sql': sql}
     return schema
+
 
 def compare_schemas(input_schema, current_schema):
     """
@@ -393,6 +400,7 @@ def compare_schemas(input_schema, current_schema):
         if key not in input_schema:
             differences['only_in_current_schema'].append(key)
     return differences
+
 
 def drop_table(table_name: str, database: QSqlDatabase = QSqlDatabase()) -> bool:
     """

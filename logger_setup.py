@@ -23,7 +23,6 @@ formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
 _logger = None
 _queue_listener = None
 
-# For convenience, define a constant for your logger’s name
 class CustomLogger(logging.getLoggerClass()):
     """Custom logger that captures critical errors and shows a PyQt6 message box."""
     # todo: add an optional parent argument to the critical and error methods for the message box
@@ -61,21 +60,21 @@ def setup_async_logger():
     log_dir = os.path.dirname(LOG_FILE)
     if log_dir and not os.path.exists(log_dir):
         os.makedirs(log_dir, exist_ok=True)
-    # If already set up, do nothing
+
     if _logger is not None:
         return
 
-    # 1) Load the preferred log level from QSettings (default=INFO)
+    # Load the preferred log level from QSettings (default=INFO)
     settings.setValue("debug_level", "DEBUG")
     saved_level_str = settings.value("debug_level", "DEBUG")
     numeric_level = getattr(logging, saved_level_str.upper(), logging.DEBUG)
 
-    # 2) Create the global logger
+    # Create the global logger
     logging.setLoggerClass(CustomLogger)
     _logger = logging.getLogger(LOGGER_NAME)
     _logger.setLevel(numeric_level)
 
-    # 3) Create the queue and attach a QueueHandler
+    # Create the queue and attach a QueueHandler
     log_queue = Queue()
     queue_handler = logging.handlers.QueueHandler(log_queue)
     queue_handler.setLevel(numeric_level)
@@ -86,17 +85,17 @@ def setup_async_logger():
         "[%(asctime)s] [%(levelname)s] [%(filename)s:%(funcName)s: line %(lineno)d]: %(message)s"
     )
 
-    # 4) Create a console handler
+    # Create a console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(numeric_level)
     console_handler.setFormatter(formatter)
 
-    # 5) Create a file handler to save logs to a file
+    # Create a file handler to save logs to a file
     file_handler = logging.FileHandler(LOG_FILE, mode="a", encoding="utf-8")
     file_handler.setLevel(numeric_level)
     file_handler.setFormatter(formatter)
 
-    # 6) Create and start a QueueListener in the background with both handlers
+    # Create and start a QueueListener in the background with both handlers
     _queue_listener = logging.handlers.QueueListener(log_queue, console_handler, file_handler)
     _queue_listener.start()
 

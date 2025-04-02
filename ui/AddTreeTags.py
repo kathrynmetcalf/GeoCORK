@@ -1,25 +1,29 @@
 import os
 import sys
-from pathlib import Path
-import sqlite3
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
+
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
+from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.uic import loadUi
 
+import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state, restore_expanded_state,
+from Functions.Settings_manager import settings
+from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
+                                      restore_expanded_state,
                                       get_headers, get_name_column, description_column, set_table
                                       )
-import Functions.Text_manipulations as TxM
-from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
+
 
 class AddTreeTags(QtW.QDialog):
+    """
+    A dialog for adding tags to a tree table in the database.
+    """
+
     # def __init__(self, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
     def __init__(self, parent_window, table: str, **kwargs):
         super().__init__(parent_window)
@@ -63,7 +67,7 @@ class AddTreeTags(QtW.QDialog):
         self.existing_names = []
 
         self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        self.tree_proxy_model.setFilterKeyColumn(0)   # search first column only, look for distinct names
+        self.tree_proxy_model.setFilterKeyColumn(0)  # search first column only, look for distinct names
         # self.newName_lineEdit.textChanged.connect(self.search)
 
         self.close_by_dialog = False
@@ -83,9 +87,10 @@ class AddTreeTags(QtW.QDialog):
             query = QtS.QSqlQuery()
             if self.parent_id:
                 query.prepare(
-                f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parent_id}')
+                    f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.parent_id}')
                 if not query.exec():
-                    logger_setup.get_logger().error(f'Error selecting {self.id_header} {self.parent_id}: {query.lastError().text()}')
+                    logger_setup.get_logger().error(
+                        f'Error selecting {self.id_header} {self.parent_id}: {query.lastError().text()}')
                     return
                 query.next()
                 parent_name = query.value(3)
@@ -93,9 +98,10 @@ class AddTreeTags(QtW.QDialog):
                 parent_name = 'top level'
             if self.item_id:
                 query.prepare(
-                f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.item_id}')
+                    f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.item_id}')
                 if not query.exec():
-                    logger_setup.get_logger().error(f'Error selecting {self.id_header} {self.item_id}: {query.lastError().text()}')
+                    logger_setup.get_logger().error(
+                        f'Error selecting {self.id_header} {self.item_id}: {query.lastError().text()}')
                     return
                 query.next()
                 item_name = query.value(3)
@@ -110,6 +116,9 @@ class AddTreeTags(QtW.QDialog):
             self.adding_label.setText('Adding new parent item')
 
     def display_tags(self):
+        """
+        Displays the tags in the tree view.
+        """
         self.tags_treeView.setModel(self.tree_model)
         self.tags_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.tags_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -137,7 +146,12 @@ class AddTreeTags(QtW.QDialog):
 
         restore_expanded_state(self.table, self.tree_model, self.tags_treeView)
 
-    def show_context_menu(self, pos):
+    def show_context_menu(self, pos: QtC.QPoint):
+        """
+        Shows the context menu for the tree view. Allows the user to expand or collapse the tree.
+        :param pos:
+        :return:
+        """
         menu = TreeContextMenu()
         # Only allow expanding and collapsing, no delete, add, or edit
         menu.set_view(self.tags_treeView, False, False, False)
@@ -146,6 +160,9 @@ class AddTreeTags(QtW.QDialog):
             expand_collapse(self.tags_treeView, action)
 
     def clear_warning(self):
+        """
+        Hide the warning label if it is visible. Warning label is used when a duplicate name is entered.
+        """
         self.warning_label.hide()
 
     def search(self):
@@ -167,12 +184,13 @@ class AddTreeTags(QtW.QDialog):
             if not self.tree_model.insertItem(name, description, self.parent_id, self.parent_row):
                 return False
             logger_setup.get_logger().info(f'Added {name} to {self.parent_id} in {self.table}')
-        if self.add_item == 'parent': # Need to update the parent of all new child ids to the newly-added item
+        if self.add_item == 'parent':  # Need to update the parent of all new child ids to the newly-added item
             query = QtS.QSqlQuery()
             query.prepare(
                 f'SELECT * FROM {self.table} WHERE {self.item_name_header} = "{name}"')
             if not query.exec():
-                logger_setup.get_logger().error(f'Error selecting {self.item_name_header} {name}: {query.lastError().text()}')
+                logger_setup.get_logger().error(
+                    f'Error selecting {self.item_name_header} {name}: {query.lastError().text()}')
                 return
             query.next()
             new_parent_id = query.value(0)
@@ -251,4 +269,3 @@ class AddTreeTags(QtW.QDialog):
         else:
             logger_setup.get_logger().info(f'Closing {self.table} add dialog')
             event.accept()
-
