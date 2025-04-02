@@ -2725,6 +2725,36 @@ class CompleterInputDialog(QtW.QDialog):
     def get_input(self):
         return self.line_edit.text()
 
+class ReorderListView(QtW.QListView):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
+        self.setDragDropMode(QtW.QListView.DragDropMode.DragDrop)
+        self.setDragEnabled(True)
+
+    def startDrag(self, action):
+        index = self.currentIndex()
+        # The permanent header will always be at the top, so this works even with multiple selection.
+        if index.isValid():
+            # Do not move the permanent header
+            if index.data().replace(' ','') == self.model().sourceModel().permanent_header:
+                return 
+            super().startDrag(action)
+
+    def dropEvent(self, event):
+        index = self.indexAt(event.pos())
+        if index.isValid():
+            if index.row() == 0 and self.model().sourceModel().permanent_header != '':
+                # Trying to drop before the permanent header
+                event.ignore()
+            elif self.dropIndicatorPosition() == self.dropIndicatorPosition().OnItem:
+                # Not valid or trying to drop on an item
+                event.ignore()
+            else:
+                # Dropping between items
+                super().dropEvent(event)
+
+
 class ColumnListProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self, parent=None):
         super().__init__(parent)

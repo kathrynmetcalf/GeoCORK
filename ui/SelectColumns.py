@@ -3,7 +3,7 @@ import sys
 from collections import Counter
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QModelIndex
+from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QModelIndex, Qt
 from PyQt6.QtGui import QDesktopServices, QStandardItemModel, QStandardItem
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -19,7 +19,7 @@ from Functions.SQLUtils import views
 from Functions.Settings_manager import settings
 from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import SQLUtils
-from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column, get_headers
+from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column, ReorderListView, get_headers
 
 class SelectColumns(QWidget):
     def __init__(self, parent=None):
@@ -49,11 +49,8 @@ class SelectColumns(QWidget):
         for view_name in self.view_dict:
 
             # Create a QListView for each table
-            column_list_view = QListView()
-            column_list_view.setSelectionMode(QListView.SelectionMode.MultiSelection)
-            column_list_view.setDragDropMode(QListView.DragDropMode.InternalMove)
-            column_list_view.setDefaultDropAction(QtCore.Qt.DropAction.MoveAction)
-            column_list_view.setDragEnabled(True)
+            column_list_view = ReorderListView()
+            column_list_view.setSelectionMode(QListView.SelectionMode.ExtendedSelection)
 
             # Create a QStandardItemModel to hold the column names and populate the checks and order from the settings
             # Apply a proxy model to make them readable
