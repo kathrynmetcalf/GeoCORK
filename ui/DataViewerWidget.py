@@ -84,9 +84,10 @@ class DataViewerWidget(QWidget):
 
         self.dbTable_comboBox.currentTextChanged.connect(lambda: self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
                                   self.dbTable_comboBox, self.edit_pushButton))
-        # todo the showing records and next/previous pages are broken and not updating
+
 
         # Display filtered table for the first time
+        # todo the showing records and next/previous pages are broken and not updating for filtered sample view, right table
         self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_sample_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
             self.edit_pushButton_2, self.dbTable_tableView, self.table_type))

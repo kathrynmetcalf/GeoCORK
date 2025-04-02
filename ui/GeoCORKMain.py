@@ -124,7 +124,8 @@ class GeoCORK(QtW.QMainWindow):
         self.tabWidget.addTab(Filters(self), 'Filters')
         self.tabWidget.addTab(ExportWidget(self), 'Export')
 
-        # todo: figure out how to add a divider between the permanent tabs and the user-added tabs
+        # todo: figure out how to add a divider between the permanent tabs and the user-added tabs, rather than
+        #  always moving the permanent tabs to the left upon changes
         self.tabWidget.setCurrentIndex(0)
         self.tabWidget.tabCloseRequested.connect(self.close_tab)
         self.tabWidget.currentChanged.connect(self.on_tab_changed)
