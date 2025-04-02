@@ -630,6 +630,7 @@ class EditView(QtW.QDialog):
         self.combo.showPopup()
 
     def save_dropdown_data(self):
+        # todo: add message for changing parent sample, aliquot, or spot because moved entries will disappear from the view
         logger_setup.get_logger().info('Saving data from dropdown')
         self.edit_tableView: QtW.QTableView
         if self.combo is not None:

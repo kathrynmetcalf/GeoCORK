@@ -694,7 +694,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
-        if update_table_with_checks(self.table, self.checked_ids, self.partially_checked_ids, other_table, other_ids):
+        if update_other_table_with_checks(self.tableName(), self.checked_ids, self.partially_checked_ids, other_table, other_ids):
             return True
         else:
             return False
@@ -791,7 +791,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
-        if update_table_with_checks(self.table, self.checked_ids, self.partially_checked_ids, other_table, other_ids):
+        if update_other_table_with_checks(self.table, self.checked_ids, self.partially_checked_ids, other_table, other_ids):
             return True
         else:
             return False
@@ -1578,7 +1578,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.header_variables()
         if self.root_item.childCount() > 0:
             self.root_item.clear()
-        self.root_item = TreeItem(QtS.QSqlRecord(), None)
+        # self.root_item = TreeItem(QtS.QSqlRecord(), None)
         self.parent_item = TreeItem(QtS.QSqlRecord(), None)
         self.child_item = TreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
@@ -1618,6 +1618,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             if self.source_model.rowCount() > 0:
                 record = self.source_model.record(0)
                 item = TreeItem(record, parent)
+                logger_setup.get_logger().info(f'Added {record.value(4)}')
                 parent.appendChild(item)
                 # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
                 new_child_ids = self.find_children(child_id)
@@ -1785,10 +1786,10 @@ class TreeModel(QtC.QAbstractProxyModel):
                 if proxy_modified_index.isValid() and source_modified_index.isValid():
                     # If the changed data index and the modified timestamp index are valid for both models, change the data
                     name_header = self.source_model.headerData(sourceIndex.column(), QtC.Qt.Orientation.Horizontal)
+                    table_id = self.source_model.data(sourceIndex.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole)
                     query = QtS.QSqlQuery()
-                    query.prepare(f"UPDATE {self.table} SET {name_header}=:value WHERE {self.id_header}=:id")
+                    query.prepare(f"UPDATE {self.table} SET {name_header}=:value WHERE {self.id_header}={table_id}")
                     query.bindValue(":value", value)
-                    query.bindValue(":id", self.source_model.data(sourceIndex.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole))
                     if not query.exec():
                         logger_setup.get_logger().critical(f'Error editing data in {self.table}')
                         logger_setup.get_logger().debug(
@@ -2019,7 +2020,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             if record.value(0) == item_id:
                 source_row = row
                 break
-        if not source_row:
+        if source_row is None:
             return QtC.QModelIndex()
         if proxy_col == 0:  # first column is item name which maps to fourth column in source model
             source_col = 3
@@ -2141,6 +2142,10 @@ class TreeModel(QtC.QAbstractProxyModel):
                 row = childCount
             rows.append(row)
             row += 1
+        if not itemIDs:
+            logger_setup.get_logger().debug(f'No items to move')
+            rollback_savepoint('drop_mime_data')
+            return False
         for move in range(len(itemIDs)):
             if not self.moveItem(itemIDs[move], rows[move], pID):
                 # Move was unsuccessful
@@ -2380,7 +2385,7 @@ class CheckableTreeModel(TreeModel):
             checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
         for index in partially_checked_indices:
             partially_checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
-        if update_table_with_checks(self.table, checked_ids, partially_checked_ids, other_table, other_ids):
+        if update_other_table_with_checks(self.table, checked_ids, partially_checked_ids, other_table, other_ids):
             return True
         else:
             return False
@@ -4074,7 +4079,7 @@ def close_loading_dialog(title, message):
 #    Database Methods
 # ---------------------------
 
-def update_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, update_table: str, update_ids: list):
+def update_other_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, update_table: str, update_ids: list):
     """
     Take the checked ids from a table and update that field in another table. The relationship must be one-to-one or
     one-to-many, so the checked ids should be complete. If the relationship is many-to-many, use update_many_table_with_checks.
@@ -4111,32 +4116,47 @@ def update_table_with_checks(table: str, checked_ids: list, partially_checked_id
         if current_id not in current_ids:
             current_ids.append(current_id)
     create_savepoint('update_other_table')
-    to_remove = []
-    to_add = []
-    for id in current_ids:
-        if id not in checked_ids and id != '':
-            # If the value is already Null, no need to change it
-            to_remove.append(id)
-    for id in checked_ids:
-        if id not in current_ids or '' in current_ids:
-            # If any current value is Null, replace it with the new checked value
-            to_add.append(id)
-    for id in to_remove:
-        if not query.exec(f'UPDATE {update_table} SET {id_header} = NULL WHERE {other_id_header} {query_where_str}'):
-            logger_setup.get_logger().error(f'Failed to remove {id} from {update_table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            rollback_savepoint('update_other_table')
-            return False
-    logger_setup.get_logger().info(f'Removed {id_header} {to_remove} from {update_table}')
-    for id in to_add:
-        if not query.exec(f'UPDATE {update_table} SET {id_header} = {id} WHERE {other_id_header} {query_where_str}'):
+    if len(checked_ids) == 1:
+        if not query.exec(f'UPDATE {update_table} SET {id_header} = {checked_ids[0]} WHERE {other_id_header} {query_where_str}'):
             logger_setup.get_logger().error(f'Failed to add {id_header} {id} to {update_table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             rollback_savepoint('update_other_table')
             return False
-    logger_setup.get_logger().info(f'Added {id_header} {to_add} to {update_table}')
-    release_savepoint('update_other_table')
-    return True
+        logger_setup.get_logger().info(f'Added {id_header} {checked_ids[0]} to {update_table}')
+        release_savepoint('update_other_table')
+        return True
+    else:
+        logger_setup.get_logger().critical(f'Too many checks for {id_header}: {checked_ids}')
+        # to_remove = []
+        # to_add = []
+        # for id in current_ids:
+        #     if id not in checked_ids and id != '':
+        #         # If the value is already Null, no need to change it
+        #         to_remove.append(id)
+        # for id in checked_ids:
+        #     if id not in current_ids or '' in current_ids:
+        #         # If any current value is Null, replace it with the new checked value
+        #         to_add.append(id)
+        # for id in to_remove:
+        #     if not query.exec(f'UPDATE {update_table} SET {id_header} = NULL WHERE {other_id_header} {query_where_str}'):
+        #         if 'NOT NULL constraint failed' in query.lastError().text():
+        #             #
+        #             pass
+        #         else:
+        #             logger_setup.get_logger().error(f'Failed to remove {id} from {update_table}')
+        #             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        #             rollback_savepoint('update_other_table')
+        #             return False
+        # logger_setup.get_logger().info(f'Removed {id_header} {to_remove} from {update_table}')
+        # for id in to_add:
+        #     if not query.exec(f'UPDATE {update_table} SET {id_header} = {id} WHERE {other_id_header} {query_where_str}'):
+        #         logger_setup.get_logger().error(f'Failed to add {id_header} {id} to {update_table}')
+        #         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        #         rollback_savepoint('update_other_table')
+        #         return False
+        # logger_setup.get_logger().info(f'Added {id_header} {to_add} to {update_table}')
+        # release_savepoint('update_other_table')
+        # return True
 
 def update_many_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, many_table: str, first_table_ids: list):
     """

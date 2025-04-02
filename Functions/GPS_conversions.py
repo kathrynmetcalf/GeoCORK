@@ -2,7 +2,7 @@ import math
 
 import pyproj
 
-import SQLUtils
+from Functions import SQLUtils
 
 
 def convert_dd_to_ddm(ddlat: list[float], ddlon: list[float]):

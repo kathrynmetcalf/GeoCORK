@@ -203,9 +203,14 @@ def create_indexes() -> bool:
 
     # Create unit and format tables
     if not query.exec(CREATE_AGE_UNITS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating AgeUnits index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_AGE_UNITS_INDEX}')
-        return False
+        # If the index already exists, ignore the error
+        if 'already exists' in query.lastError().text():
+            logger_setup.get_logger().debug('AgeUnits index already exists')
+        else:
+            logger_setup.get_logger().critical(f'Error creating AgeUnits index')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {CREATE_AGE_UNITS_INDEX}')
+            return False
 
     if not query.exec(CREATE_CONCORDANCE_FORMATS_INDEX):
         logger_setup.get_logger().critical(f'Error creating ConcordanceFormats index: {query.lastError().text()}')
@@ -482,14 +487,22 @@ def create_indexes() -> bool:
         return False
 
     if not query.exec(CREATE_ALIQUOTS_SAMPLES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Aliquots_Samples index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOTS_SAMPLES_INDEX}')
-        return False
+        if 'already exists' in query.lastError().text():
+            logger_setup.get_logger().debug('Aliquots_Samples index already exists')
+        else:
+            logger_setup.get_logger().critical(f'Error creating Aliquots_Samples index')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOTS_SAMPLES_INDEX}')
+            return False
 
     if not query.exec(CREATE_SPOTS_ALIQUOT_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Spots_Aliquots index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_ALIQUOT_INDEX}')
-        return False
+        if 'already exists' in query.lastError().text():
+            logger_setup.get_logger().debug('Spots_Aliquots index already exists')
+        else:
+            logger_setup.get_logger().critical(f'Error creating Spots_Aliquots index')
+
+            logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_ALIQUOT_INDEX}')
+            return False
 
     if not query.exec(CREATE_UPBANALYSES_SPOTS_INDEX):
         logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index: {query.lastError().text()}')

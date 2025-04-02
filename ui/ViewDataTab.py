@@ -11,9 +11,9 @@ import logger_setup
 import time
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
-from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel
-from ui.EditTable import EditTable
-from ui.EditTree import EditTree
+from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel, \
+    restore_expanded_state
+from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
 
@@ -82,7 +82,7 @@ class ViewDataTab(QtW.QWidget):
             self.v_layout.addWidget(self.view)
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             # Columns to select from the view
-            self.show_cols = settings.value('aliquot_edit_columns')
+            self.show_cols = settings.value('aliquot_view_columns')
             self.show_cols = ', '.join(self.show_cols)
             table_query = f'SELECT {self.show_cols} FROM AliquotView WHERE SampleID = {self.parent_id}'
         elif self.child_type == 'Spot':
@@ -111,22 +111,27 @@ class ViewDataTab(QtW.QWidget):
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             table_query = None
         if table_query is not None:
-
-            if self.child_type == 'Aliquot':
-                query = (f'SELECT * FROM AliquotView WHERE AliquotID IN ( '
-                                f'WITH RECURSIVE ParentTree AS '
-                                f'(SELECT * FROM AliquotView '
-                                f'WHERE SampleID = {self.parent_id} '
-                                f'UNION ALL '
-                                f'SELECT AliquotView.* FROM AliquotView '
-                                f'INNER JOIN ParentTree ON AliquotView.AliquotID = ParentTree.ParentAliquotID) '
-                                f'SELECT AliquotID FROM ParentTree) ')
-                logger_setup.get_logger().debug(f'SQL command: {query}')
-                self.model = SQLiteTableModel(query, None)
-
-                self.model = TreeModel(self.model, None)
-            else:
-                self.model = SQLiteTableModel(table_query)
+            """
+            The commented out code searches for all children of each aliquot with the selected sample ID. Since all
+            aliquots have SampleID and aliquots can only be viewed per sample, this is unnecessary. Just search for all
+            with the sample ID.
+            """
+            # if self.child_type == 'Aliquot':
+            #     query = (f'SELECT * FROM AliquotView WHERE AliquotID IN ( '
+            #                     f'WITH RECURSIVE ParentTree AS '
+            #                     f'(SELECT * FROM AliquotView '
+            #                     f'WHERE SampleID = {self.parent_id} '
+            #                     f'UNION ALL '
+            #                     f'SELECT AliquotView.* FROM AliquotView '
+            #                     f'INNER JOIN ParentTree ON AliquotView.AliquotID = ParentTree.ParentAliquotID) '
+            #                     f'SELECT AliquotID FROM ParentTree) ')
+            #     logger_setup.get_logger().debug(f'SQL command: {query}')
+            #     self.model = SQLiteTableModel(query, None)
+            #
+            #     self.model = TreeModel(self.model, None)
+            # else:
+            #     self.model = SQLiteTableModel(table_query)
+            self.model = SQLiteTableModel(table_query)
             self.proxy_model = ReadableProxyModel()
             self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)
@@ -134,6 +139,9 @@ class ViewDataTab(QtW.QWidget):
             self.proxy_model.setFilterKeyColumn(-1)
 
             if self.child_type != 'Aliquot':
+                self.view.setSortingEnabled(False)
+                # restore_expanded_state('AliquotView', self.proxy_model, self.view)
+                self.view.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
                 self.view.resizeColumnsToContents()
 
             match self.child_type:
@@ -161,7 +169,7 @@ class ViewDataTab(QtW.QWidget):
         if self.child_type == 'Aliquot':
             table = 'Aliquots'
             dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
-            dlg = EditTree(self, table, **dlg_args)
+            dlg = EditTreeView(self, table, **dlg_args)
         elif self.child_type == 'Spot':
             table = 'Spots'
             dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
