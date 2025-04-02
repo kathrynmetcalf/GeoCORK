@@ -65,6 +65,7 @@ class SelectColumns(QWidget):
             self.columnattributes_stack.addWidget(column_list_view)
 
     def check_list_view(self, view_name: str):
+        # todo: allow drag-drop but not onto other items - they disappear
         logger_setup.get_logger().info(f'Populating checks for {view_name}')
         model = ColumnItemModel()
         view_name_col = get_view_name_column(view_name)
@@ -121,9 +122,12 @@ class SelectColumns(QWidget):
             if view_widget is not None and view_name != '':
                 field_names = settings.value(f'default_{self.view_setting_dict[view_name]}')
                 view_columns = []
-                for field in field_names:
-                    if 'ID' in field or field in self.hidden_must_haves:
-                        view_columns.append(field)
+                if 'Aliquot' in view_name:
+                    view_columns = ['AliquotID', 'ParentAliquotID', 'AliquotParentID', 'AliquotName', 'SampleID']
+                else:
+                    for field in field_names:
+                        if 'ID' in field or field in self.hidden_must_haves:
+                            view_columns.append(field)
                 source_model = view_widget.model().sourceModel()
                 for row in range(source_model.rowCount()):
                     item = source_model.item(row)

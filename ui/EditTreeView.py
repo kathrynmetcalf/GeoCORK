@@ -103,6 +103,7 @@ class EditTreeView(QtW.QDialog):
 
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox()
+        self.edited_timer = QtC.QTimer(self)
         self.view = None
         self.model = None
         self.tree_model = None
@@ -158,16 +159,20 @@ class EditTreeView(QtW.QDialog):
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
 
     def create_model(self):
-        # self.model.setQuery(f'SELECT {', '.join(self.show_cols)} FROM {self.view} {self.where}')
-        # self.model.setQuery(f'SELECT * FROM {self.view}')
+        # todo: connect to tree_model dataEdited signal to refresh the model
         self.model = SQLiteTableModel(f'SELECT {', '.join(self.show_cols)} FROM {self.view} {self.where}')
         if self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.model)
-        print('Created the tree model')
+        # print('Created the tree model')
         self.display_tree()
         self.edit_treeView.selectionModel().currentChanged.connect(self.on_index_change)
         self.updated_timestamp = time.time()
+
+    def on_tree_edited(self):
+        self.edited_timer.setSingleShot(True)
+        self.edited_timer.timeout.connect(self.create_model)
+        self.edited_timer.start(100)
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
@@ -178,21 +183,6 @@ class EditTreeView(QtW.QDialog):
         self.edit_treeView.resizeRowsToContents()
 
     def eventFilter(self, object, event):
-        # if self.combo:
-        #     objects_statement = object is self.combo or object is self.lineEdit or object is self.combo.view()
-        # else:
-        #     objects_statement = object is self.lineEdit
-        # if objects_statement:
-        #     # the object is one of the widgets we are interested in
-        #     if event.type() == QtC.QEvent.Type.KeyPress and event.key() == QtC.Qt.Key.Key_Tab:
-        #         self.advance_tab()
-        #         self.display_widget()
-        #         return True
-        #     if event.type() == QtC.QEvent.Type.KeyPress and event.key() == QtC.Qt.Key.Key_Backtab:
-        #         self.reverse_tab()
-        #         self.display_widget()
-        #         return True
-        #     return super().eventFilter(object, event)
         if object is self.lineEdit:
             if event.type() == QtC.QEvent.Type.KeyPress and event.key() in (QtC.Qt.Key.Key_Return, QtC.Qt.Key.Key_Enter):
                 self.destroy_lineedit()
@@ -207,7 +197,7 @@ class EditTreeView(QtW.QDialog):
         """
         self.edit_treeView: QtW.QTreeView
         tree_menu = TreeContextMenu()
-        tree_menu.set_view(self.edit_treeView, True, True, False)
+        tree_menu.set_view(self.edit_treeView, True, False, False)
         action = tree_menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if action:
             self.tree_context_menu(action)
@@ -261,6 +251,7 @@ class EditTreeView(QtW.QDialog):
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
         logger_setup.get_logger().info(f'Display {self.table} table complete')
+        self.tree_model.dataEdited.connect(self.on_tree_edited)
 
     def display_widget(self):
         if len(self.edit_treeView.selectedIndexes()) == 0:
@@ -296,6 +287,7 @@ class EditTreeView(QtW.QDialog):
         header = header.replace(' ', '')
         self.dropdown_table = ''
         columns = None
+        self.name_column
         if header in SQLUtils.many_editable[self.table].keys():
             columns = SQLUtils.many_editable[self.table]
         elif header in SQLUtils.one_editable[self.table].keys():
@@ -401,7 +393,7 @@ class EditTreeView(QtW.QDialog):
                 self.destroy_lineedit()
                 return False
             for model_index in model_indexes:
-                self.create_model()
+                self.on_tree_edited()
                 if model_index in self.edited_indexes:
                     self.edited_indexes.remove(model_index)
             if self.edit_treeView.currentIndex() == self.edit_index:
@@ -565,7 +557,7 @@ class EditTreeView(QtW.QDialog):
                     release_savepoint('before_edit_id')
                 updated = True
         if updated:
-            self.create_model()
+            self.on_tree_edited()
             for model_index in model_indexes:
                 if model_index in self.edited_indexes:
                     self.edited_indexes.remove(model_index)
@@ -748,7 +740,7 @@ class EditTreeView(QtW.QDialog):
             children_ids = get_children(item_id)
             if children_ids:
                 all_children.extend(children_ids)
-        if self.delete_question(all_children):
+        if self.delete_question(item_ids, all_children):
             for item_id in item_ids:
                 item = self.tree_model.find_id_in_tree(item_id)
                 parent_id = item.data(1)
@@ -756,7 +748,7 @@ class EditTreeView(QtW.QDialog):
                 self.tree_model.removeItem(item_id, parent_row, parent_id)
             self.updated = True
 
-    def delete_question(self, children: list):
+    def delete_question(self, item_ids, children: list):
         # save_expanded_state(self.table, self.tree_model, self.edit_treeView)
         if children:
             child_string = f' and all {len(children)} children {self.table}'
@@ -766,9 +758,12 @@ class EditTreeView(QtW.QDialog):
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
         if self.table == 'Aliquots':
             # Aliquots have a special case where they are related to Samples, Spots, and UPbAnalyses
-            spot_ids, upb_analysis_ids = find_sub_items(children, self.table)
+            aliquot_spot_ids, aliquot_upb_ids = find_sub_items(item_ids, self.table)
+            child_spot_ids, child_upb_analysis_ids = find_sub_items(children, self.table)
+            total_spot_ids = aliquot_spot_ids + child_spot_ids
+            total_upb_ids = aliquot_upb_ids + child_upb_analysis_ids
             msg_box.setText(f'Are you sure you want to delete these {self.table}{child_string}?\n'
-                            f'Associated with {len(spot_ids)} spots and {len(upb_analysis_ids)} U-Pb analyses')
+                            f'Associated with {len(total_spot_ids)} spots and {len(total_upb_ids)} U-Pb analyses')
         else:
             msg_box.setText(f'Are you sure you want to delete these {self.table}{child_string}?')
         msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
@@ -1001,7 +996,7 @@ class EditTreeView(QtW.QDialog):
         self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
-        self.create_model()
+        self.on_tree_edited()
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         if isinstance(combo.model(), TreeModel):

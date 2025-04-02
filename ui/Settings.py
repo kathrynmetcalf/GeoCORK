@@ -112,7 +112,7 @@ def default_settings():
     ])
 
     settings.setValue('default_aliquot_view_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SampleID', 'AliquotName', 'SampleName',
+        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
         'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
@@ -120,7 +120,7 @@ def default_settings():
     ])
 
     settings.setValue('default_aliquot_edit_columns', [
-        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SampleID', 'AliquotName', 'SampleName',
+        'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
         'AliquotContextName',
         'AliquotCreated', 'AliquotModified'
     ])

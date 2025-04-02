@@ -150,7 +150,7 @@ CREATE_SAMPLING_METHODS_INDEX = '''
 CREATE_SETTINGS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Settings_SettingID ON Settings(SettingID)'''
 
-CREATE_SPOT_COMPOSITION_INDEX = '''
+CREATE_SPOT_COMPOSITIONS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_SpotCompositions_SpotCompositionID ON SpotCompositions(SpotCompositionID)'''
 
 CREATE_SPOT_CONTEXT_INDEX = '''
@@ -159,10 +159,10 @@ CREATE_SPOT_CONTEXT_INDEX = '''
 CREATE_SPOTS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Spots_SpotID ON Spots(SpotID)'''
 
-CREATE_SPOTS_SPOTCONTEXT_INDEX = '''
+CREATE_SPOTS_SPOTCONTEXTS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Spots_SpotContexts_SpotID ON Spots_SpotContexts(SpotID)'''
 
-CREATE_SPOTS_ALIQUOT_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Spots_AliquotID ON Spots(AliquotID)'''
+CREATE_SPOTS_ALIQUOTS_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Spots_AliquotID ON Spots(AliquotID)'''
 
 CREATE_UNITS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Units_UnitID ON Units(UnitID)'''
@@ -290,9 +290,9 @@ def create_indexes() -> bool:
         return False
 
     # Create spot tag tables
-    if not query.exec(CREATE_SPOT_COMPOSITION_INDEX):
+    if not query.exec(CREATE_SPOT_COMPOSITIONS_INDEX):
         logger_setup.get_logger().critical(f'Error creating SpotCompositions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOT_COMPOSITION_INDEX}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOT_COMPOSITIONS_INDEX}')
         return False
 
     if not query.exec(CREATE_SPOT_CONTEXT_INDEX):
@@ -458,9 +458,9 @@ def create_indexes() -> bool:
         return False
 
     # Create many-to-many spot tables
-    if not query.exec(CREATE_SPOTS_SPOTCONTEXT_INDEX):
+    if not query.exec(CREATE_SPOTS_SPOTCONTEXTS_INDEX):
         logger_setup.get_logger().critical(f'Error creating Spots_SpotsContexts index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_SPOTCONTEXT_INDEX}')
+        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_SPOTCONTEXTS_INDEX}')
         return False
 
     # Create many-to-many analysis tables
@@ -495,13 +495,13 @@ def create_indexes() -> bool:
             logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOTS_SAMPLES_INDEX}')
             return False
 
-    if not query.exec(CREATE_SPOTS_ALIQUOT_INDEX):
+    if not query.exec(CREATE_SPOTS_ALIQUOTS_INDEX):
         if 'already exists' in query.lastError().text():
             logger_setup.get_logger().debug('Spots_Aliquots index already exists')
         else:
             logger_setup.get_logger().critical(f'Error creating Spots_Aliquots index')
 
-            logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_ALIQUOT_INDEX}')
+            logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_ALIQUOTS_INDEX}')
             return False
 
     if not query.exec(CREATE_UPBANALYSES_SPOTS_INDEX):

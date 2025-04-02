@@ -2201,12 +2201,24 @@ class ImportWizardDialog(QWidget):
                     if aliquot_query.next():
                         # found matching aliquot name in database, will use that aliquot ID
                         record["AliquotID"] = aliquot_query.value(0)
+                        record["AliquotParentRow"] = aliquot_query.value(2)
                     else:
                         # no matching samplename in database, will create new one.
+                        # Check if the sample has other aliquots to determine the parent row
+                        query = QSqlQuery()
+                        query.exec(f'SELECT AliquotID, AliquotParentRow FROM Aliquots WHERE SampleID = {record["SampleID"]}')
+                        existing_rows = []
+                        while query.next():
+                            existing_rows.append(query.value(1))
+                        if existing_rows:
+                            record["AliquotParentRow"] = max(existing_rows)+1
+                        else:
+                            record["AliquotParentRow"] = 0
                         create_aliquot = QSqlQuery()
                         create_aliquot.prepare(
-                            'INSERT INTO Aliquots (AliquotName, SampleID) VALUES (:name, :sample_id)')
+                            'INSERT INTO Aliquots (AliquotName, AliquotParentRow, SampleID) VALUES (:name, :parent_row, :sample_id)')
                         create_aliquot.bindValue(":name", record["Aliquot Name"])
+                        create_aliquot.bindValue(":parent_row", record["Aliquot ParentRow"])
                         create_aliquot.bindValue(":sample_id", record["SampleID"])
 
                         if not create_aliquot.exec():

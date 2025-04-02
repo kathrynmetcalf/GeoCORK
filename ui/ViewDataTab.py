@@ -147,11 +147,15 @@ class ViewDataTab(QtW.QWidget):
             self.view.setSortingEnabled(True)
             self.proxy_model.setFilterKeyColumn(-1)
 
-            if self.child_type != 'Aliquot':
+            if self.child_type == 'Aliquot':
                 self.view.setSortingEnabled(False)
-                # restore_expanded_state('AliquotView', self.proxy_model, self.view)
                 self.view.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
                 self.view.resizeColumnsToContents()
+            else:
+                self.view.resizeColumnsToContents()
+                for column in range(self.proxy_model.columnCount()):
+                    if self.view.columnWidth(column) > 400:
+                        self.view.setColumnWidth(column, 400)
 
             match self.child_type:
                 case 'Sample':

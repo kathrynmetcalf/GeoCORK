@@ -289,7 +289,7 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
         super().setQuery(query, self.db)
         if self.lastError().text():
             logger_setup.get_logger().critical(f"Error displaying table")
-            logger_setup.get_logger().debug("Failed to set query: {self.lastError().text()}")
+            logger_setup.get_logger().debug(f"Failed to set query: {self.lastError().text()}")
             logger_setup.get_logger().debug(f"Query: {query}")
         else:
             table = query.split('FROM ')[1].split(' ')[0]
@@ -2148,7 +2148,8 @@ class TreeModel(QtC.QAbstractProxyModel):
             return False
         for move in range(len(itemIDs)):
             if not self.moveItem(itemIDs[move], rows[move], pID):
-                # Move was unsuccessful
+                logger_setup.get_logger().error(f'Error moving item')
+                logger_setup.get_logger().debug(f'Item: {itemIDs[move]}, rows: {rows[move]}, parent_ID: {pID}')
                 rollback_savepoint('drop_mime_data')
                 return False
         # All moves were successful
