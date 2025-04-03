@@ -309,7 +309,7 @@ class InsertFilterGroupDialog(QDialog):
         if query.exec():
             if query.next():
                 self.name_input.setText(query.value(0))
-                self.description_input.setText(query.value(2))
+                self.description_input.setText(query.value(1))
             else:
                 logger_setup.get_logger().critical(
                     f'No matching filter group for: {self.update_id}')
@@ -460,11 +460,13 @@ class RuleWidget(QWidget):
         if field is not None:
             self.table_combo.setCurrentText(field.split('.')[0])
             self.attribute_combo.setCurrentText(field.split('.')[1][1:-1])
+            self.attribute_switcher()
         else:
             self.table_switcher()
             self.attribute_switcher()
         if operator is not None:
             self.operator_combo.setCurrentText(operator)
+            self.lineedit_switcher()
         if value is not None:
             self.value_input.setText(value)
         else:
@@ -509,7 +511,7 @@ class RuleWidget(QWidget):
                "Name" in self.attribute_combo.currentText() or
                "ErrorSigma" in self.attribute_combo.currentText() or
                "Unit" in self.attribute_combo.currentText()) or
-              self.table_combo.currentText() == '"References"'):
+              'References' in self.table_combo.currentText()):
             operator_items = [
                 "is",
                 "is not",
@@ -638,7 +640,7 @@ class RuleWidget(QWidget):
             # Populate the value input with a completer based on the selected attribute
             value_completer = QtWidgets.QCompleter()
             query = QSqlQuery()
-            sql_query = f"SELECT DISTINCT {self.attribute_combo.currentText()} FROM {self.table_combo.currentText()}"
+            sql_query = f'SELECT DISTINCT {self.attribute_combo.currentText()} FROM "{self.table_combo.currentText()}"'
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec(sql_query):
                 logger_setup.get_logger().critical(f'Error creating the completer for input')
@@ -1209,7 +1211,9 @@ class QueryBuilder(QWidget):
                 filter_id = None
             elif reply == update_button:
                 filter_id = get_id_from_name('FilterGroups', filter_name)
-        InsertFilterGroupDialog(self.main_group_box.get_structure(), parent=self).exec()
+            InsertFilterGroupDialog(self.main_group_box.get_structure(), update_id=filter_id, parent=self).exec()
+        else:
+            InsertFilterGroupDialog(self.main_group_box.get_structure(), parent=self).exec()
 
         self.listWidget.clear()
         self.update_filter_list()
