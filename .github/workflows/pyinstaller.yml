@@ -11,7 +11,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.11
+          python-version: 3.12
   
       - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
       - run: pyinstaller mainAppEngine.py --windowed --onefile --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v2
         with:
-          python-version: 3.11
+          python-version: 3.12
   
       - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
       - run: pyinstaller mainAppEngine.py --windowed --onefile --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
