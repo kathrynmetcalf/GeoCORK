@@ -48,11 +48,11 @@ class DisplayTablesSimplified(QtW.QWidget):
         self.dbtree_list.append('Aliquots')
         self.dbtable_list = [table for table in self.user_view_tables if table not in self.dbtree_list]
 
-        self.sample_proxy_model = QtC.QSortFilterProxyModel()
+        self.sample_proxy_model = ReadableProxyModel()
         self.model = DisplayRoundedModel(db=self.database)
         self.query_model = DisplayRoundedQueryModel(db=self.database)
         self.tree_model = TreeModel(db=self.database)
-        self.tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
+        self.tree_proxy_model = ReadableProxyModel()
         self.table_proxy_model = ReadableProxyModel()
         self.table = ''
         self.show_cols = []

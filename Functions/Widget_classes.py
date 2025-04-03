@@ -2189,7 +2189,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         if role != QtC.Qt.ItemDataRole.DisplayRole:
             return QtC.QVariant()
         if orientation == QtC.Qt.Orientation.Horizontal:
-            return TxM.add_spaces_camel(self.proxyHeaders[section])
+            return self.proxyHeaders[section]
         return QtC.QVariant()
 
     def top_node(self, item_ids: list) -> tuple:

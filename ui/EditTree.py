@@ -56,7 +56,7 @@ class EditTree(QtW.QDialog):
         self.setWindowTitle(f'Edit {table_name}')
         self.add_pushButton.setText(f'Add {table_name}')
         logger_setup.get_logger().info('Setting up proxy model')
-        self.tree_proxy_model = QSortFilterProxyModel()
+        self.tree_proxy_model = ReadableProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 

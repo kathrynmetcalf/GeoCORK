@@ -12,7 +12,7 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column
+from Functions.Widget_classes import set_table, get_headers, get_name_column, description_column, ReadableProxyModel
 
 
 class AddTags(QtW.QDialog):
@@ -41,7 +41,7 @@ class AddTags(QtW.QDialog):
         self.errmsg = QtW.QMessageBox(self)
         self.clear_warning()
 
-        self.filter_proxy_model = QtC.QSortFilterProxyModel()
+        self.filter_proxy_model = ReadableProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
         self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.filter_proxy_model.setFilterKeyColumn(1)

@@ -71,7 +71,7 @@ class DisplayTables(QtW.QWidget):
         self.model = DisplayRoundedModel()
         self.query_model = DisplayRoundedQueryModel()
         self.tree_model = TreeModel()
-        self.tree_proxy_model = QSortFilterProxyModel()
+        self.tree_proxy_model = ReadableProxyModel()
         self.table_proxy_model = ReadableProxyModel()
         self.table = ''
         self.previous_table = ''

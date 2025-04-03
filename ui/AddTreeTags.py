@@ -15,7 +15,7 @@ from Functions.Savepoint_manager import SavepointManager, create_savepoint, rele
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
                                       restore_expanded_state,
-                                      get_headers, get_name_column, description_column, set_table
+                                      get_headers, get_name_column, description_column, set_table, ReadableProxyModel
                                       )
 
 
@@ -27,8 +27,6 @@ class AddTreeTags(QtW.QDialog):
     # def __init__(self, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
     def __init__(self, parent_window, table: str, **kwargs):
         super().__init__(parent_window)
-        # todo:
-
         logger_setup.get_logger().info(f'Starting AddTreeTags dialog for {table}...')
         self.loading_manager = LoadingDialogManager.get_instance()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
@@ -46,7 +44,7 @@ class AddTreeTags(QtW.QDialog):
         self.parent_row_header = self.source_model.record().fieldName(2)
         self.item_name_header = self.source_model.record().fieldName(3)
         self.tree_model = TreeModel(self.source_model)
-        self.tree_proxy_model = QtC.QSortFilterProxyModel()
+        self.tree_proxy_model = ReadableProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.table_name = TxM.add_spaces_camel(self.table)
         self.selectTags_label.setText(self.table_name)
