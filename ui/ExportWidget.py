@@ -165,19 +165,11 @@ class ExportWidget(QWidget):
         if len(items) == 0:
             match table_name:
                 case 'Samples':
-                    self.samplesincluded_comboBox.set_line_edit_text('None')
+                    self.samplesincluded_comboBox.set_line_edit_text(None)
                 case 'FilterGroups':
-                    self.filterselection_comboBox.set_line_edit_text('None')
+                    self.filterselection_comboBox.set_line_edit_text(None)
                 case 'GroupedFilterGroups':
-                    self.groupedfilter_comboBox.set_line_edit_text('None')
-        else:
-            match table_name:
-                case 'Samples':
-                    self.samplesincluded_comboBox.set_line_edit_text(', '.join(items))
-                case 'FilterGroups':
-                    self.filterselection_comboBox.set_line_edit_text(', '.join(items))
-                case 'GroupedFilterGroups':
-                    self.groupedfilter_comboBox.set_line_edit_text(', '.join(items))
+                    self.groupedfilter_comboBox.set_line_edit_text(None)
 
         self.update_sample_list(table_model)
 
@@ -974,6 +966,7 @@ class ExportWidget(QWidget):
                 self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Number of Rows: 0")
 
         tableView.setModel(model)
+        tableView.resizeColumnsToContents()
 
     def export_button(self):
         """Method to export the generated tableView and SQL code to a given format. Based on the exportformat_comboBox's
@@ -1463,8 +1456,10 @@ class ExportWidget(QWidget):
         self.update_checked_list(self.groupedfilter_model, 'GroupedFilterGroups')
 
     def set_table(self, model, table: str):
+        model.blockSignals(True)
         model.setTable(table)
         model.select()
+        model.blockSignals(False)
         return model
 
     def update_sample_list(self, model: CheckableSqlTableModel):
