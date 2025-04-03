@@ -191,20 +191,20 @@ class EditTable(QtW.QDialog):
         """
         Opens an AddTags dialog to add tags to the table.
         """
+        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if not self.model.submit():
             errtxt = f'Failed to save changes to {self.table}: {self.model.lastError().text()}'
             self.msg.critical(self, 'Error', errtxt, QtW.QMessageBox.StandardButton.Ok)
             return
         else:
             dlg = AddTags(self, self.table)
-        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
         self.create_model()
 
     def rollback(self):
         """
-        Rolls back the changes to the database. Rejects the dialog and closes the the window.
+        Rolls back the changes to the database. Rejects the dialog and closes the window.
         """
         rollback_savepoint('before_edit')
         self.reject()
@@ -257,7 +257,9 @@ class EditTable(QtW.QDialog):
                 event.ignore()
             else:
                 logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+                release_savepoint('before_edit')
                 event.accept()
         else:
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+            release_savepoint('before_edit')
             event.accept()

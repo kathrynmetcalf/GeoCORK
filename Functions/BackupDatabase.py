@@ -7,6 +7,8 @@ import logger_setup
 
 
 class BackupThread(QThread):
+    progress_updated = pyqtSignal(int)
+    backup_finished = pyqtSignal()
     def __init__(self, source_db, backup_db):
         super().__init__()
         self.source_db = source_db

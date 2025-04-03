@@ -40,6 +40,7 @@ class AddTags(QtW.QDialog):
         self.selectTags_label.setText(self.table_name)
         self.errmsg = QtW.QMessageBox(self)
         self.clear_warning()
+        self.cancel_pushButton.setAutoDefault(False)
 
         self.filter_proxy_model = ReadableProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
@@ -136,6 +137,7 @@ class AddTags(QtW.QDialog):
         self.display_tags()
 
         logger_setup.get_logger().info(f'Successfully inserted {name}, {description} into {self.table}')
+        return True
 
     def discard_question(self):
         """
@@ -149,6 +151,8 @@ class AddTags(QtW.QDialog):
         response = msg_box.exec()
         if response == QtW.QMessageBox.StandardButton.Yes:
             self.rollback()
+        else:
+            pass
 
     def rollback(self):
         """
@@ -189,7 +193,9 @@ class AddTags(QtW.QDialog):
                 event.ignore()
             else:
                 logger_setup.get_logger().info(f'Closing {self.table} add dialog')
+                release_savepoint('before_add')
                 event.accept()
         else:
             logger_setup.get_logger().info(f'Closing {self.table} add dialog')
+            release_savepoint('before_add')
             event.accept()

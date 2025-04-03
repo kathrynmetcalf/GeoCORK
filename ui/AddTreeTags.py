@@ -234,6 +234,9 @@ class AddTreeTags(QtW.QDialog):
             pass
 
     def rollback(self):
+        """
+        Rolls back the changes to the database. Rejects the dialog and closes the the window.
+        """
         rollback_savepoint('before_add')
         save_expanded_state(self.table, self.tree_model, self.tags_treeView)
         self.reject()
@@ -242,6 +245,9 @@ class AddTreeTags(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
+        """
+        Commits the changes to the database. If there is an active savepoint, it is released.
+        """
         if self.newName_lineEdit.text():
             if not self.add_tree_tag():
                 return False
@@ -258,13 +264,19 @@ class AddTreeTags(QtW.QDialog):
         self.close_by_dialog = False
 
     def closeEvent(self, event: QtG.QCloseEvent):
+        """
+        Overridden close event to handle the case where the user tries to close the dialog
+        :param QCloseEvent event:
+        """
         if not self.close_by_dialog:
             if self.updated:
                 self.discard_question()
                 event.ignore()
             else:
                 logger_setup.get_logger().info(f'Closing {self.table} add dialog')
+                release_savepoint('before_add')
                 event.accept()
         else:
             logger_setup.get_logger().info(f'Closing {self.table} add dialog')
+            release_savepoint('before_add')
             event.accept()
