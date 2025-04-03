@@ -70,7 +70,7 @@ def SampleViewQuery():
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
                 {SQLUtils.spot_upb_analysis_join}
-                {SQLUtils.upb_distinct_join}
+                {SQLUtils.upb_distinct_join_sample}
                 {SQLUtils.upb_reference_join}
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
@@ -82,7 +82,6 @@ def SampleViewQuery():
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
                 GROUP BY Samples.SampleID
-                ORDER BY Samples.SampleID
                 '''
 
     # print(sample_query)
@@ -162,7 +161,7 @@ def SampleEditViewQuery():
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
                 {SQLUtils.spot_upb_analysis_join}
-                {SQLUtils.upb_distinct_join}
+                {SQLUtils.upb_distinct_join_sample}
                 {SQLUtils.upb_reference_join}
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
@@ -174,7 +173,6 @@ def SampleEditViewQuery():
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
                 GROUP BY Samples.SampleID
-                ORDER BY Samples.SampleID
                 '''
 
     # print(sample_query)
@@ -188,8 +186,8 @@ def AliquotViewQuery():
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qaliquot_parent_id},
                     {SQLUtils.qaliquot_parent_row},
-                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_name},
+                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_sample},
                     {SQLUtils.qaliquot_contexts},
                     {SQLUtils.qspot_count},
@@ -214,7 +212,7 @@ def AliquotViewQuery():
                 {SQLUtils.spot_composition_join}
                 {SQLUtils.spot_context_join}
                 {SQLUtils.spot_upb_analysis_join}
-                {SQLUtils.upb_distinct_join}
+                {SQLUtils.upb_distinct_join_aliquot}
                 {SQLUtils.upb_reference_join}
                 {SQLUtils.upb_labs_join}
                 {SQLUtils.upb_instruments_join}
@@ -237,8 +235,8 @@ def AliquotEditViewQuery():
                     {SQLUtils.qaliquot_id},
                     {SQLUtils.qaliquot_parent_id},
                     {SQLUtils.qaliquot_parent_row},
-                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_name},
+                    {SQLUtils.qsample_id},
                     {SQLUtils.qaliquot_sample},
                     {SQLUtils.qaliquot_contexts},
                     {SQLUtils.qaliquot_created},
@@ -505,13 +503,17 @@ def ReferenceViewQuery():
 def create_sample_view():
     sample_query = SampleViewQuery()
     query = QtS.QSqlQuery()
+    if not query.exec(sample_query):
+        logger_setup.get_logger().critical('Error creating SampleView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
-
     logger_setup.get_logger().info(f'Creating SampleView')
     logger_setup.get_logger().debug(f'SQL command: {sample_view}')
     if not query.exec(sample_view):
-        logger_setup.get_logger().critical(
-            f'Error creating SampleView: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error creating SampleView)')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL command: {sample_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleView')
@@ -520,6 +522,11 @@ def create_sample_view():
 def create_sample_edit_view():
     sample_query = SampleEditViewQuery()
     query = QtS.QSqlQuery()
+    if not query.exec(sample_query):
+        logger_setup.get_logger().critical('Error creating SampleEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {sample_query}')
+        return False
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleEditView AS {sample_query}'
     logger_setup.get_logger().info(f'Creating SampleEditView')
     logger_setup.get_logger().debug(f'SQL command: {sample_view}')
@@ -533,8 +540,13 @@ def create_sample_edit_view():
 
 def create_aliquot_view():
     aliquot_query = AliquotViewQuery()
-    aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotView AS {aliquot_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(aliquot_query):
+        logger_setup.get_logger().critical('Error creating AliquotView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {aliquot_query}')
+        return False
+    aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotView AS {aliquot_query}'
     logger_setup.get_logger().info(f'Creating AliquotView')
     logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
     if not query.exec(aliquot_view):
@@ -547,8 +559,13 @@ def create_aliquot_view():
 
 def create_aliquot_edit_view():
     aliquot_query = AliquotEditViewQuery()
-    aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotEditView AS {aliquot_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(aliquot_query):
+        logger_setup.get_logger().critical('Error creating AliquotEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {aliquot_query}')
+        return False
+    aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotEditView AS {aliquot_query}'
     logger_setup.get_logger().info(f'Creating AliquotEditView')
     logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
     if not query.exec(aliquot_view):
@@ -561,8 +578,13 @@ def create_aliquot_edit_view():
 
 def create_spot_view():
     spot_query = SpotViewQuery()
-    spot_view = f'CREATE VIEW IF NOT EXISTS SpotView AS {spot_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(spot_query):
+        logger_setup.get_logger().critical('Error creating SpotView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {spot_query}')
+        return False
+    spot_view = f'CREATE VIEW IF NOT EXISTS SpotView AS {spot_query}'
     logger_setup.get_logger().info(f'Creating SpotView')
     logger_setup.get_logger().debug(f'SQL command: {spot_view}')
     if not query.exec(spot_view):
@@ -575,8 +597,13 @@ def create_spot_view():
 
 def create_spot_edit_view():
     spot_query = SpotEditViewQuery()
-    spot_view = f'CREATE VIEW IF NOT EXISTS SpotEditView AS {spot_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(spot_query):
+        logger_setup.get_logger().critical('Error creating SpotEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {spot_query}')
+        return False
+    spot_view = f'CREATE VIEW IF NOT EXISTS SpotEditView AS {spot_query}'
     logger_setup.get_logger().info(f'Creating SpotEditView')
     logger_setup.get_logger().debug(f'SQL command: {spot_view}')
     if not query.exec(spot_view):
@@ -589,8 +616,13 @@ def create_spot_edit_view():
 
 def create_upb_view():
     upb_query = UPbViewQuery()
-    upb_view = f'CREATE VIEW IF NOT EXISTS UPbView AS {upb_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(upb_query):
+        logger_setup.get_logger().critical('Error creating UPbView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {upb_query}')
+        return False
+    upb_view = f'CREATE VIEW IF NOT EXISTS UPbView AS {upb_query}'
     logger_setup.get_logger().info(f'Creating UPbView')
     logger_setup.get_logger().debug(f'SQL command: {upb_view}')
     if not query.exec(upb_view):
@@ -603,8 +635,13 @@ def create_upb_view():
 
 def create_upb_edit_view():
     upb_query = UPbEditViewQuery()
-    upb_view = f'CREATE VIEW IF NOT EXISTS UPbEditView AS {upb_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(upb_query):
+        logger_setup.get_logger().critical('Error creating UPbEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {upb_query}')
+        return False
+    upb_view = f'CREATE VIEW IF NOT EXISTS UPbEditView AS {upb_query}'
     logger_setup.get_logger().info(f'Creating UPbEditView')
     logger_setup.get_logger().debug(f'SQL command: {upb_view}')
     if not query.exec(upb_view):
@@ -617,8 +654,13 @@ def create_upb_edit_view():
 
 def create_column_view():
     column_query = ColumnViewQuery()
-    column_view = f'CREATE VIEW IF NOT EXISTS ColumnView AS {column_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(column_query):
+        logger_setup.get_logger().critical('Error creating ColumnView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {column_query}')
+        return False
+    column_view = f'CREATE VIEW IF NOT EXISTS ColumnView AS {column_query}'
     logger_setup.get_logger().info(f'Creating ColumnView')
     logger_setup.get_logger().debug(f'SQL command: {column_view}')
     if not query.exec(column_view):
@@ -631,8 +673,13 @@ def create_column_view():
 
 def create_column_edit_view():
     column_query = ColumnEditViewQuery()
-    column_view = f'CREATE VIEW IF NOT EXISTS ColumnEditView AS {column_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(column_query):
+        logger_setup.get_logger().critical('Error creating ColumnEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {column_query}')
+        return False
+    column_view = f'CREATE VIEW IF NOT EXISTS ColumnEditView AS {column_query}'
     logger_setup.get_logger().info(f'Creating ColumnEditView')
     logger_setup.get_logger().debug(f'SQL command: {column_view}')
     if not query.exec(column_view):
@@ -645,8 +692,13 @@ def create_column_edit_view():
 
 def create_reference_view():
     reference_query = ReferenceViewQuery()
-    reference_view = f'CREATE VIEW IF NOT EXISTS ReferenceView AS {reference_query}'
     query = QtS.QSqlQuery()
+    if not query.exec(reference_query):
+        logger_setup.get_logger().critical('Error creating ReferenceView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL command: {reference_query}')
+        return False
+    reference_view = f'CREATE VIEW IF NOT EXISTS ReferenceView AS {reference_query}'
     logger_setup.get_logger().info(f'Creating ReferenceView')
     logger_setup.get_logger().debug(f'SQL command: {reference_view}')
     if not query.exec(reference_view):

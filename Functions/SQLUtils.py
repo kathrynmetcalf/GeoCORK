@@ -96,22 +96,20 @@ WITH DistinctUPbAnalyses AS
 Samples.SampleID,
 SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
 FROM Samples
-LEFT JOIN Aliquots ON Aliquots.SampleID = Samples.SampleID
-LEFT JOIN Spots ON Spots.AliquotID = Aliquots.AliquotID
-LEFT JOIN UPbAnalyses ON UPbAnalyses.SpotID = Spots.SpotID
+LEFT JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID
+LEFT JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID
+LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
 GROUP BY Samples.SampleID
 )
 '''
 qupb_count_aliquot_subquery = f'''
 WITH DistinctUPbAnalyses AS 
-(SELECT 
-Samples.SampleID,
+(SELECT
 Aliquots.AliquotID,
 SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
-FROM Samples
-LEFT JOIN Aliquots ON Aliquots.SampleID = Samples.SampleID
-LEFT JOIN Spots ON Spots.AliquotID = Aliquots.AliquotID
-LEFT JOIN UPbAnalyses ON UPbAnalyses.SpotID = Spots.SpotID
+FROM Aliquots
+LEFT JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID
+LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
 GROUP BY Aliquots.AliquotID
 )
 '''
@@ -258,84 +256,85 @@ qreference_modified = 'ReferenceModified AS ReferenceModified'
 # Join lines
 # SampleAge-Age joins
 sample_age_join = 'LEFT JOIN Ages ON SampleAges.OldestAgeID=Ages.AgeID OR SampleAges.YoungestAgeID=Ages.AgeID'
-sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON DirectAgeErrorFormats.ErrorFormatID=SampleAges.DirectAgeErrorFormatID
-                        LEFT JOIN AgeUnits ON AgeUnits.AgeUnitID=SampleAges.DirectAgeUnitID
+sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON SampleAges.DirectAgeErrorFormatID=DirectAgeErrorFormats.ErrorFormatID
+                        LEFT JOIN AgeUnits ON SampleAges.DirectAgeUnitID=AgeUnits.AgeUnitID
                         LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID=OldAge.AgeID
                         LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID=YoungAge.AgeID'''
 sampleage_age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID=SampleAges_AgeConstraints.SampleAgeID
-                        LEFT JOIN AgeConstraints ON AgeConstraints.AgeConstraintID=SampleAges_AgeConstraints.AgeConstraintID'''
+                        LEFT JOIN AgeConstraints ON SampleAges_AgeConstraints.AgeConstraintID=AgeConstraints.AgeConstraintID'''
 sampleage_age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID=SampleAges_AgeInterpretations.SampleAgeID
-                        LEFT JOIN AgeInterpretations ON AgeInterpretations.AgeInterpretationID=SampleAges_AgeInterpretations.AgeInterpretationID'''
+                        LEFT JOIN AgeInterpretations ON SampleAges_AgeInterpretations.AgeInterpretationID=AgeInterpretations.AgeInterpretationID'''
 sampleage_age_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID=SampleAges_References.SampleAgeID
-                        LEFT JOIN "References" AS AgeReferences ON AgeReferences.ReferenceID=SampleAges_References.ReferenceID'''
+                        LEFT JOIN "References" AS AgeReferences ON SampleAges_References.ReferenceID=AgeReferences.ReferenceID'''
 
 # GPSLocation joins
 gps_sample_join = '''LEFT JOIN GPSLocations AS GPSLocations ON Samples.SampleGPSLocationID=GPSLocations.GPSLocationID'''
-gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON SampleLatDirections.DirectionUnitID=GPSLocations.GPSLatDirectionID
-                        LEFT JOIN DirectionUnits AS SampleLonDirections ON SampleLonDirections.DirectionUnitID=GPSLocations.GPSLonDirectionID
-                        LEFT JOIN DistanceUnits AS SampleElevationUnits ON SampleElevationUnits.DistanceUnitID=GPSLocations.GPSElevUnitID
-                        LEFT JOIN GPSFormats AS GPSFormats ON GPSFormats.GPSFormatID=GPSLocations.GPSFormatID'''
+gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON GPSLocations.GPSLatDirectionID=SampleLatDirections.DirectionUnitID
+                        LEFT JOIN DirectionUnits AS SampleLonDirections ON GPSLocations.GPSLonDirectionID=SampleLonDirections.DirectionUnitID
+                        LEFT JOIN DistanceUnits AS SampleElevationUnits ON GPSLocations.GPSElevUnitID=SampleElevationUnits.DistanceUnitID
+                        LEFT JOIN GPSFormats AS GPSFormats ON GPSLocations.GPSFormatID=GPSFormats.GPSFormatID'''
 gps_column_join = '''LEFT JOIN GPSLocations AS ColumnGPS ON Columns.ColumnBaseGPSID=ColumnGPS.GPSLocationID'''
-gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON ColumnLatDirections.DirectionUnitID=ColumnGPS.GPSLatDirectionID
-                        LEFT JOIN DirectionUnits AS ColumnLonDirections ON ColumnLonDirections.DirectionUnitID=ColumnGPS.GPSLonDirectionID
-                        LEFT JOIN DistanceUnits AS ColumnElevationUnits ON ColumnElevationUnits.DistanceUnitID=ColumnGPS.GPSElevUnitID
-                        LEFT JOIN GPSFormats AS ColumnGPSFormats ON ColumnGPSFormats.GPSFormatID=ColumnGPS.GPSFormatID'''
+gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON ColumnGPS.GPSLatDirectionID=ColumnLatDirections.DirectionUnitID
+                        LEFT JOIN DirectionUnits AS ColumnLonDirections ON ColumnGPS.GPSLonDirectionID=ColumnLonDirections.DirectionUnitID
+                        LEFT JOIN DistanceUnits AS ColumnElevationUnits ON ColumnGPS.GPSElevUnitID=ColumnElevationUnits.DistanceUnitID
+                        LEFT JOIN GPSFormats AS ColumnGPSFormats ON ColumnGPS.GPSFormatID=ColumnGPSFormats.GPSFormatID'''
 
 # ColumnJoins
-column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON ColumnUnits.DistanceUnitID=Columns.ColumnTotalHeightDepthUnitID'
+column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON Columns.ColumnTotalHeightDepthUnitID=ColumnUnits.DistanceUnitID'
 
 # SampleJoins
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
-                                    LEFT JOIN AgeSignatures ON AgeSignatures.AgeSignatureID=Samples_AgeSignatures.AgeSignatureID'''
+                                    LEFT JOIN AgeSignatures ON Samples_AgeSignatures.AgeSignatureID=AgeSignatures.AgeSignatureID'''
 column_join = 'LEFT JOIN Columns ON Samples.SampleColumnID=Columns.ColumnID'
-column_unit_join = '''LEFT JOIN DistanceUnits AS ColumnHeightDepthUnits ON ColumnHeightDepthUnits.DistanceUnitID=Samples.HeightDepthUnitID'''
+column_unit_join = '''LEFT JOIN DistanceUnits AS ColumnHeightDepthUnits ON Samples.HeightDepthUnitID=ColumnHeightDepthUnits.DistanceUnitID'''
 region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID=Samples_Regions.SampleID
-                                LEFT JOIN Regions ON Regions.RegionID=Samples_Regions.RegionID'''
+                                LEFT JOIN Regions ON Samples_Regions.RegionID=Regions.RegionID'''
 rock_type_join = '''LEFT JOIN Samples_RockTypes ON Samples.SampleID=Samples_RockTypes.SampleID
-                                LEFT JOIN RockTypes ON RockTypes.RockTypeID=Samples_RockTypes.RockTypeID'''
+                                LEFT JOIN RockTypes ON Samples_RockTypes.RockTypeID=RockTypes.RockTypeID'''
 sample_context_join = '''LEFT JOIN Samples_SampleContexts ON Samples.SampleID=Samples_SampleContexts.SampleID
-                                LEFT JOIN SampleContexts ON SampleContexts.SampleContextID=Samples_SampleContexts.SampleContextID'''
+                                LEFT JOIN SampleContexts ON Samples_SampleContexts.SampleContextID=SampleContexts.SampleContextID'''
 sample_sampleage_join = '''LEFT JOIN Samples_SampleAges ON Samples.DefaultSampleAgeID=Samples_SampleAges.SampleAgeID
-                                    LEFT JOIN SampleAges ON SampleAges.SampleAgeID=Samples_SampleAges.SampleAgeID'''
-default_sample_age_join = '''LEFT JOIN SampleAges as DefaultSampleAges ON SampleAges.SampleAgeID=Samples.DefaultSampleAgeID'''
+                                    LEFT JOIN SampleAges ON Samples_SampleAges.SampleAgeID=SampleAges.SampleAgeID'''
+default_sample_age_join = '''LEFT JOIN SampleAges as DefaultSampleAges ON Samples.DefaultSampleAgeID=DefaultSampleAges.SampleAgeID'''
 sampling_method_join = '''LEFT JOIN Samples_SamplingMethods ON Samples.SampleID=Samples_SamplingMethods.SampleID
-                                LEFT JOIN SamplingMethods ON SamplingMethods.SamplingMethodID=Samples_SamplingMethods.SamplingMethodID'''
+                                LEFT JOIN SamplingMethods ON Samples_SamplingMethods.SamplingMethodID=SamplingMethods.SamplingMethodID'''
 setting_join = '''LEFT JOIN Samples_Settings ON Samples.SampleID=Samples_Settings.SampleID
-                                LEFT JOIN Settings ON Settings.SettingID=Samples_Settings.SettingID'''
+                                LEFT JOIN Settings ON Samples_Settings.SettingID=Settings.SettingID'''
 unit_join = '''LEFT JOIN Samples_Units ON Samples.SampleID=Samples_Units.SampleID
-                                LEFT JOIN Units ON Units.UnitID=Samples_Units.UnitID'''
-sample_aliquot_join = 'LEFT JOIN Aliquots ON Aliquots.SampleID=Samples.SampleID'
+                                LEFT JOIN Units ON Samples_Units.UnitID=Units.UnitID'''
+sample_aliquot_join = 'LEFT JOIN Aliquots ON Samples.SampleID=Aliquots.SampleID'
 
 # AliquotJoins
-aliquot_sample_join = 'LEFT JOIN Samples ON Samples.SampleID=Aliquots.SampleID'
+aliquot_sample_join = 'LEFT JOIN Samples ON Aliquots.SampleID=Samples.SampleID'
 aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts ON Aliquots.AliquotID=Aliquots_AliquotContexts.AliquotID
-                                LEFT JOIN AliquotContexts ON AliquotContexts.AliquotContextID=Aliquots_AliquotContexts.AliquotContextID'''
+                                LEFT JOIN AliquotContexts ON Aliquots_AliquotContexts.AliquotContextID=AliquotContexts.AliquotContextID'''
 
 # Aliquot-spot Join
-aliquot_spot_join = 'LEFT JOIN Spots ON Spots.AliquotID=Aliquots.AliquotID'
+aliquot_spot_join = 'LEFT JOIN Spots ON Aliquots.AliquotID=Spots.AliquotID'
 
 # SpotJoins
-spot_aliquot_join = 'LEFT JOIN Aliquots ON Aliquots.AliquotID=Spots.AliquotID'
-spot_composition_join = '''LEFT JOIN SpotCompositions ON SpotCompositions.SpotCompositionID=Spots.SpotCompositionID'''
+spot_aliquot_join = 'LEFT JOIN Aliquots ON Spots.AliquotID=Aliquots.AliquotID'
+spot_composition_join = '''LEFT JOIN SpotCompositions ON Spots.SpotCompositionID=SpotCompositions.SpotCompositionID'''
 spot_context_join = '''LEFT JOIN Spots_SpotContexts ON Spots.SpotID=Spots_SpotContexts.SpotID
-                                LEFT JOIN SpotContexts ON SpotContexts.SpotContextID=Spots_SpotContexts.SpotContextID'''
-spot_upb_analysis_join = 'LEFT JOIN UPbAnalyses ON UPbAnalyses.SpotID=Spots.SpotID'
+                                LEFT JOIN SpotContexts ON Spots_SpotContexts.SpotContextID=SpotContexts.SpotContextID'''
+spot_upb_analysis_join = 'LEFT JOIN UPbAnalyses ON Spots.SpotID=UPbAnalyses.SpotID'
 
 # UPbJoins
-upb_spot_join = 'LEFT JOIN Spots ON Spots.SpotID=UPbAnalyses.SpotID'
-upb_reference_join = 'LEFT JOIN "References" AS UPbReferences ON UPbReferences.ReferenceID=UPbAnalyses.ReferenceID'
-upb_labs_join = 'LEFT JOIN LabFacilities ON LabFacilities.LabFacilityID=UPbAnalyses.LabFacilityID'
-upb_instruments_join = 'LEFT JOIN Instruments ON Instruments.InstrumentID=UPbAnalyses.InstrumentID'
-upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalysisMethods.UPbAnalysisMethodID=UPbAnalyses.UPbAnalysisMethodID'
-upb_ratio_error_format_join = 'LEFT JOIN ErrorFormats AS RatioErrorFormats ON RatioErrorFormats.ErrorFormatID=UPbAnalyses.RatioErrorFormatID'
-upb_age_error_format_join = 'LEFT JOIN ErrorFormats AS AgeErrorFormats ON AgeErrorFormats.ErrorFormatID=UPbAnalyses.AgeErrorFormatID'
-upb_age_unit_join = 'LEFT JOIN AgeUnits AS UPbAgeUnits ON UPbAgeUnits.AgeUnitID=UPbAnalyses.AgeUnitID'
-upb_age_interpretation_join = 'LEFT JOIN AgeInterpretations AS UPbAgeInterpretations ON AgeInterpretations.AgeInterpretationID=UPbAnalyses.AgeInterpretationID'
-upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats ON ConcordanceFormats.ConcordanceFormatID=UPbAnalyses.ConcordanceFormatID'
-upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON SpotSizeUnits.DistanceUnitID=UPbAnalyses.SpotSizeUnitID'
+upb_spot_join = 'LEFT JOIN Spots ON UPbAnalyses.SpotID=Spots.SpotID'
+upb_reference_join = 'LEFT JOIN "References" AS UPbReferences ON UPbAnalyses.ReferenceID=UPbReferences.ReferenceID'
+upb_labs_join = 'LEFT JOIN LabFacilities ON UPbAnalyses.LabFacilityID=LabFacilities.LabFacilityID'
+upb_instruments_join = 'LEFT JOIN Instruments ON UPbAnalyses.InstrumentID=Instruments.InstrumentID'
+upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalyses.UPbAnalysisMethodID=UPbAnalysisMethods.UPbAnalysisMethodID'
+upb_ratio_error_format_join = 'LEFT JOIN ErrorFormats AS RatioErrorFormats ON UPbAnalyses.RatioErrorFormatID=RatioErrorFormats.ErrorFormatID'
+upb_age_error_format_join = 'LEFT JOIN ErrorFormats AS AgeErrorFormats ON UPbAnalyses.AgeErrorFormatID=AgeErrorFormats.ErrorFormatID'
+upb_age_unit_join = 'LEFT JOIN AgeUnits AS UPbAgeUnits ON UPbAnalyses.AgeUnitID=UPbAgeUnits.AgeUnitID'
+upb_age_interpretation_join = 'LEFT JOIN AgeInterpretations AS UPbAgeInterpretations ON UPbAnalyses.AgeInterpretationID=UPbAgeInterpretations.AgeInterpretationID'
+upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats ON UPbAnalyses.ConcordanceFormatID=ConcordanceFormats.ConcordanceFormatID'
+upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON UPbAnalyses.SpotSizeUnitID=SpotSizeUnits.DistanceUnitID'
 upb_rejection_reason_join = '''LEFT JOIN UPbAnalyses_RejectionReasons ON UPbAnalyses.UPbAnalysisID=UPbAnalyses_RejectionReasons.UPbAnalysisID
-                                    LEFT JOIN RejectionReasons AS UPbRejectionReasons ON UPbRejectionReasons.RejectionReasonID=UPbAnalyses_RejectionReasons.RejectionReasonID'''
-upb_distinct_join = '''LEFT JOIN DistinctUPbAnalyses ON DistinctUPbAnalyses.SampleID=Samples.SampleID'''
+                                    LEFT JOIN RejectionReasons AS UPbRejectionReasons ON UPbAnalyses_RejectionReasons.RejectionReasonID=UPbRejectionReasons.RejectionReasonID'''
+upb_distinct_join_sample = '''LEFT JOIN DistinctUPbAnalyses ON Samples.SampleID=DistinctUPbAnalyses.SampleID'''
+upb_distinct_join_aliquot = '''LEFT JOIN DistinctUPbAnalyses ON Aliquots.AliquotID=DistinctUPbAnalyses.AliquotID'''
 
 # Information for settings
 
