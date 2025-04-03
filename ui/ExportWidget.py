@@ -911,6 +911,8 @@ class ExportWidget(QWidget):
                         model = QSqlQueryModel()
                         tableView.setModel(model)
                         return False
+                    else:
+                        return True
             else:
                 logger_setup.get_logger().critical(
                     f'Error selecting distinct values in table: {query.lastError().text()}')
