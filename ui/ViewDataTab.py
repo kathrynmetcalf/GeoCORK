@@ -12,8 +12,9 @@ import logger_setup
 import time
 from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
-from Functions.Widget_classes import SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel, \
-    restore_expanded_state
+from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
+                                      restore_expanded_state, TreeContextMenu, expand_collapse, find_tree_model)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -23,9 +24,22 @@ class ViewDataTab(QtW.QWidget):
         super().__init__()
         logger_setup.get_logger().info(f'Creating a new ViewDataTab for {child_type} with parent {parent_type} ID {parent_id}')
         start_view_data_tab_time = time.time()
+
+        self.loading_manager = LoadingDialogManager.get_instance()
+
         self.parent_id = parent_id
         self.parent_type = parent_type
         self.child_type = child_type
+        self.view = None
+        self.model = None
+        self.tree_model = None
+        self.proxy_model = None
+
+        # Retrieve the main window
+        for widget in QtW.QApplication.topLevelWidgets():
+            if widget.inherits("QMainWindow"):
+                self.main_window = widget
+                break
 
         self.v_layout = QtW.QVBoxLayout()
         self.setLayout(self.v_layout)
@@ -51,7 +65,7 @@ class ViewDataTab(QtW.QWidget):
         self.resize_timer = QTimer()
 
         self.search_lineEdit.textChanged.connect(self.search)
-
+        self.loading_manager.close_loading_dialog('Loading', 'Loading tab window...')
         end_view_data_tab_time = time.time()
         logger_setup.get_logger().info(f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
 
@@ -72,7 +86,6 @@ class ViewDataTab(QtW.QWidget):
                 self.view = QtW.QTreeView()
             else:
                 self.view = QtW.QTableView()
-
                 self.view.setWordWrap(True)
                 self.view.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
                 self.view.setItemDelegate(WordWrapDelegate(self.view))
@@ -88,6 +101,8 @@ class ViewDataTab(QtW.QWidget):
                 self.view.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
                 self.view.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
 
+            self.view.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+            self.view.customContextMenuRequested.connect(self.show_context_menu)
             self.v_layout.addWidget(self.view)
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             # Columns to select from the view
@@ -142,7 +157,12 @@ class ViewDataTab(QtW.QWidget):
             #     self.model = SQLiteTableModel(table_query)
             self.model = SQLiteTableModel(table_query)
             self.proxy_model = ReadableProxyModel()
-            self.proxy_model.setSourceModel(self.model)
+            if isinstance(self.view, QtW.QTreeView):
+                # todo: Now that it is actually creating a tree, it is taking 7 seconds to add 2 aliquots
+                self.tree_model = TreeModel(self.model)
+                self.proxy_model.setSourceModel(self.tree_model)
+            else:
+                self.proxy_model.setSourceModel(self.model)
             self.view.setModel(self.proxy_model)
             self.view.setSortingEnabled(True)
             self.proxy_model.setFilterKeyColumn(-1)
@@ -150,7 +170,8 @@ class ViewDataTab(QtW.QWidget):
             if self.child_type == 'Aliquot':
                 self.view.setSortingEnabled(False)
                 self.view.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-                self.view.resizeColumnsToContents()
+                for column in range(self.model.columnCount()):
+                    self.view.resizeColumnToContents(column)
             else:
                 self.view.resizeColumnsToContents()
                 for column in range(self.proxy_model.columnCount()):
@@ -161,10 +182,10 @@ class ViewDataTab(QtW.QWidget):
                 case 'Sample':
                     self.view.hideColumn(0)  # don't show SampleID column
                 case 'Aliquot':
-                    self.view.hideColumn(0)  # don't show AliquotID
-                    self.view.hideColumn(1)  # don't show ParentAliquotID
-                    self.view.hideColumn(2)  # don't show AliquotParentRow
-                    self.view.hideColumn(3)  # don't show SampleID
+                    self.view.hideColumn(1)  # don't show AliquotID
+                    self.view.hideColumn(2)  # don't show ParentAliquotID
+                    self.view.hideColumn(3)  # don't show AliquotParentRow
+                    self.view.hideColumn(4)  # don't show SampleID
                 case 'Spot':
                     self.view.hideColumn(0)  # don't show SpotID
                     self.view.hideColumn(1)  # don't show SampleID
@@ -176,6 +197,58 @@ class ViewDataTab(QtW.QWidget):
                     self.view.hideColumn(3)  # don't show SpotID
         end_display_table_time = time.time()
         logger_setup.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')
+
+    def show_context_menu(self, pos):
+        tree_menu = TreeContextMenu()
+        table_menu = QtW.QMenu()
+        edit_action = table_menu.addAction('Edit')
+        add_action = table_menu.addAction('Add')
+        if isinstance(self.view, QtW.QTreeView):
+            tree_menu.set_view(self.view, False, False)
+            action = tree_menu.exec(self.view.viewport().mapToGlobal(pos))
+            if action:
+                if action.text() == 'Edit':
+                    self.edit_popup()
+                elif 'Expand' in action.text() or 'Collapse' in action.text():
+                    expand_collapse(self.view, action)
+                elif 'View' in action.text():
+                    self.display_data(action)
+        else:
+            edit_action = table_menu.addAction('Edit')
+            if self.model.table == 'Spots':
+                view_upb_analyses_action = table_menu.addAction('View U-Pb Analyses')
+            else:
+                view_upb_analyses_action = None
+            action = table_menu.exec(self.dbTable_tableView.viewport().mapToGlobal(pos))
+            if action:
+                if action == edit_action:
+                    self.edit_popup()
+                elif action == view_upb_analyses_action:
+                    self.display_data(action)
+
+    def display_data(self, action):
+        # get the row that was right-clicked
+        parent_ids = []
+        if self.view.selectedIndexes():
+            selected_indexes = self.view.selectedIndexes()
+        else:
+            logger_setup.get_logger().error("Select cell or row")
+            return
+        for index in selected_indexes:
+            if isinstance(self.view, QtW.QTreeView):
+                tree_model = find_tree_model(self.view)
+                parent_id = tree_model.index(index.row(), 2, index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
+            else:
+                parent_id = self.proxy_model.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if parent_id not in parent_ids:
+                parent_ids.append(str(parent_id))
+        if 'Spot' in action.text():
+            self.main_window.open_tab(parent_ids, 'Aliquot', 'Spot')
+        elif 'U-Pb' in action.text():
+            if isinstance(self.view, QtW.QTreeView):
+                self.main_window.open_tab(parent_ids, 'Aliquot', 'UPbAnalysis')
+            else:
+                self.main_window.open_tab(parent_ids, 'Spot', 'UPbAnalysis')
 
     def edit_popup(self):
         logger_setup.get_logger().info(f'Opening edit dialog for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')

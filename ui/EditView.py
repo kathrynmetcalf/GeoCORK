@@ -395,6 +395,10 @@ class EditView(QtW.QDialog):
             if self.combo is not None:
                 logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
+        if model_index.column() == self.name_column:
+            # The column is the name column for the table. This should be edited with a line edit.
+            self.create_lineedit()
+            return
         header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                        QtC.Qt.ItemDataRole.DisplayRole)
         if 'GPS' in header or 'Elevation' in header:

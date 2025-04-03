@@ -39,6 +39,7 @@ class SelectColumns(QWidget):
 
         self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
         self.show_per_page_comboBox.setCurrentText(str(settings.value('show_per_page')))
+        self.reset_table_pushButton.clicked.connect(self.reset_table_columns)
         self.columnselection_comboBox.addItems(self.view_dict.keys())
         self.load_list_states()
 
@@ -68,6 +69,7 @@ class SelectColumns(QWidget):
         view_name_col = get_view_name_column(view_name)
         field_items = self.view_dict[view_name]
         settings_columns = settings.value(self.view_setting_dict[view_name])
+        name_header = None
         if view_name_col:
             # If there is a view name column, set it as the permanent header
             name_header = settings_columns[view_name_col]
@@ -75,8 +77,13 @@ class SelectColumns(QWidget):
         for column in settings_columns:
             # Do not bother to add the table ID field which must be present but is always hidden
             # Same for any parent ID fields or tree structure fields
-            if column == field_items[0]:
-                pass
+            if column == name_header:
+                # Make sure the name column cannot be moved or unchecked
+                item = QStandardItem(column)
+                item.setCheckable(True)
+                item.setCheckState(QtCore.Qt.CheckState.Checked)
+                item.setEnabled(False)
+                model.appendRow(item)
             elif column in self.hidden_must_haves or 'ID' in column:
                 pass
             elif '"' in column and column.split('"')[1] in self.hidden_must_haves:
@@ -104,7 +111,20 @@ class SelectColumns(QWidget):
     def switch_table_layout(self):
         # Switch the stack widget to show the layout corresponding to the selected view
         selected_view_index = self.columnselection_comboBox.currentIndex()
+        selected_view_name = self.columnselection_comboBox.currentText()
         self.columnattributes_stack.setCurrentIndex(selected_view_index)
+        self.reset_table_pushButton.setText(f'Reset {selected_view_name}')
+
+    def reset_table_columns(self):
+        logger_setup.get_logger().info('Resetting table columns')
+        selected_view_index = self.columnselection_comboBox.currentIndex()
+        selected_view = self.columnselection_comboBox.currentText()
+        settings.setValue(self.view_setting_dict[selected_view], settings.value(f'default_{self.view_setting_dict[selected_view]}'))
+        # get the list view in the current index of the stack widget
+        column_list_view = self.columnattributes_stack.widget(selected_view_index)
+        proxy_model = self.check_list_view(selected_view)
+        column_list_view.setModel(proxy_model)
+        logger_setup.get_logger().info('Reset table columns')
 
     def save_list_states(self):
         # Save the number of rows to show per page
@@ -117,16 +137,20 @@ class SelectColumns(QWidget):
             view_name = self.columnselection_comboBox.itemText(index)
             # Always include the ID fields
             if view_widget is not None and view_name != '':
+                source_model = view_widget.model().sourceModel()
                 field_names = settings.value(f'default_{self.view_setting_dict[view_name]}')
                 view_columns = []
                 if 'Aliquot' in view_name:
-                    view_columns = ['AliquotID', 'ParentAliquotID', 'AliquotParentID', 'AliquotName', 'SampleID']
+                    # Preset the first columns. First 4 columns are set by tree model, and SampleID is hidden from the list
+                    view_columns = ['AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID']
+                    # Skip AliquotName since we already included it
+                    model_range = range(1, source_model.rowCount())
                 else:
+                    model_range = range(source_model.rowCount())
                     for field in field_names:
                         if 'ID' in field or field in self.hidden_must_haves:
                             view_columns.append(field)
-                source_model = view_widget.model().sourceModel()
-                for row in range(source_model.rowCount()):
+                for row in model_range:
                     item = source_model.item(row)
                     if item.checkState() == QtCore.Qt.CheckState.Checked:
                         column_name = item.text()

@@ -320,6 +320,7 @@ class GeoCORK(QtW.QMainWindow):
                 print("Error: Invalid child type")
                 return
             label = f'{parent_type} {parent_name}: {child_label}'
+            self.loading_manager.show_loading_dialog('Loading', 'Loading tab window...')
             tab = ViewDataTab(p_id, parent_type, child_type, label)
             self.tabWidget.addTab(tab, label)
         end_open_tab_time = time.time()
