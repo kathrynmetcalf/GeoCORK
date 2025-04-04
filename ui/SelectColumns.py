@@ -63,12 +63,14 @@ class SelectColumns(QWidget):
             self.columnattributes_stack.addWidget(column_list_view)
 
     def check_list_view(self, view_name: str):
-        # todo: allow drag-drop but not onto other items - they disappear
         logger_setup.get_logger().info(f'Populating checks for {view_name}')
         model = ColumnItemModel()
         view_name_col = get_view_name_column(view_name)
         field_items = self.view_dict[view_name]
         settings_columns = settings.value(self.view_setting_dict[view_name])
+        if 'Edit' not in view_name:
+            field_items = self.handle_autofill(field_items)
+            settings_columns = self.handle_autofill(settings_columns)
         name_header = None
         if view_name_col:
             # If there is a view name column, set it as the permanent header
@@ -138,7 +140,9 @@ class SelectColumns(QWidget):
             # Always include the ID fields
             if view_widget is not None and view_name != '':
                 source_model = view_widget.model().sourceModel()
-                field_names = settings.value(f'default_{self.view_setting_dict[view_name]}')
+                field_names_setting = settings.value(f'default_{self.view_setting_dict[view_name]}')
+                if 'Edit' not in view_name:
+                    field_names = self.handle_autofill(field_names_setting)
                 view_columns = []
                 if 'Aliquot' in view_name:
                     # Preset the first columns. First 4 columns are set by tree model, and SampleID is hidden from the list
@@ -171,3 +175,17 @@ class SelectColumns(QWidget):
                 # Reset the model adding first the fields in the settings and then the rest
                 proxy_model = self.check_list_view(view_name)
                 view_widget.setModel(proxy_model)
+
+    def handle_autofill(self, field_names_setting):
+        field_names = []
+        if settings.value('autofill_best_age') == 'true':
+            for field_name in field_names_setting:
+                if 'BestAge' in field_name and 'Filled' not in field_name:
+                    field_name = f'"{field_name.replace('"', '')}Filled"'
+                field_names.append(field_name)
+        else:
+            for field_name in field_names_setting:
+                if 'BestAge' in field_name and 'Filled' in field_name:
+                    field_name = f'{field_name.replace('Filled', '')}'
+                field_names.append(field_name)
+        return field_names

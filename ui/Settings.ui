@@ -271,6 +271,63 @@
         </layout>
        </item>
        <item>
+        <widget class="QGroupBox" name="upb_best_age_groupBox">
+         <property name="title">
+          <string>U-Pb Best Age</string>
+         </property>
+         <layout class="QVBoxLayout" name="verticalLayout_7">
+          <item>
+           <widget class="QCheckBox" name="autofill_best_checkBox">
+            <property name="text">
+             <string>Auto fill display when Best Age is blank</string>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <layout class="QGridLayout" name="gridLayout_5">
+            <item row="0" column="0">
+             <widget class="QLabel" name="young_age_label">
+              <property name="text">
+               <string>Young ages</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="1">
+             <widget class="QLabel" name="cutof_age_label">
+              <property name="text">
+               <string>Cutoff age (Ma)</string>
+              </property>
+             </widget>
+            </item>
+            <item row="0" column="2">
+             <widget class="QLabel" name="old_age_label">
+              <property name="text">
+               <string>Old ages</string>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="0">
+             <widget class="QComboBox" name="young_age_fill_comboBox"/>
+            </item>
+            <item row="1" column="1">
+             <widget class="QLineEdit" name="cutoff_age_lineEdit">
+              <property name="sizePolicy">
+               <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                <horstretch>0</horstretch>
+                <verstretch>0</verstretch>
+               </sizepolicy>
+              </property>
+             </widget>
+            </item>
+            <item row="1" column="2">
+             <widget class="QComboBox" name="old_age_fill_comboBox"/>
+            </item>
+           </layout>
+          </item>
+         </layout>
+        </widget>
+       </item>
+       <item>
         <widget class="QGroupBox" name="reference_display_groupBox">
          <property name="title">
           <string>Reference Display</string>
@@ -393,19 +450,6 @@
           </item>
          </layout>
         </widget>
-       </item>
-       <item>
-        <spacer name="verticalSpacer_3">
-         <property name="orientation">
-          <enum>Qt::Vertical</enum>
-         </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>20</width>
-           <height>40</height>
-          </size>
-         </property>
-        </spacer>
        </item>
       </layout>
      </widget>

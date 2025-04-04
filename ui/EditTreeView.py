@@ -227,10 +227,6 @@ class EditTreeView(QtW.QDialog):
                 self.edit_treeView.hideColumn(column)
             else:
                 self.edit_treeView.resizeColumnToContents(column)
-        # self.edit_treeView.setSortingEnabled(True)
-        # self.edit_treeView.setWordWrap(True)
-        # self.edit_treeView.setTextElideMode(QtC.Qt.TextElideMode.ElideNone)  # Prevent text truncation
-        # self.edit_treeView.setItemDelegate(WordWrapDelegate(self.edit_treeView))
         self.edit_treeView.setSortingEnabled(False)
         self.edit_treeView.setDragEnabled(True)
         self.edit_treeView.setAcceptDrops(True)
@@ -247,8 +243,6 @@ class EditTreeView(QtW.QDialog):
 
         # # Connect resizing events
         # self.edit_treeView.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
-        # self.edit_treeView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
-        # restore_expanded_state(self.table, self.tree_model, self.edit_treeView)
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
         logger_setup.get_logger().info(f'Display {self.table} table complete')

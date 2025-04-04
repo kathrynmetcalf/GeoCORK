@@ -65,7 +65,7 @@ class ViewDataTab(QtW.QWidget):
         self.resize_timer = QTimer()
 
         self.search_lineEdit.textChanged.connect(self.search)
-        self.loading_manager.close_loading_dialog('Loading', 'Loading tab window...')
+        self.loading_manager.close_loading_dialog('Loading', f'Loading {label}...')
         end_view_data_tab_time = time.time()
         logger_setup.get_logger().info(f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
 

@@ -585,6 +585,32 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def mapFromSource(self, sourceIndex):
         return super().mapFromSource(sourceIndex)
 
+    def determine_numeric(self, value):
+        if isinstance(value, str):
+            if value == '':
+                return value
+            elif '.' in value:
+                try:
+                    float(value)  # value is float, not text
+                    if float(value) - int(float(value)) != 0:
+                        return float(value)
+                    else:  # value is an integer
+                        return int(float(value))
+                except ValueError:
+                    return value
+            try:
+                int(value)  # value is integer, not text
+                return int(value)
+            except ValueError:
+                return value
+        elif isinstance(value, float):
+            if value - int(value) != 0:
+                return value
+            else:
+                return int(value)
+        else:
+            return value
+
     def separate_parts(self, text):
         parts = re.split(r'(\d+)', text)
         if parts:
@@ -601,8 +627,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
         return len(left_parts) < len(right_parts)
 
     def lessThan(self, left, right):
-        left_data = self.sourceModel().data(left)
-        right_data = self.sourceModel().data(right)
+        left_data = self.determine_numeric(self.sourceModel().data(left))
+        right_data = self.determine_numeric(self.sourceModel().data(right))
         if isinstance(left_data, str) and isinstance(right_data, str):
             left_parts = self.separate_parts(left_data)
             right_parts = self.separate_parts(right_data)

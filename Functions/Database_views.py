@@ -5,6 +5,7 @@ from PyQt6 import QtSql as QtS
 import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.Widget_classes import get_headers
+from Functions.Settings_manager import settings
 
 
 def SampleViewQuery():
@@ -326,14 +327,15 @@ def UPbViewQuery():
         if f'UPbAnalyses."{header}" AS "{header}"' in columns:
             continue
         if 'Calculated' in header:
-            columns.append(f'UPbAnalyses."{header}" AS "{header}"')
-            if f'{header}Error' in headers:
+            if f'UPbAnalyses."{header}" AS "{header}"' not in columns:
+                columns.append(f'UPbAnalyses."{header}" AS "{header}"')
+            if f'{header}Error' in headers and f'UPbAnalyses."{header}Error" AS "{header}Error"' not in columns:
                 columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
         elif f'Calculated{header}' in headers:
             pass
         elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
             pass
-        else:
+        elif f'UPbAnalyses."{header}" AS "{header}"' not in columns:
             columns.append(f'UPbAnalyses."{header}" AS "{header}"')
     query_columns = ',\n'.join(columns)
 
@@ -385,8 +387,9 @@ def UPbEditViewQuery():
         elif 'Calculated' in header:
             pass
         else:
-            columns.append(f'UPbAnalyses."{header}" AS "{header}"')
-            if f'{header}Error' in headers:
+            if f'UPbAnalyses."{header}" AS "{header}"' not in columns:
+                columns.append(f'UPbAnalyses."{header}" AS "{header}"')
+            if f'{header}Error' in headers and f'UPbAnalyses."{header}Error" AS "{header}Error"' not in columns:
                 columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
     query_columns = ',\n'.join(columns)
 
@@ -502,6 +505,10 @@ def ReferenceViewQuery():
 
 def create_sample_view():
     sample_query = SampleViewQuery()
+    if settings.value('autofill_best_age') == 'true':
+        # replace the necessary columns with 'Filled' at the end
+        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+            sample_query = sample_query.replace(f'"{column}"', f'"{column}Filled"')
     query = QtS.QSqlQuery()
     if not query.exec(sample_query):
         logger_setup.get_logger().critical('Error creating SampleView')
@@ -540,6 +547,10 @@ def create_sample_edit_view():
 
 def create_aliquot_view():
     aliquot_query = AliquotViewQuery()
+    if settings.value('autofill_best_age') == 'true':
+        # replace the necessary columns with 'Filled' at the end
+        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+            aliquot_query = aliquot_query.replace(f'"{column}"', f'"{column}Filled"')
     query = QtS.QSqlQuery()
     if not query.exec(aliquot_query):
         logger_setup.get_logger().critical('Error creating AliquotView')
@@ -578,6 +589,10 @@ def create_aliquot_edit_view():
 
 def create_spot_view():
     spot_query = SpotViewQuery()
+    if settings.value('autofill_best_age') == 'true':
+        # replace the necessary columns with 'Filled' at the end
+        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+            spot_query = spot_query.replace(f'"{column}"', f'"{column}Filled"')
     query = QtS.QSqlQuery()
     if not query.exec(spot_query):
         logger_setup.get_logger().critical('Error creating SpotView')
@@ -635,6 +650,10 @@ def create_upb_view():
 
 def create_upb_edit_view():
     upb_query = UPbEditViewQuery()
+    if settings.value('autofill_best_age') == 'true':
+        # replace the necessary columns with 'Filled' at the end
+        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+            upb_query = upb_query.replace(f'"{column}"', f'"{column}Filled"')
     query = QtS.QSqlQuery()
     if not query.exec(upb_query):
         logger_setup.get_logger().critical('Error creating UPbEditView')

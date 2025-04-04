@@ -2151,6 +2151,7 @@ class ImportWizardDialog(QWidget):
                 if progress_dialog.wasCanceled():
                     rollback_savepoint('before_upb_import')
                     break
+                    return
 
                 # Build a record dict with every key initialized to None
                 record = {field: None for field in SQLUtils.upb_possible_database_input_fields}
@@ -2226,7 +2227,7 @@ class ImportWizardDialog(QWidget):
                         create_aliquot.prepare(
                             'INSERT INTO Aliquots (AliquotName, AliquotParentRow, SampleID) VALUES (:name, :parent_row, :sample_id)')
                         create_aliquot.bindValue(":name", record["Aliquot Name"])
-                        create_aliquot.bindValue(":parent_row", record["Aliquot ParentRow"])
+                        create_aliquot.bindValue(":parent_row", record["AliquotParentRow"])
                         create_aliquot.bindValue(":sample_id", record["SampleID"])
 
                         if not create_aliquot.exec():
@@ -2440,9 +2441,10 @@ class ImportWizardDialog(QWidget):
                 inserted_count += 1
 
         except Exception as e:
-            logger_setup.get_logger().critical(f"Import failed: {e}")
+            logger_setup.get_logger().critical(f"Import failed")
             logger_setup.get_logger().debug(f"Error: {e}")
             rollback_savepoint('before_upb_import')
+            return
         QSqlDatabase().commit()
         release_savepoint('before_upb_import')
         QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")

@@ -210,6 +210,9 @@ def populate_generated_columns() -> bool:
     if not generate_age_display_column('SampleAges', 'SampleAgeID'):
         rollback_savepoint('before_populate')
         return False
+    if not generate_best_age_fill_columns():
+        rollback_savepoint('before_populate')
+        return False
     release_savepoint('before_populate')
     return True
 
@@ -405,6 +408,40 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
         logger_setup.get_logger().info(f'Successfully updated {err_column}')
     return True
 
+def generate_best_age_fill_columns():
+    young_column_setting = settings.value('young_fill_best_age')
+    old_column_setting = settings.value('old_fill_best_age')
+    best_age_cutoff = settings.value('best_age_cutoff')
+    for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+        logger_setup.get_logger().info(f'Constructing query for {column}')
+        young_column = young_column_setting.replace('"', '')
+        old_column = old_column_setting.replace('"', '')
+        if 'Error' in column:
+            young_column = f'{young_column.replace('"', '')}Error'
+            old_column = f'{old_column.replace('"', '')}Error'
+        if 'Calculated' in column:
+            young_column = f'Calculated{young_column.replace('"', '')}'
+            old_column = f'Calculated{old_column.replace('"', '')}'
+        sql_alter = f'''ALTER TABLE UPbAnalyses ADD COLUMN "{column}Filled" REAL AS 
+                        (CASE WHEN "{column}" IS NULL THEN
+                            (CASE 
+                                WHEN "{young_column}" IS NULL AND "{old_column}" IS NULL THEN NULL
+                                WHEN "{young_column}" IS NULL THEN "{old_column}"
+                                WHEN "{old_column}" IS NULL THEN "{young_column}"
+                                WHEN "{young_column}" < "{best_age_cutoff}" THEN "{young_column}"
+                                ELSE "{old_column}"
+                            END)
+                            ELSE "{column}"
+                        END) VIRTUAL'''
+        query = QtS.QSqlQuery()
+        if not query.exec(sql_alter):
+            logger_setup.get_logger().critical(f'Failed to fill missing values for {column}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_populate')
+            return False
+        logger_setup.get_logger().info(f'Successfully updated {column}')
+    return True
 
 def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int,
                         conversions: list) -> bool:

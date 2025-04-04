@@ -5,7 +5,7 @@ import time
 from PyQt6 import QtCore as QtC, QtWidgets
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSettings, QSize, QSortFilterProxyModel, QTimer, Qt, QRegularExpression
+from PyQt6.QtCore import QPoint, QSettings, QSize, QTimer, Qt, QRegularExpression
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton, QPlainTextEdit
 from PyQt6.uic import loadUi
@@ -15,7 +15,7 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel, \
-    WordWrapDelegate, get_name_column
+    WordWrapDelegate, get_name_column, ReadableProxyModel
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
@@ -79,16 +79,16 @@ class DataViewerWidget(QWidget):
         self.goto_line_edit_2.editingFinished.connect(self.go_to_record_2)
 
         # display sample table information first time
-        self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
-                                  self.dbTable_comboBox, self.edit_pushButton)
+        self.display_data_table(self.db_stackedWidget, self.dbTable_tableView,
+                                self.dbTable_comboBox, self.edit_pushButton)
 
-        self.dbTable_comboBox.currentTextChanged.connect(lambda: self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
-                                  self.dbTable_comboBox, self.edit_pushButton))
+        self.dbTable_comboBox.currentTextChanged.connect(lambda: self.display_data_table(self.db_stackedWidget, self.dbTable_tableView,
+                                                                                         self.dbTable_comboBox, self.edit_pushButton))
 
 
         # Display filtered table for the first time
         # todo the showing records and next/previous pages are broken and not updating for filtered sample view, right table
-        self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_sample_filter(
+        self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_data_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
             self.edit_pushButton_2, self.dbTable_tableView, self.table_type))
 
@@ -123,7 +123,7 @@ class DataViewerWidget(QWidget):
         """
         if (self.current_page_1 + 1) * self.rows_per_page_1 < self.total_records_1:
             self.current_page_1 += 1
-            self.display_sample_table(
+            self.display_data_table(
                 db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton)
 
     def previous_page_1(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
@@ -132,7 +132,7 @@ class DataViewerWidget(QWidget):
         """
         if self.current_page_1 > 0:
             self.current_page_1 -= 1
-        self.display_sample_table(db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton)
+        self.display_data_table(db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton)
 
     def next_page_2(self, db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton,
                     sample_filter, table_type):
@@ -141,7 +141,7 @@ class DataViewerWidget(QWidget):
         """
         if (self.current_page_2 + 1) * self.rows_per_page_2 < self.total_records_2:
             self.current_page_2 += 1
-            self.display_table_with_sample_filter(
+            self.display_table_with_data_filter(
                 db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton, sample_filter,
                 table_type)
 
@@ -152,7 +152,7 @@ class DataViewerWidget(QWidget):
         """
         if self.current_page_2 > 0:
             self.current_page_2 -= 1
-        self.display_table_with_sample_filter(
+        self.display_table_with_data_filter(
             db_stackedWidget, dbTable_tableView, dbTable_treeView, dbTable_comboBox, edit_pushButton, sample_filter,
             table_type)
 
@@ -171,7 +171,7 @@ class DataViewerWidget(QWidget):
 
             if index != -1:
                 self.current_page_1 = index // self.rows_per_page_1
-                self.display_sample_table(
+                self.display_data_table(
                     self.db_stackedWidget,
                     self.dbTable_tableView,
                     self.dbTable_comboBox,
@@ -191,9 +191,9 @@ class DataViewerWidget(QWidget):
             index = self.get_record_index(record_id, self.dbTable_comboBox_2)
             if index != -1:
                 self.current_page_2 = index // self.rows_per_page_2
-                self.display_table_with_sample_filter(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
-                                      self.dbTable_comboBox_2,
-                                      self.edit_pushButton_2, self.dbTable_tableView, self.table_type)
+                self.display_table_with_data_filter(self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2,
+                                                    self.dbTable_comboBox_2,
+                                                    self.edit_pushButton_2, self.dbTable_tableView, self.table_type)
             else:
                 logger_setup.get_logger().critical(f"Record ID not found: {record_id}")
         except ValueError:
@@ -311,6 +311,10 @@ class DataViewerWidget(QWidget):
         """
         db_stackedWidget: QtW.QStackedWidget
         db_stackedWidget.setCurrentIndex(0)
+        self.page_info_label.show()
+        self.prev_button.show()
+        self.next_button.show()
+        self.goto_line_edit.show()
 
     def switch_to_tree(self, db_stackedWidget):
         """
@@ -319,118 +323,144 @@ class DataViewerWidget(QWidget):
         """
         db_stackedWidget: QtW.QStackedWidget
         db_stackedWidget.setCurrentIndex(1)
+        self.page_info_label.hide()
+        self.prev_button.hide()
+        self.next_button.hide()
+        self.goto_line_edit.hide()
 
-    def hide_columns(self, dbTable_tableView, table):
+    def hide_columns(self, db_view, table):
         match table:
             case 'SampleView':
-                dbTable_tableView.hideColumn(0)  # don't show SampleID column
+                db_view.hideColumn(0)  # don't show SampleID column
             case 'AliquotView':
-                dbTable_tableView.hideColumn(0)  # don't show AliquotID
-                dbTable_tableView.hideColumn(1)  # don't show ParentAliquotID
-                dbTable_tableView.hideColumn(2)  # don't show AliquotParentRow
-                dbTable_tableView.hideColumn(3)  # don't show SampleID
+                db_view.hideColumn(1)  # don't show AliquotID
+                db_view.hideColumn(2)  # don't show ParentAliquotID
+                db_view.hideColumn(3)  # don't show AliquotParentRow
+                db_view.hideColumn(4)  # don't show SampleID
             case 'SpotView':
-                dbTable_tableView.hideColumn(0)  # don't show SpotID
-                dbTable_tableView.hideColumn(1)  # don't show SampleID
-                dbTable_tableView.hideColumn(2)  # don't show AliquotID
+                db_view.hideColumn(0)  # don't show SpotID
+                db_view.hideColumn(1)  # don't show SampleID
+                db_view.hideColumn(2)  # don't show AliquotID
             case 'UPbView':
-                dbTable_tableView.hideColumn(0)  # don't show UPbAnalysisID
-                dbTable_tableView.hideColumn(1) # don't show SampleID
-                dbTable_tableView.hideColumn(2)  # don't show AliquotID
-                dbTable_tableView.hideColumn(3)  # don't show SpotID
+                db_view.hideColumn(0)  # don't show UPbAnalysisID
+                db_view.hideColumn(1) # don't show SampleID
+                db_view.hideColumn(2)  # don't show AliquotID
+                db_view.hideColumn(3)  # don't show SpotID
 
-    def display_sample_table(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
+    def display_data_table(self, db_stackedWidget, db_view, dbTable_comboBox, edit_pushButton):
         """
         Displays the sample table
         :return:
         """
         table_name = dbTable_comboBox.currentText()
-        self.total_records_1 = self.get_total_records_1()
-
         # Remove spaces from display names
         table = TxM.remove_spaces(table_name)
-        offset = self.current_page_1 * self.rows_per_page_1
+        if not table:
+            logger_setup.get_logger().info(f'No table selected to display')
+            return
 
-        if table == 'Samples':
-            table = 'SampleView'
-            self.switch_to_table(db_stackedWidget)
-            show_cols = ', '.join(settings.value('sample_view_columns'))
-            model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM {table} WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+        if isinstance(db_view, QtW.QTableView):
+            dbTable_tableView = db_view
+            self.total_records_1 = self.get_total_records_1()
+            offset = self.current_page_1 * self.rows_per_page_1
 
-        elif table == 'Aliquots':
+            if table == 'Samples':
+                table = 'SampleView'
+                self.switch_to_table(db_stackedWidget)
+                show_cols = ', '.join(settings.value('sample_view_columns'))
+                model = SQLiteTableModel(
+                    f'SELECT {show_cols} FROM {table} WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+
+            elif table == 'Spots':
+                table = 'SpotView'
+                self.switch_to_table(db_stackedWidget)
+                show_cols = ', '.join(settings.value('spot_view_columns'))
+                model = SQLiteTableModel(
+                    f'SELECT {show_cols} FROM {table} WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+
+            elif table == 'UPbAnalyses':
+                table = 'UPbView'
+                self.switch_to_table(db_stackedWidget)
+                show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
+                model = SQLiteTableModel(
+                    f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+
+            else:
+                logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree...")
+                return
+
+            proxy_model = ReadableProxyModel()
+            proxy_model.setSourceModel(model)
+            proxy_model.setFilterKeyColumn(-1)  # search all columns
+
+            dbTable_tableView.setModel(proxy_model)
+            dbTable_tableView.setSortingEnabled(True)
+            dbTable_tableView.setWordWrap(True)
+            dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
+            dbTable_tableView.setItemDelegate(WordWrapDelegate(dbTable_tableView))
+            dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            dbTable_tableView.verticalHeader().hide()
+            self.hide_columns(dbTable_tableView, table)
+
+            name_column = get_name_column(table)
+            name_header = model.headerData(name_column, QtC.Qt.Orientation.Horizontal,
+                                                     QtC.Qt.ItemDataRole.DisplayRole)
+            # Sort the table by the name column
+            proxy_name_column = None
+            for column in range(proxy_model.columnCount()):
+                header = model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if header == name_header:
+                    proxy_name_column = column
+                    break
+            if proxy_name_column:
+                proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+
+            db_view.resizeColumnsToContents()
+            for column in range(proxy_model.columnCount()):
+                if db_view.columnWidth(column) > 400:
+                    db_view.setColumnWidth(column, 400)
+
+            # Update page info label
+            start_record = offset + 1
+            end_record = min(offset + self.rows_per_page_1, self.total_records_1)
+            self.page_info_label.setText(f"Showing records {start_record} - {end_record} of {self.total_records_1}")
+
+            self.selectionTimer = QTimer()
+            self.selectionTimer.setSingleShot(True)
+            self.selectionTimer.timeout.connect(lambda: self.display_table_with_data_filter(
+                self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
+                self.edit_pushButton_2, self.dbTable_tableView, self.table_type))
+
+            db_view.setSizeAdjustPolicy(
+                QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+
+            # Connect the selectionChanged signal to the onSelectionChanged method
+            dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
+
+        elif isinstance(db_view, QtW.QTreeView):
+            dbTable_treeView = db_view
+            if table not in SQLUtils.user_viewable_trees:
+                logger_setup.get_logger().critical(f"Error {table}: Tried to display a table as a tree...")
+                return
             # todo make aliquots a tree model
             table = 'AliquotView'
-            self.switch_to_table(db_stackedWidget)
+            self.switch_to_tree(db_stackedWidget)
             show_cols = ', '.join(settings.value('aliquot_view_columns'))
-            model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM {table} WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+            source_model = SQLiteTableModel(
+                f'SELECT {show_cols} FROM {table} WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName')
+            model = TreeModel(source_model)
+            proxy_model = ReadableProxyModel()
 
-        elif table == 'Spots':
-            table = 'SpotView'
-            self.switch_to_table(db_stackedWidget)
-            show_cols = ', '.join(settings.value('spot_view_columns'))
-            model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM {table} WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
-
-        elif table == 'UPbAnalyses':
-            table = 'UPbView'
-            self.switch_to_table(db_stackedWidget)
-            show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
-            model = SQLiteTableModel(
-                f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
-
-        else:
-            logger_setup.get_logger().critical(f"Error {table}: Tried to switch to a table with no table or tree...")
-
-        proxy_model = QtC.QSortFilterProxyModel()
-        proxy_model.setSourceModel(model)
-        proxy_model.setFilterKeyColumn(-1)  # search all columns
-
-        dbTable_tableView.setModel(proxy_model)
-        dbTable_tableView.setSortingEnabled(True)
-        dbTable_tableView.setWordWrap(True)
-        dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
-        dbTable_tableView.setItemDelegate(WordWrapDelegate(dbTable_tableView))
-        dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-        dbTable_tableView.verticalHeader().hide()
-        self.hide_columns(dbTable_tableView, table)
-
-        name_column = get_name_column(table)
-        name_header = model.headerData(name_column, QtC.Qt.Orientation.Horizontal,
-                                                 QtC.Qt.ItemDataRole.DisplayRole)
-        # Sort the table by the name column
-        proxy_name_column = None
-        for column in range(proxy_model.columnCount()):
-            header = model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if header == name_header:
-                proxy_name_column = column
-                break
-        if proxy_name_column:
-            proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+            dbTable_treeView.setModel(model)
+            dbTable_treeView.setSortingEnabled(False)
+            dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.hide_columns(dbTable_treeView, table)
+            for column in range(proxy_model.columnCount()):
+                dbTable_treeView.resizeColumnToContents(column)
+            # Connect the selectionChanged signal to the onSelectionChanged method
+            self.dbTable_treeView.selectionModel().selectionChanged.connect(self.on_select_changed)
 
         edit_pushButton.setText(f"Edit {table_name}")
-        dbTable_tableView.setSizeAdjustPolicy(
-            QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
-        dbTable_tableView.resizeColumnsToContents()
-        for column in range(proxy_model.columnCount()):
-            if dbTable_tableView.columnWidth(column) > 400:
-                dbTable_tableView.setColumnWidth(column, 400)
-
-        # Update page info label
-        start_record = offset + 1
-        end_record = min(offset + self.rows_per_page_1, self.total_records_1)
-        self.page_info_label.setText(f"Showing records {start_record} - {end_record} of {self.total_records_1}")
-
-        self.selectionTimer = QTimer()
-        self.selectionTimer.setSingleShot(True)
-        self.selectionTimer.timeout.connect(lambda: self.display_table_with_sample_filter(
-            self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
-            self.edit_pushButton_2, self.dbTable_tableView, self.table_type))
-
-        # Connect the selectionChanged signal to the onSelectionChanged method
-        self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
-
         self.edit_pushButton.clicked.connect(
             lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, proxy_model,
                                     self.dbTable_comboBox))
@@ -445,16 +475,16 @@ class DataViewerWidget(QWidget):
         # Restart the timer every time the selection changes
         self.selectionTimer.start(250)  # Delay in milliseconds
 
-    def display_table_with_sample_filter(self, db_stackedWidget, dbTable_tableView, dbTable_treeView,
-                                         dbTable_comboBox, edit_pushButton, sample_filter, table_type, selected=None,
-                                         deselected=None):
+    def display_table_with_data_filter(self, db_stackedWidget, dbTable_tableView, dbTable_treeView,
+                                       dbTable_comboBox, edit_pushButton, data_filter, table_type, selected=None,
+                                       deselected=None):
         """
         Displays the selected table
         :return:
         """
         self.dbTable_tableView: QTableView
         dbTable_treeView: QTreeView
-        sample_filter: QTableView
+        data_filter: QTableView
         offset = self.current_page_2 * self.rows_per_page_2
 
         table = TxM.remove_spaces(dbTable_comboBox.currentText())
@@ -464,13 +494,18 @@ class DataViewerWidget(QWidget):
         condition_ids = []
         ids_to_show = []
 
-        if sample_filter.selectionModel().hasSelection():
-            if (self.current_selection != self.dbTable_tableView.selectionModel().selectedIndexes()
+        if table in SQLUtils.user_viewable_trees:
+            db_view = dbTable_treeView
+        else:
+            db_view = dbTable_treeView
+
+        if data_filter.selectionModel().hasSelection():
+            if (self.current_selection != db_view.selectionModel().selectedIndexes()
                     or self.current_table != dbTable_comboBox.currentText()):
-                self.current_selection = self.dbTable_tableView.selectionModel().selectedIndexes()
+                self.current_selection = db_view.selectionModel().selectedIndexes()
                 self.current_table = dbTable_comboBox.currentText()
-                for index in self.dbTable_tableView.selectionModel().selectedIndexes():
-                    condition_id = sample_filter.model().index(index.row(), 0).data()
+                for index in db_view.selectionModel().selectedIndexes():
+                    condition_id = data_filter.model().index(index.row(), 0).data()
                     condition_ids.append(str(condition_id))
 
                 if table in SQLUtils.as_table_dict.values():
@@ -539,10 +574,13 @@ class DataViewerWidget(QWidget):
             dbTable_treeView.hideColumn(1)  # don't show ID column
             dbTable_treeView.hideColumn(2)  # don't show parent ID column
             dbTable_treeView.hideColumn(3)  # don't show parent row column
-            dbTable_treeView.setSortingEnabled(True)
+            dbTable_treeView.hideColumn(4)  # don't show sample ID column
+            dbTable_treeView.setSortingEnabled(False)
 
+            proxy_model = ReadableProxyModel()
+            proxy_model.setSourceModel(tree_model)
             tree_proxy_model = TreeSortFilterProxyModel(view=dbTable_treeView)
-            tree_proxy_model.setSourceModel(tree_model)
+            tree_proxy_model.setSourceModel(proxy_model)
             dbTable_treeView.setModel(tree_proxy_model)
             dbTable_treeView.expandAll()
 
@@ -557,7 +595,7 @@ class DataViewerWidget(QWidget):
             self.switch_to_table(db_stackedWidget)
 
             model = QtS.QSqlQueryModel()
-            table_proxy_model = QSortFilterProxyModel()
+            table_proxy_model = ReadableProxyModel()
 
             # todo would be nice to switch these table[0:-1] entries and LabFac UPbAnalys to be a dict lookup from SQLUtils
             if table == "LabFacilities":
@@ -636,11 +674,11 @@ class DataViewerWidget(QWidget):
         update_database()
 
         # update both tables
-        self.display_sample_table(self.db_stackedWidget, self.dbTable_tableView,
-                                  self.dbTable_comboBox, self.edit_pushButton)
+        self.display_data_table(self.db_stackedWidget, self.dbTable_tableView,
+                                self.dbTable_comboBox, self.edit_pushButton)
 
         # Display filtered table for the first time
-        self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_sample_filter(
+        self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_data_filter(
             self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
             self.edit_pushButton_2, self.dbTable_tableView, self.table_type))
 

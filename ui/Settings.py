@@ -3,14 +3,15 @@ import re
 import sys
 
 from PyQt6 import QtWidgets as QtW, QtCore
-from PyQt6.QtCore import QPoint, QSize, QStandardPaths
-from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices
+from PyQt6.QtCore import QPoint, QSize, QStandardPaths, QRegularExpression
+from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices, QRegularExpressionValidator
 from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
 from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions.Settings_manager import settings
+from Functions.Widget_classes import get_headers
 from ui.SelectColumns import SelectColumns
 
 settings_list = [
@@ -25,7 +26,8 @@ settings_list = [
     'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
     'reference_view_freeze', 'checkable_combobox_height_scaler',
-    'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page'
+    'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
+    'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -216,6 +218,10 @@ def default_settings():
     settings.setValue('default_debug_level', 'INFO')
     settings.setValue('default_show_per_page', 100)
 
+    settings.setValue('default_autofill_best_age', 'true')
+    settings.setValue('young_fill_best_age', '"206Pb/238UAge"')
+    settings.setValue('old_fill_best_age', '"207Pb/206PbAge"')
+    settings.setValue('best_age_cutoff', 1000)
 
 def reset_to_default_settings():
     """
@@ -324,7 +330,13 @@ class SettingsDialog(QtW.QDialog):
         self.select_columns = SelectColumns()
         self.column_verticalLayout.addWidget(self.select_columns)
 
+        double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
+        double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
+        self.cutoff_age_lineEdit.setValidator(double_comma_double_validator)
+
         self.populate_fields()
+
+        self.autofill_best_checkBox.checkStateChanged.connect(self.populate_best_age_fields)
 
         self.authors_pushButton.clicked.connect(self.add_reference_element)
         self.year_pushButton.clicked.connect(self.add_reference_element)
@@ -368,6 +380,8 @@ class SettingsDialog(QtW.QDialog):
         self.age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
         self.set_combobox(self.age_error_format_comboBox, self.age_error_format_model)
         self.age_error_format_comboBox.setCurrentText(settings.value('age_error_format_abbreviation'))
+
+        self.populate_best_age_fields()
 
         reference_format = settings.value('reference_format')
         # converts stored SQL code to user-friendly format
@@ -414,6 +428,30 @@ class SettingsDialog(QtW.QDialog):
             self.fontComboBox.addItems([settings.value('default_font_family')])
         self.fontComboBox.setCurrentFont(QFont(settings.value('font_family')))
 
+    def populate_best_age_fields(self):
+        if settings.value('autofill_best_age') == 'true':
+            self.autofill_best_checkBox.setChecked(True)
+            self.young_age_fill_comboBox.setEnabled(True)
+            self.old_age_fill_comboBox.setEnabled(True)
+            self.cutoff_age_lineEdit.setEnabled(True)
+            self.young_age_fill_comboBox.clear()
+            self.old_age_fill_comboBox.clear()
+            self.cutoff_age_lineEdit.setText(settings.value('cutoff_age_field'))
+            upb_headers = get_headers('UPbAnalyses')
+            for header in upb_headers:
+                if 'Age' in header and 'Calculated' not in header and 'Filled' not in header:
+                    self.young_age_fill_comboBox.addItem(header.replace('"', ''))
+                    self.old_age_fill_comboBox.addItem(header.replace('"', ''))
+            self.young_age_fill_comboBox.setCurrentText(settings.value('young_fill_best_age'))
+            self.old_age_fill_comboBox.setCurrentText(settings.value('old_fill_best_age'))
+        else:
+            self.autofill_best_checkBox.setChecked(False)
+            self.young_age_fill_comboBox.clear()
+            self.old_age_fill_comboBox.clear()
+            self.cutoff_age_lineEdit.setText('')
+            self.young_age_fill_comboBox.setEnabled(False)
+            self.old_age_fill_comboBox.setEnabled(False)
+            self.cutoff_age_lineEdit.setEnabled(False)
 
     def update_settings(self):
         """
@@ -435,6 +473,14 @@ class SettingsDialog(QtW.QDialog):
         self.update_from_combobox(self.age_error_format_comboBox, self.age_error_format_model)
         self.update_from_combobox(self.upb_ratio_error_format_comboBox, self.ratio_error_format_model)
         self.update_from_combobox(self.upb_concordance_format_comboBox, self.concordance_format_model)
+
+        if self.autofill_best_checkBox.isChecked():
+            settings.setValue('autofill_best_age', 'true')
+        else:
+            settings.setValue('autofill_best_age', 'false')
+        settings.setValue('young_fill_best_age', self.young_age_fill_comboBox.currentText())
+        settings.setValue('old_fill_best_age', self.old_age_fill_comboBox.currentText())
+        settings.setValue('cutoff_age_field', self.cutoff_age_lineEdit.text())
 
         settings.setValue('reference_format', self.update_reference_format())
 

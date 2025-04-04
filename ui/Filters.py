@@ -890,9 +890,9 @@ class QueryBuilder(QWidget):
         self.view_spots_button.clicked.connect(self.view_spots)
 
         # views UPbAnalyses that match the criteria
-        self.view_analysis_button = QPushButton('View Analysis')
-        buttons_layout.addWidget(self.view_analysis_button)
-        self.view_analysis_button.clicked.connect(self.view_analysis)
+        self.view_analyses_button = QPushButton('View Analyses')
+        buttons_layout.addWidget(self.view_analyses_button)
+        self.view_analyses_button.clicked.connect(self.view_analyses)
 
         # Saves the current filter
         self.save_filter_button = QPushButton('Save Filter')
@@ -1045,7 +1045,7 @@ class QueryBuilder(QWidget):
         dataviewer.destroyed.connect(loop.quit)
         loop.exec()
 
-    def view_analysis(self):
+    def view_analyses(self):
         """
         Opens a DataviewerWidget with UPbAnalyses filtered IDs.
         """
