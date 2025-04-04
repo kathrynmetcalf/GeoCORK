@@ -7,7 +7,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import QPoint, QSize
+from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.QtWidgets import QMessageBox
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
@@ -218,7 +218,7 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.name_column = get_name_column(self.table)
-        self.proxy_model = ReadableProxyModel()
+        self.proxy_model = QSortFilterProxyModel()
         self.proxy_model.setSourceModel(self.tree_model)
         self.edit_treeView.setModel(self.proxy_model)
         for column in range(self.tree_model.columnCount()):

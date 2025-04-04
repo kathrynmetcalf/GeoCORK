@@ -7,7 +7,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
-from PyQt6.QtCore import QPoint, QSize
+from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
@@ -323,7 +323,7 @@ class EditView(QtW.QDialog):
     def display_table(self):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
-        self.proxy_model = ReadableProxyModel()
+        self.proxy_model = QSortFilterProxyModel()
         self.proxy_model.setSourceModel(self.model)
         self.name_column = get_name_column(self.table)
         proxy_name_column = None
@@ -653,7 +653,7 @@ class EditView(QtW.QDialog):
             item_id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if item_id not in selected_ids:
                 selected_ids.append(item_id)
-        if not selected_ids:
+        if not selected_ids or len(selected_ids) < 1:
             logger_setup.get_logger().critical('No selected ids found')
             self.destroy_dropdown()
             return False
@@ -706,7 +706,7 @@ class EditView(QtW.QDialog):
                     else:
                         clicked_id = get_id_from_name(self.combo_model.tableName(), combo.currentText())
                         if not clicked_id:
-                            logger_setup.get_logger().error(f'No ID found for {combo.currentText()}')
+                            logger_setup.get_logger().info(f'No ID found for {combo.currentText()}')
                             self.destroy_dropdown()
                             return False
                         header = self.model.headerData(model_indexes[0].column(), QtC.Qt.Orientation.Horizontal,

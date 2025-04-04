@@ -4108,14 +4108,19 @@ def get_readable_header(header: str):
         header = f'Height/Depth'
     elif 'AgeCalculated' in header:
         header = f'Calculated Age ({settings.value('age_unit_abbreviation')})'
-    elif 'SpotSizeCalculated' in header:
+    elif 'CalculatedSpotSize' in header:
         header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
+    elif 'CalculatedConcordance' in header:
+        header = f'Calculated Concordance ({settings.value('concordance_format_abbreviation')})'
     elif 'AgeError' in header:
         header += f' ({settings.value("age_error_format_abbreviation")})'
     elif 'Age' in header and not any(s in header for s in ['Name', 'Reference', 'Unit', 'Format']):
         header += f' ({settings.value("age_unit_abbreviation")})'
     elif 'Error' in header:
-        header = header.replace('Error', f' Error ({settings.value("ratio_error_format_abbreviation")})')
+        if 'Corr/Rho' in header:
+            header += f' ({settings.value("ratio_error_format_abbreviation")})'
+        else:
+            header = header.replace('Error', f' Error ({settings.value("ratio_error_format_abbreviation")})')
     if 'Name' in header and header not in ('SampleName', 'Sample Name', 'AliquotName', 'Aliquot Name', 'SpotName', 'Spot Name'):
         header = header.replace('Name', '')
         if header.endswith('y'):
@@ -4127,7 +4132,7 @@ def get_readable_header(header: str):
     if 'Display' in header:
         header = header.replace('Display', '')
     if 'Calculated' in header:
-        header = header.replace('Calculated', 'Converted')
+        header = header.replace('Calculated', 'Converted ')
     if 'ppm' in header:
         header = header.replace('ppm', '(ppm)')
     if 'cps' in header:
@@ -4180,6 +4185,9 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     if partially_checked_ids:
         # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
         logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+        return True
+    if checked_ids:
+        logger_setup.get_logger().info(f'No checked items to update.')
         return True
     id_header = get_headers(table)[0]
     other_id_header = get_headers(update_table)[0]

@@ -219,7 +219,7 @@ class ViewDataTab(QtW.QWidget):
                 view_upb_analyses_action = table_menu.addAction('View U-Pb Analyses')
             else:
                 view_upb_analyses_action = None
-            action = table_menu.exec(self.dbTable_tableView.viewport().mapToGlobal(pos))
+            action = table_menu.exec(self.view.viewport().mapToGlobal(pos))
             if action:
                 if action == edit_action:
                     self.edit_popup()
