@@ -1,5 +1,9 @@
 import builtins
 
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QIcon, QFont
+from PyQt6.QtWidgets import QLabel, QStyle, QApplication
+
 import logger_setup
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
@@ -38,10 +42,20 @@ class LoadingDialogManager:
 
     def begin(self):
         # logger_setup.get_logger().info(f'{self.message} for more than 1 second, loading dialog')
-        self.dialog = QtW.QProgressDialog()
+        self.dialog = QtW.QDialog()
         self.dialog.setWindowTitle(self.title)
-        self.dialog.setLabelText(self.message)
-        self.dialog.setCancelButton(None)
+        self.dialog.setFixedSize(QSize(250, 75))
+        self.layout = QtW.QHBoxLayout(self.dialog)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
+
+        self.messageLabel = QLabel(self.message, parent=self.dialog)
+        self.messageLabel.setObjectName('messageLabel')
+        self.layout.addWidget(self.messageLabel, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        # self.dialog.setLabelText(self.message)
+        # self.dialog.setBar(None)
+        # self.dialog.setCancelButton(None)
         self.dialog.setWindowFlags(QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.dialog.adjustSize()
         self.dialog.show()
@@ -59,7 +73,7 @@ class LoadingDialogManager:
     def close_loading_dialog(self, title: str, message: str):
         # Check if the dialog exists and has the same title and message
         if self.dialog is not None:
-            if self.dialog.windowTitle() == title and self.dialog.labelText() == message:
+            if self.dialog.windowTitle() == title and self.dialog.findChild(QLabel, 'messageLabel').text() == message:
                 # self.thread.quit()
                 # self.thread.wait()
                 self.dialog.close()
