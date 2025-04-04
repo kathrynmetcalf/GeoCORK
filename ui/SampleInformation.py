@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 
@@ -48,8 +49,10 @@ class SampleInformation(QtW.QDialog):
         self.setModal(True)
         # todo: logger message got hidden behind dialog, not accessible
 
-        sources_ui_file = "ui/SampleInformation.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "SampleInformation.ui")
         loadUi(sources_ui_file, self)
+
         self.selected_sample_label: QtW.QLabel
         self.selected_sample_label.setWordWrap(True)
         self.gps = GPSFields('Samples', sample_id_list)

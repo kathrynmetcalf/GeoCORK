@@ -1,4 +1,6 @@
 # from operator import itemgetter
+import os
+import sys
 
 import PyQt6
 from PyQt6 import QtWidgets as QtW
@@ -20,8 +22,11 @@ class GPSFields(QtW.QWidget):
         super().__init__(parent)
 
         logger_setup.get_logger().info('Starting GPSFields')
-        gps_ui_file = "ui/GPSFields.ui"
-        loadUi(gps_ui_file, self)
+
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "GPSFields.ui")
+        loadUi(sources_ui_file, self)
+
         self.table = table
         if self.table == 'Columns':
             self.table_gps_id_header = 'ColumnBaseGPSID'

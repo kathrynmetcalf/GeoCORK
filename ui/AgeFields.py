@@ -1,3 +1,5 @@
+import os
+import sys
 from cgitb import reset
 
 import PyQt6
@@ -34,8 +36,9 @@ class AgeFields(QtW.QWidget):
         super().__init__()
 
         logger_setup.get_logger().info('Starting AgeFields')
-        age_ui_file = "ui/AgeFields.ui"
-        loadUi(age_ui_file, self)
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "AgeFields.ui")
+        loadUi(sources_ui_file, self)
         self.table = table
         self.sample_ids = sample_ids
         self.sample_age_id = None

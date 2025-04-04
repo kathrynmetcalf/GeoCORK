@@ -1,6 +1,8 @@
 import ast
 import json
+import os
 import re
+import sys
 from typing import Literal
 
 from PyQt6 import QtCore, QtWidgets
@@ -230,7 +232,8 @@ def process_selects(group):
 class Filters(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        sources_ui_file = "ui/Filters.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "Filters.ui")
         loadUi(sources_ui_file, self)
         self.querybuilder = QueryBuilder(self)
         self.horizontalLayout_2.addWidget(self.querybuilder)

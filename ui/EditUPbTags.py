@@ -1,3 +1,4 @@
+import os
 import sys
 import time
 
@@ -45,7 +46,8 @@ class EditUPbTags(QtW.QDialog):
         self.updated = False
         self.close_by_dialog = False
 
-        sources_ui_file = "ui/EditUPbTags.ui"
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "EditUPbTags.ui")
         loadUi(sources_ui_file, self)
 
         # Sample names table

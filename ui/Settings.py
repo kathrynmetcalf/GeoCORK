@@ -1,4 +1,6 @@
+import os
 import re
+import sys
 
 from PyQt6 import QtWidgets as QtW, QtCore
 from PyQt6.QtCore import QPoint, QSize, QStandardPaths
@@ -301,8 +303,11 @@ class SettingsDialog(QtW.QDialog):
     def __init__(self):
         super().__init__()
         logger_setup.get_logger().info('Opening settings dialog')
-        settings_ui_file = "ui/Settings.ui"
-        loadUi(settings_ui_file, self)
+
+        base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+        sources_ui_file = os.path.join(base_path, "Settings.ui")
+        loadUi(sources_ui_file, self)
+
         self.setWindowTitle('Settings')
         self.loadWindowState()
         self.settings_tabWidget.setCurrentIndex(0)
