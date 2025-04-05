@@ -1014,7 +1014,7 @@ def get_id_from_name(table: str, name: str):
     query.next()
     return query.value(0)
 
-def get_total_records(table: str) -> int:
+def get_total_records(table: str, where:str='') -> int:
     """
     Get the total number of records in the table
     """
@@ -1022,7 +1022,7 @@ def get_total_records(table: str) -> int:
     query = QSqlQuery()
 
     # Construct the query based on the table
-    sql_query = f'SELECT COUNT({id_header}) FROM "{table}"'
+    sql_query = f'SELECT COUNT({id_header}) FROM "{table}" {where}'
 
     # Execute the query
     logger_setup.get_logger().info(f'Fetching total records for {table}')

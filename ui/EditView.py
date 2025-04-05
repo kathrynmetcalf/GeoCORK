@@ -350,9 +350,15 @@ class EditView(QtW.QDialog):
         self.edit_tableView.resizeRowsToContents()
         self.edit_tableView.verticalHeader().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
 
-        self.total_records = get_total_records(self.table)
+        if self.table_item_ids:
+            # If the table_item_ids are provided, we need to set the total records based on the filtered data
+            self.total_records = len(self.table_item_ids)
+        elif self.where != '':
+            self.total_records = get_total_records(self.view, self.where)
+        else:
+            self.total_records = get_total_records(self.view)
         self.page_info_label.setText(
-            f'{self.current_page * self.rows_per_page + 1}-{(self.current_page + 1) * self.rows_per_page} of {self.total_records}')
+            f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
         self.goto_line_edit.clear()
         self.goto_line_edit.setPlaceholderText(f'Go to {self.name_header}...')
 
