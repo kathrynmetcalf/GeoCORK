@@ -51,7 +51,7 @@ class AddTags(QtW.QDialog):
         self.columns = get_headers(self.table)
         self.name_column = self.columns[get_name_column(self.table)]
         self.description_column = self.columns[description_column(self.table)]
-        self.existing_names = []
+        self.existing_names = set()
 
         self.close_by_dialog = False
         self.display_tags()
@@ -80,9 +80,13 @@ class AddTags(QtW.QDialog):
             logger_setup.get_logger().critical(
                 f'Error selecting display column from {self.table}: {query.lastError().text()}')
             return False
+        self.existing_names = set()
         while query.next():
-            self.existing_names.append(query.value(0))
+            self.existing_names.add(query.value(0))
         completer = QtW.QCompleter(self.existing_names)
+        completer.setFilterMode(QtC.Qt.MatchFlag.MatchStartsWith)
+        completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
         self.newName_lineEdit.setCompleter(completer)
 
     def clear_warning(self):
@@ -102,7 +106,7 @@ class AddTags(QtW.QDialog):
         query = QtS.QSqlQuery()
         query.prepare(f'INSERT INTO {self.table}({self.name_column}, {self.description_column}) VALUES(?, ?)')
         query.addBindValue(name)
-        query.addBindValue(description)
+        query.addBindValue(None if description=='' else description)
 
         logger_setup.get_logger().info(f'Inserting {name}, {description} into {self.table}')
 

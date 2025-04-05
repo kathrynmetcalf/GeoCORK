@@ -1955,7 +1955,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             f'INSERT INTO {self.table}({self.parent_row_header}, {self.item_name_header}, {self.item_description_header}) VALUES(:parent_row, :item_name, :item_description)')
         query.bindValue(':parent_row', child_count)
         query.bindValue(':item_name', item_name)
-        query.bindValue(':item_description', item_description)
+        query.bindValue(':item_description', None if item_description=='' else item_description)
         create_savepoint('before_insert')
         self.save_state.emit()
         if not query.exec():

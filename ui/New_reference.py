@@ -42,12 +42,12 @@ class NewReference(QtW.QDialog):
 
         query = QSqlQuery()
         query.prepare('INSERT INTO "References" (Authors, Year, Title, Source, DOI, ReferenceDescription) VALUES (?, ?, ?, ?, ?, ?)')
-        query.addBindValue(authors)
-        query.addBindValue(year)
-        query.addBindValue(title)
-        query.addBindValue(source)
-        query.addBindValue(doi)
-        query.addBindValue(description)
+        query.addBindValue(None if authors=='' else authors)
+        query.addBindValue(None if year=='' else year)
+        query.addBindValue(None if title=='' else title)
+        query.addBindValue(None if source=='' else source)
+        query.addBindValue(None if doi=='' else doi)
+        query.addBindValue(None if description=='' else description)
         if not query.exec():
             logger_setup.get_logger().critical('Error adding reference')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')

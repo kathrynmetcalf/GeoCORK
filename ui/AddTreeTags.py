@@ -63,7 +63,7 @@ class AddTreeTags(QtW.QDialog):
         self.columns = get_headers(self.table)
         self.name_column = self.columns[get_name_column(self.table)]
         self.description_column = self.columns[description_column(self.table)]
-        self.existing_names = []
+        self.existing_names = set()
 
         self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.tree_proxy_model.setFilterKeyColumn(0)  # search first column only, look for distinct names
@@ -135,8 +135,9 @@ class AddTreeTags(QtW.QDialog):
             logger_setup.get_logger().critical(
                 f'Error selecting display column from {self.table}: {query.lastError().text()}')
             return False
+        self.existing_names = set()
         while query.next():
-            self.existing_names.append(query.value(0))
+            self.existing_names.add(query.value(0))
         completer = QtW.QCompleter(self.existing_names)
         completer.setFilterMode(QtC.Qt.MatchFlag.MatchStartsWith)
         completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)

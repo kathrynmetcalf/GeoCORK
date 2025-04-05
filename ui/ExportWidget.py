@@ -1264,8 +1264,8 @@ class ExportWidget(QWidget):
                     "SampleName": "Sample_ID",
                     "UnitName": "Unit",
                     "RegionName": "Basin",
-                    "Latitude": "Latitude",
-                    "Longitude": "Longitude",
+                    "CalculatedLat": "Latitude",
+                    "CalculatedLon": "Longitude",
                     "ReferenceDisplay": "Source",
 
                     "AliquotName": "Grain_ID",

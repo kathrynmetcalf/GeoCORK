@@ -365,7 +365,7 @@ class InsertFilterGroupDialog(QDialog):
             query.prepare(insert_query)
             query.bindValue(":name", name)
             query.bindValue(":sql_query", f'\'{self.sql_structure}\'')
-            query.bindValue(":description", description)
+            query.bindValue(":description", None if description=='' else description)
 
             if not query.exec():
                 logger_setup.get_logger().critical(
@@ -648,9 +648,9 @@ class RuleWidget(QWidget):
             if not query.exec(sql_query):
                 logger_setup.get_logger().critical(f'Error creating the completer for input')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            values = []
+            values = set()
             while query.next():
-                values.append(query.value(0))
+                values.add(query.value(0))
             value_completer.setModel(QtCore.QStringListModel(values))
             value_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
             value_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
