@@ -80,6 +80,8 @@ class ViewDataTab(QtW.QWidget):
 
     def display_table(self):
         logger_setup.get_logger().info(f'Displaying table for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
+        loading_manager = LoadingDialogManager.get_instance()
+        loading_manager.show_loading_dialog('Loading', 'Displaying table...')
         start_display_table_time = time.time()
         if not self.view:
             if self.child_type == 'Aliquot':
@@ -196,13 +198,12 @@ class ViewDataTab(QtW.QWidget):
                     self.view.hideColumn(2)  # don't show AliquotID
                     self.view.hideColumn(3)  # don't show SpotID
         end_display_table_time = time.time()
+        loading_manager.close_loading_dialog('Loading', 'Displaying table...')
         logger_setup.get_logger().info(f'Time to display table: {end_display_table_time - start_display_table_time}')
 
     def show_context_menu(self, pos):
         tree_menu = TreeContextMenu()
         table_menu = QtW.QMenu()
-        edit_action = table_menu.addAction('Edit')
-        add_action = table_menu.addAction('Add')
         if isinstance(self.view, QtW.QTreeView):
             tree_menu.set_view(self.view, False, False)
             action = tree_menu.exec(self.view.viewport().mapToGlobal(pos))

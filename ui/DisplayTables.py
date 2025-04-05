@@ -536,6 +536,7 @@ class DisplayTables(QtW.QWidget):
 
     def add_popup(self, action: QtG.QAction | None = None):
         dlg = None
+        self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if self.table in self.dbtree_list:
             save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
             dlg_args = add_tree_popup(self.dbTable_treeView, self.tree_model, action)
@@ -545,7 +546,6 @@ class DisplayTables(QtW.QWidget):
             dlg = AddTags(self, self.table)
         if not dlg:
             return
-        show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         dlg.exec()
         if dlg.updated:
             update_database()

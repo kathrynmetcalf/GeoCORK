@@ -3,6 +3,7 @@ import time
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
 
 import Functions.Database_views as DB_views
+from LoadingDialog_manager import LoadingDialogManager
 import logger_setup
 
 
@@ -68,6 +69,8 @@ def update_database() -> bool:
     :rtype: bool
     """
     start_time = time.time()
+    loading_manager = LoadingDialogManager.get_instance()
+    loading_manager.show_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info("Updating database")
     # Check if the database exists and all tables are present
     model = QSqlTableModel()
@@ -98,6 +101,7 @@ def update_database() -> bool:
     DB_views.create_all_views()
 
     end_time = time.time()
+    loading_manager.close_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")
 
     return True
