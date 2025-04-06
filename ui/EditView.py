@@ -323,7 +323,7 @@ class EditView(QtW.QDialog):
     def display_table(self):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
-        self.proxy_model = QSortFilterProxyModel()
+        self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.model)
         self.name_column = get_name_column(self.table)
         proxy_name_column = None

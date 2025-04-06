@@ -218,7 +218,7 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.name_column = get_name_column(self.table)
-        self.proxy_model = QSortFilterProxyModel()
+        self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.tree_model)
         self.edit_treeView.setModel(self.proxy_model)
         for column in range(self.tree_model.columnCount()):

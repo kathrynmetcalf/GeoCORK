@@ -572,14 +572,20 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
         return True
 
 class ReadableProxyModel(QtC.QSortFilterProxyModel):
-    def __init__(self):
+    def __init__(self, view=False):
+        self.view = view
         super().__init__()
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
         if role == QtC.Qt.ItemDataRole.DisplayRole and orientation == QtC.Qt.Orientation.Horizontal:
-            header = super().headerData(section, orientation, role)
-            readable_header = get_readable_header(header)
-            return readable_header
+            if not self.view:
+                header = super().headerData(section, orientation, role)
+                readable_header = get_readable_header(header)
+                return readable_header
+            else:
+                header = super().headerData(section, orientation, role)
+                readable_header = TxM.add_spaces_camel(header)
+                return readable_header
         super().headerData(section, orientation, role)
 
     def mapFromSource(self, sourceIndex):

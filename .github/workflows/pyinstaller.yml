@@ -14,7 +14,7 @@ jobs:
           python-version: 3.12
   
       - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
-      - run: pyinstaller mainAppEngine.py --windowed --onefile --add-data "ui/Logo_draft.png:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
+      - run: pyinstaller mainAppEngine.py --windowed --onefile --name GeoCORK --icon icon.ico --add-data "ui/Logo_draft.png:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
   
       - uses: actions/upload-artifact@v4
         with:
@@ -31,7 +31,7 @@ jobs:
           python-version: 3.12
   
       - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
-      - run: pyinstaller mainAppEngine.py --windowed --onefile --add-data "ui/Logo_draft.png:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
+      - run: pyinstaller mainAppEngine.py --windowed --onefile --name GeoCORK --icon icon.ico --add-data "ui/Logo_draft.png:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
   
       - uses: actions/upload-artifact@v4
         with:
