@@ -1,19 +1,10 @@
-import os
-import sqlite3
-import sys
-from inspect import AGEN_SUSPENDED
-from tkinter.constants import UNITS
 from typing import List, Dict, Any, Set, Optional, Tuple
 
-from PyQt6 import QtSql, QtCore
-from PyQt6.QtCore import QCoreApplication, QVariant, QMetaType
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from PyQt6.QtWidgets import QApplication
 
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 import logger_setup
-from ui.GPSDialog import GPSDialog
 
 
 def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:

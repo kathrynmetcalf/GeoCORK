@@ -3,7 +3,7 @@ import time
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
 
 import Functions.Database_views as DB_views
-from LoadingDialog_manager import LoadingDialogManager
+from Functions.LoadingDialog_manager import LoadingDialogManager
 import logger_setup
 
 

@@ -1,8 +1,6 @@
-import builtins
 
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QIcon, QFont
-from PyQt6.QtWidgets import QLabel, QStyle, QApplication
+from PyQt6.QtWidgets import QLabel
 
 import logger_setup
 from PyQt6 import QtWidgets as QtW
