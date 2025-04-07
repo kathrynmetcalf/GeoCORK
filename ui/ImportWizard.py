@@ -2150,7 +2150,6 @@ class ImportWizardDialog(QWidget):
                 # If the user clicked "Cancel", we can break out
                 if progress_dialog.wasCanceled():
                     rollback_savepoint('before_upb_import')
-                    break
                     return
 
                 # Build a record dict with every key initialized to None
