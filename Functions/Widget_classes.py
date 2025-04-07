@@ -521,13 +521,18 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
 class EditableSqlQueryModel(DisplayRoundedQueryModel):
     def __init__(self):
         super().__init__()
+        self.query = ''
 
     def flags(self, index):
         flags = super().flags(index)
         col = get_name_column(self.table)
-        if index.column() == col:
+        if index.column() == col or 'Description' in self.headerData(index.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole):
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
         return flags
+
+    def setQuery(self, query):
+        super().setQuery(query)
+        self.query = query
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...):
         if not index.isValid():
@@ -553,11 +558,14 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
                 logger_setup.get_logger().critical(f'Failed to update {edited_header} in {self.table}')
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
                 return False
             logger_setup.get_logger().info(f'Successfully updated {edited_header} in {self.table}')
             update_modified_timestamp(self.table, [edited_id])
-            return super().setData(index, value, role)
-        return False
+            self.setQuery(self.query)
+            self.dataChanged.emit(index, index)
+            return True
+        return super().setData(index, value, role)
 
     def deleteRowFromTable(self, row):
         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)

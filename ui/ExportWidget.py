@@ -20,7 +20,7 @@ import logger_setup
 from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
-from Functions.Widget_classes import CheckableSqlTableModel
+from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel
 from ui import Filters
 from ui.DisplayTablesSimplified import DisplayTablesSimplified
 from ui.FlowLayout import FlowLayout
@@ -901,7 +901,9 @@ class ExportWidget(QWidget):
                             len(self.checked_spot_list) == 0):
                         logger_setup.get_logger().critical('No rows returned for distinct first column')
                         model = QSqlQueryModel()
-                        tableView.setModel(model)
+                        proxy_model = ReadableProxyModel()
+                        proxy_model.setSourceModel(model)
+                        tableView.setModel(proxy_model)
                         return False
                     else:
                         return True
@@ -965,8 +967,11 @@ class ExportWidget(QWidget):
                 # Handle case where query doesn't return a result
                 self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Number of Rows: 0")
 
-        tableView.setModel(model)
+        proxy_model = ReadableProxyModel()
+        proxy_model.setSourceModel(model)
+        tableView.setModel(proxy_model)
         tableView.resizeColumnsToContents()
+        tableView.setSortingEnabled(True)
 
     def export_button(self):
         """Method to export the generated tableView and SQL code to a given format. Based on the exportformat_comboBox's

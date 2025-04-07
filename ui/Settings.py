@@ -476,11 +476,11 @@ class SettingsDialog(QtW.QDialog):
 
         if self.autofill_best_checkBox.isChecked():
             settings.setValue('autofill_best_age', 'true')
+            settings.setValue('young_fill_best_age', self.young_age_fill_comboBox.currentText())
+            settings.setValue('old_fill_best_age', self.old_age_fill_comboBox.currentText())
+            settings.setValue('cutoff_age_field', self.cutoff_age_lineEdit.text())
         else:
             settings.setValue('autofill_best_age', 'false')
-        settings.setValue('young_fill_best_age', self.young_age_fill_comboBox.currentText())
-        settings.setValue('old_fill_best_age', self.old_age_fill_comboBox.currentText())
-        settings.setValue('cutoff_age_field', self.cutoff_age_lineEdit.text())
 
         settings.setValue('reference_format', self.update_reference_format())
 

@@ -703,7 +703,7 @@ table_attributes_dict = {
         "AgeInterpretationName", "AgeInterpretationDescription",
         "AgeInterpretationCreated", "AgeInterpretationModified"],
     'Ages': [
-        "AgeName", "MaxMa", "MinMa",
+        "AgeName", "OldestAge", "YoungestAge",
         "AgeCreated", "AgeModified"
     ],
     'AgeSignatures': [
@@ -843,6 +843,8 @@ table_attributes_dict = {
         "Calculated208Pb/232ThAgeError",
         "CalculatedBestAge",
         "CalculatedBestAgeError",
+        "CalculatedBestAgeFilled",
+        "CalculatedBestAgeErrorFilled",
 
         "ErrorCorr/Rho",
 
@@ -1151,12 +1153,12 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
     for table in tables:
         match table:
             case 'AgeConstraints':
-                if sample_sampleage_join not in join:
+                if sample_sampleage_join not in join and default_sample_age_join not in join:
                     join += sample_sampleage_join + '\n'
                 if sampleage_age_constraint_join not in join:
                     join += sampleage_age_constraint_join + '\n'
             case 'AgeInterpretations':
-                if sample_sampleage_join not in join:
+                if sample_sampleage_join not in join and default_sample_age_join not in join:
                     join += sample_sampleage_join + '\n'
                 if sampleage_age_interpretation_join not in join:
                     join += sampleage_age_interpretation_join + '\n'
@@ -1239,7 +1241,7 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                 if rock_type_join not in join:
                     join += rock_type_join + '\n'
             case 'SampleAges':
-                if default_sample_age_join not in join:
+                if default_sample_age_join not in join and sample_sampleage_join not in join:
                     join += default_sample_age_join + '\n'
             case 'SampleContexts':
                 if sample_context_join not in join:

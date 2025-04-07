@@ -217,9 +217,8 @@ class EditTable(QtW.QDialog):
         Commits the changes to the database. If there is an active savepoint, it is released.
         """
         current_model_index = self.table_proxy_model.mapToSource(self.edit_tableView.currentIndex())
-        if self.edit_tableView.currentIndex().isValid() and not self.model.setData(current_model_index,
-                                                                                   self.edit_tableView.currentIndex().data(),
-                                                                                   QtC.Qt.ItemDataRole.EditRole):
+        if (self.edit_tableView.currentIndex().isValid() and
+            not self.model.setData(current_model_index, QtC.Qt.ItemDataRole.EditRole)):
             # There is a valid index selected and submitting data failed
             logger_setup.get_logger().critical('Failed to save changes')
             return
