@@ -3,13 +3,14 @@ import sqlite3
 import time
 import typing
 from collections import namedtuple
+from datetime import datetime, timezone
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from numpy import integer
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt
+from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex
 from PyQt6.QtGui import QTextOption, QAction
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
 from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate
@@ -27,19 +28,19 @@ from Functions.Settings_manager import settings
 #    Delegate Classes
 # ---------------------------
 
-class DecimalDelegate(QtW.QStyledItemDelegate):
-    """
-    Custom delegate to display numerical values with a fixed number of decimal places based upon user
-    settings.
-    """
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.decimal_places = settings.value('decimals_to_show', type=int)
-
-    def displayText(self, value, locale):
-        if isinstance(value, float):
-            return f'{value:.{self.decimal_places}f}'
-        return super().displayText(value, locale)
+# class DecimalDelegate(QtW.QStyledItemDelegate):
+#     """
+#     Custom delegate to display numerical values with a fixed number of decimal places based upon user
+#     settings.
+#     """
+#     def __init__(self, parent=None):
+#         super().__init__(parent)
+#         self.decimal_places = settings.value('decimals_to_show', type=int)
+#
+#     def displayText(self, value, locale):
+#         if isinstance(value, float):
+#             return f'{value:.{self.decimal_places}f}'
+#         return super().displayText(value, locale)
 
 class FontDelegate(QtW.QStyledItemDelegate):
     """
@@ -244,6 +245,25 @@ class SQLiteTableModel(QAbstractTableModel):
         else:
             return
         return [row[column] for row in self._data]
+
+
+class QSqlTableModelModifiedTrigger(QtS.QSqlTableModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def setData(self, index: QModelIndex, value, role=Qt.ItemDataRole.EditRole):
+        if role != Qt.ItemDataRole.EditRole:
+            return super().setData(index, value, role)
+
+        row = index.row()
+
+        # Call the base method to update the actual cell
+        if not super().setData(index, value, role):
+            return False
+
+        update_modified_timestamp(self.tableName(), self.index(row, 1))
+
+        return True
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
     def __init__(self, db=QSqlDatabase()):
@@ -540,7 +560,7 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
         if role == QtC.Qt.ItemDataRole.EditRole:
             edited_id = self.data(self.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
             id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            edited_header = self.headerData(index.row(), QtC.Qt.Orientation.Horizontal)
+            edited_header = self.headerData(index.column(), QtC.Qt.Orientation.Horizontal)
             query = QtS.QSqlQuery()
             if not query.exec(f'SELECT {edited_header} FROM {self.table} WHERE {id_header}={edited_id}'):
                 logger_setup.get_logger().critical(f'Failed to get {edited_header} from {self.table}')
@@ -561,7 +581,7 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
                 logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
                 return False
             logger_setup.get_logger().info(f'Successfully updated {edited_header} in {self.table}')
-            update_modified_timestamp(self.table, [edited_id])
+            update_modified_timestamp(self.tableName(), [edited_id])
             self.setQuery(self.query)
             self.dataChanged.emit(index, index)
             return True
@@ -1853,7 +1873,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                     modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
                     treeItem.setData(dataCol, value)
                     self.dataChanged.emit(index, index)
-                    treeItem.setData(modified_col, modified)
+                    update_modified_timestamp(self.table, [table_id])
+                    treeItem.setData(modified_col, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
                     self.dataChanged.emit(index, index)
                     logger_setup.get_logger().info(
                         f'Successfully set data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()} to {value}')

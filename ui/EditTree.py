@@ -11,12 +11,13 @@ from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
 import logger_setup
+from Functions.Check_triggers import update_modified_timestamp
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    restore_expanded_state, add_tree_popup, ReadableProxyModel
+    restore_expanded_state, add_tree_popup, ReadableProxyModel, QSqlTableModelModifiedTrigger, EditableSqlQueryModel
 )
 from ui.AddTreeTags import AddTreeTags
 
