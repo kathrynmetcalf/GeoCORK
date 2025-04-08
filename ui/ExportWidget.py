@@ -713,6 +713,7 @@ class ExportWidget(QWidget):
             current_worksheet_name = worksheet_name
         # Get the current TableView
         tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
+        tableView.setSortingEnabled(False)
 
         # If column order has changed, set selected columns to ordered_columns, select checkboxes based on ordered columns
         # This removes potentially deleted columns from the column dialog
@@ -866,16 +867,18 @@ class ExportWidget(QWidget):
             if not drop_table_qry.exec('DROP TABLE IF EXISTS TempPivotTable'):
                 logger_setup.get_logger().critical(
                     f'Error dropping TempPivotTable: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                logger_setup.get_logger().info(f'SQL command: {sql_query}')
+                return
 
             create_table_qry = QSqlQuery(db=self.database)
             # creating new TempPivotTable from existing query string data
             sql_temptable_create = 'CREATE TEMP TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
             logger_setup.get_logger().info('Creating table TempPivotTable')
+            logger_setup.get_logger().debug(f'SQL command: {sql_temptable_create}')
             if not create_table_qry.exec(sql_temptable_create):
                 logger_setup.get_logger().critical(
                     f'Error creating TempPivotTable: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                logger_setup.get_logger().info(f'SQL command: {sql_query}')
                 return
             logger_setup.get_logger().info('Created table TempPivotTable successfully')
 
@@ -971,7 +974,6 @@ class ExportWidget(QWidget):
         proxy_model.setSourceModel(model)
         tableView.setModel(proxy_model)
         tableView.resizeColumnsToContents()
-        tableView.setSortingEnabled(True)
 
     def export_button(self):
         """Method to export the generated tableView and SQL code to a given format. Based on the exportformat_comboBox's
