@@ -1501,6 +1501,7 @@ class TreeItem:
         """
         Deletes all children of deleted item
         """
+        logger_setup.get_logger().info(f'Deleting tree items')
         for child_tree_item in self.childItems:
             del child_tree_item
         del self.childItems
@@ -1642,7 +1643,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             if isinstance(source_model, QSqlQueryModel):
                 logger_setup.get_logger().debug(f'Cannot retrieve table name from QSqlQueryModel')
         if isinstance(source_model, QSqlTableModel):
-            self.base_filter = f"{source_model.filter()}"
+            self.base_filter = f"{source_model.filter()}".split("ORDER")[0]
             if len(self.base_filter) > 0:
                 self.base_filter_sql = f"{self.base_filter} AND "
                 self.base_query = f"SELECT * FROM {self.table} WHERE {self.base_filter}"
@@ -1651,9 +1652,9 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.base_query = f"SELECT * FROM {self.table}"
         elif isinstance(source_model, QSqlQueryModel):
             query_object = source_model.query()
-            self.base_query = f"{query_object.lastQuery()}"
+            self.base_query = f"{query_object.lastQuery()}".split("ORDER")[0]
         elif isinstance(source_model, SQLiteTableModel):
-            self.base_query = source_model.query_text
+            self.base_query = source_model.query_text.split("ORDER")[0]
         if len(self.base_query) > 0:
             if ' WHERE ' in self.base_query:
                 self.base_query_sql = f"{self.base_query} AND "
@@ -1757,7 +1758,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 logger_setup.get_logger().debug(f"No item for index {index.row()},{index.column()},{index.parent()}")
             return item
 
-    def index(self, row: int, column: int, parent: QtC.QModelIndex) -> QtC.QModelIndex:
+    def index(self, row: int, column: int, parent: QModelIndex) -> QtC.QModelIndex:
         # Given row, column, and parent, create an index for a child item at row and column
         # First check if parent is valid and parent item exists
         # Then get the child at the specified row and create an index for it
