@@ -1259,8 +1259,8 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', "Calculated207Pb/206PbAge"): True,
                     ('UPbAnalyses', "Calculated207Pb/206PbAgeError"): True,
 
-                    ('UPbAnalyses', "CalculatedBestAge"): True,
-                    ('UPbAnalyses', "CalculatedBestAgeError"): True,
+                    ('UPbAnalyses', "CalculatedBestAgeFilled"): True,
+                    ('UPbAnalyses', "CalculatedBestAgeErrorFilled"): True,
 
                     ('UPbAnalyses', "CalculatedConcordance"): True
                 }
@@ -1299,8 +1299,8 @@ class ExportWidget(QWidget):
                     "Calculated207Pb/206PbAge": "76Age",
                     "Calculated207Pb/206PbAgeError": "76Age_err",
 
-                    "CalculatedBestAge": "BestAge",
-                    "CalculatedBestAgeError": "BestAge_err",
+                    "CalculatedBestAgeFilled": "BestAge",
+                    "CalculatedBestAgeErrorFilled": "BestAge_err",
 
                     "CalculatedConcordance": "Disc"
                 }
@@ -1348,8 +1348,8 @@ class ExportWidget(QWidget):
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
-                    ('UPbAnalyses', 'CalculatedBestAge'): True,
-                    ('UPbAnalyses', 'CalculatedBestAgeError'): True
+                    ('UPbAnalyses', 'CalculatedBestAgeFilled'): True,
+                    ('UPbAnalyses', 'CalculatedBestAgeErrorFilled'): True
                 }
                 self.add_worksheet_tab('DZStats - Intersample', False, True, UPb_columns, UPb_columns, False)
             # case 'DZStats - Two Sample Compare':
