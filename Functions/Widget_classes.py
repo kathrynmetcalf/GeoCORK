@@ -238,6 +238,11 @@ class SQLiteTableModel(QAbstractTableModel):
         logger_setup.get_logger().info(f'Updated {self.table}')
 
     def column_as_list(self, col):
+        """
+        returns a list of items in a column
+        :param col: string or integer representing column
+        :return: list of items in each row for a given column
+        """
         if isinstance(col, str):
             column = self._headers.index(col)
         elif isinstance(col, int):
@@ -266,6 +271,9 @@ class QSqlTableModelModifiedTrigger(QtS.QSqlTableModel):
         return True
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
+    """
+
+    """
     def __init__(self, db=QSqlDatabase()):
         super().__init__(db=db)
 
@@ -603,21 +611,28 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
     def __init__(self, view=False):
         self.view = view
         super().__init__()
+        self.original_headers = False
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
+        if self.original_headers:
+            super().headerData(section, orientation, role)
         if role == QtC.Qt.ItemDataRole.DisplayRole and orientation == QtC.Qt.Orientation.Horizontal:
+            header = super().headerData(section, orientation, role)
+            if '_' in header:
+                return header
             if not self.view:
-                header = super().headerData(section, orientation, role)
                 readable_header = get_readable_header(header)
                 return readable_header
             else:
-                header = super().headerData(section, orientation, role)
                 readable_header = TxM.add_spaces_camel(header)
                 return readable_header
         super().headerData(section, orientation, role)
 
-    def mapFromSource(self, sourceIndex):
-        return super().mapFromSource(sourceIndex)
+    def setData(self, index: QtC.QModelIndex, value, role: int) -> bool:
+        if role == QtC.Qt.ItemDataRole.CheckStateRole:
+            source_index = self.mapToSource(index)
+            return self.sourceModel().setData(source_index, value, role)
+        return super().setData(index, value, role)
 
     def determine_numeric(self, value):
         if isinstance(value, str):
@@ -661,8 +676,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
         return len(left_parts) < len(right_parts)
 
     def lessThan(self, left, right):
-        left_data = self.determine_numeric(self.sourceModel().data(left))
-        right_data = self.determine_numeric(self.sourceModel().data(right))
+        left_data = self.determine_numeric(left.data(QtC.Qt.ItemDataRole.DisplayRole))
+        right_data = self.determine_numeric(right.data(QtC.Qt.ItemDataRole.DisplayRole))
         if isinstance(left_data, str) and isinstance(right_data, str):
             left_parts = self.separate_parts(left_data)
             right_parts = self.separate_parts(right_data)
@@ -2871,10 +2886,6 @@ class ColumnItemModel(QtG.QStandardItemModel):
 class CheckableSampleTableView(QtW.QTableView):
     def __init__(self):
         super().__init__()
-        # for col in range(0, 26):
-        #     # hide all but name and description
-        #     if col != 1 and col != 23:
-        #         self.hideColumn(col)
         self.resizeColumnsToContents()
         self.clicked.connect(self.toggle_check_state)
 
@@ -2901,6 +2912,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setCompleter(self.completer())
         self.model_modifiable = False
         self.single_click = False
+        self.proxy_model = None
         # self.tableView = QtW.QTableView()
         # self.setView(self.tableView)
         self.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContentsOnFirstShow)
@@ -2911,8 +2923,18 @@ class CheckableComboBox(QtW.QComboBox):
 
         self.view().viewport().installEventFilter(self)
 
+    def model(self):
+        if self.proxy_model:
+            return self.proxy_model.sourceModel()
+        else:
+            return super().model()
+
     def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel):
         super().setModel(model)
+        combo_model = model
+        if isinstance(model, QtC.QSortFilterProxyModel):
+            self.proxy_model = model
+            model = model.sourceModel()
         column = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         if isinstance(column, int):
             self.table = None
@@ -2930,6 +2952,8 @@ class CheckableComboBox(QtW.QComboBox):
                 self.table = 'UPbAnalyses'
             elif 'Column' in column:
                 self.table = 'Columns'
+            elif 'Reference' in column:
+                self.table = '"References"'
             view = model.tableView()
             self.name_col = get_view_name_column(view)
         # If it is just a table or SampleAge query, use the table name
@@ -2937,7 +2961,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.table = model.tableName()
             self.name_col = get_name_column(model.tableName())
         if self.name_col:
-            show_column(self, model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            show_column(self, combo_model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -3023,20 +3047,25 @@ class CheckableComboBox(QtW.QComboBox):
             return super().eventFilter(obj, event)
 
         if obj == self.view().viewport():
+            if self.proxy_model:
+                proxy_index = self.view().currentIndex()
+                source_index = self.proxy_model.mapToSource(proxy_index)
+            else:
+                source_index = self.view().currentIndex()
             if event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.LeftButton:
                 if self.single_click:
                     # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
-                    clicked_id = self.model().index(self.view().currentIndex().row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    clicked_id = self.model().index(source_index, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
                     if clicked_id in self.model().checked_ids:
                         self.view().setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
-                    self.model().setData(self.view().currentIndex(), QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    self.set_line_edit_text(self.view().currentIndex().data(QtC.Qt.ItemDataRole.DisplayRole))
+                    self.model().setData(source_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    self.set_line_edit_text(source_index.data(QtC.Qt.ItemDataRole.DisplayRole))
                     self.hidePopup()
                     return True
                 else:
                     # Get model index from view index
-                    index = self.model().index(self.view().currentIndex().row(), self.name_col)
+                    index = self.model().index(source_index.row(), self.name_col)
                     if self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
                         self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
                     elif self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Unchecked:
@@ -3650,19 +3679,20 @@ def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
         comboBox.setCurrentText(text)
 
 def show_column(comboBox: QtW.QComboBox, column: str):
-    model = comboBox.model()
-    # if isinstance(model, TreeModel):
-    #     if column != model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole):
-    #         logger_setup.get_logger().info(f"Selected column {column} won't show expansion arrows")
-    #         return
-    #     else:
-    #         for col in range(1, model.columnCount()):
-    #             comboBox.view()
+    try:
+        if comboBox.proxy_model:
+            model = comboBox.proxy_model
+        else:
+            model = comboBox.model()
+    except AttributeError:
+        model = comboBox.model()
     if model:
         for col in range(model.columnCount()):
             header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if header == column:
                 comboBox.setModelColumn(col)
+                if isinstance(model, QtC.QSortFilterProxyModel):
+                    model.sort(col, QtC.Qt.SortOrder.AscendingOrder)
                 return
 
 def comboBox_display_table(comboBox):

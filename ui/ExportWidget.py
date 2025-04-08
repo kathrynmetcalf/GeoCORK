@@ -104,20 +104,30 @@ class ExportWidget(QWidget):
 
         self.samples_model = CheckableSqlTableModel()
         self.samples_model = self.set_table(self.samples_model, 'Samples')
+        self.samples_proxy = ReadableProxyModel()
+        self.samples_proxy.setSourceModel(self.samples_model)
 
         self.aliquots_model = CheckableSqlTableModel()
         self.aliquots_model = self.set_table(self.aliquots_model, 'Aliquots')
+        self.aliquots_proxy = ReadableProxyModel()
+        self.aliquots_proxy.setSourceModel(self.aliquots_model)
 
         self.spots_model = CheckableSqlTableModel()
         self.spots_model = self.set_table(self.spots_model, 'Spots')
+        self.spots_proxy = ReadableProxyModel()
+        self.spots_proxy.setSourceModel(self.spots_model)
 
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
-        self.filterselection_comboBox.setModel(self.filter_model)
+        self.filter_proxy = ReadableProxyModel()
+        self.filter_proxy.setSourceModel(self.filter_model)
+        self.filterselection_comboBox.setModel(self.filter_proxy)
 
         self.groupedfilter_model = CheckableSqlTableModel()
         self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
-        self.groupedfilter_comboBox.setModel(self.groupedfilter_model)
+        self.groupedfilter_proxy = ReadableProxyModel()
+        self.groupedfilter_proxy.setSourceModel(self.groupedfilter_model)
+        self.groupedfilter_comboBox.setModel(self.groupedfilter_proxy)
 
         # Fix for updating the filter list when the filter model is updated
         # self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
@@ -179,22 +189,32 @@ class ExportWidget(QWidget):
 
         self.samples_model = CheckableSqlTableModel()
         self.samples_model = self.set_table(self.samples_model, 'Samples')
+        self.samples_proxy = ReadableProxyModel()
+        self.samples_proxy.setSourceModel(self.samples_model)
 
         self.aliquots_model = CheckableSqlTableModel()
         self.aliquots_model = self.set_table(self.aliquots_model, 'Aliquots')
+        self.aliquots_proxy = ReadableProxyModel()
+        self.aliquots_proxy.setSourceModel(self.aliquots_model)
 
         self.spots_model = CheckableSqlTableModel()
         self.spots_model = self.set_table(self.spots_model, 'Spots')
+        self.spots_proxy = ReadableProxyModel()
+        self.spots_proxy.setSourceModel(self.spots_model)
 
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
-        self.filterselection_comboBox.setModel(self.filter_model)
+        self.filter_proxy = ReadableProxyModel()
+        self.filter_proxy.setSourceModel(self.filter_model)
+        self.filterselection_comboBox.setModel(self.filter_proxy)
 
         self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
 
         self.groupedfilter_model = CheckableSqlTableModel()
         self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
-        self.groupedfilter_comboBox.setModel(self.groupedfilter_model)
+        self.groupedfilter_proxy = ReadableProxyModel()
+        self.groupedfilter_proxy.setSourceModel(self.groupedfilter_model)
+        self.groupedfilter_comboBox.setModel(self.groupedfilter_proxy)
 
         self.groupedfilter_model.dataChanged.connect(lambda: self.update_groupedfilter_list(self.groupedfilter_model))
 
@@ -909,6 +929,7 @@ class ExportWidget(QWidget):
                         tableView.setModel(proxy_model)
                         return False
                     else:
+                        tableView.setModel(None)
                         return True
             else:
                 logger_setup.get_logger().critical(
@@ -972,6 +993,7 @@ class ExportWidget(QWidget):
 
         proxy_model = ReadableProxyModel()
         proxy_model.setSourceModel(model)
+        proxy_model.original_headers = True
         tableView.setModel(proxy_model)
         tableView.resizeColumnsToContents()
 
@@ -1147,7 +1169,7 @@ class ExportWidget(QWidget):
             if not fileName:
                 return False
 
-            # Ensure the filename ends with .xlsx
+            # Ensure the filename ends with .csv
             if not fileName.lower().endswith(".csv"):
                 fileName += ".csv"
         else:
@@ -1428,15 +1450,15 @@ class ExportWidget(QWidget):
         self.filters_label.setToolTip(
             "Additional filters to filter the samples, multiple filters union their sets together.")
         if self.selectionscope_comboBox.currentText() == 'Samples':
-            self.samplesincluded_comboBox.setModel(self.samples_model)
+            self.samplesincluded_comboBox.setModel(self.samples_proxy)
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.samples_model, 'Samples'))
         elif self.selectionscope_comboBox.currentText() == 'Aliquots':
-            self.samplesincluded_comboBox.setModel(self.aliquots_model)
+            self.samplesincluded_comboBox.setModel(self.aliquots_proxy)
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.aliquots_model, 'Samples'))
         elif self.selectionscope_comboBox.currentText() == 'Spots':
-            self.samplesincluded_comboBox.setModel(self.spots_model)
+            self.samplesincluded_comboBox.setModel(self.spots_proxy)
             self.samplesincluded_comboBox.closing.connect(
                 lambda: self.update_checked_list(self.spots_model, 'Samples'))
         elif self.selectionscope_comboBox.currentText() == 'Filter Groups':
@@ -1506,6 +1528,18 @@ class ExportWidget(QWidget):
                     self.checked_spot_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
 
             self.checked_spot_names = f"({', '.join(map(str, self.checked_spot_list))})"
+
+        elif self.selectionscope_comboBox.currentText() == 'Filter Groups':
+            self.checked_filter_group_list = []
+            for row in range(model.rowCount()):
+                name_index = model.index(row, 1, QtCore.QModelIndex())
+                if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == QtCore.Qt.CheckState.Checked:
+                    # Add the Filter group ID to the list
+                    id_index = model.index(row, 0, QtCore.QModelIndex())
+                    self.checked_filter_group_list.append(model.data(id_index, QtCore.Qt.ItemDataRole.DisplayRole))
+
+            self.checked_filter_names = f"({', '.join(map(str, self.checked_filter_group_list))})"
+
         if self.exportformat_comboBox.currentText() != 'Database':
             self.update_table_view()
         else:
