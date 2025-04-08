@@ -220,7 +220,7 @@ def populate_generated_columns() -> bool:
         return False
     release_savepoint('before_populate')
     end_time = time.time()
-    logger_setup.get_logger().info(f'Populaterd virtual columns: {end_time-start_time} seconds')
+    logger_setup.get_logger().info(f'Populated virtual columns: {end_time-start_time} seconds')
     return True
 
 
