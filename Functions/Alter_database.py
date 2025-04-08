@@ -1,3 +1,5 @@
+import time
+
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
 
@@ -44,7 +46,7 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
     :return: True for success, False for failure
     :rtype: bool
     """
-    logger_setup.get_logger().info(f'Turning off foreign keys')
+    start_time = time.time()
     if not turn_off_foreign_keys():
         return False
     create_savepoint('before_drop')
@@ -118,6 +120,8 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
                 return False
 
     release_savepoint('before_drop')
+    end_time = time.time()
+    logger_setup.get_logger().info(f'Dropped virtual columns: {end_time-start_time} seconds')
     if not turn_on_foreign_keys():
         return False
     return True
@@ -129,6 +133,7 @@ def populate_generated_columns() -> bool:
     :return: True for success, False for failure
     :rtype: bool
     """
+    start_time = time.time()
     create_savepoint('before_populate')
     # Retrieve the settings
     age_unit_id = settings._instance.value('age_unit_id')  # default to Ma
@@ -214,6 +219,8 @@ def populate_generated_columns() -> bool:
         rollback_savepoint('before_populate')
         return False
     release_savepoint('before_populate')
+    end_time = time.time()
+    logger_setup.get_logger().info(f'Populaterd virtual columns: {end_time-start_time} seconds')
     return True
 
 

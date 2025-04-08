@@ -985,7 +985,7 @@ class ExportWidget(QWidget):
                 self.export_to_csv()
             case 'IsoplotR - 38/06, 07/06':
                 self.export_to_csv()
-            case 'DZStats - Intersample':
+            case 'DZStats':
                 self.export_to_csv()
             case 'DZStats - Two Sample Compare':
                 # Requires 2 samples be in two csv files.
@@ -1346,14 +1346,14 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
-            case 'DZStats - Intersample':
+            case 'DZStats':
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
                     ('UPbAnalyses', 'CalculatedBestAgeFilled'): True,
                     ('UPbAnalyses', 'CalculatedBestAgeErrorFilled'): True
                 }
-                self.add_worksheet_tab('DZStats - Intersample', False, True, UPb_columns, UPb_columns, False)
+                self.add_worksheet_tab('DZStats', False, True, UPb_columns, UPb_columns, False)
             # case 'DZStats - Two Sample Compare':
             #     self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
             #     UPb_columns = {
