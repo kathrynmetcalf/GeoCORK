@@ -145,7 +145,6 @@ class EditTreeView(QtW.QDialog):
 
         create_savepoint('before_edit')
 
-        self.edit_treeView.installEventFilter(self)
         self.edit_treeView.selectionModel().currentChanged.connect(self.on_index_change)
         self.edit_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
@@ -181,13 +180,6 @@ class EditTreeView(QtW.QDialog):
     def resizeRowsOptimized(self):
         """Resize rows only when resizing stops."""
         self.edit_treeView.resizeRowsToContents()
-
-    def eventFilter(self, object, event):
-        if object is self.lineEdit:
-            if event.type() == QtC.QEvent.Type.KeyPress and event.key() in (QtC.Qt.Key.Key_Return, QtC.Qt.Key.Key_Enter):
-                self.destroy_lineedit()
-                return True
-        return super().eventFilter(object, event)
 
     def show_context_menu(self, pos):
         """
@@ -349,7 +341,6 @@ class EditTreeView(QtW.QDialog):
                 self.lineEdit.selectAll()
 
     def display_lineedit(self):
-        self.lineEdit.installEventFilter(self)
         self.lineEdit.returnPressed.connect(self.save_lineedit_data)
         self.lineEdit.editingFinished.connect(self.save_lineedit_data)
         self.edit_treeView.setIndexWidget(self.edit_treeView.selectedIndexes()[0], self.lineEdit)
@@ -358,7 +349,7 @@ class EditTreeView(QtW.QDialog):
     def save_lineedit_data(self):
         logger_setup.get_logger().info('Saving data from line edit')
         if self.lineEdit is not None:
-            value = self.lineEdit.text()
+            text = self.lineEdit.text()
             if not self.edit_index.isValid():
                 tree_indexes =  self.edit_treeView.selectedIndexes()
             else:
@@ -390,7 +381,7 @@ class EditTreeView(QtW.QDialog):
                 logger_setup.get_logger().error('No ids found to update')
                 self.destroy_lineedit()
                 return False
-            if not query.exec(f'UPDATE {table} SET {header} = "{value}" WHERE {self.table_headers[0]} {sql_where_str}'):
+            if not query.exec(f'UPDATE {table} SET {header} = "{text}" WHERE {self.table_headers[0]} {sql_where_str}'):
                 logger_setup.get_logger().critical(f'Failed to update {header} for {ids}: {query.lastError().text()}')
                 self.destroy_lineedit()
                 return False
@@ -401,12 +392,13 @@ class EditTreeView(QtW.QDialog):
             if self.edit_treeView.currentIndex() == self.edit_index:
                 self.tabbed_from_editor = False
             logger_setup.get_logger().info('Data saved from line edit')
+            self.updated = True
             self.destroy_lineedit()
+            self.display_tree()
             return True
 
     def destroy_lineedit(self):
         try:
-            self.lineEdit.removeEventFilter(self)
             self.lineEdit.editingFinished.disconnect(self.save_lineedit_data)
             self.lineEdit.returnPressed.disconnect(self.save_lineedit_data)
         except TypeError:
@@ -475,7 +467,6 @@ class EditTreeView(QtW.QDialog):
 
     def display_dropdown(self):
         self.edit_treeView.setIndexWidget(self.edit_treeView.selectedIndexes()[0], self.combo)
-        self.combo.installEventFilter(self)
         self.combo.view().installEventFilter(self)
         self.combo.model_modifiable = True
         self.combo.closedOnLineEditClick = False
@@ -577,7 +568,6 @@ class EditTreeView(QtW.QDialog):
     def destroy_dropdown(self):
         # combo.activated.disconnect(self.save_dropdown_data)
         try:
-            self.combo.removeEventFilter(self)
             self.combo.view().removeEventFilter(self)
         except TypeError:
             pass
@@ -1058,9 +1048,6 @@ class EditTreeView(QtW.QDialog):
             return
         else:
             release_savepoint('before_edit')
-            # Check if there is another existing savepoint. If not, go ahead and update the database
-            if not SavepointManager.get_instance().active_savepoints():
-                update_database()
             self.accept()
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True

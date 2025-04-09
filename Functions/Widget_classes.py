@@ -13,7 +13,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex
 from PyQt6.QtGui import QTextOption, QAction
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
-from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate
+from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog
 
 import Functions.Text_manipulations as TxM
 import logger_setup
@@ -1689,8 +1689,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        if isinstance(source_model, SQLiteTableModel):
-            self.source_mdoel = SQLiteTableModel(query=self.base_query)
+        if 'FROM AliquotView' in self.base_query:
+            self.source_model = SQLiteTableModel(query=self.base_query)
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
             self.source_model.setQuery(f'{self.base_query}')
@@ -1713,7 +1713,6 @@ class TreeModel(QtC.QAbstractProxyModel):
         root_id = 0
         child_ids = self.find_children(root_id)
         # add each child to model with parent (root)
-        # todo: handle aliquots differently where parent row from database is ignored if parent is root
         self.add_to_tree(child_ids, self.root_item)
         # look for children of those
         # add each child to the model with parent
@@ -1860,7 +1859,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 # Show parent ID in third column
                 return item.data(1)
             elif index.column() == 3:
-                # Show parent ID in third column
+                # Show parent row in fourth column
                 return item.data(2)
             else:
                 return item.data(index.column())
@@ -1955,8 +1954,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             return None
         self.source_model.setQuery(
             f"{self.base_query_sql}  {self.id_header} is {item_id}")  # Only one record for each item ID
-        oldParentID = self.source_model.record(0).value(1)  # Get the current parent
-        # ID
+        oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
         if isinstance(oldParentID, int):
             opID = f'= {oldParentID}'
         else:
@@ -2277,6 +2275,13 @@ class TreeModel(QtC.QAbstractProxyModel):
             rollback_savepoint('drop_mime_data')
             return False
         for move in range(len(itemIDs)):
+            self.source_model.setQuery(
+                f"{self.base_query_sql}  {self.id_header} is {itemIDs[move]}")  # Only one record for each item ID
+            oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
+            if self.table == 'Aliquots' and parentID == oldParentID:
+                logger_setup.get_logger().info(f"Cannot reorder top-level aliquots")
+                rollback_savepoint('drop_mime_data')
+                return False
             if not self.moveItem(itemIDs[move], rows[move], pID):
                 logger_setup.get_logger().critical(f'Error moving item')
                 logger_setup.get_logger().debug(f'Item: {itemIDs[move]}, rows: {rows[move]}, parent_ID: {pID}')

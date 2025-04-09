@@ -22,7 +22,7 @@ from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
 from ui.EditView import EditView
-
+from ui.EditTreeView import EditTreeView
 
 class DataViewerWidget(QWidget):
     def __init__(self, ids_to_show, table_type):
@@ -254,17 +254,22 @@ class DataViewerWidget(QWidget):
             if self.table_type not in SQLUtils.user_viewable_trees:
                 logger_setup.get_logger().critical(f"Error {self.table_type}: Tried to display a table as a tree...")
                 return
-            # todo make aliquots a tree model
-            table = 'AliquotView'
-            self.switch_to_tree(db_stackedWidget)
-            show_cols = ', '.join(settings.value('aliquot_view_columns'))
-            source_model = SQLiteTableModel(
+            if self.table_type == 'Aliquots':
+                table = 'AliquotView'
+                self.switch_to_tree(db_stackedWidget)
+                show_cols = ', '.join(settings.value('aliquot_view_columns'))
+                source_model = SQLiteTableModel(
                 f'SELECT {show_cols} FROM {table} WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName')
-            model = TreeModel(source_model)
-            proxy_model = ReadableProxyModel()
+                model = TreeModel(source_model)
+                proxy_model = ReadableProxyModel()
+                proxy_model.setSourceModel(model)
+            else:
+                logger_setup.get_logger().info(f"Passed a tree that is not Aliquots")
+                return
 
-            dbTable_treeView.setModel(model)
+            dbTable_treeView.setModel(proxy_model)
             dbTable_treeView.setSortingEnabled(False)
+            dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.hide_columns(dbTable_treeView, table)
             for column in range(proxy_model.columnCount()):
@@ -471,10 +476,59 @@ class DataViewerWidget(QWidget):
             id_str = self.ids_to_show.replace('(', '').replace(')', '')
             ids = id_str.split(', ')
             ids = list(map(int, ids))  # Convert all IDs to integers
-            dlg_args = {'table_item_ids': ids}
-            dlg = EditView(self, table, **dlg_args)
-        elif table_name == 'Aliquots':
-            return
+            if table_name == 'Aliquots':
+                # Ask the user which sample they want to edit
+                sample_names = []
+                query = QSqlQuery()
+                for aliquot_id in list(eval(self.ids_to_show)):
+                    if not query.exec(f'SELECT SampleID FROM Aliquots WHERE AliquotID = {aliquot_id}'):
+                        logger_setup.get_logger().critical(f'Error fetching SampleID')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return
+                    if query.next():
+                        sample_id = query.value(0)
+                        if not query.exec(f'SELECT SampleName FROM Samples WHERE SampleID = {sample_id}'):
+                            logger_setup.get_logger().critical(f'Error fetching SampleName')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return
+                        if query.next():
+                            sample_name = query.value(0)
+                            if sample_name not in sample_names:
+                                sample_names.append(sample_name)
+                sample_name, ok = QtW.QInputDialog.getItem(self, "Select Sample",
+                   "Edit aliquots of selected sample:", sample_names, 0, False)
+                if not ok:
+                    logger_setup.get_logger().info(f'User cancelled sample selection')
+                    return
+                if not query.exec(f'SELECT SampleID FROM Samples WHERE SampleName = "{sample_name}"'):
+                    logger_setup.get_logger().critical(f'Error fetching SampleID')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    return
+                if not query.next():
+                    logger_setup.get_logger().critical(f'No SampleID found for the selected sample')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    return
+                sample_id = query.value(0)
+                if not query.exec(f'SELECT AliquotID FROM Aliquots WHERE SampleID = {sample_id}'):
+                    logger_setup.get_logger().critical(f'Error fetching AliquotID')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    return
+                ids = []
+                while query.next():
+                    if query.value(0) in list(eval(self.ids_to_show)):
+                        ids.append(query.value(0))
+                if not ids:
+                    logger_setup.get_logger().critical(f'No AliquotIDs found for the selected sample')
+                    return
+                dlg_args = {'parent_id': sample_id, 'parent_type': 'Sample', 'table_item_ids': ids}
+                dlg = EditTreeView(self, table, **dlg_args)
+            else:
+                dlg_args = {'table_item_ids': ids}
+                dlg = EditView(self, table, **dlg_args)
         elif table in SQLUtils.user_viewable_trees:
             save_expanded_state(table_name, tree_proxy_model, dbTable_treeView)
             self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {table}...')
@@ -483,19 +537,24 @@ class DataViewerWidget(QWidget):
             self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {table}...')
             dlg = EditTable(self, table)
         dlg.exec()
-        update_database()
+        if dlg.updated:
+            update_database()
 
-        # update both tables
-        self.display_data_table(self.db_stackedWidget, self.dbTable_tableView,
-                                self.dbTable_comboBox, self.edit_pushButton)
+            # update both tables
+            if isinstance(dlg, EditTable):
+                self.display_data_table(self.db_stackedWidget, self.dbTable_tableView,
+                                        self.dbTable_comboBox, self.edit_pushButton)
+            elif isinstance(dlg, EditTree | EditTreeView):
+                self.display_data_table(self.db_stackedWidget, self.dbTable_treeView,
+                                        self.dbTable_comboBox, self.edit_pushButton)
 
-        # Display filtered table for the first time
-        self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_data_filter(
-            self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
-            self.edit_pushButton_2, self.dbTable_tableView, self.table_type))
+            # Display filtered table for the first time
+            self.dbTable_comboBox_2.currentTextChanged.connect(lambda: self.display_table_with_data_filter(
+                self.db_stackedWidget_2, self.dbTable_tableView_2, self.dbTable_treeView_2, self.dbTable_comboBox_2,
+                self.edit_pushButton_2, self.dbTable_tableView, self.table_type))
 
-        self.edit_pushButton: QPushButton
-        self.edit_pushButton.clearMask()
+            self.edit_pushButton: QPushButton
+            self.edit_pushButton.clearMask()
 
     def edit_samples_popup(self, table_name, dbTable_tableView):
         if table_name != 'Samples':
