@@ -14,7 +14,8 @@ from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
-                                      restore_expanded_state, TreeContextMenu, expand_collapse, find_tree_model)
+                                      restore_expanded_state, TreeContextMenu, expand_collapse, find_tree_model,
+                                      save_expanded_state)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -63,6 +64,7 @@ class ViewDataTab(QtW.QWidget):
         self.show_cols = []
         self.view = None
         self.resize_timer = QTimer()
+        self.display_table()
 
         self.search_lineEdit.textChanged.connect(self.search)
         self.loading_manager.close_loading_dialog('Loading', f'Loading {label}...')
@@ -229,6 +231,7 @@ class ViewDataTab(QtW.QWidget):
 
     def display_data(self, action):
         # get the row that was right-clicked
+        logger_setup.get_logger().info(f'Displaying data for {action.text()}')
         parent_ids = []
         if self.view.selectedIndexes():
             selected_indexes = self.view.selectedIndexes()
@@ -236,13 +239,12 @@ class ViewDataTab(QtW.QWidget):
             logger_setup.get_logger().error("Select cell or row")
             return
         for index in selected_indexes:
-            if isinstance(self.view, QtW.QTreeView):
-                tree_model = find_tree_model(self.view)
-                parent_id = tree_model.index(index.row(), 2, index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if self.tree_model:
+                parent_id = self.proxy_model.index(index.row(), 1, index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
             else:
                 parent_id = self.proxy_model.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if parent_id not in parent_ids:
-                parent_ids.append(str(parent_id))
+                parent_ids.append(parent_id)
         if 'Spot' in action.text():
             self.main_window.open_tab(parent_ids, 'Aliquot', 'Spot')
         elif 'U-Pb' in action.text():

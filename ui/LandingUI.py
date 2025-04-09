@@ -122,7 +122,7 @@ class LandingPage(QWidget):
             geo_cork.destroyed.connect(loop.quit)
             loop.exec()
 
-        self.show()
+            self.show()
 
         self.listWidget: QListWidget
 

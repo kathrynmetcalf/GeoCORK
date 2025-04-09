@@ -754,6 +754,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
                     self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
+
                     self.checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.partially_checked_ids:
                     self.partially_checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
@@ -1681,6 +1682,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         root_id = 0
         child_ids = self.find_children(root_id)
         # add each child to model with parent (root)
+        # todo: handle aliquots differently where parent row from database is ignored if parent is root
         self.add_to_tree(child_ids, self.root_item)
         # look for children of those
         # add each child to the model with parent
@@ -2913,6 +2915,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setCompleter(self.completer())
         self.model_modifiable = False
         self.single_click = False
+        self.not_null = False
         self.proxy_model = None
         # self.tableView = QtW.QTableView()
         # self.setView(self.tableView)
@@ -3054,10 +3057,18 @@ class CheckableComboBox(QtW.QComboBox):
             else:
                 source_index = self.view().currentIndex()
             if event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.LeftButton:
-                if self.single_click:
+                if self.single_click and self.model().checked_ids:
                     # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
-                    clicked_id = self.model().index(source_index, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if isinstance(self.model(), CheckableTreeModel):
+                        clicked_id = self.model().index(source_index.row(), 1, source_index.parent()).data(
+                            QtC.Qt.ItemDataRole.DisplayRole)
+                    else:
+                        clicked_id = self.model().index(source_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
                     if clicked_id in self.model().checked_ids:
+                        if self.not_null:
+                            logger_setup.get_logger().error(f'{self.model().headerData(self.name_col, 
+                               Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)} cannot be blank')
+                            return True
                         self.view().setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
                     self.model().setData(source_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
@@ -4252,7 +4263,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
         logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
         return True
-    if checked_ids:
+    if not checked_ids:
         logger_setup.get_logger().info(f'No checked items to update.')
         return True
     id_header = get_headers(table)[0]
@@ -4274,6 +4285,9 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         current_id = query.value(0)
         if current_id not in current_ids:
             current_ids.append(current_id)
+    if current_ids == checked_ids:
+        logger_setup.get_logger().info(f'Checks are up to date')
+        return True
     create_savepoint('update_other_table')
     if len(checked_ids) == 1:
         if not query.exec(f'UPDATE {update_table} SET {id_header} = {checked_ids[0]} WHERE {other_id_header} {query_where_str}'):

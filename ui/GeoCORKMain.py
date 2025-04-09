@@ -19,7 +19,7 @@ import Functions.Database_views as DB_views
 from Functions.BackupDatabase import BackupThread, RestoreThread
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager
-from Functions.Widget_classes import get_name_from_id, show_loading_dialog, close_loading_dialog
+from Functions.Widget_classes import get_name_from_id, show_loading_dialog, close_loading_dialog, save_expanded_state
 import logger_setup
 from Functions import SQLUtils
 from Functions import Savepoint_manager
@@ -284,8 +284,9 @@ class GeoCORK(QtW.QMainWindow):
         :return:
         """
         logger_setup.get_logger().debug(f'Tab changed to {self.tabWidget.tabText(index)}')
-        if self.tabWidget.tabText(index) not in self.tabWidget.permanent_tabs:
-            self.tabWidget.widget(index).display_table()
+        ## This is taking too long, so the user should use the refresh button as needed
+        # if self.tabWidget.tabText(index) not in self.tabWidget.permanent_tabs:
+        #     self.tabWidget.widget(index).display_table()
 
     def open_tab(self, parent_id: list[int], parent_type: str, child_type: str):
         """

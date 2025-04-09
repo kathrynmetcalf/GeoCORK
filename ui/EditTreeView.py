@@ -156,6 +156,7 @@ class EditTreeView(QtW.QDialog):
         self.edit_treeView.doubleClicked.connect(self.display_widget)
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
+        logger_setup.get_logger().info(f'Finished opening edit window for {self.table}')
 
     def create_model(self):
         # todo: connect to tree_model dataEdited signal to refresh the model
@@ -218,9 +219,11 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.name_column = get_name_column(self.table)
-        self.proxy_model = ReadableProxyModel(view=True)
+        self.name_header = get_headers(self.table)[self.name_column]
+        self.proxy_model = ReadableProxyModel()
         self.proxy_model.setSourceModel(self.tree_model)
         self.edit_treeView.setModel(self.proxy_model)
+        self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         for column in range(self.tree_model.columnCount()):
             header = self.tree_model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if 'ID' in header or 'Row' in header:
@@ -265,6 +268,7 @@ class EditTreeView(QtW.QDialog):
             logger_setup.get_logger().error(f'No widget determined for selected index')
 
     def determine_widget(self, tree_index):
+        logger_setup.get_logger().info(f'Determining {self.table} widget')
         if not tree_index.isValid():
             return
         if self.lineEdit is not None:
@@ -277,13 +281,12 @@ class EditTreeView(QtW.QDialog):
             if self.combo is not None:
                 logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
-        table_index = self.tree_model.mapToSource(tree_index)
-        if table_index.column() == self.name_column:
+        header = self.tree_model.headerData(tree_index.column(), QtC.Qt.Orientation.Horizontal,
+                                       QtC.Qt.ItemDataRole.DisplayRole)
+        if header == self.name_header:
             # The column is the name column for the table. This should be edited with a line edit.
             self.create_lineedit()
             return
-        header = self.tree_model.headerData(tree_index.column(), QtC.Qt.Orientation.Horizontal,
-                                       QtC.Qt.ItemDataRole.DisplayRole)
         header = header.replace(' ', '')
         self.dropdown_table = ''
         columns = None
@@ -360,8 +363,8 @@ class EditTreeView(QtW.QDialog):
                 tree_indexes =  self.edit_treeView.selectedIndexes()
             else:
                 tree_indexes = [self.edit_index]
-            header = self.model.headerData(tree_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
-                                           QtC.Qt.ItemDataRole.DisplayRole)
+            header = self.tree_model.headerData(tree_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
+                                                QtC.Qt.ItemDataRole.DisplayRole)
             col = None
             table = None
             for key, value in SQLUtils.table_attributes_dict.items():
@@ -369,7 +372,7 @@ class EditTreeView(QtW.QDialog):
                     col = value.index(header)
                     table = key
                     break
-            if not col or not table:
+            if col is None or table is None:
                 logger_setup.get_logger().critical(f'Could not find {header} in table attributes')
                 self.destroy_lineedit()
                 return False
@@ -461,6 +464,8 @@ class EditTreeView(QtW.QDialog):
             if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
                 populate_model_checks(self.combo_model, edit_ids, edit_table)
                 self.combo.single_click = True
+        if header in SQLUtils.not_null[self.table]:
+            self.combo.not_null = True
         selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
         self.combo.setCurrentText(selected_text)
         if self.combo.currentText() == '':
@@ -555,6 +560,7 @@ class EditTreeView(QtW.QDialog):
                         return False
                     release_savepoint('before_edit_id')
                 updated = True
+                self.display_tree()
         if updated:
             self.on_tree_edited()
             for tree_index in tree_indexes:
@@ -714,7 +720,6 @@ class EditTreeView(QtW.QDialog):
         self.updated_timestamp = time.time()
 
     def delete_item(self):
-        # save_expanded_state(self.table, self.tree_model, self.edit_treeView)
         tree_indexes = []
         for tree_index in self.edit_treeView.selectedIndexes():
             if tree_index.column() == 0 and tree_index not in tree_indexes:
@@ -748,7 +753,6 @@ class EditTreeView(QtW.QDialog):
             self.updated = True
 
     def delete_question(self, item_ids, children: list):
-        # save_expanded_state(self.table, self.tree_model, self.edit_treeView)
         if children:
             child_string = f' and all {len(children)} children {self.table}'
         else:
@@ -984,7 +988,6 @@ class EditTreeView(QtW.QDialog):
     #     return ids
 
     def add_popup(self, action: QtG.QAction | None = None):
-        # save_expanded_state(self.table, self.tree_model, self.edit_treeView)
         dlg_args = add_tree_popup(self.edit_treeView, self.tree_model, action)
         if dlg_args:
             dlg = AddTreeTags(self, self.table, **dlg_args)
@@ -1005,7 +1008,6 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Add called for {table}')
         dlg = None
         if table in SQLUtils.user_viewable_trees:
-            save_expanded_state(table, combo.model(), combo.view())
             dlg_args = add_tree_popup(combo.view(), combo.model(), action)
             if dlg_args:
                 dlg = AddTreeTags(self, table, **dlg_args)
