@@ -91,7 +91,7 @@ class SQLiteTableModel(QAbstractTableModel):
 
         self.load_data(self.query_text, self.database)
 
-    def update_query(self, new_query: str):
+    def setQuery(self, new_query: str):
         """Updates the model with a new query."""
         self.load_data(new_query, self.database)
 
@@ -162,6 +162,22 @@ class SQLiteTableModel(QAbstractTableModel):
     def tableView(self):
         return self.view
 
+    def record(self, row: int):
+        class MockRecord:
+            def __init__(self, row):
+                self.row = row
+
+            def value(self, index):
+                return self.row[index]
+
+            def count(self):
+                return len(self.row)
+
+        if 0 <= row < len(self._data):
+            return MockRecord(self._data[row])
+        else:
+            return None  # or raise IndexError
+
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
         if not index.isValid():
             return None  # Return None instead of False to avoid type errors
@@ -221,7 +237,12 @@ class SQLiteTableModel(QAbstractTableModel):
             self.edited_indexes.append(index)
             return self._data[index.row()][index.column()] == value
 
-    def removeRows(self, ids_to_remove: list):
+    def removeRows(self, ids_to_remove: list) -> bool:
+        """
+        Removes rows from the table based on provided primary key ids for the table.
+        :param ids_to_remove: list of ids to remove from the table
+        :return: True for success, False otherwise
+        """
         self.beginRemoveRows(QtC.QModelIndex(), 0, len(self._data) - 1)
         ids_to_remove.sort(reverse=False)
         for id in ids_to_remove:
@@ -230,12 +251,19 @@ class SQLiteTableModel(QAbstractTableModel):
                     self._data.remove(row)
                     break
         self.endRemoveRows()
+        return True
 
-    def insertRow(self, row_data: list):
+    def insertRow(self, row_data: list) -> bool:
+        """
+        Inserts rows into the table. Rows provided should be in the same format as the table.
+        :param row_data: list of row data that will be inserted into the table
+        :return: True for success, False otherwise
+        """
         self.beginInsertRows(QtC.QModelIndex(), len(self._data), len(self._data))
         self._data.append(row_data)
         self.endInsertRows()
         logger_setup.get_logger().info(f'Updated {self.table}')
+        return True
 
     def column_as_list(self, col):
         """
@@ -1661,8 +1689,11 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        self.source_model = DisplayRoundedQueryModel(db=self.db)
-        self.source_model.setQuery(f'{self.base_query}')
+        if isinstance(source_model, SQLiteTableModel):
+            self.source_mdoel = SQLiteTableModel(query=self.base_query)
+        else:
+            self.source_model = DisplayRoundedQueryModel(db=self.db)
+            self.source_model.setQuery(f'{self.base_query}')
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
@@ -2106,7 +2137,7 @@ class TreeModel(QtC.QAbstractProxyModel):
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
         if not proxy_index.isValid() or not self.source_model:
             return QtC.QModelIndex()
-        if not isinstance(self.source_model, QtS.QSqlQueryModel):
+        if not isinstance(self.source_model, QtS.QSqlQueryModel | SQLiteTableModel):
             logger_setup.get_logger().critical(f'Data type error')
             logger_setup.get_logger().debug(f'Source model is not a QSqlQueryModel')
             return QtC.QModelIndex()
