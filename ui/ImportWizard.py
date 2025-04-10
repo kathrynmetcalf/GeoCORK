@@ -1865,7 +1865,11 @@ class ImportWizardDialog(QWidget):
 
             # Update the left table
             self.left_table.blockSignals(True)
-            self.left_table.setItem(r, 0, QTableWidgetItem(sample_id))  # Sample ID
+            if self.left_table.item(r, 0).text() == "":
+                self.left_table.setItem(r, 0, QTableWidgetItem(sample_id))  # Sample ID
+            else:
+                # data already exists in this column, skip it and prefer user entered data.
+                pass
             self.left_table.setItem(r, 2, QTableWidgetItem(spot_id))  # Spot ID
             self.left_table.blockSignals(False)
         self.left_table.resizeColumnsToContents()

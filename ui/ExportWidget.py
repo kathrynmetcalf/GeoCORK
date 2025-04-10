@@ -1361,10 +1361,10 @@ class ExportWidget(QWidget):
                 # 207/206
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
-                    ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
-                    ('UPbAnalyses', 'Calculated207Pb/206PbError'): True,
                     ('UPbAnalyses', 'Calculated238U/206Pb'): True,
                     ('UPbAnalyses', 'Calculated238U/206PbError'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/206Pb'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/206PbError'): True
                 }
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
