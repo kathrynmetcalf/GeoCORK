@@ -77,6 +77,7 @@ class SQLiteTableModel(QAbstractTableModel):
     Custom QAbstractTableModel to display a query from a SQLite database. If database is not given, the database file
     stored in settings will be used. This model was created due to the limitations of QSqlTableModel and QSqlQueryModel
     with abnormally long query execution time.
+
     """
     def __init__(self, query: str = '', database=None):
         from Functions.Settings_manager import settings
@@ -179,6 +180,12 @@ class SQLiteTableModel(QAbstractTableModel):
             return None  # or raise IndexError
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        """
+        Return the data for the given index and role.
+        :param index: table index
+        :param role: expecting DisplayRole
+        :return: data stored in the model at the given index or None if the index is invalid or role is not DisplayRole
+        """
         if not index.isValid():
             return None  # Return None instead of False to avoid type errors
 
@@ -217,7 +224,14 @@ class SQLiteTableModel(QAbstractTableModel):
             return True
         return super().setHeaderData(section, orientation, value, role)
 
-    def setData(self, index, value, role = ...):
+    def setData(self, index, value, role = ...) -> bool | None:
+        """
+        Set the data to value for the given index and role.
+        :param index: table index
+        :param value: new data
+        :param role: expecting EditRole to edit data
+        :return: True or False or None
+        """
         if role == Qt.ItemDataRole.EditRole:
             if self._data[index.row()][index.column()] == value:
                 # No change
@@ -265,7 +279,7 @@ class SQLiteTableModel(QAbstractTableModel):
         logger_setup.get_logger().info(f'Updated {self.table}')
         return True
 
-    def column_as_list(self, col):
+    def column_as_list(self, col) -> list | None:
         """
         returns a list of items in a column
         :param col: string or integer representing column
@@ -276,7 +290,7 @@ class SQLiteTableModel(QAbstractTableModel):
         elif isinstance(col, int):
             column = col
         else:
-            return
+            return None
         return [row[column] for row in self._data]
 
 
@@ -300,12 +314,19 @@ class QSqlTableModelModifiedTrigger(QtS.QSqlTableModel):
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
     """
-
+    Custom QSqlTableModel to display the data of a SQLite database table with rounded values.
+    This model was created to display the data in a more user-friendly way, such as rounding.
     """
     def __init__(self, db=QSqlDatabase()):
         super().__init__(db=db)
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        """
+        Return the data for the given index and role.
+        :param index: table index
+        :param role: expecting DisplayRole
+        :return: False if index is invalid, otherwise return the user-readable data stored in the model at the given index
+        """
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.DisplayRole:
@@ -329,9 +350,19 @@ class DisplayRoundedModel(QtS.QSqlTableModel):
         return super().data(index, role)
 
     def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        """
+        Return the raw data for the given index and role.
+        :param index: table index
+        :param role: any
+        :return: same as super().data(index, role)
+        """
         return super().data(index, role)
 
 class DisplayRoundedQueryModel(QSqlQueryModel):
+    """
+    Custom QSqlQueryModel to display the data of a SQLite database table with rounded values.
+    This model was created to display the data in a more user-friendly way, such as rounding.
+    """
     def __init__(self, db=QSqlDatabase()):
         super().__init__()
         self.view = ''
@@ -341,7 +372,13 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
         self.db = db
         self.rounded = True
 
-    def setQuery(self, query):
+    def setQuery(self, query: str):
+        """
+        Set the query for the model. Also sets the table name, view name, name column in the table, and name column in
+        the view based on the query.
+        :param query: SQLite query as text string
+        :return:
+        """
         super().setQuery(query, self.db)
         if self.lastError().text():
             logger_setup.get_logger().critical(f"Error displaying table")
@@ -367,13 +404,27 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
                 self.table = table
                 self.table_name_col = get_name_column(self.table)
 
-    def tableName(self):
+    def tableName(self) -> str:
+        """
+        Return the table name for the model.
+        :return: string with table name or ''
+        """
         return self.table
 
     def tableView(self):
+        """
+        Return the view name for the model.
+        :return: string with view name or ''
+        """
         return self.view
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = QtC.Qt.ItemDataRole.DisplayRole):
+        """
+        Return the data for the given index and role.
+        :param index: table index
+        :param role: expects DisplayRole
+        :return:
+        """
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.DisplayRole:

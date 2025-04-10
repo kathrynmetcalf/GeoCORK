@@ -278,7 +278,9 @@ class EditView(QtW.QDialog):
         edit_action = menu.addAction('Edit')
         delete_action = menu.addAction('Delete row')
         action = menu.exec(self.edit_tableView.viewport().mapToGlobal(pos))
-        if action == clear_action:
+        if action is None:
+            return
+        elif action == clear_action:
             self.clear_data()
         elif action == set_selected_action:
             self.determine_widget(indexes[0])
@@ -382,7 +384,7 @@ class EditView(QtW.QDialog):
         if len(self.edit_tableView.selectedIndexes()) == 0:
             return
         elif len(self.edit_tableView.selectedIndexes()) > 1:
-            logger_setup.get_logger().error('Right-click to edit multiple selections')
+            logger_setup.get_logger().error('Right-click with selected values in single column to edit multiple selections')
             return
         proxy_index = self.edit_tableView.selectedIndexes()[0]
         model_index = self.proxy_model.mapToSource(proxy_index)
@@ -763,10 +765,14 @@ class EditView(QtW.QDialog):
             self.combo.view().removeEventFilter(self)
         except TypeError:
             pass
+        except AttributeError:
+            pass
         try:
             self.combo.add_triggered.disconnect(self.add_tag_popup)
             self.combo.edit_triggered.disconnect(self.edit_tag_popup)
         except TypeError:
+            pass
+        except AttributeError:
             pass
         self.edit_tableView.setIndexWidget(self.combo_index, None)
         self.combo = None
