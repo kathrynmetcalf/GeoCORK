@@ -1098,53 +1098,71 @@ def get_total_records(table: str, where:str='') -> int:
     """
     start_time = time.time()
     id_header = get_headers(table)[0]
+    query = QSqlQuery()
+
+    if 'View' in table:
+        table = get_table_from_view(table)
 
     # Construct the query based on the table
     sql_query = f'SELECT COUNT({id_header}) FROM "{table}" {where}'
 
-    if 'view' in table.lower():
-        # fetching total records for a view so we must use a basic sqlite connection
-        database = settings._instance.value('db_file', type=str)
-
-        uri = f'file:{database}?mode=ro&immutable=1'
-        total_records = 0
-        try:
-            conn = sqlite3.connect(uri, uri=True)
-            with conn:
-                cursor = conn.cursor()
-                cursor.execute(sql_query)
-                total_records = cursor.fetchone()[0]
-
-        except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f"Error opening database and executing query")
-            logger_setup.get_logger().debug(f"Error: {e}")
-            logger_setup.get_logger().debug(f"SQL query: {sql_query}")
-
-        end_time = time.time()
-        logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
-
-        return total_records
-    else:
-        # Execute the query
-        logger_setup.get_logger().info(f'Fetching total records for {table}')
-        query = QSqlQuery()
-        if not query.exec(sql_query):
-            # Handle query execution error
-            logger_setup.get_logger().critical(f'Error fetching total records')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {sql_query}')
-            return 0
-
-        end_time = time.time()
-        logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
-
-        if query.next():
-            return query.value(0)
-
+    # Execute the query
+    logger_setup.get_logger().info(f'Fetching total records for {table}')
+    if not query.exec(sql_query):
+        # Handle query execution error
+        logger_setup.get_logger().critical(f'Error fetching total records')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+        return 0
 
     # Fetch the count
-
+    if query.next():
+        return query.value(0)
     return 0
+
+    # if 'view' in table.lower():
+    #     # fetching total records for a view so we must use a basic sqlite connection
+    #     database = settings._instance.value('db_file', type=str)
+    #
+    #     uri = f'file:{database}?mode=ro&immutable=1'
+    #     total_records = 0
+    #     try:
+    #         conn = sqlite3.connect(uri, uri=True)
+    #         with conn:
+    #             cursor = conn.cursor()
+    #             cursor.execute(sql_query)
+    #             total_records = cursor.fetchone()[0]
+    #
+    #     except sqlite3.Error as e:
+    #         logger_setup.get_logger().critical(f"Error opening database and executing query")
+    #         logger_setup.get_logger().debug(f"Error: {e}")
+    #         logger_setup.get_logger().debug(f"SQL query: {sql_query}")
+    #
+    #     end_time = time.time()
+    #     logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
+    #
+    #     return total_records
+    # else:
+    #     # Execute the query
+    #     logger_setup.get_logger().info(f'Fetching total records for {table}')
+    #     query = QSqlQuery()
+    #     if not query.exec(sql_query):
+    #         # Handle query execution error
+    #         logger_setup.get_logger().critical(f'Error fetching total records')
+    #         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+    #         logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+    #         return 0
+    #
+    #     end_time = time.time()
+    #     logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
+    #
+    #     if query.next():
+    #         return query.value(0)
+    #
+    #
+    # # Fetch the count
+    #
+    # return 0
 
 def get_record_index(table: str, record_id: int):
     """
