@@ -93,7 +93,13 @@ def process_group(group):
     :return: SQL Where clause and CTEs
     """
     condition_strings, ctes = _process_group_inner(group)
-    return ' AND '.join(condition_strings), ctes
+    match group['type']:
+        case 'Match all':
+            return ' AND '.join(condition_strings), ctes
+        case 'Match any':
+            return ' OR '.join(condition_strings), ctes
+        case 'Match none':
+            return f'NOT {' AND '.join(condition_strings)}', ctes
 
 
 def _process_group_inner(group):
