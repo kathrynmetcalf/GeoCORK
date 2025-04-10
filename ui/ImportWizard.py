@@ -283,6 +283,7 @@ class ImportWizardDialog(QWidget):
 
     def __init__(self, parent: QWidget):
         super().__init__(parent)
+        self.loading_manager = LoadingDialogManager.get_instance()
 
         self.setWindowTitle("UPb Import Wizard")
         self.loadWindowState()
@@ -1197,7 +1198,7 @@ class ImportWizardDialog(QWidget):
             for row in range(self.right_table.rowCount()):
                 self.right_table.setItem(row, column_index, QTableWidgetItem(""))
             self.right_table.blockSignals(False)
-            # self.right_table.hideColumn(col_index)
+            self.right_table.hideColumn(column_index)
             self.right_table.resizeColumnsToContents()
 
         # Notify the user only when method is initated from the user
@@ -1402,14 +1403,13 @@ class ImportWizardDialog(QWidget):
         Display the right table with openpyxl-based formatting
         + add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument (editable).
         """
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {sheet_name}...')
         sheet = self.wb[sheet_name]
         self.right_table.clear()
         self.right_table.setRowCount(0)
         self.right_table.setColumnCount(0)
 
         rows, cols = self.df.shape
-        # We'll add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument
-        # extra_cols = 4
         self.right_table.setRowCount(rows)
         self.right_table.setColumnCount(cols)
 
@@ -1427,20 +1427,21 @@ class ImportWizardDialog(QWidget):
             for c in range(cols):
                 cell = sheet.cell(row=r + 1, column=c + 1)
                 value = self.df.iat[r, c]
-                disp_val = "NULL" if pd.isna(value) or value == "" else str(value)
+                # replace with NULL if blank or empty AND strips values of trailing/leading spaces, tabs, carat returns
+                disp_val = "NULL" if pd.isna(value) or value == "" else str(value).strip()
 
                 item = QTableWidgetItem(disp_val)
                 font = cell.font
                 fill = cell.fill
 
                 # Foreground
+                # automatically detects if a given cell has a color assigned to it
                 if font.color and hasattr(font.color, "rgb") and isinstance(font.color.rgb, str):
                     hex_col = "#" + font.color.rgb[-6:]
                     item.setForeground(QBrush(QColor(hex_col)))
-                    if hex_col.lower() == "#EB1800":  # Red
+                    # if the color is red or close to red set the row to rejected automatically
+                    if hex_col.lower() in ["#EB1800", "#FF00000"]:  # Red
                         row_rejected = True
-                # else:
-                #     item.setForeground(QBrush(Qt.GlobalColor.black))
 
                 qfont = QFont()
                 qfont.setBold(font.bold if font.bold else False)
@@ -1448,10 +1449,11 @@ class ImportWizardDialog(QWidget):
                 qfont.setStrikeOut(font.strike if font.strike else False)
                 item.setFont(qfont)
 
+                # if the row is strikethroughed auto set rejected
                 if font.strike:
                     row_rejected = True
 
-                # Background
+                # Sets the background color
                 if isinstance(fill, PatternFill) and fill.fgColor and fill.fgColor.rgb:
                     bg_hex = "#" + fill.fgColor.rgb[-6:]
                     if fill.fill_type and fill.fill_type != "none":
@@ -1469,6 +1471,7 @@ class ImportWizardDialog(QWidget):
             self.update_row_icon(r, (r in self.rejected_rows))
 
         self.right_table.resizeColumnsToContents()
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {sheet_name}...')
 
     def sync_left_table_rows(self):
         """
