@@ -1104,7 +1104,7 @@ def get_total_records(table: str, where:str='') -> int:
     if 'View' in table:
         table = get_table_from_view(table)
         if table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses']:
-                sql_query = f'SELECT COUNT() FROM Samples {SQLUtils.get_join_from_table('', [table])} {where}'
+                sql_query = f'SELECT COUNT() FROM (Select * FROM Samples {SQLUtils.get_join_from_table('', [table])}) {where}'
 
 
     # Execute the query
