@@ -17,10 +17,14 @@ def turn_on_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
     query = QSqlQuery(database)
     logger_setup.get_logger().debug(f'Turning on foreign keys for database: {database.connectionName()}')
     if not query.exec('PRAGMA foreign_keys=ON'):
-        logger_setup.get_logger().critical(f'Could not turn on foreign keys: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Could not turn on foreign keys')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec('PRAGMA foreign_keys'):
-        logger_setup.get_logger().critical(f'Could not check foreign keys: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Could not check foreign keys')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if query.next():
         if query.value(0) == 1:
@@ -43,10 +47,14 @@ def turn_off_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
     query = QSqlQuery(database)
     logger_setup.get_logger().debug(f'Turning off foreign keys for database: {database.connectionName()}')
     if not query.exec('PRAGMA foreign_keys=OFF'):
-        logger_setup.get_logger().critical(f'Could not turn off foreign keys: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Could not turn off foreign keys')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec('PRAGMA foreign_keys'):
-        logger_setup.get_logger().critical(f'Could not check foreign keys: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Could not check foreign keys')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if query.next():
         if query.value(0) == 0:
@@ -77,14 +85,17 @@ def update_database() -> bool:
     db = model.database()
     if not db.commit():
         if 'no transaction is active' not in db.lastError().text():
-            logger_setup.get_logger().critical(f"Error committing database: {db.lastError().text()}")
+            logger_setup.get_logger().critical(f"Error committing database")
+            logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
             return False
     if not db.close():
         if 'no transaction is active' not in db.lastError().text():
-            logger_setup.get_logger().critical(f"Error closing database: {db.lastError().text()}")
+            logger_setup.get_logger().critical(f"Error closing database")
+            logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
             return False
     if not db.open():
-        logger_setup.get_logger().critical(f"Error opening database: {db.lastError().text()}")
+        logger_setup.get_logger().critical(f"Error opening database")
+        logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
         return False
     if not turn_on_foreign_keys():
         return False

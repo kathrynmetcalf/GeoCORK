@@ -51,11 +51,11 @@ def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Opti
     if params:
         for i, val in enumerate(params):
             query.bindValue(i, val)
-    logger_setup.get_logger().debug(f'SQL Command: {query_str}')
     if not query.exec():
-        logger_setup.get_logger().critical(
-            f'Error fetching total records: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {query_str}')
+        logger_setup.get_logger().critical(f'Error fetching total records')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
         return result_rows
 
     while query.next():
@@ -74,7 +74,9 @@ def execute_sql(query_str: str, database: QSqlDatabase) -> bool:
     """
     query = QSqlQuery(database)
     if not query.exec(query_str):
-        logger_setup.get_logger().critical(f'Error executing SQL: {query.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error executing SQL')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     return True
 
@@ -96,7 +98,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
     insert_stmt = f"INSERT INTO '{table_name}' ({','.join(insert_cols)}) VALUES ({", ".join(["?"] * len(insert_cols))})"
 
     query = QSqlQuery(database)
-    logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
+    logger_setup.get_logger().debug(f'SQL query: {insert_stmt}')
     for row in rows:
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
@@ -108,9 +110,11 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
             if "UNIQUE constraint failed: " in query.lastError().text():
                 logger_setup.get_logger().info(f'Record already in database, skipping: {query.lastError().text()}')
             else:
-                logger_setup.get_logger().critical(
-                f'Error fetching total records: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {insert_stmt}')
+                logger_setup.get_logger().critical(f'Error fetching total records')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                return
 
 def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
     """
@@ -130,7 +134,8 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
             success = execute_sql(create_sql, conn_target)
             if not success:
                 logger_setup.get_logger().critical(f'Error creating table {table_name}')
-                logger_setup.get_logger().critical(f'SQL command: {create_sql}')
+                logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_sql}')
 
     # Copy Indexes (regular and unique)
     index_rows = fetchall(
@@ -142,7 +147,8 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
             success = execute_sql(create_index_sql, conn_target)
             if not success:
                 logger_setup.get_logger().critical(f'Error creating index {index_name}')
-                logger_setup.get_logger().critical(f'SQL command: {create_index_sql}')
+                logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_index_sql}')
 
     # Copy Views
     view_rows = fetchall(
@@ -154,7 +160,8 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
             success = execute_sql(create_view_sql, conn_target)
             if not success:
                 logger_setup.get_logger().critical(f'Error creating view {view_name}')
-                logger_setup.get_logger().critical(f'SQL command: {create_view_sql}')
+                logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_view_sql}')
 
 
 def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> None:

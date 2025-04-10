@@ -66,8 +66,9 @@ def create_savepoint(savepoint_name: str, database: QSqlDatabase=QSqlDatabase())
     query = QtS.QSqlQuery()
     logger_setup.get_logger().info(f'Creating savepoint {savepoint_name} on {database.connectionName()}')
     if not query.exec(f'SAVEPOINT {savepoint_name}'):
-        logger_setup.get_logger().critical(f'Failed to create savepoint {savepoint_name}')
+        logger_setup.get_logger().critical(f'Failed to create savepoint before making changes')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.add_savepoint(savepoint_name)
@@ -86,6 +87,7 @@ def release_savepoint(savepoint_name: str, database : QSqlDatabase=QSqlDatabase(
     if not query.exec(f'RELEASE SAVEPOINT {savepoint_name}'):
         logger_setup.get_logger().info(f'Savepoint {savepoint_name} already released')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.remove_savepoint(savepoint_name)
@@ -104,6 +106,7 @@ def rollback_savepoint(savepoint_name: str, database : QSqlDatabase=QSqlDatabase
     if not query.exec(f'ROLLBACK TO SAVEPOINT {savepoint_name}'):
         logger_setup.get_logger().critical(f'Failed to undo changes')
         logger_setup.get_logger().debug(f'Failed to rollback to savepoint {savepoint_name}: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     savepoint_manager = SavepointManager.get_instance()
     savepoint_manager.rollback_savepoint(savepoint_name)

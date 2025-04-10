@@ -209,281 +209,333 @@ def create_indexes() -> bool:
         else:
             logger_setup.get_logger().critical(f'Error creating AgeUnits index')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {CREATE_AGE_UNITS_INDEX}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
 
     if not query.exec(CREATE_CONCORDANCE_FORMATS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating ConcordanceFormats index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_CONCORDANCE_FORMATS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating ConcordanceFormats index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_DIRECTION_UNITS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating DirectionUnits index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_DIRECTION_UNITS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating DirectionUnits index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_DISTANCE_UNITS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating DistanceUnits index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_DISTANCE_UNITS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating DistanceUnits index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_ERROR_FORMATS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating ErrorFormats index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_ERROR_FORMATS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating ErrorFormats index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GPS_FORMATS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating GPSFormats index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_GPS_FORMATS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating GPSFormats index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create conversion table
     if not query.exec(CREATE_AGE_CONVERSIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating AgeConversions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_AGE_CONVERSIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating AgeConversions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_CONCORDANCE_CONVERSIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating ConcordanceConversions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_CONCORDANCE_CONVERSIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating ConcordanceConversions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_DISTANCE_CONVERSIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating DistanceConvesions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_DISTANCE_CONVERSIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating DistanceConvesions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_ERROR_CONVERSIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating ErrorConversions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_ERROR_CONVERSIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating ErrorConversions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GPS_CONVERSIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating GPSConversions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_GPS_CONVERSIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating GPSConversions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create analysis tag tables
     if not query.exec(CREATE_INSTRUMENTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Instruments index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_INSTRUMENTS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Instruments index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_LAB_FACILITIES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating LabFacilities index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_LAB_FACILITIES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating LabFacilities index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_REJECTION_REASONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating RejectionReasons index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_REJECTION_REASONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating RejectionReasons index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_REFERENCES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating References index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_REFERENCES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating References index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_UPBANALYSIS_METHOD_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSIS_METHOD_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create spot tag tables
     if not query.exec(CREATE_SPOT_COMPOSITIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SpotCompositions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOT_COMPOSITIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating SpotCompositions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SPOT_CONTEXT_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SpotContexts index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOT_CONTEXT_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating SpotContexts index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create aliquot tag tables
     if not query.exec(CREATE_ALIQUOT_CONTEXT_INDEX):
-        logger_setup.get_logger().critical(f'Error creating AliquotContexts index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOT_CONTEXT_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating AliquotContexts index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create sample tag tables
     if not query.exec(CREATE_AGE_CONSTRAINTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating AgeConstraints index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_AGE_CONSTRAINTS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating AgeConstraints index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_AGE_INTERPRETATIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating AgeInterpretations index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_AGE_INTERPRETATIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating AgeInterpretations index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_AGE_SIGNATURES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating AgeSignatures index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_AGE_SIGNATURES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating AgeSignatures index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_AGES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Ages index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_AGES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Ages index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_COLUMNS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Columns index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_COLUMNS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Columns index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_GPS_LOCATIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating GPSLocations index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_GPS_LOCATIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating GPSLocations index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_REGIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Regions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_REGIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Regions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_ROCK_TYPES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating RockTypes index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_ROCK_TYPES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating RockTypes index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLE_AGE_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SampleAges index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLE_AGE_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating SampleAges index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLE_CONTEXT_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SampleContexts index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLE_CONTEXT_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating SampleContexts index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_INDEX):
         logger_setup.get_logger().critical(
-            f'Error creating SampleAges_AgeConstraints index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLEAGES_AGECONSTRAINTS_INDEX}')
+            f'Error creating SampleAges_AgeConstraints index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_INDEX):
         logger_setup.get_logger().critical(
-            f'Error creating SampleAges_AgeInterpretations index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLEAGES_AGEINTERPRETATIONS_INDEX}')
+            f'Error creating SampleAges_AgeInterpretations index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLEAGES_REFERENCES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SampleAges_References index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLEAGES_REFERENCES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating SampleAges_References index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLING_METHODS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SamplingMethods index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLING_METHODS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating SamplingMethods index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SETTINGS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Settings index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SETTINGS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Settings index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_UNITS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Units index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UNITS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Units index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create sample item and analysis indexes
     if not query.exec(CREATE_SAMPLES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_ALIQUOTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Aliquots index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOTS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Aliquots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SPOTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Spots index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Spots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_UPBANALYSES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many sample indexes
     if not query.exec(CREATE_SAMPLES_AGESIGNATURES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_AgeSignatures index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_AGESIGNATURES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_AgeSignatures index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_REGIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_Regions index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_REGIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_Regions index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_ROCKTYPES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_RockTypes index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_ROCKTYPES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_RockTypes index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_SAMPLEAGES_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_SampleAges index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_SAMPLEAGES_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_SampleAges index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_SAMPLECONTEXT_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_SampleContext index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_SAMPLECONTEXT_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_SampleContext index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_SAMPLINGMETHODS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_SamplingMethods index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_SAMPLINGMETHODS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_SamplingMethods index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_SETTINGS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_Settings index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_SETTINGS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_Settings index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_UNITS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_Units index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_UNITS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_Units index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many aliquot tables
     if not query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Aliquots_AliquotContexts index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Aliquots_AliquotContexts index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many spot tables
     if not query.exec(CREATE_SPOTS_SPOTCONTEXTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Spots_SpotsContexts index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_SPOTCONTEXTS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Spots_SpotsContexts index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many analysis tables
     if not query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_INDEX):
         logger_setup.get_logger().critical(
-            f'Error creating UPbAnalyses_RejectionReasons index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_REJECTIONREASONS_INDEX}')
+            f'Error creating UPbAnalyses_RejectionReasons index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_FILTER_GROUPS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating FilterGroups index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_FILTER_GROUPS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating FilterGroups index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create foreign key indexes
     if not query.exec(CREATE_COLUMNS_GPSLOCATIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Columns_GPSLocations index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_COLUMNS_GPSLOCATIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Columns_GPSLocations index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_SAMPLES_GPSLOCATIONS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Samples_GPSLocations index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_SAMPLES_GPSLOCATIONS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating Samples_GPSLocations index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_ALIQUOTS_SAMPLES_INDEX):
@@ -492,7 +544,7 @@ def create_indexes() -> bool:
         else:
             logger_setup.get_logger().critical(f'Error creating Aliquots_Samples index')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {CREATE_ALIQUOTS_SAMPLES_INDEX}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
 
     if not query.exec(CREATE_SPOTS_ALIQUOTS_INDEX):
@@ -500,35 +552,38 @@ def create_indexes() -> bool:
             logger_setup.get_logger().debug('Spots_Aliquots index already exists')
         else:
             logger_setup.get_logger().critical(f'Error creating Spots_Aliquots index')
-
-            logger_setup.get_logger().debug(f'SQL command: {CREATE_SPOTS_ALIQUOTS_INDEX}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             return False
 
     if not query.exec(CREATE_UPBANALYSES_SPOTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_SPOTS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_UPBANALYSES_REFERENCE_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_REFERENCE_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_UPBANALYSES_LABFACILITY_INDEX):
-        logger_setup.get_logger().critical(
-            f'Error creating UPbAnalyses_LabFacilities index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_LABFACILITY_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_LabFacilities index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_UPBANALYSES_INSTRUMENT_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalsyses_Instruments index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_INSTRUMENT_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalsyses_Instruments index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX):
-        logger_setup.get_logger().critical(
-            f'Error creating UPbAnalyses_UPbAnalysisMethodsindex: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_UPbAnalysisMethodsindex')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     end_time = time.time()
@@ -564,8 +619,9 @@ def drop_all_indexes() -> bool:
     for idx_name in index_names:
         drop_statement = f"DROP INDEX IF EXISTS [{idx_name}]"
         if not query.exec(drop_statement):
-            logger_setup.get_logger().critical(f"Error dropping index '{idx_name}': {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL command: {drop_statement}")
+            logger_setup.get_logger().critical(f"Error dropping index '{idx_name}'")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
             return False
         else:
             logger_setup.get_logger().debug(f"Successfully dropped index '{idx_name}'")

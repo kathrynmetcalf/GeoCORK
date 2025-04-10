@@ -962,252 +962,302 @@ def create_tables() -> bool:
 
     # Create the tables
     if not query.exec(CREATE_ABOUT_TABLE):
-        logger_setup.get_logger().critical(
-            f'Error creating About table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ABOUT_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating About table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec('SELECT * FROM About'):
-        logger_setup.get_logger().critical(f"Failed to query About table: {query.lastError().text()}")
-        logger_setup.get_logger().critical(f'SQL command: SELECT * FROM About')
+        logger_setup.get_logger().critical(f"Failed to query About table")
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
     else:
         if not query.next():  # No rows found
             # insert fully blank row into about
             if not query.exec(
                     "INSERT INTO About VALUES (1, 'Name','Authors','Citation','ReferenceLink','Version','Description','CreatedBy',NULL,NULL)"):
-                logger_setup.get_logger().critical(
-                    f"Failed to insert default values into About table: {query.lastError().text()}")
+                logger_setup.get_logger().critical(f"Failed to insert default values into About table")
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             else:
                 logger_setup.get_logger().info('About table empty, populated with default values')
 
     # Create unit and formats tables
     if not query.exec(CREATE_AGE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeUnits table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_UNITS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating AgeUnits table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_CONCORDANCE_FORMATS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ConcordanceFormats table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_CONCORDANCE_FORMATS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating ConcordanceFormats table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_DIRECTION_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating DirectionUnits table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_DIRECTION_UNITS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating DirectionUnits table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_DISTANCE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating DistanceUnits table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_DISTANCE_UNITS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating DistanceUnits table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ERROR_FORMATS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ErrorFormats table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ERROR_FORMATS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating ErrorFormats table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create conversion tables
     if not query.exec(CREATE_AGE_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeConversions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_CONVERSIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating AgeConversions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_CONCORDANCE_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ConcordanceConversions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_CONCORDANCE_CONVERSIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating ConcordanceConversions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_DISTANCE_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating DistanceConversions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_DISTANCE_CONVERSIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating DistanceConversions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ERROR_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating ErrorConversions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ERROR_CONVERSIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating ErrorConversions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create analysis tag tables
     if not query.exec(CREATE_INSTRUMENTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Instruments table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_INSTRUMENTS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Instruments table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_LAB_FACILITIES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating LabFacilities table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_LAB_FACILITIES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating LabFacilities table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_REJECTION_REASONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating RejectionReasons table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_REJECTION_REASONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating RejectionReasons table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_REFERENCES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating References table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_REFERENCES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating References table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UPBANALYSIS_METHOD_TABLE):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalysisMethods table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_UPBANALYSIS_METHOD_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalysisMethods table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create spot tag tables
     if not query.exec(CREATE_SPOT_COMPOSITION_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SpotCompositions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOT_COMPOSITION_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SpotCompositions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SPOT_CONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SpotContexts table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOT_CONTEXT_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SpotContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create aliquot tag tables
     if not query.exec(CREATE_ALIQUOT_CONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AliquotContexts table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ALIQUOT_CONTEXT_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating AliquotContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create sample tag tables
     if not query.exec(CREATE_AGE_CONSTRAINTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeConstraints table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_CONSTRAINTS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating AgeConstraints table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_AGE_INTERPRETATIONS_TABLE):  # Shared with upb analyses
-        logger_setup.get_logger().critical(f'Error creating AgeInterpretations table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_INTERPRETATIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating AgeInterpretations table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_AGE_SIGNATURES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating AgeSignatures table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGE_SIGNATURES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating AgeSignatures table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_AGES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Ages table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_AGES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Ages table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_COLUMNS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Columns table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_COLUMNS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Columns table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GPS_CONVERSIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GPSConversions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_GPS_CONVERSIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating GPSConversions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GPS_FORMATS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GPSFormats table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_GPS_FORMATS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating GPSFormats table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_GPS_LOCATIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating GPSLocations table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_GPS_LOCATIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating GPSLocations table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_REGIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Regions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_REGIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Regions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ROCK_TYPES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating RockTypes table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ROCK_TYPES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating RockTypes table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLE_AGE_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleAges table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLE_AGE_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SampleAges table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLE_CONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleContexts table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLE_CONTEXT_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SampleContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE):
-        logger_setup.get_logger().critical(
-            f'Error creating SampleAges_AgeConstraints table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLEAGES_AGECONSTRAINTS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeConstraints table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE):
-        logger_setup.get_logger().critical(
-            f'Error creating SampleAges_AgeInterpretations table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLEAGES_AGEINTERPRETATIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SampleAges_AgeInterpretations table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLEAGES_REFERENCES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SampleAges_References table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLEAGES_REFERENCES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SampleAges_References table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLING_METHODS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating SamplingMethods table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLING_METHODS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating SamplingMethods table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SETTINGS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Settings table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SETTINGS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Settings table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Units table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_UNITS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Units table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create sample item and analysis tables
     if not query.exec(CREATE_SAMPLES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_ALIQUOTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Aliquots table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ALIQUOTS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Aliquots table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SPOTS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Spots table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOTS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Spots table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_UPBANALYSES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_UPBANALYSES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many sample tables
     if not query.exec(CREATE_SAMPLES_AGESIGNATURES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_AgeSignatures table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_AGESIGNATURES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_AgeSignatures table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_REGIONS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_Regions table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_REGIONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_Regions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_ROCKTYPES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_RockTypes table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_ROCKTYPES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_RockTypes table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SAMPLEAGES_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_SampleAges table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SAMPLEAGES_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_SampleAges table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SAMPLECONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_SampleContexts table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SAMPLECONTEXT_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_SampleContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SAMPLINGMETHODS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_SamplingMethods table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SAMPLINGMETHODS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_SamplingMethods table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_SETTINGS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_Settings table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_SETTINGS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_Settings table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     if not query.exec(CREATE_SAMPLES_UNITS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Samples_Units table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SAMPLES_UNITS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Samples_Units table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many anliquot tables
     if not query.exec(CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Aliquots_AliquotContexts table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_ALIQUOTS_ALIQUOTCONTEXT_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Aliquots_AliquotContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many spot tables
     if not query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE):
-        logger_setup.get_logger().critical(f'Error creating Spots_SpotContexts table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_SPOTS_SPOTCONTEXT_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating Spots_SpotContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     # Create many-to-many analysis tables
     if not query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE):
-        logger_setup.get_logger().critical(
-            f'Error creating UPbAnalyses_RejectionReasons table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_UPBANALYSES_REJECTIONREASONS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_RejectionReasons table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     if not query.exec(CREATE_FILTER_GROUPS_TABLE):
-        logger_setup.get_logger().critical(f'Error creating FilterGroups table: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {CREATE_FILTER_GROUPS_TABLE}')
+        logger_setup.get_logger().critical(f'Error creating FilterGroups table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     logger_setup.get_logger().info('Successfully created all database tables')
@@ -1221,9 +1271,9 @@ def populate_tables() -> bool:
     query = QtS.QSqlQuery()
     sql = 'SELECT * FROM AgeUnits'
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error selecting all rows from AgeUnits: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error selecting all rows from AgeUnits')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -1234,9 +1284,9 @@ def populate_tables() -> bool:
     # Populate the concordance format table during initiation
     sql = '''SELECT * FROM ConcordanceFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error selecting all rows from ConcordanceFormats: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error selecting all rows from ConcordanceFormats')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -1247,9 +1297,9 @@ def populate_tables() -> bool:
     # Populate the direction unit table during initiation
     sql = '''SELECT * FROM DirectionUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error selecting all rows from DirectionUnits: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error selecting all rows from DirectionUnits')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -1259,9 +1309,9 @@ def populate_tables() -> bool:
     # Populate the distance unit table during initiation
     sql = '''SELECT * FROM DistanceUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error selecting all rows from DistanceUnits: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error selecting all rows from DistanceUnits')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -1272,9 +1322,9 @@ def populate_tables() -> bool:
     # Populate the error format table during initiation
     sql = '''SELECT * FROM ErrorFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error selecting all rows from ErrorFormats: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error selecting all rows from ErrorFormats')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
@@ -1285,9 +1335,9 @@ def populate_tables() -> bool:
     # Populate the gps format table during initiation
     sql = '''SELECT * FROM GPSFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error selecting all rows from GPSFormats: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error selecting all rows from GPSFormats')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(2))
@@ -1295,9 +1345,9 @@ def populate_tables() -> bool:
         populate_gps_formats()
     sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error deleting all rows from GPSFormatConversions: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error deleting all rows from GPSFormatConversions')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     populate_gps_conversions()
 
@@ -1309,9 +1359,9 @@ def populate_tables() -> bool:
         if not out:  # if there is no output, the table is empty
             populate_ages()  # populate it
     else:
-        logger_setup.get_logger().critical(
-            f'Error selecting all rows from AgeUnits: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error selecting all rows from AgeUnits')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
     return True

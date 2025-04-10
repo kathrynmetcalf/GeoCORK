@@ -547,6 +547,7 @@ class VerifiableSqlViewModel(VerifiableSqlTableModel):
             logger_setup.get_logger().critical(f'Failed to update {self.table} with {column_str}={value_str}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
             return False
         self.row_submitted.emit(current_row)
         if not self.on_row_submitted(current_row):
@@ -1080,7 +1081,7 @@ def get_id_from_name(table: str, name: str):
     query = QtS.QSqlQuery()
     headers = get_headers(table)
     if not query.prepare(f'SELECT {headers[0]} FROM {table} WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'):
-        logger_setup.get_logger().critical(f"Could not ID for {name} in {table}")
+        logger_setup.get_logger().critical(f"Could not find ID for {name} in {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
     query.bindValue(":name", name)
@@ -1088,6 +1089,7 @@ def get_id_from_name(table: str, name: str):
         logger_setup.get_logger().critical(f"Failed to get ID for {name} in {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
         return None
     query.next()
     return query.value(0)
@@ -1112,57 +1114,13 @@ def get_total_records(table: str, where:str='') -> int:
         # Handle query execution error
         logger_setup.get_logger().critical(f'Error fetching total records')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return 0
 
     # Fetch the count
     if query.next():
         return query.value(0)
     return 0
-
-    # if 'view' in table.lower():
-    #     # fetching total records for a view so we must use a basic sqlite connection
-    #     database = settings._instance.value('db_file', type=str)
-    #
-    #     uri = f'file:{database}?mode=ro&immutable=1'
-    #     total_records = 0
-    #     try:
-    #         conn = sqlite3.connect(uri, uri=True)
-    #         with conn:
-    #             cursor = conn.cursor()
-    #             cursor.execute(sql_query)
-    #             total_records = cursor.fetchone()[0]
-    #
-    #     except sqlite3.Error as e:
-    #         logger_setup.get_logger().critical(f"Error opening database and executing query")
-    #         logger_setup.get_logger().debug(f"Error: {e}")
-    #         logger_setup.get_logger().debug(f"SQL query: {sql_query}")
-    #
-    #     end_time = time.time()
-    #     logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
-    #
-    #     return total_records
-    # else:
-    #     # Execute the query
-    #     logger_setup.get_logger().info(f'Fetching total records for {table}')
-    #     query = QSqlQuery()
-    #     if not query.exec(sql_query):
-    #         # Handle query execution error
-    #         logger_setup.get_logger().critical(f'Error fetching total records')
-    #         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-    #         logger_setup.get_logger().debug(f'SQL query: {sql_query}')
-    #         return 0
-    #
-    #     end_time = time.time()
-    #     logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
-    #
-    #     if query.next():
-    #         return query.value(0)
-    #
-    #
-    # # Fetch the count
-    #
-    # return 0
 
 def get_record_index(table: str, record_id: int):
     """
@@ -1191,9 +1149,9 @@ def get_record_index(table: str, record_id: int):
     if not query.exec():
         # Handle query execution error
         logger_setup.get_logger().critical(f'Error fetching the record')
-        logger_setup.get_logger().debug(
-            f'Error fetching records index: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+        logger_setup.get_logger().debug(f'Error fetching records index: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
         return -1
 
     # Fetch the result
@@ -1966,7 +1924,10 @@ class TreeModel(QtC.QAbstractProxyModel):
                     if not query.exec():
                         logger_setup.get_logger().critical(f'Error editing data in {self.table}')
                         logger_setup.get_logger().debug(
-                            f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}: {query.lastError().text()}')
+                            f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                         return False
                     modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
                     treeItem.setData(dataCol, value)
@@ -2071,6 +2032,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 f'Error updating parent for {item_id} in table {self.table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
             return None
         else:
             update_modified_timestamp(self.table, [item_id])
@@ -2094,6 +2056,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             logger_setup.get_logger().critical(f'Error inserting new item {item_name}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
             rollback_savepoint('before_insert')
             return None
         else:
@@ -2149,12 +2112,12 @@ class TreeModel(QtC.QAbstractProxyModel):
         create_savepoint('before_delete')
         self.save_state.emit()
         if not query.exec():  # if item and children not deleted, rollback
-            logger_setup.get_logger().critical(f'Error deleting {del_ids} from {self.table}')
+            logger_setup.get_logger().critical(f'Error deleting items from {self.table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
             rollback_savepoint('before_delete')
             return False
-        logger_setup.get_logger().info(f'Successfully deleted {del_ids} from {self.table}')
+        logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
         if parent_id:
             pID = f'= {parent_id}'
         else:
@@ -2173,7 +2136,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                 newParentRow = currentParentRow - 1
                 self.source_model.setQuery(self.base_query)  # Reset the filter
                 if not self.update_parent_info(childID, parent_id, newParentRow):
-                    logger_setup.get_logger().critical(f'Error updating parent row for child {childID}')
+                    logger_setup.get_logger().critical(f'Error updating parent row for child')
+                    logger_setup.get_logger().debug(f'Child ID: {childID}')
                     rollback_savepoint('before_delete')
                     return False
         release_savepoint('before_delete')
@@ -2292,7 +2256,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         if action == QtC.Qt.DropAction.IgnoreAction:
             return False
         if not data.hasFormat('application/x-qabstractitemmodeldatalist'):
-            logger_setup.get_logger().critical(f'Drop data format not recognized')
+            logger_setup.get_logger().critical(f'Error dropping item')
+            logger_setup.get_logger().debug(f'Drop data format not recognized')
             return False
         return True
 
@@ -2483,7 +2448,7 @@ class CheckableTreeModel(TreeModel):
             logger_setup.get_logger().info(f'Successfully set {first_table} {self.item_ids} for table {self.many_to_many}')
         else:
             logger_setup.get_logger().critical(
-                f'Error setting {first_table} {self.item_ids} for table {self.many_to_many}')
+                f'Error checking data for table {self.many_to_many}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
 
@@ -4030,15 +3995,14 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
     for row in range(model.rowCount()):
         table_id = model.index(row, 0).data()
         if item_table == 'References':
-            query_model.setQuery(
-                f'SELECT {table_id_header}, {item_id_header} FROM "References" WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}')
+            model_query = f'SELECT {table_id_header}, {item_id_header} FROM "References" WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}'
         else:
-            query_model.setQuery(
-                f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}")
+            model_query = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
+        query_model.setQuery(model_query)
         if query_model.lastError().isValid():
-            logger_setup.get_logger().critical(
-                f'Error getting checks for {model.tableName()}')
+            logger_setup.get_logger().critical(f'Error getting checks for {model.tableName()}')
             logger_setup.get_logger().debug(f'Error: {model.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {model_query}')
             return False
         # Go through each line in the model and check how many item_ids have this tag
         if query_model.rowCount() == len(item_ids):
@@ -4079,11 +4043,12 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids, item_ta
     some_items = []
     for row in range(table_model.rowCount()):
         table_id = table_model.index(row, 0).data()
-        query_model.setQuery(
-            f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}")
+        query_model = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
+        query_model.setQuery(query_model)
         if query_model.lastError().isValid():
             logger_setup.get_logger().critical(f'Error getting checks for {table}')
             logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query_model}')
             return False
         # Go through each line in the model and check how many item_ids have this tag
         if query_model.rowCount() == len(item_ids):
@@ -4140,8 +4105,7 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
                 model_index = model.index(row, col)
                 model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
                 if model.lastError().text():
-                    logger_setup.get_logger().critical(
-                        f"Error setting unchecked for {model.tableName()}")
+                    logger_setup.get_logger().critical(f"Error setting unchecked for {model.tableName()}")
                     logger_setup.get_logger().debug(f"Error: {model.lastError().text()}")
         logger_setup.get_logger().info("Unchecked everything")
         combo.setCurrentText(text)
@@ -4363,7 +4327,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     query.prepare(f"SELECT {id_header} FROM {update_table} WHERE {other_id_header} {query_where_str}")
     if not query.exec():
         logger_setup.get_logger().critical(
-            f'Failed to get {other_id_header} for {update_ids} from {update_table}')
+            f'Failed to get items from {update_table}')
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
         return False
@@ -4377,7 +4341,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     create_savepoint('update_other_table')
     if len(checked_ids) == 1:
         if not query.exec(f'UPDATE {update_table} SET {id_header} = {checked_ids[0]} WHERE {other_id_header} {query_where_str}'):
-            logger_setup.get_logger().critical(f'Failed to add {id_header} {id} to {update_table}')
+            logger_setup.get_logger().critical(f'Failed to add item to {update_table}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
             rollback_savepoint('update_other_table')
@@ -4386,37 +4350,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         release_savepoint('update_other_table')
         return True
     else:
-        logger_setup.get_logger().critical(f'Too many checks for {id_header}: {checked_ids}')
-        # to_remove = []
-        # to_add = []
-        # for id in current_ids:
-        #     if id not in checked_ids and id != '':
-        #         # If the value is already Null, no need to change it
-        #         to_remove.append(id)
-        # for id in checked_ids:
-        #     if id not in current_ids or '' in current_ids:
-        #         # If any current value is Null, replace it with the new checked value
-        #         to_add.append(id)
-        # for id in to_remove:
-        #     if not query.exec(f'UPDATE {update_table} SET {id_header} = NULL WHERE {other_id_header} {query_where_str}'):
-        #         if 'NOT NULL constraint failed' in query.lastError().text():
-        #             #
-        #             pass
-        #         else:
-        #             logger_setup.get_logger().critical(f'Failed to remove {id} from {update_table}')
-        #             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        #             rollback_savepoint('update_other_table')
-        #             return False
-        # logger_setup.get_logger().info(f'Removed {id_header} {to_remove} from {update_table}')
-        # for id in to_add:
-        #     if not query.exec(f'UPDATE {update_table} SET {id_header} = {id} WHERE {other_id_header} {query_where_str}'):
-        #         logger_setup.get_logger().critical(f'Failed to add {id_header} {id} to {update_table}')
-        #         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        #         rollback_savepoint('update_other_table')
-        #         return False
-        # logger_setup.get_logger().info(f'Added {id_header} {to_add} to {update_table}')
-        # release_savepoint('update_other_table')
-        # return True
+        logger_setup.get_logger().critical(f'Too many checks for {update_table}')
 
 def update_many_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, many_table: str, first_table_ids: list):
     """
@@ -4448,11 +4382,13 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
         current_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
         if current_id not in current_ids:
             current_ids.append(current_id)
-    query_model.setQuery(f"SELECT {second_table_id_header} FROM {second_table}")
+    model_query = f"SELECT {second_table_id_header} FROM {second_table}"
+    query_model.setQuery(model_query)
     if query_model.lastError().isValid():
         logger_setup.get_logger().critical(
             f'Error getting {table} checks for {first_table}')
         logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {model_query}')
         return False
     create_savepoint('update_many_table')
     to_remove = []
@@ -4471,7 +4407,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
                 f"DELETE FROM {many_table} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
             if not query.exec():
                 logger_setup.get_logger().critical(
-                    f"Error removing {id} associated with item IDs from {many_table}")
+                    f"Error unchecking {second_table} from {first_table}")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('update_many_table')
@@ -4490,8 +4426,10 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
                 # If it is another type of error, log it and rollback
                 else:
                     logger_setup.get_logger().critical(
-                        f"Error adding {first_table_ids, id} to {many_table}")
+                        f"Error adding {second_table} to {first_table}")
                     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
                     rollback_savepoint('update_many_table')
                     return False
     logger_setup.get_logger().info(f"Added {to_add} associated with item IDs {first_table_ids} to {many_table}")

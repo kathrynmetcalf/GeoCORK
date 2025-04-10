@@ -517,11 +517,10 @@ def create_sample_view():
         return False
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
     logger_setup.get_logger().info(f'Creating SampleView')
-    logger_setup.get_logger().debug(f'SQL command: {sample_view}')
     if not query.exec(sample_view):
         logger_setup.get_logger().critical(f'Error creating SampleView)')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {sample_view}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleView')
 
@@ -532,15 +531,14 @@ def create_sample_edit_view():
     if not query.exec(sample_query):
         logger_setup.get_logger().critical('Error creating SampleEditView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {sample_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleEditView AS {sample_query}'
     logger_setup.get_logger().info(f'Creating SampleEditView')
-    logger_setup.get_logger().debug(f'SQL command: {sample_view}')
     if not query.exec(sample_view):
-        logger_setup.get_logger().critical(
-            f'Error creating SampleEditView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {sample_view}')
+        logger_setup.get_logger().critical(f'Error creating SampleEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleEditView')
 
@@ -555,15 +553,14 @@ def create_aliquot_view():
     if not query.exec(aliquot_query):
         logger_setup.get_logger().critical('Error creating AliquotView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {aliquot_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotView AS {aliquot_query}'
     logger_setup.get_logger().info(f'Creating AliquotView')
-    logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
     if not query.exec(aliquot_view):
-        logger_setup.get_logger().critical(
-            f'Error creating AliquotView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
+        logger_setup.get_logger().critical(f'Error creating AliquotView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created AliquotView')
 
@@ -574,15 +571,14 @@ def create_aliquot_edit_view():
     if not query.exec(aliquot_query):
         logger_setup.get_logger().critical('Error creating AliquotEditView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {aliquot_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotEditView AS {aliquot_query}'
     logger_setup.get_logger().info(f'Creating AliquotEditView')
-    logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
     if not query.exec(aliquot_view):
-        logger_setup.get_logger().critical(
-            f'Error creating AliquotEditView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {aliquot_view}')
+        logger_setup.get_logger().critical(f'Error creating AliquotEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created AliquotEditView')
 
@@ -597,15 +593,14 @@ def create_spot_view():
     if not query.exec(spot_query):
         logger_setup.get_logger().critical('Error creating SpotView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {spot_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     spot_view = f'CREATE VIEW IF NOT EXISTS SpotView AS {spot_query}'
     logger_setup.get_logger().info(f'Creating SpotView')
-    logger_setup.get_logger().debug(f'SQL command: {spot_view}')
     if not query.exec(spot_view):
-        logger_setup.get_logger().critical(
-            f'Error creating SpotView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {spot_view}')
+        logger_setup.get_logger().critical(f'Error creating SpotView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created SpotView')
 
@@ -616,15 +611,14 @@ def create_spot_edit_view():
     if not query.exec(spot_query):
         logger_setup.get_logger().critical('Error creating SpotEditView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {spot_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     spot_view = f'CREATE VIEW IF NOT EXISTS SpotEditView AS {spot_query}'
     logger_setup.get_logger().info(f'Creating SpotEditView')
-    logger_setup.get_logger().debug(f'SQL command: {spot_view}')
     if not query.exec(spot_view):
-        logger_setup.get_logger().critical(
-            f'Error creating SpotEditView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {spot_view}')
+        logger_setup.get_logger().critical(f'Error creating SpotEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created SpotEditView')
 
@@ -635,15 +629,14 @@ def create_upb_view():
     if not query.exec(upb_query):
         logger_setup.get_logger().critical('Error creating UPbView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {upb_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbView AS {upb_query}'
     logger_setup.get_logger().info(f'Creating UPbView')
-    logger_setup.get_logger().debug(f'SQL command: {upb_view}')
     if not query.exec(upb_view):
-        logger_setup.get_logger().critical(
-            f'Error creating UPbView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {upb_view}')
+        logger_setup.get_logger().critical(f'Error creating UPbView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created UPbView')
 
@@ -658,15 +651,14 @@ def create_upb_edit_view():
     if not query.exec(upb_query):
         logger_setup.get_logger().critical('Error creating UPbEditView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {upb_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbEditView AS {upb_query}'
     logger_setup.get_logger().info(f'Creating UPbEditView')
-    logger_setup.get_logger().debug(f'SQL command: {upb_view}')
     if not query.exec(upb_view):
-        logger_setup.get_logger().critical(
-            f'Error creating UPbEditView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {upb_view}')
+        logger_setup.get_logger().critical(f'Error creating UPbEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created UPbEditView')
 
@@ -677,15 +669,14 @@ def create_column_view():
     if not query.exec(column_query):
         logger_setup.get_logger().critical('Error creating ColumnView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {column_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnView AS {column_query}'
     logger_setup.get_logger().info(f'Creating ColumnView')
-    logger_setup.get_logger().debug(f'SQL command: {column_view}')
     if not query.exec(column_view):
-        logger_setup.get_logger().critical(
-            f'Error creating ColumnView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {column_view}')
+        logger_setup.get_logger().critical(f'Error creating ColumnView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created ColumnView')
 
@@ -696,15 +687,14 @@ def create_column_edit_view():
     if not query.exec(column_query):
         logger_setup.get_logger().critical('Error creating ColumnEditView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {column_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnEditView AS {column_query}'
     logger_setup.get_logger().info(f'Creating ColumnEditView')
-    logger_setup.get_logger().debug(f'SQL command: {column_view}')
     if not query.exec(column_view):
-        logger_setup.get_logger().critical(
-            f'Error creating ColumnEditView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {column_view}')
+        logger_setup.get_logger().critical(f'Error creating ColumnEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created ColumnEditView')
 
@@ -715,15 +705,14 @@ def create_reference_view():
     if not query.exec(reference_query):
         logger_setup.get_logger().critical('Error creating ReferenceView')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {reference_query}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     reference_view = f'CREATE VIEW IF NOT EXISTS ReferenceView AS {reference_query}'
     logger_setup.get_logger().info(f'Creating ReferenceView')
-    logger_setup.get_logger().debug(f'SQL command: {reference_view}')
     if not query.exec(reference_view):
-        logger_setup.get_logger().critical(
-            f'Error creating ReferenceView: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {reference_view}')
+        logger_setup.get_logger().critical(f'Error creating ReferenceView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully created ReferenceView')
 
@@ -750,11 +739,10 @@ def drop_view(view: str):
     query = QtS.QSqlQuery()
     sql = f'DROP VIEW IF EXISTS {view}'
     logger_setup.get_logger().info(f'Dropping view: {view}')
-    logger_setup.get_logger().debug(f'SQL command: {sql}')
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error dropping view: {view}: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error dropping view: {view}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully dropped view: {view}')
 
@@ -765,9 +753,9 @@ def drop_all_views():
     query = QtS.QSqlQuery()
     sql = 'SELECT name FROM sqlite_master WHERE type="view"'
     if not query.exec(sql):
-        logger_setup.get_logger().critical(
-            f'Error getting all views from database: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {sql}')
+        logger_setup.get_logger().critical(f'Error getting all views from database')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     views = []
     while query.next():

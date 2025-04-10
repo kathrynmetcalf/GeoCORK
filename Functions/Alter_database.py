@@ -57,7 +57,9 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
         create_sql = table_info[1]
         query, virtual, stored, columns = get_columns(table)
         if query.lastError().text() != '':
-            logger_setup.get_logger().critical(f'Error getting {table} columns: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'Error getting {table} columns')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_drop')
             return False
         if virtual:
@@ -70,9 +72,9 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
                 column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS {table}')[1]
             create_sql = f'CREATE TABLE IF NOT EXISTS {table}_new{column_creation}'
             if not query.exec(create_sql):
-                logger_setup.get_logger().critical(
-                    f'Error creating {table}_new table: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {create_sql}')
+                logger_setup.get_logger().critical(f'Error creating {table}_new table')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
             logger_setup.get_logger().info(f'Successfully created table: {table}_new')
@@ -82,9 +84,9 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
             insert_new_table = f'INSERT INTO {table}_new SELECT {column_str} FROM "{table}"'
             logger_setup.get_logger().info(f'Inserting into old table: {table}_old')
             if not query.exec(insert_new_table):
-                logger_setup.get_logger().critical(
-                    f'Error inserting {table}_new table: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {insert_new_table}')
+                logger_setup.get_logger().critical(f'Error inserting {table}_new table')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
             logger_setup.get_logger().info(f'Successfully inserted into new table: {table}_new')
@@ -93,9 +95,9 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
             drop_original_table = f'DROP TABLE "{table}"'
             logger_setup.get_logger().info(f'Dropping original table: {table}')
             if not query.exec(drop_original_table):
-                logger_setup.get_logger().critical(
-                    f'Error dropping original {table} table: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {drop_original_table}')
+                logger_setup.get_logger().critical(f'Error dropping original {table} table')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
             logger_setup.get_logger().info(f'Successfully dropped original table: {table}')
@@ -104,8 +106,9 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
             alter_table_qry = f'ALTER TABLE {table}_new RENAME TO "{table}"'
             logger_setup.get_logger().info(f'Altering table rename: {table}_new to {table}')
             if not query.exec(f'ALTER TABLE {table}_new RENAME TO "{table}"'):
-                logger_setup.get_logger().critical(f'Error renaming {table} table: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {alter_table_qry}')
+                logger_setup.get_logger().critical(f'Error renaming {table} table')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 rollback_savepoint('before_drop')
                 return False
             logger_setup.get_logger().info(f'Successfully altered table rename: {table}_new to {table}')
@@ -291,7 +294,8 @@ def retrieve_conversions(conversion_table: str, id_header_base: str, selected_id
             break
     if calculation_col is type(str) or from_id_col is type(str):
         # Error handling
-        logger_setup.get_logger().critical(f'Calculation: {calculation_col} and from columns:{from_id_col} not found')
+        logger_setup.get_logger().critical(f'Error retrieving conversions')
+        logger_setup.get_logger().debug(f'Calculation: {calculation_col} and from columns:{from_id_col} not found')
         raise NotImplementedError('Calculation not implemented.')
     conversions = []
     for row in range(unit_conversion_model.rowCount()):
@@ -330,11 +334,10 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
         sql_alter += ' END) VIRTUAL'
 
         logger_setup.get_logger().info(f'Adding the calculated column {column}')
-        logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
         if not query.exec(sql_alter):
-            logger_setup.get_logger().critical(
-                f'Error adding the calculated column {column}: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+            logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_populate')
             return False
         logger_setup.get_logger().info(f'Successfully updated {column}')
@@ -353,10 +356,10 @@ def generate_age_display_column(table: str, table_id_header: str) -> bool:
     column = 'SampleAgeDisplay'
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS (ifnull(CalculatedDirectAge, "") || "±" || ifnull(CalculatedDirectAgeError, "") || ", " || ifnull(CalculatedOldestDirectAge, "") || "-" || ifnull(CalculatedYoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, ""))'
     logger_setup.get_logger().info(f'Adding the calculated column {column}')
-    logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
     if not query.exec(sql_alter):
-        logger_setup.get_logger().critical(f'Error adding the calculated column {column}: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+        logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully updated {column}')
     return True
@@ -405,11 +408,10 @@ def generate_age_error_columns(affected_column_names: list[str], table: str, tab
                     sql_alter += f' WHEN {table_age_id_header}={age_conversion[0]} AND {table_error_id_header}={err_conversion[0]} THEN ({calculation})'
         sql_alter += ' END) VIRTUAL'
         logger_setup.get_logger().info(f'Updating the calculated {err_column}')
-        logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
         if not query.exec(sql_alter):
-            logger_setup.get_logger().critical(
-                f'Error adding the calculated column {err_column}')
+            logger_setup.get_logger().critical(f'Error adding the calculated column {err_column}')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_populate')
             return False
         logger_setup.get_logger().info(f'Successfully updated {err_column}')
@@ -483,11 +485,11 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     for sql_gps_alter in sql_gps_alters:
         logger_setup.get_logger().info(
             f'Adding the calculated column {sql_gps_alter.split("COLUMN ")[1].split(" VIRTUAL")[0]}')
-        logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
         if not query.exec(sql_gps_alter):
             logger_setup.get_logger().critical(
                 f'Error adding the calculated column {sql_gps_alter.split("COLUMN ")[1]}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             rollback_savepoint('before_populate')
             return False
     for row in range(gps_model.rowCount()):
@@ -522,9 +524,10 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                 query.bindValue(':gps_display', gps_display)
                 logger_setup.get_logger().info(f'Updating the calculated {column}')
                 if not query.exec():
-                    logger_setup.get_logger().critical(
-                        f'Error adding the calculated column {column}: {query.lastError().text()}')
-                    logger_setup.get_logger().critical(f'SQL command: {query.lastQuery()}')
+                    logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                     rollback_savepoint('before_populate')
                     return False
                 gps_elements = gps_display.split(', ')
@@ -535,7 +538,9 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                     if not query.exec():
                         logger_setup.get_logger().critical(
                             f'Error adding the calculated column {gps_column}')
-                        logger_setup.get_logger().debug(f'SQL command: {sql_gps_alter}')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                         rollback_savepoint('before_populate')
                         return False
                     logger_setup.get_logger().info(f'Successfully updated {gps_column}')
@@ -558,10 +563,10 @@ def generate_reference_column(table: str, table_id_header: str, constructor: str
 
     sql_alter = f'ALTER TABLE "{table}" ADD COLUMN {column} TEXT AS ({constructor}) VIRTUAL'
     logger_setup.get_logger().info(f'Adding the calculated column {column}')
-    logger_setup.get_logger().debug(f'SQL command: {sql_alter}')
     if not query.exec(sql_alter):
-        logger_setup.get_logger().critical(f'Error adding the calculated column {column}: {query.lastError().text()}')
-        logger_setup.get_logger().critical(f'SQL command: {sql_alter}')
+        logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_populate')
         return False
     logger_setup.get_logger().info(f'Successfully updated {column}')
@@ -725,7 +730,9 @@ def convert_gps_location(gps_id: int) -> bool:
     set_table(gps_model, 'GPSLocations')
     gps_model.setFilter(f'GPSLocationID={gps_id}')
     if gps_model.lastError().text() != '':
-        logger_setup.get_logger().critical(f'Error getting GPSLocations: {gps_model.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error getting GPSLocations')
+        logger_setup.get_logger().debug(f'Error: {gps_model.lastError().text()}')
+        logger_setup.get_logger().debug(f'Filter: {gps_model.filter()}')
         return False
     query = QtS.QSqlQuery()
     column = 'GPSLocationConverted'
@@ -771,9 +778,10 @@ def convert_gps_location(gps_id: int) -> bool:
             query.prepare(f'UPDATE GPSLocations SET {column}=:display WHERE "GPSLocationID"={gps_id}')
             query.bindValue(':display', gps_display)
             if not query.exec():
-                logger_setup.get_logger().critical(
-                    f'Error adding the calculated column {column}: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {query.lastQuery()}')
+                logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                 rollback_savepoint('before_populate_gps')
                 return False
             logger_setup.get_logger().info(f'Successfully updated GPS display')
@@ -793,7 +801,9 @@ def return_sample_age_display(sample_age_id: int) -> str:
     set_table(sample_age_model, 'SampleAges')
     sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
     if sample_age_model.lastError().text() != '':
-        logger_setup.get_logger().critical(f'Error getting SampleAges: {sample_age_model.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error getting SampleAges')
+        logger_setup.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
+        logger_setup.get_logger().debug(f'Filter: {sample_age_model.filter()}')
         return ''
     if sample_age_model.rowCount() == 0:
         logger_setup.get_logger().debug(f'No SampleAges with ID {sample_age_id} found. It may have been deleted.')
@@ -862,7 +872,9 @@ def convert_sample_age(sample_age_id: int) -> bool:
     set_table(sample_age_model, 'SampleAges')
     sample_age_model.setFilter(f'SampleAgeID={sample_age_id}')
     if sample_age_model.lastError().text() != '':
-        logger_setup.get_logger().critical(f'Error getting SampleAges: {sample_age_model.lastError().text()}')
+        logger_setup.get_logger().critical(f'Error getting SampleAges')
+        logger_setup.get_logger().debug(f'Error: {sample_age_model.lastError().text()}')
+        logger_setup.get_logger().debug(f'Filter: {sample_age_model.filter()}')
         return False
     query = QtS.QSqlQuery()
     column = 'SampleAgeDisplay'
@@ -921,7 +933,7 @@ def convert_sample_age(sample_age_id: int) -> bool:
         logger_setup.get_logger().error(
             f'Error updating the age display. Displays will update on returning to main page')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         rollback_savepoint('before_populate_age')
         return False
     for i, value in enumerate(calc_age_values):
@@ -930,7 +942,8 @@ def convert_sample_age(sample_age_id: int) -> bool:
         logger_setup.get_logger().error(
             f'Error updating the age display. Displays will update on returning to main page')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL command: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
         rollback_savepoint('before_populate_age')
         return False
     logger_setup.get_logger().info(f'Successfully updated SampleAge display')

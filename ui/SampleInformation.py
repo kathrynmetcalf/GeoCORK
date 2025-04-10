@@ -114,6 +114,7 @@ class SampleInformation(QtW.QDialog):
         self.close_by_dialog = False
 
         # Fill in information based on selected samples
+        self.sample_dictionary = {}
         self.populate_dropdowns()
         self.check_all_samples()
         self.sample_name_comboBox.setModel(self.sample_names_model)
@@ -282,6 +283,7 @@ class SampleInformation(QtW.QDialog):
             logger_setup.get_logger().info("No samples to populate")
             return
         for header in headers:
+
             values = self.samples_table.column_as_list(header)
             if len(set(values)) == 1 and not values[0]:
                 # If all values are the same and empty, add an empty string
@@ -327,6 +329,8 @@ class SampleInformation(QtW.QDialog):
                     self.sample_description_lineEdit.setText(self.sample_description_lineEdit.placeholderText())
                 else:
                     self.sample_description_lineEdit.setText(f"{text}")
+        # if len(self.sample_dictionary) == 0:
+        #     self.populate_sample_dictionary()
 
         # Sample tags
         self.populate_checks('Samples_SampleContexts',self.sample_context_comboBox)
@@ -344,6 +348,22 @@ class SampleInformation(QtW.QDialog):
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         logger_setup.get_logger().info("Fields populated")
+
+    def populate_sample_dictionary(self):
+        logger_setup.get_logger().info("Populating fields")
+        start_populate_fields_time = time.time()
+        headers = get_headers('Samples')
+        if len(self.checked_sample_list) > 1:
+            self.samples_table = SQLiteTableModel(
+                f'SELECT * FROM Samples WHERE SampleID in {tuple(self.checked_sample_list)}')
+        elif len(self.checked_sample_list) == 1:
+            self.samples_table = SQLiteTableModel(
+                f'SELECT * FROM Samples WHERE SampleID = {self.checked_sample_list[0]}')
+        else:
+            self.samples_table = SQLiteTableModel(f'SELECT * FROM Samples')
+        if self.samples_table.rowCount() == 0:
+            logger_setup.get_logger().info("No samples to populate")
+            return
 
     def populate_checks(self, many_to_many_table: str, combo: QtW.QComboBox):
         logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
