@@ -1099,14 +1099,13 @@ def get_total_records(table: str, where:str='') -> int:
     Get the total number of records in the table
     """
     start_time = time.time()
-    id_header = get_headers(table)[0]
     query = QSqlQuery()
-
+    sql_query = f'SELECT COUNT() FROM "{table}" {where}'
     if 'View' in table:
         table = get_table_from_view(table)
+        if table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses']:
+                sql_query = f'SELECT COUNT() FROM Samples {SQLUtils.get_join_from_table('', [table])} {where}'
 
-    # Construct the query based on the table
-    sql_query = f'SELECT COUNT({id_header}) FROM "{table}" {where}'
 
     # Execute the query
     logger_setup.get_logger().info(f'Fetching total records for {table}')
@@ -1117,10 +1116,14 @@ def get_total_records(table: str, where:str='') -> int:
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return 0
 
+
+    end_time = time.time()
     # Fetch the count
     if query.next():
+        logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
         return query.value(0)
     return 0
+
 
 def get_record_index(table: str, record_id: int):
     """
