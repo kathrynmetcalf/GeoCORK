@@ -321,6 +321,7 @@ class EditView(QtW.QDialog):
                 self.display_table()
 
     def display_table(self):
+        start_time = time.time()
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.proxy_model = ReadableProxyModel(view=True)
@@ -372,7 +373,8 @@ class EditView(QtW.QDialog):
         self.edit_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
-        logger_setup.get_logger().info(f'Display {self.table} table complete')
+        end_time = time.time()
+        logger_setup.get_logger().info(f'Displayed {self.table} in {end_time - start_time} seconds')
 
     def display_widget(self):
         if len(self.edit_tableView.selectedIndexes()) == 0:
