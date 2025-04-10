@@ -1113,7 +1113,7 @@ def get_total_records(table: str, where:str='') -> int:
             with conn:
                 cursor = conn.cursor()
                 cursor.execute(sql_query)
-                total_records = cursor.fetchall()
+                total_records = cursor.fetchone()[0]
 
         except sqlite3.Error as e:
             logger_setup.get_logger().critical(f"Error opening database and executing query")
