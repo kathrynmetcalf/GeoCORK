@@ -719,8 +719,7 @@ class EditView(QtW.QDialog):
                             logger_setup.get_logger().info(f'No ID found for {combo.currentText()}')
                             self.destroy_dropdown()
                             return False
-                        header = self.model.headerData(model_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
-                                                           QtC.Qt.ItemDataRole.DisplayRole)
+                        header = get_headers(self.combo_model.tableName())[0]
                         if 'Abbreviation' in header:
                             header = header.replace('Abbreviation', 'ID')
                         query = QtS.QSqlQuery()
