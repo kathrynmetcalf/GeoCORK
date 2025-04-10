@@ -1151,6 +1151,8 @@ def get_record_index(table: str, record_id: int):
     Get the index of a specific record ID
     """
     query = QSqlQuery()
+    if 'View' in table:
+        table = get_table_from_view(table)
 
     # Construct the SQL query
     base_id_column = get_headers(table)[0]

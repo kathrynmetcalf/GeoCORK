@@ -82,6 +82,7 @@ class EditView(QtW.QDialog):
         self.loadWindowState()
 
         logger_setup.get_logger().info(f'Creating a new EditView for {table_name}')
+        edit_view_start_time = time.time()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
         loadUi(sources_ui_file, self)
@@ -190,6 +191,7 @@ class EditView(QtW.QDialog):
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
+        logger_setup.get_logger().info(f'EditView created for {self.table} in {time.time() - edit_view_start_time:.2f} seconds')
 
     def create_model(self):
         self.model = SQLiteTableModel(f'''
