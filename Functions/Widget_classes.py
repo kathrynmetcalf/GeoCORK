@@ -1965,7 +1965,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             f"{self.base_query_sql}  {self.id_header} is {item_id} AND {self.parent_id_header} {p_id} AND {self.parent_row_header} is {row}")
         if self.source_model.rowCount() > 0:
             # If the item is already in the correct place, do nothing
-            return None
+            return True
         self.source_model.setQuery(
             f"{self.base_query_sql}  {self.id_header} is {item_id}")  # Only one record for each item ID
         oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
@@ -1989,16 +1989,16 @@ class TreeModel(QtC.QAbstractProxyModel):
                 newParentRow = currentParentRow + 1
                 self.source_model.setQuery(self.base_query)  # Reset the filter
                 if not self.update_parent_info(childID, parentID, newParentRow):
-                    return None
+                    return False
                 if currentParentRow == row:
                     # Now update the moved item into the new space
                     self.source_model.setQuery(self.base_query)  # Reset the filter
                     if not self.update_parent_info(item_id, parentID, row):
-                        return None
+                        return False
         else:  # no children to update
             self.source_model.setQuery(self.base_query)  # Reset the filter
             if not self.update_parent_info(item_id, parentID, row):
-                return None
+                return False
         # Look for remaining children of the old parent whose parent rows need to be updated, order them by parent row from smallest to largest
         self.source_model.setQuery(
             f"{self.base_query_sql}  {self.parent_id_header} {opID} AND {self.parent_row_header} > {oldParentRow} ORDER BY {self.parent_row_header} ASC")
@@ -2015,7 +2015,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 newParentRow = current_rows[child] - 1
                 self.source_model.setQuery(self.base_query)  # Reset the filter
                 if not self.update_parent_info(child_ids[child], oldParentID, newParentRow):
-                    return None
+                    return False
         self.source_model.setQuery(self.base_query)  # Reset the filter
         return True
 
@@ -2077,7 +2077,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             item_id = self.source_model.record(0).value(0)
             if not self.moveItem(item_id, parent_row, p_id):
                 rollback_savepoint('before_insert')
-                return None
+                return False
             release_savepoint('before_insert')
             self.dataEdited.emit()
             return True
@@ -2705,6 +2705,15 @@ class FocusGroupBox(QGroupBox):
             elif isinstance(child, CheckableComboBox | CheckableTreeCombobox):
                 try:
                     child.currentTextChanged.disconnect()
+
+                except TypeError:
+                    pass
+                try:
+                    child.add_triggered.disconnect()
+                except TypeError:
+                    pass
+                try:
+                    child.edit_triggered.disconnect()
                 except TypeError:
                     pass
             elif isinstance(child, QtW.QComboBox):

@@ -251,7 +251,9 @@ class AgeFields(QtW.QWidget):
 
     def connect_signals(self):
         # Connect signals and slots
+        self.disconnect_signals()
         logger_setup.get_logger().info("Connecting signals")
+
         self.edit_age_comboBox.currentIndexChanged.connect(self.update_age_id)
         self.default_age_checkBox.clicked.connect(self.focus_lost_delay)
         self.direct_age_groupBox.connect_child_signals()
