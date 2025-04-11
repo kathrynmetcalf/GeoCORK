@@ -13,7 +13,7 @@ from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSiz
     QRegularExpression, QSortFilterProxyModel
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView, \
-    QStyle, QApplication, QTableView
+    QStyle, QApplication, QTableView, QLineEdit
 
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
@@ -100,6 +100,27 @@ class DisplayTables(QtW.QWidget):
 
         self.connect_signals()
 
+    def set_go_to_completer(self):
+        # Populate the value input with a completer based on the selected attribute
+        name_completer = QtW.QCompleter()
+        query = QSqlQuery()
+        self.table
+        sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        if not query.exec(sql_query):
+            logger_setup.get_logger().critical(f'Error creating the completer for input')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        values = set()
+        while query.next():
+            values.add(query.value(0))
+        name_completer.setModel(QtC.QStringListModel(values))
+        name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+
+        self.goto_line_edit: QLineEdit
+        self.goto_line_edit.setCompleter(name_completer)
+
     def connect_signals(self):
         # Signal for table combo box
         self.dbTable_comboBox.currentIndexChanged.connect(self.display_table)
@@ -145,6 +166,7 @@ class DisplayTables(QtW.QWidget):
         self.add_pushButton: QtW.QPushButton
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
+
         logger_setup.get_logger().info(f'Displaying {self.table}')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         start_display_time = time.time()
@@ -251,6 +273,8 @@ class DisplayTables(QtW.QWidget):
             self.name_column = get_name_column(self.table)
             self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                      QtC.Qt.ItemDataRole.DisplayRole)
+
+            self.set_go_to_completer()
             # Sort the table by the name column
             proxy_name_column = None
             for column in range(self.table_proxy_model.columnCount()):
