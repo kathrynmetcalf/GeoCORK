@@ -105,14 +105,13 @@ def default_settings():
     settings.setValue('default_sample_edit_columns', [
         'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
         'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName',
-        'SampleAgeInterpretationName',
-        'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth', 'ColumnHeightDepthUnitAbbreviation',
-        'SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName',
-        'SettingName',
-        'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
-        '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize', 'SpotSizeUnitAbbreviation',
-        'RejectionReasonName', 'UPbReference', 'SampleCreated', 'SampleModified'
+        'SampleAgeInterpretationName', 'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth',
+        'ColumnHeightDepthUnitAbbreviation','SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName',
+        'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount',
+        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
+        'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
+        'ConcordanceFormatAbbreviation', 'SpotSize', 'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference',
+        'SampleCreated', 'SampleModified'
     ])
 
     settings.setValue('default_aliquot_view_columns', [

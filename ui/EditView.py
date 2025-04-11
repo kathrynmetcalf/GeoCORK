@@ -661,10 +661,14 @@ class EditView(QtW.QDialog):
         else:
             model_indexes = [self.proxy_model.mapToSource(self.combo_index)]
         selected_ids = []
+        view_headers = []
         for model_index in model_indexes:
             item_id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if item_id not in selected_ids:
                 selected_ids.append(item_id)
+            header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            if header not in view_headers:
+                view_headers.append(header)
         if not selected_ids or len(selected_ids) < 1:
             logger_setup.get_logger().critical('No selected ids found')
             self.destroy_dropdown()
@@ -722,6 +726,8 @@ class EditView(QtW.QDialog):
                             self.destroy_dropdown()
                             return False
                         header = get_headers(self.combo_model.tableName())[0]
+                        if header not in get_headers(edit_table):
+                            header = view_headers[0]
                         if 'Abbreviation' in header:
                             header = header.replace('Abbreviation', 'ID')
                         query = QtS.QSqlQuery()
@@ -781,57 +787,65 @@ class EditView(QtW.QDialog):
         self.combo_index = QtC.QModelIndex()
 
     def determine_edit_table(self, selected_ids):
+        if self.combo:
+            view_header = self.model.headerData(self.combo_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        elif self.lineEdit:
+            view_header = self.model.headerData(self.edit_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         for dictionary in [SQLUtils.one_editable, SQLUtils.many_editable]:
             if self.dropdown_table in dictionary[self.table].values():
-                # The dropdown table has an ID column in the current table or is in a many-to-many table with the current table
-                if dictionary is SQLUtils.many_editable:
-                    table = f'{self.table}_{self.dropdown_table}'
-                else:
-                    table = self.table
-                item_ids = selected_ids
-                return table, item_ids
+                for key, values in dictionary[self.table].items():
+                    if key == view_header:
+                        # The dropdown table has an ID column in the current table or is in a many-to-many table with the current table
+                        if dictionary is SQLUtils.many_editable:
+                            table = f'{self.table}_{self.dropdown_table}'
+                        else:
+                            table = self.table
+                        item_ids = selected_ids
+                        return table, item_ids
             # The dropdown table is not directly related to the current table
             for key, values in dictionary.items():
                 if self.dropdown_table in values.values():
-                    table = key
-                    # We have our table to edit, but now we need to relate the IDs in the current table to the IDs in the edit table
-                    edit_id_header = get_headers(table)[0]
-                    if edit_id_header in self.show_cols:
-                        # The ID of the edit table is in the current view, e.g. SampleID in Spots
-                        item_ids = []
-                        query = QtS.QSqlQuery()
-                        if len(selected_ids) == 1:
-                            sql_where_str = f'= {selected_ids[0]}'
-                        else:
-                            sql_where_str = f'IN {tuple(selected_ids)}'
-                        if not query.exec(f'SELECT {edit_id_header} FROM {self.view} WHERE {self.table_headers[0]} {sql_where_str}'):
-                            logger_setup.get_logger().critical(f'Failed to get {edit_id_header} for {table} IDs {selected_ids}: {query.lastError().text()}')
-                            return None, None
-                        while query.next():
-                            if query.value(0) not in item_ids:
-                                item_ids.append(query.value(0))
-                        if not item_ids:
-                            logger_setup.get_logger().critical('No item IDs found to update')
-                            return None, None
-                        return table, item_ids
-                    else:
-                        # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
-                        if self.table == 'Samples':
-                            # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
-                            aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(selected_ids, self.table)
-                            if table == 'Aliquots':
-                                item_ids = aliquot_ids
-                            elif table == 'Spots':
-                                item_ids = spot_ids
-                            elif table == 'UPbAnalyses':
-                                item_ids = upb_analysis_ids
+                    for sub_key, sub_values in dictionary[key].items():
+                        if sub_key == view_header:
+                            table = key
+                            # We have our table to edit, but now we need to relate the IDs in the current table to the IDs in the edit table
+                            edit_id_header = get_headers(table)[0]
+                            if edit_id_header in self.show_cols:
+                                # The ID of the edit table is in the current view, e.g. SampleID in Spots
+                                item_ids = []
+                                query = QtS.QSqlQuery()
+                                if len(selected_ids) == 1:
+                                    sql_where_str = f'= {selected_ids[0]}'
+                                else:
+                                    sql_where_str = f'IN {tuple(selected_ids)}'
+                                if not query.exec(f'SELECT {edit_id_header} FROM {self.view} WHERE {self.table_headers[0]} {sql_where_str}'):
+                                    logger_setup.get_logger().critical(f'Failed to get {edit_id_header} for {table} IDs {selected_ids}: {query.lastError().text()}')
+                                    return None, None
+                                while query.next():
+                                    if query.value(0) not in item_ids:
+                                        item_ids.append(query.value(0))
+                                if not item_ids:
+                                    logger_setup.get_logger().critical('No item IDs found to update')
+                                    return None, None
+                                return table, item_ids
                             else:
-                                logger_setup.get_logger().error(f'No {table} for selected {self.table} IDs')
-                                return None, None
-                        else:
-                            logger_setup.get_logger().error(f'Could not find ID column for {table} in {self.table}')
-                            return None, None
-                        return table, item_ids
+                                # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
+                                if self.table == 'Samples':
+                                    # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
+                                    aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(selected_ids, self.table)
+                                    if table == 'Aliquots':
+                                        item_ids = aliquot_ids
+                                    elif table == 'Spots':
+                                        item_ids = spot_ids
+                                    elif table == 'UPbAnalyses':
+                                        item_ids = upb_analysis_ids
+                                    else:
+                                        logger_setup.get_logger().error(f'No {table} for selected {self.table} IDs')
+                                        return None, None
+                                else:
+                                    logger_setup.get_logger().error(f'Could not find ID column for {table} in {self.table}')
+                                    return None, None
+                                return table, item_ids
 
     def set_selected_value_dialog(self, table, indexes):
         # Get the selected value from the indexes
