@@ -17,6 +17,10 @@ def SampleViewQuery():
                     {SQLUtils.qigsn},
                     {SQLUtils.qsample_name},
                     {SQLUtils.qsample_description},
+                    {SQLUtils.qsample_gps_id},
+                    {SQLUtils.qgps_display},
+                    {SQLUtils.qsample_elev_display},
+                    {SQLUtils.qsample_elev_unit},
                     {SQLUtils.qgps},
                     {SQLUtils.qsample_elev},
                     {SQLUtils.qsample_age},
@@ -24,6 +28,8 @@ def SampleViewQuery():
                     {SQLUtils.qsample_age_interpretation},
                     {SQLUtils.qsample_age_references},
                     {SQLUtils.qcolumn_name},
+                    {SQLUtils.qsample_column_data_display},
+                    {SQLUtils.qsample_column_data_unit},
                     {SQLUtils.qsample_column_data},
                     {SQLUtils.qage_signature},
                     {SQLUtils.qregions},
@@ -45,139 +51,150 @@ def SampleViewQuery():
                     {SQLUtils.qupb_age_error_formats},
                     {SQLUtils.qconcordance_formats},
                     {SQLUtils.qspot_sizes},
-                    {SQLUtils.qupb_rejection_reasons},
-                    {SQLUtils.qupb_references},
-                    {SQLUtils.qsample_created},
-                    {SQLUtils.qsample_modified}
-                FROM Samples
-                {SQLUtils.age_signature_join}
-                {SQLUtils.column_join}
-                {SQLUtils.region_join}
-                {SQLUtils.rock_type_join}
-                {SQLUtils.sample_context_join}
-                {SQLUtils.sample_sampleage_join}
-                {SQLUtils.sampling_method_join}
-                {SQLUtils.setting_join}
-                {SQLUtils.unit_join}
-                {SQLUtils.sample_age_join}
-                {SQLUtils.sampleage_age_constraint_join}
-                {SQLUtils.sampleage_age_interpretation_join}
-                {SQLUtils.sampleage_age_reference_join}
-                {SQLUtils.gps_sample_join}
-                {SQLUtils.gps_column_join}
-                {SQLUtils.sample_aliquot_join}
-                {SQLUtils.aliquot_context_join}
-                {SQLUtils.aliquot_spot_join}
-                {SQLUtils.spot_composition_join}
-                {SQLUtils.spot_context_join}
-                {SQLUtils.spot_upb_analysis_join}
-                {SQLUtils.upb_distinct_join_sample}
-                {SQLUtils.upb_reference_join}
-                {SQLUtils.upb_labs_join}
-                {SQLUtils.upb_instruments_join}
-                {SQLUtils.upb_method_join}
-                {SQLUtils.upb_ratio_error_format_join}
-                {SQLUtils.upb_age_error_format_join}
-                {SQLUtils.upb_age_unit_join}
-                {SQLUtils.upb_concordance_format_join}
-                {SQLUtils.upb_spot_size_unit_join}
-                {SQLUtils.upb_rejection_reason_join}
-                GROUP BY Samples.SampleID
-                '''
-
-    # print(sample_query)
-    return sample_query
-
-
-def SampleEditViewQuery():
-    # Select columns
-
-    sample_query = f'''
-            {SQLUtils.qupb_count_sample_subquery}
-            SELECT
-                    {SQLUtils.qsample_id},
-                    {SQLUtils.qigsn},
-                    {SQLUtils.qsample_name},
-                    {SQLUtils.qsample_description},
-                    {SQLUtils.qsample_gps_id},
-                    {SQLUtils.qgps_display},
-                    {SQLUtils.qsample_elev_display},
-                    {SQLUtils.qsample_elev_unit},
-                    {SQLUtils.qsample_age},
-                    {SQLUtils.qsample_age_constraint},
-                    {SQLUtils.qsample_age_interpretation},
-                    {SQLUtils.qsample_age_references},
-                    {SQLUtils.qcolumn_name},
-                    {SQLUtils.qsample_column_data_display},
-                    {SQLUtils.qsample_column_data_unit},
-                    {SQLUtils.qage_signature},
-                    {SQLUtils.qregions},
-                    {SQLUtils.qrock_types},
-                    {SQLUtils.qsample_context},
-                    {SQLUtils.qsampling_methods},
-                    {SQLUtils.qsettings},
-                    {SQLUtils.qunits},
-                    {SQLUtils.qaliquots},
-                    {SQLUtils.qaliquot_contexts},
-                    {SQLUtils.qspot_count},
-                    {SQLUtils.qspot_compositions},
-                    {SQLUtils.qspot_contexts},
-                    {SQLUtils.qupb_count},
-                    {SQLUtils.qupb_lab_facilities},
-                    {SQLUtils.qupb_analysis_methods},
-                    {SQLUtils.qupb_ratio_error_formats},
-                    {SQLUtils.qupb_age_units},
-                    {SQLUtils.qupb_age_error_formats},
-                    {SQLUtils.qconcordance_formats},
                     {SQLUtils.qspot_size},
                     {SQLUtils.qspot_size_unit},
                     {SQLUtils.qupb_rejection_reasons},
                     {SQLUtils.qupb_references},
                     {SQLUtils.qsample_created},
                     {SQLUtils.qsample_modified}
-                FROM Samples
-                {SQLUtils.age_signature_join}
-                {SQLUtils.column_join}
-                {SQLUtils.column_unit_join}
-                {SQLUtils.region_join}
-                {SQLUtils.rock_type_join}
-                {SQLUtils.sample_context_join}
-                {SQLUtils.sample_sampleage_join}
-                {SQLUtils.sampling_method_join}
-                {SQLUtils.setting_join}
-                {SQLUtils.unit_join}
-                {SQLUtils.default_sample_age_join}
-                {SQLUtils.sample_age_join}
-                {SQLUtils.sample_age_left_joins}
-                {SQLUtils.sampleage_age_constraint_join}
-                {SQLUtils.sampleage_age_interpretation_join}
-                {SQLUtils.sampleage_age_reference_join}
-                {SQLUtils.gps_sample_join}
-                {SQLUtils.gps_sample_left_joins}
-                {SQLUtils.gps_column_join}
-                {SQLUtils.gps_column_left_joins}
-                {SQLUtils.sample_aliquot_join}
-                {SQLUtils.aliquot_context_join}
-                {SQLUtils.aliquot_spot_join}
-                {SQLUtils.spot_composition_join}
-                {SQLUtils.spot_context_join}
-                {SQLUtils.spot_upb_analysis_join}
-                {SQLUtils.upb_distinct_join_sample}
-                {SQLUtils.upb_reference_join}
-                {SQLUtils.upb_labs_join}
-                {SQLUtils.upb_instruments_join}
-                {SQLUtils.upb_method_join}
-                {SQLUtils.upb_ratio_error_format_join}
-                {SQLUtils.upb_age_error_format_join}
-                {SQLUtils.upb_age_unit_join}
-                {SQLUtils.upb_concordance_format_join}
-                {SQLUtils.upb_spot_size_unit_join}
-                {SQLUtils.upb_rejection_reason_join}
-                GROUP BY Samples.SampleID
-                '''
+                   FROM Samples
+                   {SQLUtils.age_signature_join}
+                   {SQLUtils.column_join}
+                   {SQLUtils.column_unit_join}
+                   {SQLUtils.region_join}
+                   {SQLUtils.rock_type_join}
+                   {SQLUtils.sample_context_join}
+                   {SQLUtils.sample_sampleage_join}
+                   {SQLUtils.sampling_method_join}
+                   {SQLUtils.setting_join}
+                   {SQLUtils.unit_join}
+                   {SQLUtils.default_sample_age_join}
+                   {SQLUtils.sample_age_join}
+                   {SQLUtils.sample_age_left_joins}
+                   {SQLUtils.sampleage_age_constraint_join}
+                   {SQLUtils.sampleage_age_interpretation_join}
+                   {SQLUtils.sampleage_age_reference_join}
+                   {SQLUtils.gps_sample_join}
+                   {SQLUtils.gps_sample_left_joins}
+                   {SQLUtils.gps_column_join}
+                   {SQLUtils.gps_column_left_joins}
+                   {SQLUtils.sample_aliquot_join}
+                   {SQLUtils.aliquot_context_join}
+                   {SQLUtils.aliquot_spot_join}
+                   {SQLUtils.spot_composition_join}
+                   {SQLUtils.spot_context_join}
+                   {SQLUtils.spot_upb_analysis_join}
+                   {SQLUtils.upb_distinct_join_sample}
+                   {SQLUtils.upb_reference_join}
+                   {SQLUtils.upb_labs_join}
+                   {SQLUtils.upb_instruments_join}
+                   {SQLUtils.upb_method_join}
+                   {SQLUtils.upb_ratio_error_format_join}
+                   {SQLUtils.upb_age_error_format_join}
+                   {SQLUtils.upb_age_unit_join}
+                   {SQLUtils.upb_concordance_format_join}
+                   {SQLUtils.upb_spot_size_unit_join}
+                   {SQLUtils.upb_rejection_reason_join}
+                   GROUP BY Samples.SampleID
+                   '''
 
     # print(sample_query)
     return sample_query
+
+
+# def SampleViewQuery():
+#     # Select columns
+#
+#     sample_query = f'''
+#             {SQLUtils.qupb_count_sample_subquery}
+#             SELECT
+#                     {SQLUtils.qsample_id},
+#                     {SQLUtils.qigsn},
+#                     {SQLUtils.qsample_name},
+#                     {SQLUtils.qsample_description},
+#                     {SQLUtils.qsample_gps_id},
+#                     {SQLUtils.qgps_display},
+#                     {SQLUtils.qsample_elev_display},
+#                     {SQLUtils.qsample_elev_unit},
+#                     {SQLUtils.qgps},
+#                     {SQLUtils.qsample_elev},
+#                     {SQLUtils.qsample_age},
+#                     {SQLUtils.qsample_age_constraint},
+#                     {SQLUtils.qsample_age_interpretation},
+#                     {SQLUtils.qsample_age_references},
+#                     {SQLUtils.qcolumn_name},
+#                     {SQLUtils.qsample_column_data_display},
+#                     {SQLUtils.qsample_column_data_unit},
+#                     {SQLUtils.qsample_column_data},
+#                     {SQLUtils.qage_signature},
+#                     {SQLUtils.qregions},
+#                     {SQLUtils.qrock_types},
+#                     {SQLUtils.qsample_context},
+#                     {SQLUtils.qsampling_methods},
+#                     {SQLUtils.qsettings},
+#                     {SQLUtils.qunits},
+#                     {SQLUtils.qaliquots},
+#                     {SQLUtils.qaliquot_contexts},
+#                     {SQLUtils.qspot_count},
+#                     {SQLUtils.qspot_compositions},
+#                     {SQLUtils.qspot_contexts},
+#                     {SQLUtils.qupb_count},
+#                     {SQLUtils.qupb_lab_facilities},
+#                     {SQLUtils.qupb_analysis_methods},
+#                     {SQLUtils.qupb_ratio_error_formats},
+#                     {SQLUtils.qupb_age_units},
+#                     {SQLUtils.qupb_age_error_formats},
+#                     {SQLUtils.qconcordance_formats},
+#                     {SQLUtils.qspot_sizes},
+#                     {SQLUtils.qspot_size},
+#                     {SQLUtils.qspot_size_unit},
+#                     {SQLUtils.qupb_rejection_reasons},
+#                     {SQLUtils.qupb_references},
+#                     {SQLUtils.qsample_created},
+#                     {SQLUtils.qsample_modified}
+#                 FROM Samples
+#                 {SQLUtils.age_signature_join}
+#                 {SQLUtils.column_join}
+#                 {SQLUtils.column_unit_join}
+#                 {SQLUtils.region_join}
+#                 {SQLUtils.rock_type_join}
+#                 {SQLUtils.sample_context_join}
+#                 {SQLUtils.sample_sampleage_join}
+#                 {SQLUtils.sampling_method_join}
+#                 {SQLUtils.setting_join}
+#                 {SQLUtils.unit_join}
+#                 {SQLUtils.default_sample_age_join}
+#                 {SQLUtils.sample_age_join}
+#                 {SQLUtils.sample_age_left_joins}
+#                 {SQLUtils.sampleage_age_constraint_join}
+#                 {SQLUtils.sampleage_age_interpretation_join}
+#                 {SQLUtils.sampleage_age_reference_join}
+#                 {SQLUtils.gps_sample_join}
+#                 {SQLUtils.gps_sample_left_joins}
+#                 {SQLUtils.gps_column_join}
+#                 {SQLUtils.gps_column_left_joins}
+#                 {SQLUtils.sample_aliquot_join}
+#                 {SQLUtils.aliquot_context_join}
+#                 {SQLUtils.aliquot_spot_join}
+#                 {SQLUtils.spot_composition_join}
+#                 {SQLUtils.spot_context_join}
+#                 {SQLUtils.spot_upb_analysis_join}
+#                 {SQLUtils.upb_distinct_join_sample}
+#                 {SQLUtils.upb_reference_join}
+#                 {SQLUtils.upb_labs_join}
+#                 {SQLUtils.upb_instruments_join}
+#                 {SQLUtils.upb_method_join}
+#                 {SQLUtils.upb_ratio_error_format_join}
+#                 {SQLUtils.upb_age_error_format_join}
+#                 {SQLUtils.upb_age_unit_join}
+#                 {SQLUtils.upb_concordance_format_join}
+#                 {SQLUtils.upb_spot_size_unit_join}
+#                 {SQLUtils.upb_rejection_reason_join}
+#                 GROUP BY Samples.SampleID
+#                 '''
+#
+#     # print(sample_query)
+#     return sample_query
 
 
 def AliquotViewQuery():
@@ -504,6 +521,7 @@ def ReferenceViewQuery():
 
 
 def create_sample_view():
+    start_time = time.time()
     sample_query = SampleViewQuery()
     if settings.value('autofill_best_age') == 'true':
         # replace the necessary columns with 'Filled' at the end
@@ -522,28 +540,29 @@ def create_sample_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created SampleView')
+    logger_setup.get_logger().info(f'Successfully created SampleView {time.time() - start_time} seconds')
 
 
-def create_sample_edit_view():
-    sample_query = SampleEditViewQuery()
-    query = QtS.QSqlQuery()
-    if not query.exec(sample_query):
-        logger_setup.get_logger().critical('Error creating SampleEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        return False
-    sample_view = f'CREATE VIEW IF NOT EXISTS SampleEditView AS {sample_query}'
-    logger_setup.get_logger().info(f'Creating SampleEditView')
-    if not query.exec(sample_view):
-        logger_setup.get_logger().critical(f'Error creating SampleEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        return False
-    logger_setup.get_logger().info(f'Successfully created SampleEditView')
+# def create_sample_edit_view():
+#     sample_query = SampleViewQuery()
+#     query = QtS.QSqlQuery()
+#     if not query.exec(sample_query):
+#         logger_setup.get_logger().critical('Error creating SampleView')
+#         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+#         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+#         return False
+#     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
+#     logger_setup.get_logger().info(f'Creating SampleView')
+#     if not query.exec(sample_view):
+#         logger_setup.get_logger().critical(f'Error creating SampleView')
+#         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+#         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+#         return False
+#     logger_setup.get_logger().info(f'Successfully created SampleView')
 
 
 def create_aliquot_view():
+    start_time = time.time()
     aliquot_query = AliquotViewQuery()
     if settings.value('autofill_best_age') == 'true':
         # replace the necessary columns with 'Filled' at the end
@@ -562,10 +581,11 @@ def create_aliquot_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created AliquotView')
+    logger_setup.get_logger().info(f'Successfully created AliquotView {time.time() - start_time} seconds')
 
 
 def create_aliquot_edit_view():
+    start_time = time.time()
     aliquot_query = AliquotEditViewQuery()
     query = QtS.QSqlQuery()
     if not query.exec(aliquot_query):
@@ -580,10 +600,11 @@ def create_aliquot_edit_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created AliquotEditView')
+    logger_setup.get_logger().info(f'Successfully created AliquotEditView {time.time() - start_time} seconds')
 
 
 def create_spot_view():
+    start_time = time.time()
     spot_query = SpotViewQuery()
     if settings.value('autofill_best_age') == 'true':
         # replace the necessary columns with 'Filled' at the end
@@ -602,10 +623,11 @@ def create_spot_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created SpotView')
+    logger_setup.get_logger().info(f'Successfully created SpotView {time.time() - start_time} seconds')
 
 
 def create_spot_edit_view():
+    start_time = time.time()
     spot_query = SpotEditViewQuery()
     query = QtS.QSqlQuery()
     if not query.exec(spot_query):
@@ -620,10 +642,11 @@ def create_spot_edit_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created SpotEditView')
+    logger_setup.get_logger().info(f'Successfully created SpotEditView {time.time() - start_time} seconds')
 
 
 def create_upb_view():
+    start_time = time.time()
     upb_query = UPbViewQuery()
     query = QtS.QSqlQuery()
     if not query.exec(upb_query):
@@ -638,10 +661,11 @@ def create_upb_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created UPbView')
+    logger_setup.get_logger().info(f'Successfully created UPbView {time.time() - start_time} seconds')
 
 
 def create_upb_edit_view():
+    start_time = time.time()
     upb_query = UPbEditViewQuery()
     if settings.value('autofill_best_age') == 'true':
         # replace the necessary columns with 'Filled' at the end
@@ -660,10 +684,11 @@ def create_upb_edit_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created UPbEditView')
+    logger_setup.get_logger().info(f'Successfully created UPbEditView in {time.time() - start_time} seconds')
 
 
 def create_column_view():
+    start_time = time.time()
     column_query = ColumnViewQuery()
     query = QtS.QSqlQuery()
     if not query.exec(column_query):
@@ -678,10 +703,11 @@ def create_column_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created ColumnView')
+    logger_setup.get_logger().info(f'Successfully created ColumnView {time.time() - start_time} seconds')
 
 
 def create_column_edit_view():
+    start_time = time.time()
     column_query = ColumnEditViewQuery()
     query = QtS.QSqlQuery()
     if not query.exec(column_query):
@@ -696,10 +722,11 @@ def create_column_edit_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created ColumnEditView')
+    logger_setup.get_logger().info(f'Successfully created ColumnEditView {time.time() - start_time} seconds')
 
 
 def create_reference_view():
+    start_time = time.time()
     reference_query = ReferenceViewQuery()
     query = QtS.QSqlQuery()
     if not query.exec(reference_query):
@@ -714,14 +741,14 @@ def create_reference_view():
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    logger_setup.get_logger().info(f'Successfully created ReferenceView')
+    logger_setup.get_logger().info(f'Successfully created ReferenceView {time.time() - start_time} seconds')
 
 
 def create_all_views():
     start_time = time.time()
     logger_setup.get_logger().info('Creating all views')
     create_sample_view()
-    create_sample_edit_view()
+    # create_sample_edit_view()
     create_aliquot_view()
     create_aliquot_edit_view()
     create_spot_view()

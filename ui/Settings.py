@@ -111,7 +111,7 @@ def default_settings():
         'SettingName',
         'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
         '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize',
+        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize', 'SpotSizeUnitAbbreviation',
         'RejectionReasonName', 'UPbReference', 'SampleCreated', 'SampleModified'
     ])
 
@@ -219,9 +219,9 @@ def default_settings():
     settings.setValue('default_show_per_page', 100)
 
     settings.setValue('default_autofill_best_age', 'true')
-    settings.setValue('young_fill_best_age', '"206Pb/238UAge"')
-    settings.setValue('old_fill_best_age', '"207Pb/206PbAge"')
-    settings.setValue('best_age_cutoff', 1000)
+    settings.setValue('default_young_fill_best_age', '"206Pb/238UAge"')
+    settings.setValue('default_old_fill_best_age', '"207Pb/206PbAge"')
+    settings.setValue('default_best_age_cutoff', 1000)
 
 def reset_to_default_settings():
     """

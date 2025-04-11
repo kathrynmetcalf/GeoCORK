@@ -24,7 +24,6 @@ qsample_column_data = 'NULLIF(COALESCE(Samples.CalculatedHeightDepth, "") || "±
 qsample_column_data_display = 'NULLIF(COALESCE(Samples.HeightDepth, "") || "±" || COALESCE(Samples.HeightDepthError, ""), "±") AS ColumnHeightDepth'
 qsample_column_data_unit = 'ColumnHeightDepthUnits.DistanceUnitAbbreviation AS ColumnHeightDepthUnitAbbreviation'
 qsample_age = 'SampleAges.SampleAgeDisplay AS SampleAgeCalculated'
-qsample_age_display = '(ifnull(DirectAge, "") || "±" || ifnull(DirectAgeError, "") || ", " || ifnull(OldestDirectAge, "") || "-" || ifnull(YoungestDirectAge, "") || ", " || ifnull(OldestAgeID, "") || "-" || ifnull(YoungestAgeID, "") AS SampleAge'
 qage_range = 'NULLIF(COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " "), " - ") AS SampleAgeRangeCalculated'
 qage_range_display = 'NULLIF(COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " "), " - ") AS SampleAgeRange'
 qage_unit = 'DirectAgeUnitAbbreviation AS SampleAgeUnitAbbreviation'
@@ -885,12 +884,12 @@ view_attributes_dict = {
         ],
     'SampleEditView': [
         f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qsample_description.split('AS ')[1]}", f"{qgps_display.split('AS ')[1]}", f"{qsample_elev_display.split('AS ')[1]}",
-        f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_display.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
+        f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
         f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
         f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}", f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
         f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
         f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_size.split('AS ')[1]}", f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
         f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
         ],
     'ColumnView': [

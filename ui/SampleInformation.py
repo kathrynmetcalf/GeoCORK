@@ -273,12 +273,12 @@ class SampleInformation(QtW.QDialog):
         headers = get_headers('SampleEditView')
         if len(self.checked_sample_list) > 1:
             self.samples_table = SQLiteTableModel(
-                f'SELECT * FROM SampleEditView WHERE SampleID in {tuple(self.checked_sample_list)}')
+                f'SELECT * FROM SampleView WHERE SampleID in {tuple(self.checked_sample_list)}')
         elif len(self.checked_sample_list) == 1:
             self.samples_table = SQLiteTableModel(
-                f'SELECT * FROM SampleEditView WHERE SampleID = {self.checked_sample_list[0]}')
+                f'SELECT * FROM SampleView WHERE SampleID = {self.checked_sample_list[0]}')
         else:
-                self.samples_table = SQLiteTableModel(f'SELECT * FROM SampleEditView')
+                self.samples_table = SQLiteTableModel(f'SELECT * FROM SampleView')
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             return

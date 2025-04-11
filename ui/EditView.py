@@ -126,7 +126,7 @@ class EditView(QtW.QDialog):
                 self.show_cols = settings.value('column_edit_columns')
                 self.add_pushButton.clicked.connect(self.add_popup)
             elif self.table == 'Samples':
-                self.view = 'SampleEditView'
+                self.view = 'SampleView'
                 self.show_cols = settings.value('sample_edit_columns')
                 self.add_pushButton.hide()
             elif self.table == 'Spots' or self.table == 'UPbAnalyses':
@@ -730,12 +730,13 @@ class EditView(QtW.QDialog):
                         else:
                             sql_where_str = f'IN {tuple(edit_ids)}'
                         create_savepoint('before_edit_id')
-                        query.prepare(f'UPDATE {edit_table} SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
+                        query.prepare(f'UPDATE "{edit_table}" SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                         query.bindValue(':clicked_id', clicked_id)
                         if not query.exec():
                             logger_setup.get_logger().critical(f'Failed to update {header} for {len(edit_ids)} {edit_table}')
                             logger_setup.get_logger().debug(f'Query: {query.lastQuery()}')
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_edit_id')
                             self.destroy_dropdown()
                             return False
