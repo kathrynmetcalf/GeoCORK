@@ -270,21 +270,20 @@ class SampleInformation(QtW.QDialog):
     def populate_fields(self):
         logger_setup.get_logger().info("Populating fields")
         start_populate_fields_time = time.time()
-        headers = get_headers('SampleEditView')
+        headers = get_headers('Samples')
         if len(self.checked_sample_list) > 1:
-            self.samples_table = SQLiteTableModel(
-                f'SELECT * FROM SampleView WHERE SampleID in {tuple(self.checked_sample_list)}')
+            sample_query = f'SELECT * FROM Samples WHERE SampleID in {tuple(self.checked_sample_list)}'
         elif len(self.checked_sample_list) == 1:
-            self.samples_table = SQLiteTableModel(
-                f'SELECT * FROM SampleView WHERE SampleID = {self.checked_sample_list[0]}')
+            sample_query = f'SELECT * FROM Samples WHERE SampleID = {self.checked_sample_list[0]}'
         else:
-                self.samples_table = SQLiteTableModel(f'SELECT * FROM SampleView')
+            sample_query = f'SELECT * FROM Samples'
+        self.samples_table = QtS.QSqlQueryModel()
+        self.samples_table.setQuery(sample_query)
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             return
         for header in headers:
-
-            values = self.samples_table.column_as_list(header)
+            values = [self.samples_table.record(row).value(header) for row in range(self.samples_table.rowCount())]
             if len(set(values)) == 1 and not values[0]:
                 # If all values are the same and empty, add an empty string
                 text = ""
@@ -304,12 +303,23 @@ class SampleInformation(QtW.QDialog):
                     self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
                 else:
                     self.sample_igsn_lineEdit.setText(f"{text}")
-            elif 'ColumnName' in header:
+            elif 'ColumnID' in header:
                 if not text:
                     set_comboBox_text(self.column_name_comboBox, self.column_name_comboBox.placeholderText())
-                else:
+                elif text == "-":
                     set_comboBox_text(self.column_name_comboBox, text)
-            elif 'HeightDepthError' in header:
+                else:
+                    column_id = text
+                    query = QtS.QSqlQuery()
+                    if not query.exec(f"SELECT ColumnName FROM Columns WHERE ColumnID = {column_id}"):
+                        logger_setup.get_logger().critical(f"Error finding column name")
+                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                        return
+                    query.next()
+                    text = query.value(0)
+                    set_comboBox_text(self.column_name_comboBox, text)
+            elif 'HeightDepthError' in header and 'Calculated' not in header:
                 if not text:
                     self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
                 else:
@@ -322,8 +332,24 @@ class SampleInformation(QtW.QDialog):
             elif 'HeightDepthUnit' in header:
                 if not text:
                     set_comboBox_text(self.height_depth_unit_comboBox, settings.value('heightdepth_unit_abbreviation'))
-                else:
+                elif text == "-":
                     set_comboBox_text(self.height_depth_unit_comboBox, text)
+                else:
+                    unit_id = text
+                    query = QtS.QSqlQuery()
+                    if not query.exec(f"SELECT DistanceUnitAbbreviation FROM DistanceUnits WHERE DistanceUnitID = {unit_id}"):
+                        logger_setup.get_logger().critical(f"Error finding height depth unit")
+                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                        return
+                    query.next()
+                    text = query.value(0)
+                    set_comboBox_text(self.height_depth_unit_comboBox, text)
+            elif 'HeightDepth' in header and 'Calculated' not in header:
+                if not text:
+                    self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
+                else:
+                    self.height_depth_lineEdit.setText(f"{text}")
             elif 'SampleDescription' in header:
                 if not text:
                     self.sample_description_lineEdit.setText(self.sample_description_lineEdit.placeholderText())

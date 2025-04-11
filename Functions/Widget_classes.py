@@ -3638,12 +3638,15 @@ class CheckableTreeCombobox(TreeCombobox):
         if action:
             if action.text() == 'Edit':
                 self.edit_triggered.emit(self)
+                action = None
                 logger_setup.get_logger().info(f'Edit triggered for checkable tree combo box')
             elif 'Add' in action.text() or 'Insert' in action.text():
                 self.add_triggered.emit(self, action)
+                action = None
                 logger_setup.get_logger().info(f'Add triggered for checkable tree combo box')
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
+                action = None
 
     def eventFilter(self, obj, event):
         if obj == self.lineEdit():
@@ -4490,17 +4493,18 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
         logger_setup.get_logger().error(f'No item IDs given for {first_table}')
         return False
     query_model.setQuery(
-        f'SELECT {second_table_id_header} FROM {many_table} WHERE {first_table_id_header} {query_where_str}')
-    current_ids = []
+        f'SELECT {first_table_id_header}, {second_table_id_header} FROM {many_table} WHERE {first_table_id_header} {query_where_str}')
+    current_pairs = []
     for row in range(query_model.rowCount()):
-        current_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        if current_id not in current_ids:
-            current_ids.append(current_id)
+        first_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        second_id = query_model.data(query_model.index(row, 1), QtC.Qt.ItemDataRole.DisplayRole)
+        pair = (first_id, second_id)
+        if pair not in current_pairs:
+            current_pairs.append(pair)
     model_query = f"SELECT {second_table_id_header} FROM {second_table}"
     query_model.setQuery(model_query)
     if query_model.lastError().isValid():
-        logger_setup.get_logger().critical(
-            f'Error getting {table} checks for {first_table}')
+        logger_setup.get_logger().critical(f'Error getting {table} checks for {first_table}')
         logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {model_query}')
         return False
@@ -4508,45 +4512,52 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     to_remove = []
     to_add = []
     for row in range(query_model.rowCount()):
-        second_table_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        if second_table_id in checked_ids and second_table_id not in current_ids:
-            to_add.append(second_table_id)
-        elif second_table_id in partially_checked_ids:
+        second_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+        if second_id in partially_checked_ids:
             pass
-        elif second_table_id not in checked_ids and second_table_id in current_ids:
-            to_remove.append(second_table_id)
-    for id in to_remove:
-        if id in current_ids:
+        else:
+            for first_id in first_table_ids:
+                pair = (first_id, second_id)
+                if second_id in checked_ids and pair not in current_pairs and second_id not in to_add:
+                    to_add.append(second_id)
+                elif second_id not in checked_ids and pair in current_pairs and second_id not in to_remove:
+                    to_remove.append(second_id)
+    if to_add == [] and to_remove == []:
+        logger_setup.get_logger().info(f'No changes to {many_table}')
+        release_savepoint('update_many_table')
+        return True
+    if to_remove:
+        for id in to_remove:
             query.prepare(
                 f"DELETE FROM {many_table} WHERE {first_table_id_header} {query_where_str} AND {second_table_id_header} = {id}")
             if not query.exec():
-                logger_setup.get_logger().critical(
-                    f"Error unchecking {second_table} from {first_table}")
+                logger_setup.get_logger().critical(f"Error unchecking {second_table} from {first_table}")
                 logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                 logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('update_many_table')
                 return False
-    logger_setup.get_logger().info(f"Removed {to_remove} associated with item IDs {first_table_ids} from {many_table}")
-    for id in to_add:
-        query.prepare(
-            f"INSERT INTO {many_table}({first_table_id_header}, {second_table_id_header}) VALUES(?, ?)")
-        for item_id in first_table_ids:
-            query.addBindValue(item_id)
-            query.addBindValue(id)
-            if not query.exec():
-                # If it is a unique constraint fail, just continue
-                if 'UNIQUE constraint failed' in query.lastError().text():
-                    pass
-                # If it is another type of error, log it and rollback
-                else:
-                    logger_setup.get_logger().critical(
-                        f"Error adding {second_table} to {first_table}")
-                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                    logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
-                    rollback_savepoint('update_many_table')
-                    return False
-    logger_setup.get_logger().info(f"Added {to_add} associated with item IDs {first_table_ids} to {many_table}")
+        logger_setup.get_logger().info(f"Removed {to_remove} associated with item IDs {first_table_ids} from {many_table}")
+    if to_add:
+        for id in to_add:
+            query.prepare(
+                f"INSERT INTO {many_table}({first_table_id_header}, {second_table_id_header}) VALUES(?, ?)")
+            for item_id in first_table_ids:
+                query.addBindValue(item_id)
+                query.addBindValue(id)
+                if not query.exec():
+                    # If it is a unique constraint fail, just continue
+                    if 'UNIQUE constraint failed' in query.lastError().text():
+                        pass
+                    # If it is another type of error, log it and rollback
+                    else:
+                        logger_setup.get_logger().critical(
+                            f"Error adding {second_table} to {first_table}")
+                        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                        logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+                        rollback_savepoint('update_many_table')
+                        return False
+        logger_setup.get_logger().info(f"Added {to_add} associated with item IDs {first_table_ids} to {many_table}")
     logger_setup.get_logger().info(
         f"Successfully updated {many_table} for {first_table_id_header} {first_table_ids}")
     release_savepoint('update_many_table')

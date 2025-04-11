@@ -339,8 +339,6 @@ class EditView(QtW.QDialog):
                 if header == self.name_header:
                     proxy_name_column = column
                     break
-        if proxy_name_column:
-            self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.edit_tableView.setModel(self.proxy_model)
         for column in range(self.proxy_model.columnCount()):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -354,6 +352,8 @@ class EditView(QtW.QDialog):
 
         self.edit_tableView.resizeRowsToContents()
         self.edit_tableView.verticalHeader().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        if proxy_name_column:
+            self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
 
         if self.table_item_ids:
             # If the table_item_ids are provided, we need to set the total records based on the filtered data

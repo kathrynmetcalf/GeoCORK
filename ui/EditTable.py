@@ -91,8 +91,6 @@ class EditTable(QtW.QDialog):
         self.name_column = get_name_column(self.table)
         self.name_header = self.table_headers[self.name_column]
 
-        # Sort the table by the name column
-        self.table_proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.display_table()
 
     def change_rows_per_page(self):
@@ -177,6 +175,8 @@ class EditTable(QtW.QDialog):
                 self.edit_tableView.hideColumn(column)
         self.edit_tableView.resizeColumnsToContents()
         self.edit_tableView.setSortingEnabled(True)
+        # Sort the table by the name column
+        self.table_proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.total_records = get_total_records(self.table)
         if (self.current_page + 1) * self.rows_per_page > self.total_records:
             self.page_info_label.setText(
