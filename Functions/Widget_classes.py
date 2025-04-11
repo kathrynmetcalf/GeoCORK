@@ -11,7 +11,7 @@ from PyQt6 import QtSql as QtS
 from numpy import integer
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex
-from PyQt6.QtGui import QTextOption, QAction
+from PyQt6.QtGui import QTextOption, QAction, QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
 from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog
 
@@ -692,6 +692,13 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
         self.view = view
         super().__init__()
         self.original_headers = False
+        self.doi_column_exists = False
+        self.doi_column = None
+        self.doi_regex = re.compile(r"^(10\.\d{4,9}\/[-._;()\/:A-Z0-9]+)$", re.IGNORECASE)
+
+    def setSourceModel(self, sourceModel):
+        super().setSourceModel(sourceModel)
+        self._check_doi_column()
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
         if self.original_headers:
@@ -707,6 +714,50 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                 readable_header = TxM.add_spaces_camel(header)
                 return readable_header
         super().headerData(section, orientation, role)
+
+    def _check_doi_column(self):
+        model = self.sourceModel()
+        if not model:
+            return
+
+        # For QSqlTableModel or QAbstractItemModel
+        for col in range(model.columnCount()):
+            header = model.headerData(col, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+            if str(header).strip().lower() == "doi":
+                self.doi_column = col
+                self.doi_column_exists = True
+                break
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return super().data(index, role)
+
+        # Default return for all roles other than styling
+        if role not in (Qt.ItemDataRole.ForegroundRole, Qt.ItemDataRole.FontRole):
+            return super().data(index, role)
+
+        if self.doi_column_exists and index.column() == self.doi_column:
+            text = self.sourceModel().data(index, Qt.ItemDataRole.DisplayRole)
+            if isinstance(text, str):
+                if text.startswith('doi:'):
+                    text = text.replace('doi:', '')
+                if re.match(self.doi_regex, text):
+                    if role == Qt.ItemDataRole.ForegroundRole:
+                        return QBrush(QColor("blue"))
+                    elif role == Qt.ItemDataRole.FontRole:
+                        font = QFont()
+                        font.setUnderline(True)
+                        return font
+                else:
+                    if role == Qt.ItemDataRole.ForegroundRole:
+                        return QBrush(QColor("red"))
+                    elif role == Qt.ItemDataRole.FontRole:
+                        font = QFont()
+                        font.setStrikeOut(True)
+                        return font
+
+        # Default fallback if not DOI or other condition
+        return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: int) -> bool:
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
