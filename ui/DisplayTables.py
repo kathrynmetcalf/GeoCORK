@@ -10,10 +10,10 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import Qt, QEventLoop, QStandardPaths, QPoint, QSettings, QSize, QAbstractTableModel, QTimer, \
-    QRegularExpression, QSortFilterProxyModel
+    QRegularExpression, QSortFilterProxyModel, QItemSelectionModel
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTableWidgetItem, QTableWidget, QTreeView, \
-    QStyle, QApplication, QTableView, QLineEdit
+    QStyle, QApplication, QTableView, QLineEdit, QMessageBox, QAbstractItemView
 
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
@@ -29,6 +29,7 @@ from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
+from Widget_classes import get_view_name_column
 # from Functions.Widget_classes import add_popup_dialog
 from ui.EditView import EditView
 from ui.EditTable import EditTable
@@ -64,6 +65,7 @@ class DisplayTables(QtW.QWidget):
 
         # Message box for any popup messages
         self.msg = QtW.QMessageBox(self)
+        self.name_completer = QtW.QCompleter()
 
         # List of all user-viewable tables in the database
         self.user_view_tables = SQLUtils.user_viewable_tables
@@ -91,10 +93,10 @@ class DisplayTables(QtW.QWidget):
         # Pagination variables
         self.show_per_page_comboBox: QtW.QComboBox
         self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
-        self.current_page = 0
-        self.rows_per_page = settings.value('show_per_page')
+        self.current_page: int = 0
+        self.rows_per_page: int = settings.value('show_per_page')
         self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
-        self.total_records = 0
+        self.total_records: int = 0
 
         self.display_table_list()
 
@@ -102,9 +104,8 @@ class DisplayTables(QtW.QWidget):
 
     def set_go_to_completer(self):
         # Populate the value input with a completer based on the selected attribute
-        name_completer = QtW.QCompleter()
+
         query = QSqlQuery()
-        self.table
         sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
@@ -113,13 +114,13 @@ class DisplayTables(QtW.QWidget):
         values = set()
         while query.next():
             values.add(query.value(0))
-        name_completer.setModel(QtC.QStringListModel(values))
-        name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
-        name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
-        name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        self.name_completer.setModel(QtC.QStringListModel(values))
+        self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
 
         self.goto_line_edit: QLineEdit
-        self.goto_line_edit.setCompleter(name_completer)
+        self.goto_line_edit.setCompleter(self.name_completer)
 
     def connect_signals(self):
         # Signal for table combo box
@@ -137,6 +138,8 @@ class DisplayTables(QtW.QWidget):
         # self.dbFrozen_tableView.customContextMenuRequested.connect(self.show_context_menu)
         self.dbTable_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.dbTable_treeView.customContextMenuRequested.connect(self.show_context_menu)
+
+
 
         self.goto_line_edit.editingFinished.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
@@ -202,6 +205,7 @@ class DisplayTables(QtW.QWidget):
             self.name_column = get_name_column(self.table)
             self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                      QtC.Qt.ItemDataRole.DisplayRole)
+            self.set_go_to_completer()
             logger_setup.get_logger().info(f'Displaying {self.name_header}')
 
             # Optimize window resizing
@@ -262,6 +266,12 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.verticalHeader().hide()
 
+            if 'View' in table:
+                self.name_column = 1
+            else:
+                self.name_column = get_name_column(table)
+            self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
+                                                     QtC.Qt.ItemDataRole.DisplayRole)
             if table == 'ReferenceView':
                 try:
                     self.dbTable_tableView.doubleClicked.disconnect()
@@ -269,11 +279,6 @@ class DisplayTables(QtW.QWidget):
                     pass
 
                 self.dbTable_tableView.doubleClicked.connect(self.open_doi_link)
-
-            self.name_column = get_name_column(self.table)
-            self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
-                                                     QtC.Qt.ItemDataRole.DisplayRole)
-
             self.set_go_to_completer()
             # Sort the table by the name column
             proxy_name_column = None
@@ -317,7 +322,7 @@ class DisplayTables(QtW.QWidget):
         self.goto_line_edit.setPlaceholderText(f'Go to {self.name_header}...')
         self.previous_table = self.table
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
-        logger_setup.get_logger().info(f'Displayed {self.table} in {time.time() - start_display_time:.2f} seconds')
+        logger_setup.get_logger().info(f'Displayed {self.table} in {time.time() - start_display_time} seconds')
 
     def edit_samples_popup(self, text=None):
         # print(f'edit_samples_popup called with {text}')
@@ -541,29 +546,27 @@ class DisplayTables(QtW.QWidget):
         Slot to go to a specific record display name for the displayed table.
         """
         try:
-            text = self.goto_line_edit.text().strip()
-            if not text:
-                # QMessageBox.warning(self, "Input Error", "Please enter a record ID.")
+            record_name = self.goto_line_edit.text()
+            if record_name == "":
                 return
-
-            # Find the record ID corresponding to the name column text
-
-            record_name = text
             record_id = get_id_from_name(self.table, record_name)
             index = get_record_index(self.table, record_id)
 
             if index != -1:
-                self.current_page = index // self.rows_per_page
-                row_on_page = index % self.rows_per_page
-                self.display_table()
-                if self.table in self.dbtree_list:
-                    self.dbTable_treeView.scrollTo(self.tree_proxy_model.index(row_on_page, 0))
+                new_page = index // self.rows_per_page
+                if self.current_page == new_page:
+                    QMessageBox.information(self, 'Record Found', 'Record already displayed')
                 else:
-                    self.dbTable_tableView.scrollTo(self.table_proxy_model.index(row_on_page, 0))
+                    self.go_to_lineedit.clear()
+                    self.current_page = new_page
+                    self.display_table()
+                self.goto_line_edit.setText('')
+
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
-        except ValueError:
+        except ValueError as e:
             logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            logger_setup.get_logger().debug(f'Error: {e}')
 
     def switch_to_table(self):
         """
@@ -580,6 +583,7 @@ class DisplayTables(QtW.QWidget):
         self.next_button.show()
         self.page_info_label.show()
         self.show_per_page_comboBox.show()
+        self.show_per_page_label.show()
 
     def switch_to_tree(self):
         """
@@ -596,6 +600,7 @@ class DisplayTables(QtW.QWidget):
         self.next_button.hide()
         self.page_info_label.hide()
         self.show_per_page_comboBox.hide()
+        self.show_per_page_label.hide()
 
     def cancel_display(self, title, message):
         close_loading_dialog(title, message)

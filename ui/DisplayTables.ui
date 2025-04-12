@@ -283,7 +283,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QLabel" name="label">
+      <widget class="QLabel" name="show_per_page_label">
        <property name="minimumSize">
         <size>
          <width>0</width>

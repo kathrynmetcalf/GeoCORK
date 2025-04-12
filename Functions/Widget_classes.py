@@ -1110,6 +1110,11 @@ def get_columns(table: str):
     return query, virtual, stored, columns
 
 def get_name_column(table: str) -> int | None:
+    """
+    Get the column number for the name column in the table.
+    :param table:
+    :return: Returns the column number starting from 0
+    """
     table = table.replace('"', '')
     if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
         return 3
@@ -1161,7 +1166,7 @@ def get_view_name_column(view: str) -> int | None:
     table_name_col = get_name_column(table)
     if table_name_col is not None:
         # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
-        name_header = get_headers(table)[table_name_col]
+        name_header = get_headers(table)[table_name_col-1]
         view_column_settings = SQLUtils.view_setting_dict[view]
         view_columns = settings.value(view_column_settings)
         if name_header in view_columns:
@@ -1171,7 +1176,9 @@ def get_view_name_column(view: str) -> int | None:
 def get_name_from_id(table: str, item_id: int):
     query = QtS.QSqlQuery()
     headers = get_headers(table)
-    if not query.exec(f'SELECT {headers[get_name_column(table)]} FROM {table} WHERE {headers[0]}={item_id}'):
+    sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
+    logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+    if not query.exec(sql_query):
         logger_setup.get_logger().critical(f"Failed to get name for {item_id} in {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
@@ -1179,14 +1186,15 @@ def get_name_from_id(table: str, item_id: int):
     query.next()
     return query.value(0)
 
-def get_id_from_name(table: str, name: str):
+def get_id_from_name(table: str, name: str) -> int:
     query = QtS.QSqlQuery()
     headers = get_headers(table)
-    if not query.prepare(f'SELECT {headers[0]} FROM {table} WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'):
-        logger_setup.get_logger().critical(f"Could not find ID for {name} in {table}")
+    sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'
+    logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+    if not query.prepare(sql_query):
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-    query.bindValue(":name", name)
+    query.bindValue(":name", str(name))
     if not query.exec():
         logger_setup.get_logger().critical(f"Failed to get ID for {name} in {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
@@ -1200,7 +1208,6 @@ def get_total_records(table: str, where:str='') -> int:
     """
     Get the total number of records in the table
     """
-    start_time = time.time()
     query = QSqlQuery()
     sql_query = f'SELECT COUNT() FROM "{table}" {where}'
     if 'View' in table:
@@ -1218,11 +1225,8 @@ def get_total_records(table: str, where:str='') -> int:
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return 0
 
-
-    end_time = time.time()
     # Fetch the count
     if query.next():
-        logger_setup.get_logger().info(f'Fetched total records for {table} in {end_time - start_time} seconds')
         return query.value(0)
     return 0
 
@@ -1240,16 +1244,16 @@ def get_record_index(table: str, record_id: int):
     sql_query = f"""
             SELECT row_number 
             FROM (
-                SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} FROM {table}
+                SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} FROM "{table}"
             ) 
             WHERE {base_id_column} = :record_id
         """
 
     # Prepare and bind parameters
     query.prepare(sql_query)
-    query.bindValue(":record_id", record_id)
+    query.bindValue(":record_id", int(record_id))
 
-    logger_setup.get_logger().info('Getting the record index for record ID: {record_id}')
+    logger_setup.get_logger().info(f'Getting the record index for record ID: {record_id}')
     # Execute the query
     if not query.exec():
         # Handle query execution error
