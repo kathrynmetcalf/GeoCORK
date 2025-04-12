@@ -107,12 +107,31 @@ class GPSFields(QtW.QWidget):
         logger_setup.get_logger().info(f"Populated GPS dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
     def check_focus(self):
-        if not self.latlon_groupBox.any_child_has_focus() and self.latlon_groupBox.edited:
-            self.latlon_groupBox.focusLost.emit()
-        elif not self.utm_groupBox.any_child_has_focus() and self.utm_groupBox.edited:
-            self.utm_groupBox.focusLost.emit()
-        elif not self.elev_groupBox.any_child_has_focus() and self.elev_groupBox.edited:
-            self.elev_groupBox.focusLost.emit()
+        logger_setup.get_logger().info(f"Checking GPS field focus...")
+        if self.latlon_groupBox.any_child_has_focus() or self.latlon_groupBox.edited:
+            if not self.latlon_groupBox.edited:
+                for child in self.latlon_groupBox.findChildren(QtW.QWidget):
+                    if child.hasFocus():
+                        self.latlon_groupBox.edited = True
+                        break
+            if self.latlon_groupBox.edited:
+                self.latlon_groupBox.focusLost.emit()
+        elif self.utm_groupBox.any_child_has_focus() or self.utm_groupBox.edited:
+            if not self.utm_groupBox.edited:
+                for child in self.utm_groupBox.findChildren(QtW.QWidget):
+                    if child.hasFocus():
+                        self.utm_groupBox.edited = True
+                        break
+            if self.utm_groupBox.edited:
+                self.utm_groupBox.focusLost.emit()
+        elif self.elev_groupBox.any_child_has_focus() or self.elev_groupBox.edited:
+            if not self.elev_groupBox.edited:
+                for child in self.elev_groupBox.findChildren(QtW.QWidget):
+                    if child.hasFocus():
+                        self.elev_groupBox.edited = True
+                        break
+            if self.elev_groupBox.edited:
+                self.elev_groupBox.focusLost.emit()
 
     def eventFilter(self, obj, event):
         if event.type() == QtC.QEvent.Type.ApplicationDeactivate:

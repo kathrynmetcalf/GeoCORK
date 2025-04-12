@@ -84,6 +84,7 @@ class AgeFields(QtW.QWidget):
         self.edit_age_comboBox.customContextMenuRequested.connect(self.show_age_context_menu)
 
         QtC.QTimer.singleShot(0, self.set_focus)
+        self.lost_widget = None
 
         self.update_list(self.sample_ids)
 
@@ -226,15 +227,34 @@ class AgeFields(QtW.QWidget):
         return super().eventFilter(obj, event)
 
     def check_focus(self):
-        if self.direct_age_groupBox.any_child_has_focus() and self.direct_age_groupBox.edited:
-            self.lost_widget = self.direct_age_groupBox
-            self.update_age()
-        elif self.relative_age_groupBox.any_child_has_focus() and self.relative_age_groupBox.edited:
-            self.lost_widget = self.relative_age_groupBox
-            self.update_age()
-        elif self.age_information_groupBox.any_child_has_focus() and self.age_information_groupBox.edited:
-            self.lost_widget = self.age_information_groupBox
-            self.update_age()
+        logger_setup.get_logger().info("Checking focus")
+        if self.direct_age_groupBox.any_child_has_focus():
+            if not self.direct_age_groupBox.edited:
+                for child in self.direct_age_groupBox.findChildren(QtW.QWidget):
+                    if child.hasFocus():
+                        self.direct_age_groupBox.set_edited(child)
+                        break
+            if self.direct_age_groupBox.edited:
+                self.lost_widget = self.direct_age_groupBox
+                self.update_age()
+        elif self.relative_age_groupBox.any_child_has_focus():
+            if not self.relative_age_groupBox.edited:
+                for child in self.relative_age_groupBox.findChildren(QtW.QWidget):
+                    if child.hasFocus():
+                        self.relative_age_groupBox.set_edited(child)
+                        break
+            if self.relative_age_groupBox.edited:
+                self.lost_widget = self.relative_age_groupBox
+                self.update_age()
+        elif self.age_information_groupBox.any_child_has_focus():
+            if not self.age_information_groupBox.edited:
+                for child in self.age_information_groupBox.findChildren(QtW.QWidget):
+                    if child.hasFocus():
+                        self.age_information_groupBox.set_edited(child)
+                        break
+            if self.age_information_groupBox.edited:
+                self.lost_widget = self.age_information_groupBox
+                self.update_age()
 
     def set_focus(self):
         if self.sample_age_model.rowCount() == 0:

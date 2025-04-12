@@ -1,17 +1,20 @@
 import PyQt6
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSize, Qt
+from PyQt6.QtWidgets import QApplication
 from PyQt6.uic import loadUi
 import ui.AgeFields
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import settings
 from ui.AgeFields import AgeFields
+from Functions.LoadingDialog_manager import LoadingDialogManager
 
 
 class AgeDialog(QtW.QDialog):
     def __init__(self, table: str, item_ids: list, parent=None):
         super().__init__(parent)
         self.loadWindowState()
+        self.loading_manager = LoadingDialogManager.get_instance()
 
         self.age_fields = ui.AgeFields.AgeFields(table, item_ids)
         self.setLayout(QtW.QVBoxLayout())
@@ -39,43 +42,52 @@ class AgeDialog(QtW.QDialog):
         self.commit_button.clicked.connect(self.commit_question)
         self.cancel_button.clicked.connect(self.discard_question)
         self.clear_button.clicked.connect(self.age_fields.clear_fields)
+        self.loading_manager.close_loading_dialog('Loading', f'Opening sample age editor...')
 
     def commit_question(self):
-        self.msg_box.setText('Are you sure you want to commit all changes to the database?')
-        response = self.msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            self.commit()
+        QApplication.processEvents()
+        self.age_fields.check_focus()
+        if self.age_fields.updated:
+            self.msg_box.setText('Are you sure you want to commit all changes to the database?')
+            response = self.msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                self.commit()
+            else:
+                pass
         else:
-            pass
+            self.close_by_dialog = True
+            self.close()
+            self.close_by_dialog = False
 
     def discard_question(self):
-        self.msg_box.setText('Are you sure you want to discard all changes?')
-        response = self.msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            rollback_savepoint('before_edit_age')
-            self.reject()
+        QApplication.processEvents()
+        self.age_fields.check_focus()
+        if self.age_fields.updated:
+            self.msg_box.setText('Are you sure you want to discard all changes?')
+            response = self.msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                rollback_savepoint('before_edit_age')
+                self.reject()
+                self.close_by_dialog = True
+                self.close()
+                self.close_by_dialog = False
+            else:
+                pass
+        else:
             self.close_by_dialog = True
             self.close()
             self.close_by_dialog = False
-        else:
-            pass
 
     def commit(self):
-        if not self.age_fields.update_age():
-            print('Error updating age fields')
-        else:
-            self.accept()
-            release_savepoint('before_edit_age')
-            self.close_by_dialog = True
-            self.close()
-            self.close_by_dialog = False
+        self.accept()
+        release_savepoint('before_edit_age')
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
 
     def close(self):
         self.saveWindowState()
-        if not self.age_fields.update_age():
-            print('Error updating age fields')
-            self.discard_question()
-        elif self.age_fields.updated:
+        if self.age_fields.updated:
             if not self.close_by_dialog:
                 self.discard_question()
             else:

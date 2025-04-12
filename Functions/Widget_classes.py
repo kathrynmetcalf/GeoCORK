@@ -4160,12 +4160,12 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids, item_ta
     some_items = []
     for row in range(table_model.rowCount()):
         table_id = table_model.index(row, 0).data()
-        query_model = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
-        query_model.setQuery(query_model)
+        query_str = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
+        query_model.setQuery(query_str)
         if query_model.lastError().isValid():
             logger_setup.get_logger().critical(f'Error getting checks for {table}')
             logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query_model}')
+            logger_setup.get_logger().debug(f'SQL query: {query_str}')
             return False
         # Go through each line in the model and check how many item_ids have this tag
         if query_model.rowCount() == len(item_ids):

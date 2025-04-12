@@ -235,6 +235,11 @@ class EditView(QtW.QDialog):
             self.create_model()
 
     def eventFilter(self, object, event):
+        if event.type() in (
+            QtC.QEvent.Type.MouseButtonPress, QtC.QEvent.Type.MouseButtonRelease, QtC.QEvent.Type.MouseButtonDblClick,
+            QtC.QEvent.Type.InputMethodQuery
+        ):
+            self.tabbed_from_editor = False
         if self.combo:
             objects_statement = object is self.combo or object is self.lineEdit or object is self.combo.view()
         else:
@@ -419,6 +424,7 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                self.loading_manager.show_loading_dialog('Loading', f'Opening GPS editor...')
                 dlg = GPSDialog(self.table, item_ids, self)
                 dlg.exec()
                 logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
@@ -439,6 +445,7 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                self.loading_manager.show_loading_dialog('Loading', f'Opening sample age editor...')
                 dlg = AgeDialog(self.table, item_ids, self)
                 dlg.exec()
                 logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
@@ -1158,7 +1165,7 @@ class EditView(QtW.QDialog):
             elif header in ['SampleName', 'AliquotName', 'SpotName', 'ColumnName'] and not header_found:
                 if header.split('Name')[0] in self.table :
                     # This is the name column for this table
-                    text = self.model.index(row, self.model.fieldIndex(header)).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    text = self.model.index(row, model_index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
                     update_cols[self.table].append(header)
                     update_col_values[self.table].append(text)
                     header_found = True
@@ -1260,8 +1267,9 @@ class EditView(QtW.QDialog):
                     query.addBindValue(update_col_values[table][i])
                 if not query.exec():
                     logger_setup.get_logger().critical(f'Failed to update {table}')
-                    logger_setup.get_logger().debug(f'Failed query: {query.lastQuery()}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                     return False
                 logger_setup.get_logger().info(f'Updated {sql_cols} to {', '.join(str(val) for val in update_col_values[table])} in {table} where {table_headers[0]} = {item_id}')
         logger_setup.get_logger().info('Changes submitted')
