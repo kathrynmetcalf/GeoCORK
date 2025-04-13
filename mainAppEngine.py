@@ -16,6 +16,7 @@ if __name__ == "__main__":
     #force app to always load in light mode
     if platform.system() == 'Windows':
         sys.argv += ['-platform', 'windows:darkmode=1']
+
     app = QApplication(sys.argv)
     app.setApplicationName("GeoCORK")
 
@@ -50,7 +51,10 @@ if __name__ == "__main__":
         logger.info('Default settings are set to False, checking for missing settings.')
         check_missing_settings()
 
-    landing_page = LandingPage()
+    start_filepath = None
+    if os.path.isfile(sys.argv[-1]):
+        start_filepath = sys.argv[-1]
+    landing_page = LandingPage(start_filepath)
 
     exit_code = app.exec()
 

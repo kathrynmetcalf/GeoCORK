@@ -28,7 +28,7 @@ from ui.Settings import update_stylesheet
 
 
 class LandingPage(QWidget):
-    def __init__(self):
+    def __init__(self, start_filepath=None):
         super().__init__()
         logger_setup.get_logger().info("Starting Landing Page...")
         self.loading_manager = LoadingDialogManager.get_instance()
@@ -73,6 +73,19 @@ class LandingPage(QWidget):
         self.label.setPixmap(scaled_pixmap)
 
         self.show()
+
+        if start_filepath:
+            self.selected_files = start_filepath
+            # Move the selected database to the top of the list
+
+            if self.selected_files not in self.list_recents:
+                self.list_recents.insert(0, self.selected_files) # Add the new database to the top of the list
+            else:
+                self.list_recents.remove(self.selected_files)
+                self.list_recents.insert(0, self.selected_files)
+            settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+            self.db = None
+            self.open_geo_cork()
 
     def closeEvent(self, a0):
         self.saveWindowState()

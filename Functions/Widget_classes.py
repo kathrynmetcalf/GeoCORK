@@ -1133,7 +1133,7 @@ def get_name_column(table: str) -> int | None:
         return 5
     elif table == 'SpotView':
         return 5
-    elif table == 'UPbView':
+    elif table == 'UPbView' or table == 'UPbAnalyses':
         return 5
     else:
         return None

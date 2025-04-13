@@ -550,6 +550,9 @@ class DisplayTables(QtW.QWidget):
             if record_name == "":
                 return
             record_id = get_id_from_name(self.table, record_name)
+            if not record_id:
+                logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                return
             index = get_record_index(self.table, record_id)
 
             if index != -1:
@@ -557,14 +560,13 @@ class DisplayTables(QtW.QWidget):
                 if self.current_page == new_page:
                     QMessageBox.information(self, 'Record Found', 'Record already displayed')
                 else:
-                    self.go_to_lineedit.clear()
                     self.current_page = new_page
                     self.display_table()
                 self.goto_line_edit.setText('')
 
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
-        except ValueError as e:
+        except Exception as e:
             logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
 
