@@ -388,7 +388,9 @@ class DisplayTables(QtW.QWidget):
 
             if re.match(doi_regex, text):
                 if 'doi.org/' not in text:
-                    webbrowser.open('doi.org/' + text)
+                    if 'http://' not in text and 'https://' not in text:
+                        text = 'https://doi.org/' + text
+                    webbrowser.open(text)
                 else:
                     webbrowser.open(text)
 

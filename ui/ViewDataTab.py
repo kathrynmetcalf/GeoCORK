@@ -1,21 +1,17 @@
 import time
 
 import qtawesome
-from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
-from PyQt6 import QtGui as QtG
-from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import Qt, QTimer, QRegularExpression
-from PyQt6.QtWidgets import QAbstractItemView, QHeaderView, QLabel, QPushButton
+from PyQt6.QtWidgets import QHeaderView, QLabel, QPushButton
 
 import logger_setup
-import time
-from Functions.Settings_manager import settings
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Settings_manager import settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
-                                      restore_expanded_state, TreeContextMenu, expand_collapse, find_tree_model,
-                                      save_expanded_state)
+                                      TreeContextMenu, expand_collapse)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -23,7 +19,8 @@ from ui.EditView import EditView
 class ViewDataTab(QtW.QWidget):
     def __init__(self, parent_id: int, parent_type: str, child_type: str, label: str):
         super().__init__()
-        logger_setup.get_logger().info(f'Creating a new ViewDataTab for {child_type} with parent {parent_type} ID {parent_id}')
+        logger_setup.get_logger().info(
+            f'Creating a new ViewDataTab for {child_type} with parent {parent_type} ID {parent_id}')
         start_view_data_tab_time = time.time()
 
         self.loading_manager = LoadingDialogManager.get_instance()
@@ -69,7 +66,8 @@ class ViewDataTab(QtW.QWidget):
         self.search_lineEdit.textChanged.connect(self.search)
         self.loading_manager.close_loading_dialog('Loading', f'Loading {label}...')
         end_view_data_tab_time = time.time()
-        logger_setup.get_logger().info(f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
+        logger_setup.get_logger().info(
+            f'Time to create ViewDataTab: {end_view_data_tab_time - start_view_data_tab_time}')
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
@@ -79,9 +77,9 @@ class ViewDataTab(QtW.QWidget):
         """Resize rows only when resizing stops."""
         self.view.resizeRowsToContents()
 
-
     def display_table(self):
-        logger_setup.get_logger().info(f'Displaying table for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
+        logger_setup.get_logger().info(
+            f'Displaying table for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         loading_manager = LoadingDialogManager.get_instance()
         loading_manager.show_loading_dialog('Loading', 'Displaying table...')
         start_display_table_time = time.time()
@@ -133,7 +131,8 @@ class ViewDataTab(QtW.QWidget):
             elif self.parent_type == 'Spot':
                 table_query = f'SELECT {self.show_cols} FROM UPbView WHERE SpotID = {self.parent_id}'
             else:
-                logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for UPbAnalysis table')
+                logger_setup.get_logger().critical(
+                    f'Error: Invalid parent type {self.parent_type} for UPbAnalysis table')
                 table_query = None
         else:
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
@@ -254,7 +253,8 @@ class ViewDataTab(QtW.QWidget):
                 self.main_window.open_tab(parent_ids, 'Spot', 'UPbAnalysis')
 
     def edit_popup(self):
-        logger_setup.get_logger().info(f'Opening edit dialog for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
+        logger_setup.get_logger().info(
+            f'Opening edit dialog for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         if self.child_type == 'Aliquot':
             table = 'Aliquots'
             dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
@@ -281,7 +281,8 @@ class ViewDataTab(QtW.QWidget):
         """
         self.search_lineEdit: QtW.QLineEdit
 
-        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(), options=QRegularExpression.PatternOption.CaseInsensitiveOption)
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(),
+                                                   options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         if self.child_type == 'Aliquot':
             # self.proxy_model.setRecursiveFilteringEnabled(True)
             self.proxy_model.setFilterRegularExpression(search_expression)

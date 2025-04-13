@@ -3,12 +3,11 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from PyQt6.QtWidgets import QDialogButtonBox, QPushButton, QLabel, QFileDialog, QWidget, QDialog, QMessageBox
+from PyQt6.QtWidgets import QDialogButtonBox, QFileDialog, QDialog, QMessageBox
 from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions.Settings_manager import settings
 from Functions.MergeDatabase import merge_database
 
 
@@ -17,13 +16,14 @@ class MergeDatabaseDialog(QDialog):
     Dialog to assist the user in merging two SQLite database files together. Dialog should be used when both databases
     are not opened or in use by other applications.
     """
+
     def __init__(self):
         super().__init__()
         logger_setup.get_logger().info("Starting MergeDatabase UI Page...")
         self.loading_manager = LoadingDialogManager.get_instance()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file =os.path.join(base_path,  "MergeDatabase.ui")
+        sources_ui_file = os.path.join(base_path, "MergeDatabase.ui")
         loadUi(sources_ui_file, self)
         self.setWindowTitle('Merge Database')
 
@@ -168,12 +168,12 @@ class MergeDatabaseDialog(QDialog):
         Slot for when the OK button is clicked/accepted within the MergeDatabaseDialog.
         """
         if QMessageBox.StandardButton.Yes == QMessageBox.question(self, 'Confirm merge database',
-                                'Are you sure you wish to merge these databases \n and have created backups?',
-                                buttons = QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                defaultButton=QMessageBox.StandardButton.No):
-            logger_setup.get_logger().info(f"Source database: {self.source_db_file} will be merged with incoming database: {self.incoming_db_file}")
+                                                                  'Are you sure you wish to merge these databases \n and have created backups?',
+                                                                  buttons=QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                                                  defaultButton=QMessageBox.StandardButton.No):
+            logger_setup.get_logger().info(
+                f"Source database: {self.source_db_file} will be merged with incoming database: {self.incoming_db_file}")
             if not merge_database(self.source_db_file, self.incoming_db_file):
                 logger_setup.get_logger().critical("Databases could not be merged")
             logger_setup.get_logger().info("Databases have been merged successfully")
         super().accept()
-

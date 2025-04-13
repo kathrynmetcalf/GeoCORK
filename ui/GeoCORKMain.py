@@ -1,41 +1,35 @@
 import os
-import sqlite3
 import sys
+import time
 from datetime import datetime
 
-from PyQt6 import QtWidgets as QtW
-from PyQt6 import QtSql as QtS
-from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
+from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSize, QStandardPaths
 from PyQt6.QtGui import QAction
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
-from PyQt6.QtWidgets import QMenu, QStatusBar, QFileDialog, QProgressBar, QProgressDialog
-
+from PyQt6.QtWidgets import QMenu, QFileDialog, QProgressDialog
 from PyQt6.uic import loadUi
 from tzlocal import get_localzone
 
-import Functions.Database_views as DB_views
-from Functions.BackupDatabase import BackupThread, RestoreThread
-from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions.Savepoint_manager import SavepointManager
-from Functions.Widget_classes import get_name_from_id, show_loading_dialog, close_loading_dialog, save_expanded_state
 import logger_setup
-from Functions import SQLUtils
-from Functions import Savepoint_manager
-from Functions.Settings_manager import settings
-from Functions.Database_manager import update_database, turn_off_foreign_keys, turn_on_foreign_keys
 import ui.ImportWizard
 import ui.New_reference
-from ui.SampleInformation import SampleInformation
-
-from ui.Settings import SettingsDialog
-from ui.ExportWidget import ExportWidget
-from ui.DisplayTables import DisplayTables
-from ui.Filters import Filters
-from ui.ViewDataTab import ViewDataTab
+from Functions import Savepoint_manager
+from Functions.BackupDatabase import BackupThread
+from Functions.Database_manager import update_database, turn_on_foreign_keys
+from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Savepoint_manager import SavepointManager
+from Functions.Settings_manager import settings
 from Functions.Widget_classes import PartiallyCloseableTabWidget
-import time
+from Functions.Widget_classes import get_name_from_id, close_loading_dialog
+from ui.DisplayTables import DisplayTables
+from ui.ExportWidget import ExportWidget
+from ui.Filters import Filters
+from ui.SampleInformation import SampleInformation
+from ui.Settings import SettingsDialog
+from ui.ViewDataTab import ViewDataTab
+
 
 # import Select_Database as sd  # Eventually get database file from initial dialog
 
@@ -59,8 +53,6 @@ class GeoCORK(QtW.QMainWindow):
 
         self.landingpage = landingpage
         self.db = QSqlDatabase()
-        # self.db = QtS.QSqlDatabase.addDatabase('QSQLITE')
-        # self.db.setDatabaseName(self.db_file)
         self.db_file = self.landingpage.get_filename()
         self.update_window_title()
         self.recent_files = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
@@ -212,7 +204,6 @@ class GeoCORK(QtW.QMainWindow):
         import_wizard.data_imported.connect(self.edit_sample_information)
         import_wizard.show()
 
-
     def switch_to_export_tab(self):
         self.tabWidget.setCurrentIndex(2)
 
@@ -256,12 +247,12 @@ class GeoCORK(QtW.QMainWindow):
         if backup_dir and not os.path.exists(backup_dir):
             os.makedirs(backup_dir, exist_ok=True)
 
-        backup_file, _ = QFileDialog(self).getOpenFileName(self, "Select Database File", backup_dir, "Database Files (*.db)")
+        backup_file, _ = QFileDialog(self).getOpenFileName(self, "Select Database File", backup_dir,
+                                                           "Database Files (*.db)")
 
         if backup_file:
             if not SavepointManager.get_instance().active_savepoints():
                 self.landingpage.restore_backup(self.db_file, backup_file)
-
 
     def edit_sample_information(self, sample_ids: list[int]):
         """
@@ -296,7 +287,8 @@ class GeoCORK(QtW.QMainWindow):
         :param child_type: The type of the child
         :return:
         """
-        logger_setup.get_logger().info(f'Opening tab with parent ID {parent_id} and parent type {parent_type} and child type {child_type}')
+        logger_setup.get_logger().info(
+            f'Opening tab with parent ID {parent_id} and parent type {parent_type} and child type {child_type}')
         start_open_tab_time = time.time()
         if not parent_id:
             return
@@ -321,7 +313,8 @@ class GeoCORK(QtW.QMainWindow):
                 print("Error: Invalid child type")
                 return
             label = f'{parent_type} {parent_name}: {child_label}'
-            self.loading_manager.show_loading_dialog('Loading', f'Loading {parent_type} {parent_name}: {child_label}...')
+            self.loading_manager.show_loading_dialog('Loading',
+                                                     f'Loading {parent_type} {parent_name}: {child_label}...')
             tab = ViewDataTab(p_id, parent_type, child_type, label)
             self.tabWidget.addTab(tab, label)
         end_open_tab_time = time.time()
@@ -343,11 +336,8 @@ class GeoCORK(QtW.QMainWindow):
         self.resize(settings.value("ui/GeoChronMain/size", defaultValue=QSize(810, 569)))
 
     def closeEvent(self, event):
-        # if self.table in self.dbtree_list:
-        #     TrC.save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
         self.saveWindowState()
-        # print(f"Closing with active savepoints: {self.savepoint_manager.active_savepoints()}")
-        # self.savepoint_manager.reset()
+
         logger_setup.get_logger().info(f"Current databases open {QSqlDatabase().connectionNames()}")
         if 'qt_sql_default_connection' in QSqlDatabase().connectionNames():
             if not self.db.commit():

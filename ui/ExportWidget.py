@@ -17,10 +17,12 @@ from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
 import logger_setup
+from Database_manager import update_database
 from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel
+from Settings_manager import settings
 from Widget_classes import CheckableComboBox
 from ui import Filters
 from ui.DisplayTablesSimplified import DisplayTablesSimplified
@@ -460,6 +462,18 @@ class ExportWidget(QWidget):
             # sheet 2 (ZrUPb) is list of samples, grains, analysis, and upb data
 
             case 'detritalPy':
+                if settings.value('concordance_format_id', int) == 2: # current format set to Con%
+                    QMessageBox.question(self, 'Wrong Concordance Format',
+                                         'Concordance format is set to Con%, but should be set to Dis ratio. Would you like to swap to Dis ratio?',
+                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                         QMessageBox.StandardButton.Yes)
+                    settings.setValue('concordance_format_id', 3)
+                    settings.setValue('concordance_format_abbreviation', 'Dis')
+                    update_database()
+
+                # add detritalpy requires in 1 sigma or 2 sigma not sure on abs or %
+
+
                 self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 Samples_columns = {
                     ('Samples', 'SampleName'): True,
@@ -554,6 +568,7 @@ class ExportWidget(QWidget):
                 # 207/206
                 # 204/207
                 # 204/206
+                # requires 1sig abs
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('UPbAnalyses', 'Calculated207Pb/235U'): True,
@@ -1190,25 +1205,15 @@ class ExportWidget(QWidget):
     def export_button(self):
         """Method to export the generated tableView and SQL code to a given format. Based on the exportformat_comboBox's
          current index. This method is called when the export_puhsbutton is clicked."""
-        match self.exportformat_comboBox.currentText():
-            case 'detritalPy':
+
+        if self.exportformat_comboBox.currentText() == 'Database':
+            self.export_to_datbase()
+        else:
+            if self.fileformat_comboBox.currentText() == 'Excel (.xlsx)':
                 self.export_to_excel()
-            case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
+            elif self.fileformat_comboBox.currentText() == 'Comma-Separated Value (.csv)':
                 self.export_to_csv()
-            case 'IsoplotR - 38/06, 07/06':
-                self.export_to_csv()
-            case 'DZStats':
-                self.export_to_csv()
-            case 'DZStats - Two Sample Compare':
-                # Requires 2 samples be in two csv files.
-                self.export_to_csv(one_file=False)
-            case 'Database':
-                self.export_to_datbase()
-            case 'Custom':
-                if self.fileformat_comboBox.currentText() == 'Excel (.xlsx)':
-                    self.export_to_excel()
-                elif self.fileformat_comboBox.currentText() == 'Comma-Separated Value (.csv)':
-                    self.export_to_csv()
+
 
     def export_to_datbase(self):
         """Exports the selected samples, either by selection or filter, to a new database file containing all related

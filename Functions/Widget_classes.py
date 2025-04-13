@@ -13,7 +13,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex
 from PyQt6.QtGui import QTextOption, QAction, QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
-from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog
+from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog, QToolTip
 
 import Functions.Text_manipulations as TxM
 import logger_setup
@@ -732,12 +732,13 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
         if not index.isValid():
             return super().data(index, role)
 
-        # Default return for all roles other than styling
-        if role not in (Qt.ItemDataRole.ForegroundRole, Qt.ItemDataRole.FontRole):
+        if role not in (Qt.ItemDataRole.ForegroundRole, Qt.ItemDataRole.FontRole, Qt.ItemDataRole.ToolTipRole):
             return super().data(index, role)
 
+        # Handle tooltip for DOI column
         if self.doi_column_exists and index.column() == self.doi_column:
-            text = self.sourceModel().data(index, Qt.ItemDataRole.DisplayRole)
+            source_index = self.mapToSource(index)
+            text = self.sourceModel().data(source_index, Qt.ItemDataRole.DisplayRole)
             if isinstance(text, str):
                 if text.startswith('doi:'):
                     text = text.replace('doi:', '')
@@ -748,6 +749,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                         font = QFont()
                         font.setUnderline(True)
                         return font
+                    elif role == Qt.ItemDataRole.ToolTipRole:
+                        return "Valid DOI format, double click to open in broswer"
                 else:
                     if role == Qt.ItemDataRole.ForegroundRole:
                         return QBrush(QColor("red"))
@@ -755,8 +758,10 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                         font = QFont()
                         font.setStrikeOut(True)
                         return font
+                    elif role == Qt.ItemDataRole.ToolTipRole:
+                        return "Invalid DOI format, consider using '10.XXXX/XXXXXX'"
 
-        # Default fallback if not DOI or other condition
+        # Default return for all other roles
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value, role: int) -> bool:
