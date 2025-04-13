@@ -187,6 +187,7 @@ class DisplayTables(QtW.QWidget):
 
             self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
+            self.tree_proxy_model.setFilterKeyColumn(-1)
             # self.edit_pushButton.clicked.connect(lambda: self.edit_popup(self.model))
 
             self.dbTable_treeView.setModel(self.tree_proxy_model)
@@ -541,7 +542,7 @@ class DisplayTables(QtW.QWidget):
         """
         if self.current_page > 0:
             self.current_page -= 1
-        self.display_table()
+            self.display_table()
 
     def go_to_record(self):
         """
@@ -549,6 +550,7 @@ class DisplayTables(QtW.QWidget):
         """
         try:
             record_name = self.goto_line_edit.text()
+            self.goto_line_edit.setText('')
             if record_name == "":
                 return
             record_id = get_id_from_name(self.table, record_name)
@@ -564,7 +566,6 @@ class DisplayTables(QtW.QWidget):
                 else:
                     self.current_page = new_page
                     self.display_table()
-
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
@@ -589,6 +590,7 @@ class DisplayTables(QtW.QWidget):
         self.page_info_label.show()
         self.show_per_page_comboBox.show()
         self.show_per_page_label.show()
+        self.goto_line_edit.show()
 
     def switch_to_tree(self):
         """
@@ -606,6 +608,7 @@ class DisplayTables(QtW.QWidget):
         self.page_info_label.hide()
         self.show_per_page_comboBox.hide()
         self.show_per_page_label.hide()
+        self.goto_line_edit.hide()
 
     def cancel_display(self, title, message):
         close_loading_dialog(title, message)

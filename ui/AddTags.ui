@@ -156,6 +156,9 @@
        <property name="text">
         <string>Cancel</string>
        </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
       </widget>
      </item>
      <item>
@@ -184,6 +187,9 @@
        <property name="text">
         <string>Ok</string>
        </property>
+       <property name="autoDefault">
+        <bool>false</bool>
+       </property>
       </widget>
      </item>
     </layout>
@@ -200,7 +206,6 @@
      <property name="font">
       <font>
        <pointsize>15</pointsize>
-       <weight>75</weight>
        <bold>true</bold>
       </font>
      </property>
@@ -250,6 +255,9 @@
        </property>
        <property name="text">
         <string>Finish</string>
+       </property>
+       <property name="autoDefault">
+        <bool>false</bool>
        </property>
       </widget>
      </item>

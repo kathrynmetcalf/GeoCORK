@@ -32,6 +32,9 @@
          <property name="text">
           <string>Add</string>
          </property>
+         <property name="autoDefault">
+          <bool>false</bool>
+         </property>
         </widget>
        </item>
        <item>
@@ -75,12 +78,18 @@
          <property name="text">
           <string>Cancel</string>
          </property>
+         <property name="autoDefault">
+          <bool>false</bool>
+         </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="commit_pushButton">
          <property name="text">
           <string>Commit</string>
+         </property>
+         <property name="autoDefault">
+          <bool>false</bool>
          </property>
         </widget>
        </item>

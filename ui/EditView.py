@@ -90,10 +90,6 @@ class EditView(QtW.QDialog):
         self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
         self.updated = False
 
-        self.add_pushButton.setAutoDefault(False)
-        self.commit_pushButton.setAutoDefault(False)
-        self.cancel_pushButton.setAutoDefault(False)
-
         self.parent_id: int = None
         self.parent_type: str = None
         self.table_item_ids: list = None
