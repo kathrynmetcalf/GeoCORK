@@ -893,12 +893,35 @@ class CheckableSqlTableModel(DisplayRoundedModel):
             return True
         return super().setData(index, value, role)
 
+    def check_ids_from_list(self, id_list: list, state: QtC.Qt.CheckState = QtC.Qt.CheckState.Checked):
+        """
+        Check or partially check rows based on a given list of primary key values.
+        :param id_list: list of primary key values to mark as checked
+        :param state: Qt.CheckState.Checked or Qt.CheckState.PartiallyChecked
+        """
+        for row in range(self.rowCount()):
+            record_id = self.index(row, self.primary_key_column).data(QtC.Qt.ItemDataRole.DisplayRole)
+            index = self.index(row, get_name_column(self.tableName()))
+            if record_id in id_list:
+                self.setData(index, state, QtC.Qt.ItemDataRole.CheckStateRole)
+        self.checked_ids = id_list
+
     def return_checked_ids(self):
         return self.checked_ids, self.partially_checked_ids
 
     def clear_checks(self):
-        self.checked_ids = []
-        self.partially_checked_ids = []
+        """
+        Clears all checked and partially checked states from the model
+        and refreshes the corresponding data in the view.
+        """
+        self.checked_ids.clear()
+        self.partially_checked_ids.clear()
+
+        name_col = get_name_column(self.tableName())
+
+        for row in range(self.rowCount()):
+            index = self.index(row, name_col)
+            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.CheckStateRole])
 
     def update_other_table(self, other_table: str, other_ids: list):
         # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
@@ -3095,6 +3118,14 @@ class CheckableComboBox(QtW.QComboBox):
         self.popup_shown = False
 
         self.view().viewport().installEventFilter(self)
+
+    def update_line_edit(self):
+        checked_ids = self.model().checked_ids
+        checked_names = []
+        for id in checked_ids:
+            checked_names.append(get_name_from_id(self.table, id))
+        text = ', '.join(checked_names)
+        self.set_line_edit_text(text)
 
     def model(self):
         if self.proxy_model:
