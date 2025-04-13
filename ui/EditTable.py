@@ -5,6 +5,8 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QRegularExpression
+from PyQt6.QtSql import QSqlQuery
+from PyQt6.QtWidgets import QMessageBox
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -14,7 +16,8 @@ from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (get_headers,
-                                      ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel)
+                                      ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
+                                      get_id_from_name, get_record_index)
 from ui.AddTags import AddTags
 
 
@@ -37,7 +40,7 @@ class EditTable(QtW.QDialog):
 
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox(self)
-
+        self.name_completer = QtW.QCompleter()
 
         # Pagination variables
         self.show_per_page_comboBox: QtW.QComboBox
@@ -54,18 +57,33 @@ class EditTable(QtW.QDialog):
         self.table_headers = None
         self.create_model()
 
+
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
         self.search_lineEdit.editingFinished.connect(self.search)
+
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
+
+        self.goto_line_edit.editingFinished.connect(self.go_to_record)
+        self.prev_button.clicked.connect(self.previous_page)
+        self.next_button.clicked.connect(self.next_page)
+        self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
 
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {table_name}...')
+
+    def change_rows_per_page(self):
+        """
+        Slot to change the number of rows displayed per page
+        """
+        self.rows_per_page = int(self.show_per_page_comboBox.currentText())
+        self.current_page = 0
+        self.create_model()
 
     def search(self):
         """
@@ -109,7 +127,7 @@ class EditTable(QtW.QDialog):
             self.current_page += 1
             self.create_model()
 
-    def previous_page(self, db_stackedWidget, dbTable_tableView, dbTable_comboBox, edit_pushButton):
+    def previous_page(self):
         """
         Slot to move to the previous page for the displayed table
         """
@@ -178,6 +196,7 @@ class EditTable(QtW.QDialog):
         # Sort the table by the name column
         self.table_proxy_model.sort(self.name_column, QtC.Qt.SortOrder.AscendingOrder)
         self.total_records = get_total_records(self.table)
+        self.set_go_to_completer()
         if (self.current_page + 1) * self.rows_per_page > self.total_records:
             self.page_info_label.setText(
                 f'{self.current_page * self.rows_per_page + 1}-{self.total_records} of {self.total_records}')
@@ -186,6 +205,55 @@ class EditTable(QtW.QDialog):
                 f'{self.current_page * self.rows_per_page + 1}-{(self.current_page + 1) * self.rows_per_page} of '
                 f'{self.total_records}')
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+
+    def set_go_to_completer(self):
+        # Populate the value input with a completer based on the selected attribute
+
+        query = QSqlQuery()
+        sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        if not query.exec(sql_query):
+            logger_setup.get_logger().critical(f'Error creating the completer for input')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        values = set()
+        while query.next():
+            values.add(query.value(0))
+        self.name_completer.setModel(QtC.QStringListModel(values))
+        self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+
+        self.goto_line_edit: QLineEdit
+        self.goto_line_edit.setCompleter(self.name_completer)
+
+    def go_to_record(self):
+        """
+        Slot to go to a specific record display name for the displayed table.
+        """
+        try:
+            record_name = self.goto_line_edit.text()
+            if record_name == "":
+                return
+            record_id = get_id_from_name(self.table, record_name)
+            if not record_id:
+                logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                return
+            index = get_record_index(self.table, record_id)
+
+            if index != -1:
+                new_page = index // self.rows_per_page
+                if self.current_page == new_page:
+                    QMessageBox.information(self, 'Record Found', 'Record already displayed')
+                else:
+                    self.current_page = new_page
+                    self.create_model()
+
+            else:
+                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+        except Exception as e:
+            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            logger_setup.get_logger().debug(f'Error: {e}')
+        self.goto_line_edit.setText('')
 
     def add_popup(self):
         """

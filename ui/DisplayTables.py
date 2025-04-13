@@ -564,13 +564,14 @@ class DisplayTables(QtW.QWidget):
                 else:
                     self.current_page = new_page
                     self.display_table()
-                self.goto_line_edit.setText('')
 
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
             logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
+
+        self.goto_line_edit.setText('')
 
     def switch_to_table(self):
         """
