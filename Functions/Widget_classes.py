@@ -1101,7 +1101,7 @@ def set_table(model: QtS.QSqlTableModel, table: str):
 
 def get_headers(table: str):
     query = QtS.QSqlQuery()
-    if table == '"References"':
+    if table == '"References"' or table == 'ReferenceView':
         table = 'References'
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
         logger_setup.get_logger().critical(f"Failed to get headers for {table}")

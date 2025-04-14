@@ -1206,16 +1206,7 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_instruments_join not in join:
                     join += upb_instruments_join + '\n'
-            case 'References':
-                if sample_aliquot_join not in join:
-                    join += sample_aliquot_join + '\n'
-                if aliquot_spot_join not in join:
-                    join += aliquot_spot_join + '\n'
-                if spot_upb_analysis_join not in join:
-                    join += spot_upb_analysis_join + '\n'
-                if upb_reference_join not in join:
-                    join += upb_reference_join + '\n'
-            case '"References"':
+            case 'References' | '"References"' | 'ReferenceView':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
                 if aliquot_spot_join not in join:

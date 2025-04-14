@@ -1,41 +1,35 @@
 import os
 import sys
-from collections import Counter
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QSettings, QSortFilterProxyModel, QModelIndex, Qt
-from PyQt6.QtGui import QDesktopServices, QStandardItemModel, QStandardItem
-from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
+from PyQt6.QtGui import QStandardItem
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
-    QGridLayout, QLabel, QCheckBox, QSpacerItem,
-    QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QComboBox, QErrorMessage,
-    QGroupBox, QScrollArea, QListView
+    QWidget, QListView
 )
 from PyQt6.uic import loadUi
-from PyQt6.uic.Compiler.qtproxies import QtGui
+
 import logger_setup
-from Functions.SQLUtils import views
-from Functions.Settings_manager import settings
-from ui.FlowLayout import FlowLayout, ScrollableFlowWidget
 from Functions import SQLUtils
-from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column, ReorderListView, get_headers
+from Functions.Settings_manager import settings
+from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column, ReorderListView
+
 
 class SelectColumns(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
-        sources_ui_file =os.path.join(base_path,  "SelectColumns.ui")
+        sources_ui_file = os.path.join(base_path, "SelectColumns.ui")
         loadUi(sources_ui_file, self)
 
-        self.view_dict =  SQLUtils.view_attributes_dict
+        self.view_dict = SQLUtils.view_attributes_dict
         if 'SampleIfNullView' in self.view_dict:
             self.view_dict.pop('SampleIfNullView')
 
         self.view_setting_dict = SQLUtils.view_setting_dict
 
         # Columns that view selections must have but are always hidden: parent ID fields and tree structure fields
-        self.hidden_must_haves = ['SampleID', 'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SpotID', 'UPbAnalysisID']
+        self.hidden_must_haves = ['SampleID', 'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'SpotID',
+                                  'UPbAnalysisID']
 
         self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
         self.show_per_page_comboBox.setCurrentText(str(settings.value('show_per_page')))
@@ -48,7 +42,6 @@ class SelectColumns(QWidget):
     def populate_stack(self):
         logger_setup.get_logger().info('Populating column selection stack')
         for view_name in self.view_dict:
-
             # Create a QListView for each table
             column_list_view = ReorderListView()
             column_list_view.setSelectionMode(QListView.SelectionMode.ExtendedSelection)
@@ -121,7 +114,8 @@ class SelectColumns(QWidget):
         logger_setup.get_logger().info('Resetting table columns')
         selected_view_index = self.columnselection_comboBox.currentIndex()
         selected_view = self.columnselection_comboBox.currentText()
-        settings.setValue(self.view_setting_dict[selected_view], settings.value(f'default_{self.view_setting_dict[selected_view]}'))
+        settings.setValue(self.view_setting_dict[selected_view],
+                          settings.value(f'default_{self.view_setting_dict[selected_view]}'))
         # get the list view in the current index of the stack widget
         column_list_view = self.columnattributes_stack.widget(selected_view_index)
         proxy_model = self.check_list_view(selected_view)
@@ -163,7 +157,6 @@ class SelectColumns(QWidget):
                 # Store list of checked columns in the settings
                 settings.setValue(self.view_setting_dict[view_name], view_columns)
         self.load_list_states()
-
 
     def load_list_states(self):
         # Load the state of checkboxes and order of fields for all tables from the settings

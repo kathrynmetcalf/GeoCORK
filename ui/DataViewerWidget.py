@@ -1,6 +1,8 @@
 import os
+import re
 import sys
 import time
+import webbrowser
 
 from PyQt6 import QtCore as QtC, QtWidgets
 from PyQt6 import QtSql as QtS
@@ -8,7 +10,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton, QMessageBox, \
-    QCompleter, QLineEdit, QStackedWidget
+    QCompleter, QLineEdit, QStackedWidget, QTableWidgetItem
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -17,6 +19,7 @@ from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel, \
     WordWrapDelegate, get_name_column, ReadableProxyModel, get_id_from_name, get_record_index
+from Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
@@ -27,36 +30,29 @@ from ui.EditTreeView import EditTreeView
 
 
 class DataViewerWidget(QWidget):
-    def __init__(self, ids_to_show, table_type):
-
+    def __init__(self, parent, ids_to_show: set, table_type):
         start_time = time.time()
-        super().__init__()
+        super().__init__(parent=None)
         self.loading_manager = LoadingDialogManager.get_instance()
-        self.table_type = table_type
-        self.ids_to_show = '('
 
-        # creates ids_to_show string in format (id1, id2, id3, ...)
-        # ids_to_show is a filtered list of ids to show in the table
-        # can be either from Samples, Aliquots, Spots, or UPbData
-        if len(ids_to_show) > 0:
-            id_str = ", ".join([str(i) for i in ids_to_show])
-            self.ids_to_show += id_str
-            self.ids_to_show += ")"
+        self.data_table = table_type
+        self.data_filtered_table = 'RockTypes'
 
-        self.loadWindowState()
+        self.current_selection = []
+
+        self.data_ids_to_show = ids_to_show
+        self.data_filtered_ids_to_show = set()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
         loadUi(sources_ui_file, self)
 
-        self.id_condition = '()'
-
-        self.current_selection = []
-        self.current_table = ""
+        self.loadWindowState()
 
         self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
+        self.dbTable_comboBox_2.setCurrentText(self.data_filtered_table)
 
-        match self.table_type:
+        match self.data_table:
             case 'Samples':
                 self.dbTable_comboBox.addItem('Samples')
             case 'Aliquots':
@@ -66,7 +62,6 @@ class DataViewerWidget(QWidget):
             case 'UPbAnalyses':
                 self.dbTable_comboBox.addItem('UPbAnalyses')
 
-        self.proxy_model = ReadableProxyModel
 
         # todo future implementation for dynamically switching between these tables
         # self.dbTable_comboBox.addItems(['Samples', 'Aliquots', 'Spots', 'UPbAnalyses'])
@@ -76,8 +71,12 @@ class DataViewerWidget(QWidget):
         # Display filtered table for the first time
         self.dbTable_comboBox_2.currentTextChanged.connect(self.display_table_with_data_filter)
 
+        self.dbTable_tableView_2.doubleClicked.connect(self.open_doi_link)
         # Pagination variables
         # todo add rows_per_page combobox and signals to connect to settings values
+        # self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        # self.rows_per_page: int = settings.value('show_per_page')
+        # self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
         self.current_page_1 = 0
         self.rows_per_page_1 = 2000
         self.total_records_1 = self.get_total_records_1()
@@ -105,7 +104,7 @@ class DataViewerWidget(QWidget):
         self.selectionTimer.setSingleShot(True)
         self.selectionTimer.timeout.connect(self.display_table_with_data_filter)
         self.display_data_table()
-        if self.table_type == 'Aliquots':
+        if self.data_table == 'Aliquots':
             self.dbTable_treeView.selectionModel().selectionChanged.connect(self.on_select_changed)
         else:
             self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
@@ -114,44 +113,59 @@ class DataViewerWidget(QWidget):
         end_time = time.time()
         logger_setup.get_logger().info(f'Displayed filtered view in {end_time - start_time} seconds')
 
+    # creates ids_to_show string in format (id1, id2, id3, ...)
+    # ids_to_show is a filtered list of ids to show in the table
+    # can be either from Samples, Aliquots, Spots, or UPbData
+    @property
+    def sql_data_ids_to_show(self) -> str:
+        if not self.data_ids_to_show:
+            return '()'
+        return f'({", ".join([str(i) for i in self.data_ids_to_show])})'
+
+    @property
+    def sql_data_filtered_ids_to_show(self) -> str:
+        if not self.data_filtered_ids_to_show:
+            return '()'
+        return f'({", ".join([str(i) for i in self.data_filtered_ids_to_show])})'
+
     def display_data_table(self):
         """
         Displays the sample table
         :return:
         """
-        if not self.table_type:
+        if not self.data_table:
             logger_setup.get_logger().info(f'No table selected to display')
             return
 
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table_type}...')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.data_table}...')
 
-        if self.table_type != 'Aliquots':
+        if self.data_table != 'Aliquots':
             self.switch_to_table(self.db_stackedWidget)
             self.total_records_1 = self.get_total_records_1()
             offset = self.current_page_1 * self.rows_per_page_1
 
-            match self.table_type:
+            match self.data_table:
                 case 'Samples':
                     table = 'SampleView'
                     show_cols = ', '.join(settings.value('sample_view_columns'))
                     model = SQLiteTableModel(
-                        f'SELECT {show_cols} FROM {table} WHERE SampleID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                        f'SELECT {show_cols} FROM {table} WHERE SampleID IN {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case 'Spots':
                     table = 'SpotView'
                     show_cols = ', '.join(settings.value('spot_view_columns'))
                     model = SQLiteTableModel(
-                        f'SELECT {show_cols} FROM {table} WHERE SpotID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                        f'SELECT {show_cols} FROM {table} WHERE SpotID IN {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case 'UPbAnalyses':
                     table = 'UPbView'
                     show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
                     model = SQLiteTableModel(
-                        f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID IN {self.ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                        f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID IN {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case _:
                     logger_setup.get_logger().critical(
-                        f"Error {self.table_type}: Tried to switch to a table with no table or tree...")
+                        f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
                     return
 
-            name_header = model.headerData(get_name_column(self.table_type) - 1, QtC.Qt.Orientation.Horizontal,
+            name_header = model.headerData(get_name_column(self.data_table), QtC.Qt.Orientation.Horizontal,
                                            QtC.Qt.ItemDataRole.DisplayRole)
             self.set_go_to_completer(self.goto_line_edit, name_header, table)
 
@@ -183,37 +197,48 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView.setSizeAdjustPolicy(
                 QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
 
-        elif self.table_type == 'Aliquots':
-            if self.table_type not in SQLUtils.user_viewable_trees:
-                logger_setup.get_logger().critical(f"Error {self.table_type}: Tried to display a table as a tree...")
+        elif self.data_table == 'Aliquots':
+            if self.data_table not in SQLUtils.user_viewable_trees:
+                logger_setup.get_logger().critical(f"Error {self.data_table}: Tried to display a table as a tree...")
                 return
-            if self.table_type == 'Aliquots':
+            if self.data_table == 'Aliquots':
                 table = 'AliquotView'
                 self.switch_to_tree(self.db_stackedWidget)
                 show_cols = ', '.join(settings.value('aliquot_view_columns'))
                 source_model = SQLiteTableModel(
-                    f'SELECT {show_cols} FROM {table} WHERE AliquotID IN {self.ids_to_show} ORDER BY SampleName')
-                model = TreeModel(source_model)
-                self.proxy_model = ReadableProxyModel()
-                self.proxy_model.setSourceModel(model)
+                    f'SELECT {show_cols} FROM {table} WHERE AliquotID IN {self.sql_data_ids_to_show} ORDER BY SampleName')
             else:
                 logger_setup.get_logger().info(f"Passed a tree that is not Aliquots")
                 return
 
-            self.dbTable_treeView.setModel(self.proxy_model)
+            tree_model = TreeModel(source_model, self)
+
+            self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+
+
+            self.dbTable_treeView.setSortingEnabled(False)
+
+            proxy_model = ReadableProxyModel()
+            proxy_model.setSourceModel(tree_model)
+            tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
+            tree_proxy_model.setSourceModel(tree_model)
+            self.dbTable_treeView.setModel(tree_proxy_model)
+            self.dbTable_treeView.expandAll()
+
+            self.dbTable_treeView.setModel(tree_proxy_model)
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.hide_columns(self.dbTable_treeView, table)
-            for column in range(self.proxy_model.columnCount()):
+            for column in range(tree_proxy_model.columnCount()):
                 self.dbTable_treeView.resizeColumnToContents(column)
         else:
             logger_setup.get_logger().critical(
-                f"Error {self.table_type}: Tried to switch to a table with no table or tree...")
+                f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
 
-        self.edit_pushButton.setText(f"Edit {self.table_type}")
+        self.edit_pushButton.setText(f"Edit {self.data_table}")
 
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table_type}...')
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.data_table}...')
 
     def on_select_changed(self):
         """
@@ -228,160 +253,166 @@ class DataViewerWidget(QWidget):
         Displays the selected table
         :return:
         """
-        table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
-        if table == "References":
-            table = '"References"'
-
-        if self.table_type == 'Aliquots':
-            data_filter = self.dbTable_treeview
+        if self.data_table == 'Aliquots':
+            data_filter = self.dbTable_treeView
             db_view: QTreeView = self.dbTable_treeView_2
         else:
             data_filter = self.dbTable_tableView
             db_view: QTableView = self.dbTable_tableView_2
 
-        if db_view is None:
-            return
+        if ((self.current_selection == data_filter.selectionModel().selectedIndexes()) and
+                (not data_filter.selectionModel().hasSelection()) and (db_view is None) and
+                (self.data_filtered_table == TxM.remove_spaces(self.dbTable_comboBox_2.currentText()))):
+            return  # exits method if current selection equals previously stored connection
+        else:
+            self.current_selection = data_filter.selectionModel().selectedIndexes()
 
-        condition_ids = []
-        ids_to_show = []
+        self.data_filtered_table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
+        if self.data_filtered_table == "References":
+            # todo: references/columns should use view, requires changing all sql code to use view
+            self.data_filtered_table = '"References"'
 
-        if data_filter.selectionModel().hasSelection():
-            if self.current_selection != data_filter.selectionModel().selectedIndexes():
-                self.current_selection = data_filter.selectionModel().selectedIndexes()
-                self.current_table = self.dbTable_comboBox_2.currentText()
-                for index in data_filter.selectionModel().selectedIndexes():
-                    condition_id = data_filter.model().index(index.row(), 0).data()
-                    condition_ids.append(str(condition_id))
+        selected_data_filter_ids = set()
 
-                if table in SQLUtils.as_table_dict.values():
-                    for key, value in SQLUtils.as_table_dict.items():
-                        if value == table:
-                            as_table = key
-                            break
-                else:
-                    as_table = table
+        self.current_selection = data_filter.selectionModel().selectedIndexes()
+        for index in data_filter.selectionModel().selectedIndexes():
+            # gathers selected SampleID, AliquotID, SpotID, or UPbAnalysisID for data_filter where query
+            selected_data_filter_ids.add(str(data_filter.model().index(index.row(), 0).data()))
 
-                table_condition = ''
-                sql = f'SELECT DISTINCT {as_table if as_table != '"References"' else "UPbReferences"}.* FROM Samples '
-                sql += SQLUtils.get_join_from_table("", [table] + [self.table_type])
-                if condition_ids:
-                    match self.table_type:
-                        case 'Samples':
-                            table_condition = f" WHERE Samples.SampleID IN ({', '.join(condition_ids)})"
-                        case 'Aliquots':
-                            table_condition = f" WHERE Aliquots.AliquotID IN ({', '.join(condition_ids)})"
-                        case 'Spots':
-                            table_condition = f" WHERE Spots.SpotID IN ({', '.join(condition_ids)})"
-                        case 'UPbAnalyses':
-                            table_condition = f" WHERE UPbAnalyses.UPbAnalysisID IN ({', '.join(condition_ids)})"
+        if self.data_filtered_table in SQLUtils.as_table_dict.values():
+            for key, value in SQLUtils.as_table_dict.items():
+                if value == self.data_filtered_table:
+                    as_table = key
+                    break
+        else:
+            as_table = self.data_filtered_table
 
-                sql += table_condition
-                logger_setup.get_logger().debug(f'Distinct Filtered Selection SQL Command: {sql}')
+        table_condition = ''
+        if self.data_filtered_table == 'References' or self.data_filtered_table == '"References"':
+            sql_table = 'UPbReferences'
+        elif self.data_filtered_table == 'RejectionReasons':
+            sql_table = 'UPbRejectionReasons'
+        else:
+            sql_table = self.data_filtered_table
 
-                query = QSqlQuery()
-                ids_to_show = []
-                # Execute the query
-                logger_setup.get_logger().info(
-                    f'Displaying table with selection-based filter')
-                logger_setup.get_logger().debug(f'SQL command: {sql}')
-                if query.exec(sql):
-                    while query.next():  # Iterate through all results
-                        row_id = query.value(0)
-                        if row_id is not None and row_id != '':
-                            ids_to_show.append(str(row_id))
-                else:
-                    logger_setup.get_logger().critical(
-                        f'Error in displaying table with selection-based filter: {query.lastError().text()}')
-                    logger_setup.get_logger().critical(f'SQL command: {sql}')
+        sql = f'SELECT DISTINCT {sql_table}.* FROM Samples '
+        sql += SQLUtils.get_join_from_table("", [self.data_filtered_table] + [self.data_table])
+        if selected_data_filter_ids:
+            sql_selected_data_filter_ids = f'({", ".join([str(i) for i in selected_data_filter_ids])})'
+            match self.data_table:
+                case 'Samples':
+                    table_condition = f" WHERE Samples.SampleID IN {sql_selected_data_filter_ids}"
+                case 'Aliquots':
+                    table_condition = f" WHERE Aliquots.AliquotID IN {sql_selected_data_filter_ids}"
+                case 'Spots':
+                    table_condition = f" WHERE Spots.SpotID IN {sql_selected_data_filter_ids}"
+                case 'UPbAnalyses':
+                    table_condition = f" WHERE UPbAnalyses.UPbAnalysisID IN {sql_selected_data_filter_ids}"
 
-                # Update the id_condition attribute
+        sql += table_condition
+        logger_setup.get_logger().debug(f'Distinct Filtered Selection SQL Command: {sql}')
 
-                self.id_condition = f'({", ".join(ids_to_show)}'
-                self.id_condition = self.id_condition + ')'
-            try:
-                self.search_lineEdit_2.editingFinsihed.disconnect()
-            except:
-                pass
-            try:
-                self.edit_pushButton_2.clicked.disconnect()
-            except:
-                pass
+        query = QSqlQuery()
+        # Execute the query
+        logger_setup.get_logger().info(
+            f'Displaying table with selection-based filter')
+        if query.exec(sql):
+            self.data_filtered_ids_to_show = set()
+            while query.next():  # Iterate through all results
+                row_id = query.value(0)
+                if row_id is not None and row_id != '':
+                    self.data_filtered_ids_to_show.add(str(row_id))
+        else:
+            logger_setup.get_logger().critical(
+                f'Error in displaying table with selection-based filter: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL command: {sql}')
 
-            if table in SQLUtils.user_viewable_trees:
-                self.switch_to_tree_2(self.db_stackedWidget_2)
-                model = QtS.QSqlTableModel()
-                model.setTable(table)
-                model.select()
+        # Update the id_condition attribute
 
-                model.setFilter(f'{table[0:-1]}ID  IN ( '
-                                f'WITH RECURSIVE ParentTree AS '
-                                f'(SELECT * FROM {table} '
-                                f'WHERE {table[0:-1]}ID IN {self.id_condition} '
-                                f'UNION ALL '
-                                f'SELECT {table}.* FROM {table} '
-                                f'INNER JOIN ParentTree ON {table}.{table[0:-1]}ID = ParentTree.Parent{table[0:-1]}ID) '
-                                f'SELECT {table[0:-1]}ID FROM ParentTree) ')
-                tree_model = TreeModel(model, self)
+        try:
+            self.search_lineEdit_2.editingFinsihed.disconnect()
+        except:
+            pass
+        try:
+            self.edit_pushButton_2.clicked.disconnect()
+        except:
+            pass
 
-                self.dbTable_treeView_2.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-                self.dbTable_treeView_2.hideColumn(1)  # don't show ID column
-                self.dbTable_treeView_2.hideColumn(2)  # don't show parent ID column
-                self.dbTable_treeView_2.hideColumn(3)  # don't show parent row column
-                # self.dbTable_treeView_2.hideColumn(4)  # don't show sample ID column
-                self.dbTable_treeView_2.setSortingEnabled(False)
+        if self.data_filtered_table in SQLUtils.user_viewable_trees:
+            self.switch_to_tree_2(self.db_stackedWidget_2)
+            model = QtS.QSqlTableModel()
+            model.setTable(self.data_filtered_table)
+            model.select()
+            id_col_name = get_headers(self.data_filtered_table)[0]
+            filter_sql = f"""{id_col_name} IN (WITH RECURSIVE ParentTree AS
+                            (SELECT * FROM {self.data_filtered_table}
+                            WHERE {id_col_name} IN {self.sql_data_filtered_ids_to_show}
+                            UNION ALL
+                            SELECT {self.data_filtered_table}.* FROM {self.data_filtered_table}
+                            INNER JOIN ParentTree ON {self.data_filtered_table}.{id_col_name} = ParentTree.Parent{id_col_name})
+                            SELECT {id_col_name} FROM ParentTree)"""
 
-                self.proxy_model = ReadableProxyModel()
-                self.proxy_model.setSourceModel(tree_model)
-                tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView_2)
-                tree_proxy_model.setSourceModel(self.proxy_model)
-                self.dbTable_treeView_2.setModel(tree_proxy_model)
-                self.dbTable_treeView_2.expandAll()
+            logger_setup.get_logger().debug(f'Tree Filter SQL: {filter_sql}')
+            model.setFilter(filter_sql)
 
-                self.search_lineEdit_2.returnPressed.connect(
-                    lambda: self.search(self.search_lineEdit_2, tree_proxy_model, self.dbTable_treeView_2))
+            tree_model = TreeModel(model, self)
 
-                self.edit_pushButton_2.clicked.connect(
-                    lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, tree_proxy_model,
-                                            self.dbTable_comboBox_2))
+            self.dbTable_treeView_2.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+            self.dbTable_treeView_2.hideColumn(1)  # don't show ID column
+            self.dbTable_treeView_2.hideColumn(2)  # don't show parent ID column
+            self.dbTable_treeView_2.hideColumn(3)  # don't show parent row column
+            # self.dbTable_treeView_2.hideColumn(4)  # don't show sample ID column
+            self.dbTable_treeView_2.setSortingEnabled(False)
 
-            elif table in SQLUtils.user_viewable_tables or table == '"References"':
-                self.switch_to_table_2(self.db_stackedWidget_2)
-                offset = self.current_page_2 * self.rows_per_page_2
-                model = QtS.QSqlQueryModel()
-                self.proxy_model = ReadableProxyModel()
+            self.proxy_model = ReadableProxyModel()
+            self.proxy_model.setSourceModel(tree_model)
+            tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView_2)
+            tree_proxy_model.setSourceModel(self.proxy_model)
+            self.dbTable_treeView_2.setModel(tree_proxy_model)
+            self.dbTable_treeView_2.expandAll()
 
-                # todo would be nice to switch these table[0:-1] entries and LabFac UPbAnalys to be a dict lookup from SQLUtils
-                if table == "LabFacilities":
-                    model.setQuery(
-                        f"SELECT * FROM {table} WHERE LabFacilityID IN {self.id_condition} ORDER BY LabFacilityID LIMIT {self.rows_per_page_2} OFFSET {offset}")
-                elif table == "UPbAnalyses":
-                    model.setQuery(
-                        f"SELECT * FROM {table} WHERE UPbAnalysisID IN {self.id_condition} ORDER BY UPbAnalysisID LIMIT {self.rows_per_page_2} OFFSET {offset}")
-                elif table == '"References"' or table == 'References' or table == 'UPbReferences':
-                    model.setQuery(
-                        f'SELECT * FROM "References" WHERE ReferenceID IN {self.id_condition} ORDER BY ReferenceID LIMIT {self.rows_per_page_2} OFFSET {offset}')
-                else:
-                    model.setQuery(
-                        f"SELECT * FROM {table} WHERE {table[0:-1]}ID IN {self.id_condition} ORDER BY {table[0:-1]}ID LIMIT {self.rows_per_page_2} OFFSET {offset}")
+            self.search_lineEdit_2.returnPressed.connect(
+                lambda: self.search(self.search_lineEdit_2, tree_proxy_model, self.dbTable_treeView_2))
 
-                self.proxy_model.setFilterKeyColumn(-1)  # search all columns
-                self.dbTable_tableView_2.setModel(self.proxy_model)
-                self.dbTable_tableView_2.hideColumn(0)  # don't show ID column
-                self.dbTable_tableView_2.verticalHeader().setVisible(False)
-                self.dbTable_tableView_2.resizeColumnsToContents()
-                self.dbTable_tableView_2.setSortingEnabled(True)
-                self.dbTable_tableView_2.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.edit_pushButton_2.clicked.connect(
+                lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, tree_proxy_model,
+                                        self.dbTable_comboBox_2))
 
-                self.search_lineEdit_2.returnPressed.connect(
-                    lambda: self.search(self.search_lineEdit_2, self.proxy_model))
-                self.edit_pushButton_2.clicked.connect(
-                    lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, self.proxy_model,
-                                            self.dbTable_comboBox_2))
+        elif self.data_filtered_table in SQLUtils.user_viewable_tables or self.data_filtered_table == '"References"':
+            self.switch_to_table_2(self.db_stackedWidget_2)
+            offset = self.current_page_2 * self.rows_per_page_2
+            model = QtS.QSqlQueryModel()
+            self.proxy_model = ReadableProxyModel()
 
-                logger_setup.get_logger().info('Sucessfully displayed table with selection-based filter')
-            else:
-                logger_setup.get_logger().critical(
-                    f"Error {table}: Tried to switch to a table with no table or tree..Don't know how it got here")
+            if self.data_filtered_table == '"References"':
+                self.data_filtered_table = 'ReferenceView'
+
+            sql_query = f"""SELECT * FROM {self.data_filtered_table} WHERE 
+                        {get_headers(self.data_filtered_table)[0]} IN {self.sql_data_filtered_ids_to_show}
+                        ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
+
+            logger_setup.get_logger().debug(f'SQL query: {sql_query}')
+            model.setQuery(sql_query)
+            self.proxy_model.setSourceModel(model)
+
+            self.proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView_2.setModel(self.proxy_model)
+            self.dbTable_tableView_2.hideColumn(0)  # don't show ID column
+            self.dbTable_tableView_2.verticalHeader().setVisible(False)
+            self.dbTable_tableView_2.resizeColumnsToContents()
+            self.dbTable_tableView_2.setSortingEnabled(True)
+            self.dbTable_tableView_2.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+
+            self.search_lineEdit_2.returnPressed.connect(
+                lambda: self.search(self.search_lineEdit_2, self.proxy_model))
+            self.edit_pushButton_2.clicked.connect(
+                lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, self.proxy_model,
+                                        self.dbTable_comboBox_2))
+
+            logger_setup.get_logger().info('Sucessfully displayed table with selection-based filter')
+        else:
+            logger_setup.get_logger().critical(
+                f"Error {self.data_filtered_table}: Tried to switch to a table with no table or tree..Don't know how it got here")
 
     def edit_popup(self, dbTable_tableView, dbTable_treeView, tree_proxy_model, dbTable_comboBox):
         dbTable_comboBox: QComboBox
@@ -389,14 +420,14 @@ class DataViewerWidget(QWidget):
         table = TxM.remove_spaces(table_name)
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if table_name in view_tables:
-            id_str = self.ids_to_show.replace('(', '').replace(')', '')
+            id_str = self.data_ids_to_show.replace('(', '').replace(')', '')
             ids = id_str.split(', ')
             ids = list(map(int, ids))  # Convert all IDs to integers
             if table_name == 'Aliquots':
                 # Ask the user which sample they want to edit
                 sample_names = []
                 query = QSqlQuery()
-                for aliquot_id in list(eval(self.ids_to_show)):
+                for aliquot_id in list(eval(self.data_ids_to_show)):
                     if not query.exec(f'SELECT SampleID FROM Aliquots WHERE AliquotID = {aliquot_id}'):
                         logger_setup.get_logger().critical(f'Error fetching SampleID')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -435,7 +466,7 @@ class DataViewerWidget(QWidget):
                     return
                 ids = []
                 while query.next():
-                    if query.value(0) in list(eval(self.ids_to_show)):
+                    if query.value(0) in list(eval(self.data_ids_to_show)):
                         ids.append(query.value(0))
                 if not ids:
                     logger_setup.get_logger().critical(f'No AliquotIDs found for the selected sample')
@@ -475,55 +506,37 @@ class DataViewerWidget(QWidget):
         dlg.exec()
         update_database()
 
-    def switch_to_table(self, stacked_widget: QStackedWidget):
-        """
-        Sets the current widget to a table view
-        :return:
-        """
-        stacked_widget.setCurrentIndex(0)
-        self.page_info_label.show()
-        self.prev_button.show()
-        self.next_button.show()
-        self.goto_line_edit.show()
+    def open_doi_link(self, item: QTableWidgetItem):
+        if self.dbTable_tableView_2.model().headerData(item.column(), Qt.Orientation.Horizontal,
+                                                     Qt.ItemDataRole.DisplayRole) == "DOI":
+            text: str = item.data(Qt.ItemDataRole.DisplayRole)
+            if text.startswith('doi:'):
+                text = text.replace('doi:', '')
 
-    def switch_to_tree(self, stacked_widget: QStackedWidget):
-        """
-        Sets the current widget to a tree view
-        :return:
-        """
-        stacked_widget.setCurrentIndex(1)
-        self.page_info_label.hide()
-        self.prev_button.hide()
-        self.next_button.hide()
-        self.goto_line_edit.hide()
+            doi_regex = re.compile(r"^(10\.\d{4,9}\/[-._;()\/:A-Z0-9]+)$", re.IGNORECASE)
 
-    def switch_to_table_2(self, stacked_widget: QStackedWidget):
-        """
-        Sets the current widget to a table view
-        :return:
-        """
-        stacked_widget.setCurrentIndex(0)
-        self.page_info_label_2.show()
-        self.prev_button_2.show()
-        self.next_button_2.show()
-        self.goto_line_edit_2.show()
-
-    def switch_to_tree_2(self, stacked_widget: QStackedWidget):
-        """
-        Sets the current widget to a tree view
-        :return:
-        """
-        stacked_widget.setCurrentIndex(1)
-        self.page_info_label_2.hide()
-        self.prev_button_2.hide()
-        self.next_button_2.hide()
-        self.goto_line_edit_2.hide()
+            if re.match(doi_regex, text):
+                if 'doi.org/' not in text:
+                    if 'http://' not in text and 'https://' not in text:
+                        text = 'https://doi.org/' + text
+                    webbrowser.open(text)
+                else:
+                    webbrowser.open(text)
 
     def set_go_to_completer(self, lineedit: QLineEdit, name_header, table):
         # Populate the value input with a completer based on the selected attribute
         name_completer = QCompleter(parent=lineedit)
         query = QSqlQuery()
-        sql_query = f'SELECT DISTINCT {name_header} FROM "{table}"'
+        match self.data_table:
+            case 'Samples':
+                sql_query = f'SELECT DISTINCT {name_header} FROM SampleView WHERE SampleID IN {self.sql_data_ids_to_show}'
+            case 'Spots':
+                sql_query = f'SELECT DISTINCT {name_header} FROM SpotView WHERE SpotID IN {self.sql_data_ids_to_show}'
+            case 'UPbAnalyses':
+                sql_query = f'SELECT DISTINCT {name_header} FROM UPbView WHERE UPbAnalysisID IN {self.sql_data_ids_to_show}'
+            case _:
+                sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} IN {self.sql_data_ids_to_show}'
+
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             logger_setup.get_logger().critical(f'Error creating the completer for input')
@@ -584,7 +597,7 @@ class DataViewerWidget(QWidget):
         """
         if self.current_page_1 > 0:
             self.current_page_1 -= 1
-        self.display_data_table()
+            self.display_data_table()
 
     def next_page_2(self):
         """
@@ -600,7 +613,7 @@ class DataViewerWidget(QWidget):
         """
         if self.current_page_2 > 0:
             self.current_page_2 -= 1
-        self.display_table_with_data_filter()
+            self.display_table_with_data_filter()
 
     def go_to_record_1(self):
         """
@@ -664,20 +677,12 @@ class DataViewerWidget(QWidget):
         """
         Get the total number of records in the Samples table
         """
-        table = TxM.remove_spaces(self.dbTable_comboBox.currentText())
         query = QSqlQuery()
-        sql_query = ""
 
-        # Construct the query based on the table
-        if table == "LabFacilities":
-            sql_query = f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.ids_to_show}"
-        elif table == "UPbAnalyses":
-            sql_query = f"SELECT COUNT(*) FROM {table} WHERE UPbAnalysisID IN {self.ids_to_show}"
-        else:
-            sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.ids_to_show}"
+        sql_query = f"SELECT COUNT(*) FROM {self.data_table} WHERE {get_headers(self.data_table)[0]} IN {self.sql_data_ids_to_show}"
 
         # Execute the query
-        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.table_type}')
+        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_table}')
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             # Handle query execution error
@@ -696,21 +701,11 @@ class DataViewerWidget(QWidget):
         """
         Get the total number of records in the Samples table
         """
-        table_name = dbTable_comboBox.currentText()
-        table = TxM.remove_spaces(table_name)
         query = QSqlQuery()
-        sql_query = ""
-
-        # Construct the query based on the table
-        if table == "LabFacilities":
-            sql_query = f"SELECT COUNT(*) FROM {table} WHERE LabFacilityID IN {self.id_condition}"
-        elif table == "UPbAnalyses":
-            sql_query = f"SELECT COUNT(*) FROM {table} WHERE UPbAnalysisID IN {self.id_condition}"
-        else:
-            sql_query = f"SELECT COUNT(*) FROM {table} WHERE {table[:-1]}ID IN {self.id_condition}"
+        sql_query = f"SELECT COUNT(*) FROM {self.data_filtered_table} WHERE {get_headers(self.data_filtered_table)[0]} IN {self.sql_data_filtered_ids_to_show}"
 
         # Execute the query
-        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.table_type}')
+        logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_filtered_table}')
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             # Handle query execution error
@@ -740,7 +735,7 @@ class DataViewerWidget(QWidget):
                 FROM (
                     SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} 
                     FROM {table} 
-                    WHERE {base_id_column} IN {self.ids_to_show}
+                    WHERE {base_id_column} IN {self.data_ids_to_show}
                 ) 
                 WHERE {base_id_column} = :record_id
             """
@@ -764,6 +759,50 @@ class DataViewerWidget(QWidget):
             return query.value(0) - 1  # Convert to zero-based index
 
         return -1
+
+    def switch_to_table(self, stacked_widget: QStackedWidget):
+        """
+        Sets the current widget to a table view
+        :return:
+        """
+        stacked_widget.setCurrentIndex(0)
+        self.page_info_label.show()
+        self.prev_button.show()
+        self.next_button.show()
+        self.goto_line_edit.show()
+
+    def switch_to_tree(self, stacked_widget: QStackedWidget):
+        """
+        Sets the current widget to a tree view
+        :return:
+        """
+        stacked_widget.setCurrentIndex(1)
+        self.page_info_label.hide()
+        self.prev_button.hide()
+        self.next_button.hide()
+        self.goto_line_edit.hide()
+
+    def switch_to_table_2(self, stacked_widget: QStackedWidget):
+        """
+        Sets the current widget to a table view
+        :return:
+        """
+        stacked_widget.setCurrentIndex(0)
+        self.page_info_label_2.show()
+        self.prev_button_2.show()
+        self.next_button_2.show()
+        self.goto_line_edit_2.show()
+
+    def switch_to_tree_2(self, stacked_widget: QStackedWidget):
+        """
+        Sets the current widget to a tree view
+        :return:
+        """
+        stacked_widget.setCurrentIndex(1)
+        self.page_info_label_2.hide()
+        self.prev_button_2.hide()
+        self.next_button_2.hide()
+        self.goto_line_edit_2.hide()
 
     def saveWindowState(self):
         settings.setValue("ui/DataviewWidget/pos", self.pos())
