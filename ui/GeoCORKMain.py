@@ -154,6 +154,7 @@ class GeoCORK(QtW.QMainWindow):
 
     def open_recent_file(self, file_path):
         """Simulate opening a recent file."""
+        self.update_recent_files_menu()
         self.landingpage.selected_files = file_path
         self.landingpage.db = None
         self.landingpage.open_geo_cork()
@@ -175,7 +176,11 @@ class GeoCORK(QtW.QMainWindow):
                 file_name = file_name.split('.')[0] + ".db"
 
         self.landingpage.selected_files = file_name
+        if self.landingpage.selected_files not in self.landingpage.list_recents:
+            self.landingpage.list_recents.insert(0, self.landingpage.selected_files)  # Add the new database to the top of the list
+            settings.setValue("ui/LandingPage/recentlist", self.landingpage.list_recents)
         self.landingpage.db = None
+        self.landingpage.open_about_db()
         self.landingpage.open_geo_cork()
 
     def update_window_title(self):
