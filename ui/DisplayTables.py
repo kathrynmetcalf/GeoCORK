@@ -126,7 +126,7 @@ class DisplayTables(QtW.QWidget):
         # Signal for table combo box
         self.dbTable_comboBox.currentIndexChanged.connect(self.display_table)
         # Signal for search bar
-        self.search_lineEdit.editingFinished.connect(self.search)
+        self.search_lineEdit.returnPressed.connect(self.search)
         # Signal for clicked edit button
         self.edit_pushButton.clicked.connect(self.edit_popup)
         # Signal for clicked edit samples button
@@ -139,9 +139,7 @@ class DisplayTables(QtW.QWidget):
         self.dbTable_treeView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.dbTable_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
-
-
-        self.goto_line_edit.editingFinished.connect(self.go_to_record)
+        self.goto_line_edit.returnPressed.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
@@ -567,9 +565,9 @@ class DisplayTables(QtW.QWidget):
                     self.current_page = new_page
                     self.display_table()
             else:
-                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {record_name}")
         except Exception as e:
-            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {record_name}")
             logger_setup.get_logger().debug(f'Error: {e}')
 
         self.goto_line_edit.setText('')

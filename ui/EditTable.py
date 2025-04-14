@@ -61,13 +61,13 @@ class EditTable(QtW.QDialog):
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
-        self.search_lineEdit.editingFinished.connect(self.search)
+        self.search_lineEdit.returnPressed.connect(self.search)
 
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.rollback)
 
-        self.goto_line_edit.editingFinished.connect(self.go_to_record)
+        self.goto_line_edit.returnPressed.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
@@ -223,7 +223,6 @@ class EditTable(QtW.QDialog):
         self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
 
-        self.goto_line_edit: QLineEdit
         self.goto_line_edit.setCompleter(self.name_completer)
 
     def go_to_record(self):
@@ -232,6 +231,7 @@ class EditTable(QtW.QDialog):
         """
         try:
             record_name = self.goto_line_edit.text()
+            self.goto_line_edit.setText('')
             if record_name == "":
                 return
             record_id = get_id_from_name(self.table, record_name)

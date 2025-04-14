@@ -70,7 +70,7 @@ class EditTree(QtW.QDialog):
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
-        self.search_lineEdit.editingFinished.connect(self.search)
+        self.search_lineEdit.returnPressed.connect(self.search)
         self.tree_model.save_state.connect(
             lambda: save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView))
         self.tree_model.dataEdited.connect(self.update_proxy)

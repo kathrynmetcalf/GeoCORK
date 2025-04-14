@@ -8,6 +8,8 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
+from PyQt6.QtSql import QSqlQuery
+from PyQt6.QtWidgets import QCompleter, QMessageBox
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
@@ -89,6 +91,7 @@ class EditView(QtW.QDialog):
         self.setModal(True)
         self.setWindowTitle(f'Edit {TxM.add_spaces_camel(table_name)}')
         self.updated = False
+        self.name_completer = QCompleter()
 
         self.parent_id: int = None
         self.parent_type: str = None
@@ -181,10 +184,11 @@ class EditView(QtW.QDialog):
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
         self.edit_tableView.doubleClicked.connect(self.display_widget)
-        # self.goto_line_edit.textChanged.connect(self.go_to_record)
+        self.goto_line_edit.returnPressed.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
+        self.set_go_to_completer()
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         logger_setup.get_logger().info(f'EditView created for {self.table} in {time.time() - edit_view_start_time:.2f} seconds')
@@ -229,6 +233,55 @@ class EditView(QtW.QDialog):
         if self.current_page > 0:
             self.current_page -= 1
             self.create_model()
+
+    def set_go_to_completer(self):
+        # Populate the value input with a completer based on the selected attribute
+
+        query = QSqlQuery()
+        sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
+        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        if not query.exec(sql_query):
+            logger_setup.get_logger().critical(f'Error creating the completer for input')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        values = set()
+        while query.next():
+            values.add(query.value(0))
+        self.name_completer.setModel(QtC.QStringListModel(values))
+        self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+
+        self.goto_line_edit.setCompleter(self.name_completer)
+
+    def go_to_record(self):
+        """
+        Slot to go to a specific record display name for the displayed table.
+        """
+        try:
+            record_name = self.goto_line_edit.text()
+            self.goto_line_edit.setText('')
+            if record_name == "":
+                return
+            record_id = get_id_from_name(self.table, record_name)
+            if not record_id:
+                logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                return
+            index = get_record_index(self.table, record_id)
+
+            if index != -1:
+                new_page = index // self.rows_per_page
+                if self.current_page == new_page:
+                    QMessageBox.information(self, 'Record Found', 'Record already displayed')
+                else:
+                    self.current_page = new_page
+                    self.create_model()
+            else:
+                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+        except Exception as e:
+            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            logger_setup.get_logger().debug(f'Error: {e}')
+        self.goto_line_edit.clear()
+        self.goto_line_edit.setText('')
 
     def eventFilter(self, object, event):
         if event.type() in (

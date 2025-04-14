@@ -86,8 +86,8 @@ class DataViewerWidget(QWidget):
         self.rows_per_page_2 = 2000
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
 
-        self.goto_line_edit.editingFinished.connect(self.go_to_record_1)
-        self.goto_line_edit_2.editingFinished.connect(self.go_to_record_2)
+        self.goto_line_edit.returnPressed.connect(self.go_to_record_1)
+        self.goto_line_edit_2.returnPressed.connect(self.go_to_record_2)
 
         self.prev_button.clicked.connect(self.previous_page_1)
         self.next_button.clicked.connect(self.next_page_1)
@@ -99,7 +99,7 @@ class DataViewerWidget(QWidget):
             lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, self.proxy_model,
                                     self.dbTable_comboBox))
 
-        self.search_lineEdit.editingFinished.connect(lambda: self.search(self.search_lineEdit, self.proxy_model))
+        self.search_lineEdit.returnPressed.connect(lambda: self.search(self.search_lineEdit, self.proxy_model))
 
         self.selectionTimer = QTimer()
         self.selectionTimer.setSingleShot(True)
@@ -337,7 +337,7 @@ class DataViewerWidget(QWidget):
                 self.dbTable_treeView_2.setModel(tree_proxy_model)
                 self.dbTable_treeView_2.expandAll()
 
-                self.search_lineEdit_2.editingFinished.connect(
+                self.search_lineEdit_2.returnPressed.connect(
                     lambda: self.search(self.search_lineEdit_2, tree_proxy_model, self.dbTable_treeView_2))
 
                 self.edit_pushButton_2.clicked.connect(
@@ -372,7 +372,7 @@ class DataViewerWidget(QWidget):
                 self.dbTable_tableView_2.setSortingEnabled(True)
                 self.dbTable_tableView_2.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
 
-                self.search_lineEdit_2.editingFinished.connect(
+                self.search_lineEdit_2.returnPressed.connect(
                     lambda: self.search(self.search_lineEdit_2, self.proxy_model))
                 self.edit_pushButton_2.clicked.connect(
                     lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, self.proxy_model,
