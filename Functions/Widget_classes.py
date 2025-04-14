@@ -1194,7 +1194,7 @@ def get_view_name_column(view: str) -> int | None:
     table_name_col = get_name_column(table)
     if table_name_col is not None:
         # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
-        name_header = get_headers(table)[table_name_col-1]
+        name_header = get_headers(table)[table_name_col]
         view_column_settings = SQLUtils.view_setting_dict[view]
         view_columns = settings.value(view_column_settings)
         if name_header in view_columns:

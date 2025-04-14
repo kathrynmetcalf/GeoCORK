@@ -903,8 +903,8 @@ view_attributes_dict = {
     ],
     'AliquotView': [
         f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
-        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qaliquot_sample.split('AS ')[1]}",
-        f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}",
+        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}",
+        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}",
         f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qupb_count.split('AS ')[1]}",
         f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
@@ -915,7 +915,7 @@ view_attributes_dict = {
     ],
     'AliquotEditView': [
         f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
-        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
+        f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}",
         f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
         f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
     ],

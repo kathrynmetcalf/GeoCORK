@@ -4,7 +4,7 @@ import sys
 
 from PyQt6 import QtWidgets as QtW, QtCore
 from PyQt6.QtCore import QPoint, QSize, QStandardPaths, QRegularExpression
-from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices, QRegularExpressionValidator
+from PyQt6.QtGui import QFont, QFontDatabase, QDesktopServices, QRegularExpressionValidator, QAction
 from PyQt6.QtSql import QSqlQueryModel, QSqlQuery
 from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
@@ -401,6 +401,8 @@ class SettingsDialog(QtW.QDialog):
             reference_format = reference_format.replace(' || "', '')
         if '" || ' in reference_format:
             reference_format = reference_format.replace('" || ', '')
+        if '"' in reference_format:
+            reference_format = reference_format.replace('"', '')
         self.reference_display_lineEdit.setText(reference_format)
 
         self.about_db_model.setQuery('SELECT * FROM About WHERE AboutID = 1')
@@ -496,11 +498,10 @@ class SettingsDialog(QtW.QDialog):
             '{self.db_reference_lineEdit.text()}') WHERE AboutID = 1"""
 
         query.prepare(about_qry)
-        logger_setup.get_logger().debug(f'SQL command: {about_qry}')
         if not query.exec():
-            logger_setup.get_logger().critical(
-                f'Error updating About table: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {about_qry}')
+            logger_setup.get_logger().critical(f'Error updating About table')
+            logger_setup.get_logger().critical(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'SQL query: {query.lastQuery()}')
 
         self.select_columns.save_list_states()
 

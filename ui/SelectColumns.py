@@ -156,7 +156,7 @@ class SelectColumns(QWidget):
 
                 # Store list of checked columns in the settings
                 settings.setValue(self.view_setting_dict[view_name], view_columns)
-        self.load_list_states()
+        # self.load_list_states()
 
     def load_list_states(self):
         # Load the state of checkboxes and order of fields for all tables from the settings
