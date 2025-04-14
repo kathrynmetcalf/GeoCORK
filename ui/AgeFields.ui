@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>470</width>
-    <height>370</height>
+    <width>662</width>
+    <height>391</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -23,10 +23,16 @@
    <item>
     <widget class="QGroupBox" name="age_groupBox">
      <property name="sizePolicy">
-      <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+      <sizepolicy hsizetype="MinimumExpanding" vsizetype="Expanding">
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>600</width>
+       <height>0</height>
+      </size>
      </property>
      <property name="title">
       <string>Age</string>
@@ -60,7 +66,7 @@
             <property name="currentText">
              <string/>
             </property>
-            <property name="placeholderText">
+            <property name="placeholderText" stdset="0">
              <string>Select age to edit</string>
             </property>
            </widget>
@@ -166,14 +172,14 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>Unit</string>
              </property>
             </widget>
            </item>
            <item>
             <widget class="QComboBox" name="direct_age_error_format_comboBox">
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>Error format</string>
              </property>
             </widget>
@@ -250,7 +256,7 @@
                <height>22</height>
               </size>
              </property>
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>Unit</string>
              </property>
             </widget>

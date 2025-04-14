@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>607</width>
+    <width>518</width>
     <height>316</height>
    </rect>
   </property>
@@ -27,6 +27,18 @@
        <horstretch>0</horstretch>
        <verstretch>0</verstretch>
       </sizepolicy>
+     </property>
+     <property name="minimumSize">
+      <size>
+       <width>500</width>
+       <height>0</height>
+      </size>
+     </property>
+     <property name="maximumSize">
+      <size>
+       <width>500</width>
+       <height>16777215</height>
+      </size>
      </property>
      <property name="title">
       <string>Location</string>
@@ -55,7 +67,7 @@
         </item>
         <item>
          <widget class="QComboBox" name="gps_format_comboBox">
-          <property name="placeholderText">
+          <property name="placeholderText" stdset="0">
            <string/>
           </property>
          </widget>
@@ -164,7 +176,7 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>N/S</string>
              </property>
             </widget>
@@ -245,7 +257,7 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>E/W</string>
              </property>
             </widget>
@@ -413,7 +425,7 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="placeholderText">
+             <property name="placeholderText" stdset="0">
               <string>Unit</string>
              </property>
             </widget>
