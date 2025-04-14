@@ -718,6 +718,7 @@ table_attributes_dict = {
     ],
     'Columns': [
         "ColumnName", "ColumnDescription",
+        "CalculatedColumnTotalHeightDepth",
         "ColumnCreated", "ColumnModified"
     ],
     'GPSLocations': [
@@ -800,7 +801,7 @@ table_attributes_dict = {
         "Calculated204Pb/207Pb",
         "Calculated204Pb/207PbError",
         "Calculated204Pb/208Pb",
-        "Calculated204Pb/208PbError"
+        "Calculated204Pb/208PbError",
         "Calculated204Pb/238U",
         "Calculated204Pb/238UError",
         "Calculated206Pb/204Pb",

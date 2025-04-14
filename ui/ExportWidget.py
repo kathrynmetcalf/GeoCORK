@@ -74,8 +74,8 @@ class ExportWidget(QWidget):
         #   'model': model,
         #   'distinct': False,
         #   'pivot': False,
-        #   'selected_columns': {},
-        #   'ordered_columns': {},
+        #   'selected_columns': {(table, attribute): bool, },
+        #   'ordered_columns': {(table, attribute): bool},
         #   'label': counter_label,
         #   'headers': True,
         #   'sql': ''
@@ -161,6 +161,7 @@ class ExportWidget(QWidget):
         if order_changed:
             self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = \
                 self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
+            self.load_checkbox_states()
         else:
             # update selected columns
             self.get_selected_values()
@@ -1542,12 +1543,12 @@ class ColumnOrderDialog(QDialog):
             QMessageBox.warning(self, "No Selection", "Please select an item to delete.")
 
     def get_adjusted_columns(self):
-        adjusted_columns = []
+        adjusted_columns = {}
         for index in range(self.list_widget.count()):
             item_text = self.list_widget.item(index).text()
             table_name, field_name = item_text.split('.', 1)
-            adjusted_columns.append((table_name, field_name))
-        return tuple(adjusted_columns)
+            adjusted_columns[(table_name, field_name)] = True
+        return adjusted_columns
 
 
 class ColumnNamesDialog(QDialog):

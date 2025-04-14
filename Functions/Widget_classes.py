@@ -4382,14 +4382,16 @@ def get_readable_header(header: str):
         header = f'Calculated Column Elevation ({settings.value('elevation_unit_abbreviation')})'
     elif 'ColumnElevation' in header:
         header = f'Column Elevation'
+    elif 'GPSElev' in header:
+        header += f' ({settings.value("elevation_unit_abbreviation")})'
     elif 'TotalHeightDepthCalculated' in header:
         header = f'Calculated Total Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
     elif 'TotalHeightDepth' in header:
         header = f'Total Height/Depth'
-    elif 'HeightDepthCalculated' in header:
+    elif 'HeightDepthCalculated' in header or 'CalculatedHeightDepth' in header:
         header = f'Calculated Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
     elif 'HeightDepth' in header:
-        header = f'Height/Depth'
+        header = header.replace('HeightDepth', 'Height/Depth')
     elif 'AgeCalculated' in header:
         header = f'Calculated Age ({settings.value('age_unit_abbreviation')})'
     elif 'CalculatedSpotSize' in header:
@@ -4398,7 +4400,7 @@ def get_readable_header(header: str):
         header = f'Calculated Concordance ({settings.value('concordance_format_abbreviation')})'
     elif 'AgeError' in header:
         header += f' ({settings.value("age_error_format_abbreviation")})'
-    elif 'Age' in header and not any(s in header for s in ['Name', 'Reference', 'Unit', 'Format']):
+    elif 'Age' in header and not any(s in header for s in ['Name', 'Description', 'Reference', 'Unit', 'Format', 'Created', 'Modified']):
         header += f' ({settings.value("age_unit_abbreviation")})'
     elif 'Error' in header:
         if 'Corr/Rho' in header:
