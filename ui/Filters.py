@@ -1013,7 +1013,6 @@ class QueryBuilder(QWidget):
                 f'No matching Samples for given filter(s)')
             return
         dataviewer = DataViewerWidget(self, filtered_ids, 'Samples')
-        dataviewer.setWindowTitle("Filtered Sample View")
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1028,8 +1027,7 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().critical(
                 f'No matching Aliquots for given filter(s)')
             return
-        dataviewer = DataViewerWidget(self, filtered_ids, 'Aliquots')
-        dataviewer.setWindowTitle("Filtered Aliquot View")
+        dataviewer = DataViewerWidget(self, filtered_ids, 'Aliquots', )
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1045,7 +1043,6 @@ class QueryBuilder(QWidget):
                 f'No matching Spots for given filter(s)')
             return
         dataviewer = DataViewerWidget(self, filtered_ids, 'Spots')
-        dataviewer.setWindowTitle("Filtered Spot View")
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1061,7 +1058,6 @@ class QueryBuilder(QWidget):
                 f'No matching UPb Analyses for given filter(s)')
             return
         dataviewer = DataViewerWidget(self, filtered_ids, 'UPbAnalyses')
-        dataviewer.setWindowTitle("Filtered Analysis View")
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)

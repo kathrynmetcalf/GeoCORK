@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QDoubleSpinBox
 from PyQt6.uic import loadUi
 
 import logger_setup
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import get_headers
 from ui.SelectColumns import SelectColumns
@@ -313,6 +314,8 @@ class SettingsDialog(QtW.QDialog):
         sources_ui_file = os.path.join(base_path, "Settings.ui")
         loadUi(sources_ui_file, self)
 
+        self.loading_manager = LoadingDialogManager.get_instance()
+
         self.setWindowTitle('Settings')
         self.loadWindowState()
         self.settings_tabWidget.setCurrentIndex(0)
@@ -524,10 +527,12 @@ class SettingsDialog(QtW.QDialog):
         """
         Restores the default settings for the application. This is called when the user clicks the Restore Defaults
         """
+        self.loading_manager.show_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
         logger_setup.get_logger().info('Restoring default settings')
         settings.setValue('default_settings', 'true')
         reset_to_default_settings()
         self.populate_fields()
+        self.loading_manager.close_loading_dialog('Restoring Default Settings', 'Currently updating settings...')
 
     def set_combobox(self, comboBox: QtW.QComboBox, model: QSqlQueryModel):
         """

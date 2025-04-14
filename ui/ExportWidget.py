@@ -17,13 +17,13 @@ from PyQt6.uic import loadUi
 from openpyxl import Workbook
 
 import logger_setup
-from Database_manager import update_database
+from Functions.Database_manager import update_database
 from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel
-from Settings_manager import settings
-from Widget_classes import CheckableComboBox
+from Functions.Settings_manager import settings
+from Functions.Widget_classes import CheckableComboBox
 from ui import Filters
 from ui.DisplayTablesSimplified import DisplayTablesSimplified
 from ui.FlowLayout import FlowLayout

@@ -29,7 +29,7 @@ from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
-from Widget_classes import get_view_name_column
+from Functions.Widget_classes import get_view_name_column
 # from Functions.Widget_classes import add_popup_dialog
 from ui.EditView import EditView
 from ui.EditTable import EditTable

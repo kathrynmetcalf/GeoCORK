@@ -19,7 +19,7 @@ from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel, \
     WordWrapDelegate, get_name_column, ReadableProxyModel, get_id_from_name, get_record_index
-from Widget_classes import get_headers
+from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
@@ -30,9 +30,11 @@ from ui.EditTreeView import EditTreeView
 
 
 class DataViewerWidget(QWidget):
-    def __init__(self, parent, ids_to_show: set, table_type):
+    def __init__(self, query_builder, ids_to_show: set, table_type):
         start_time = time.time()
         super().__init__(parent=None)
+        self.query_builder = query_builder
+
         self.loading_manager = LoadingDialogManager.get_instance()
 
         self.data_table = table_type
@@ -52,21 +54,9 @@ class DataViewerWidget(QWidget):
         self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
         self.dbTable_comboBox_2.setCurrentText(self.data_filtered_table)
 
-        match self.data_table:
-            case 'Samples':
-                self.dbTable_comboBox.addItem('Samples')
-            case 'Aliquots':
-                self.dbTable_comboBox.addItem('Aliquots')
-            case 'Spots':
-                self.dbTable_comboBox.addItem('Spots')
-            case 'UPbAnalyses':
-                self.dbTable_comboBox.addItem('UPbAnalyses')
+        self.dbTable_comboBox.addItems(['Samples', 'Aliquots', 'Spots', 'UPbAnalyses'])
 
-
-        # todo future implementation for dynamically switching between these tables
-        # self.dbTable_comboBox.addItems(['Samples', 'Aliquots', 'Spots', 'UPbAnalyses'])
-        # self.dbTable_comboBox.currentTextChanged.connect(lambda: self.display_data_table(self.db_stackedWidget, self.dbTable_tableView,
-        #                                                                                  self.dbTable_comboBox, self.edit_pushButton))
+        self.dbTable_comboBox.currentTextChanged.connect(self.data_table_switcher)
 
         # Display filtered table for the first time
         self.dbTable_comboBox_2.currentTextChanged.connect(self.display_table_with_data_filter)
@@ -127,6 +117,20 @@ class DataViewerWidget(QWidget):
         if not self.data_filtered_ids_to_show:
             return '()'
         return f'({", ".join([str(i) for i in self.data_filtered_ids_to_show])})'
+
+    def data_table_switcher(self):
+        new_table = self.dbTable_comboBox.currentText()
+        filtered_ids = self.query_builder.get_filtered_ids(new_table)
+        if filtered_ids is None:
+            logger_setup.get_logger().critical(
+                f'No matching Spots for given filter(s)')
+            self.dbTable_comboBox.setText(self.data_table)
+            return
+        else:
+            self.setWindowTitle(f'Filtered {self.data_table} View')
+            self.data_table = new_table
+            self.data_ids_to_show = filtered_ids
+            self.display_data_table()
 
     def display_data_table(self):
         """
@@ -420,14 +424,12 @@ class DataViewerWidget(QWidget):
         table = TxM.remove_spaces(table_name)
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if table_name in view_tables:
-            id_str = self.data_ids_to_show.replace('(', '').replace(')', '')
-            ids = id_str.split(', ')
-            ids = list(map(int, ids))  # Convert all IDs to integers
+            ids = self.data_ids_to_show
             if table_name == 'Aliquots':
                 # Ask the user which sample they want to edit
                 sample_names = []
                 query = QSqlQuery()
-                for aliquot_id in list(eval(self.data_ids_to_show)):
+                for aliquot_id in self.data_ids_to_show:
                     if not query.exec(f'SELECT SampleID FROM Aliquots WHERE AliquotID = {aliquot_id}'):
                         logger_setup.get_logger().critical(f'Error fetching SampleID')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -466,7 +468,7 @@ class DataViewerWidget(QWidget):
                     return
                 ids = []
                 while query.next():
-                    if query.value(0) in list(eval(self.data_ids_to_show)):
+                    if query.value(0) in self.data_ids_to_show:
                         ids.append(query.value(0))
                 if not ids:
                     logger_setup.get_logger().critical(f'No AliquotIDs found for the selected sample')
@@ -543,7 +545,7 @@ class DataViewerWidget(QWidget):
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         values = set()
         while query.next():
-            values.add(query.value(0))
+            values.add(str(query.value(0)))
         name_completer.setModel(QtC.QStringListModel(values))
         name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
