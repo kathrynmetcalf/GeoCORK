@@ -52,7 +52,7 @@ if __name__ == "__main__":
         check_missing_settings()
 
     start_filepath = None
-    if os.path.isfile(sys.argv[-1]):
+    if os.path.isfile(sys.argv[-1]) and str(sys.argv[-1]).endswith('.db'):
         start_filepath = sys.argv[-1]
     landing_page = LandingPage(start_filepath)
 
