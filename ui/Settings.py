@@ -634,27 +634,37 @@ class SettingsDialog(QtW.QDialog):
         Updates the reference format, converts from user-friendly format to SQL format.
         :return:
         """
+        import re
+
+        def format_reference_sql(raw_text: str) -> str:
+            # Define replacements
+            replacements = {
+                '{Authors}': 'ifnull(Authors, "")',
+                '{Year}': 'ifnull(Year, "")',
+                '{Title}': 'ifnull(Title, "")',
+                '{Source}': 'ifnull(Source, "")',
+                '{DOI}': 'ifnull(DOI, "")',
+            }
+
+            # Split into segments of {tokens} or literal text
+            parts = re.split(r'(\{[^{}]+\})', raw_text)
+
+            formatted_parts = []
+
+            for part in parts:
+                if part.startswith('{') and part.endswith('}'):
+                    formatted_parts.append(replacements.get(part, ''))
+                elif part.strip() != '':
+                    # Escape double quotes and wrap static text in quotes
+                    escaped = part.replace('"', '""')  # escape double quotes in SQL
+                    formatted_parts.append(f'"{escaped}"')
+
+            # Join all parts with SQL concatenation operator
+            return ' || '.join(p for p in formatted_parts if p)
+
+        # Usage
         reference_format = self.reference_display_lineEdit.text()
-        if '{' and '}' in reference_format:
-            # identify any text between curly braced elements and replace with || "text" ||
-            pattern = r'(?<=\})([^{}]+)(?=\{)'
-
-            def replace_match(match):
-                return f' || "{match.group(0)}" || '
-
-            reference_format = re.sub(pattern, replace_match, reference_format)
-
-        if '{Authors}' in reference_format:
-            reference_format = reference_format.replace('{Authors}', 'ifnull(Authors, "")')
-        if '{Year}' in reference_format:
-            reference_format = reference_format.replace('{Year}', 'ifnull(Year, "")')
-        if '{Title}' in reference_format:
-            reference_format = reference_format.replace('{Title}', 'ifnull(Title, "")')
-        if '{Source}' in reference_format:
-            reference_format = reference_format.replace('{Source}', 'ifnull(Source, "")')
-        if '{DOI}' in reference_format:
-            reference_format = reference_format.replace('{DOI}', 'ifnull(DOI, "")')
-        return reference_format
+        return format_reference_sql(reference_format)
 
     def open_logs(self):
         """
