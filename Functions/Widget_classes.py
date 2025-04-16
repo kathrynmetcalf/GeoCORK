@@ -1297,6 +1297,29 @@ def get_record_index(table: str, record_id: int):
 
     return -1
 
+def scroll_to_record(record_id: int, view: QtW.QTableView | QtW.QTreeView):
+    """
+    Scroll to a specific record in the view.
+    :param record_id: id of record
+    :param view: view to scroll
+    """
+    if isinstance(view, QtW.QTableView):
+        model = view.model()
+        for row in range(model.rowCount()):
+            if model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == record_id:
+                logger_setup.get_logger().info(f'Scrolling to record ID: {record_id}')
+                view.selectionModel().select(model.index(row, 0), QtC.QItemSelectionModel.SelectionFlag.Select |
+                                             QtC.QItemSelectionModel.SelectionFlag.Rows)
+                # todo: figure out scrolling to the selected row
+                # view.scrollTo(model.index(row, 0), QtW.QAbstractItemView.ScrollHint.PositionAtTop)
+                # print(view.verticalScrollBar().maximum())
+                # view.verticalScrollBar().setValue(row)
+                # print(view.verticalScrollBar().value())
+                # view.updateGeometry()
+                # view.viewport().update()
+                # view.setCurrentIndex(model.index(row, 0))
+                break
+
 def get_column_types(table: str):
     query = QtS.QSqlQuery()
     column_types = []
@@ -2878,6 +2901,9 @@ class FocusGroupBox(QGroupBox):
         if isinstance(child, QtW.QLineEdit):
             if child.text() != initial_value:
                 logger_setup.get_logger().info(f'{child.objectName()} was edited')
+                self.edited = True
+        elif isinstance(child, CheckableComboBox | CheckableTreeCombobox):
+            if child.currentText() != initial_value:
                 self.edited = True
         elif isinstance(child, QtW.QComboBox):
             if child.currentIndex() != initial_value:

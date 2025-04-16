@@ -21,7 +21,7 @@ from Functions.Widget_classes import (
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
     get_record_index, close_loading_dialog, show_loading_dialog,
-    set_table, MaxWidthDelegate, get_id_from_name
+    set_table, MaxWidthDelegate, get_id_from_name, scroll_to_record
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -311,6 +311,7 @@ class DisplayTables(QtW.QWidget):
             for column in range(self.table_proxy_model.columnCount()):
                 if self.dbTable_tableView.columnWidth(column) > 400:
                     self.dbTable_tableView.setColumnWidth(column, 400)
+            self.dbTable_tableView.verticalScrollBar().setRange(0, self.table_proxy_model.rowCount())
 
         else:
             logger_setup.get_logger().error(f"Error {self.table}: Tried to switch to a table with no table or tree...")
@@ -559,11 +560,13 @@ class DisplayTables(QtW.QWidget):
 
             if index != -1:
                 new_page = index // self.rows_per_page
-                if self.current_page == new_page:
-                    QMessageBox.information(self, 'Record Found', 'Record already displayed')
-                else:
+                if self.current_page != new_page:
                     self.current_page = new_page
                     self.display_table()
+                if self.table in self.dbtable_list:
+                    scroll_to_record(record_id, self.dbTable_tableView)
+                elif self.table in self.dbtree_list:
+                    scroll_to_record(record_id, self.dbTable_treeView)
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {record_name}")
         except Exception as e:

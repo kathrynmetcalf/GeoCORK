@@ -47,7 +47,6 @@ class SampleInformation(QtW.QDialog):
         self.savepoint_manager = SavepointManager.get_instance()
         self.setWindowTitle("Edit Sample Information")
         self.setModal(True)
-        # todo: logger message got hidden behind dialog, not accessible
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "SampleInformation.ui")
@@ -221,7 +220,7 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info("Connecting signals")
         # Connect signals and slots
         self.upb_analysis_pushButton.clicked.connect(self.edit_upb_popup)
-        self.commit_pushButton.clicked.connect(self.commit_delay)
+        self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)

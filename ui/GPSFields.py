@@ -112,26 +112,38 @@ class GPSFields(QtW.QWidget):
             if not self.latlon_groupBox.edited:
                 for child in self.latlon_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
-                        self.latlon_groupBox.edited = True
+                        logger_setup.get_logger().info(f"Child {child.objectName()} has focus")
+                        self.latlon_groupBox.set_edited(child)
                         break
+            self.latlon_groupBox.clearFocus()
             if self.latlon_groupBox.edited:
-                self.latlon_groupBox.focusLost.emit()
+                logger_setup.get_logger().info(f"GPS was edited")
+                self.lost_group_box = self.latlon_groupBox
+                self.update_gps()
         elif self.utm_groupBox.any_child_has_focus() or self.utm_groupBox.edited:
             if not self.utm_groupBox.edited:
                 for child in self.utm_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
-                        self.utm_groupBox.edited = True
+                        logger_setup.get_logger().info(f"Child {child.objectName()} has focus")
+                        self.utm_groupBox.set_edited(child)
                         break
+            self.utm_groupBox.clearFocus()
             if self.utm_groupBox.edited:
-                self.utm_groupBox.focusLost.emit()
+                logger_setup.get_logger().info(f"GPS was edited")
+                self.lost_group_box = self.utm_groupBox
+                self.update_gps()
         elif self.elev_groupBox.any_child_has_focus() or self.elev_groupBox.edited:
             if not self.elev_groupBox.edited:
                 for child in self.elev_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
-                        self.elev_groupBox.edited = True
+                        logger_setup.get_logger().info(f"Child {child.objectName()} has focus")
+                        self.elev_groupBox.set_edited(child)
                         break
+            self.elev_groupBox.clearFocus()
             if self.elev_groupBox.edited:
-                self.elev_groupBox.focusLost.emit()
+                logger_setup.get_logger().info(f"GPS was edited")
+                self.lost_group_box = self.elev_groupBox
+                self.update_gps()
 
     def eventFilter(self, obj, event):
         if event.type() == QtC.QEvent.Type.ApplicationDeactivate:
@@ -150,9 +162,11 @@ class GPSFields(QtW.QWidget):
         self.elev_groupBox.focusLost.connect(self.focus_lost_delay)
 
     def focus_lost_delay(self):
+        logger_setup.get_logger().info(f"Focus lost delay called")
         if self._isApplicationFocused:
             self.lost_group_box = self.sender()
-            self.focus_timer.start(100)
+            logger_setup.get_logger().info(f"Lost focus from {self.lost_group_box.objectName()}. Starting timer.")
+            self.focus_timer.start(200)
 
     def disconnect_text_signals(self):
         self.latlon_groupBox.disconnect_child_signals()
@@ -410,6 +424,7 @@ class GPSFields(QtW.QWidget):
                 self.lon_comboBox.show()
 
     def update_gps(self):
+        logger_setup.get_logger().info('Update_gps called when focus timer timed out')
         if not self.lost_group_box.edited:
             logger_setup.get_logger().info(f"GPS fields not edited")
             return
@@ -575,7 +590,7 @@ class GPSFields(QtW.QWidget):
                     rollback_savepoint('before_update')
                     return
                 logger_setup.get_logger().info(f"Valid GPS information")
-                if not query.exec(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({qgps_values}) WHERE GPSLocationID = {gps_to_update[0]}'''):
+                if not query.exec(f'''UPDATE GPSLocations SET ({qgps_columns}) = ({qgps_values}) WHERE GPSLocationID = {gps_id}'''):
                     logger_setup.get_logger().critical(f"Error updating GPS")
                     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
                     logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")

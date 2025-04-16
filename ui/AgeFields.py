@@ -227,31 +227,34 @@ class AgeFields(QtW.QWidget):
         return super().eventFilter(obj, event)
 
     def check_focus(self):
-        logger_setup.get_logger().info("Checking focus")
-        if self.direct_age_groupBox.any_child_has_focus():
+        logger_setup.get_logger().info("Checking age field focus")
+        if self.direct_age_groupBox.any_child_has_focus() or self.direct_age_groupBox.edited:
             if not self.direct_age_groupBox.edited:
                 for child in self.direct_age_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
                         self.direct_age_groupBox.set_edited(child)
                         break
+            self.direct_age_groupBox.clearFocus()
             if self.direct_age_groupBox.edited:
                 self.lost_widget = self.direct_age_groupBox
                 self.update_age()
-        elif self.relative_age_groupBox.any_child_has_focus():
+        elif self.relative_age_groupBox.any_child_has_focus() or self.relative_age_groupBox.edited:
             if not self.relative_age_groupBox.edited:
                 for child in self.relative_age_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
                         self.relative_age_groupBox.set_edited(child)
                         break
+            self.relative_age_groupBox.clearFocus()
             if self.relative_age_groupBox.edited:
                 self.lost_widget = self.relative_age_groupBox
                 self.update_age()
-        elif self.age_information_groupBox.any_child_has_focus():
+        elif self.age_information_groupBox.any_child_has_focus() or self.age_information_groupBox.edited:
             if not self.age_information_groupBox.edited:
                 for child in self.age_information_groupBox.findChildren(QtW.QWidget):
                     if child.hasFocus():
                         self.age_information_groupBox.set_edited(child)
                         break
+            self.age_information_groupBox.clearFocus()
             if self.age_information_groupBox.edited:
                 self.lost_widget = self.age_information_groupBox
                 self.update_age()
@@ -600,7 +603,10 @@ class AgeFields(QtW.QWidget):
             if not self.lost_widget.edited:
                 logger_setup.get_logger().info(f"Age fields not edited")
                 return
-        update_samples = self.sample_ids
+        elif isinstance(self.lost_widget, CheckableTreeCombobox | CheckableComboBox):
+            if not self.combobox_edited(self.lost_widget):
+                logger_setup.get_logger().info(f"Age fields not edited")
+                return
         self.disconnect_signals()
         logger_setup.get_logger().info("Collecting input age information")
         default_age = self.default_age_checkBox.isChecked()
@@ -1085,6 +1091,52 @@ class AgeFields(QtW.QWidget):
         end_update_age_tags = time.time()
         logger_setup.get_logger().info(f"Updated {table} in {end_update_age_tags - start_update_age_tags} seconds")
         return True
+
+    def combobox_edited(self, combo: CheckableTreeCombobox | CheckableComboBox):
+        logger_setup.get_logger().info(f"Checking if {combo.objectName()} was edited")
+        if not isinstance(combo, CheckableTreeCombobox) and not isinstance(combo, CheckableComboBox):
+            logger_setup.get_logger().critical(f"Combo box is not CheckableTreeComboBox or CheckableComboBox", self)
+            return False
+        if isinstance(combo, CheckableTreeCombobox):
+            model, indexes = find_tree_model(combo.model(), None)
+            if model:
+                table = model.table
+                id_header = get_headers(table)[0]
+            else:
+                logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}", self)
+                return False
+            if not combo.treeView.model_edited:
+                logger_setup.get_logger().info(f"No changes to {table}")
+                return False
+        elif isinstance(combo, CheckableComboBox):
+            model = combo.model()
+            table = model.tableName()
+            id_header = get_headers(table)[0]
+        many_to_many_model = QtS.QSqlTableModel()
+        set_table(many_to_many_model, f"SampleAges_{table}")
+        if len(self.sample_ids) == 0:
+            logger_setup.get_logger().info("No samples selected")
+            return False
+        current_values = []
+        if len(self.sample_ids) > 1:
+            where_sql = f'IN {tuple(self.sample_ids)}'
+        else:
+            where_sql = f'= {self.sample_ids[0]}'
+        many_to_many_model.setFilter(f"SampleAgeID = {self.sample_age_id} AND {id_header} {where_sql}")
+        for row in range(many_to_many_model.rowCount()):
+            current_values.append(many_to_many_model.data(many_to_many_model.index(row, 1), QtC.Qt.ItemDataRole.DisplayRole))
+        logger_setup.get_logger().info(f"Updating {table} for {len(self.sample_ids)} sample ages")
+        if isinstance(model, CheckableTreeModel):
+            checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
+                QtC.QModelIndex())
+        elif isinstance(model, CheckableSqlTableModel | CheckableSqlQueryModel):
+            checked_ids, partially_checked_ids = model.return_checked_ids()
+        if current_values == checked_ids:
+            logger_setup.get_logger().info(f"No changes to {table}")
+            return False
+        else:
+            logger_setup.get_logger().info(f"Changes to {table}")
+            return True
 
     def add_age(self):
         logger_setup.get_logger().info("Add age called")

@@ -1,9 +1,10 @@
 import PyQt6
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtCore import QPoint, QSize, Qt
+from PyQt6.QtCore import QPoint, QSize, Qt, QEventLoop
 from PyQt6.uic import loadUi
 import ui.GPSFields
+import logger_setup
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
@@ -47,8 +48,9 @@ class GPSDialog(QtW.QDialog):
     def commit_question(self):
         QApplication.processEvents()
         self.gps_fields.check_focus()
-        QApplication.processEvents()
+        QApplication.processEvents(QEventLoop.WaitForMoreEvents)
         if self.gps_fields.updated:
+            logger_setup.get_logger().info(f'GPS was updated: {self.gps_fields.updated}')
             self.msg_box.setText('Are you sure you want to commit all changes to the database?')
             response = self.msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
@@ -56,6 +58,7 @@ class GPSDialog(QtW.QDialog):
             else:
                 pass
         else:
+            logger_setup.get_logger().info(f'GPS was updated: {self.gps_fields.updated}')
             release_savepoint('before_edit_gps')
             self.close_by_dialog = True
             self.close()
