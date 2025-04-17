@@ -180,8 +180,8 @@ class EditView(QtW.QDialog):
         self.edit_tableView.selectionModel().currentChanged.connect(self.on_index_change)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
         self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
-        self.commit_pushButton.clicked.connect(self.commit)
-        self.cancel_pushButton.clicked.connect(self.rollback)
+        self.commit_pushButton.clicked.connect(self.commit_question)
+        self.cancel_pushButton.clicked.connect(self.discard_question)
         self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
         self.edit_tableView.doubleClicked.connect(self.display_widget)
         self.goto_line_edit.returnPressed.connect(self.go_to_record)
@@ -476,17 +476,19 @@ class EditView(QtW.QDialog):
                 self.loading_manager.show_loading_dialog('Loading', f'Opening GPS editor...')
                 dlg = GPSDialog(self.table, item_ids, self)
                 dlg.exec()
-                logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
-                query = QtS.QSqlQuery()
-                if not query.exec(f'SELECT {', '.join(self.gps_headers)} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
-                    logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
-                    return
-                if query.next():
-                    for header in self.gps_headers:
-                        col = self.show_cols.index(header)
-                        self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
-                        self.updated_timestamp = time.time()
-                        logger_setup.get_logger().info(f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
+                if dlg.gps_fields.updated:
+                    self.updated = True
+                    logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
+                    query = QtS.QSqlQuery()
+                    if not query.exec(f'SELECT {', '.join(self.gps_headers)} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
+                        logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
+                        return
+                    if query.next():
+                        for header in self.gps_headers:
+                            col = self.show_cols.index(header)
+                            self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
+                            self.updated_timestamp = time.time()
+                            logger_setup.get_logger().info(f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
             else:
                 self.edit_tableView.setFocus()
         elif 'SampleAge' in header and 'AgeSignature' not in header:
@@ -497,15 +499,17 @@ class EditView(QtW.QDialog):
                 self.loading_manager.show_loading_dialog('Loading', f'Opening sample age editor...')
                 dlg = AgeDialog(self.table, item_ids, self)
                 dlg.exec()
-                logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
-                query = QtS.QSqlQuery()
-                if not query.exec(f'SELECT {header} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
-                    logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
-                    return
-                if query.next():
-                    col = self.show_cols.index(header)
-                    self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
-                    self.updated_timestamp = time.time()
+                if dlg.age_fields.updated:
+                    self.updated = True
+                    logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
+                    query = QtS.QSqlQuery()
+                    if not query.exec(f'SELECT {header} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
+                        logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
+                        return
+                    if query.next():
+                        col = self.show_cols.index(header)
+                        self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
+                        self.updated_timestamp = time.time()
             else:
                 self.edit_tableView.setFocus()
         else:
@@ -810,6 +814,7 @@ class EditView(QtW.QDialog):
                 self.destroy_dropdown()
                 return False
         if updated:
+            self.updated = True
             for model_index in model_indexes:
                 if model_index in self.model.edited_indexes:
                     self.model.edited_indexes.remove(model_index)
@@ -1430,29 +1435,50 @@ class EditView(QtW.QDialog):
         self.close_by_dialog = False
 
     def commit(self):
+        release_savepoint('before_edit')
+        self.accept()
+        self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
+        self.close_by_dialog = True
+        self.close()
+        self.close_by_dialog = False
+        self.accept()
+
+    def commit_question(self):
         if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
             logger_setup.get_logger().critical('Failed to save changes')
             return
+        if len(self.model.edited_indexes) >= 0:
+            self.updated = True
+        if self.updated:
+            msg_box = QtW.QMessageBox()
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setText('Are you sure you want to commit all changes to the database?')
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                self.commit()
+            else:
+                pass
         else:
-            release_savepoint('before_edit')
-            # Check if there is another existing savepoint. If not, go ahead and update the database
-            if not SavepointManager.get_instance().active_savepoints():
-                update_database()
-            self.accept()
-            self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
-            self.close_by_dialog = True
-            self.close()
-            self.close_by_dialog = False
-            self.accept()
+            self.rollback()
 
     def discard_question(self):
-        self.msg.question(self, 'Discard changes', 'Are you sure you want to discard all changes?',QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = self.msg.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            self.rollback()
+        if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
+            logger_setup.get_logger().critical('Failed to save changes')
+            return
+        if len(self.model.edited_indexes) > 0:
+            self.updated = True
+        if self.updated:
+            self.msg.question(self, 'Discard changes', 'Are you sure you want to discard all changes?',QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = self.msg.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                self.rollback()
+            else:
+                pass
         else:
-            pass
+            self.rollback()
 
     def close(self):
         self.saveWindowState()
@@ -1460,7 +1486,7 @@ class EditView(QtW.QDialog):
             if not self.on_row_change(QtC.QModelIndex(), self.edit_tableView.currentIndex()):
                 logger_setup.get_logger().critical('Failed to save changes')
                 self.discard_question()
-            elif self.updated:
+            elif self.updated or len(self.model.edited_indexes) > 0:
                 self.discard_question()
         else:
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
