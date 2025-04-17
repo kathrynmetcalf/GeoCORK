@@ -93,6 +93,8 @@ class ExportWidget(QWidget):
 
         self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
 
+        self.max_rows_to_display = 1000
+
         self.samples_model = CheckableSqlTableModel()
         self.samples_model = self.set_table(self.samples_model, 'Samples')
         self.samples_proxy = ReadableProxyModel()
@@ -219,7 +221,7 @@ class ExportWidget(QWidget):
             filtered_where_clause, ctes = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
 
-            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
+            sql_query = f"SELECT DISTINCT UPbAnalyses.UPbAnalysisID FROM ({filtered_where_clause});"
             query = QSqlQuery(db=self.database)
 
             # Execute the query
@@ -241,17 +243,17 @@ class ExportWidget(QWidget):
 
         # checks for logic to see what kind of SQL query is needed.
         # self.checked_sample_names defaults to '()', so length of 2,
-        # if a sample is checked then len > 2, so UPbAnalysisID are needed, so we limit to LIMIT 250 so its quicker and
+        # if a sample is checked then len > 2, so UPbAnalysisID are needed, so we limit to LIMIT {self.max_rows_to_display} so its quicker and
         # still shows example data to be exported.
         # if filtered where clause is not blank, len > 0, then we need to filter by UPbAnalysisID
         if len(self.checked_sample_names) > 2:
             if len(filtered_where_clause) > 0:
-                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalysisID IN {filtered_upb_ids} LIMIT 250"
+                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} LIMIT {self.max_rows_to_display}"
             else:
-                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT 250"
+                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT {self.max_rows_to_display}"
         else:
             if len(filtered_where_clause) > 0:
-                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE UPbAnalysisID IN {filtered_upb_ids} LIMIT 250"
+                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} LIMIT {self.max_rows_to_display}"
             else:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE FALSE"
 
@@ -295,23 +297,23 @@ class ExportWidget(QWidget):
                 filtered_upb_ids.add(query.value(0))
             filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
 
-            # remove LIMIT 250 from original query_str, can only have one of those
-            query_str = query_str.replace('LIMIT 250', '')
+            # remove LIMIT {self.max_rows_to_display} from original query_str, can only have one of those
+            query_str = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
             # take the original query_str and only the content before WHERE CLAUSE
             modified_query_str = query_str.split('WHERE')[0]
             # replace SampleName with filter name AS
             modified_query_str = modified_query_str.replace('[SampleName]', f'\'{name}\'')
             modified_query_str = modified_query_str.replace('SELECT', 'SELECT DISTINCT')
-            modified_query_str = modified_query_str.replace('LIMIT 250', '')
+            modified_query_str = modified_query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
             modified_query_str = modified_query_str.replace('DISTINCT DISTINCT', 'DISTINCT')
 
-            query_str = f"{query_str} \n UNION ALL \n {modified_query_str} WHERE UPbAnalysisID IN {filtered_upb_ids} LIMIT 250 \n"
+            query_str = f"{query_str} \n UNION ALL \n {modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} LIMIT {self.max_rows_to_display} \n"
             logger_setup.get_logger().debug(f'SQL command: {query_str}')
 
         # code to transform the query into a pivot table
         # SQLite doesn't have a builtin Pivot function, so it must be done manually.
         if self.worksheet_tabs_dict[current_worksheet_name]['pivot']:
-            query_str = query_str.replace('LIMIT 250', '')
+            query_str = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
 
             # Any transactions shouldn't be present at this time, but just in case
             db = QSqlDatabase.database()
@@ -407,10 +409,10 @@ class ExportWidget(QWidget):
         # saves final string used for exporting, removed LIMIT, and saved model for future use.
         model = QSqlQueryModel()
         model.setQuery(query_str, db=self.database)
-        self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace('LIMIT 250', '')
+        self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 
-        # Remove LIMIT 250 from the original query string and build the COUNT query, for the count label
+        # Remove LIMIT {self.max_rows_to_display} from the original query string and build the COUNT query, for the count label
         counter_sql_query = f"SELECT COUNT('UPbAnalyses') FROM ({self.worksheet_tabs_dict[current_worksheet_name]['sql']}) AS SubQuery"
 
         # Prepare and execute the query
@@ -425,14 +427,16 @@ class ExportWidget(QWidget):
             # Move to the first record to retrieve the count
             if counter_query.next():
                 count = counter_query.value(0)
-                if count >= 250:
-                    self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Showing 250/{count} rows")
+                if count >= self.max_rows_to_display:
+                    self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Showing {self.max_rows_to_display}/{count} rows")
                 else:
                     self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Showing {count} rows")
             else:
                 # Handle case where query doesn't return a result
                 self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Number of Rows: 0")
 
+        while model.canFetchMore():
+            model.fetchMore()
         proxy_model = ReadableProxyModel()
         proxy_model.setSourceModel(model)
         proxy_model.original_headers = True
@@ -839,8 +843,8 @@ class ExportWidget(QWidget):
         pivot_checkbox.setFixedSize(150, 20)
         horizontal_layout.addWidget(pivot_checkbox)
 
-        # label to hold the number of rows returned from the SQL query, the tableview only shows the first 250 rows
-        # so 250/#### is common
+        # label to hold the number of rows returned from the SQL query, the tableview only shows the first {self.max_rows_to_display} rows
+        # so {self.max_rows_to_display}/#### is common
         counter_label = QLabel("Number of Rows: ")
         counter_label.setFixedSize(200, 20)
         horizontal_layout.addWidget(counter_label)

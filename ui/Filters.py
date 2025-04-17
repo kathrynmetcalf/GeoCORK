@@ -29,24 +29,45 @@ def process_json_to_sql(json_string, scope):
     logger_setup.get_logger().debug(f'Processing with scope: {scope}: {json_string}')
     json_string = json_string.replace("'", "\"")
     group = json.loads(json_string)
-    where, ctes = process_group(group)
+    where_clause, ctes = process_group(group)
+
     sql = ''
     if len(ctes) > 0:
         sql += "WITH " + ",\n".join(ctes) + "\n"
 
     table_names = process_table_names(group)
     join = SQLUtils.get_join_from_table("", table_names)
+
+    def extract_as_tables(join):
+        as_tables = None
+        select_tables = None
+        where_tables = None
+        if ' AS ' in join:
+            pattern = r'\s+\bAS\s+(\w+)'  # regex pattern to match ' AS ' and return the table name right after it
+            as_tables = re.findall(pattern, join)
+        if '.[' in where_clause:
+            pattern = r'\b(\w+)\.\['  # regex pattern to match the table name before '.['
+            where_tables = re.findall(pattern, where_clause)
+        return as_tables, select_tables, where_tables
+
+    as_tables, select_tables, where_tables = extract_as_tables(join)
+    if as_tables is not None:
+        for as_table in as_tables:
+            replace_table = SQLUtils.as_table_dict[as_table]
+            if replace_table in where_tables:
+                where_clause = where_clause.replace(replace_table, as_table)
+
     if scope == 'Samples':
-        sql += f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
     elif scope == 'Aliquots':
         join = SQLUtils.get_join_from_table(join, ['Aliquots'])
-        sql += f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
     elif scope == 'Spots':
         join = SQLUtils.get_join_from_table(join, ['Spots'])
-        sql += f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
     elif scope == 'UPbAnalyses':
         join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
-        sql += f"SELECT * FROM Samples {join} WHERE {where};"
+        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
     else:
         logger_setup.get_logger().critical(f"Unknown scope: {scope}")
     logger_setup.get_logger().debug(f"SQL generated successfully: {sql}")
