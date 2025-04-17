@@ -21,6 +21,7 @@ from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import settings
+from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import PartiallyCloseableTabWidget
 from Functions.Widget_classes import get_name_from_id, close_loading_dialog
 from ui.DisplayTables import DisplayTables
@@ -56,7 +57,7 @@ class GeoCORK(QtW.QMainWindow):
         self.db_file = self.landingpage.get_filename()
         self.update_window_title()
         self.recent_files = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
-        self.recent_files = self.recent_files[-6:-1]
+        self.recent_files = self.recent_files[0:5]
         menu_bar = self.menuBar()
         file_menu = menu_bar.addMenu('File')
         actionNew = QtG.QAction('New', self)
@@ -144,7 +145,7 @@ class GeoCORK(QtW.QMainWindow):
         self.menuRecent.clear()
         if self.recent_files:
             for file_path in self.recent_files:
-                action = QAction(file_path, self)
+                action = QAction(shrink_home(file_path), self)
                 action.triggered.connect(lambda checked, path=file_path: self.open_recent_file(path))
                 self.menuRecent.addAction(action)
         else:
@@ -155,7 +156,7 @@ class GeoCORK(QtW.QMainWindow):
     def open_recent_file(self, file_path):
         """Simulate opening a recent file."""
         self.update_recent_files_menu()
-        self.landingpage.selected_files = file_path
+        self.landingpage.selected_files = expand_home(file_path)
         self.landingpage.db = None
         self.landingpage.open_geo_cork()
 

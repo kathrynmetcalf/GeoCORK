@@ -21,6 +21,7 @@ from Functions.Create_database import create_tables
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 from ui.MergeDatabaseUI import MergeDatabaseDialog
 # from Functions.Create_database import create_tables
@@ -45,8 +46,8 @@ class LandingPage(QWidget):
 
         self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
 
-        for (i, item) in enumerate(self.list_recents):
-            self.listWidget.addItem(str(item))
+        for path in self.list_recents:
+            self.listWidget.addItem(shrink_home(path))
 
         self.newdatabase_button.clicked.connect(self.new_database_dialog)
 
@@ -145,8 +146,8 @@ class LandingPage(QWidget):
             self.listWidget.takeItem(0)
 
         # Repopulate the QListWidget with new items
-        for item in self.list_recents:
-            self.listWidget.addItem(str(item))
+        for path in self.list_recents:
+            self.listWidget.addItem(shrink_home(path))
 
     def restore_backup(self, db_file, backup_file):
         self.selected_files = db_file
@@ -200,10 +201,13 @@ class LandingPage(QWidget):
         msg_box.exec()
 
     def clicked_file(self):
-        self.selected_files = self.listWidget.currentItem().text()
+        display_path = self.listWidget.currentItem().text()
+        full_path = expand_home(display_path)
+        self.selected_files = full_path
+
         # Move the selected database to the top of the list
-        self.list_recents.remove(self.selected_files)
-        self.list_recents.insert(0, self.selected_files)
+        self.list_recents.remove(full_path)
+        self.list_recents.insert(0, full_path)
         settings.setValue("ui/LandingPage/recentlist", self.list_recents)
         self.db = None
         self.open_geo_cork()
@@ -257,8 +261,11 @@ class LandingPage(QWidget):
         if file_dialog.exec():
             self.selected_files = file_dialog.selectedFiles()[0]
             if self.selected_files not in self.list_recents:
-                self.list_recents.insert(0, self.selected_files) # Add the new database to the top of the list
+                self.list_recents.insert(0, self.selected_files)
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+                self.listWidget.clear()
+                for path in self.list_recents:
+                    self.listWidget.addItem(shrink_home(path))
             self.hide()
             self.open_geo_cork()
 
@@ -295,9 +302,8 @@ class LandingPage(QWidget):
         )
 
         if msg == QMessageBox.StandardButton.Yes:
-            for x in self.list_recents:
-                print(x == str(item.text()))
-            self.list_recents.remove(str(item.text()))
+            full_path = expand_home(item.text())
+            self.list_recents.remove(full_path)
             settings.setValue('ui/LandingPage/recentlist', self.list_recents)
 
             row = self.listWidget.row(item)
