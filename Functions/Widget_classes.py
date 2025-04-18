@@ -1232,6 +1232,40 @@ def get_id_from_name(table: str, name: str) -> int:
     query.next()
     return query.value(0)
 
+def column_as_list(query: str, column: int | str) -> list | None:
+    """
+    Get a column from a table as a list
+    :param query: SQL query string
+    :param column: column index or name
+    :return: list of values in the column
+    """
+    model = SQLiteTableModel(query)
+    if isinstance(column, int):
+        table = query.split('FROM ')[1].split(' ')[0]
+        if table in SQLUtils.table_attributes_dict.keys() or table in SQLUtils.view_attributes_dict.keys():
+            column = get_headers(table)[column]
+        else:
+            # Failed to isolate a table or a view, more complex query
+            logger_setup.get_logger().critical(f"Error retrieving column")
+            logger_setup.get_logger().debug(
+                f"{table} is not a valid table or view. Provide a column name instead of index")
+            logger_setup.get_logger().debug(f"Query: {query}")
+            return None
+    column_model_index = None
+    for col in range(model.columnCount()):
+        if model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole) == column:
+            column_model_index = col
+            break
+    if column_model_index is None:
+        logger_setup.get_logger().critical(f"Error retrieving column")
+        logger_setup.get_logger().debug(f"Column {column} is not in the query selection")
+        logger_setup.get_logger().debug(f"Query: {query}")
+        return None
+    column_data = []
+    for row in range(model.rowCount()):
+        column_data.append(model.index(row, column_model_index).data(Qt.ItemDataRole.DisplayRole))
+    return column_data
+
 def get_total_records(table: str, where:str='') -> int:
     """
     Get the total number of records in the table
@@ -1876,6 +1910,7 @@ class TreeModel(QtC.QAbstractProxyModel):
     def setup_model_data(self):
         # Add all nodes to the tree model
         # start with root item, look for children
+        # todo: figure out why aliquots tree builds so slowly
         logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
         start_build_time = time.time()
         root_id = 0

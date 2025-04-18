@@ -18,7 +18,8 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions import SQLUtils
 from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel, \
-    WordWrapDelegate, get_name_column, ReadableProxyModel, get_id_from_name, get_record_index
+    WordWrapDelegate, get_name_column, ReadableProxyModel, get_id_from_name, get_record_index, column_as_list, \
+    get_view_name_column
 from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import settings
@@ -127,10 +128,31 @@ class DataViewerWidget(QWidget):
             self.dbTable_comboBox.setText(self.data_table)
             return
         else:
+            if len(set(filtered_ids)) > 1000:
+                if not self.view_many_results(len(set(filtered_ids))):
+                    return
             self.setWindowTitle(f'Filtered {self.data_table} View')
             self.data_table = new_table
-            self.data_ids_to_show = filtered_ids
+            self.data_ids_to_show = set(filtered_ids)
             self.display_data_table()
+
+    def view_many_results(self, number: int) -> bool:
+        """
+        Prompts the user if they want to view many results. If they do, it returns True, otherwise False.
+        :param number: number of filtered ids
+        :return: bool
+        """
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setWindowTitle('Many results')
+        msg.setText(f'Would you like to view {number} results? This may take a while to load.')
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg.setDefaultButton(QMessageBox.StandardButton.Yes)
+        reply = msg.exec()
+        if reply == QMessageBox.StandardButton.Yes:
+            return True
+        else:
+            return False
 
     def display_data_table(self):
         """
@@ -169,9 +191,11 @@ class DataViewerWidget(QWidget):
                         f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
                     return
 
-            name_header = model.headerData(get_name_column(self.data_table), QtC.Qt.Orientation.Horizontal,
+            name_column = get_view_name_column(table)
+            if name_column is not None:
+                name_header = model.headerData(get_view_name_column(table), QtC.Qt.Orientation.Horizontal,
                                            QtC.Qt.ItemDataRole.DisplayRole)
-            self.set_go_to_completer(self.goto_line_edit, name_header, table)
+                self.set_go_to_completer(self.goto_line_edit, name_header, table)
 
             self.proxy_model = ReadableProxyModel()
             self.proxy_model.setSourceModel(model)
@@ -200,6 +224,8 @@ class DataViewerWidget(QWidget):
 
             self.dbTable_tableView.setSizeAdjustPolicy(
                 QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+            if get_view_name_column(table) is not None:
+                self.proxy_model.sort(get_view_name_column(table), QtC.Qt.SortOrder.AscendingOrder)
 
         elif self.data_table == 'Aliquots':
             if self.data_table not in SQLUtils.user_viewable_trees:
@@ -272,9 +298,14 @@ class DataViewerWidget(QWidget):
             self.current_selection = data_filter.selectionModel().selectedIndexes()
 
         self.data_filtered_table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
+        show_cols = ['*']
         if self.data_filtered_table == "References":
             # todo: references/columns should use view, requires changing all sql code to use view
-            self.data_filtered_table = '"References"'
+            self.data_filtered_table = 'ReferenceView'
+            show_cols = settings.value('reference_view_columns')
+        if self.data_filtered_table == 'Columns':
+            self.data_filtered_table = 'ColumnView'
+            show_cols = settings.value('column_view_columns')
 
         selected_data_filter_ids = set()
 
@@ -292,15 +323,16 @@ class DataViewerWidget(QWidget):
             as_table = self.data_filtered_table
 
         table_condition = ''
-        if self.data_filtered_table == 'References' or self.data_filtered_table == '"References"':
-            sql_table = 'UPbReferences'
+        if self.data_filtered_table == 'ReferenceView':
+            sql_table = 'UPbReferenceView'
         elif self.data_filtered_table == 'RejectionReasons':
             sql_table = 'UPbRejectionReasons'
         else:
-            sql_table = self.data_filtered_table
+            sql_table = as_table
 
-        sql = f'SELECT DISTINCT {sql_table}.* FROM Samples '
-        sql += SQLUtils.get_join_from_table("", [self.data_filtered_table] + [self.data_table])
+        sql_columns = ', '.join(f'{sql_table}.{column}' for column in show_cols)
+        sql = f'SELECT DISTINCT {sql_columns} FROM Samples '
+        sql += SQLUtils.get_join_from_table("", [sql_table] + [self.data_table])
         if selected_data_filter_ids:
             sql_selected_data_filter_ids = f'({", ".join([str(i) for i in selected_data_filter_ids])})'
             match self.data_table:
@@ -349,10 +381,10 @@ class DataViewerWidget(QWidget):
             model.select()
             id_col_name = get_headers(self.data_filtered_table)[0]
             filter_sql = f"""{id_col_name} IN (WITH RECURSIVE ParentTree AS
-                            (SELECT * FROM {self.data_filtered_table}
+                            (SELECT {', '.join(show_cols)} FROM {self.data_filtered_table}
                             WHERE {id_col_name} IN {self.sql_data_filtered_ids_to_show}
                             UNION ALL
-                            SELECT {self.data_filtered_table}.* FROM {self.data_filtered_table}
+                            SELECT {sql_columns} FROM {self.data_filtered_table}
                             INNER JOIN ParentTree ON {self.data_filtered_table}.{id_col_name} = ParentTree.Parent{id_col_name})
                             SELECT {id_col_name} FROM ParentTree)"""
 
@@ -382,14 +414,14 @@ class DataViewerWidget(QWidget):
                 lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, tree_proxy_model,
                                         self.dbTable_comboBox_2))
 
-        elif self.data_filtered_table in SQLUtils.user_viewable_tables or self.data_filtered_table == '"References"':
+        elif self.data_filtered_table in SQLUtils.user_viewable_tables or 'View' in self.data_filtered_table:
             self.switch_to_table_2(self.db_stackedWidget_2)
             offset = self.current_page_2 * self.rows_per_page_2
             model = QtS.QSqlQueryModel()
             self.proxy_model = ReadableProxyModel()
 
-            if self.data_filtered_table == '"References"':
-                self.data_filtered_table = 'ReferenceView'
+            # if self.data_filtered_table == '"References"':
+            #     self.data_filtered_table = 'ReferenceView'
 
             sql_query = f"""SELECT * FROM {self.data_filtered_table} WHERE 
                         {get_headers(self.data_filtered_table)[0]} IN {self.sql_data_filtered_ids_to_show}
@@ -398,6 +430,14 @@ class DataViewerWidget(QWidget):
             logger_setup.get_logger().debug(f'SQL query: {sql_query}')
             model.setQuery(sql_query)
             self.proxy_model.setSourceModel(model)
+            if self.data_table == 'Samples':
+                table = 'SampleView'
+            elif self.data_table == 'Spots':
+                table = 'SpotView'
+            elif self.data_table == 'UPbAnalyses':
+                table = 'UPbView'
+            else:
+                table = self.data_table
 
             self.proxy_model.setFilterKeyColumn(-1)  # search all columns
             self.dbTable_tableView_2.setModel(self.proxy_model)
@@ -406,6 +446,7 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView_2.resizeColumnsToContents()
             self.dbTable_tableView_2.setSortingEnabled(True)
             self.dbTable_tableView_2.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.proxy_model.sort(get_view_name_column(table), QtC.Qt.SortOrder.AscendingOrder)
 
             self.search_lineEdit_2.returnPressed.connect(
                 lambda: self.search(self.search_lineEdit_2, self.proxy_model))
@@ -536,16 +577,18 @@ class DataViewerWidget(QWidget):
                 sql_query = f'SELECT DISTINCT {name_header} FROM SpotView WHERE SpotID IN {self.sql_data_ids_to_show}'
             case 'UPbAnalyses':
                 sql_query = f'SELECT DISTINCT {name_header} FROM UPbView WHERE UPbAnalysisID IN {self.sql_data_ids_to_show}'
+            case '"References"':
+                sql_query = f'SELECT DISTINCT {name_header} FROM ReferenceView WHERE ReferenceID IN {self.sql_data_ids_to_show}'
+            case 'Columns':
+                sql_query = f'SELECT DISTINCT {name_header} FROM ColumnView WHERE ColumnID IN {self.sql_data_ids_to_show}'
             case _:
                 sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} IN {self.sql_data_ids_to_show}'
 
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-        if not query.exec(sql_query):
-            logger_setup.get_logger().critical(f'Error creating the completer for input')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        values = set()
-        while query.next():
-            values.add(str(query.value(0)))
+        all_names = column_as_list(sql_query, name_header)
+        if not all_names:
+            return
+        values = set(all_names)
         name_completer.setModel(QtC.QStringListModel(values))
         name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -731,7 +774,7 @@ class DataViewerWidget(QWidget):
         query = QSqlQuery()
 
         # Construct the SQL query
-        base_id_column = f"{table[:-1]}ID"
+        base_id_column = get_headers(table)[0]
         sql_query = f"""
                 SELECT row_number 
                 FROM (

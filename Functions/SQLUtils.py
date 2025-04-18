@@ -285,6 +285,7 @@ column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON Columns.ColumnTot
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID=Samples_AgeSignatures.SampleID
                                     LEFT JOIN AgeSignatures ON Samples_AgeSignatures.AgeSignatureID=AgeSignatures.AgeSignatureID'''
 column_join = 'LEFT JOIN Columns ON Samples.SampleColumnID=Columns.ColumnID'
+column_view_join = 'LEFT JOIN ColumnView on Samples.SampleColumnID=ColumnView.ColumnID'
 column_unit_join = '''LEFT JOIN DistanceUnits AS ColumnHeightDepthUnits ON Samples.HeightDepthUnitID=ColumnHeightDepthUnits.DistanceUnitID'''
 region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID=Samples_Regions.SampleID
                                 LEFT JOIN Regions ON Samples_Regions.RegionID=Regions.RegionID'''
@@ -321,6 +322,7 @@ spot_upb_analysis_join = 'LEFT JOIN UPbAnalyses ON Spots.SpotID=UPbAnalyses.Spot
 # UPbJoins
 upb_spot_join = 'LEFT JOIN Spots ON UPbAnalyses.SpotID=Spots.SpotID'
 upb_reference_join = 'LEFT JOIN "References" AS UPbReferences ON UPbAnalyses.ReferenceID=UPbReferences.ReferenceID'
+upb_reference_view_join = 'LEFT JOIN ReferenceView AS UPbReferenceView ON UPbAnalyses.ReferenceID=UPbReferenceView.ReferenceID'
 upb_labs_join = 'LEFT JOIN LabFacilities ON UPbAnalyses.LabFacilityID=LabFacilities.LabFacilityID'
 upb_instruments_join = 'LEFT JOIN Instruments ON UPbAnalyses.InstrumentID=Instruments.InstrumentID'
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalyses.UPbAnalysisMethodID=UPbAnalysisMethods.UPbAnalysisMethodID'
@@ -683,6 +685,7 @@ as_table_dict = {
     'ColumnGPSFormats': 'GPSFormats',
     'ColumnHeightDepthUnits': 'DistanceUnits',
     'UPbReferences': 'References',
+    'UPbReferenceView': 'ReferenceView',
     'RatioErrorFormats': 'ErrorFormats',
     'AgeErrorFormats': 'ErrorFormats',
     'UPbAgeUnits': 'AgeUnits',
@@ -1184,6 +1187,9 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
             case 'Columns':
                 if column_join not in join:
                     join += column_join + '\n'
+            case 'ColumnView':
+                if column_view_join not in join:
+                    join += column_view_join + '\n'
             case 'LabFacilities':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
@@ -1207,7 +1213,7 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_instruments_join not in join:
                     join += upb_instruments_join + '\n'
-            case 'References' | '"References"' | 'ReferenceView':
+            case 'References' | '"References"':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
                 if aliquot_spot_join not in join:
@@ -1216,6 +1222,15 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_reference_join not in join:
                     join += upb_reference_join + '\n'
+            case 'ReferenceView':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_reference_view_join not in join:
+                    join += upb_reference_view_join + '\n'
             case 'Regions':
                 if region_join not in join:
                     join += region_join + '\n'
@@ -1278,6 +1293,24 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_method_join not in join:
                     join += upb_method_join + '\n'
+            case 'UPbReferences':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_reference_join not in join:
+                    join += upb_reference_join + '\n'
+            case 'UPbReferenceView':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_reference_view_join not in join:
+                    join += upb_reference_view_join + '\n'
             case 'Units':
                 if unit_join not in join:
                     join += unit_join + '\n'

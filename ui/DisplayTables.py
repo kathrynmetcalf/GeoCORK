@@ -20,7 +20,7 @@ from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
-    get_record_index, close_loading_dialog, show_loading_dialog,
+    get_record_index, close_loading_dialog, show_loading_dialog, column_as_list,
     set_table, MaxWidthDelegate, get_id_from_name, scroll_to_record
 )
 import Functions.Text_manipulations as TxM
@@ -105,15 +105,12 @@ class DisplayTables(QtW.QWidget):
     def set_go_to_completer(self):
         # Populate the value input with a completer based on the selected attribute
 
-        query = QSqlQuery()
         sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-        if not query.exec(sql_query):
-            logger_setup.get_logger().critical(f'Error creating the completer for input')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        values = set()
-        while query.next():
-            values.add(query.value(0))
+        all_names = column_as_list(sql_query, self.name_header)
+        if not all_names:
+            return
+        values = set(all_names)
         self.name_completer.setModel(QtC.QStringListModel(values))
         self.name_completer.setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.name_completer.setCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)

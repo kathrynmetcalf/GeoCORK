@@ -1033,7 +1033,10 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().critical(
                 f'No matching Samples for given filter(s)')
             return
-        dataviewer = DataViewerWidget(self, filtered_ids, 'Samples')
+        if len(set(filtered_ids)) > 1000:
+            if not self.view_many_results(len(set(filtered_ids))):
+                return
+        dataviewer = DataViewerWidget(self, set(filtered_ids), 'Samples')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1048,7 +1051,10 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().critical(
                 f'No matching Aliquots for given filter(s)')
             return
-        dataviewer = DataViewerWidget(self, filtered_ids, 'Aliquots', )
+        if len(set(filtered_ids)) > 1000:
+            if not self.view_many_results(len(set(filtered_ids))):
+                return
+        dataviewer = DataViewerWidget(self, set(filtered_ids), 'Aliquots', )
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1063,7 +1069,10 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().critical(
                 f'No matching Spots for given filter(s)')
             return
-        dataviewer = DataViewerWidget(self, filtered_ids, 'Spots')
+        if len(set(filtered_ids)) > 1000:
+            if not self.view_many_results(len(set(filtered_ids))):
+                return
+        dataviewer = DataViewerWidget(self, set(filtered_ids), 'Spots')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
@@ -1078,11 +1087,32 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().critical(
                 f'No matching UPb Analyses for given filter(s)')
             return
-        dataviewer = DataViewerWidget(self, filtered_ids, 'UPbAnalyses')
+        if len(set(filtered_ids)) > 1000:
+            if not self.view_many_results(len(set(filtered_ids))):
+                return
+        dataviewer = DataViewerWidget(self, set(filtered_ids), 'UPbAnalyses')
         dataviewer.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         loop = QEventLoop()
         dataviewer.destroyed.connect(loop.quit)
         loop.exec()
+
+    def view_many_results(self, number: int) -> bool:
+        """
+        Prompts the user if they want to view many results. If they do, it returns True, otherwise False.
+        :param number: number of filtered ids
+        :return: bool
+        """
+        msg = QMessageBox(self)
+        msg.setIcon(QMessageBox.Icon.Question)
+        msg.setWindowTitle('Many results')
+        msg.setText(f'Would you like to view {number} results? This may take a while to load.')
+        msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        msg.setDefaultButton(QMessageBox.StandardButton.Yes)
+        reply = msg.exec()
+        if reply == QMessageBox.StandardButton.Yes:
+            return True
+        else:
+            return False
 
     def get_filtered_ids(self, type) -> list | None:
         '''
