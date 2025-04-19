@@ -94,7 +94,9 @@ class SQLiteTableModel(QAbstractTableModel):
 
     def setQuery(self, new_query: str):
         """Updates the model with a new query."""
+        set_time = time.time()
         self.load_data(new_query, self.database)
+        logger_setup.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
 
     def update_database(self, new_database: str):
         """Updates the model with a new database."""
@@ -1925,12 +1927,19 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def find_children(self, parent_id: int):
         # Find children of a given ID using the source_model's filtered data
-        self.source_model.setQuery(f"{self.base_query_sql}  "
-                                   f"{self.parent_id_header} is {parent_id if parent_id != 0 else 'NULL'}")
+        find_time = time.time()
         child_ids = []
         for row in range(self.source_model.rowCount()):
-            child_ids.append(self.source_model.record(row).value(0))
-
+            if parent_id == 0 and (self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) is None or
+                    self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) == ''):
+                child_ids.append(self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+            elif self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) == parent_id:
+                child_ids.append(self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+        # self.source_model.setQuery(f"{self.base_query_sql}  "
+        #                            f"{self.parent_id_header} is {parent_id if parent_id != 0 else 'NULL'}")
+        # for row in range(self.source_model.rowCount()):
+        #     child_ids.append(self.source_model.record(row).value(0))
+        logger_setup.get_logger().info(f'Found {len(child_ids)} child items in {time.time() - find_time} seconds')
         return child_ids
 
     def add_to_tree(self, child_ids: list, parent: TreeItem):
@@ -1938,16 +1947,27 @@ class TreeModel(QtC.QAbstractProxyModel):
             return
         # logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
         # logger_setup.get_logger().debug(f'Child IDs: {child_ids}')
+
         for child_id in child_ids:
-            self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
-            if self.source_model.rowCount() > 0:
-                record = self.source_model.record(0)
-                item = TreeItem(record, parent)
-                logger_setup.get_logger().info(f'Added {record.value(3)}')
-                parent.appendChild(item)
-                # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
-                new_child_ids = self.find_children(child_id)
-                self.add_to_tree(new_child_ids, item)
+            add_time = time.time()
+            for row in range(self.source_model.rowCount()):
+                if self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == child_id:
+                    record = self.source_model.record(row)
+                    item = TreeItem(record, parent)
+                    parent.appendChild(item)
+                    # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
+                    logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
+                    new_child_ids = self.find_children(child_id)
+                    self.add_to_tree(new_child_ids, item)
+            # self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
+            # if self.source_model.rowCount() > 0:
+            #     record = self.source_model.record(0)
+            #     item = TreeItem(record, parent)
+            #     parent.appendChild(item)
+            #     # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
+            #     logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time()-add_time} seconds')
+            #     new_child_ids = self.find_children(child_id)
+            #     self.add_to_tree(new_child_ids, item)
 
     def add_top_item(self, data):
         TreeItem(data, 0)
@@ -1977,6 +1997,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                     self.source_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
     def header_variables(self):
+        if len(self.sourceHeaders) == 0:
+            return
         self.id_header = self.sourceHeaders[0]
         self.parent_id_header = self.sourceHeaders[1]
         self.parent_row_header = self.sourceHeaders[2]
@@ -2154,12 +2176,12 @@ class TreeModel(QtC.QAbstractProxyModel):
         else:
             parentID = int(p_id[2:])
         self.source_model.setQuery(
-            f"{self.base_query_sql}  {self.id_header} is {item_id} AND {self.parent_id_header} {p_id} AND {self.parent_row_header} is {row}")
+            f"{self.base_query_sql} {self.id_header} is {item_id} AND {self.parent_id_header} {p_id} AND {self.parent_row_header} is {row}")
         if self.source_model.rowCount() > 0:
             # If the item is already in the correct place, do nothing
             return True
         self.source_model.setQuery(
-            f"{self.base_query_sql}  {self.id_header} is {item_id}")  # Only one record for each item ID
+            f"{self.base_query_sql} {self.id_header} is {item_id}")  # Only one record for each item ID
         oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
         if isinstance(oldParentID, int):
             opID = f'= {oldParentID}'
@@ -4533,9 +4555,6 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
         logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
         return True
-    if not checked_ids:
-        logger_setup.get_logger().info(f'No checked items to update.')
-        return True
     id_header = get_headers(table)[0]
     other_id_header = get_headers(update_table)[0]
     current_ids = []
@@ -4553,11 +4572,12 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         return False
     while query.next():
         current_id = query.value(0)
-        if current_id not in current_ids:
-            current_ids.append(current_id)
+        if current_id != '':
+            if int(current_id) not in current_ids:
+                current_ids.append(int(current_id))
     if current_ids == checked_ids:
         logger_setup.get_logger().info(f'Checks are up to date')
-        return True
+        return False
     create_savepoint('update_other_table')
     if len(checked_ids) == 1:
         if not query.exec(f'UPDATE {update_table} SET {id_header} = {checked_ids[0]} WHERE {other_id_header} {query_where_str}'):
@@ -4572,7 +4592,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     else:
         logger_setup.get_logger().critical(f'Too many checks for {update_table}')
 
-def update_many_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, many_table: str, first_table_ids: list):
+def update_many_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, many_table: str, first_table_ids: list) -> bool:
     """
         Take the checked ids from a table and update that field in the second column of a many-to-many table with another table.
         The relationship must be many-to-many, so the checked ids may be partial.
@@ -4581,6 +4601,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
         :param partially_checked_ids: ids of partially checked items in the table
         :param many_table: first table in the manny-to-many table to update
         :param first_table_ids: ids to update in the first table
+        :return: True if successful or not needed, False if not
     """
     first_table = many_table.split('_')[0]
     second_table = many_table.split('_')[1]
@@ -4628,7 +4649,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     if to_add == [] and to_remove == []:
         logger_setup.get_logger().info(f'No changes to {many_table}')
         release_savepoint('update_many_table')
-        return True
+        return False
     if to_remove:
         for id in to_remove:
             query.prepare(

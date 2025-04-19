@@ -430,6 +430,11 @@ class EditView(QtW.QDialog):
         self.edit_tableView.horizontalHeader().sectionResized.connect(self.optimizeVerticalResize)
         self.edit_tableView.verticalHeader().sectionResized.connect(self.optimizeVerticalResize)
 
+        self.edit_tableView.resizeColumnsToContents()
+        for column in range(self.proxy_model.columnCount()):
+            if self.edit_tableView.columnWidth(column) > 400:
+                self.edit_tableView.setColumnWidth(column, 400)
+
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
         end_time = time.time()
         logger_setup.get_logger().info(f'Displayed {self.table} in {end_time - start_time} seconds')
@@ -602,10 +607,10 @@ class EditView(QtW.QDialog):
                 else:
                     logger_setup.get_logger().critical(f'Failed to set data in the table')
                     self.destroy_lineedit()
-                    return False
+                    return
             logger_setup.get_logger().info('Data saved from line edit')
             self.destroy_lineedit()
-            return True
+            return
 
     def destroy_lineedit(self):
         try:
@@ -712,7 +717,7 @@ class EditView(QtW.QDialog):
         if self.combo is not None:
             combo = self.combo
         else:
-            return False
+            return
         updated = False
         if not self.combo_index.isValid():
             model_indexes = []
@@ -732,14 +737,14 @@ class EditView(QtW.QDialog):
         if not selected_ids or len(selected_ids) < 1:
             logger_setup.get_logger().critical('No selected ids found')
             self.destroy_dropdown()
-            return False
+            return
         # Figure out which table to update and which IDs to update
         if 'GPS' in self.dropdown_table or 'Elevation' in self.dropdown_table:
-            # GPS and Elevation are updated in the GPSDialog
-            updated = True
+            # GPS and Elevation are updated in the GPSDialog, updated handled when dialog closed
+            pass
         elif 'SampleAge' in self.dropdown_table and 'AgeSignature' not in self.dropdown_table:
-            # SampleAge is updated in the AgeDialog
-            updated = True
+            # SampleAge is updated in the AgeDialog, updated handled when dialog closed
+            pass
         elif self.dropdown_table == 'Rejected' and self.table == 'UPbAnalyses':
             # Only the UPb views have an editable Rejected column
             if combo.currentText() == 'Accepted':
@@ -751,6 +756,17 @@ class EditView(QtW.QDialog):
                 sql_where_str = f'= {selected_ids[0]}'
             else:
                 sql_where_str = f'IN {tuple(selected_ids)}'
+            if not query.exec(f'SELECT REJECTED FROM {self.table} WHERE {self.table_headers[0]} {sql_where_str}'):
+                logger_setup.get_logger().critical(f'Failed to get existing value')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            existing = set()
+            while query.next():
+                existing.add(query.value(0))
+            if len(existing) == 1 and list(existing)[0] == value:
+                logger_setup.get_logger().info(f'No change to Rejected value')
+                self.destroy_dropdown()
+                return
             create_savepoint('before_edit_rejected')
             if not query.exec(
                     f'UPDATE {self.table} SET Rejected = {value} WHERE {self.table_headers[0]} {sql_where_str}'):
@@ -758,7 +774,7 @@ class EditView(QtW.QDialog):
                     f'Failed to update Rejected for {selected_ids}: {query.lastError().text()}')
                 rollback_savepoint('before_edit_rejected')
                 self.destroy_dropdown()
-                return False
+                return
             release_savepoint('before_edit_rejected')
             updated = True
         else:
@@ -768,23 +784,23 @@ class EditView(QtW.QDialog):
                 if '_' in edit_table:
                     # Many-to-many table
                     if not combo.model().update_many_table(edit_table, edit_ids):
-                        logger_setup.get_logger().critical(f'Failed to update {edit_table}')
+                        logger_setup.get_logger().info(f'{edit_table} was not updated')
                         self.destroy_dropdown()
-                        return False
+                        return
                     updated = True
                 else:
                     if isinstance(self.combo_model,
                                   CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
                         if not combo.model().update_other_table(edit_table, edit_ids):
-                            logger_setup.get_logger().critical(f'Failed to update {edit_table}')
+                            logger_setup.get_logger().info(f'{edit_table} was not updated')
                             self.destroy_dropdown()
-                            return False
+                            return
                     else:
                         clicked_id = get_id_from_name(self.combo_model.tableName(), combo.currentText())
                         if not clicked_id:
                             logger_setup.get_logger().info(f'No ID found for {combo.currentText()}')
                             self.destroy_dropdown()
-                            return False
+                            return
                         header = get_headers(self.combo_model.tableName())[0]
                         if header not in get_headers(edit_table):
                             header = view_headers[0]
@@ -805,14 +821,14 @@ class EditView(QtW.QDialog):
                             logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                             rollback_savepoint('before_edit_id')
                             self.destroy_dropdown()
-                            return False
+                            return
                         release_savepoint('before_edit_id')
-                    updated = True
         for model_index in model_indexes:
             if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                logger_setup.get_logger().critical(f'Failed to set data: {self.model.last_error}')
+                logger_setup.get_logger().critical(f'Error updating view')
+                logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
                 self.destroy_dropdown()
-                return False
+                return
         if updated:
             self.updated = True
             for model_index in model_indexes:
@@ -824,7 +840,7 @@ class EditView(QtW.QDialog):
         self.combo = combo
         logger_setup.get_logger().info('Data saved from dropdown')
         self.destroy_dropdown()
-        return True
+        return
 
     def destroy_dropdown(self):
         # combo.activated.disconnect(self.save_dropdown_data)

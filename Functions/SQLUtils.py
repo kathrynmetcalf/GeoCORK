@@ -1173,6 +1173,20 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += sample_sampleage_join + '\n'
                 if sample_age_join not in join:
                     join += sample_age_join + '\n'
+            case 'OldAge':
+                if sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
+                if sample_age_join not in join:
+                    join += sample_age_join + '\n'
+                if sample_age_left_joins not in join:
+                    join += sample_age_left_joins + '\n'
+            case 'YoungAge':
+                if sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
+                if sample_age_join not in join:
+                    join += sample_age_join + '\n'
+                if sample_age_left_joins not in join:
+                    join += sample_age_left_joins + '\n'
             case 'AgeSignatures':
                 if age_signature_join not in join:
                     join += age_signature_join + '\n'

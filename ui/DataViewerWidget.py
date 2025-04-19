@@ -297,7 +297,12 @@ class DataViewerWidget(QWidget):
         else:
             self.current_selection = data_filter.selectionModel().selectedIndexes()
 
+        self.edit_pushButton_2.setText(f"Edit {self.dbTable_comboBox_2.currentText()}")
         self.data_filtered_table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
+        if self.data_filtered_table == 'Ages':
+            self.edit_pushButton_2.hide()
+        else:
+            self.edit_pushButton_2.show()
         show_cols = ['*']
         if self.data_filtered_table == "References":
             # todo: references/columns should use view, requires changing all sql code to use view
@@ -374,6 +379,7 @@ class DataViewerWidget(QWidget):
         except:
             pass
 
+        sql_columns = ', '.join(f'{self.data_filtered_table}.{column}' for column in show_cols)
         if self.data_filtered_table in SQLUtils.user_viewable_trees:
             self.switch_to_tree_2(self.db_stackedWidget_2)
             model = QtS.QSqlTableModel()
