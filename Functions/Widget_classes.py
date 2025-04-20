@@ -1163,8 +1163,12 @@ def get_name_column(table: str) -> int | None:
         return 5
     elif table == 'SpotView':
         return 5
-    elif table == 'UPbView' or table == 'UPbAnalyses':
-        return 5
+    elif table == 'UPbAnalyses':
+        # Use UPbAnalysisID
+        return 0
+    elif table == 'UPbView':
+        # Use spot name
+        return 4
     else:
         return None
 
@@ -1191,8 +1195,42 @@ def get_table_from_view(view: str):
     else:
         return view
 
+def get_view_from_table(table: str):
+    if table == 'Samples':
+        return 'SampleView'
+    elif table == 'Aliquots':
+        return 'AliquotView'
+    elif table == 'Spots':
+        return 'SpotView'
+    elif table == 'UPbAnalyses':
+        return 'UPbView'
+    elif table == 'Columns':
+        return 'ColumnView'
+    elif table == 'References':
+        return 'ReferenceView'
+    else:
+        return table
+
+def get_edit_view_from_table(table: str):
+    if table == 'Samples':
+        return 'SampleEditView'
+    elif table == 'Aliquots':
+        return 'AliquotEditView'
+    elif table == 'Spots':
+        return 'SpotEditView'
+    elif table == 'UPbAnalyses':
+        return 'UPbEditView'
+    elif table == 'Columns':
+        return 'ColumnEditView'
+    elif table == 'References':
+        return 'ReferenceEditView'
+    else:
+        return table
+
 def get_view_name_column(view: str) -> int | None:
     table = get_table_from_view(view)
+    if 'View' not in table:
+        table = get_view_from_table(table)
     table_name_col = get_name_column(table)
     if table_name_col is not None:
         # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
@@ -1929,16 +1967,17 @@ class TreeModel(QtC.QAbstractProxyModel):
         # Find children of a given ID using the source_model's filtered data
         find_time = time.time()
         child_ids = []
+        parent_rows = []
         for row in range(self.source_model.rowCount()):
             if parent_id == 0 and (self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) is None or
                     self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) == ''):
                 child_ids.append(self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                parent_rows.append(self.source_model.index(row, 2).data(QtC.Qt.ItemDataRole.DisplayRole))
             elif self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) == parent_id:
                 child_ids.append(self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-        # self.source_model.setQuery(f"{self.base_query_sql}  "
-        #                            f"{self.parent_id_header} is {parent_id if parent_id != 0 else 'NULL'}")
-        # for row in range(self.source_model.rowCount()):
-        #     child_ids.append(self.source_model.record(row).value(0))
+                parent_rows.append(self.source_model.index(row, 2).data(QtC.Qt.ItemDataRole.DisplayRole))
+        # Order child IDs by parent row
+        child_ids = [x for _, x in sorted(zip(parent_rows, child_ids))]
         logger_setup.get_logger().info(f'Found {len(child_ids)} child items in {time.time() - find_time} seconds')
         return child_ids
 
@@ -2508,7 +2547,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             return False
         for move in range(len(itemIDs)):
             self.source_model.setQuery(
-                f"{self.base_query_sql}  {self.id_header} is {itemIDs[move]}")  # Only one record for each item ID
+                f"{self.base_query_sql} {self.id_header} is {itemIDs[move]}")  # Only one record for each item ID
             oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
             if self.table == 'Aliquots' and parentID == oldParentID:
                 logger_setup.get_logger().info(f"Cannot reorder top-level aliquots")

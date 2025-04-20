@@ -52,10 +52,14 @@ class DataViewerWidget(QWidget):
 
         self.loadWindowState()
 
-        self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
+        # Remove Samples from user-viewable tables
+        list = SQLUtils.user_viewable_tables
+        list.remove('Samples')
+        self.dbTable_comboBox_2.addItems(list)
         self.dbTable_comboBox_2.setCurrentText(self.data_filtered_table)
 
         self.dbTable_comboBox.addItems(['Samples', 'Aliquots', 'Spots', 'UPbAnalyses'])
+        self.dbTable_comboBox.setCurrentText(self.data_table)
 
         self.dbTable_comboBox.currentTextChanged.connect(self.data_table_switcher)
 
@@ -95,10 +99,6 @@ class DataViewerWidget(QWidget):
         self.selectionTimer.setSingleShot(True)
         self.selectionTimer.timeout.connect(self.display_table_with_data_filter)
         self.display_data_table()
-        if self.data_table == 'Aliquots':
-            self.dbTable_treeView.selectionModel().selectionChanged.connect(self.on_select_changed)
-        else:
-            self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
 
         self.show()
         end_time = time.time()
@@ -111,13 +111,19 @@ class DataViewerWidget(QWidget):
     def sql_data_ids_to_show(self) -> str:
         if not self.data_ids_to_show:
             return '()'
-        return f'({", ".join([str(i) for i in self.data_ids_to_show])})'
+        elif len(self.data_ids_to_show) == 1:
+            return f'= {str(list(self.data_ids_to_show)[0])}'
+        else:
+            return f'IN ({", ".join([str(i) for i in self.data_ids_to_show])})'
 
     @property
     def sql_data_filtered_ids_to_show(self) -> str:
         if not self.data_filtered_ids_to_show:
-            return '()'
-        return f'({", ".join([str(i) for i in self.data_filtered_ids_to_show])})'
+            return 'IN ()'
+        elif len(self.data_filtered_ids_to_show) == 1:
+            return f'= {str(list(self.data_filtered_ids_to_show)[0])}'
+        else:
+            return f'IN ({", ".join([str(i) for i in self.data_filtered_ids_to_show])})'
 
     def data_table_switcher(self):
         new_table = self.dbTable_comboBox.currentText()
@@ -175,17 +181,17 @@ class DataViewerWidget(QWidget):
                     table = 'SampleView'
                     show_cols = ', '.join(settings.value('sample_view_columns'))
                     model = SQLiteTableModel(
-                        f'SELECT {show_cols} FROM {table} WHERE SampleID IN {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                        f'SELECT {show_cols} FROM {table} WHERE SampleID {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case 'Spots':
                     table = 'SpotView'
                     show_cols = ', '.join(settings.value('spot_view_columns'))
                     model = SQLiteTableModel(
-                        f'SELECT {show_cols} FROM {table} WHERE SpotID IN {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                        f'SELECT {show_cols} FROM {table} WHERE SpotID {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case 'UPbAnalyses':
                     table = 'UPbView'
                     show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
                     model = SQLiteTableModel(
-                        f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID IN {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
+                        f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case _:
                     logger_setup.get_logger().critical(
                         f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
@@ -236,22 +242,18 @@ class DataViewerWidget(QWidget):
                 self.switch_to_tree(self.db_stackedWidget)
                 show_cols = ', '.join(settings.value('aliquot_view_columns'))
                 source_model = SQLiteTableModel(
-                    f'SELECT {show_cols} FROM {table} WHERE AliquotID IN {self.sql_data_ids_to_show} ORDER BY SampleName')
+                    f'SELECT {show_cols} FROM {table} WHERE AliquotID {self.sql_data_ids_to_show} ORDER BY SampleName')
             else:
                 logger_setup.get_logger().info(f"Passed a tree that is not Aliquots")
                 return
 
             tree_model = TreeModel(source_model, self)
 
-            self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-
-
-            self.dbTable_treeView.setSortingEnabled(False)
-
             proxy_model = ReadableProxyModel()
             proxy_model.setSourceModel(tree_model)
             tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
             tree_proxy_model.setSourceModel(tree_model)
+            tree_proxy_model.sort(5, QtC.Qt.SortOrder.AscendingOrder)
             self.dbTable_treeView.setModel(tree_proxy_model)
             self.dbTable_treeView.expandAll()
 
@@ -267,6 +269,11 @@ class DataViewerWidget(QWidget):
                 f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
 
         self.edit_pushButton.setText(f"Edit {self.data_table}")
+
+        if self.data_table == 'Aliquots':
+            self.dbTable_treeView.selectionModel().selectionChanged.connect(self.on_select_changed)
+        else:
+            self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.data_table}...')
 
@@ -305,19 +312,22 @@ class DataViewerWidget(QWidget):
             self.edit_pushButton_2.show()
         show_cols = ['*']
         if self.data_filtered_table == "References":
-            # todo: references/columns should use view, requires changing all sql code to use view
             self.data_filtered_table = 'ReferenceView'
             show_cols = settings.value('reference_view_columns')
-        if self.data_filtered_table == 'Columns':
+        elif self.data_filtered_table == 'Columns':
             self.data_filtered_table = 'ColumnView'
             show_cols = settings.value('column_view_columns')
 
         selected_data_filter_ids = set()
 
         self.current_selection = data_filter.selectionModel().selectedIndexes()
+        if self.data_table == 'Aliquots':
+            id_column = 1
+        else:
+            id_column = 0
         for index in data_filter.selectionModel().selectedIndexes():
             # gathers selected SampleID, AliquotID, SpotID, or UPbAnalysisID for data_filter where query
-            selected_data_filter_ids.add(str(data_filter.model().index(index.row(), 0).data()))
+            selected_data_filter_ids.add(str(data_filter.model().index(index.row(), id_column).data()))
 
         if self.data_filtered_table in SQLUtils.as_table_dict.values():
             for key, value in SQLUtils.as_table_dict.items():
@@ -339,16 +349,19 @@ class DataViewerWidget(QWidget):
         sql = f'SELECT DISTINCT {sql_columns} FROM Samples '
         sql += SQLUtils.get_join_from_table("", [sql_table] + [self.data_table])
         if selected_data_filter_ids:
-            sql_selected_data_filter_ids = f'({", ".join([str(i) for i in selected_data_filter_ids])})'
+            if len(selected_data_filter_ids) > 1:
+                sql_selected_data_filter_ids = f'IN ({", ".join([str(i) for i in selected_data_filter_ids])})'
+            else:
+                sql_selected_data_filter_ids = f'= {str(list(selected_data_filter_ids)[0])}'
             match self.data_table:
                 case 'Samples':
-                    table_condition = f" WHERE Samples.SampleID IN {sql_selected_data_filter_ids}"
+                    table_condition = f" WHERE Samples.SampleID {sql_selected_data_filter_ids}"
                 case 'Aliquots':
-                    table_condition = f" WHERE Aliquots.AliquotID IN {sql_selected_data_filter_ids}"
+                    table_condition = f" WHERE Aliquots.AliquotID {sql_selected_data_filter_ids}"
                 case 'Spots':
-                    table_condition = f" WHERE Spots.SpotID IN {sql_selected_data_filter_ids}"
+                    table_condition = f" WHERE Spots.SpotID {sql_selected_data_filter_ids}"
                 case 'UPbAnalyses':
-                    table_condition = f" WHERE UPbAnalyses.UPbAnalysisID IN {sql_selected_data_filter_ids}"
+                    table_condition = f" WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
 
         sql += table_condition
         logger_setup.get_logger().debug(f'Distinct Filtered Selection SQL Command: {sql}')
@@ -365,8 +378,9 @@ class DataViewerWidget(QWidget):
                     self.data_filtered_ids_to_show.add(str(row_id))
         else:
             logger_setup.get_logger().critical(
-                f'Error in displaying table with selection-based filter: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql}')
+                f'Error in displaying table with selection-based filter')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {sql}')
 
         # Update the id_condition attribute
 
@@ -388,7 +402,7 @@ class DataViewerWidget(QWidget):
             id_col_name = get_headers(self.data_filtered_table)[0]
             filter_sql = f"""{id_col_name} IN (WITH RECURSIVE ParentTree AS
                             (SELECT {', '.join(show_cols)} FROM {self.data_filtered_table}
-                            WHERE {id_col_name} IN {self.sql_data_filtered_ids_to_show}
+                            WHERE {id_col_name} {self.sql_data_filtered_ids_to_show}
                             UNION ALL
                             SELECT {sql_columns} FROM {self.data_filtered_table}
                             INNER JOIN ParentTree ON {self.data_filtered_table}.{id_col_name} = ParentTree.Parent{id_col_name})
@@ -399,19 +413,19 @@ class DataViewerWidget(QWidget):
 
             tree_model = TreeModel(model, self)
 
-            self.dbTable_treeView_2.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-            self.dbTable_treeView_2.hideColumn(1)  # don't show ID column
-            self.dbTable_treeView_2.hideColumn(2)  # don't show parent ID column
-            self.dbTable_treeView_2.hideColumn(3)  # don't show parent row column
-            # self.dbTable_treeView_2.hideColumn(4)  # don't show sample ID column
-            self.dbTable_treeView_2.setSortingEnabled(False)
-
             self.proxy_model = ReadableProxyModel()
             self.proxy_model.setSourceModel(tree_model)
             tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView_2)
             tree_proxy_model.setSourceModel(self.proxy_model)
             self.dbTable_treeView_2.setModel(tree_proxy_model)
             self.dbTable_treeView_2.expandAll()
+
+            self.dbTable_treeView_2.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+            self.dbTable_treeView_2.hideColumn(1)  # don't show ID column
+            self.dbTable_treeView_2.hideColumn(2)  # don't show parent ID column
+            self.dbTable_treeView_2.hideColumn(3)  # don't show parent row column
+            # self.dbTable_treeView_2.hideColumn(4)  # don't show sample ID column
+            self.dbTable_treeView_2.setSortingEnabled(False)
 
             self.search_lineEdit_2.returnPressed.connect(
                 lambda: self.search(self.search_lineEdit_2, tree_proxy_model, self.dbTable_treeView_2))
@@ -430,7 +444,7 @@ class DataViewerWidget(QWidget):
             #     self.data_filtered_table = 'ReferenceView'
 
             sql_query = f"""SELECT * FROM {self.data_filtered_table} WHERE 
-                        {get_headers(self.data_filtered_table)[0]} IN {self.sql_data_filtered_ids_to_show}
+                        {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}
                         ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
 
             logger_setup.get_logger().debug(f'SQL query: {sql_query}')
@@ -578,17 +592,17 @@ class DataViewerWidget(QWidget):
         query = QSqlQuery()
         match self.data_table:
             case 'Samples':
-                sql_query = f'SELECT DISTINCT {name_header} FROM SampleView WHERE SampleID IN {self.sql_data_ids_to_show}'
+                sql_query = f'SELECT DISTINCT {name_header} FROM SampleView WHERE SampleID {self.sql_data_ids_to_show}'
             case 'Spots':
-                sql_query = f'SELECT DISTINCT {name_header} FROM SpotView WHERE SpotID IN {self.sql_data_ids_to_show}'
+                sql_query = f'SELECT DISTINCT {name_header} FROM SpotView WHERE SpotID {self.sql_data_ids_to_show}'
             case 'UPbAnalyses':
-                sql_query = f'SELECT DISTINCT {name_header} FROM UPbView WHERE UPbAnalysisID IN {self.sql_data_ids_to_show}'
+                sql_query = f'SELECT DISTINCT {name_header} FROM UPbView WHERE UPbAnalysisID {self.sql_data_ids_to_show}'
             case '"References"':
-                sql_query = f'SELECT DISTINCT {name_header} FROM ReferenceView WHERE ReferenceID IN {self.sql_data_ids_to_show}'
+                sql_query = f'SELECT DISTINCT {name_header} FROM ReferenceView WHERE ReferenceID {self.sql_data_ids_to_show}'
             case 'Columns':
-                sql_query = f'SELECT DISTINCT {name_header} FROM ColumnView WHERE ColumnID IN {self.sql_data_ids_to_show}'
+                sql_query = f'SELECT DISTINCT {name_header} FROM ColumnView WHERE ColumnID {self.sql_data_ids_to_show}'
             case _:
-                sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} IN {self.sql_data_ids_to_show}'
+                sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {self.sql_data_ids_to_show}'
 
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         all_names = column_as_list(sql_query, name_header)
@@ -603,23 +617,21 @@ class DataViewerWidget(QWidget):
         lineedit.setCompleter(name_completer)
 
     def hide_columns(self, db_view, table):
+        hidden_columns = []
         match table:
             case 'SampleView':
-                db_view.hideColumn(0)  # don't show SampleID column
+                hidden_columns = [0]  # don't show SampleID column
             case 'AliquotView':
-                db_view.hideColumn(1)  # don't show AliquotID
-                db_view.hideColumn(2)  # don't show ParentAliquotID
-                db_view.hideColumn(3)  # don't show AliquotParentRow
-                db_view.hideColumn(4)  # don't show SampleID
+                hidden_columns = [1, 2, 3, 4]  # don't show AliquotID, ParentAliquotID, AliquotParentRow, SampleID
             case 'SpotView':
-                db_view.hideColumn(0)  # don't show SpotID
-                db_view.hideColumn(1)  # don't show SampleID
-                db_view.hideColumn(2)  # don't show AliquotID
+                hidden_columns = [0, 1, 2]  # don't show SpotID, SampleID, AliquotID
             case 'UPbView':
-                db_view.hideColumn(0)  # don't show UPbAnalysisID
-                db_view.hideColumn(1)  # don't show SampleID
-                db_view.hideColumn(2)  # don't show AliquotID
-                db_view.hideColumn(3)  # don't show SpotID
+                hidden_columns = [0, 1, 2, 3]  # don't show UPbAnalysisID, SampleID, AliquotID, SpotID
+        for column in range(db_view.model().columnCount()):
+            if column in hidden_columns:
+                db_view.hideColumn(column)
+            else:
+                db_view.showColumn(column)
 
     def search(self, search_lineEdit, proxy_model, dbTable_treeView=None):
         """
@@ -730,7 +742,7 @@ class DataViewerWidget(QWidget):
         """
         query = QSqlQuery()
 
-        sql_query = f"SELECT COUNT(*) FROM {self.data_table} WHERE {get_headers(self.data_table)[0]} IN {self.sql_data_ids_to_show}"
+        sql_query = f"SELECT COUNT(*) FROM {self.data_table} WHERE {get_headers(self.data_table)[0]} {self.sql_data_ids_to_show}"
 
         # Execute the query
         logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_table}')
@@ -753,7 +765,7 @@ class DataViewerWidget(QWidget):
         Get the total number of records in the Samples table
         """
         query = QSqlQuery()
-        sql_query = f"SELECT COUNT(*) FROM {self.data_filtered_table} WHERE {get_headers(self.data_filtered_table)[0]} IN {self.sql_data_filtered_ids_to_show}"
+        sql_query = f"SELECT COUNT(*) FROM {self.data_filtered_table} WHERE {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}"
 
         # Execute the query
         logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_filtered_table}')
@@ -786,7 +798,7 @@ class DataViewerWidget(QWidget):
                 FROM (
                     SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} 
                     FROM {table} 
-                    WHERE {base_id_column} IN {self.data_ids_to_show}
+                    WHERE {base_id_column} {self.data_ids_to_show}
                 ) 
                 WHERE {base_id_column} = :record_id
             """
