@@ -7,7 +7,7 @@ import webbrowser
 from PyQt6 import QtCore as QtC, QtWidgets
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression
+from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression, QAbstractItemModel
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton, QMessageBox, \
     QCompleter, QLineEdit, QStackedWidget, QTableWidgetItem
@@ -177,6 +177,8 @@ class DataViewerWidget(QWidget):
             return
 
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.data_table}...')
+        self.data_table_model = None
+        self.data_table_proxy_model = None
 
         if self.data_table != 'Aliquots':
             self.switch_to_table(self.db_stackedWidget)
@@ -248,19 +250,19 @@ class DataViewerWidget(QWidget):
                 table = 'AliquotView'
                 self.switch_to_tree(self.db_stackedWidget)
                 show_cols = ', '.join(settings.value('aliquot_view_columns'))
-                self.data_table_model = SQLiteTableModel(
+                model = SQLiteTableModel(
                     f'SELECT {show_cols} FROM {table} WHERE AliquotID {self.sql_data_ids_to_show} ORDER BY SampleName')
             else:
                 logger_setup.get_logger().info(f"Passed a tree that is not Aliquots")
                 return
 
-            tree_model = TreeModel(self.data_table_model, self)
+            self.data_table_model = TreeModel(model, self)
 
             # proxy_model = ReadableProxyModel()
             # proxy_model.setSourceModel(self.data_table_model)
             self.data_table_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
-            self.data_table_proxy_model.setSourceModel(tree_model)
-            self.data_table_proxy_model.sort(5, QtC.Qt.SortOrder.AscendingOrder)
+            self.data_table_proxy_model.setSourceModel(self.data_table_model)
+            # self.data_table_proxy_model.sort(5, QtC.Qt.SortOrder.AscendingOrder)
             self.dbTable_treeView.setModel(self.data_table_proxy_model)
             self.dbTable_treeView.expandAll()
 
@@ -308,6 +310,8 @@ class DataViewerWidget(QWidget):
             return
         else:
             self.current_selection = data_filter.selectionModel().selectedIndexes()
+        self.data_filtered_table_model = None
+        self.data_filtered_table_proxy_model = None
 
         self.edit_pushButton_2.setText(f"Edit {self.dbTable_comboBox_2.currentText()}")
         self.data_filtered_table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
@@ -331,13 +335,23 @@ class DataViewerWidget(QWidget):
         else:
             id_column = 0
 
-        proxy = self.data_table_proxy_model  # QSortFilterProxyModel or tree proxy
-        source = self.data_table_model  # underlying QAbstractItemModel
+        proxy = self.data_table_proxy_model  # proxy on the view
+        source = self.data_table_model  # underlying model
 
-        for proxy_idx in data_filter.selectionModel().selectedRows(id_column):
-            source_id_idx = proxy.mapToSource(proxy_idx)
-            selected_data_filter_ids.add(str(source.data(source_id_idx)))
-            # todo: This is not returning the correct ids or is returning none.
+        sel_model = data_filter.selectionModel()
+
+        # We already know the column the IDs live in → ask the selection model for
+        # exactly those indexes. Works for both QTableView and QTreeView.
+        for proxy_idx in sel_model.selectedRows(id_column):  # <-- only selected rows
+            # proxy_idx is already in the ID column, so just map it to the source model
+            source_idx = proxy.mapToSource(proxy_idx)
+
+            # read the value from the source model (DisplayRole = user‑visible text)
+            value = source.data(source_idx, Qt.ItemDataRole.DisplayRole)
+            if value is not None:
+                selected_data_filter_ids.add(str(value))
+
+        # `selected_data_filter_ids` now contains ONLY the IDs the user selected
 
         if self.data_filtered_table in SQLUtils.as_table_dict.values():
             for key, value in SQLUtils.as_table_dict.items():
