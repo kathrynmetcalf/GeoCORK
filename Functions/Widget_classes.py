@@ -820,6 +820,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             left_parts = self.separate_parts(left_data)
             right_parts = self.separate_parts(right_data)
             return self.compare_parts(left_parts, right_parts)
+        elif isinstance(left_data, (int, float)) and isinstance(right_data, (int, float)):
+            return left_data < right_data
         else:
             return super().lessThan(left, right)
 
