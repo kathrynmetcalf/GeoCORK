@@ -315,5 +315,28 @@
         "19": {
             "field": "LabFacilityID"
         }
+    },
+    "Schere&Ernst2008": {
+        "0": {
+            "field": "Spot Name"
+        },
+        "2": {
+            "field": "Uppm"
+        },
+        "3": {
+            "field": "Thppm"
+        },
+        "4": {
+            "field": "206Pb/238UAge"
+        },
+        "5": {
+            "field": "206Pb/238UAgeError"
+        },
+        "6": {
+            "field": "207Pb/206PbAge"
+        },
+        "7": {
+            "field": "207Pb/206PbAgeError"
+        }
     }
 }

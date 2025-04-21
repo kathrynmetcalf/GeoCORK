@@ -193,11 +193,14 @@ class GeoCORK(QtW.QMainWindow):
     def show_settings_dialog(self):
         dlg = SettingsDialog()
         dlg.exec()
-        update_database()
-        self.update_window_title()
-        # If the active tab is a data table, refresh it
-        if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':
-            self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
+        if dlg.updated:
+            update_database()
+            self.update_window_title()
+            # If the active tab is a data table, refresh it
+            if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':
+                self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
+        else:
+            return
 
     def show_import_wizard_dialog(self):
         """

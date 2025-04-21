@@ -409,8 +409,10 @@ export_database_tables_viewable = sorted(user_viewable_tables + ['UPbAnalyses', 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView','Spots',
+trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'Spots',
                   'SpotEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView']
+# trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView','Spots',
+#                   'SpotEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView']
 
 tree_tables_schema = {
     'AgeConstraints.[AgeConstraintName]': {
@@ -610,8 +612,10 @@ database_ordered_tables = ['AgeUnits',
 """Used in MergeDatabase.py as the order of tables to merge first to last. Since the database is relational it must 
 be merged so the related data is merged last so updated primary keys can be properly generated"""
 
-views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
+views = ['SampleView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
          'UPbEditView', 'ColumnView', 'ColumnEditView']
+# views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
+#          'UPbEditView', 'ColumnView', 'ColumnEditView']
 """List of all views in the database. These views pull information from other tables for a comprehensive view of data
 See Database_views.py for further"""
 
@@ -881,16 +885,6 @@ view_attributes_dict = {
         f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
         ],
-    'SampleEditView': [
-        f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qsample_description.split('AS ')[1]}", f"{qgps_display.split('AS ')[1]}", f"{qsample_elev_display.split('AS ')[1]}",
-        f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}", f"{qsample_age_interpretation.split('AS ')[1]}",
-        f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
-        f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}", f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
-        f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
-        f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_size.split('AS ')[1]}", f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}",
-        f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
-        ],
     'ColumnView': [
         f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_calc_total_height_depth.split('AS ')[1]}", f"{qcolumn_gps.split('AS ')[1]}",
         f"{qcolumn_description.split('AS ')[1]}", f"{qcolumn_created.split('AS ')[1]}", f"{qcolumn_modified.split('AS ')[1]}"
@@ -1018,11 +1012,30 @@ view_attributes_dict = {
         f"{qreference_modified.split('AS ')[1]}"
     ]
 }
+# 'SampleEditView': [
+#     f"{qsample_id.split('AS ')[1]}", f"{qigsn.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}",
+#     f"{qsample_description.split('AS ')[1]}", f"{qgps_display.split('AS ')[1]}",
+#     f"{qsample_elev_display.split('AS ')[1]}",
+#     f"{qsample_elev_unit.split('AS ')[1]}", f"{qsample_age_constraint.split('AS ')[1]}",
+#     f"{qsample_age_interpretation.split('AS ')[1]}",
+#     f"{qsample_age_references.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}",
+#     f"{qsample_column_data_display.split('AS ')[1]}", f"{qsample_column_data_unit.split('AS ')[1]}",
+#     f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
+#     f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
+#     f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
+#     f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+#     f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
+#     f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}",
+#     f"{qupb_age_units.split('AS ')[1]}",
+#     f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
+#     f"{qspot_size.split('AS ')[1]}", f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+#     f"{qupb_references.split('AS ')[1]}",
+#     f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
+# ],
 
 # dictionary of Views and their associated settings_value for columns to display throughout GeoCORK
 view_setting_dict = {
     'SampleView': 'sample_view_columns',
-    'SampleEditView': 'sample_edit_columns',
     'AliquotView': 'aliquot_view_columns',
     'AliquotEditView': 'aliquot_edit_columns',
     'SpotView': 'spot_view_columns',
@@ -1033,6 +1046,19 @@ view_setting_dict = {
     'ColumnEditView': 'column_edit_columns',
     'ReferenceView': 'reference_view_columns',
 }
+# view_setting_dict = {
+#     'SampleView': 'sample_view_columns',
+#     'SampleEditView': 'sample_edit_columns',
+#     'AliquotView': 'aliquot_view_columns',
+#     'AliquotEditView': 'aliquot_edit_columns',
+#     'SpotView': 'spot_view_columns',
+#     'SpotEditView': 'spot_edit_columns',
+#     'UPbView': 'upb_analysis_view_columns',
+#     'UPbEditView': 'upb_analysis_edit_columns',
+#     'ColumnView': 'column_view_columns',
+#     'ColumnEditView': 'column_edit_columns',
+#     'ReferenceView': 'reference_view_columns',
+# }
 
 upb_possible_database_input_fields = [
     'SpotID',

@@ -103,17 +103,17 @@ def default_settings():
         'UPbReference', 'SampleCreated', 'SampleModified'
     ])
 
-    settings.setValue('default_sample_edit_columns', [
-        'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
-        'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName',
-        'SampleAgeInterpretationName', 'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth',
-        'ColumnHeightDepthUnitAbbreviation','SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName',
-        'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount',
-        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
-        'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
-        'ConcordanceFormatAbbreviation', 'SpotSize', 'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference',
-        'SampleCreated', 'SampleModified'
-    ])
+    # settings.setValue('default_sample_edit_columns', [
+    #     'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription', 'SampleGPSLocationDisplay', 'SampleElevation',
+    #     'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName',
+    #     'SampleAgeInterpretationName', 'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth',
+    #     'ColumnHeightDepthUnitAbbreviation','SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName',
+    #     'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount',
+    #     'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
+    #     'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
+    #     'ConcordanceFormatAbbreviation', 'SpotSize', 'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference',
+    #     'SampleCreated', 'SampleModified'
+    # ])
 
     settings.setValue('default_aliquot_view_columns', [
         'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
@@ -336,6 +336,8 @@ class SettingsDialog(QtW.QDialog):
         double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
         self.cutoff_age_lineEdit.setValidator(double_comma_double_validator)
 
+        self.updated = False
+
         self.populate_fields()
 
         self.autofill_best_checkBox.checkStateChanged.connect(self.populate_best_age_fields)
@@ -516,6 +518,7 @@ class SettingsDialog(QtW.QDialog):
         update_stylesheet()
 
         self.populate_fields()
+        self.updated = True
 
     def update_settings_close(self):
         """
