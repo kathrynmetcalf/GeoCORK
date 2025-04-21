@@ -53,9 +53,8 @@ class DataViewerWidget(QWidget):
         self.loadWindowState()
 
         # Remove Samples from user-viewable tables
-        list = SQLUtils.user_viewable_tables
-        list.remove('Samples')
-        self.dbTable_comboBox_2.addItems(list)
+        self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
+        self.dbTable_comboBox_2.removeItem('Samples')
         self.dbTable_comboBox_2.setCurrentText(self.data_filtered_table)
 
         self.dbTable_comboBox.addItems(['Samples', 'Aliquots', 'Spots', 'UPbAnalyses'])
