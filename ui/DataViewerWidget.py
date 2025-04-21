@@ -17,6 +17,7 @@ import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
 from Functions import SQLUtils
+from Functions.SQLUtils import user_viewable_tables
 from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel, \
     WordWrapDelegate, get_name_column, ReadableProxyModel, get_id_from_name, get_record_index, column_as_list, \
     get_view_name_column
@@ -39,12 +40,15 @@ class DataViewerWidget(QWidget):
         self.loading_manager = LoadingDialogManager.get_instance()
 
         self.data_table = table_type
-        self.data_filtered_table = 'RockTypes'
+        self.data_filtered_table = 'RockTypes' # default to rocktypes
 
         self.current_selection = []
 
         self.data_ids_to_show = ids_to_show
         self.data_filtered_ids_to_show = set()
+
+        self.data_table_proxy_model = ReadableProxyModel()
+        self.data_filtered_table_proxy_model = ReadableProxyModel()
 
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "DataViewerWidget.ui")
@@ -53,8 +57,9 @@ class DataViewerWidget(QWidget):
         self.loadWindowState()
 
         # Remove Samples from user-viewable tables
-        self.dbTable_comboBox_2.addItems(SQLUtils.user_viewable_tables)
-        self.dbTable_comboBox_2.removeItem('Samples')
+        items = SQLUtils.user_viewable_tables.copy()
+        items.remove('Samples')
+        self.dbTable_comboBox_2.addItems(items)
         self.dbTable_comboBox_2.setCurrentText(self.data_filtered_table)
 
         self.dbTable_comboBox.addItems(['Samples', 'Aliquots', 'Spots', 'UPbAnalyses'])
@@ -89,10 +94,10 @@ class DataViewerWidget(QWidget):
         self.next_button_2.clicked.connect(self.next_page_2)
 
         self.edit_pushButton.clicked.connect(
-            lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, self.proxy_model,
+            lambda: self.edit_popup(self.dbTable_tableView, self.dbTable_treeView, self.data_table_proxy_model,
                                     self.dbTable_comboBox))
 
-        self.search_lineEdit.returnPressed.connect(lambda: self.search(self.search_lineEdit, self.proxy_model))
+        self.search_lineEdit.returnPressed.connect(lambda: self.search(self.search_lineEdit, self.data_table_proxy_model))
 
         self.selectionTimer = QTimer()
         self.selectionTimer.setSingleShot(True)
@@ -202,11 +207,11 @@ class DataViewerWidget(QWidget):
                                            QtC.Qt.ItemDataRole.DisplayRole)
                 self.set_go_to_completer(self.goto_line_edit, name_header, table)
 
-            self.proxy_model = ReadableProxyModel()
-            self.proxy_model.setSourceModel(model)
-            self.proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.data_table_proxy_model = ReadableProxyModel()
+            self.data_table_proxy_model.setSourceModel(model)
+            self.data_table_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
-            self.dbTable_tableView.setModel(self.proxy_model)
+            self.dbTable_tableView.setModel(self.data_table_proxy_model)
             self.dbTable_tableView.setSortingEnabled(True)
             self.dbTable_tableView.setWordWrap(True)
             self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
@@ -217,7 +222,7 @@ class DataViewerWidget(QWidget):
             self.hide_columns(self.dbTable_tableView, table)
 
             self.dbTable_tableView.resizeColumnsToContents()
-            for column in range(self.proxy_model.columnCount()):
+            for column in range(self.data_table_proxy_model.columnCount()):
                 if self.dbTable_tableView.columnWidth(column) > 400:
                     self.dbTable_tableView.setColumnWidth(column, 400)
 
@@ -230,7 +235,7 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView.setSizeAdjustPolicy(
                 QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
             if get_view_name_column(table) is not None:
-                self.proxy_model.sort(get_view_name_column(table), QtC.Qt.SortOrder.AscendingOrder)
+                self.data_table_proxy_model.sort(get_view_name_column(table), QtC.Qt.SortOrder.AscendingOrder)
 
         elif self.data_table == 'Aliquots':
             if self.data_table not in SQLUtils.user_viewable_trees:
@@ -291,15 +296,14 @@ class DataViewerWidget(QWidget):
         """
         if self.data_table == 'Aliquots':
             data_filter = self.dbTable_treeView
-            db_view: QTreeView = self.dbTable_treeView_2
         else:
             data_filter = self.dbTable_tableView
-            db_view: QTableView = self.dbTable_tableView_2
 
         if ((self.current_selection == data_filter.selectionModel().selectedIndexes()) and
-                (not data_filter.selectionModel().hasSelection()) and (db_view is None) and
-                (self.data_filtered_table == TxM.remove_spaces(self.dbTable_comboBox_2.currentText()))):
-            return  # exits method if current selection equals previously stored connection
+            (not data_filter.selectionModel().hasSelection())):
+            return
+        elif not data_filter.selectionModel().hasSelection():
+            return
         else:
             self.current_selection = data_filter.selectionModel().selectedIndexes()
 
@@ -354,13 +358,13 @@ class DataViewerWidget(QWidget):
                 sql_selected_data_filter_ids = f'= {str(list(selected_data_filter_ids)[0])}'
             match self.data_table:
                 case 'Samples':
-                    table_condition = f" WHERE Samples.SampleID {sql_selected_data_filter_ids}"
+                    table_condition = f"WHERE Samples.SampleID {sql_selected_data_filter_ids}"
                 case 'Aliquots':
-                    table_condition = f" WHERE Aliquots.AliquotID {sql_selected_data_filter_ids}"
+                    table_condition = f"WHERE Aliquots.AliquotID {sql_selected_data_filter_ids}"
                 case 'Spots':
-                    table_condition = f" WHERE Spots.SpotID {sql_selected_data_filter_ids}"
+                    table_condition = f"WHERE Spots.SpotID {sql_selected_data_filter_ids}"
                 case 'UPbAnalyses':
-                    table_condition = f" WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
+                    table_condition = f"WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
 
         sql += table_condition
         logger_setup.get_logger().debug(f'Distinct Filtered Selection SQL Command: {sql}')
@@ -412,10 +416,10 @@ class DataViewerWidget(QWidget):
 
             tree_model = TreeModel(model, self)
 
-            self.proxy_model = ReadableProxyModel()
-            self.proxy_model.setSourceModel(tree_model)
+            self.data_filtered_table_proxy_model = ReadableProxyModel()
+            self.data_filtered_table_proxy_model.setSourceModel(tree_model)
             tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView_2)
-            tree_proxy_model.setSourceModel(self.proxy_model)
+            tree_proxy_model.setSourceModel(self.data_filtered_table_proxy_model)
             self.dbTable_treeView_2.setModel(tree_proxy_model)
             self.dbTable_treeView_2.expandAll()
 
@@ -437,7 +441,7 @@ class DataViewerWidget(QWidget):
             self.switch_to_table_2(self.db_stackedWidget_2)
             offset = self.current_page_2 * self.rows_per_page_2
             model = QtS.QSqlQueryModel()
-            self.proxy_model = ReadableProxyModel()
+            self.data_filtered_table_proxy_model = ReadableProxyModel()
 
             # if self.data_filtered_table == '"References"':
             #     self.data_filtered_table = 'ReferenceView'
@@ -448,7 +452,7 @@ class DataViewerWidget(QWidget):
 
             logger_setup.get_logger().debug(f'SQL query: {sql_query}')
             model.setQuery(sql_query)
-            self.proxy_model.setSourceModel(model)
+            self.data_filtered_table_proxy_model.setSourceModel(model)
             if self.data_table == 'Samples':
                 table = 'SampleView'
             elif self.data_table == 'Spots':
@@ -458,19 +462,19 @@ class DataViewerWidget(QWidget):
             else:
                 table = self.data_table
 
-            self.proxy_model.setFilterKeyColumn(-1)  # search all columns
-            self.dbTable_tableView_2.setModel(self.proxy_model)
+            self.data_filtered_table_proxy_model.setFilterKeyColumn(-1)  # search all columns
+            self.dbTable_tableView_2.setModel(self.data_filtered_table_proxy_model)
             self.dbTable_tableView_2.hideColumn(0)  # don't show ID column
             self.dbTable_tableView_2.verticalHeader().setVisible(False)
             self.dbTable_tableView_2.resizeColumnsToContents()
             self.dbTable_tableView_2.setSortingEnabled(True)
             self.dbTable_tableView_2.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            self.proxy_model.sort(get_view_name_column(table), QtC.Qt.SortOrder.AscendingOrder)
+            self.data_filtered_table_proxy_model.sort(get_view_name_column(table), QtC.Qt.SortOrder.AscendingOrder)
 
             self.search_lineEdit_2.returnPressed.connect(
-                lambda: self.search(self.search_lineEdit_2, self.proxy_model))
+                lambda: self.search(self.search_lineEdit_2, self.data_filtered_table_proxy_model))
             self.edit_pushButton_2.clicked.connect(
-                lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, self.proxy_model,
+                lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, self.data_filtered_table_proxy_model,
                                         self.dbTable_comboBox_2))
 
             logger_setup.get_logger().info('Sucessfully displayed table with selection-based filter')

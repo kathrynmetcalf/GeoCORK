@@ -1243,7 +1243,7 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
             case 'Regions':
                 if region_join not in join:
                     join += region_join + '\n'
-            case 'RejectionReasons':
+            case 'RejectionReasons' | 'UPbRejectionReasons':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
                 if aliquot_spot_join not in join:
