@@ -161,7 +161,6 @@ class ViewDataTab(QtW.QWidget):
             self.model = SQLiteTableModel(table_query)
             self.proxy_model = ReadableProxyModel()
             if isinstance(self.view, QtW.QTreeView):
-                # todo: Now that it is actually creating a tree, it is taking 7 seconds to add 2 aliquots
                 self.tree_model = TreeModel(self.model)
                 self.proxy_model.setSourceModel(self.tree_model)
             else:

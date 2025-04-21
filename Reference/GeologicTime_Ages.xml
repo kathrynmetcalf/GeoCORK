@@ -6,7 +6,7 @@
 
 <TimeScale>
     <Eon name="Phanerozoic" oldest="541" youngest="0">
-        <Era name="Cenozoic" oldest="66" youngest="0">
+        <Era name="Cenozoic" oldest="66.0" youngest="0">
             <Period name="Quaternary" oldest="2.58" youngest="0">
                 <Epoch name="Holocene" oldest="0.012" youngest="0"></Epoch>
                     <Age name="Megahalayan" oldest="0.0042" youngest="0"></Age>

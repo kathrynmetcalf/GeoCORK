@@ -1962,7 +1962,6 @@ class TreeModel(QtC.QAbstractProxyModel):
     def setup_model_data(self):
         # Add all nodes to the tree model
         # start with root item, look for children
-        # todo: figure out why aliquots tree builds so slowly
         logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
         start_build_time = time.time()
         root_id = 0

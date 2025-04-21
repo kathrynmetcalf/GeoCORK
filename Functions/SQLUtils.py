@@ -1,8 +1,3 @@
-'''
-todo: review queries for AliquotView. Number of analyses and facilities are incorrect, the same for all aliquots if
-there is more than one aliquot per sample.
-'''
-
 # ID columns
 qsample_id = 'Samples.SampleID AS SampleID'
 qaliquot_id = 'Aliquots.AliquotID AS AliquotID'

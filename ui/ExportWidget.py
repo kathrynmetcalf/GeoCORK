@@ -935,10 +935,6 @@ class ExportWidget(QWidget):
         for table_name, field_items in SQLUtils.table_attributes_dict.items():
             if table_name == "GPSLocations":
                 # sets the GPSLocations table to have a different set of fields based on user-selection
-                # todo: this to work with any GPS format. Current revisions would need to be made to have calculated
-                #  values for all formats, right now CalculatedGPS values are generated based on GPSLocationConverted
-                #  only, rather than base values. Therefore per row calculations would need to be done to determine
-                #  the correct values for each format. Currently, not possible.
                 if Settings_manager.settings.value('gps_format_id', 1) == 7:  # UTM Selected
                     field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedZone', 'CalculatedEasting',
                                    'CalculatedNorthing', 'CalculatedGPSElev', 'CalculatedGPSElevError']

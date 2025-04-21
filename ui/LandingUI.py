@@ -172,7 +172,6 @@ class LandingPage(QWidget):
     def test_database_lock(self):
         logger_setup.get_logger().info("Testing Database Lock...")
         database_path = self.get_filename()
-        # todo add file not found error
         try:
             # Attempt to connect and perform a simple query
             connection = sqlite3.connect(database_path, timeout=1)  # Set timeout to 1 second
@@ -204,6 +203,18 @@ class LandingPage(QWidget):
         display_path = self.listWidget.currentItem().text()
         full_path = expand_home(display_path)
         self.selected_files = full_path
+
+        # Check if the file exists
+        if not os.path.exists(full_path):
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Question)
+            msg_box.setWindowTitle("File Not Found")
+            msg_box.setText(f"The file '{full_path}' does not exist. Would you like to create a new empty database?")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response != QMessageBox.StandardButton.Yes:
+                return
 
         # Move the selected database to the top of the list
         self.list_recents.remove(full_path)

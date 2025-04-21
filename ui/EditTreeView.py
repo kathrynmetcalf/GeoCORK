@@ -158,7 +158,6 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Finished opening edit window for {self.table}')
 
     def create_model(self):
-        # todo: connect to tree_model dataEdited signal to refresh the model
         self.model = SQLiteTableModel(f'SELECT {', '.join(self.show_cols)} FROM {self.view} {self.where}')
         if self.tree_model:
             self.tree_model.deleteLater()

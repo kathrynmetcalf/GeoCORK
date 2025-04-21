@@ -78,8 +78,6 @@ class SampleInformation(QtW.QDialog):
         self.commit_pushButton.setAutoDefault(False)
         self.cancel_pushButton.setAutoDefault(False)
         self.updated = False
-        # self.commit_timer = QtC.QTimer(self)
-        # self.commit_timer.setSingleShot(True)
         self.commit_pushed = False
         self.focus_timer = QtC.QTimer(self)
         self._isApplicationFocused = True
@@ -107,11 +105,6 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_tree = CheckableTreeModel()
         self.sample_description_textEdit: QtW.QTextEdit
         self.sample_description_textEdit.setLineWrapMode(QtW.QTextEdit.LineWrapMode.WidgetWidth)
-        # self.column_name_comboBox: QtW.QComboBox
-        # self.column_name_comboBox.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
-        # self.column_name_comboBox.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
-        # self.column_name_comboBox.lineEdit().setPlaceholderText("Name of column, core, etc.")
-        # self.column_name_comboBox.lineEdit().setCompleter(self.column_name_comboBox.completer())
 
         self.gps_location_ids = ""
 
@@ -777,13 +770,6 @@ class SampleInformation(QtW.QDialog):
                 self.focus_timer.timeout.connect(self.update_column_info)
                 self.focus_timer.start(100)
 
-    # def commit_delay(self):
-    #     if not self.commit_pushed:
-    #         self.commit_pushed = True
-    #         self.commit_timer.setSingleShot(True)
-    #         self.commit_timer.timeout.connect(self.commit_question)
-    #         self.commit_timer.start(100)
-
     def commit_clicked(self):
         logger_setup.get_logger().info("Commit clicked")
         self.commit_pushed = True
@@ -827,9 +813,6 @@ class SampleInformation(QtW.QDialog):
             self.close_by_dialog = False
 
     def commit_question(self):
-        # logger_setup.get_logger().info("Commit timer timed out. Preparing commit question.")
-        # self.commit_timer.stop()
-        # todo: figure out why this is looping when trying to close...
         self.age.check_focus()
         self.gps.check_focus()
         self.check_focus()
