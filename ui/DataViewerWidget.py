@@ -4,10 +4,10 @@ import sys
 import time
 import webbrowser
 
-from PyQt6 import QtCore as QtC, QtWidgets
+from PyQt6 import QtCore as QtC, QtWidgets, QtGui, QtCore
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression, QAbstractItemModel
+from PyQt6.QtCore import QPoint, QSize, QTimer, Qt, QRegularExpression, QAbstractItemModel, QModelIndex
 from PyQt6.QtSql import QSqlQuery
 from PyQt6.QtWidgets import QWidget, QTableView, QTreeView, QComboBox, QPushButton, QMessageBox, \
     QCompleter, QLineEdit, QStackedWidget, QTableWidgetItem
@@ -222,6 +222,7 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
             self.dbTable_tableView.setItemDelegate(WordWrapDelegate(self.dbTable_tableView))
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.dbTable_tableView.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
             self.dbTable_tableView.verticalHeader().hide()
 
             self.hide_columns(self.dbTable_tableView, table)
@@ -342,9 +343,17 @@ class DataViewerWidget(QWidget):
 
         # We already know the column the IDs live in → ask the selection model for
         # exactly those indexes. Works for both QTableView and QTreeView.
-        for proxy_idx in sel_model.selectedRows(id_column):  # <-- only selected rows
-            # proxy_idx is already in the ID column, so just map it to the source model
-            source_idx = proxy.mapToSource(proxy_idx)
+        for proxy_row_idx in sel_model.selectedRows():  # works for table + tree
+            if hasattr(proxy_row_idx, "siblingAtColumn"):  # PyQt ≥ 6.5
+                proxy_id_idx = proxy_row_idx.siblingAtColumn(id_column)
+            else:  # PyQt ≤ 6.4
+                proxy_id_idx = proxy.index(
+                    proxy_row_idx.row(), id_column, proxy_row_idx.parent()
+                )
+            if not proxy_id_idx.isValid():
+                continue
+
+            source_idx: QModelIndex = proxy.mapToSource(proxy_id_idx)
 
             # read the value from the source model (DisplayRole = user‑visible text)
             value = source.data(source_idx, Qt.ItemDataRole.DisplayRole)
@@ -386,6 +395,8 @@ class DataViewerWidget(QWidget):
                     table_condition = f"WHERE Spots.SpotID {sql_selected_data_filter_ids}"
                 case 'UPbAnalyses':
                     table_condition = f"WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
+        else:
+            return
 
         sql += table_condition
         logger_setup.get_logger().debug(f'Distinct Filtered Selection SQL Command: {sql}')
