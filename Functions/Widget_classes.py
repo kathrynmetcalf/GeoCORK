@@ -1103,7 +1103,7 @@ def set_table(model: QtS.QSqlTableModel, table: str):
 
 def get_headers(table: str):
     query = QtS.QSqlQuery()
-    if table == '"References"' or table == 'ReferenceView':
+    if table == '"References"':
         table = 'References'
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
         logger_setup.get_logger().critical(f"Failed to get headers for {table}")
@@ -1153,20 +1153,22 @@ def get_name_column(table: str) -> int | None:
         return 2
     elif table == 'References' or table == '"References"':
         return 9
+    elif table == 'ReferenceView':
+        return 1
     elif table == 'SampleAges':
         return 16
     elif table in SQLUtils.user_viewable_tables or table in ['Spots', 'GPSLocations', 'FilterGroups']:
         return 1
-    elif table == 'SampleView':
+    elif table == 'SampleView' or table == 'SampleEditView':
         return 2
-    elif table == 'AliquotView':
-        return 5
-    elif table == 'SpotView':
-        return 5
+    elif table == 'AliquotView' or table == 'AliquotEditView':
+        return 3
+    elif table == 'SpotView' or table == 'SpotEditView':
+        return 3
     elif table == 'UPbAnalyses':
         # Use UPbAnalysisID
         return 0
-    elif table == 'UPbView':
+    elif table == 'UPbView' or table == 'UPbEditView':
         # Use spot name
         return 4
     else:
@@ -1228,13 +1230,12 @@ def get_edit_view_from_table(table: str):
         return table
 
 def get_view_name_column(view: str) -> int | None:
-    table = get_table_from_view(view)
-    if 'View' not in table:
-        table = get_view_from_table(table)
-    table_name_col = get_name_column(table)
+    if 'View' not in view:
+        view = get_view_from_table(view)
+    table_name_col = get_name_column(view)
     if table_name_col is not None:
         # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
-        name_header = get_headers(table)[table_name_col]
+        name_header = get_headers(view)[table_name_col]
         view_column_settings = SQLUtils.view_setting_dict[view]
         view_columns = settings.value(view_column_settings)
         if name_header in view_columns:
@@ -1245,7 +1246,7 @@ def get_name_from_id(table: str, item_id: int):
     query = QtS.QSqlQuery()
     headers = get_headers(table)
     sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
-    logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+    # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.exec(sql_query):
         logger_setup.get_logger().critical(f"Failed to get name for {item_id} in {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
@@ -1772,7 +1773,7 @@ class TreeItem:
         """
         Deletes all children of deleted item
         """
-        logger_setup.get_logger().info(f'Deleting tree items')
+        # logger_setup.get_logger().info(f'Deleting tree items')
         for child_tree_item in self.childItems:
             del child_tree_item
         del self.childItems
@@ -1896,7 +1897,17 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.db = db
 
         if self.source_model:
-            # If a table model was set
+            # Check if a table model was set
+            if isinstance(self.source_model, QSqlTableModel):
+                if self.source_model.tableName() == '':
+                    return
+            elif isinstance(self.source_model, QSqlQueryModel):
+                query_object = source_model.query()
+                if query_object.lastQuery() == '':
+                    return
+            elif isinstance(self.source_model,SQLiteTableModel):
+                if source_model.query_text == '':
+                    return
             self.setSourceModel(self.source_model)
 
     def sourceModel(self):
@@ -1931,7 +1942,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        if 'FROM AliquotView' in self.base_query:
+        if 'FROM AliquotView' in self.base_query or 'FROM Ages' in self.base_query:
             self.source_model = SQLiteTableModel(query=self.base_query)
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
@@ -1941,6 +1952,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.column_headers()
         self.header_variables()
         if self.root_item.childCount() > 0:
+            logger_setup.get_logger().info('Clearing previous tree model...')
             self.root_item.clear()
         # self.root_item = TreeItem(QtS.QSqlRecord(), None)
         self.parent_item = TreeItem(QtS.QSqlRecord(), None)
@@ -1978,7 +1990,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 parent_rows.append(self.source_model.index(row, 2).data(QtC.Qt.ItemDataRole.DisplayRole))
         # Order child IDs by parent row
         child_ids = [x for _, x in sorted(zip(parent_rows, child_ids))]
-        logger_setup.get_logger().info(f'Found {len(child_ids)} child items in {time.time() - find_time} seconds')
+        # logger_setup.get_logger().info(f'Found {len(child_ids)} child items in {time.time() - find_time} seconds')
         return child_ids
 
     def add_to_tree(self, child_ids: list, parent: TreeItem):
@@ -1998,15 +2010,6 @@ class TreeModel(QtC.QAbstractProxyModel):
                     logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
                     new_child_ids = self.find_children(child_id)
                     self.add_to_tree(new_child_ids, item)
-            # self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
-            # if self.source_model.rowCount() > 0:
-            #     record = self.source_model.record(0)
-            #     item = TreeItem(record, parent)
-            #     parent.appendChild(item)
-            #     # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
-            #     logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time()-add_time} seconds')
-            #     new_child_ids = self.find_children(child_id)
-            #     self.add_to_tree(new_child_ids, item)
 
     def add_top_item(self, data):
         TreeItem(data, 0)
@@ -2623,7 +2626,17 @@ class CheckableTreeModel(TreeModel):
         self.item_ids = None
         self.many_to_many = None
         if self.source_model:
-            # If a table model with a valid table was passed, set the source model and create the tree
+            # Check if a table model was set
+            if isinstance(self.source_model, QSqlTableModel):
+                if self.source_model.tableName() == '':
+                    return
+            elif isinstance(self.source_model, QSqlQueryModel):
+                query_object = source_model.query()
+                if query_object.lastQuery() == '':
+                    return
+            elif isinstance(self.source_model, SQLiteTableModel):
+                if source_model.query_text == '':
+                    return
             self.setSourceModel(self.source_model)
 
     def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
@@ -2638,7 +2651,7 @@ class CheckableTreeModel(TreeModel):
             if isinstance(source_model, QSqlQueryModel):
                 logger_setup.get_logger().debug(f'Cannot retrieve table name from QSqlQueryModel')
         if isinstance(source_model, QSqlTableModel):
-            self.base_filter = f"{source_model.filter()}"
+            self.base_filter = f"{source_model.filter()}".split("ORDER")[0]
             if len(self.base_filter) > 0:
                 self.base_filter_sql = f"{self.base_filter} AND "
                 self.base_query = f"SELECT * FROM {self.table} WHERE {self.base_filter}"
@@ -2647,41 +2660,49 @@ class CheckableTreeModel(TreeModel):
                 self.base_query = f"SELECT * FROM {self.table}"
         elif isinstance(source_model, QSqlQueryModel):
             query_object = source_model.query()
-            self.base_query = f"{query_object.lastQuery()}"
+            self.base_query = f"{query_object.lastQuery()}".split("ORDER")[0]
         elif isinstance(source_model, SQLiteTableModel):
-            self.base_query = source_model.query_text
+            self.base_query = source_model.query_text.split("ORDER")[0]
         if len(self.base_query) > 0:
             if ' WHERE ' in self.base_query:
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        self.source_model = DisplayRoundedQueryModel()
-        self.source_model.setQuery(f'{self.base_query}')
+        if 'FROM AliquotView' in self.base_query or 'FROM Ages' in self.base_query:
+            self.source_model = SQLiteTableModel(query=self.base_query)
+        else:
+            self.source_model = DisplayRoundedQueryModel(db=self.db)
+            self.source_model.setQuery(f'{self.base_query}')
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
         self.header_variables()
         if self.root_item.childCount() > 0:
-            logger_setup.get_logger().info(f'Clearing previous values from the tree model...')
-            self.beginResetModel()
+            logger_setup.get_logger().info('Clearing previous tree model...')
             self.root_item.clear()
-            self.endResetModel()
         self.root_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.parent_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.child_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
         self.source_model.setQuery(self.base_query)
 
-    def add_to_tree(self, child_ids: list, parent: CheckableTreeItem):
-        for child_id in child_ids:
-            self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {child_id}")
-            if self.source_model.rowCount() > 0:
-                record = self.source_model.record(0)
+    def add_to_tree(self, child_ids: list, parent: TreeItem):
+        if not child_ids:
+            return
+        # logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
+        # logger_setup.get_logger().debug(f'Child IDs: {child_ids}')
 
-                item = CheckableTreeItem(record, parent)
-                parent.appendChild(item)
-                new_child_ids = self.find_children(child_id)
-                self.add_to_tree(new_child_ids, item)
+        for child_id in child_ids:
+            add_time = time.time()
+            for row in range(self.source_model.rowCount()):
+                if self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == child_id:
+                    record = self.source_model.record(row)
+                    item = CheckableTreeItem(record, parent)
+                    parent.appendChild(item)
+                    # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
+                    # logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
+                    new_child_ids = self.find_children(child_id)
+                    self.add_to_tree(new_child_ids, item)
 
     def set_item(self, item_ids: list, man_to_many: str):
         self.item_ids = item_ids
@@ -2895,6 +2916,26 @@ def find_tree_model(model, indexes: list | None):
 # ---------------------------
 #    Widget Classes
 # ---------------------------
+
+class EditingTextEdit(QtW.QTextEdit):
+    editingFinished = QtC.pyqtSignal()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._isApplicationFocused = True
+        QtW.QApplication.instance().installEventFilter(self)
+
+    def eventFilter(self, obj, event):
+        if event.type() == QtC.QEvent.Type.ApplicationDeactivate:
+            self._isApplicationFocused = False
+        elif event.type() == QtC.QEvent.Type.ApplicationActivate:
+            self._isApplicationFocused = True
+        return super().eventFilter(obj, event)
+
+    def focusOutEvent(self, event):
+        super().focusOutEvent(event)
+        if self._isApplicationFocused:
+            # Only emit if the application is focused, not if the whole application has lost focus
+            self.editingFinished.emit()
 
 class FocusGroupBox(QGroupBox):
     focusLost = QtC.pyqtSignal()
@@ -3340,13 +3381,7 @@ class CheckableComboBox(QtW.QComboBox):
     def clear_all_checks(self):
         for row in range(self.model().rowCount()):
             index = self.model().index(row, self.name_col)
-            # if row == self.view().currentIndex().row():
-            #     self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-            # else:
             self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-            # logger_setup.get_logger().info(
-            #     f"Changed {self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)} state to {self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)}"
-            # )
         logger_setup.get_logger().info(f'Cleared all checks in {self.table} combo box')
 
     def showPopup(self):
@@ -3384,7 +3419,7 @@ class CheckableComboBox(QtW.QComboBox):
             else:
                 source_index = self.view().currentIndex()
             if event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.LeftButton:
-                if self.single_click and self.model().checked_ids:
+                if self.single_click:
                     # Was the only selected item unchecked? If so, set the current index to -1 before clearing all checks
                     if isinstance(self.model(), CheckableTreeModel):
                         clicked_id = self.model().index(source_index.row(), 1, source_index.parent()).data(
@@ -3651,19 +3686,6 @@ class TreeCombobox(QtW.QComboBox):
         self.treeView.resizeColumnToContents(0)
         self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
         self.treeView.setFixedHeight(self.treeView.sizeHint().height())
-        # font_metrics = QtG.QFontMetrics(self.treeView.font())
-        # max_text_width = 0
-        # def get_max_text_width(model, parent, max_text_width):
-        #     for row in range(model.rowCount(parent)):
-        #         index = model.index(row, 0, parent)
-        #         text = index.data(QtC.Qt.ItemDataRole.DisplayRole)
-        #         width = font_metrics.horizontalAdvance(text)
-        #         if width > max_text_width:
-        #             max_text_width = width
-        #         get_max_text_width(model, index, max_text_width)
-        # get_max_text_width(self.model(), QtC.QModelIndex(), max_text_width)
-        # total_width = max_text_width + self.treeView.verticalScrollBar().sizeHint().width()
-        # self.treeView.setFixedWidth(total_width)
         super().showPopup()
         self.popup_shown = True
 
@@ -3799,16 +3821,13 @@ class CheckableTreeCombobox(TreeCombobox):
         action = menu.exec(self.mapToGlobal(pos))
         if action:
             if action.text() == 'Edit':
-                self.edit_triggered.emit(self)
-                action = None
                 logger_setup.get_logger().info(f'Edit triggered for checkable tree combo box')
+                self.edit_triggered.emit(self)
             elif 'Add' in action.text() or 'Insert' in action.text():
-                self.add_triggered.emit(self, action)
-                action = None
                 logger_setup.get_logger().info(f'Add triggered for checkable tree combo box')
+                self.add_triggered.emit(self, action)
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
-                action = None
 
     def eventFilter(self, obj, event):
         if obj == self.lineEdit():
@@ -4217,6 +4236,8 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         model = DisplayRoundedQueryModel()
         model.setQuery(f"SELECT * FROM {view}")
         table = model.tableName()
+    elif table == 'Ages':
+        model = SQLiteTableModel('SELECT * FROM Ages')
     else:
         model = DisplayRoundedModel()
         set_table(model, table)

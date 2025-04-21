@@ -216,7 +216,7 @@ class GPSFields(QtW.QWidget):
                 logger_setup.get_logger().info(f"Could not find GPS location with ID {gps_ids}, so reset fields")
                 reset_fields = True
         for header in column_names:
-            logger_setup.get_logger().info(f'Populating {header}')
+            # logger_setup.get_logger().info(f'Populating {header}')
             if reset_fields:
                 text = ""
             else:

@@ -53,7 +53,7 @@ class AgeFields(QtW.QWidget):
         self.sample_age_model.rounded = False
         self.age_proxy_model = SampleAgeProxyModel()
         self.age_tree_view = QtW.QTreeView()
-        self.age_model = QtS.QSqlTableModel()
+        self.age_model = None
         self.oldest_age_tree = TreeModel()
         self.youngest_age_tree = TreeModel()
         self.direct_age_unit_model = QtS.QSqlTableModel()
@@ -92,11 +92,11 @@ class AgeFields(QtW.QWidget):
         sender = self.sender()
         if sender == self.direct_age_unit_comboBox:
             if self.direct_age_unit_comboBox.currentIndex() != self.direct_unit_comboBox.currentIndex():
-                logger_setup.get_logger().info("Updating age unit")
+                # logger_setup.get_logger().info("Updating age unit")
                 self.direct_unit_comboBox.setCurrentIndex(self.direct_age_unit_comboBox.currentIndex())
         elif sender == self.direct_unit_comboBox:
             if self.direct_unit_comboBox.currentIndex() != self.direct_age_unit_comboBox.currentIndex():
-                logger_setup.get_logger().info("Updating age unit")
+                # logger_setup.get_logger().info("Updating age unit")
                 self.direct_age_unit_comboBox.setCurrentIndex(self.direct_unit_comboBox.currentIndex())
         else:
             return
@@ -115,7 +115,7 @@ class AgeFields(QtW.QWidget):
         self.disconnect_signals()
         set_table(self.sample_model, self.table)
         self.sample_id_header = self.sample_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        set_table(self.age_model, 'Ages')
+        self.age_model = SQLiteTableModel('SELECT * FROM Ages')
         set_table(self.direct_age_unit_model, 'AgeUnits')
         set_table(self.direct_age_error_model, 'ErrorFormats')
         # self.oldest_age_tree.setSourceModel(self.age_model)
@@ -452,7 +452,7 @@ class AgeFields(QtW.QWidget):
                     self.oldest_rel_comboBox.setCurrentText(self.oldest_rel_comboBox.placeholderText())
                 else:
                     id = text
-                    self.age_model.setFilter(f'AgeID = {id}')
+                    self.age_model = SQLiteTableModel(f'SELECT * FROM Ages WHERE AgeID = {id}')
                     if self.age_model.rowCount() > 0:
                         text = self.age_model.data(self.age_model.index(0, 3), QtC.Qt.ItemDataRole.DisplayRole)
                     else:
@@ -463,7 +463,7 @@ class AgeFields(QtW.QWidget):
                     self.youngest_rel_comboBox.setCurrentText(self.youngest_rel_comboBox.placeholderText())
                 else:
                     id = text
-                    self.age_model.setFilter(f'AgeID = {id}')
+                    self.age_model = SQLiteTableModel(f'SELECT * FROM Ages WHERE AgeID = {id}')
                     if self.age_model.rowCount() > 0:
                         text = self.age_model.data(self.age_model.index(0, 3), QtC.Qt.ItemDataRole.DisplayRole)
                     else:
@@ -673,14 +673,14 @@ class AgeFields(QtW.QWidget):
         if oldest_rel == '':
             oldest_rel_id = QtC.QVariant()
         else:
-            self.age_model.setFilter(f"AgeName = '{oldest_rel}'")
+            self.age_model = SQLiteTableModel(f"SELECT * FROM Ages WHERE AgeName = '{oldest_rel}'")
             oldest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
         if youngest_rel == '':
             youngest_rel_id = QtC.QVariant()
         else:
-            self.age_model.setFilter(f"AgeName = '{youngest_rel}'")
+            self.age_model = SQLiteTableModel(f"AgeName = '{youngest_rel}'")
             youngest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        self.age_model.setFilter("")
+        self.age_model = SQLiteTableModel("SELECT * FROM Ages")
         logger_setup.get_logger().info(f"Checking if any SampleAges exist with these values")
         # Catch entries with all same age data but different descriptions and/or tags
         age_columns = ['DirectAge', 'DirectAgeError', 'DirectAgeUnitID', 'DirectAgeErrorFormatID', 'OldestDirectAge',

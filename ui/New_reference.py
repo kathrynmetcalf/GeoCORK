@@ -41,6 +41,21 @@ class NewReference(QtW.QDialog):
         description = self.description_lineEdit.text()
 
         query = QSqlQuery()
+        query.prepare('SELECT * FROM "References" WHERE Authors = ? AND Year = ? AND Title = ? AND Source = ? AND DOI = ?')
+        query.addBindValue(None if authors=='' else authors)
+        query.addBindValue(None if year=='' else year)
+        query.addBindValue(None if title=='' else title)
+        query.addBindValue(None if source=='' else source)
+        query.addBindValue(None if doi=='' else doi)
+        if not query.exec():
+            logger_setup.get_logger().critical('Error checking for duplicate reference')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            return
+        if query.next():
+            logger_setup.get_logger().info('Reference already exists')
+            return
         query.prepare('INSERT INTO "References" (Authors, Year, Title, Source, DOI, ReferenceDescription) VALUES (?, ?, ?, ?, ?, ?)')
         query.addBindValue(None if authors=='' else authors)
         query.addBindValue(None if year=='' else year)
@@ -52,6 +67,7 @@ class NewReference(QtW.QDialog):
             logger_setup.get_logger().critical('Error adding reference')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
             return
         logger_setup.get_logger().info('Reference added successfully')
         self.updated = True

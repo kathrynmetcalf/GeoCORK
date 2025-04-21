@@ -78,8 +78,8 @@ class SampleInformation(QtW.QDialog):
         self.commit_pushButton.setAutoDefault(False)
         self.cancel_pushButton.setAutoDefault(False)
         self.updated = False
-        self.commit_timer = QtC.QTimer(self)
-        self.commit_timer.setSingleShot(True)
+        # self.commit_timer = QtC.QTimer(self)
+        # self.commit_timer.setSingleShot(True)
         self.commit_pushed = False
         self.focus_timer = QtC.QTimer(self)
         self._isApplicationFocused = True
@@ -105,6 +105,13 @@ class SampleInformation(QtW.QDialog):
         self.setting_tree = CheckableTreeModel()
         self.age_signature_model = QtS.QSqlTableModel()
         self.age_signature_tree = CheckableTreeModel()
+        self.sample_description_textEdit: QtW.QTextEdit
+        self.sample_description_textEdit.setLineWrapMode(QtW.QTextEdit.LineWrapMode.WidgetWidth)
+        # self.column_name_comboBox: QtW.QComboBox
+        # self.column_name_comboBox.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
+        # self.column_name_comboBox.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
+        # self.column_name_comboBox.lineEdit().setPlaceholderText("Name of column, core, etc.")
+        # self.column_name_comboBox.lineEdit().setCompleter(self.column_name_comboBox.completer())
 
         self.gps_location_ids = ""
 
@@ -186,6 +193,10 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info("Populating dropdowns")
 
         populate_combo_box(self.column_name_comboBox, **{'table': 'Columns', 'column': 'ColumnName'})
+        self.column_name_comboBox.model_modifiable = True
+        self.column_name_comboBox.enable_context_menu(True)
+        self.column_name_comboBox.set_single_click(True)
+        self.column_name_comboBox.setPlaceholderText("Name of column, core, etc.")
         populate_combo_box(self.height_depth_unit_comboBox, **{'table': 'DistanceUnits', 'column': 'DistanceUnitAbbreviation'})
         self.sample_context_comboBox.model_modifiable = True
         self.sample_context_comboBox.enable_context_menu(True)
@@ -220,7 +231,7 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info("Connecting signals")
         # Connect signals and slots
         self.upb_analysis_pushButton.clicked.connect(self.edit_upb_popup)
-        self.commit_pushButton.clicked.connect(self.commit_question)
+        self.commit_pushButton.clicked.connect(self.commit_clicked)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
@@ -247,7 +258,7 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_comboBox))
         self.age_signature_comboBox.add_triggered.connect(self.add_popup)
         self.age_signature_comboBox.edit_triggered.connect(self.edit_popup)
-        self.sample_description_lineEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'{self.sample_description_lineEdit.text()}'))
+        self.sample_description_textEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'{self.sample_description_textEdit.text()}'))
         logger_setup.get_logger().info("Signals connected")
 
     def disconnect_text_signals(self):
@@ -261,7 +272,7 @@ class SampleInformation(QtW.QDialog):
         except TypeError:
             pass
         try:
-            self.sample_description_lineEdit.editingFinished.disconnect()
+            self.sample_description_textEdit.editingFinished.disconnect()
         except TypeError:
             pass
         logger_setup.get_logger().info("Text signals disconnected")
@@ -351,9 +362,9 @@ class SampleInformation(QtW.QDialog):
                     self.height_depth_lineEdit.setText(f"{text}")
             elif 'SampleDescription' in header:
                 if not text:
-                    self.sample_description_lineEdit.setText(self.sample_description_lineEdit.placeholderText())
+                    self.sample_description_textEdit.setText(self.sample_description_textEdit.placeholderText())
                 else:
-                    self.sample_description_lineEdit.setText(f"{text}")
+                    self.sample_description_textEdit.setText(f"{text}")
         # if len(self.sample_dictionary) == 0:
         #     self.populate_sample_dictionary()
 
@@ -529,10 +540,13 @@ class SampleInformation(QtW.QDialog):
         elif action == delete_action:
             if self.delete_question():
                 delete_data(selected_indexes, 'Samples')
+                action = None
         elif action == add_action:
             self.add_popup(combo, action)
+            action = None
         elif action == edit_action:
             self.edit_popup()
+            action = None
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
@@ -709,13 +723,16 @@ class SampleInformation(QtW.QDialog):
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
-        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+        dlg.exec()
+        if dlg.updated:
             self.updated = True
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
             if isinstance(combo, CheckableTreeCombobox):
                 restore_expanded_state(table, combo.model(), combo.view())
             self.populate_checks(f'Samples_{table}', combo)
+        else:
+            return
 
     def edit_popup(self):
         combo = self.sender()
@@ -749,8 +766,8 @@ class SampleInformation(QtW.QDialog):
     def check_focus(self):
         if self.column_groupBox.any_child_has_focus() and self.column_groupBox.edited:
             self.column_groupBox.focusLost.emit()
-        if self.sample_description_lineEdit.hasFocus():
-            self.sample_description_lineEdit.editingFinished.emit()
+        if self.sample_description_textEdit.hasFocus():
+            self.sample_description_textEdit.editingFinished.emit()
 
     def focus_lost_delay(self):
         if self._isApplicationFocused:
@@ -760,12 +777,17 @@ class SampleInformation(QtW.QDialog):
                 self.focus_timer.timeout.connect(self.update_column_info)
                 self.focus_timer.start(100)
 
-    def commit_delay(self):
-        if not self.commit_pushed:
-            self.commit_pushed = True
-            self.commit_timer.setSingleShot(True)
-            self.commit_timer.timeout.connect(self.commit_question)
-            self.commit_timer.start(100)
+    # def commit_delay(self):
+    #     if not self.commit_pushed:
+    #         self.commit_pushed = True
+    #         self.commit_timer.setSingleShot(True)
+    #         self.commit_timer.timeout.connect(self.commit_question)
+    #         self.commit_timer.start(100)
+
+    def commit_clicked(self):
+        logger_setup.get_logger().info("Commit clicked")
+        self.commit_pushed = True
+        self.commit_question()
 
     def delete_question(self):
         msg_box = QtW.QMessageBox(self)
@@ -805,7 +827,9 @@ class SampleInformation(QtW.QDialog):
             self.close_by_dialog = False
 
     def commit_question(self):
-        logger_setup.get_logger().info("Commit timer timed out. Preparing commit question.")
+        # logger_setup.get_logger().info("Commit timer timed out. Preparing commit question.")
+        # self.commit_timer.stop()
+        # todo: figure out why this is looping when trying to close...
         self.age.check_focus()
         self.gps.check_focus()
         self.check_focus()

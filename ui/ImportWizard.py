@@ -25,12 +25,13 @@ from Functions.Settings_manager import settings
 from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
     CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers,
-    CheckableSqlQueryModel, get_view_name_column)
+    CheckableSqlQueryModel, get_view_name_column, SQLiteTableModel)
 from Functions.Widget_classes import CompleterInputDialog
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
+from ui.New_reference import NewReference
 
 CONFIG_FILE = 'column_mappings.json'
 
@@ -282,7 +283,7 @@ class ImportWizardDialog(QWidget):
     data_imported = QtCore.pyqtSignal(list)
 
     def __init__(self, parent: QWidget):
-        super().__init__(parent)
+        super().__init__(parent=None)
         self.loading_manager = LoadingDialogManager.get_instance()
 
         self.setWindowTitle("UPb Import Wizard")
@@ -333,63 +334,34 @@ class ImportWizardDialog(QWidget):
 
         # ComboBox for setting Reference
         self.combo_reference_comboBox = CheckableComboBox()
-        self.combo_reference_comboBox.setFixedWidth(150)
-        self.combo_reference_comboBox.set_single_click(True)
-
         self.combo_reference = CheckableSqlQueryModel()
-        self.combo_reference.setQuery(f'SELECT * FROM ReferenceView')
-        self.combo_reference_comboBox.setModel(self.combo_reference)
-        self.combo_reference_comboBox.setModelColumn(get_view_name_column('ReferenceView'))
-        self.combo_reference_comboBox.closing.connect(
-            lambda: self.set_all_rows("Reference Display", self.combo_reference))
-        combo_box_layout.addWidget(QLabel("Reference"))
-        combo_box_layout.addWidget(self.combo_reference_comboBox)
-        self.combo_reference_comboBox.set_line_edit_text(None)
 
         # ComboBox for setting Instrument
         self.combo_instrument_comboBox = CheckableComboBox()
-        self.combo_instrument_comboBox.setFixedWidth(150)
-        self.combo_instrument_comboBox.set_single_click(True)
-
         self.combo_instrument = CheckableSqlTableModel()
-        self.combo_instrument = set_table(self.combo_instrument, "Instruments")
-        self.combo_instrument_comboBox.setModel(self.combo_instrument)
-        self.combo_instrument_comboBox.closing.connect(
-            lambda: self.set_all_rows("Instrument Name", self.combo_instrument))
-        combo_box_layout.addWidget(QLabel("Instrument"))
-        combo_box_layout.addWidget(self.combo_instrument_comboBox)
-        self.combo_instrument_comboBox.set_line_edit_text(None)
 
         # ComboBox for setting LabFacility
         self.combo_lab_facility_comboBox = CheckableComboBox()
-        self.combo_lab_facility_comboBox.setFixedWidth(150)
-        self.combo_lab_facility_comboBox.set_single_click(True)
-
         self.combo_lab_facility = CheckableSqlTableModel()
-        self.combo_lab_facility = set_table(self.combo_lab_facility, "LabFacilities")
-        self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
-        self.combo_lab_facility_comboBox.closing.connect(
-            lambda: self.set_all_rows("Lab Facility Name", self.combo_lab_facility))
-        combo_box_layout.addWidget(QLabel("Lab Facility"))
-        combo_box_layout.addWidget(self.combo_lab_facility_comboBox)
-        self.combo_lab_facility_comboBox.set_line_edit_text(None)
 
         # ComboBox for setting UPbAnalysisMethod
         self.combo_upb_analysis_method_comboBox = CheckableTreeCombobox()
-        self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
-        self.combo_upb_analysis_method_comboBox.set_single_click(True)
-
         self.upb_analysis_method = QSqlTableModel()
-        self.upb_analysis_method = set_table(self.upb_analysis_method, "UPbAnalysisMethods")
         self.combo_upb_analysis_method = CheckableTreeModel()
-        self.combo_upb_analysis_method.setSourceModel(self.upb_analysis_method)
-        self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
-        self.combo_upb_analysis_method_comboBox.set_single_click(True)
-        self.combo_upb_analysis_method_comboBox.closing.connect(
-            lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method))
+
+        self.populate_comboBoxes()
+
+        combo_box_layout.addWidget(QLabel("Reference"))
+        combo_box_layout.addWidget(self.combo_reference_comboBox)
+
+        combo_box_layout.addWidget(QLabel("Instrument"))
+        combo_box_layout.addWidget(self.combo_instrument_comboBox)
+
+        combo_box_layout.addWidget(QLabel("Lab Facility"))
+        combo_box_layout.addWidget(self.combo_lab_facility_comboBox)
+
         combo_box_layout.addWidget(QLabel("UPb Analysis Method"))
         combo_box_layout.addWidget(self.combo_upb_analysis_method_comboBox)
-        self.combo_upb_analysis_method_comboBox.set_line_edit_text(None)
 
         main_layout.addLayout(combo_box_layout)
 
@@ -569,6 +541,45 @@ class ImportWizardDialog(QWidget):
         self.combo_lab_facility_comboBox.disconnect()
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
+
+    def populate_comboBoxes(self):
+        """
+        Populates the combo boxes with values from the database.
+        """
+        self.combo_reference_comboBox.setFixedWidth(150)
+        self.combo_reference_comboBox.set_single_click(True)
+        self.combo_reference.setQuery(f'SELECT * FROM ReferenceView')
+        self.combo_reference_comboBox.setModel(self.combo_reference)
+        self.combo_reference_comboBox.setModelColumn(get_view_name_column('ReferenceView'))
+        self.combo_reference_comboBox.closing.connect(
+            lambda: self.set_all_rows("Reference Display", self.combo_reference))
+        self.combo_reference_comboBox.set_line_edit_text(None)
+
+        self.combo_instrument_comboBox.setFixedWidth(150)
+        self.combo_instrument_comboBox.set_single_click(True)
+        self.combo_instrument = set_table(self.combo_instrument, "Instruments")
+        self.combo_instrument_comboBox.setModel(self.combo_instrument)
+        self.combo_instrument_comboBox.closing.connect(
+            lambda: self.set_all_rows("Instrument Name", self.combo_instrument))
+        self.combo_instrument_comboBox.set_line_edit_text(None)
+
+        self.combo_lab_facility_comboBox.setFixedWidth(150)
+        self.combo_lab_facility_comboBox.set_single_click(True)
+        self.combo_lab_facility = set_table(self.combo_lab_facility, "LabFacilities")
+        self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
+        self.combo_lab_facility_comboBox.closing.connect(
+            lambda: self.set_all_rows("Lab Facility Name", self.combo_lab_facility))
+        self.combo_lab_facility_comboBox.set_line_edit_text(None)
+
+        self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
+        self.combo_upb_analysis_method_comboBox.set_single_click(True)
+        self.upb_analysis_method = set_table(self.upb_analysis_method, "UPbAnalysisMethods")
+        self.combo_upb_analysis_method.setSourceModel(self.upb_analysis_method)
+        self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
+        self.combo_upb_analysis_method_comboBox.set_single_click(True)
+        self.combo_upb_analysis_method_comboBox.closing.connect(
+            lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method))
+        self.combo_upb_analysis_method_comboBox.set_line_edit_text(None)
 
     def deactivate_widgets(self):
         """
@@ -853,10 +864,13 @@ class ImportWizardDialog(QWidget):
         else:
             return
         if table in SQLUtils.user_viewable_trees:
-            dlg = EditTree(table)
+            dlg = EditTree(self, table)
         else:
-            dlg = EditTable(table)
+            dlg = EditTable(self, table)
         dlg.exec()
+        if dlg.updated:
+            update_database()
+            self.populate_comboBoxes()
 
     def add_combo_box(self, pos, action: QAction | None = None):
         """
@@ -880,22 +894,22 @@ class ImportWizardDialog(QWidget):
         dlg = None
         dlg_args = None
         if table in SQLUtils.user_viewable_trees:
-            save_expanded_state(table, combo.model(), combo.treeView())
+            save_expanded_state(table, combo.model(), combo.treeView)
             if action:
-                dlg_args = add_tree_popup(combo.treeView(), combo.model(), action)
+                dlg_args = add_tree_popup(combo.treeView, combo.model(), action)
             if dlg_args:
                 self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
                 dlg = AddTreeTags(self, table, **dlg_args)
+        elif table == "References":
+            self.loading_manager.show_loading_dialog('Loading', 'Opening add window for References...')
+            dlg = NewReference(self)
         else:
             self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = AddTags(self, table)
         dlg.exec()
         if dlg.updated:
-            if table in SQLUtils.user_viewable_trees:
-                combo.model().sourceModel().select()
-                combo.model().setSourceModel(combo.model().sourceModel())
-            else:
-                combo.model().select()
+            update_database()
+            self.populate_comboBoxes()
 
     def show_left_header_context_menu(self, pos):
         """
@@ -1564,8 +1578,8 @@ class ImportWizardDialog(QWidget):
             checked_items, partially_checked_items, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
                 QtCore.QModelIndex())
             if checked_items:
-                checked_item_name = checked_items[0]
-                checked_item_id = get_id_from_name(table, checked_item_name)
+                checked_item_name = checked_indices[0].data(QtCore.Qt.ItemDataRole.DisplayRole)
+                checked_item_id = checked_items[0]
                 source_checked_row = checked_indices[0].row()
             else:
                 return
