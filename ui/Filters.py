@@ -1195,12 +1195,35 @@ class QueryBuilder(QWidget):
             WHERE {where_clause}
             """
         elif type == 'Aliquots':
+            # Generate join string
             join = SQLUtils.get_join_from_table(join, ['Aliquots'])
-            sql_query = full_sql + f"""SELECT DISTINCT AliquotID FROM (
+
+            # Recursive CTE: start from records matching `where_clause`, then gather parents
+            cte = f"""
+            WITH RECURSIVE Aliquots_cte AS (
+                SELECT Aliquots.AliquotID, Aliquots.ParentAliquotID
+                FROM Samples
+                {join}
+                WHERE {where_clause}
+
+                UNION ALL
+
+                SELECT a.AliquotID, a.ParentAliquotID
+                FROM Aliquots a
+                INNER JOIN Aliquots_cte r ON a.AliquotID = r.ParentAliquotID
+            )
+            """
+
+            # Main query using the CTE
+            sql_query = cte + f"""
+            SELECT DISTINCT AliquotID FROM (
                 SELECT Aliquots.AliquotID, {selects}
-                FROM Samples {join}
-                WHERE {where_clause})
-                WHERE AliquotID IS NOT NULL;"""
+                FROM Samples
+                {join}
+                WHERE Aliquots.AliquotID IN (SELECT AliquotID FROM Aliquots_cte)
+            )
+            WHERE AliquotID IS NOT NULL;
+            """
         elif type == 'Spots':
             join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (

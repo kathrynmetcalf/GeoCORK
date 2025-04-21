@@ -47,6 +47,9 @@ class DataViewerWidget(QWidget):
         self.data_ids_to_show = ids_to_show
         self.data_filtered_ids_to_show = set()
 
+        self.data_table_model = None
+        self.data_filtered_table_model = None
+
         self.data_table_proxy_model = ReadableProxyModel()
         self.data_filtered_table_proxy_model = ReadableProxyModel()
 
@@ -184,17 +187,17 @@ class DataViewerWidget(QWidget):
                 case 'Samples':
                     table = 'SampleView'
                     show_cols = ', '.join(settings.value('sample_view_columns'))
-                    model = SQLiteTableModel(
+                    self.data_table_model = SQLiteTableModel(
                         f'SELECT {show_cols} FROM {table} WHERE SampleID {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case 'Spots':
                     table = 'SpotView'
                     show_cols = ', '.join(settings.value('spot_view_columns'))
-                    model = SQLiteTableModel(
+                    self.data_table_model = SQLiteTableModel(
                         f'SELECT {show_cols} FROM {table} WHERE SpotID {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case 'UPbAnalyses':
                     table = 'UPbView'
                     show_cols = ', '.join(settings.value('upb_analysis_view_columns'))
-                    model = SQLiteTableModel(
+                    self.data_table_model = SQLiteTableModel(
                         f'SELECT {show_cols} FROM {table} WHERE UPbAnalysisID {self.sql_data_ids_to_show} ORDER BY SampleName LIMIT {self.rows_per_page_1} OFFSET {offset}')
                 case _:
                     logger_setup.get_logger().critical(
@@ -203,12 +206,12 @@ class DataViewerWidget(QWidget):
 
             name_column = get_view_name_column(table)
             if name_column is not None:
-                name_header = model.headerData(get_view_name_column(table), QtC.Qt.Orientation.Horizontal,
+                name_header = self.data_table_model.headerData(get_view_name_column(table), QtC.Qt.Orientation.Horizontal,
                                            QtC.Qt.ItemDataRole.DisplayRole)
                 self.set_go_to_completer(self.goto_line_edit, name_header, table)
 
             self.data_table_proxy_model = ReadableProxyModel()
-            self.data_table_proxy_model.setSourceModel(model)
+            self.data_table_proxy_model.setSourceModel(self.data_table_model)
             self.data_table_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
             self.dbTable_tableView.setModel(self.data_table_proxy_model)
@@ -245,28 +248,27 @@ class DataViewerWidget(QWidget):
                 table = 'AliquotView'
                 self.switch_to_tree(self.db_stackedWidget)
                 show_cols = ', '.join(settings.value('aliquot_view_columns'))
-                source_model = SQLiteTableModel(
+                self.data_table_model = SQLiteTableModel(
                     f'SELECT {show_cols} FROM {table} WHERE AliquotID {self.sql_data_ids_to_show} ORDER BY SampleName')
             else:
                 logger_setup.get_logger().info(f"Passed a tree that is not Aliquots")
                 return
 
-            tree_model = TreeModel(source_model, self)
+            tree_model = TreeModel(self.data_table_model, self)
 
-            proxy_model = ReadableProxyModel()
-            proxy_model.setSourceModel(tree_model)
-            tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
-            tree_proxy_model.setSourceModel(tree_model)
-            tree_proxy_model.sort(5, QtC.Qt.SortOrder.AscendingOrder)
-            self.dbTable_treeView.setModel(tree_proxy_model)
+            # proxy_model = ReadableProxyModel()
+            # proxy_model.setSourceModel(self.data_table_model)
+            self.data_table_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
+            self.data_table_proxy_model.setSourceModel(tree_model)
+            self.data_table_proxy_model.sort(5, QtC.Qt.SortOrder.AscendingOrder)
+            self.dbTable_treeView.setModel(self.data_table_proxy_model)
             self.dbTable_treeView.expandAll()
 
-            self.dbTable_treeView.setModel(tree_proxy_model)
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.hide_columns(self.dbTable_treeView, table)
-            for column in range(tree_proxy_model.columnCount()):
+            for column in range(self.data_table_proxy_model.columnCount()):
                 self.dbTable_treeView.resizeColumnToContents(column)
         else:
             logger_setup.get_logger().critical(
@@ -328,9 +330,14 @@ class DataViewerWidget(QWidget):
             id_column = 1
         else:
             id_column = 0
-        for index in data_filter.selectionModel().selectedIndexes():
-            # gathers selected SampleID, AliquotID, SpotID, or UPbAnalysisID for data_filter where query
-            selected_data_filter_ids.add(str(data_filter.model().index(index.row(), id_column).data()))
+
+        proxy = self.data_table_proxy_model  # QSortFilterProxyModel or tree proxy
+        source = self.data_table_model  # underlying QAbstractItemModel
+
+        for proxy_idx in data_filter.selectionModel().selectedRows(id_column):
+            source_id_idx = proxy.mapToSource(proxy_idx)
+            selected_data_filter_ids.add(str(source.data(source_id_idx)))
+            # todo: This is not returning the correct ids or is returning none.
 
         if self.data_filtered_table in SQLUtils.as_table_dict.values():
             for key, value in SQLUtils.as_table_dict.items():
@@ -399,9 +406,9 @@ class DataViewerWidget(QWidget):
         sql_columns = ', '.join(f'{self.data_filtered_table}.{column}' for column in show_cols)
         if self.data_filtered_table in SQLUtils.user_viewable_trees:
             self.switch_to_tree_2(self.db_stackedWidget_2)
-            model = QtS.QSqlTableModel()
-            model.setTable(self.data_filtered_table)
-            model.select()
+            source_model = QtS.QSqlTableModel()
+            source_model.setTable(self.data_filtered_table)
+            source_model.select()
             id_col_name = get_headers(self.data_filtered_table)[0]
             filter_sql = f"""{id_col_name} IN (WITH RECURSIVE ParentTree AS
                             (SELECT {', '.join(show_cols)} FROM {self.data_filtered_table}
@@ -412,12 +419,12 @@ class DataViewerWidget(QWidget):
                             SELECT {id_col_name} FROM ParentTree)"""
 
             logger_setup.get_logger().debug(f'Tree Filter SQL: {filter_sql}')
-            model.setFilter(filter_sql)
+            source_model.setFilter(filter_sql)
 
-            tree_model = TreeModel(model, self)
+            self.data_filtered_table_model = TreeModel(source_model, self)
 
             self.data_filtered_table_proxy_model = ReadableProxyModel()
-            self.data_filtered_table_proxy_model.setSourceModel(tree_model)
+            self.data_filtered_table_proxy_model.setSourceModel(self.data_filtered_table_model)
             tree_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView_2)
             tree_proxy_model.setSourceModel(self.data_filtered_table_proxy_model)
             self.dbTable_treeView_2.setModel(tree_proxy_model)
@@ -440,7 +447,7 @@ class DataViewerWidget(QWidget):
         elif self.data_filtered_table in SQLUtils.user_viewable_tables or 'View' in self.data_filtered_table:
             self.switch_to_table_2(self.db_stackedWidget_2)
             offset = self.current_page_2 * self.rows_per_page_2
-            model = QtS.QSqlQueryModel()
+            self.data_filtered_table_model = QtS.QSqlQueryModel()
             self.data_filtered_table_proxy_model = ReadableProxyModel()
 
             # if self.data_filtered_table == '"References"':
@@ -451,8 +458,8 @@ class DataViewerWidget(QWidget):
                         ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
 
             logger_setup.get_logger().debug(f'SQL query: {sql_query}')
-            model.setQuery(sql_query)
-            self.data_filtered_table_proxy_model.setSourceModel(model)
+            self.data_filtered_table_model.setQuery(sql_query)
+            self.data_filtered_table_proxy_model.setSourceModel(self.data_filtered_table_model)
             if self.data_table == 'Samples':
                 table = 'SampleView'
             elif self.data_table == 'Spots':
