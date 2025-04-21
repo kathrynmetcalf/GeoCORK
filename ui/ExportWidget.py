@@ -226,12 +226,20 @@ class ExportWidget(QWidget):
 
             # Execute the query
             logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec(sql_query):
-                logger_setup.get_logger().critical(
-                    f'Error fetching distinct UPbAnalysisID using Filter ID: {filter_id}: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
-                return False
+                if 'no such column' in query.lastError().text():
+                    sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
+                    if not query.exec(sql_query):
+                        logger_setup.get_logger().critical(f'Error fetching distinct values')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
+                else:
+                    logger_setup.get_logger().critical(f'Error fetching distinct values')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    return False
             logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
             # Fetch all results, add found IDs to the list.
             while query.next():
@@ -287,9 +295,9 @@ class ExportWidget(QWidget):
             logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec(sql_query):
-                logger_setup.get_logger().critical(
-                    f'Error fetching distinct UPbAnalysisID using Filter ID: {filter_id}: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                logger_setup.get_logger().critical(f'Error fetching distinct values')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 return False
             logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
             # Fetch all results, add found UPbAnalysisIDs to the list.
@@ -376,9 +384,9 @@ class ExportWidget(QWidget):
                         tableView.setModel(None)
                         return True
             else:
-                logger_setup.get_logger().critical(
-                    f'Error selecting distinct values in table: {query.lastError().text()}')
-                logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+                logger_setup.get_logger().critical(f'Error selecting distinct values')
+                logger_setup.get_logger().debug(f'Error: {distinct_first_column_query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {distinct_first_column_query.lastQuery()}')
                 return False
             case_expressions = []
 
@@ -417,11 +425,11 @@ class ExportWidget(QWidget):
 
         # Prepare and execute the query
         counter_query = QSqlQuery(db=self.database)
-        logger_setup.get_logger().debug(f"SQL Command: {counter_sql_query}")
+        # logger_setup.get_logger().debug(f"SQL Command: {counter_sql_query}")
         if not counter_query.exec(counter_sql_query):
-            logger_setup.get_logger().critical(
-                f'Error fetching total records: {counter_query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {counter_sql_query}')
+            logger_setup.get_logger().critical(f'Error fetching total records')
+            logger_setup.get_logger().debug(f'Error: {counter_query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {counter_query.lastQuery()}')
             return
         else:
             # Move to the first record to retrieve the count
