@@ -5,6 +5,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
+from PyQt6.QtWidgets import QLabel
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -42,6 +43,9 @@ class AddTags(QtW.QDialog):
         self.clear_warning()
         self.cancel_pushButton.setAutoDefault(False)
 
+        self.sample_info_text = QLabel(parent=self, text='Utilize Edit Samples to modify Sample Metadata. This only adds samples with a name and description.')
+        self.layout().insertWidget(4, self.sample_info_text)
+
         self.filter_proxy_model = ReadableProxyModel()
         self.filter_proxy_model.setSourceModel(self.model)
         self.filter_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -70,6 +74,13 @@ class AddTags(QtW.QDialog):
         self.tags_tableView.setModel(self.filter_proxy_model)
         self.tags_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tags_tableView.hideColumn(0)  # Hide the ID column
+        if self.table == 'Samples':
+            self.tags_tableView.hideColumn(3)
+            self.tags_tableView.hideColumn(4)
+            self.tags_tableView.hideColumn(5)
+            self.tags_tableView.hideColumn(6)
+            self.tags_tableView.hideColumn(7)
+            self.tags_tableView.hideColumn(8)
         self.tags_tableView.resizeColumnsToContents()
         self.tags_tableView.horizontalHeader().setDefaultAlignment(QtC.Qt.AlignmentFlag.AlignLeft)
         query = QtS.QSqlQuery()
