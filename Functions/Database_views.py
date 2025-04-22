@@ -1,3 +1,4 @@
+import sqlite3
 import time
 
 from PyQt6 import QtSql as QtS
@@ -527,18 +528,37 @@ def create_sample_view():
         # replace the necessary columns with 'Filled' at the end
         for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
             sample_query = sample_query.replace(f'"{column}"', f'"{column}Filled"')
-    query = QtS.QSqlQuery()
-    if not query.exec(sample_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(sample_query)
+        conn.commit()
+        conn.close()
+
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating SampleView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {sample_query}')
         return False
+
     sample_view = f'CREATE VIEW IF NOT EXISTS SampleView AS {sample_query}'
     logger_setup.get_logger().info(f'Creating SampleView')
-    if not query.exec(sample_view):
-        logger_setup.get_logger().critical(f'Error creating SampleView)')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(sample_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating SampleView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {sample_view}')
         return False
     logger_setup.get_logger().info(f'Successfully created SampleView {time.time() - start_time} seconds')
 
@@ -565,188 +585,361 @@ def create_aliquot_view():
     start_time = time.time()
     aliquot_query = AliquotViewQuery()
     if settings.value('autofill_best_age') == 'true':
-        # replace the necessary columns with 'Filled' at the end
-        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge',
+                       'CalculatedBestAgeError'):
             aliquot_query = aliquot_query.replace(f'"{column}"', f'"{column}Filled"')
-    query = QtS.QSqlQuery()
-    if not query.exec(aliquot_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(aliquot_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating AliquotView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {aliquot_query}')
         return False
+
     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotView AS {aliquot_query}'
-    logger_setup.get_logger().info(f'Creating AliquotView')
-    if not query.exec(aliquot_view):
-        logger_setup.get_logger().critical(f'Error creating AliquotView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating AliquotView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(aliquot_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating AliquotView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {aliquot_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created AliquotView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created AliquotView {time.time() - start_time} seconds')
 
 
 def create_aliquot_edit_view():
     start_time = time.time()
     aliquot_query = AliquotEditViewQuery()
-    query = QtS.QSqlQuery()
-    if not query.exec(aliquot_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(aliquot_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating AliquotEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {aliquot_query}')
         return False
+
     aliquot_view = f'CREATE VIEW IF NOT EXISTS AliquotEditView AS {aliquot_query}'
-    logger_setup.get_logger().info(f'Creating AliquotEditView')
-    if not query.exec(aliquot_view):
-        logger_setup.get_logger().critical(f'Error creating AliquotEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating AliquotEditView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(aliquot_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating AliquotEditView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {aliquot_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created AliquotEditView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created AliquotEditView {time.time() - start_time} seconds')
 
 
 def create_spot_view():
     start_time = time.time()
     spot_query = SpotViewQuery()
     if settings.value('autofill_best_age') == 'true':
-        # replace the necessary columns with 'Filled' at the end
-        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge',
+                       'CalculatedBestAgeError'):
             spot_query = spot_query.replace(f'"{column}"', f'"{column}Filled"')
-    query = QtS.QSqlQuery()
-    if not query.exec(spot_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(spot_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating SpotView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {spot_query}')
         return False
+
     spot_view = f'CREATE VIEW IF NOT EXISTS SpotView AS {spot_query}'
-    logger_setup.get_logger().info(f'Creating SpotView')
-    if not query.exec(spot_view):
-        logger_setup.get_logger().critical(f'Error creating SpotView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating SpotView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(spot_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating SpotView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {spot_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created SpotView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created SpotView {time.time() - start_time} seconds')
 
 
 def create_spot_edit_view():
     start_time = time.time()
     spot_query = SpotEditViewQuery()
-    query = QtS.QSqlQuery()
-    if not query.exec(spot_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(spot_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating SpotEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {spot_query}')
         return False
+
     spot_view = f'CREATE VIEW IF NOT EXISTS SpotEditView AS {spot_query}'
-    logger_setup.get_logger().info(f'Creating SpotEditView')
-    if not query.exec(spot_view):
-        logger_setup.get_logger().critical(f'Error creating SpotEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating SpotEditView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(spot_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating SpotEditView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {spot_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created SpotEditView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created SpotEditView {time.time() - start_time} seconds')
 
 
 def create_upb_view():
     start_time = time.time()
     upb_query = UPbViewQuery()
-    query = QtS.QSqlQuery()
-    if not query.exec(upb_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(upb_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating UPbView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {upb_query}')
         return False
+
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbView AS {upb_query}'
-    logger_setup.get_logger().info(f'Creating UPbView')
-    if not query.exec(upb_view):
-        logger_setup.get_logger().critical(f'Error creating UPbView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating UPbView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(upb_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating UPbView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {upb_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created UPbView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created UPbView {time.time() - start_time} seconds')
 
 
 def create_upb_edit_view():
     start_time = time.time()
     upb_query = UPbEditViewQuery()
     if settings.value('autofill_best_age') == 'true':
-        # replace the necessary columns with 'Filled' at the end
-        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge',
+                       'CalculatedBestAgeError'):
             upb_query = upb_query.replace(f'"{column}"', f'"{column}Filled"')
-    query = QtS.QSqlQuery()
-    if not query.exec(upb_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(upb_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating UPbEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {upb_query}')
         return False
+
     upb_view = f'CREATE VIEW IF NOT EXISTS UPbEditView AS {upb_query}'
-    logger_setup.get_logger().info(f'Creating UPbEditView')
-    if not query.exec(upb_view):
-        logger_setup.get_logger().critical(f'Error creating UPbEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating UPbEditView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(upb_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating UPbEditView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {upb_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created UPbEditView in {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created UPbEditView in {time.time() - start_time} seconds')
 
 
 def create_column_view():
     start_time = time.time()
     column_query = ColumnViewQuery()
-    query = QtS.QSqlQuery()
-    if not query.exec(column_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(column_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating ColumnView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {column_query}')
         return False
+
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnView AS {column_query}'
-    logger_setup.get_logger().info(f'Creating ColumnView')
-    if not query.exec(column_view):
-        logger_setup.get_logger().critical(f'Error creating ColumnView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating ColumnView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(column_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating ColumnView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {column_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created ColumnView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created ColumnView {time.time() - start_time} seconds')
 
 
 def create_column_edit_view():
     start_time = time.time()
     column_query = ColumnEditViewQuery()
-    query = QtS.QSqlQuery()
-    if not query.exec(column_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(column_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating ColumnEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {column_query}')
         return False
+
     column_view = f'CREATE VIEW IF NOT EXISTS ColumnEditView AS {column_query}'
-    logger_setup.get_logger().info(f'Creating ColumnEditView')
-    if not query.exec(column_view):
-        logger_setup.get_logger().critical(f'Error creating ColumnEditView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating ColumnEditView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(column_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating ColumnEditView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {column_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created ColumnEditView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created ColumnEditView {time.time() - start_time} seconds')
 
 
 def create_reference_view():
     start_time = time.time()
     reference_query = ReferenceViewQuery()
-    query = QtS.QSqlQuery()
-    if not query.exec(reference_query):
+
+    database = settings._instance.value('db_file', type=str)
+    uri = f'file:{database}'
+
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(reference_query)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
         logger_setup.get_logger().critical('Error creating ReferenceView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {reference_query}')
         return False
+
     reference_view = f'CREATE VIEW IF NOT EXISTS ReferenceView AS {reference_query}'
-    logger_setup.get_logger().info(f'Creating ReferenceView')
-    if not query.exec(reference_view):
-        logger_setup.get_logger().critical(f'Error creating ReferenceView')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    logger_setup.get_logger().info('Creating ReferenceView')
+    try:
+        conn = sqlite3.connect(uri, uri=True)
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(reference_view)
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical('Error creating ReferenceView')
+        logger_setup.get_logger().debug(f'Error: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {reference_view}')
         return False
-    logger_setup.get_logger().info(f'Successfully created ReferenceView {time.time() - start_time} seconds')
+    logger_setup.get_logger().info(
+        f'Successfully created ReferenceView {time.time() - start_time} seconds')
 
 
 def create_all_views():
     start_time = time.time()
+    from Functions.Settings_manager import settings
     logger_setup.get_logger().info('Creating all views')
+
     create_sample_view()
     # create_sample_edit_view()
     create_aliquot_view()
@@ -791,3 +984,8 @@ def drop_all_views():
         drop_view(view)
     end_time = time.time()
     logger_setup.get_logger().info(f'All views dropped in {end_time - start_time} seconds')
+
+
+
+if __name__ == '__main__':
+    print('CREATE VIEW IF NOT EXISTS SampleView AS'  + SampleViewQuery())
