@@ -365,9 +365,7 @@ class ExportWidget(QWidget):
                 else:
                     # if no columns/values are found then could be an error, check if items are checked, if there are
                     # then something went wrong.
-                    if not (len(self.checked_sample_list) == 0 and
-                            len(self.checked_aliquot_list) == 0 and
-                            len(self.checked_spot_list) == 0):
+                    if not len(self.checked_sample_list) == 0:
                         logger_setup.get_logger().critical('No rows returned for distinct first column')
                         model = QSqlQueryModel()
                         proxy_model = ReadableProxyModel()
