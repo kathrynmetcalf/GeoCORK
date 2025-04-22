@@ -782,11 +782,6 @@ def create_upb_view():
 def create_upb_edit_view():
     start_time = time.time()
     upb_query = UPbEditViewQuery()
-    if settings.value('autofill_best_age') == 'true':
-        for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge',
-                       'CalculatedBestAgeError'):
-            upb_query = upb_query.replace(f'"{column}"', f'"{column}Filled"')
-
     database = settings._instance.value('db_file', type=str)
     uri = f'file:{database}'
 

@@ -709,12 +709,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             header = super().headerData(section, orientation, role)
             if '_' in header:
                 return header
-            if not self.view:
-                readable_header = get_readable_header(header)
-                return readable_header
-            else:
-                readable_header = TxM.add_spaces_camel(header)
-                return readable_header
+            readable_header = get_readable_header(header)
+            return readable_header
         super().headerData(section, orientation, role)
 
     def _check_doi_column(self):
@@ -4539,17 +4535,16 @@ def get_readable_header(header: str):
         header = f'Calculated Height/Depth ({settings.value('heightdepth_unit_abbreviation')})'
     elif 'HeightDepth' in header:
         header = header.replace('HeightDepth', 'Height/Depth')
-    elif 'AgeCalculated' in header:
-        header = f'Calculated Age ({settings.value('age_unit_abbreviation')})'
+    elif 'AgeError' in header and 'Calculated' in header:
+        header += f' ({settings.value("age_error_format_abbreviation")})'
     elif 'CalculatedSpotSize' in header:
         header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
     elif 'CalculatedConcordance' in header:
         header = f'Calculated Concordance ({settings.value('concordance_format_abbreviation')})'
-    elif 'AgeError' in header:
-        header += f' ({settings.value("age_error_format_abbreviation")})'
-    elif 'Age' in header and not any(s in header for s in ['Name', 'Description', 'Reference', 'Unit', 'Format', 'Created', 'Modified']):
+    elif ('Age' in header and 'Calculated' in header
+          and not any(s in header for s in ['Name', 'Description', 'Reference', 'Unit', 'Format', 'Created', 'Modified'])):
         header += f' ({settings.value("age_unit_abbreviation")})'
-    elif 'Error' in header:
+    elif 'Error' in header and 'Calculated' in header:
         if 'Corr/Rho' in header:
             header += f' ({settings.value("ratio_error_format_abbreviation")})'
         else:
@@ -4575,6 +4570,14 @@ def get_readable_header(header: str):
     header = TxM.add_spaces_camel(header)
     if 'U Pb' in header:
         header = header.replace('U Pb', 'U-Pb')
+    if ' Pb/' in header:
+        header = header.replace(' Pb/', 'Pb/')
+    if ' U/' in header:
+        header = header.replace(' U/', 'U/')
+    if ' Pb ' in header:
+        header = header.replace(' Pb ', 'Pb ')
+    if ' U ' in header:
+        header = header.replace(' U ', 'U ')
     return header
 
 

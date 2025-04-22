@@ -238,7 +238,7 @@ class EditView(QtW.QDialog):
         # Populate the value input with a completer based on the selected attribute
 
         query = QSqlQuery()
-        sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
+        sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.view}"'
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             logger_setup.get_logger().critical(f'Error creating the completer for input')
@@ -380,14 +380,14 @@ class EditView(QtW.QDialog):
 
     def display_table(self):
         start_time = time.time()
-        logger_setup.get_logger().info(f'Displaying {self.table} table')
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+        logger_setup.get_logger().info(f'Displaying {self.view} table')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.view}...')
         self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.model)
-        self.name_column = get_name_column(self.table)
+        self.name_column = get_name_column(self.view)
         proxy_name_column = None
-        if self.name_column:
-            self.name_header = get_headers(self.table)[self.name_column]
+        if self.name_column is not None:
+            self.name_header = get_headers(self.view)[self.name_column]
             for column in range(self.proxy_model.columnCount()):
                 header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
                 if header == self.name_header:
@@ -435,9 +435,9 @@ class EditView(QtW.QDialog):
             if self.edit_tableView.columnWidth(column) > 400:
                 self.edit_tableView.setColumnWidth(column, 400)
 
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.view}...')
         end_time = time.time()
-        logger_setup.get_logger().info(f'Displayed {self.table} in {end_time - start_time} seconds')
+        logger_setup.get_logger().info(f'Displayed {self.view} in {end_time - start_time} seconds')
 
     def display_widget(self):
         if len(self.edit_tableView.selectedIndexes()) == 0:
@@ -1314,8 +1314,9 @@ class EditView(QtW.QDialog):
                     elif isinstance(text, str) and text.isdecimal():
                         # string of a decimal, so save it as a decimal
                         text = float(text)
-                    update_cols[self.table].append(header)
-                    update_col_values[self.table].append(text)
+                    if header not in update_cols[self.table]:
+                        update_cols[self.table].append(header)
+                        update_col_values[self.table].append(text)
         for table in update_cols.keys():
             if update_col_values[table]:
                 sql_cols = ', '.join(update_cols[table])

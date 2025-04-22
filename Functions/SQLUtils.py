@@ -959,8 +959,8 @@ view_attributes_dict = {
         '"Calculated206Pb/238UAge"', '"Calculated206Pb/238UAgeError"',
         '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
         '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"',
-        '"CalculatedBestAge"', '"CalculatedBestAgeError"', '"CalculatedSpotSize"',
-        '"CalculatedConcordance"',
+        '"CalculatedBestAgeFilled"', '"CalculatedBestAgeErrorFilled"',
+        '"CalculatedSpotSize"', '"CalculatedConcordance"',
         f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ],
@@ -998,6 +998,7 @@ view_attributes_dict = {
         '"206Pb/238UAge"', '"206Pb/238UAgeError"',
         '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
         '"BestAge"', '"BestAgeError"',
+        '"BestAgeFilled"', '"BestAgeErrorFilled"',
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", '"Concordance"',
         f"{qconcordance_formats.split('AS ')[1]}",
         '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",

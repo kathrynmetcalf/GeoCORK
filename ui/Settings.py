@@ -166,8 +166,8 @@ def default_settings():
         '"Calculated204Pb/208PbError"',
         '"ErrorCorr/Rho"', '"Calculated207Pb/206PbAge"', '"Calculated207Pb/206PbAgeError"', '"Calculated206Pb/238UAge"',
         '"Calculated206Pb/238UAgeError"', '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
-        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAge"',
-        '"CalculatedBestAgeError"',
+        '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAgeFilled"',
+        '"CalculatedBestAgeErrorFilled"',
         '"CalculatedSpotSize"', '"CalculatedConcordance"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated',
         'UPbAnalysisModified'
     ])
@@ -186,12 +186,11 @@ def default_settings():
         '"206Pb/204Pb"', '"206Pb/204PbError"', '"204Pb/206Pb"', '"204Pb/206PbError"',
         '"207Pb/204Pb"', '"207Pb/204PbError"', '"204Pb/207Pb"', '"204Pb/207PbError"',
         '"208Pb/204Pb"', '"208Pb/204PbError"', '"204Pb/208Pb"', '"204Pb/208PbError"',
-        '"204Pb/208PbError"', 'RatioErrorFormatAbbreviation', '"ErrorCorr/Rho"', '"207Pb/206PbAge"',
-        '"207Pb/206PbAgeError"',
-        '"207Pb/235UAge"', '"207Pb/235UAgeError"', '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"',
-        '"208Pb/232ThAgeError"',
-        '"BestAge"', '"BestAgeError"', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"',
-        'ConcordanceFormatAbbreviation',
+        '"204Pb/208PbError"', 'RatioErrorFormatAbbreviation', '"ErrorCorr/Rho"',
+        '"207Pb/206PbAge"', '"207Pb/206PbAgeError"', '"207Pb/235UAge"', '"207Pb/235UAgeError"',
+        '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
+        '"BestAge"', '"BestAgeError"', '"BestAgeFilled"', '"BestAgeErrorFilled"',
+        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"', 'ConcordanceFormatAbbreviation',
         '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisCreated',
         'UPbAnalysisModified'
     ])
