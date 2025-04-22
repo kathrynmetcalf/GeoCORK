@@ -97,23 +97,17 @@ class ExportWidget(QWidget):
 
         self.samples_model = CheckableSqlTableModel()
         self.samples_model = self.set_table(self.samples_model, 'Samples')
-        self.samples_proxy = ReadableProxyModel()
-        self.samples_proxy.setSourceModel(self.samples_model)
-        self.samplesincluded_comboBox.setModel(self.samples_proxy)
+        self.samplesincluded_comboBox.setModel(self.samples_model)
         self.samplesincluded_comboBox.closing.connect(self.update_table_view)
 
         self.filter_model = CheckableSqlTableModel()
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
-        self.filter_proxy = ReadableProxyModel()
-        self.filter_proxy.setSourceModel(self.filter_model)
-        self.filterselection_comboBox.setModel(self.filter_proxy)
+        self.filterselection_comboBox.setModel(self.filter_model)
         self.filterselection_comboBox.closing.connect(self.update_table_view)
 
         self.groupedfilter_model = CheckableSqlTableModel()
         self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
-        self.groupedfilter_proxy = ReadableProxyModel()
-        self.groupedfilter_proxy.setSourceModel(self.groupedfilter_model)
-        self.groupedfilter_comboBox.setModel(self.groupedfilter_proxy)
+        self.groupedfilter_comboBox.setModel(self.groupedfilter_model)
         self.groupedfilter_comboBox.closing.connect(self.update_table_view)
 
         self.export_format()

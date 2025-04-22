@@ -251,7 +251,7 @@ class SampleInformation(QtW.QDialog):
         self.age_signature_comboBox.closing.connect(lambda: self.update_sample_tags(self.age_signature_comboBox))
         self.age_signature_comboBox.add_triggered.connect(self.add_popup)
         self.age_signature_comboBox.edit_triggered.connect(self.edit_popup)
-        self.sample_description_textEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'{self.sample_description_textEdit.text()}'))
+        self.sample_description_textEdit.editingFinished.connect(lambda: self.update_field('SampleDescription', f'{self.sample_description_textEdit.toPlainText()}'))
         logger_setup.get_logger().info("Signals connected")
 
     def disconnect_text_signals(self):
