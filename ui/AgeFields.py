@@ -678,7 +678,7 @@ class AgeFields(QtW.QWidget):
         if youngest_rel == '':
             youngest_rel_id = QtC.QVariant()
         else:
-            self.age_model = SQLiteTableModel(f"AgeName = '{youngest_rel}'")
+            self.age_model = SQLiteTableModel(f"SELECT * FROM Ages WHERE AgeName = '{youngest_rel}'")
             youngest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
         self.age_model = SQLiteTableModel("SELECT * FROM Ages")
         logger_setup.get_logger().info(f"Checking if any SampleAges exist with these values")
