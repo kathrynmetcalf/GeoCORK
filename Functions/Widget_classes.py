@@ -904,9 +904,6 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         :param id_list: list of primary key values to mark as checked
         :param state: Qt.CheckState.Checked or Qt.CheckState.PartiallyChecked
         """
-        if len(id_list) == 0:
-            self.checked_ids = []
-            return
         for row in range(self.rowCount()):
             record_id = self.index(row, self.primary_key_column).data(QtC.Qt.ItemDataRole.DisplayRole)
             index = self.index(row, get_name_column(self.tableName()))
