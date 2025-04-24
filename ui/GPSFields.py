@@ -537,7 +537,6 @@ class GPSFields(QtW.QWidget):
 
     def update_gps(self):
         logger_setup.get_logger().info('Update_gps called when focus timer timed out')
-        # todo: get this working properly
         if not self.lost_group_box.edited:
             logger_setup.get_logger().info(f"GPS fields not edited")
             return

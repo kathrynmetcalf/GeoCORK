@@ -829,6 +829,7 @@ def return_sample_age_display(sample_age_id: int) -> str:
     except NotImplementedError:
         return ''
     calc_age_columns = ['DirectAge', 'DirectAgeError', 'OldestDirectAge', 'YoungestDirectAge', 'SampleAgeDisplay']
+    age_values = [DirectAge, DirectAgeError, OldestDirectAge, YoungestDirectAge]
     age_calculation = 'x*1'
     for conversion in age_conversions:
         if conversion[0] == DirectAgeUnitID:
@@ -850,12 +851,18 @@ def return_sample_age_display(sample_age_id: int) -> str:
     calculated = None
     for column in calc_age_columns:
         if 'Error' in column:
-            calculated_error = eval(error_calculation)
-            calc_age_values.append(calculated_error)
+            if age_values[calc_age_columns.index(column)] != '':
+                calculated_error = eval(error_calculation)
+                calc_age_values.append(calculated_error)
+            else:
+                calc_age_values.append('')
         elif 'DirectAge' in column:
-            calculation = age_calculation.replace('x', f'{column}')
-            calculated_age = eval(calculation)
-            calc_age_values.append(calculated_age)
+            if age_values[calc_age_columns.index(column)] != '':
+                calculation = age_calculation.replace('x', f'{column}')
+                calculated_age = eval(calculation)
+                calc_age_values.append(calculated_age)
+            else:
+                calc_age_values.append('')
         else:
             pass
     age_display = f'{calc_age_values[0]}±{calc_age_values[1]}, {calc_age_values[2]}-{calc_age_values[3]}, {OldestAgeID}-{YoungestAgeID}'

@@ -64,9 +64,6 @@ class AgeFields(QtW.QWidget):
         self.age_interpretation_model = QtS.QSqlTableModel()
         self.age_interpretation_tree = CheckableTreeModel()
         self.age_reference_model = CheckableSqlQueryModel()
-        self.text_change_timer = QtC.QTimer()
-        self.text_change_timer.setSingleShot(True)
-        self.text_change_timer.timeout.connect(self.update_age_unit)
         self.focus_timer = QtC.QTimer(self)
         self.focus_timer.setSingleShot(True)
         self.focus_timer.timeout.connect(self.update_age)
@@ -77,8 +74,8 @@ class AgeFields(QtW.QWidget):
         self.sample_id_header = get_headers(table)[0]
 
         self.add_age_pushButton.clicked.connect(self.add_age)
-        self.direct_age_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
-        self.direct_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
+        self.direct_age_unit_comboBox.currentIndexChanged.connect(self.update_direct_unit)
+        self.direct_unit_comboBox.currentIndexChanged.connect(self.update_direct_age_unit)
         self.edit_age_comboBox: QtW.QComboBox
         self.edit_age_comboBox.setContextMenuPolicy(Qt.CustomContextMenu)
         self.edit_age_comboBox.customContextMenuRequested.connect(self.show_age_context_menu)
@@ -88,16 +85,25 @@ class AgeFields(QtW.QWidget):
 
         self.update_list(self.sample_ids)
 
-    def update_age_unit(self):
+    def update_direct_unit(self):
         sender = self.sender()
         if sender == self.direct_age_unit_comboBox:
             if self.direct_age_unit_comboBox.currentIndex() != self.direct_unit_comboBox.currentIndex():
                 # logger_setup.get_logger().info("Updating age unit")
                 self.direct_unit_comboBox.setCurrentIndex(self.direct_age_unit_comboBox.currentIndex())
-        elif sender == self.direct_unit_comboBox:
+            else:
+                return
+        else:
+            return
+
+    def update_direct_age_unit(self):
+        sender = self.sender()
+        if sender == self.direct_unit_comboBox:
             if self.direct_unit_comboBox.currentIndex() != self.direct_age_unit_comboBox.currentIndex():
                 # logger_setup.get_logger().info("Updating age unit")
                 self.direct_age_unit_comboBox.setCurrentIndex(self.direct_unit_comboBox.currentIndex())
+            else:
+                return
         else:
             return
 
@@ -295,8 +301,8 @@ class AgeFields(QtW.QWidget):
         # self.age_reference_comboBox.closing.connect(self.focus_lost_delay)
         self.age_reference_comboBox.add_triggered.connect(self.add_popup)
         self.age_reference_comboBox.edit_triggered.connect(self.edit_popup)
-        self.direct_age_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
-        self.direct_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
+        self.direct_age_unit_comboBox.currentIndexChanged.connect(self.update_direct_unit)
+        self.direct_unit_comboBox.currentIndexChanged.connect(self.update_direct_age_unit)
 
     def disconnect_signals(self):
         logger_setup.get_logger().info("Disconnecting signals")
@@ -352,8 +358,8 @@ class AgeFields(QtW.QWidget):
         except TypeError:
             pass
         # Reconnect signals to keep direct age unit combo boxes in sync
-        self.direct_age_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
-        self.direct_unit_comboBox.currentIndexChanged.connect(self.update_age_unit)
+        self.direct_age_unit_comboBox.currentIndexChanged.connect(self.update_direct_unit)
+        self.direct_unit_comboBox.currentIndexChanged.connect(self.update_direct_age_unit)
 
     def update_age_id(self):
         logger_setup.get_logger().info("Updating age ID")
@@ -665,11 +671,13 @@ class AgeFields(QtW.QWidget):
         else:
             self.direct_age_unit_model.setFilter(f"AgeUnitAbbreviation = '{direct_age_unit}'")
             direct_age_unit_id = self.direct_age_unit_model.data(self.direct_age_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            self.direct_age_unit_model.setFilter('')
         if direct_age_error_type == '':
             direct_age_error_format_id = QtC.QVariant()
         else:
             self.direct_age_error_model.setFilter(f"ErrorFormatAbbreviation = '{direct_age_error_type}'")
             direct_age_error_format_id = self.direct_age_error_model.data(self.direct_age_error_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            self.direct_age_error_model.setFilter('')
         if oldest_rel == '':
             oldest_rel_id = QtC.QVariant()
         else:
@@ -993,6 +1001,7 @@ class AgeFields(QtW.QWidget):
                     if default_age_id not in self.default_age_ids:
                         self.default_age_ids.append(default_age_id)
         self.updated = True
+        self.sample_model.setFilter('')
         self.direct_age_groupBox.reset_edited()
         self.relative_age_groupBox.reset_edited()
         self.age_information_groupBox.reset_edited()
