@@ -1214,8 +1214,7 @@ class QueryBuilder(QWidget):
             )
             """
 
-            # Main query using the CTE
-            sql_query = cte + f"""
+            aliquot_select = f"""
             SELECT DISTINCT AliquotID FROM (
                 SELECT Aliquots.AliquotID, {selects}
                 FROM Samples
@@ -1224,6 +1223,15 @@ class QueryBuilder(QWidget):
             )
             WHERE AliquotID IS NOT NULL;
             """
+
+            # Main query using the CTE
+            if cte_list:
+                if 'WITH RECURSIVE' in full_sql:
+                    sql_query = cte + ',\n' + full_sql.split('WITH RECURSIVE')[1] + aliquot_select
+                else:
+                    sql_query = cte + ',\n' + full_sql.split('WITH ')[1] + aliquot_select
+            else:
+                sql_query = cte + aliquot_select
         elif type == 'Spots':
             join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (
