@@ -19,7 +19,7 @@ from Functions.Widget_classes import (
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
     set_table, VerifiableSqlTableModel, VerifiableSqlViewModel, populate_many_combo_checks, populate_model_checks,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
-    get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state
+    get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -483,10 +483,10 @@ class EditView(QtW.QDialog):
                 dlg.exec()
                 if dlg.gps_fields.updated:
                     self.updated = True
-                    logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
+                    logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     query = QtS.QSqlQuery()
                     if not query.exec(f'SELECT {', '.join(self.gps_headers)} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
-                        logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
+                        logger_setup.get_logger().critical(f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
                         return
                     if query.next():
                         for header in self.gps_headers:
@@ -506,10 +506,10 @@ class EditView(QtW.QDialog):
                 dlg.exec()
                 if dlg.age_fields.updated:
                     self.updated = True
-                    logger_setup.get_logger().info(f'Repopulating {header} for {item_ids[0]}')
+                    logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     query = QtS.QSqlQuery()
                     if not query.exec(f'SELECT {header} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
-                        logger_setup.get_logger().critical(f'Failed to get {header} for {item_ids[0]}: {query.lastError().text()}')
+                        logger_setup.get_logger().critical(f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
                         return
                     if query.next():
                         col = self.show_cols.index(header)
@@ -524,7 +524,7 @@ class EditView(QtW.QDialog):
             else:
                 columns = None
                 if header in SQLUtils.non_editable[self.table]:
-                    logger_setup.get_logger().error(f'{header} is not editable')
+                    logger_setup.get_logger().error(f'{get_readable_header(header)} is not editable')
                     return
                 elif header in SQLUtils.many_editable[self.table].keys():
                     columns = SQLUtils.many_editable[self.table]
@@ -543,7 +543,7 @@ class EditView(QtW.QDialog):
                     if columns is None:
                         for key, values in SQLUtils.non_editable.items():
                             if header in values:
-                                logger_setup.get_logger().info(f'{header} is non-editable')
+                                logger_setup.get_logger().info(f'{get_readable_header(header)} is not editable')
                                 return
                 if columns is not None:
                     for col_key in columns:
@@ -551,8 +551,16 @@ class EditView(QtW.QDialog):
                             self.dropdown_table = columns[header]
                             break
             if self.dropdown_table == '':
+                query, virtual, stored, columns = get_columns(self.table)
+                if f'"{header}"' in virtual or f'"{header}"' in stored:
+                    logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                    return
                 self.create_lineedit()
             else:
+                query, virtual, stored, columns = get_columns(self.dropdown_table)
+                if f'"{header}"' in virtual or f'"{header}"' in stored:
+                    logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                    return
                 self.create_dropdown()
 
     def create_lineedit(self):
@@ -815,7 +823,7 @@ class EditView(QtW.QDialog):
                         query.prepare(f'UPDATE "{edit_table}" SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                         query.bindValue(':clicked_id', clicked_id)
                         if not query.exec():
-                            logger_setup.get_logger().critical(f'Failed to update {header} for {len(edit_ids)} {edit_table}')
+                            logger_setup.get_logger().critical(f'Failed to update {get_readable_header(header)} for {len(edit_ids)} {edit_table}')
                             logger_setup.get_logger().debug(f'Query: {query.lastQuery()}')
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                             logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
@@ -945,7 +953,11 @@ class EditView(QtW.QDialog):
         for index in indexes:
             header = self.model.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if header in SQLUtils.not_null[self.table]:
-                logger_setup.get_logger().error(f'{header} cannot be empty')
+                logger_setup.get_logger().error(f'{get_readable_header(header)} cannot be empty')
+                return
+            query, virtual, stored, columns = get_columns(self.table)
+            if f'"{header}"' in virtual or f'"{header}"' in stored:
+                logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated')
                 return
             if header not in columns.keys():
                 columns[header] = []
@@ -1269,7 +1281,7 @@ class EditView(QtW.QDialog):
                                 header_found = True
                                 break
                     if not header_found:
-                        logger_setup.get_logger().critical(f'Could not find columns to update {header}')
+                        logger_setup.get_logger().critical(f'Could not find columns to update {get_readable_header(header)}')
                         return False
             else:
                 if not header_found:

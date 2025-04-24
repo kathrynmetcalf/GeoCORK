@@ -402,7 +402,10 @@ class DisplayTables(QtW.QWidget):
         tree_menu = TreeContextMenu()
         table_menu = QtW.QMenu()
         edit_action = table_menu.addAction('Edit')
-        add_action = table_menu.addAction('Add')
+        if self.table != 'Samples':
+            add_action = table_menu.addAction('Add')
+        else:
+            add_action = None
         if self.table in self.dbtree_list:
             if self.table == 'Ages':
                 tree_menu.set_view(self.dbTable_treeView, False, False, False)

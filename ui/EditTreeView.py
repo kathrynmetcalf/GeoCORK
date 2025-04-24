@@ -255,8 +255,6 @@ class EditTreeView(QtW.QDialog):
             self.display_lineedit()
         elif self.combo is not None and self.combo_index.isValid():
             self.display_dropdown()
-        else:
-            logger_setup.get_logger().error(f'No widget determined for selected index')
 
     def determine_widget(self, tree_index):
         logger_setup.get_logger().info(f'Determining {self.table} widget')
@@ -286,7 +284,7 @@ class EditTreeView(QtW.QDialog):
         elif header in SQLUtils.one_editable[self.table].keys():
             columns = SQLUtils.one_editable[self.table]
         elif header in SQLUtils.non_editable[self.table]:
-            logger_setup.get_logger().error(f'{header} is not editable')
+            logger_setup.get_logger().error(f'{get_readable_header(header)} is not editable')
             return
         else:
             for key, values in SQLUtils.many_editable.items():
@@ -301,7 +299,7 @@ class EditTreeView(QtW.QDialog):
             if columns is None:
                 for key, values in SQLUtils.non_editable.items():
                     if header in values:
-                        logger_setup.get_logger().info(f'{header} is non-editable')
+                        logger_setup.get_logger().info(f'{get_readable_header(header)} is not editable')
                         return
         if columns is not None:
             for col_key in columns:
@@ -309,8 +307,16 @@ class EditTreeView(QtW.QDialog):
                     self.dropdown_table = columns[header]
                     break
         if self.dropdown_table == '':
+            query, virtual, stored, columns = get_columns(self.table)
+            if f'"{header}"' in virtual or f'"{header}"' in stored:
+                logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                return
             self.create_lineedit()
         else:
+            query, virtual, stored, columns = get_columns(self.dropdown_table)
+            if f'"{header}"' in virtual or f'"{header}"' in stored:
+                logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
+                return
             self.create_dropdown()
 
     def create_lineedit(self):
@@ -363,7 +369,7 @@ class EditTreeView(QtW.QDialog):
                     table = key
                     break
             if col is None or table is None:
-                logger_setup.get_logger().critical(f'Could not find {header} in table attributes')
+                logger_setup.get_logger().critical(f'Could not find {get_readable_header(header)} in table attributes')
                 self.destroy_lineedit()
                 return False
             ids = []
@@ -381,7 +387,7 @@ class EditTreeView(QtW.QDialog):
                 self.destroy_lineedit()
                 return False
             if not query.exec(f'UPDATE {table} SET {header} = "{text}" WHERE {self.table_headers[0]} {sql_where_str}'):
-                logger_setup.get_logger().critical(f'Failed to update {header} for {ids}: {query.lastError().text()}')
+                logger_setup.get_logger().critical(f'Failed to update {get_readable_header(header)} for {ids}: {query.lastError().text()}')
                 self.destroy_lineedit()
                 return False
             for tree_index in tree_indexes:
@@ -506,7 +512,6 @@ class EditTreeView(QtW.QDialog):
             if '_' in edit_table:
                 # Many-to-many table
                 if not combo.model().update_many_table(edit_table, edit_ids):
-                    logger_setup.get_logger().critical(f'Failed to update {edit_table}')
                     self.destroy_dropdown()
                     return False
                 updated = True
@@ -514,7 +519,6 @@ class EditTreeView(QtW.QDialog):
                 if isinstance(self.combo_model,
                               CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
                     if not combo.model().update_other_table(edit_table, edit_ids):
-                        logger_setup.get_logger().critical(f'Failed to update {edit_table}')
                         self.destroy_dropdown()
                         return False
                     if combo.model().tableName() == 'Samples' and edit_table == 'Aliquots':
@@ -542,7 +546,7 @@ class EditTreeView(QtW.QDialog):
                     query.prepare(f'UPDATE {edit_table} SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                     query.bindValue(':clicked_id', clicked_id)
                     if not query.exec():
-                        logger_setup.get_logger().critical(f'Failed to update {header} for {len(edit_ids)} {edit_table}')
+                        logger_setup.get_logger().critical(f'Failed to update {get_readable_header(header)} for {len(edit_ids)} {edit_table}')
                         logger_setup.get_logger().debug(f'Query: {query.lastQuery()}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                         rollback_savepoint('before_edit_id')
@@ -653,7 +657,11 @@ class EditTreeView(QtW.QDialog):
         for tree_index in indexes:
             header = self.model.headerData(tree_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if header in SQLUtils.not_null[self.table]:
-                logger_setup.get_logger().error(f'{header} cannot be empty')
+                logger_setup.get_logger().error(f'{get_readable_header(header)} cannot be empty')
+                return
+            query, virtual, stored, columns = get_columns(self.table)
+            if f'"{header}"' in virtual or f'"{header}"' in stored:
+                logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
                 return
             if header not in columns.keys():
                 columns[header] = []
@@ -868,7 +876,7 @@ class EditTreeView(QtW.QDialog):
                                 header_found = True
                                 break
                     if not header_found:
-                        logger_setup.get_logger().critical(f'Could not find columns to update {header}')
+                        logger_setup.get_logger().critical(f'Could not find columns to update {get_readable_header(header)}')
                         return False
             else:
                 if not header_found:
