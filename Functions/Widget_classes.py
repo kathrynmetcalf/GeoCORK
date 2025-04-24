@@ -3804,6 +3804,7 @@ class CheckableTreeCombobox(TreeCombobox):
         traverse_tree(QtC.QModelIndex())
 
     def showPopup(self):
+        print('showPopup called')
         super().showPopup()
         self.popup_shown = True
 
@@ -3871,11 +3872,13 @@ class CheckableTreeCombobox(TreeCombobox):
                         self.showPopup()
                     return True
                 else:
+                    print(f'Expanded ids: {settings.value(f'expanded_ids_{self.model().table}', set())}')
                     if self.treeView.isExpanded(index):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
                     save_expanded_state(self.model().table, self.model(), self.treeView)
+                    print(f'Expanded ids: {settings.value(f'expanded_ids_{self.model().table}', set())}')
                     self.showPopup()
                     return True
             elif event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.RightButton:
