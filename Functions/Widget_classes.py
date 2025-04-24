@@ -4,6 +4,7 @@ import time
 import typing
 from collections import namedtuple
 from datetime import datetime, timezone
+from multiprocessing.process import parent_process
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
@@ -3671,6 +3672,7 @@ class TreeCombobox(QtW.QComboBox):
                 logger_setup.get_logger().info(f'Add triggered for combo box')
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
+            self.showPopup()
 
     def showPopup(self):
         tree_model, indexes = find_tree_model(self.model(), None)
@@ -3681,6 +3683,7 @@ class TreeCombobox(QtW.QComboBox):
         if tree_model.rowCount(QtC.QModelIndex()) == 0:
             return
         self.treeView.resizeColumnToContents(0)
+        print(self.treeView.sizeHintForColumn(0))
         self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
         self.treeView.setFixedHeight(self.treeView.sizeHint().height())
         super().showPopup()
@@ -4171,10 +4174,13 @@ def expand_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex)
         parent_index = QtC.QModelIndex()  # parent is root
     if parent_index.column() != 0:
         parent_index = parent_index.siblingAtColumn(0)
-    tree_view.expand(parent_index)
+
+    model = tree_view.model()
     for row in range(model.rowCount(parent_index)):
         child_index = model.index(row, 0, parent_index)
         expand_all_children(tree_view, child_index)
+    if not tree_view.isExpanded(parent_index):
+        tree_view.expand(parent_index)
 
 def collapse_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):
     # make sure the parent_index has column 0
@@ -4187,6 +4193,8 @@ def collapse_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelInde
     for row in range(model.rowCount(parent_index)):
         child_index = model.index(row, 0, parent_index)
         collapse_all_children(tree_view, child_index)
+    if tree_view.isExpanded(parent_index):
+        tree_view.collapse(parent_index)
 
 def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
     if action.text() == 'Expand children':
@@ -4203,6 +4211,7 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
             collapse_all_children(tree_view, index)
     elif action.text() == 'Collapse all':
         tree_view.collapseAll()
+    save_expanded_state(tree_view.model().table, tree_view.model(), tree_view)
 
 def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     table: str = None
