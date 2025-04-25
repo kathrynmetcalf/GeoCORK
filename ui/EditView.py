@@ -14,12 +14,15 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 import difflib
+
+from Functions.SQLUtils import spot_aliquot_join, aliquot_sample_join
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, ReadableProxyModel, DisplayRoundedModel,
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
     set_table, VerifiableSqlTableModel, VerifiableSqlViewModel, populate_many_combo_checks, populate_model_checks,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
-    get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header
+    get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
+    get_name_from_id, DisplayRoundedQueryModel
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -83,7 +86,7 @@ class EditView(QtW.QDialog):
         self.loading_manager = LoadingDialogManager.get_instance()
         self.loadWindowState()
 
-        logger_setup.get_logger().info(f'Creating a new EditView for {table_name}')
+        logger_setup.get_logger().info(f'Creating a new EditView for {get_readable_header(table_name)}')
         edit_view_start_time = time.time()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "EditTable.ui")
@@ -129,7 +132,9 @@ class EditView(QtW.QDialog):
                 self.show_cols = settings.value('sample_edit_columns')
                 self.add_pushButton.hide()
             elif self.table == 'Spots' or self.table == 'UPbAnalyses':
-                self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' else 'AliquotID' if self.parent_type == 'Aliquot' else 'SpotID' if self.parent_type == 'Spot' else None
+                self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' \
+                    else 'AliquotID' if self.parent_type == 'Aliquot' \
+                    else 'SpotID' if self.parent_type == 'Spot' else None
                 if self.table == 'Spots':
                     self.view = 'SpotEditView'
                     self.show_cols = settings.value('spot_edit_columns')
@@ -156,6 +161,7 @@ class EditView(QtW.QDialog):
         self.combo = None
         self.combo_index = QtC.QModelIndex()
         self.combo_model = None
+        self.combo_proxy = None
         self.dropdown_table = None
         self.lineEdit = None
         self.msg = QtW.QMessageBox(self)
@@ -467,7 +473,7 @@ class EditView(QtW.QDialog):
             if self.combo is not None:
                 logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
-        if model_index.column() == self.name_column:
+        if model_index.column() == self.name_column and self.view != 'UPbEditView':
             # The column is the name column for the table. This should be edited with a line edit.
             self.create_lineedit()
             return
@@ -657,24 +663,55 @@ class EditView(QtW.QDialog):
                 self.combo = CheckableComboBox()
                 self.combo_model = CheckableSqlQueryModel()
                 self.combo_model.setQuery(f'SELECT * FROM "References"')
-                self.combo.setModel(self.combo_model)
+                self.combo_proxy = ReadableProxyModel()
+                self.combo_proxy.setSourceModel(self.combo_model)
+                self.combo.setModel(self.combo_proxy)
             else:
                 set_table(self.combo_model, self.dropdown_table)
-            if self.dropdown_table in SQLUtils.user_viewable_trees:
+            if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Aliquots', 'Spots')) or
+                  (self.table == 'Spots' and self.dropdown_table == 'Aliquots')):
+                if self.parent_type == 'Sample':
+                    if self.dropdown_table == 'Aliquot':
+                        self.combo = CheckableTreeCombobox()
+                        combo_model = CheckableSqlQueryModel()
+                        combo_model.setQuery(f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}')
+                        self.tree_model = CheckableTreeModel()
+                        self.tree_model.setSourceModel(combo_model)
+                        self.combo.setModel(self.tree_model)
+                    elif self.dropdown_table == 'Spots':
+                        self.combo = CheckableComboBox()
+                        self.combo_model = CheckableSqlQueryModel()
+                        self.combo_model.setQuery(f'''SELECT * FROM Spots 
+                            {SQLUtils.spot_aliquot_join}
+                            WHERE SampleID = {self.parent_id}''')
+                        self.combo_proxy = ReadableProxyModel()
+                        self.combo_proxy.setSourceModel(self.combo_model)
+                        self.combo.setModel(self.combo_proxy)
+                elif self.parent_type == 'Aliquot':
+                    if self.dropdown_table == 'Spots':
+                        self.combo = CheckableComboBox()
+                        self.combo_model = CheckableSqlQueryModel()
+                        self.combo_model.setQuery(f'SELECT * FROM Spots WHERE AliquotID = {self.parent_id}')
+                        self.combo_proxy = ReadableProxyModel()
+                        self.combo_proxy.setSourceModel(self.combo_model)
+                        self.combo.setModel(self.combo_proxy)
+            elif self.dropdown_table in SQLUtils.user_viewable_trees:
                 self.combo = CheckableTreeCombobox()
                 self.tree_model = CheckableTreeModel()
                 self.tree_model.setSourceModel(self.combo_model)
                 self.combo.setModel(self.tree_model)
             elif self.dropdown_table == 'References':
                 pass
-            else:
-                if 'Abbreviation' in header:
-                    self.combo = QtW.QComboBox()
-                else:
-                    self.combo = CheckableComboBox()
-                    self.combo_model = CheckableSqlTableModel()
-                    set_table(self.combo_model, self.dropdown_table)
+            elif 'Abbreviation' in header:
+                self.combo = QtW.QComboBox()
                 self.combo.setModel(self.combo_model)
+            else:
+                self.combo = CheckableComboBox()
+                self.combo_model = CheckableSqlTableModel()
+                set_table(self.combo_model, self.dropdown_table)
+                self.combo_proxy = ReadableProxyModel()
+                self.combo_proxy.setSourceModel(self.combo_model)
+                self.combo.setModel(self.combo_proxy)
             self.combo.setModelColumn(get_name_column(self.dropdown_table))
             selected_ids = []
             for model_index in model_indexes:
@@ -723,7 +760,6 @@ class EditView(QtW.QDialog):
         self.combo.showPopup()
 
     def save_dropdown_data(self):
-        # todo: add message for changing parent sample, aliquot, or spot because moved entries will disappear from the view
         logger_setup.get_logger().info('Saving data from dropdown')
         self.edit_tableView: QtW.QTableView
         if self.combo is not None:
@@ -751,7 +787,12 @@ class EditView(QtW.QDialog):
             self.destroy_dropdown()
             return
         # Figure out which table to update and which IDs to update
-        if 'GPS' in self.dropdown_table or 'Elevation' in self.dropdown_table:
+        if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Samples', 'Aliquots')) or
+                (self.table == 'Spots' and self.dropdown_table == 'Samples')):
+            if self.update_analysis_chain(selected_ids, model_indexes):
+                # Update handled
+                pass
+        elif 'GPS' in self.dropdown_table or 'Elevation' in self.dropdown_table:
             # GPS and Elevation are updated in the GPSDialog, updated handled when dialog closed
             pass
         elif 'SampleAge' in self.dropdown_table and 'AgeSignature' not in self.dropdown_table:
@@ -945,14 +986,206 @@ class EditView(QtW.QDialog):
                                     return None, None
                                 return table, item_ids
 
+    def update_analysis_chain(self, selected_ids, model_indexes):
+        sample_id = None
+        aliquot_id = None
+        spot_id = None
+        updated = False
+        for model_index in model_indexes:
+            if model_index.data(QtC.Qt.ItemDataRole.DisplayRole) != self.combo.currentText():
+                updated = True
+        if not updated:
+            logger_setup.get_logger().info('No changes to update')
+            self.destroy_dropdown()
+            return True
+        create_savepoint('before_update_chain')
+        if self.table == 'UPbAnalyses':
+            if self.dropdown_table == 'Samples':
+                self.table_item_ids
+                sample_name = self.combo.currentText()
+                sample_id = get_id_from_name('Samples', sample_name)
+                if not sample_id:
+                    logger_setup.get_logger().critical(f'No sample ID found for {sample_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                aliquot_id = self.select_child('Samples', sample_id)
+                if not aliquot_id:
+                    logger_setup.get_logger().info(f'No aliquot ID selected for {sample_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                spot_id = self.select_child('Aliquots', aliquot_id)
+                if not spot_id:
+                    logger_setup.get_logger().info(f'No spot ID selected for {sample_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+            elif self.dropdown_table == 'Aliquots':
+                sample_id = None
+                aliquot_name = self.combo.currentText()
+                aliquot_id = get_id_from_name('Aliquots', aliquot_name)
+                if not aliquot_id:
+                    logger_setup.get_logger().critical(f'No aliquot ID found for {aliquot_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                spot_id = self.select_child('Aliquots', aliquot_id)
+                if not spot_id:
+                    logger_setup.get_logger().info(f'No spot ID selected for {aliquot_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+            else:
+                pass
+            query = QtS.QSqlQuery()
+            if len(selected_ids) == 1:
+                sql_where = f'= {selected_ids[0]}'
+            elif len(selected_ids) > 1:
+                sql_where = f'IN {tuple(selected_ids)}'
+            if not query.exec(f'UPDATE UPbAnalyses SET SpotID = {spot_id} WHERE UPbAnalysisID {sql_where}'):
+                logger_setup.get_logger().critical(f'Failed to update Spot Name for {sample_name}')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                rollback_savepoint('before_update_chain')
+                self.destroy_dropdown()
+                return False
+            self.updated = True
+        elif self.table == 'Spots':
+            if self.dropdown_table == 'Samples':
+                sample_name = self.combo.currentText()
+                sample_id = get_id_from_name('Samples', sample_name)
+                if not sample_id:
+                    logger_setup.get_logger().critical(f'No sample ID found for {sample_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                aliquot_id = self.select_child('Samples', sample_id)
+                if not aliquot_id:
+                    logger_setup.get_logger().info(f'No aliquot ID selected for {sample_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+            else:
+                pass
+            query = QtS.QSqlQuery()
+            if len(selected_ids) == 1:
+                sql_where = f'= {selected_ids[0]}'
+            elif len(selected_ids) > 1:
+                sql_where = f'IN {tuple(selected_ids)}'
+            if not query.exec(f'UPDATE Spots SET AliquotID = {aliquot_id} WHERE SpotID {sql_where}'):
+                logger_setup.get_logger().critical(f'Failed to update Spot Name for {sample_name}')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                create_savepoint('before_update_chain')
+                self.destroy_dropdown()
+                return False
+            self.updated = True
+        else:
+            pass
+        spot_column = None
+        aliquot_column = None
+        sample_column = None
+        for header in self.show_cols:
+            if 'SpotName' in header:
+                spot_column = self.show_cols.index(header)
+            if 'AliquotName' in header:
+                aliquot_column = self.show_cols.index(header)
+            if 'SampleName' in header:
+                sample_column = self.show_cols.index(header)
+        for model_index in model_indexes:
+            if spot_column is not None and spot_id is not None:
+                update_index = self.model.index(model_index.row(), spot_column)
+                if not self.model.setData(update_index, get_name_from_id('Spots', spot_id),
+                                          QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                self.model.edited_indexes.remove(update_index)
+            if aliquot_column is not None and aliquot_id is not None:
+                update_index = self.model.index(model_index.row(), aliquot_column)
+                if not self.model.setData(update_index, get_name_from_id('Aliquots', aliquot_id),
+                                          QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                self.model.edited_indexes.remove(update_index)
+            if sample_column is not None and sample_id is not None:
+                update_index = self.model.index(model_index.row(), sample_column)
+                if not self.model.setData(update_index, get_name_from_id('Samples', sample_id),
+                                          QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                self.model.edited_indexes.remove(update_index)
+        release_savepoint('before_update_chain')
+        return True
+
+    def select_child(self, parent_table, parent_id):
+        # Open a dialog to select the child item
+        if parent_table == 'Samples':
+            child_table = 'Aliquots'
+        elif parent_table == 'Aliquots':
+            child_table = 'Spots'
+        else:
+            return False
+        parent_id_header = get_headers(parent_table)[0]
+        child_id_header = get_headers(child_table)[0]
+        table_model = CheckableSqlTableModel()
+        set_table(table_model, child_table)
+        table_model.setFilter(f'{parent_id_header} = {parent_id}')
+        if child_table == 'Aliquots':
+            tree_model = CheckableTreeModel()
+            tree_model.setSourceModel(table_model)
+            child_combo = CheckableTreeCombobox()
+            child_combo.set_single_click(True)
+            child_combo.setModel(tree_model)
+            child_combo.setModelColumn(0)
+            child_combo.setCurrentText('')
+            dlg = SetSelectedValues(self, child_combo)
+            dlg.setWindowTitle(f'Select {child_table} for {parent_table}')
+            if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                child_combo = dlg.widget
+            tree_model = child_combo.model()
+            checked_ids = tree_model.traverse_checkable_tree(QtC.QModelIndex())[0]
+        else:
+            proxy_model = ReadableProxyModel()
+            proxy_model.setSourceModel(table_model)
+            proxy_model.sort(get_name_column(child_table), QtC.Qt.SortOrder.AscendingOrder)
+            child_combo = CheckableComboBox()
+            child_combo.set_single_click(True)
+            child_combo.setModel(proxy_model)
+            child_combo.setModelColumn(get_name_column(child_table))
+            child_combo.setCurrentText('')
+            dlg = SetSelectedValues(self, child_combo)
+            dlg.setWindowTitle(f'Select {child_table} for {parent_table}')
+            if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                child_combo = dlg.widget
+            table_model = child_combo.model()
+            checked_ids = table_model.checked_ids
+        if len(checked_ids) > 1:
+            logger_setup.get_logger().error('Multiple items selected, please select only one')
+            return None
+        elif len(checked_ids) == 0:
+            logger_setup.get_logger().info('No items selected')
+            return None
+        else:
+            child_id = checked_ids[0]
+            return child_id
+
     def set_selected_value_dialog(self, table, indexes):
-        # Get the selected value from the indexes
+        # Open a dialog to set the selected value for the indexes
         selected_value = ''
         current_values = []
         for index in indexes:
             model_index = self.proxy_model.mapToSource(index)
             current_values.append(model_index.data(QtC.Qt.ItemDataRole.DisplayRole))
-        # Open dialog to set the selected values
 
     def clear_data(self):
         logger_setup.get_logger().info('Clearing selected values')
@@ -1354,7 +1587,7 @@ class EditView(QtW.QDialog):
                 table_headers = get_headers(table)
                 # todo: figure out updating the ids for the table
                 if table == self.table:
-                    item_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    item_ids = [self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)]
                 else:
                     id_col = get_headers(table)[0]
                     item_id = self.retrieve_id(table, id_col)

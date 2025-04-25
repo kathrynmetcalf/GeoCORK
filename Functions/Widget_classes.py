@@ -2777,25 +2777,25 @@ class CheckableTreeModel(TreeModel):
             self.check_checkable_tree(name_index, checked_items, partially_checked_items)
 
     def traverse_checkable_tree(self, parent: QtC.QModelIndex):
-        checked_items = []
-        partially_checked_items = []
+        checked_ids = []
+        partially_checked_ids = []
         checked_indices = []
         partially_checked_indices = []
         for row in range(self.rowCount(parent)):
             name_index = self.index(row, 0, parent)
             id_index = self.index(row, 1, parent)
             if self.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
-                checked_items.append(self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
+                checked_ids.append(self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
                 checked_indices.append(name_index)
             elif self.data(name_index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.PartiallyChecked:
-                partially_checked_items.append(self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
+                partially_checked_ids.append(self.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
                 partially_checked_indices.append(name_index)
-            child_checked_item, child_partially_checked_items, child_checked_indices, child_partially_checked_indices = self.traverse_checkable_tree(name_index)
-            checked_items.extend(child_checked_item)
-            partially_checked_items.extend(child_partially_checked_items)
+            child_checked_item, child_partially_checked_ids, child_checked_indices, child_partially_checked_indices = self.traverse_checkable_tree(name_index)
+            checked_ids.extend(child_checked_item)
+            partially_checked_ids.extend(child_partially_checked_ids)
             checked_indices.extend(child_checked_indices)
             partially_checked_indices.extend(child_partially_checked_indices)
-        return checked_items, partially_checked_items, checked_indices, partially_checked_indices
+        return checked_ids, partially_checked_ids, checked_indices, partially_checked_indices
 
     def update_other_table(self, other_table: str, other_ids: list):
         # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
@@ -2804,7 +2804,7 @@ class CheckableTreeModel(TreeModel):
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
-        checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.traverse_checkable_tree(
+        checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = self.traverse_checkable_tree(
             QtC.QModelIndex())
         checked_ids = []
         partially_checked_ids = []
@@ -2821,8 +2821,8 @@ class CheckableTreeModel(TreeModel):
         if not item_ids:
             logger_setup.get_logger().error(f'No item IDs provided for updating many-to-many table {self.many_to_many}')
             return False
-        checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.traverse_checkable_tree(QtC.QModelIndex())
-        if update_many_table_with_checks(self.table, checked_items, partially_checked_items, many_table, item_ids):
+        checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = self.traverse_checkable_tree(QtC.QModelIndex())
+        if update_many_table_with_checks(self.table, checked_ids, partially_checked_ids, many_table, item_ids):
             return True
         else:
             return False
@@ -3299,7 +3299,7 @@ class CheckableComboBox(QtW.QComboBox):
         else:
             return super().model()
 
-    def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel):
+    def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel | QtC.QSortFilterProxyModel):
         super().setModel(model)
         combo_model = model
         if isinstance(model, QtC.QSortFilterProxyModel):
@@ -3310,7 +3310,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.table = None
             self.name_col = None
             return
-        # If it is not a table model, it is a view, get the name of the table
+        # If it is not a table model, it may be a view, get the name of the table
         if not isinstance(model, QtS.QSqlTableModel) and 'SampleAge' not in column and 'Reference' not in column:
             if 'Sample' in column:
                 self.table = 'Samples'
@@ -3325,7 +3325,10 @@ class CheckableComboBox(QtW.QComboBox):
             elif 'Reference' in column:
                 self.table = '"References"'
             view = model.tableView()
-            self.name_col = get_view_name_column(view)
+            if view:
+                self.name_col = get_view_name_column(view)
+            else:
+                self.name_col = get_name_column(self.table)
         # If it is just a table or SampleAge query, use the table name
         else:
             self.table = model.tableName()
@@ -3347,7 +3350,17 @@ class CheckableComboBox(QtW.QComboBox):
             table = 'References'
         else:
             table = self.table
-        if self.model().rowCount() !=0:
+        if self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses') and self.model().rowCount() !=0:
+            edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
+            add_action = None
+            clear_all_action = menu.addAction("Clear All Checks")
+            delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
+        elif self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses'):
+            edit_action = None
+            add_action = None
+            clear_all_action = None
+            delete_action = None
+        elif self.model().rowCount() !=0:
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = menu.addAction("Clear All Checks")
@@ -3604,7 +3617,7 @@ class CheckableTreeView(QtW.QTreeView):
 
     def expand_all_checked(self):
         tree_model, indexes = find_tree_model(self.model(), None)
-        checked_items, partially_checked_items, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
+        checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
 
         def expand_parents(item_index: QtC.QModelIndex):
             parent = item_index.parent()
@@ -3661,7 +3674,11 @@ class TreeCombobox(QtW.QComboBox):
 
     def show_context_menu(self, pos):
         menu = TreeContextMenu()
-        menu.set_view(self.treeView, False)
+        tree_model = find_tree_model(self.model(), None)
+        if tree_model.table == 'Aliquots':
+            menu.set_view(self.treeView, False, False)
+        else:
+            menu.set_view(self.treeView, False)
         action = menu.exec(self.mapToGlobal(pos))
         if action:
             if action.text() == 'Edit':
@@ -3778,7 +3795,7 @@ class CheckableTreeCombobox(TreeCombobox):
     def update_line_edit(self):
         current_line_edit_text = self.lineEdit().text()
         tree_model, indexes = find_tree_model(self.model(), None)
-        checked_items, partially_checked_items, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
+        checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
             QtC.QModelIndex())
         if partially_checked_indices:
             # At least one item is partially checked, so the line edit should be a dash
@@ -3818,7 +3835,11 @@ class CheckableTreeCombobox(TreeCombobox):
 
     def show_context_menu(self, pos):
         menu = TreeContextMenu()
-        menu.set_view(self.treeView, False)
+        tree_model = find_tree_model(self.model(), None)
+        if tree_model.table == 'Aliquots':
+            menu.set_view(self.treeView, False, False)
+        else:
+            menu.set_view(self.treeView, False)
         action = menu.exec(self.mapToGlobal(pos))
         if action:
             if action.text() == 'Edit':
@@ -3861,8 +3882,8 @@ class CheckableTreeCombobox(TreeCombobox):
                 if expand_button_rect.contains(event.pos()):
                     if self.single_click:
                         # Was the only selected item unchecked? If so, set the current index to the root before clearing all checks
-                        checked_items, partially_checked_items, checked_indices, partially_checked_indices = self.model().traverse_checkable_tree(
-                            QtC.QModelIndex())
+                        checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = (
+                            self.model().traverse_checkable_tree(QtC.QModelIndex()))
                         if self.treeView.currentIndex() in checked_indices:
                             self.treeView.setCurrentIndex(QtC.QModelIndex())
                         self.clear_all_checks()
@@ -4301,6 +4322,14 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
             col = get_name_column(model.tableName())
     except AttributeError:
         col = get_name_column(model.tableName())
+    if table_id_header not in get_headers(item_table):
+        # Try selecting from a view instead
+        item_view = get_view_from_table(item_table)
+        item_edit_view = get_edit_view_from_table(item_table)
+        if table_id_header in get_headers(item_view):
+            item_table = item_view
+        elif table_id_header in get_headers(item_edit_view):
+            item_table = item_edit_view
     for row in range(model.rowCount()):
         table_id = model.index(row, 0).data()
         if item_table == 'References':
@@ -4310,7 +4339,7 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         query_model.setQuery(model_query)
         if query_model.lastError().isValid():
             logger_setup.get_logger().critical(f'Error getting checks for {model.tableName()}')
-            logger_setup.get_logger().debug(f'Error: {model.lastError().text()}')
+            logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {model_query}')
             return False
         # Go through each line in the model and check how many item_ids have this tag

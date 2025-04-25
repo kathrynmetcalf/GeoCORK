@@ -11,7 +11,7 @@ from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
-                                      TreeContextMenu, expand_collapse)
+                                      TreeContextMenu, expand_collapse, get_name_column, get_headers)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -32,6 +32,7 @@ class ViewDataTab(QtW.QWidget):
         self.model = None
         self.tree_model = None
         self.proxy_model = None
+        self.show_cols = []
 
         # Retrieve the main window
         for widget in QtW.QApplication.topLevelWidgets():
@@ -58,8 +59,6 @@ class ViewDataTab(QtW.QWidget):
         self.h_layout.addWidget(self.search_label)
         self.h_layout.addWidget(self.search_lineEdit)
         self.v_layout.addLayout(self.h_layout)
-        self.show_cols = []
-        self.view = None
         self.resize_timer = QTimer()
         self.display_table()
 
@@ -165,10 +164,19 @@ class ViewDataTab(QtW.QWidget):
                 self.proxy_model.setSourceModel(self.tree_model)
             else:
                 self.proxy_model.setSourceModel(self.model)
+                proxy_name_column = None
+                name_column = get_name_column(self.model.view)
+                if name_column is not None:
+                    self.name_header = get_headers(self.model.view)[name_column]
+                    for column in range(self.proxy_model.columnCount()):
+                        header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal,
+                                                       QtC.Qt.ItemDataRole.DisplayRole)
+                        if header == self.name_header:
+                            proxy_name_column = column
+                            break
+                if proxy_name_column:
+                    self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
             self.view.setModel(self.proxy_model)
-            self.view.setSortingEnabled(True)
-            self.proxy_model.setFilterKeyColumn(-1)
-
             if self.child_type == 'Aliquot':
                 self.view.setSortingEnabled(False)
                 self.view.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
