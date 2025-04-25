@@ -109,6 +109,8 @@ class GeoCORK(QtW.QMainWindow):
         self.savepoint_manager = Savepoint_manager.SavepointManager().get_instance()
         self.msg = QtW.QMessageBox(self)
 
+        update_database()
+
         # self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
 
         self.tabWidget: PartiallyCloseableTabWidget

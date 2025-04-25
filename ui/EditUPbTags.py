@@ -136,7 +136,7 @@ class EditUPbTags(QtW.QDialog):
         self.age_unit_comboBox.closing.connect(lambda: self.update_subfield_id('AgeUnitID'))
         self.concordance_format_comboBox.closing.connect(lambda: self.update_subfield_id('ConcordanceFormatID'))
         self.spot_size_unit_comboBox.closing.connect(lambda: self.update_subfield_id('SpotSizeUnitID'))
-        self.spot_size_lineEdit.editingFinished.connect(lambda: self.update_subfield('SpotSize', self.spot_size_label.text()))
+        self.spot_size_lineEdit.editingFinished.connect(lambda: self.update_subfield('SpotSize', self.spot_size_lineEdit.text()))
         
         logger_setup.get_logger().info("Signals connected")
 
@@ -346,7 +346,7 @@ class EditUPbTags(QtW.QDialog):
         # Fill in information based on selected samples
         self.populate_dropdowns()
         self.populate_fields()
-        self.spot_size_lineEdit.editingFinished.connect(lambda: self.update_subfield('SpotSize', self.spot_size_label.text()))
+        self.spot_size_lineEdit.editingFinished.connect(lambda: self.update_subfield('SpotSize', self.spot_size_lineEdit.text()))
 
     def add_popup(self, action: QtG.QAction | None = None):
         combo = self.sender()

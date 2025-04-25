@@ -238,8 +238,9 @@ class EditView(QtW.QDialog):
         # Populate the value input with a completer based on the selected attribute
 
         query = QSqlQuery()
-        sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.view}"'
+        sql_query = f'SELECT {self.name_header} FROM "{self.view}" {self.where}'
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        query.setForwardOnly(True)
         if not query.exec(sql_query):
             logger_setup.get_logger().critical(f'Error creating the completer for input')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -696,7 +697,10 @@ class EditView(QtW.QDialog):
                 if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
                     populate_model_checks(self.combo_model, edit_ids, edit_table)
                     self.combo.single_click = True
-        selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+        if not self.combo_index.isValid():
+            selected_text = model_indexes[0].data(QtC.Qt.ItemDataRole.DisplayRole)
+        else:
+            selected_text = self.combo_index.data(QtC.Qt.ItemDataRole.DisplayRole)
         self.combo.setCurrentText(selected_text)
         if self.combo.currentText() == '':
             # Make sure there is no selected index
@@ -797,18 +801,14 @@ class EditView(QtW.QDialog):
                         return
                     updated = True
                 else:
-                    if isinstance(self.combo_model,
+                    if isinstance(combo.model(),
                                   CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
                         if not combo.model().update_other_table(edit_table, edit_ids):
                             logger_setup.get_logger().info(f'{edit_table} was not updated')
                             self.destroy_dropdown()
                             return
+                        updated = True
                     else:
-                        clicked_id = get_id_from_name(self.combo_model.tableName(), combo.currentText())
-                        if not clicked_id:
-                            logger_setup.get_logger().info(f'No ID found for {combo.currentText()}')
-                            self.destroy_dropdown()
-                            return
                         header = get_headers(self.combo_model.tableName())[0]
                         if header not in get_headers(edit_table):
                             header = view_headers[0]
@@ -819,6 +819,14 @@ class EditView(QtW.QDialog):
                             sql_where_str = f'= {edit_ids[0]}'
                         else:
                             sql_where_str = f'IN {tuple(edit_ids)}'
+                        if combo.currentText() == '':
+                            clicked_id = QtC.QVariant()
+                        else:
+                            clicked_id = get_id_from_name(self.combo_model.tableName(), combo.currentText())
+                            if not clicked_id:
+                                logger_setup.get_logger().info(f'No ID found for {combo.currentText()}')
+                                self.destroy_dropdown()
+                                return
                         create_savepoint('before_edit_id')
                         query.prepare(f'UPDATE "{edit_table}" SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                         query.bindValue(':clicked_id', clicked_id)
@@ -830,6 +838,7 @@ class EditView(QtW.QDialog):
                             rollback_savepoint('before_edit_id')
                             self.destroy_dropdown()
                             return
+                        updated = True
                         release_savepoint('before_edit_id')
         for model_index in model_indexes:
             if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
@@ -872,10 +881,14 @@ class EditView(QtW.QDialog):
         self.combo_index = QtC.QModelIndex()
 
     def determine_edit_table(self, selected_ids):
-        if self.combo:
+        if self.combo and self.combo_index.isValid():
             view_header = self.model.headerData(self.combo_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        elif self.lineEdit:
+        elif self.lineEdit and self.edit_index.isValid():
             view_header = self.model.headerData(self.edit_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        else:
+            selected_index = self.edit_tableView.selectedIndexes()[0]
+            model_index = self.proxy_model.mapToSource(selected_index)
+            view_header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         for dictionary in [SQLUtils.one_editable, SQLUtils.many_editable]:
             if self.dropdown_table in dictionary[self.table].values():
                 for key, values in dictionary[self.table].items():
@@ -955,7 +968,7 @@ class EditView(QtW.QDialog):
             if header in SQLUtils.not_null[self.table]:
                 logger_setup.get_logger().error(f'{get_readable_header(header)} cannot be empty')
                 return
-            query, virtual, stored, columns = get_columns(self.table)
+            query, virtual, stored, db_columns = get_columns(self.table)
             if f'"{header}"' in virtual or f'"{header}"' in stored:
                 logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated')
                 return
@@ -1097,6 +1110,7 @@ class EditView(QtW.QDialog):
                     self.combo_model.clear_checks()
                 elif isinstance(self.combo_model, CheckableTreeModel):
                     self.combo_model.clear_checks(QtC.QModelIndex())
+                self.combo.setCurrentIndex(-1)
                 self.save_dropdown_data()
 
         self.updated_timestamp = time.time()
@@ -1319,35 +1333,33 @@ class EditView(QtW.QDialog):
                     text = model_index.data(QtC.Qt.ItemDataRole.DisplayRole)
                     if text == '' or text is None:
                         # empty string, so save it as a null
-                        text = 'Null'
+                        text = QtC.QVariant()
                     elif isinstance(text, str) and text.isdigit():
                         # string of an integer, so save it as an integer
                         text = int(text)
                     elif isinstance(text, str) and text.isdecimal():
                         # string of a decimal, so save it as a decimal
                         text = float(text)
-                    if header not in update_cols[self.table]:
-                        update_cols[self.table].append(header)
-                        update_col_values[self.table].append(text)
+                    for view in SQLUtils.views:
+                        table = get_table_from_view(view)
+                        table_headers = get_headers(table)
+                        if header in table_headers:
+                            break
+                    if header not in update_cols[table]:
+                        update_cols[table].append(header)
+                        update_col_values[table].append(text)
         for table in update_cols.keys():
             if update_col_values[table]:
                 sql_cols = ', '.join(update_cols[table])
                 table_headers = get_headers(table)
+                # todo: figure out updating the ids for the table
                 if table == self.table:
                     item_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
                 else:
-                    for header in self.table_headers:
-                        if header in table_headers:
-                            edit_table_col = header
-                            break
-                        elif table_headers[0] in self.table_headers:
-                            edit_table_col = table_headers[0]
-                    # edit_table_col
-                    item_id = self.retrieve_id(table, edit_table_col)
-                sql_placeholder = ', '.join('?' for i in range(len(update_cols[table])))
-                query.prepare(f'UPDATE "{table}" SET {sql_cols} = {sql_placeholder} WHERE {table_headers[0]} = {item_id}')
-                for i in range(len(update_cols[table])):
-                    query.addBindValue(update_col_values[table][i])
+                    id_col = get_headers(table)[0]
+                    item_id = self.retrieve_id(table, id_col)
+                sql_values = ", ".join(str(s) for s in update_col_values[table])
+                query.prepare(f'UPDATE "{table}" SET {sql_cols} = {sql_values} WHERE {table_headers[0]} = {item_id}')
                 if not query.exec():
                     logger_setup.get_logger().critical(f'Failed to update {table}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
