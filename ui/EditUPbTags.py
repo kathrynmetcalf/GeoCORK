@@ -19,7 +19,7 @@ from Functions.Widget_classes import (
     CheckableSqlTableModel, get_name_column, get_view_name_column, CheckableTreeModel, TreeModel,
     show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox,
     CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks, save_expanded_state,
-    restore_expanded_state
+    restore_expanded_state, get_name_from_id, get_id_from_name
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -205,9 +205,10 @@ class EditUPbTags(QtW.QDialog):
             text = "-"
         elif checked_ids:
             checked_names = []
-            for row in range(model.rowCount()):
-                if model.data(model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole) in checked_ids:
-                    checked_names.append(model.data(model.index(row, name_column), QtC.Qt.ItemDataRole.DisplayRole))
+            for checked_id in checked_ids:
+                checked_name = get_name_from_id(table, checked_id)
+                if checked_name is not None and checked_name not in checked_names:
+                    checked_names.append(checked_name)
             text = ", ".join(checked_names)
         else:
             text = combo.placeholderText()

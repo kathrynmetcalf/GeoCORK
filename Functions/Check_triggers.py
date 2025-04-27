@@ -4,6 +4,7 @@ from PyQt6 import QtCore as QtC
 import logger_setup
 
 
+
 def update_modified_timestamp(table: str, record_ids: list):
     """
     Update the ModifiedTimestamp field for the given records.
@@ -86,8 +87,14 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
         youngest_unit_error, header = check_insert_pairs(pairs, 'YoungestDirectAge', 'DirectAgeUnitID')
         if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
             youngest_unit_error = None
+        direct_ages_error, header = check_insert_age_range(pairs, 'OldestDirectAge', 'YoungestDirectAge')
+        if direct_ages_error:
+            return direct_ages_error, header
         if unit_error or oldest_unit_error or youngest_unit_error:
             return "Direct age missing units", 'DirectAgeUnitID'
+        relative_error, header = check_insert_age_range(pairs, 'OldestAgeID', 'YoungestAgeID')
+        if relative_error:
+            return relative_error, header
     if table == 'Samples':
         error, header = check_insert_pairs(pairs, 'HeightDepth', 'HeightDepthUnitID')
         if error:
@@ -157,7 +164,10 @@ def validate_update(table: str, columns: list, values: list, where: str):
     value_str = ", ".join([str(value) for value in values])
     pairs = []
     for index in range(len(columns)):
-        pairs.append([columns[index], values[index]])
+        if isinstance(values[index], QtC.QVariant) and values[index].isNull():
+            pairs.append(([columns[index], 'Null']))
+        else:
+            pairs.append([columns[index], values[index]])
     table_model = QtS.QSqlTableModel()
     table_model.setTable(table)
     table_model.select()
@@ -169,13 +179,13 @@ def validate_update(table: str, columns: list, values: list, where: str):
         for index in range(len(columns)):
             if columns[index] == column_name:
                 new_value = values[index]
-                if new_value == '' or new_value is None:
+                if new_value == '' or new_value is None or (isinstance(new_value, QtC.QVariant) and new_value.isNull()):
                     new_value = 'Null'
                 break
         old_values = []
         for row in range(table_model.rowCount()):
             old_value = table_model.data(table_model.index(row, col, QtC.QModelIndex()))
-            if old_value == '' or old_value is None:
+            if old_value == '' or old_value is None or (isinstance(old_value, QtC.QVariant) and old_value.isNull()):
                 old_value = 'Null'
             old_values.append(old_value)
         all_records.append([column_name, new_value, old_values])
@@ -205,8 +215,14 @@ def validate_update(table: str, columns: list, values: list, where: str):
         youngest_unit_error, header = check_update_pairs(all_records, 'YoungestDirectAge', 'DirectAgeUnitID')
         if youngest_unit_error == 'DirectAgeUnitID missing YoungestDirectAge':
             youngest_unit_error = None
+        direct_ages_error, header = check_update_age_range(all_records, 'OldestDirectAge', 'YoungestDirectAge')
+        if direct_ages_error:
+            return direct_ages_error, header
         if unit_error or oldest_unit_error or youngest_unit_error:
             return "Direct age missing units", 'DirectAgeUnitID'
+        relative_error, header = check_update_age_range(all_records, 'OldestAgeID', 'YoungestAgeID')
+        if relative_error:
+            return relative_error, header
     if table == 'Samples':
         error, header = check_update_pairs(all_records, 'HeightDepth', 'HeightDepthUnitID')
         if error:
@@ -332,6 +348,105 @@ def check_update_pairs(all_records: list, column1, column2):
             return f'{column2} missing {column1}', column1
         if new_column2 == 'Null' and 'Null' not in old_column1s:
             return f'{column1} missing {column2}', column2
+    return None, None
+
+def check_insert_age_range(pairs: list, old_column: str, young_column: str):
+    from Functions.Widget_classes import SQLiteTableModel, get_headers
+    if not pairs or not old_column or not young_column:
+        return 'Incomplete data given for age range'
+    age_model = None
+    if 'ID' in old_column and 'ID' in young_column:
+        age_model = SQLiteTableModel('SELECT * FROM Ages')
+    for pair in pairs:
+        if pair[0] == old_column:
+            new_old = pair[1]
+        if pair[0] == young_column:
+            new_young = pair[1]
+    if age_model:
+        if new_old != 'Null' and new_young != 'Null':
+            age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
+            if age_model.rowCount() == 0:
+                return f'{old_column} does not exist', old_column
+            oldest_old = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
+            youngest_old = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
+            age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_young}')
+            if age_model.rowCount() == 0:
+                return f'{young_column} does not exist', young_column
+            oldest_young = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
+            youngest_young = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if oldest_old < oldest_young and youngest_old < youngest_young:
+                return f'Oldest relative age is younger than youngest relative age', old_column
+    else:
+        if new_old != 'Null' and new_young != 'Null':
+            if new_old < new_young:
+                return f'Oldest direct age is younger than youngest direct age', old_column
+    return None, None
+
+# todo: implement check_update_age_range
+def check_update_age_range(all_records: list, old_column: str, young_column: str):
+    from Functions.Widget_classes import SQLiteTableModel, get_headers
+    if not all_records or not old_column or not young_column:
+        return 'Incomplete data given for age range'
+    age_model = None
+    if 'ID' in old_column and 'ID' in young_column:
+        age_model = SQLiteTableModel('SELECT * FROM Ages')
+    for record in all_records:
+        if record[0] == old_column:
+            new_old = record[1]
+            old_olds = record[2]
+        if record[0] == young_column:
+            new_young = record[1]
+            old_youngs = record[2]
+    if age_model:
+        if new_old != 'Null':
+            age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
+            if age_model.rowCount() == 0:
+                return f'{old_column} does not exist', old_column
+            new_oldest_old = float(age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole))
+            new_youngest_old = float(age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole))
+        if new_young != 'Null':
+            age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_young}')
+            if age_model.rowCount() == 0:
+                return f'{young_column} does not exist', young_column
+            new_oldest_young = float(age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole))
+            new_youngest_young = float(age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole))
+        if new_old != 'Null' and new_young != 'Null':
+            if new_oldest_old < new_oldest_young and new_youngest_old < new_youngest_young:
+                return f'Oldest relative age is younger than youngest relative age', old_column
+        elif new_old != 'Null':
+            for old_young in old_youngs:
+                if old_young != 'Null':
+                    age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {old_young}')
+                    if age_model.rowCount() == 0:
+                        return f'{young_column} does not exist', young_column
+                    oldest_young = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    youngest_young = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if new_oldest_old < oldest_young and new_youngest_old < youngest_young:
+                        return f'Oldest relative age is younger than youngest relative age', old_column
+        elif new_young != 'Null':
+            for old_old in old_olds:
+                if old_old != 'Null':
+                    age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {old_old}')
+                    if age_model.rowCount() == 0:
+                        return f'{old_column} does not exist', old_column
+                    oldest_old = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    youngest_old = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if oldest_old < new_oldest_young and youngest_old < new_youngest_young:
+                        return f'Oldest relative age is younger than youngest relative age', old_column
+    else:
+        if new_old != 'Null' and new_young != 'Null':
+            if new_old < new_young:
+                return f'Oldest direct age is younger than youngest direct age', old_column
+        elif new_old != 'Null':
+            for old_young in old_youngs:
+                if old_young != 'Null':
+                    if new_old < old_young:
+                        return f'Oldest direct age is younger than youngest direct age', old_column
+        elif new_young != 'Null':
+            for old_old in old_olds:
+                if old_old != 'Null':
+                    if old_old < new_young:
+                        return f'Oldest direct age is younger than youngest direct age', old_column
     return None, None
 
 def check_gps_format_insert(pairs: list, format_id: int):
