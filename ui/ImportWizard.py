@@ -1388,7 +1388,7 @@ class ImportWizardDialog(QWidget):
         if not sheet_name:
             QMessageBox.warning(self, "No Sheet", "Please select a sheet.")
             return
-
+        self.loading_manager.show_loading_dialog('Loading', f'Loading {sheet_name}...')
         try:
             self.df = pd.read_excel(self.selected_file_path, header=None, sheet_name=sheet_name, engine="openpyxl")
         except Exception as e:
@@ -1411,6 +1411,8 @@ class ImportWizardDialog(QWidget):
 
         # Auto-guess column names
         # self.auto_guess_column_names()
+
+        self.loading_manager.close_loading_dialog("Loading", f"Loading {sheet_name}...")
 
     def display_right_table_with_styles(self, sheet_name):
         """
