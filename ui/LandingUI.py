@@ -85,6 +85,7 @@ class LandingPage(QWidget):
                 self.list_recents.remove(self.selected_files)
                 self.list_recents.insert(0, self.selected_files)
             settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+            settings.setValue('db_file', self.selected_files)
             self.db = None
             self.open_geo_cork()
 
@@ -96,6 +97,7 @@ class LandingPage(QWidget):
     def open_about_db(self):
         # This is a new database, so prompt the user to fill in the About Database form
         if not self.test_database_lock():
+            update_database()
             from ui.Settings import SettingsDialog
             settings_dialog = SettingsDialog()
             settings_dialog.settings_tabWidget.setCurrentIndex(2)
@@ -215,13 +217,31 @@ class LandingPage(QWidget):
             response = msg_box.exec()
             if response != QMessageBox.StandardButton.Yes:
                 return
-
-        # Move the selected database to the top of the list
-        self.list_recents.remove(full_path)
-        self.list_recents.insert(0, full_path)
-        settings.setValue("ui/LandingPage/recentlist", self.list_recents)
-        self.db = None
-        self.open_geo_cork()
+            else:
+                # Move the selected database to the top of the list
+                self.list_recents.remove(full_path)
+                self.list_recents.insert(0, full_path)
+                settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+                # Create a new empty database
+                self.db = QSqlDatabase.addDatabase("QSQLITE")
+                self.db.setDatabaseName(full_path)
+                if not self.db.open():
+                    logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                    return
+                if not turn_on_foreign_keys():
+                    return
+                Savepoint_manager.SavepointManager()
+                settings.setValue('db_file', full_path)
+                self.open_about_db()
+                self.open_geo_cork(skip_update=True)
+        else:
+            # Move the selected database to the top of the list
+            self.list_recents.remove(full_path)
+            self.list_recents.insert(0, full_path)
+            settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+            settings.setValue('db_file', full_path)
+            self.db = None
+            self.open_geo_cork()
 
 
     def new_database_dialog(self):
@@ -251,11 +271,11 @@ class LandingPage(QWidget):
             if not turn_on_foreign_keys():
                 return
             Savepoint_manager.SavepointManager()
-            update_database()
             self.selected_files = file_name
             if self.selected_files not in self.list_recents:
                 self.list_recents.insert(0, self.selected_files) # Add the new database to the top of the list
                 settings.setValue("ui/LandingPage/recentlist", self.list_recents)
+            settings.setValue('db_file', file_name)
             self.open_about_db()
             self.open_geo_cork(skip_update=True)
 
@@ -278,6 +298,7 @@ class LandingPage(QWidget):
                 for path in self.list_recents:
                     self.listWidget.addItem(shrink_home(path))
             self.hide()
+            settings.setValue('db_file', self.selected_files)
             self.open_geo_cork()
 
     def show_merge_db(self):

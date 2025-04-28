@@ -109,7 +109,8 @@ def update_database() -> bool:
     # Drop and regenerate the generated columns
     Alter_db.settings_reset()
     # Recreate the views
-    DB_views.create_all_views()
+    if not DB_views.create_all_views():
+        logger_setup.get_logger().critical(f"Error updating database views")
 
     end_time = time.time()
     loading_manager.close_loading_dialog('Loading', 'Updating database...')

@@ -20,8 +20,8 @@ CREATE_ABOUT_TABLE = '''CREATE TABLE IF NOT EXISTS About(
                     AboutID INTEGER PRIMARY KEY,
                     Name TEXT NOT NULL CHECK (Name <> ''),
                     Authors TEXT NOT NULL CHECK (Authors <> ''),
-                    Citation TEXT NOT NULL CHECK (Citation <> ''),
-                    ReferenceLink TEXT NOT NULL CHECK (ReferenceLink <> ''),
+                    Citation,
+                    ReferenceLink,
                     Version TEXT NOT NULL CHECK (Version <> ''),
                     Description TEXT,
                     CreatedBy TEXT NOT NULL CHECK (CreatedBy <> ''),
@@ -975,7 +975,7 @@ def create_tables() -> bool:
         if not query.next():  # No rows found
             # insert fully blank row into about
             if not query.exec(
-                    "INSERT INTO About VALUES (1, 'Name','Authors','Citation','ReferenceLink','Version','Description','CreatedBy',NULL,NULL)"):
+                    "INSERT INTO About VALUES (1, 'Name','Authors','','','v1.0.0','','CreatedBy',NULL,NULL)"):
                 logger_setup.get_logger().critical(f"Failed to insert default values into About table")
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')

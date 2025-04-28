@@ -1229,17 +1229,22 @@ def get_edit_view_from_table(table: str):
         return table
 
 def get_view_name_column(view: str) -> int | None:
+    # Check if the view exists
     if 'View' not in view:
         view = get_view_from_table(view)
     table_name_col = get_name_column(view)
     if table_name_col is not None:
         # View columns may be reorganized, so we need to get the header from the table then find it in the view columns
-        name_header = get_headers(view)[table_name_col]
-        view_column_settings = SQLUtils.view_setting_dict[view]
-        view_columns = settings.value(view_column_settings)
-        if name_header in view_columns:
-            view_name_col = view_columns.index(name_header)
-            return view_name_col
+        headers = get_headers(view)
+        if headers:
+            name_header = get_headers(view)[table_name_col]
+            view_column_settings = SQLUtils.view_setting_dict[view]
+            view_columns = settings.value(view_column_settings)
+            if name_header in view_columns:
+                view_name_col = view_columns.index(name_header)
+                return view_name_col
+        else:
+            logger_setup.get_logger().debug(f'View {view} has no columns')
 
 def get_name_from_id(table: str, item_id: int):
     query = QtS.QSqlQuery()

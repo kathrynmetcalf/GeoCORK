@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="settings_tabWidget">
      <property name="currentIndex">
-      <number>0</number>
+      <number>2</number>
      </property>
      <widget class="QWidget" name="units_formats_tab">
       <attribute name="title">
@@ -684,14 +684,14 @@
          <item row="0" column="0">
           <widget class="QLabel" name="db_name_label">
            <property name="text">
-            <string>Database Name</string>
+            <string>Database Name*</string>
            </property>
           </widget>
          </item>
          <item row="2" column="0">
           <widget class="QLabel" name="db_created_by_label">
            <property name="text">
-            <string>Created By</string>
+            <string>Created By*</string>
            </property>
           </widget>
          </item>
@@ -742,7 +742,7 @@
          <item row="3" column="0">
           <widget class="QLabel" name="db_authors_label">
            <property name="text">
-            <string>Database Author(s)</string>
+            <string>Database Author(s)*</string>
            </property>
           </widget>
          </item>

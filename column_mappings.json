@@ -208,9 +208,6 @@
         "0": {
             "field": "Spot Name"
         },
-        "1": {
-            "field": "Pb*cps"
-        },
         "2": {
             "field": "Thppm"
         },
@@ -242,7 +239,7 @@
             "field": "207Pb/206PbAge"
         },
         "12": {
-            "field": "207Pb/206PbAge"
+            "field": "207Pb/206PbAgeError"
         },
         "13": {
             "field": "207Pb/235UAge"
@@ -336,6 +333,56 @@
             "field": "207Pb/206PbAge"
         },
         "7": {
+            "field": "207Pb/206PbAgeError"
+        }
+    },
+    "Puetz et al. 2021": {
+        "0": {
+            "field": "Sample Name"
+        },
+        "1": {
+            "field": "Spot Name"
+        },
+        "3": {
+            "field": "Spot Size"
+        },
+        "5": {
+            "field": "206Pb/238U"
+        },
+        "6": {
+            "field": "206Pb/238UError"
+        },
+        "8": {
+            "field": "207Pb/235U"
+        },
+        "9": {
+            "field": "207Pb/235UError"
+        },
+        "11": {
+            "field": "207Pb/206Pb"
+        },
+        "12": {
+            "field": "207Pb/206PbError"
+        },
+        "14": {
+            "field": "ErrorCorr/Rho"
+        },
+        "16": {
+            "field": "206Pb/238UAge"
+        },
+        "17": {
+            "field": "206Pb/238UAgeError"
+        },
+        "18": {
+            "field": "207Pb/235UAge"
+        },
+        "19": {
+            "field": "207Pb/235UAgeError"
+        },
+        "20": {
+            "field": "207Pb/206PbAge"
+        },
+        "21": {
             "field": "207Pb/206PbAgeError"
         }
     }

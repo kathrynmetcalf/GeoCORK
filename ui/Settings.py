@@ -489,20 +489,19 @@ class SettingsDialog(QtW.QDialog):
 
         settings.setValue('reference_format', self.update_reference_format())
 
+        about_values = [self.db_name_lineEdit.text(), self.db_authors_lineEdit.text(),
+                        self.db_description_lineEdit.text(), self.db_reference_link_lineEdit.text(),
+                        self.db_created_by_lineEdit.text(), self.db_reference_lineEdit.text()]
         query = QSqlQuery()
-        about_qry = f"""UPDATE About SET (Name, Authors, Description, Citation, CreatedBy, Citation) = 
-            ('{self.db_name_lineEdit.text()}', 
-            '{self.db_authors_lineEdit.text()}', 
-            '{self.db_description_lineEdit.text()}', 
-            '{self.db_reference_link_lineEdit.text()}', 
-            '{self.db_created_by_lineEdit.text()}', 
-            '{self.db_reference_lineEdit.text()}') WHERE AboutID = 1"""
-
+        about_qry = f"""UPDATE About SET (Name, Authors, Description, ReferenceLink, CreatedBy, Citation) = 
+            ({', '.join('?'*len(about_values))}) WHERE AboutID = 1"""
         query.prepare(about_qry)
+        for value in about_values:
+            query.addBindValue(value)
         if not query.exec():
             logger_setup.get_logger().critical(f'Error updating About table')
-            logger_setup.get_logger().critical(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL query: {query.lastQuery()}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
 
         self.select_columns.save_list_states()
 

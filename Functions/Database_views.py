@@ -560,8 +560,15 @@ def create_sample_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {sample_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM SampleView'):
+        logger_setup.get_logger().critical('Error creating SampleView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'SampleView query: {sample_view}')
+        return False
     logger_setup.get_logger().info(f'Successfully created SampleView {time.time() - start_time} seconds')
-
+    return True
 
 # def create_sample_edit_view():
 #     sample_query = SampleViewQuery()
@@ -619,8 +626,16 @@ def create_aliquot_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {aliquot_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM AliquotView'):
+        logger_setup.get_logger().critical('Error creating AliquotView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'AliquotView query: {aliquot_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created AliquotView {time.time() - start_time} seconds')
+    return True
 
 
 def create_aliquot_edit_view():
@@ -657,9 +672,16 @@ def create_aliquot_edit_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {aliquot_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM AliquotEditView'):
+        logger_setup.get_logger().critical('Error creating AliquotEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'AliquotEditView query: {aliquot_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created AliquotEditView {time.time() - start_time} seconds')
-
+    return True
 
 def create_spot_view():
     start_time = time.time()
@@ -699,9 +721,16 @@ def create_spot_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {spot_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM SpotView'):
+        logger_setup.get_logger().critical('Error creating SpotView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'SpotView query: {spot_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created SpotView {time.time() - start_time} seconds')
-
+    return True
 
 def create_spot_edit_view():
     start_time = time.time()
@@ -737,9 +766,16 @@ def create_spot_edit_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {spot_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM SpotEditView'):
+        logger_setup.get_logger().critical('Error creating SpotEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'SpotEditView query: {spot_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created SpotEditView {time.time() - start_time} seconds')
-
+    return True
 
 def create_upb_view():
     start_time = time.time()
@@ -775,9 +811,16 @@ def create_upb_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {upb_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM UPbView'):
+        logger_setup.get_logger().critical('Error creating UPbView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'UPbView query: {upb_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created UPbView {time.time() - start_time} seconds')
-
+    return True
 
 def create_upb_edit_view():
     start_time = time.time()
@@ -812,9 +855,16 @@ def create_upb_edit_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {upb_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM UPbEditView'):
+        logger_setup.get_logger().critical('Error creating UPbEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'UPbEditView query: {upb_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created UPbEditView in {time.time() - start_time} seconds')
-
+    return True
 
 def create_column_view():
     start_time = time.time()
@@ -850,9 +900,16 @@ def create_column_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {column_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM ColumnView'):
+        logger_setup.get_logger().critical('Error creating ColumnView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'ColumnView query: {column_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created ColumnView {time.time() - start_time} seconds')
-
+    return True
 
 def create_column_edit_view():
     start_time = time.time()
@@ -888,9 +945,16 @@ def create_column_edit_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {column_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM ColumnEditView'):
+        logger_setup.get_logger().critical('Error creating ColumnEditView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'ColumnEditView query: {column_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created ColumnEditView {time.time() - start_time} seconds')
-
+    return True
 
 def create_reference_view():
     start_time = time.time()
@@ -926,29 +990,56 @@ def create_reference_view():
         logger_setup.get_logger().debug(f'Error: {e}')
         logger_setup.get_logger().debug(f'SQL query: {reference_view}')
         return False
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT * FROM ReferenceView'):
+        logger_setup.get_logger().critical('Error creating ReferenceView')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        logger_setup.get_logger().debug(f'ReferenceView query: {reference_view}')
+        return False
     logger_setup.get_logger().info(
         f'Successfully created ReferenceView {time.time() - start_time} seconds')
-
+    return True
 
 def create_all_views():
     start_time = time.time()
     from Functions.Settings_manager import settings
     logger_setup.get_logger().info('Creating all views')
 
-    create_sample_view()
+    if not create_sample_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
     # create_sample_edit_view()
-    create_aliquot_view()
-    create_aliquot_edit_view()
-    create_spot_view()
-    create_spot_edit_view()
-    create_upb_view()
-    create_upb_edit_view()
-    create_column_view()
-    create_column_edit_view()
-    create_reference_view()
+    if not create_aliquot_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_aliquot_edit_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_spot_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_spot_edit_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_upb_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_upb_edit_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_column_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_column_edit_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
+    if not create_reference_view():
+        logger_setup.get_logger().critical('Error creating views')
+        return False
     end_time = time.time()
     logger_setup.get_logger().info(f'All views created in {end_time - start_time} seconds')
-
+    return True
 
 def drop_view(view: str):
     query = QtS.QSqlQuery()
