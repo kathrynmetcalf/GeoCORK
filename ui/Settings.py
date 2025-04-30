@@ -413,6 +413,7 @@ class SettingsDialog(QtW.QDialog):
         self.db_reference_link_lineEdit.setText(self.about_db_model.record(0).value('ReferenceLink'))
         self.db_created_by_lineEdit.setText(self.about_db_model.record(0).value('CreatedBy'))
         self.db_reference_lineEdit.setText(self.about_db_model.record(0).value('Citation'))
+        self.geocork_version_text.setText(self.about_db_model.record(0).value('Version'))
 
         self.select_columns.populate_stack()
 

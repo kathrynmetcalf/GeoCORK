@@ -57,7 +57,6 @@ class WordWrapDelegate(QtW.QStyledItemDelegate):
     """
     Custom delegate to enable word wrap in QTableView.
     """
-
     def initStyleOption(self, option, index):
         super().initStyleOption(option, index)
         option.textElideMode = Qt.TextElideMode.ElideNone  # Do not cut text
@@ -77,8 +76,8 @@ class SQLiteTableModel(QAbstractTableModel):
     """
     Custom QAbstractTableModel to display a query from a SQLite database. If database is not given, the database file
     stored in settings will be used. This model was created due to the limitations of QSqlTableModel and QSqlQueryModel
-    with abnormally long query execution time.
-
+    with abnormally long query execution time. Only committed data is displayed, uncommitted changes are not visible to
+    this connection, so the model must be updated manually while savepoints or other transactions are active.
     """
     def __init__(self, query: str = '', database=None):
         from Functions.Settings_manager import settings
@@ -90,21 +89,35 @@ class SQLiteTableModel(QAbstractTableModel):
         self.last_error = None
         self.query_text = query
         self.database = database if database is not None else settings._instance.value('db_file', type=str)
+        self.table = None
+        self.view = None
+        self.table_name_col = None
+        self.view_name_col = None
 
         self.load_data(self.query_text, self.database)
 
     def setQuery(self, new_query: str):
-        """Updates the model with a new query."""
+        """
+        Updates the model with a new query.
+        :param new_query: New query string to apply.
+        """
         set_time = time.time()
         self.load_data(new_query, self.database)
         logger_setup.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
 
     def update_database(self, new_database: str):
-        """Updates the model with a new database."""
+        """
+        Updates the model with a new database.
+        :param new_database: New database filename string to apply.
+        """
         self.load_data(self.query_text, new_database)
 
     def load_data(self, query: str, database: str):
-        """Loads data from the given query and database."""
+        """
+        Loads data from the given query and database.
+        :param query: Query to load.
+        :param database: Database to load from.
+        """
         if query == '':
             return
         self.beginResetModel()
@@ -129,6 +142,8 @@ class SQLiteTableModel(QAbstractTableModel):
             logger_setup.get_logger().debug(f"Error: {e}")
             logger_setup.get_logger().debug(f"SQL query: {query}")
             self.last_error = e
+
+        # Get the table name from the query
         if 'table_info' in query:
             table = 'table_info'
         else:
@@ -161,13 +176,25 @@ class SQLiteTableModel(QAbstractTableModel):
         return len(self._headers)
 
     def tableName(self):
+        """
+        Return the table name for the model.
+        :return: table name the query is selecting from or the view is pulling from as string, None if not exists
+        """
         return self.table
 
     def tableView(self):
+        """
+        Return the view name for the model.
+        :return: view name the query is selecting from as string, None if not exists
+        """
         return self.view
 
     def record(self, row: int):
         class MockRecord:
+            """
+            Class to mimic QSqlRecord for the SQLiteTableModel.
+            Stores a row of data from the SQLite database table and provides methods to access the data.
+            """
             def __init__(self, row):
                 self.row = row
 
@@ -229,7 +256,8 @@ class SQLiteTableModel(QAbstractTableModel):
 
     def setData(self, index, value, role = ...) -> bool | None:
         """
-        Set the data to value for the given index and role.
+        Set the data to value for the given index and role. SQLiteTableModel cannot see uncommitted changes, so model
+        must be manually updated as changes occur before commiting.
         :param index: table index
         :param value: new data
         :param role: expecting EditRole to edit data
@@ -282,22 +310,11 @@ class SQLiteTableModel(QAbstractTableModel):
         logger_setup.get_logger().info(f'Updated {self.table}')
         return True
 
-    def column_as_list(self, col) -> list | None:
-        """
-        returns a list of items in a column
-        :param col: string or integer representing column
-        :return: list of items in each row for a given column
-        """
-        if isinstance(col, str):
-            column = self._headers.index(col)
-        elif isinstance(col, int):
-            column = col
-        else:
-            return None
-        return [row[column] for row in self._data]
-
 
 class QSqlTableModelModifiedTrigger(QtS.QSqlTableModel):
+    """
+    Custom QSqlTableModel that also updates the modified timestamp when data are changed
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -426,7 +443,7 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
         Return the data for the given index and role.
         :param index: table index
         :param role: expects DisplayRole
-        :return:
+        :return: value if valid index given, False if not
         """
         if not index.isValid():
             return False
@@ -453,188 +470,208 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
     def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = QtC.Qt.ItemDataRole.DisplayRole):
         return super().data(index, role)
 
-class VerifiableSqlTableModel(DisplayRoundedModel):
-    row_submitted = QtC.pyqtSignal(int)
-    def __init__(self):
-        super().__init__()
-        self.edited_indexes = []
-        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
-        self.submitError = ''
-        self.headerToFix = ''
-
-    def setData(self, index, value, role = ...):
-        field_type = self.record().field(index.column()).typeID()
-        logger_setup.get_logger().info(f"Setting {field_type} to {value}")
-        if role == QtC.Qt.ItemDataRole.EditRole:
-            if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value, QMetaType.Type.UInt.value):
-                # Set the value to NULL
-                value = None
-            elif '.' not in str(value):
-                # Make sure integers don't have decimals added on
-                try:
-                    value = int(value)
-                except ValueError:
-                    pass
-            self.edited_indexes.append(index)
-            # return super().setData(index, value, role)
-        return super().setData(index, value, role)
-
-    def submit(self):
-        if not self.edited_indexes:
-            # no changes to submit
-            return True
-        # get the edited row
-        current_row = self.edited_indexes[0].row()
-        if self.tableName() in SQLUtils.trigger_tables:
-            if not self.verify_row(current_row):
-                return False
-        if super().submit():
-            self.row_submitted.emit(current_row)
-            self.edited_indexes = []
-            self.submitError = ''
-            self.headerToFix = ''
-            return True
-        else:
-            return False
-
-    def verify_row(self, current_row):
-        columns = []
-        values = []
-        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        foreign_table = QtS.QSqlTableModel()
-        for column in range(1, self.columnCount()):
-            header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            value = self.data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
-            if 'ID' in header and type(value) is not int:
-                # get the ID from the display value
-                set_value = self.get_foreign_id(self.tableName(), header, value)
-            else:
-                set_value = value
-            columns.append(header)
-            values.append(set_value)
-        where = f'{id_header}={id}'
-        error, header = validate_update(self.tableName(), columns, values, where)
-        if error is not None:
-            self.submitError = error
-            self.headerToFix = header
-            return False
-        return True
-
-class VerifiableSqlViewModel(VerifiableSqlTableModel):
-    row_submitted = QtC.pyqtSignal(int)
-    def __init__(self):
-        super().__init__()
-        self.table = ''
-        self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-
-    def setTable(self, tableName):
-        if 'View' in tableName:
-            if 'Sample' in tableName:
-                self.table = 'Samples'
-            elif 'Aliquot' in tableName:
-                self.table = 'Aliquots'
-            elif 'Spot' in tableName:
-                self.table = 'Spots'
-            elif 'UPbAnalysis' in tableName:
-                self.table = 'UPbAnalyses'
-            elif 'Column' in tableName:
-                self.table = 'Columns'
-            elif 'Reference' in tableName:
-                self.table = 'References'
-            super().setTable(self.table)
-        else:
-            logger_setup.get_logger().error(f'Table {tableName} is not a view')
-
-    def submit(self):
-        if not self.isDirty():
-            return True
-        # get the edited row
-        current_row = self.edited_indexes[0].row()
-        columns = []
-        values = []
-        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        foreign_table = QtS.QSqlTableModel()
-        # Need to map the joined columns to the actual table columns
-        for column in range(1, self.columnCount()):
-            header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            value = self.unrounded_data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
-            # if header == 'Total Height/Depth':
-            #     set_header = 'ColumnTotalHeightDepth'
-            #     set_value = value
-            if 'Unit' in header:
-                set_header = 'ColumnTotalHeightDepthUnitID'
-                set_table(foreign_table, 'DistanceUnits')
-                foreign_table.setFilter(f'DistanceUnitAbbreviation="{value}"')
-                set_value = foreign_table.record(0).value('DistanceUnitID')
-            elif 'GPS' in header:
-                set_header = 'ColumnBaseGPSID'
-                query = QtS.QSqlQuery()
-                if not query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"'):
-                    logger_setup.get_logger().critical(f'Failed to get GPSLocationID for {value}')
-                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                    return False
-                query.next()
-                set_value = query.value(0)
-                # set_value = foreign_table.record(0).value('GPSLocationID')
-            else:
-                set_header = header
-                set_value = value
-            columns.append(set_header)
-            values.append(set_value)
-
-        error, header = validate_update(self.table, columns, values, f'{id_header}={id}')
-        if error is not None:
-            self.submitError = error
-            self.headerToFix = header
-            return False
-        column_str = ", ".join(columns)
-        # create a string of question marks separated by commas for the values
-        value_str = ", ".join('?' * len(values))
-        query = QtS.QSqlQuery()
-        query.prepare(f'UPDATE {self.table} SET ({column_str}) = ({value_str}) WHERE {id_header}={id}')
-        for i, value in enumerate(values):
-            query.bindValue(i, value)
-        if not query.exec():
-            logger_setup.get_logger().critical(f'Failed to update {self.table} with {column_str}={value_str}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
-            return False
-        self.row_submitted.emit(current_row)
-        if not self.on_row_submitted(current_row):
-            return False
-        self.edited_indexes = []
-        self.submitError = ''
-        self.headerToFix = ''
-        return True
-
-    def on_row_submitted(self, row):
-        record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        error = update_modified_timestamp(self.table, [record_id])
-        if error is not None:
-            logger_setup.get_logger().error(error)
-            return False
-
-    def deleteRowFromTable(self, row):
-        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        query = QtS.QSqlQuery()
-        if not query.exec(f'DELETE FROM {self.table} WHERE {id_header}={id}'):
-            logger_setup.get_logger().critical(f'Failed to delete {id} from {self.table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            return False
-        return True
+# class VerifiableSqlTableModel(DisplayRoundedModel):
+#     """
+#     Custom DisplayRoundedModel (subclass of QSqlTableModel) to verify data before submitting changes to the database
+#     upon row change.
+#     """
+#     row_submitted = QtC.pyqtSignal(int)
+#     def __init__(self):
+#         super().__init__()
+#         self.edited_indexes = []
+#         self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
+#         self.submitError = ''
+#         self.headerToFix = ''
+#
+#     def setData(self, index, value, role = ...):
+#         """Minor screening to prevent adding decimals to integers and set empty values to None. Keeps track of edited
+#         indexes."""
+#         field_type = self.record().field(index.column()).typeID()
+#         logger_setup.get_logger().info(f"Setting {field_type} to {value}")
+#         if role == QtC.Qt.ItemDataRole.EditRole:
+#             if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value, QMetaType.Type.UInt.value):
+#                 # Set the value to NULL
+#                 value = None
+#             elif '.' not in str(value):
+#                 # Make sure integers don't have decimals added on
+#                 try:
+#                     value = int(value)
+#                 except ValueError:
+#                     pass
+#             self.edited_indexes.append(index)
+#             # return super().setData(index, value, role)
+#         return super().setData(index, value, role)
+#
+#     def submit(self):
+#         """Validate data as necessary before submitting"""
+#         if not self.edited_indexes:
+#             # no changes to submit
+#             return True
+#         # get the edited row
+#         edited_row = self.edited_indexes[0].row()
+#         if self.tableName() in SQLUtils.trigger_tables:
+#             if not self.verify_row(edited_row):
+#                 return False
+#         if super().submit():
+#             self.row_submitted.emit(edited_row)
+#             self.edited_indexes = []
+#             self.submitError = ''
+#             self.headerToFix = ''
+#             return True
+#         else:
+#             if self.submitError:
+#                 logger_setup.get_logger().error(self.submitError)
+#             return False
+#
+#     def verify_row(self, edited_row: int) -> bool:
+#         """
+#         Make sure ID columns contain IDs, collect columns and values to submit, and validates data to update
+#         :param edited_row: edited row being submitted
+#         :return: True if no error, False if there is
+#         """
+#         columns = []
+#         values = []
+#         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+#         id = self.data(self.index(edited_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+#         for column in range(1, self.columnCount()):
+#             header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+#             value = self.data(self.index(edited_row, column), QtC.Qt.ItemDataRole.DisplayRole)
+#             if 'ID' in header and type(value) is not int:
+#                 # name is given instead of ID
+#                 set_value, foreign_table = get_foreign_id_table(self.tableName(), header, value)
+#             else:
+#                 set_value = value
+#             columns.append(header)
+#             values.append(set_value)
+#         where = f'{id_header}={id}'
+#         error, header = validate_update(self.tableName(), columns, values, where)
+#         if error is not None:
+#             self.submitError = error
+#             self.headerToFix = header
+#             return False
+#         return True
+#
+# class VerifiableSqlViewModel(VerifiableSqlTableModel):
+#     """
+#     Custom DisplayRoundedQueryModel (subclass of QSqlTableModel) to verify data before submitting changes to the database
+#     upon row change.
+#     """
+#     row_submitted = QtC.pyqtSignal(int)
+#     def __init__(self):
+#         super().__init__()
+#         self.table = ''
+#         self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
+#
+#     def setTable(self, tableName):
+#         if 'View' in tableName:
+#             if 'Sample' in tableName:
+#                 self.table = 'Samples'
+#             elif 'Aliquot' in tableName:
+#                 self.table = 'Aliquots'
+#             elif 'Spot' in tableName:
+#                 self.table = 'Spots'
+#             elif 'UPbAnalysis' in tableName:
+#                 self.table = 'UPbAnalyses'
+#             elif 'Column' in tableName:
+#                 self.table = 'Columns'
+#             elif 'Reference' in tableName:
+#                 self.table = 'References'
+#             super().setTable(self.table)
+#         else:
+#             logger_setup.get_logger().error(f'Table {tableName} is not a view')
+#
+#     def submit(self):
+#         if not self.isDirty():
+#             return True
+#         # get the edited row
+#         current_row = self.edited_indexes[0].row()
+#         columns = []
+#         values = []
+#         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+#         id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+#         foreign_table = QtS.QSqlTableModel()
+#         # Need to map the joined columns to the actual table columns
+#         for column in range(1, self.columnCount()):
+#             header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+#             value = self.unrounded_data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
+#             # if header == 'Total Height/Depth':
+#             #     set_header = 'ColumnTotalHeightDepth'
+#             #     set_value = value
+#             if 'Unit' in header:
+#                 set_header = 'ColumnTotalHeightDepthUnitID'
+#                 set_table(foreign_table, 'DistanceUnits')
+#                 foreign_table.setFilter(f'DistanceUnitAbbreviation="{value}"')
+#                 set_value = foreign_table.record(0).value('DistanceUnitID')
+#             elif 'GPS' in header:
+#                 set_header = 'ColumnBaseGPSID'
+#                 query = QtS.QSqlQuery()
+#                 if not query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"'):
+#                     logger_setup.get_logger().critical(f'Failed to get GPSLocationID for {value}')
+#                     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+#                     logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+#                     return False
+#                 query.next()
+#                 set_value = query.value(0)
+#                 # set_value = foreign_table.record(0).value('GPSLocationID')
+#             else:
+#                 set_header = header
+#                 set_value = value
+#             columns.append(set_header)
+#             values.append(set_value)
+#
+#         error, header = validate_update(self.table, columns, values, f'{id_header}={id}')
+#         if error is not None:
+#             self.submitError = error
+#             self.headerToFix = header
+#             return False
+#         column_str = ", ".join(columns)
+#         # create a string of question marks separated by commas for the values
+#         value_str = ", ".join('?' * len(values))
+#         query = QtS.QSqlQuery()
+#         query.prepare(f'UPDATE {self.table} SET ({column_str}) = ({value_str}) WHERE {id_header}={id}')
+#         for i, value in enumerate(values):
+#             query.bindValue(i, value)
+#         if not query.exec():
+#             logger_setup.get_logger().critical(f'Failed to update {self.table} with {column_str}={value_str}')
+#             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+#             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+#             logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
+#             return False
+#         self.row_submitted.emit(current_row)
+#         if not self.on_row_submitted(current_row):
+#             return False
+#         self.edited_indexes = []
+#         self.submitError = ''
+#         self.headerToFix = ''
+#         return True
+#
+#     def on_row_submitted(self, row):
+#         record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+#         error = update_modified_timestamp(self.table, [record_id])
+#         if error is not None:
+#             logger_setup.get_logger().error(error)
+#             return False
+#
+#     def deleteRowFromTable(self, row):
+#         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+#         id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
+#         query = QtS.QSqlQuery()
+#         if not query.exec(f'DELETE FROM {self.table} WHERE {id_header}={id}'):
+#             logger_setup.get_logger().critical(f'Failed to delete {id} from {self.table}')
+#             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+#             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+#             return False
+#         return True
 
 class EditableSqlQueryModel(DisplayRoundedQueryModel):
+    """Custom DisplayRoundedQueryModel (subclass of QSqlQueryModel) with editable name column and description column.
+    Updates the database likee QSqlTablModel does."""
     def __init__(self):
         super().__init__()
         self.query = ''
 
     def flags(self, index):
+        """Sets only the name column and description column as editable"""
         flags = super().flags(index)
         col = get_name_column(self.table)
         if index.column() == col or 'Description' in self.headerData(index.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole):
@@ -691,6 +728,12 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
         return True
 
 class ReadableProxyModel(QtC.QSortFilterProxyModel):
+    """
+    Displays readable headers for any table. Uses get_readable_header to convert header text.
+    Setting original_headers to True returns unmodified headers.
+    Sorting takes into account mixed text and numeric data in strings so that A14 is considered less than A104.
+    If doi column is present, returns more readable text and creates a tool tip for each entry.
+    """
     def __init__(self, view=False):
         self.view = view
         super().__init__()
@@ -845,6 +888,12 @@ class SampleAgeProxyModel(QtC.QSortFilterProxyModel):
                         return display_age(age_display)
 
 class CheckableSqlTableModel(DisplayRoundedModel):
+    """
+    Custom DisplayRoundedModel (subclass of QSqlTableModel) with check boxes enabled for each row.
+    Name column has a tool tip with the description if available
+    Supports partial checks through code, but any user input only toggles checked or unchecked.
+    Stores lists of checked_ids and partially_checked_ids.
+    """
     def __init__(self):
         super().__init__()
         self.primary_key_column = 0
@@ -852,6 +901,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         self.partially_checked_ids = []
 
     def flags(self, index):
+        """Set check boxes on the name column only"""
         flags = super().flags(index)
         col = get_name_column(self.tableName())
         if index.column() == col:
@@ -902,7 +952,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
     def check_ids_from_list(self, id_list: list, state: QtC.Qt.CheckState = QtC.Qt.CheckState.Checked):
         """
         Check or partially check rows based on a given list of primary key values.
-        :param id_list: list of primary key values to mark as checked
+        :param id_list: list of primary key values to mark as checked or partially checked
         :param state: Qt.CheckState.Checked or Qt.CheckState.PartiallyChecked
         """
         for row in range(self.rowCount()):
@@ -913,6 +963,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         self.checked_ids = id_list
 
     def return_checked_ids(self):
+        """Returns a list of checked_ids and a list of partially_checked_ids"""
         return self.checked_ids, self.partially_checked_ids
 
     def clear_checks(self):
@@ -930,9 +981,13 @@ class CheckableSqlTableModel(DisplayRoundedModel):
             self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.CheckStateRole])
 
     def update_other_table(self, other_table: str, other_ids: list):
-        # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
-        # want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
-        # method is useful when editing joined views, like editing the SpotComposition in the SampleEditView.
+        """
+        Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
+        want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
+        method is useful when editing joined views, like editing the SpotComposition in the SampleView.
+        :param other_table: name of the other table in the one-to-many relationship with the current table
+        :param other_ids: list of foreign keys to update in the other table
+        """
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
@@ -942,6 +997,12 @@ class CheckableSqlTableModel(DisplayRoundedModel):
             return False
 
     def update_many_table(self, many_table: str, item_ids: list):
+        """
+        Updates many-to-many relationship with another table. This method is useful when editing joined views, like
+        editing the UnitName in the SampleView.
+        :param many_table: name of the many-to-many table to update, such as Samples_Units
+        :param item_ids: list of foreign keys to update in the many-to-many table
+        """
         if not item_ids:
             logger_setup.get_logger().error(f'No item IDs given for {many_table}')
             return False
@@ -952,12 +1013,19 @@ class CheckableSqlTableModel(DisplayRoundedModel):
 
 
 class CheckableSqlQueryModel(DisplayRoundedQueryModel):
+    """
+    Custom DisplayRoundedQueryModel (subclass of QSqlQueryModel) with check boxes enabled for each row.
+    Name column has a tool tip with the description if available
+    Supports partial checks through code, but any user input only toggles checked or unchecked.
+    Stores lists of checked_ids and partially_checked_ids.
+    """
     def __init__(self):
         super().__init__()
         self.checked_ids = []
         self.partially_checked_ids = []
 
     def flags(self, index):
+        """Set check boxes on the name column only"""
         flags = super().flags(index)
         col = get_name_column(self.table)
         if index.column() == col:
@@ -1019,17 +1087,39 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
             return True
         return super().setData(index, value, role)
 
+    def check_ids_from_list(self, id_list: list, state: QtC.Qt.CheckState = QtC.Qt.CheckState.Checked):
+        """
+        Check or partially check rows based on a given list of primary key values.
+        :param id_list: list of primary key values to mark as checked or partially checked
+        :param state: Qt.CheckState.Checked or Qt.CheckState.PartiallyChecked
+        """
+        for row in range(self.rowCount()):
+            record_id = self.index(row, self.primary_key_column).data(QtC.Qt.ItemDataRole.DisplayRole)
+            index = self.index(row, get_name_column(self.tableName()))
+            if record_id in id_list:
+                self.setData(index, state, QtC.Qt.ItemDataRole.CheckStateRole)
+        self.checked_ids = id_list
+
     def return_checked_ids(self):
+        """Returns a list of checked_ids and a list of partially_checked_ids"""
         return self.checked_ids, self.partially_checked_ids
 
     def clear_checks(self):
+        """
+        Clears all checked and partially checked states from the model
+        and refreshes the corresponding data in the view.
+        """
         self.checked_ids = []
         self.partially_checked_ids = []
 
     def update_other_table(self, other_table: str, other_ids: list):
-        # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
-        # want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
-        # method is useful when editing joined views, like editing the SpotComposition in the SampleEditView.
+        """
+        Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
+        want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
+        method is useful when editing joined views, like editing the SpotComposition in the SampleView.
+        :param other_table: name of the other table in the one-to-many relationship with the current table
+        :param other_ids: list of foreign keys to update in the other table
+        """
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
@@ -1039,6 +1129,12 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
             return False
 
     def update_many_table(self, many_table: str, item_ids: list):
+        """
+        Updates many-to-many relationship with another table. This method is useful when editing joined views, like
+        editing the UnitName in the SampleView.
+        :param many_table: name of the many-to-many table to update, such as Samples_Units
+        :param item_ids: list of foreign keys to update in the many-to-many table
+        """
         if not item_ids:
             logger_setup.get_logger().error(f'No item IDs given for {many_table}')
             return False
@@ -1048,6 +1144,10 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
             return False
 
 class SampleAgeTableModel(CheckableSqlQueryModel):
+    """
+    Custom CheckableSqlQueryModel (subclasses DisplayRoundedQueryModel and QSqlQueryModel).
+    Intended to track default ages as bolded rows in the model.
+    """
     def __init__(self):
         super().__init__()
         self.bolded_rows = []
@@ -1069,12 +1169,14 @@ class SampleAgeTableModel(CheckableSqlQueryModel):
         return super().data(index, role)
 
     def make_bold(self, index):
+        """Age is the default age for a sample and should be marked as bold"""
         row = index.row()
         if row not in self.bolded_rows:
             self.bolded_rows.append(row)
             self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.FontRole])
 
     def make_not_bold(self, index):
+        """Age is not a default age for any sample and should be marked as bold"""
         row = index.row()
         if row in self.bolded_rows:
             self.bolded_rows.remove(row)
@@ -1086,7 +1188,13 @@ class SampleAgeTableModel(CheckableSqlQueryModel):
 # ---------------------------
 
 
-def set_table(model: QtS.QSqlTableModel, table: str):
+def set_table(model: QtS.QSqlTableModel, table: str) -> QtS.QSqlTableModel | bool:
+    """
+    Convenience method to set the table for a QSqlTableModel and select the data. Notifies if any errors occur.
+    :param model: QSqlTableModel to populate
+    :param table: Name of the SQL database table to populate the model
+    :return: populated model if successful, False if not
+    """
     # logger_setup.get_logger().info(f"Setting table to {table}")
     model.setTable(table)
     if model.lastError().text():
@@ -1100,7 +1208,12 @@ def set_table(model: QtS.QSqlTableModel, table: str):
         return False
     return model
 
-def get_headers(table: str):
+def get_headers(table: str) -> list:
+    """
+    Return all headers for the given table
+    :param table: Name of the SQL database table
+    :return: list of headers if successful, empty list if not
+    """
     query = QtS.QSqlQuery()
     if table == '"References"':
         table = 'References'
@@ -1115,6 +1228,16 @@ def get_headers(table: str):
     return headers
 
 def get_columns(table: str):
+    """
+    Return table columns by type for virtual, stored, and regular columns. Considers everything after the modified
+    column to be a virtual column and any column before modified with a header containing 'Display' or 'Calculated'
+    to be a stored column.
+    :param table: Name of the SQL database table
+    :return query: Query used to collect columns
+    :return virtual: list of virtual column names
+    :return stored: list of stored column names
+    :return columns: list of regular column names
+    """
     query = QtS.QSqlQuery()
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
         logger_setup.get_logger().critical(f"Failed to get columns for {table}")
@@ -1140,8 +1263,8 @@ def get_columns(table: str):
 
 def get_name_column(table: str) -> int | None:
     """
-    Get the column number for the name column in the table.
-    :param table:
+    Returns the column number for the name column in the table.
+    :param table: Name of the SQL database table or view
     :return: Returns the column number starting from 0
     """
     table = table.replace('"', '')
@@ -1173,62 +1296,13 @@ def get_name_column(table: str) -> int | None:
     else:
         return None
 
-def description_column(table: str) -> int | None:
-    headers = get_headers(table)
-    for header in headers:
-        if 'Description' in header:
-            return headers.index(header)
-    return None
-
-def get_table_from_view(view: str):
-    if 'Sample' in view:
-        return 'Samples'
-    elif 'Aliquot' in view:
-        return 'Aliquots'
-    elif 'Spot' in view:
-        return 'Spots'
-    elif 'UPb' in view:
-        return 'UPbAnalyses'
-    elif 'Column' in view:
-        return 'Columns'
-    elif 'Reference' in view:
-        return 'References'
-    else:
-        return view
-
-def get_view_from_table(table: str):
-    if table == 'Samples':
-        return 'SampleView'
-    elif table == 'Aliquots':
-        return 'AliquotView'
-    elif table == 'Spots':
-        return 'SpotView'
-    elif table == 'UPbAnalyses':
-        return 'UPbView'
-    elif table == 'Columns':
-        return 'ColumnView'
-    elif table == 'References':
-        return 'ReferenceView'
-    else:
-        return table
-
-def get_edit_view_from_table(table: str):
-    if table == 'Samples':
-        return 'SampleEditView'
-    elif table == 'Aliquots':
-        return 'AliquotEditView'
-    elif table == 'Spots':
-        return 'SpotEditView'
-    elif table == 'UPbAnalyses':
-        return 'UPbEditView'
-    elif table == 'Columns':
-        return 'ColumnEditView'
-    elif table == 'References':
-        return 'ReferenceEditView'
-    else:
-        return table
 
 def get_view_name_column(view: str) -> int | None:
+    """
+    Returns the column number for the name column in the view, taking into account user settings to rearrange columns.
+    :param table: Name of the SQL database view
+    :return: Returns the column number starting from 0
+    """
     # Check if the view exists
     if 'View' not in view:
         view = get_view_from_table(view)
@@ -1246,7 +1320,125 @@ def get_view_name_column(view: str) -> int | None:
         else:
             logger_setup.get_logger().debug(f'View {view} has no columns')
 
+def description_column(table: str) -> int | None:
+    """
+    Returns the index of the column header containing 'Description'.
+    :param table: Name of the SQL database table or view
+    :return: Returns the column number starting from 0
+    """
+    headers = get_headers(table)
+    for header in headers:
+        if 'Description' in header:
+            return headers.index(header)
+    return None
+
+def get_table_from_view(view: str):
+    """
+    Given a view, returns the table that view is derived from.
+    :param view: Name of SQL database view
+    :return: Name of SQL database table
+    """
+    if 'Sample' in view:
+        return 'Samples'
+    elif 'Aliquot' in view:
+        return 'Aliquots'
+    elif 'Spot' in view:
+        return 'Spots'
+    elif 'UPb' in view:
+        return 'UPbAnalyses'
+    elif 'Column' in view:
+        return 'Columns'
+    elif 'Reference' in view:
+        return 'References'
+    else:
+        return view
+
+def get_view_from_table(table: str):
+    """
+    Given a table name, returns the non-editable view associated with that table.
+    :param table: Name of SQL database table
+    :return: Name of SQL database view
+    """
+    if table == 'Samples':
+        return 'SampleView'
+    elif table == 'Aliquots':
+        return 'AliquotView'
+    elif table == 'Spots':
+        return 'SpotView'
+    elif table == 'UPbAnalyses':
+        return 'UPbView'
+    elif table == 'Columns':
+        return 'ColumnView'
+    elif table == 'References':
+        return 'ReferenceView'
+    else:
+        return table
+
+def get_edit_view_from_table(table: str):
+    """
+    Given a table name, returns the editable view associated with that table.
+    :param table: Name of SQL database table
+    :return: Name of SQL database view
+    """
+    if table == 'Samples':
+        return 'SampleView'
+    elif table == 'Aliquots':
+        return 'AliquotEditView'
+    elif table == 'Spots':
+        return 'SpotEditView'
+    elif table == 'UPbAnalyses':
+        return 'UPbEditView'
+    elif table == 'Columns':
+        return 'ColumnEditView'
+    elif table == 'References':
+        return 'ReferenceEditView'
+    else:
+        return table
+
+
+def column_as_list_current(query: str, col: int | str) -> list | None:
+    """
+    Returns a list of items in a column.
+    :param col: column index as integer or SQL table column header
+    :param query: SQL query of data for table
+    :return: list of items in each row for a given column
+    """
+    model = QtS.QSqlQueryModel()
+    model.setQuery(query)
+    if isinstance(col, int):
+        column = col
+    elif isinstance(col, str):
+        headers = [model.headerData(i, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole) for i in range(model.columnCount())]
+        column = headers.index(col)
+    else:
+        return None
+    column_list = [model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in range(model.rowCount())]
+    return column_list
+
+def column_as_list(query: str, col: int | str) -> list | None:
+    """
+    Returns a list of items in a column.
+    :param col: column index as integer or SQL table column header
+    :param query: SQL query of data for table
+    :return: list of items in each row for a given column
+    """
+    model = SQLiteTableModel(query)
+    if isinstance(col, int):
+        column = col
+    elif isinstance(col, str):
+        column = model._headers.index(col)
+    else:
+        return None
+    column_list = [model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in range(model.rowCount())]
+    return column_list
+
 def get_name_from_id(table: str, item_id: int):
+    """
+    Given an item ID, returns the item name.
+    :param table:
+    :param item_id:
+    :return:
+    """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
     sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
@@ -1276,40 +1468,6 @@ def get_id_from_name(table: str, name: str) -> int:
         return None
     query.next()
     return query.value(0)
-
-def column_as_list(query: str, column: int | str) -> list | None:
-    """
-    Get a column from a table as a list
-    :param query: SQL query string
-    :param column: column index or name
-    :return: list of values in the column
-    """
-    model = SQLiteTableModel(query)
-    if isinstance(column, int):
-        table = query.split('FROM ')[1].split(' ')[0]
-        if table in SQLUtils.table_attributes_dict.keys() or table in SQLUtils.view_attributes_dict.keys():
-            column = get_headers(table)[column]
-        else:
-            # Failed to isolate a table or a view, more complex query
-            logger_setup.get_logger().critical(f"Error retrieving column")
-            logger_setup.get_logger().debug(
-                f"{table} is not a valid table or view. Provide a column name instead of index")
-            logger_setup.get_logger().debug(f"Query: {query}")
-            return None
-    column_model_index = None
-    for col in range(model.columnCount()):
-        if model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole) == column:
-            column_model_index = col
-            break
-    if column_model_index is None:
-        logger_setup.get_logger().critical(f"Error retrieving column")
-        logger_setup.get_logger().debug(f"Column {column} is not in the query selection")
-        logger_setup.get_logger().debug(f"Query: {query}")
-        return None
-    column_data = []
-    for row in range(model.rowCount()):
-        column_data.append(model.index(row, column_model_index).data(Qt.ItemDataRole.DisplayRole))
-    return column_data
 
 def get_total_records(table: str, where:str='') -> int:
     """

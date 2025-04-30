@@ -662,22 +662,10 @@
       <layout class="QVBoxLayout" name="verticalLayout_4">
        <item>
         <layout class="QGridLayout" name="gridLayout_4">
-         <item row="0" column="1">
-          <widget class="QLineEdit" name="db_name_lineEdit">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>25</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>25</height>
-            </size>
-           </property>
-           <property name="placeholderText">
-            <string>e.g. abc123</string>
+         <item row="1" column="0">
+          <widget class="QLabel" name="db_description_label">
+           <property name="text">
+            <string>Database Description</string>
            </property>
           </widget>
          </item>
@@ -685,35 +673,6 @@
           <widget class="QLabel" name="db_name_label">
            <property name="text">
             <string>Database Name*</string>
-           </property>
-          </widget>
-         </item>
-         <item row="2" column="0">
-          <widget class="QLabel" name="db_created_by_label">
-           <property name="text">
-            <string>Created By*</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="QLineEdit" name="db_description_lineEdit">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>25</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>25</height>
-            </size>
-           </property>
-           <property name="text">
-            <string/>
-           </property>
-           <property name="placeholderText">
-            <string>e.g. abc123</string>
            </property>
           </widget>
          </item>
@@ -739,43 +698,10 @@
            </property>
           </widget>
          </item>
-         <item row="3" column="0">
-          <widget class="QLabel" name="db_authors_label">
+         <item row="2" column="0">
+          <widget class="QLabel" name="db_created_by_label">
            <property name="text">
-            <string>Database Author(s)*</string>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="0">
-          <widget class="QLabel" name="db_description_label">
-           <property name="text">
-            <string>Database Description</string>
-           </property>
-          </widget>
-         </item>
-         <item row="3" column="1">
-          <widget class="QLineEdit" name="db_authors_lineEdit">
-           <property name="minimumSize">
-            <size>
-             <width>0</width>
-             <height>25</height>
-            </size>
-           </property>
-           <property name="maximumSize">
-            <size>
-             <width>16777215</width>
-             <height>25</height>
-            </size>
-           </property>
-           <property name="placeholderText">
-            <string>e.g. abc123</string>
-           </property>
-          </widget>
-         </item>
-         <item row="4" column="0">
-          <widget class="QLabel" name="db_reference_label">
-           <property name="text">
-            <string>Reference</string>
+            <string>Created By*</string>
            </property>
           </widget>
          </item>
@@ -783,6 +709,13 @@
           <widget class="QLabel" name="db_reference_link_label">
            <property name="text">
             <string>Reference Link</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="0">
+          <widget class="QLabel" name="geocork_version_label">
+           <property name="text">
+            <string>GeoCORK version</string>
            </property>
           </widget>
          </item>
@@ -805,6 +738,47 @@
            </property>
           </widget>
          </item>
+         <item row="3" column="1">
+          <widget class="QLineEdit" name="db_authors_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. abc123</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QLineEdit" name="db_description_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. abc123</string>
+           </property>
+          </widget>
+         </item>
          <item row="4" column="1">
           <widget class="QLineEdit" name="db_reference_lineEdit">
            <property name="minimumSize">
@@ -821,6 +795,52 @@
            </property>
            <property name="placeholderText">
             <string>e.g. journal or publication source</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <widget class="QLabel" name="db_reference_label">
+           <property name="text">
+            <string>Reference</string>
+           </property>
+          </widget>
+         </item>
+         <item row="3" column="0">
+          <widget class="QLabel" name="db_authors_label">
+           <property name="text">
+            <string>Database Author(s)*</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QLineEdit" name="db_name_lineEdit">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>16777215</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="placeholderText">
+            <string>e.g. abc123</string>
+           </property>
+          </widget>
+         </item>
+         <item row="6" column="1">
+          <widget class="QLabel" name="geocork_version_text">
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>25</height>
+            </size>
+           </property>
+           <property name="text">
+            <string>version</string>
            </property>
           </widget>
          </item>

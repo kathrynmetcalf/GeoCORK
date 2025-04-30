@@ -102,7 +102,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
     for row in rows:
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
-            if val is '':
+            if val == '':
                 val = None
             logger_setup.get_logger().debug(f'{table_name}: Binding value {i}:{val}')
             query.bindValue(i, val)
