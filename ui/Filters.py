@@ -2,6 +2,7 @@ import ast
 import json
 import os
 import re
+import sqlite3
 import sys
 from typing import Literal
 
@@ -18,6 +19,7 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import SQLUtils
+from Functions.Settings_manager import settings
 from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column
 from ui.DataViewerWidget import DataViewerWidget
 
@@ -1121,18 +1123,20 @@ class QueryBuilder(QWidget):
         :return: list of ids or None
         '''
         sql_query = self.get_sql(type)
-        query = QSqlQuery()
-        logger_setup.get_logger().info('Gathering filtered ids')
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-        if not query.exec(sql_query):
-            logger_setup.get_logger().critical(f'Failed to get filtered ids')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
+        try:
+            conn = sqlite3.connect(uri, uri=True)
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute(sql_query)
+                results = [row[0] for row in cursor.fetchall()]
+            conn.commit()
+            conn.close()
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f"Failed to get filtered ids")
+            logger_setup.get_logger().debug(f"Error: {e}")
+            logger_setup.get_logger().debug(f"SQL query: {sql_query}")
             return None
-
-        results = []
-        while query.next():
-            results.append(query.value(0))
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
         logger_setup.get_logger().info('Gathered filtered ids successfully')
         return results if results else None

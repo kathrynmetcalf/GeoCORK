@@ -1,5 +1,6 @@
 import csv
 import os
+import sqlite3
 import sys
 
 import qtawesome
@@ -21,7 +22,7 @@ from Functions.Database_manager import update_database
 from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
-from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel
+from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel, SQLiteTableModel
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import CheckableComboBox
 from ui import Filters
@@ -216,28 +217,48 @@ class ExportWidget(QWidget):
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = f"SELECT DISTINCT UPbAnalyses.UPbAnalysisID FROM ({filtered_where_clause});"
-            query = QSqlQuery(db=self.database)
-
+            uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
-            # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-            if not query.exec(sql_query):
-                if 'no such column' in query.lastError().text():
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            try:
+                conn = sqlite3.connect(uri, uri=True)
+                with conn:
+                    cursor = conn.cursor()
+                    cursor.execute(sql_query)
+                    filtered_upb_ids = [row[0] for row in cursor.fetchall()]
+                    filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
+                conn.commit()
+                conn.close()
+            except sqlite3.Error as e:
+                if 'no such column' in e.text():
                     sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
-                    if not query.exec(sql_query):
+                    try:
+                        conn = sqlite3.connect(uri, uri=True)
+                        with conn:
+                            cursor = conn.cursor()
+                            cursor.execute(sql_query)
+                            filtered_upb_ids = [row[0] for row in cursor.fetchall()]
+                            filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
+                        conn.commit()
+                        conn.close()
+                    except sqlite3.Error as e:
                         logger_setup.get_logger().critical(f'Error fetching distinct values')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Error: {e}')
+                        logger_setup.get_logger().debug(f'SQL query: {sql_query}')
                         return False
                 else:
                     logger_setup.get_logger().critical(f'Error fetching distinct values')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    logger_setup.get_logger().debug(f'Error: {e}')
+                    logger_setup.get_logger().debug(f'SQL query: {sql_query}')
                     return False
+                logger_setup.get_logger().critical(f"Error fetching distinct values")
+                logger_setup.get_logger().debug(f"Error: {e}")
+                logger_setup.get_logger().debug(f"SQL query: {sql_query}")
+                return None
+
             logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
-            # Fetch all results, add found IDs to the list.
-            while query.next():
-                filtered_upb_ids.add(query.value(0))
+
         logger_setup.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(filtered_upb_ids)}')
 
         # due to how the above logic is, the filters are added with an OR clause, therefore it full unions Filters 1 and 2
@@ -283,21 +304,27 @@ class ExportWidget(QWidget):
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
-            query = QSqlQuery(db=self.database)
 
+            uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-            if not query.exec(sql_query):
-                logger_setup.get_logger().critical(f'Error fetching distinct values')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                return False
+            try:
+                conn = sqlite3.connect(uri, uri=True)
+                with conn:
+                    cursor = conn.cursor()
+                    cursor.execute(sql_query)
+                    filtered_upb_ids = [row[0] for row in cursor.fetchall()]
+                    filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
+                conn.commit()
+                conn.close()
+            except sqlite3.Error as e:
+                logger_setup.get_logger().critical(f"Error fetching distinct values")
+                logger_setup.get_logger().debug(f"Error: {e}")
+                logger_setup.get_logger().debug(f"SQL query: {sql_query}")
+                return None
+
             logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
-            # Fetch all results, add found UPbAnalysisIDs to the list.
-            while query.next():
-                filtered_upb_ids.add(query.value(0))
-            filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
 
             # remove LIMIT {self.max_rows_to_display} from original query_str, can only have one of those
             query_str = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
@@ -328,24 +355,31 @@ class ExportWidget(QWidget):
             if not turn_on_foreign_keys():
                 return
 
-            drop_table_qry = QSqlQuery(db=self.database)
+            drop_table_qry = QSqlQuery()
             logger_setup.get_logger().info('Dropping TempPivotTable')
             if not drop_table_qry.exec('DROP TABLE IF EXISTS TempPivotTable'):
                 logger_setup.get_logger().critical(
-                    f'Error dropping TempPivotTable: {query.lastError().text()}')
-                logger_setup.get_logger().info(f'SQL command: {sql_query}')
+                    f'Error dropping TempPivotTable: {drop_table_qry.lastError().text()}')
                 return
 
-            create_table_qry = QSqlQuery(db=self.database)
-            # creating new TempPivotTable from existing query string data
-            sql_temptable_create = 'CREATE TEMP TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
-            logger_setup.get_logger().info('Creating table TempPivotTable')
+            uri = f'file:{settings._instance.value('db_file', type=str)}'
+            # Execute the query
+            sql_temptable_create = 'CREATE TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
             logger_setup.get_logger().debug(f'SQL command: {sql_temptable_create}')
-            if not create_table_qry.exec(sql_temptable_create):
-                logger_setup.get_logger().critical(
-                    f'Error creating TempPivotTable: {query.lastError().text()}')
-                logger_setup.get_logger().info(f'SQL command: {sql_query}')
-                return
+            try:
+                conn = sqlite3.connect(uri, uri=True)
+                with conn:
+                    cursor = conn.cursor()
+                    logger_setup.get_logger().info('Creating table TempPivotTable')
+                    cursor.execute(sql_temptable_create)
+                conn.commit()
+                conn.close()
+            except sqlite3.Error as e:
+                logger_setup.get_logger().critical(f"Error creating TempPivotTable")
+                logger_setup.get_logger().debug(f"Error: {e}")
+                logger_setup.get_logger().debug(f"SQL query: {sql_temptable_create}")
+                return None
+
             logger_setup.get_logger().info('Created table TempPivotTable successfully')
 
             # defaults to pivot based on the first column in the exporter.
@@ -353,33 +387,40 @@ class ExportWidget(QWidget):
             pivot_col = first_tuple[1]
             pivot_col = self.column_name_mappings[pivot_col]
 
-            # finds distinct list of first column values.
-            distinct_first_column_query = QSqlQuery(db=self.database)
+
             first_column_list = []
+            uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
+            # Execute the query
             sql_distinct_first_column = f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'
-            if distinct_first_column_query.exec(sql_distinct_first_column):
-                if distinct_first_column_query.next():
-                    while distinct_first_column_query.isValid():
-                        first_column_list.append(distinct_first_column_query.value(0))
-                        distinct_first_column_query.next()
+            logger_setup.get_logger().debug(f'SQL command: {sql_distinct_first_column}')
+            try:
+                conn = sqlite3.connect(uri, uri=True)
+                with conn:
+                    cursor = conn.cursor()
+                    logger_setup.get_logger().info('Selecting distinct values from TempPivotTable first column')
+                    cursor.execute(sql_distinct_first_column)
+                    first_column_list = [row[0] for row in cursor.fetchall()]
+                conn.commit()
+                conn.close()
+            except sqlite3.Error as e:
+                logger_setup.get_logger().critical(f"Error selecting distinct values from TempPivotTable")
+                logger_setup.get_logger().debug(f"Error: {e}")
+                logger_setup.get_logger().debug(f"SQL query: {sql_distinct_first_column}")
+                return None
+
+            if len(first_column_list) == 0:
+                # if no columns/values are found then could be an error, check if items are checked, if there are
+                # then something went wrong.
+                if not len(self.checked_sample_list) == 0:
+                    logger_setup.get_logger().critical('No rows returned for distinct first column')
+                    model = SQLiteTableModel()
+                    proxy_model = ReadableProxyModel()
+                    proxy_model.setSourceModel(model)
+                    tableView.setModel(proxy_model)
+                    return False
                 else:
-                    # if no columns/values are found then could be an error, check if items are checked, if there are
-                    # then something went wrong.
-                    if not len(self.checked_sample_list) == 0:
-                        logger_setup.get_logger().critical('No rows returned for distinct first column')
-                        model = QSqlQueryModel()
-                        proxy_model = ReadableProxyModel()
-                        proxy_model.setSourceModel(model)
-                        tableView.setModel(proxy_model)
-                        return False
-                    else:
-                        tableView.setModel(None)
-                        return True
-            else:
-                logger_setup.get_logger().critical(f'Error selecting distinct values')
-                logger_setup.get_logger().debug(f'Error: {distinct_first_column_query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL command: {distinct_first_column_query.lastQuery()}')
-                return False
+                    tableView.setModel(None)
+                    return True
             case_expressions = []
 
             # Creates the column names for the first col and other columns, so if SampleID, BestAge is being pivot
@@ -407,8 +448,8 @@ class ExportWidget(QWidget):
 
         # At this point the final query_str is complete, either with or without pivot.
         # saves final string used for exporting, removed LIMIT, and saved model for future use.
-        model = QSqlQueryModel()
-        model.setQuery(query_str, db=self.database)
+        model = SQLiteTableModel(database = settings._instance.value('db_file', type=str))
+        model.setQuery(query_str)
         self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 
@@ -435,8 +476,8 @@ class ExportWidget(QWidget):
                 # Handle case where query doesn't return a result
                 self.worksheet_tabs_dict[current_worksheet_name]['label'].setText(f"Number of Rows: 0")
 
-        while model.canFetchMore():
-            model.fetchMore()
+        # while model.canFetchMore():
+        #     model.fetchMore()
         proxy_model = ReadableProxyModel()
         proxy_model.setSourceModel(model)
         proxy_model.original_headers = True
