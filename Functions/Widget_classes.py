@@ -4395,7 +4395,16 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
             collapse_all_children(tree_view, index)
     elif action.text() == 'Collapse all':
         tree_view.collapseAll()
-    save_expanded_state(tree_view.model().table, tree_view.model(), tree_view)
+    model = tree_view.model()
+    if isinstance(model, QtC.QSortFilterProxyModel):
+        # If the model is a proxy model, we need to get the source model
+        model = model.sourceModel()
+    try:
+        table = model.table
+    except AttributeError:
+        logger_setup.get_logger().error('Error saving expanded state')
+        return
+    save_expanded_state(table, model, tree_view)
 
 def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     table: str = None
