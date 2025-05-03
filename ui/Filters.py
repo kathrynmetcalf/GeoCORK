@@ -115,7 +115,10 @@ def process_group(group):
     :param group:
     :return: SQL Where clause and CTEs
     """
-    condition_strings, ctes = _process_group_inner(group)
+    recursive_tables = {}
+    for key in SQLUtils.tree_tables_schema.keys():
+        recursive_tables[key] = 0
+    condition_strings, ctes = _process_group_inner(group, recursive_tables)
     match group['type']:
         case 'Match all':
             return ' AND '.join(condition_strings), ctes
@@ -125,7 +128,7 @@ def process_group(group):
             return f'NOT {' AND '.join(condition_strings)}', ctes
 
 
-def _process_group_inner(group):
+def _process_group_inner(group, recursive_tables):
     """
     Recursive function to process a group of conditions and subgroups to create a SQL WHERE clause and CTEs
     :param group:
@@ -133,105 +136,132 @@ def _process_group_inner(group):
     """
     condition_strings = []
     ctes = []
+    match_type = group['type']
+    if match_type == 'Match all':
+        connector = ' AND '
+    elif match_type == 'Match any':
+        connector = ' OR '
+    elif match_type == 'Match none':
+        connector = ' AND '
+    else:
+        raise ValueError(f'Unknown match type: {match_type}')
 
     for condition in group.get('conditions', []):
         field_key = condition['field'].replace(' ', '')
         value = condition['value']
         operator = condition['operator'].lower()
         datatype = condition['datatype']
-        unit = condition['unit']
+        # unit = condition['unit']
+        #
+        # if unit == 'Ga':
+        #     value = f"{float(value) * 1_000_000_000}"
+        # elif unit == 'Ma':
+        #     value = f"{float(value) * 1_000_000}"
+        # elif unit == 'ka':
+        #     value = f"{float(value) * 1_000}"
+        # elif unit != 'None':
+        #     raise ValueError(f"Unknown unit: {unit}")
 
-        if unit == 'Ga':
-            value = f"{float(value) * 1_000_000_000}"
-        elif unit == 'Ma':
-            value = f"{float(value) * 1_000_000}"
-        elif unit == 'ka':
-            value = f"{float(value) * 1_000}"
-        elif unit != 'None':
-            raise ValueError(f"Unknown unit: {unit}")
-
+        # Normal condition
+        if operator in ['is', 'is on']:
+            operator = '='
+        elif operator in ['is not', 'is not on']:
+            operator = '!='
+        elif operator in ['is greater than', 'is after']:
+            operator = '>'
+        elif operator in ['is less than', 'is before']:
+            operator = '<'
+        elif operator == 'is blank':
+            operator = 'IS NULL'
+        elif operator == 'is not blank':
+            operator = 'IS NOT NULL'
+        elif operator == 'contains':
+            operator = f"LIKE '%{value}%' COLLATE NOCASE"
+        elif operator == 'does not contain':
+            operator = f"NOT LIKE '%{value}%' COLLATE NOCASE"
+        elif operator == 'starts with':
+            operator = f"LIKE '{value}%' COLLATE NOCASE"
+        elif operator == 'ends with':
+            operator = f"LIKE '%{value}'"
+        elif operator == 'is between':
+            value1, value2 = value.split(',')
+            operator = [f"""BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
+                            else """, f"BETWEEN '{value1}' AND '{value2}'"]
+        elif operator == 'is not between':
+            value1, value2 = value.split(',')
+            operator = [f"""NOT BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
+                            else""", f"NOT BETWEEN '{value1}' AND '{value2}'"]
         # If this field requires recursion
-        if field_key in SQLUtils.tree_tables_schema and operator in ['is', 'is on', '=']:
-            meta = SQLUtils.tree_tables_schema[field_key]
+        if field_key in SQLUtils.tree_tables_schema:
+            modifier = ''
             table = field_key.split('.')[0]
+            meta = SQLUtils.tree_tables_schema[field_key]
+            if isinstance(operator, list):
+                if 'NOT ' in operator[0]:
+                    modifier = 'NOT '
+                    operator[0] = operator[0].replace('NOT ', '')
+                    operator[1] = operator[1].replace('NOT ', '')
+                where = f"{table}.{meta['name_column']} {operator[0]} {table}.{meta['name_column']} {operator[1]}"
+            elif 'NULL' in operator or 'LIKE' in operator:
+                if 'NOT ' in operator:
+                    modifier = 'NOT '
+                    operator = operator.replace('NOT ', '')
+                where = f"{table}.{meta['name_column']} {operator}"
+            else:
+                if '!=' in operator:
+                    modifier = 'NOT '
+                    operator = operator.replace('!=', '=')
+                where = f"{table}.{meta['name_column']} {operator} '{value}'"
+            # Append incremental number to the CTE name
+            if not field_key in recursive_tables:
+                raise ValueError(f"Could not find field key {field_key} in recursive tables")
+            recursive_tables[field_key] += 1
+            cte_name = f"{meta['cte_name']}{recursive_tables[field_key]}"
+            # Create a CTE for the recursive table
             cte = f"""
-            {meta['cte_name']} AS (
-                SELECT {table}.{meta['id_column']}, {table}.{meta['name_column']}
+            {cte_name} AS (
+                SELECT {table}.{meta['id_column']}, {table}.{meta['name_column']} COLLATE NOCASE
                 FROM {table}
-                WHERE {table}.{meta['name_column']} = '{value}'
+                WHERE {where}
                 UNION ALL
                 SELECT t.{meta['id_column']}, t.{meta['name_column']}
                 FROM {field_key.split('.')[0]} t
-                INNER JOIN {meta['cte_name']} r ON t.{meta['parent_column']} = r.{meta['id_column']}
+                INNER JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
             )
             """
-            condition_strings.append(
-                f"{table}.{meta['id_column']} IN (SELECT {meta['id_column']} FROM {meta['cte_name']})"
-            )
             ctes.append(cte.strip())
+            condition = f"""Items.ItemID {modifier}IN (
+			SELECT DISTINCT cte.ItemID FROM Items_{table} cte 
+			JOIN {cte_name} ON cte.{meta['id_column']} = {cte_name}.{meta['id_column']})
+			"""
+            condition_strings.append(condition)
         else:
-            # Normal condition
-            if operator in ['is', 'is on']:
-                operator = '='
-            elif operator in ['is not', 'is not on']:
-                operator = '!='
-            elif operator in ['is greater than', 'is after']:
-                operator = '>'
-            elif operator in ['is less than', 'is before']:
-                operator = '<'
-            elif operator == 'is blank':
-                condition_strings.append(f"{field_key} IS NULL")
-                continue
-            elif operator == 'is not blank':
-                condition_strings.append(f"{field_key} IS NOT NULL")
-                continue
-            elif operator == 'contains':
-                condition_strings.append(f"{field_key} LIKE '%{value}%'")
-                continue
-            elif operator == 'does not contain':
-                condition_strings.append(f"{field_key} NOT LIKE '%{value}%'")
-                continue
-            elif operator == 'starts with':
-                condition_strings.append(f"{field_key} LIKE '{value}%'")
-                continue
-            elif operator == 'ends with':
-                condition_strings.append(f"{field_key} LIKE '%{value}'")
-                continue
-            elif operator == 'is between':
-                value1, value2 = value.split(',')
-                condition_strings.append(
-                    f"{field_key} BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
-                    else f"{field_key} BETWEEN '{value1}' AND '{value2}'"
-                )
-                continue
-            elif operator == 'is not between':
-                value1, value2 = value.split(',')
-                condition_strings.append(
-                    f"{field_key} NOT BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
-                    else f"{field_key} NOT BETWEEN '{value1}' AND '{value2}'"
-                )
-                continue
-
-            # Regular condition
-            if datatype == 'number':
-                condition = f"{field_key} {operator} {value}"
-            elif datatype == 'boolean':
-                condition = f"{field_key} {operator} {1 if value == 'True' else 0}"
+            if isinstance(operator, list):
+                condition = f"{field_key} {operator[0]} {field_key} {operator[1]}"
+            elif 'NULL' in operator or 'LIKE' in operator:
+                condition = f"{field_key} {operator}"
             else:
-                condition = f"{field_key} {operator} '{value}'"
+                # Regular condition
+                if datatype == 'number':
+                    condition = f"{field_key} {operator} {value}"
+                elif datatype == 'boolean':
+                    condition = f"{field_key} {operator} {1 if value == 'True' else 0}"
+                else:
+                    condition = f"{field_key} {operator} '{value}'"
             condition_strings.append(condition)
 
     for subgroup in group.get('subgroups', []):
-        sub_conditions, sub_ctes = _process_group_inner(subgroup)
+        sub_conditions, sub_ctes = _process_group_inner(subgroup, recursive_tables)
+        logic = group['type'].lower()
         if sub_conditions:
-            logic = group['type'].lower()
             if logic == "match all":
                 condition_strings.append(f"({' AND '.join(sub_conditions)})")
             elif logic == "match any":
                 condition_strings.append(f"({' OR '.join(sub_conditions)})")
             elif logic == "match none":
                 condition_strings.append(f"NOT ({' AND '.join(sub_conditions)})")
-        ctes.extend(sub_ctes)
+        if sub_ctes:
+            ctes.extend(sub_ctes)
 
     return condition_strings, ctes
 
@@ -1192,13 +1222,15 @@ class QueryBuilder(QWidget):
         # final code to determine the scope of query based on type, also ensures the selected type's table is found
         # in the join code
         if type == 'Samples':
+            where = where_clause.replace('Items', 'Samples').replace('ItemID', 'SampleID')
             sql_query = full_sql + f"""
             SELECT DISTINCT Samples.SampleID
             FROM Samples
             {join}
-            WHERE {where_clause}
+            WHERE {where}
             """
         elif type == 'Aliquots':
+            where = where_clause.replace('Items', 'Aliquots').replace('ItemID', 'AliquotID')
             # Generate join string
             join = SQLUtils.get_join_from_table(join, ['Aliquots'])
 
@@ -1208,7 +1240,7 @@ class QueryBuilder(QWidget):
                 SELECT Aliquots.AliquotID, Aliquots.ParentAliquotID
                 FROM Samples
                 {join}
-                WHERE {where_clause}
+                WHERE {where}
 
                 UNION ALL
 
@@ -1237,18 +1269,20 @@ class QueryBuilder(QWidget):
             else:
                 sql_query = cte + aliquot_select
         elif type == 'Spots':
+            where = where_clause.replace('Items', 'Spots').replace('ItemID', 'SpotID')
             join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (
                 SELECT Spots.SpotID, {selects}
                 FROM Samples {join}
-                WHERE {where_clause})
+                WHERE {where})
                 WHERE SpotID IS NOT NULL;"""
         elif type == 'UPbAnalyses':
+            where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
             sql_query = full_sql + f"""SELECT DISTINCT UPbAnalysisID FROM (
                 SELECT UPbAnalyses.UPbAnalysisID, {selects}
                 FROM Samples {join}
-                WHERE {where_clause})
+                WHERE {where})
                 WHERE UPbAnalysisID IS NOT NULL;"""
 
         else:

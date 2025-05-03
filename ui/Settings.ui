@@ -919,6 +919,41 @@
    </item>
   </layout>
  </widget>
+ <tabstops>
+  <tabstop>settings_tabWidget</tabstop>
+  <tabstop>decimals_comboBox</tabstop>
+  <tabstop>gps_format_comboBox</tabstop>
+  <tabstop>elev_unit_comboBox</tabstop>
+  <tabstop>column_unit_comboBox</tabstop>
+  <tabstop>spot_size_unit_comboBox</tabstop>
+  <tabstop>upb_ratio_error_format_comboBox</tabstop>
+  <tabstop>upb_concordance_format_comboBox</tabstop>
+  <tabstop>age_unit_comboBox</tabstop>
+  <tabstop>age_error_format_comboBox</tabstop>
+  <tabstop>autofill_best_checkBox</tabstop>
+  <tabstop>young_age_fill_comboBox</tabstop>
+  <tabstop>cutoff_age_lineEdit</tabstop>
+  <tabstop>old_age_fill_comboBox</tabstop>
+  <tabstop>reference_display_lineEdit</tabstop>
+  <tabstop>authors_pushButton</tabstop>
+  <tabstop>year_pushButton</tabstop>
+  <tabstop>title_pushButton</tabstop>
+  <tabstop>source_pushButton</tabstop>
+  <tabstop>doi_pushButton</tabstop>
+  <tabstop>fontComboBox</tabstop>
+  <tabstop>font_size_comboBox</tabstop>
+  <tabstop>table_font_size_comboBox</tabstop>
+  <tabstop>combobox_height_scaler_spinbox</tabstop>
+  <tabstop>combobox_width_scaler_spinbox</tabstop>
+  <tabstop>db_name_lineEdit</tabstop>
+  <tabstop>db_description_lineEdit</tabstop>
+  <tabstop>db_created_by_lineEdit</tabstop>
+  <tabstop>db_authors_lineEdit</tabstop>
+  <tabstop>db_reference_lineEdit</tabstop>
+  <tabstop>db_reference_link_lineEdit</tabstop>
+  <tabstop>openlogs_pushButton</tabstop>
+  <tabstop>openbackup_pushButton</tabstop>
+ </tabstops>
  <resources/>
  <connections>
   <connection>
