@@ -159,6 +159,7 @@ class GeoCORK(QtW.QMainWindow):
         """Simulate opening a recent file."""
         self.update_recent_files_menu()
         self.landingpage.selected_files = expand_home(file_path)
+        settings.setValue('db_file', expand_home(file_path))
         self.landingpage.db = None
         self.landingpage.open_geo_cork()
 

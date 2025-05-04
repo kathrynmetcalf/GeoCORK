@@ -81,8 +81,7 @@ def update_database() -> bool:
     loading_manager.show_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info("Updating database")
     # Check if the database exists and all tables are present
-    model = QSqlTableModel()
-    db = model.database()
+    db = QSqlDatabase.database()
     if not db.commit():
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error committing database")
@@ -115,5 +114,5 @@ def update_database() -> bool:
     end_time = time.time()
     loading_manager.close_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")
-
+    db.commit()
     return True

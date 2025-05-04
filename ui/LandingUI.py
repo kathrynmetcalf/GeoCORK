@@ -116,10 +116,13 @@ class LandingPage(QWidget):
                 if widget.objectName() == 'GeoCORKMain':
                     Savepoint_manager.SavepointManager.reset()
                     widget.close()
+                    break
 
             Savepoint_manager.SavepointManager.reset()
             Savepoint_manager.SavepointManager().get_instance()
             if self.db is None:
+                for connectionName in QSqlDatabase.connectionNames():
+                    QSqlDatabase().removeDatabase(connectionName)
                 self.db = QSqlDatabase.addDatabase("QSQLITE")
                 self.db.setDatabaseName(self.get_filename())
                 self.db.open()
