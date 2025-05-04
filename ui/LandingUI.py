@@ -165,9 +165,29 @@ class LandingPage(QWidget):
                 widget.close()
 
         # Create and start the backup thread
-        self.thread = RestoreThread(db_file, backup_file)
-        self.thread.start()
-        self.thread.restore_finished.connect(lambda: self.open_geo_cork(skip_update=False))
+        # self.thread = RestoreThread(db_file, backup_file)
+        # self.thread.start()
+        # self.thread.restore_finished.connect(lambda: self.open_geo_cork(skip_update=False))
+
+        src = sqlite3.connect(db_file, timeout=10)
+        backup = sqlite3.connect(backup_file, timeout=10)
+
+        logger_setup.get_logger().info('Beginning Restore')
+        self.last_percent = 0
+        def progress(status, remaining, total):
+            # Calculate progress percentage
+            percent = 100 - int((remaining / total) * 100)
+            if percent != self.last_percent:
+                logger_setup.get_logger().info(f'Backup Progress: {percent}')
+                self.last_percent = percent
+        backup.backup(src, pages=5, progress=progress)
+        src.commit()
+        backup.commit()
+        backup.close()
+        src.close()
+
+        self.open_geo_cork()
+
 
     def cancel_open(self):
         self.loading_manager.close_loading_dialog("Opening", f"Opening {self.selected_files[0]}")

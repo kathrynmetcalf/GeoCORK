@@ -1,4 +1,5 @@
 import sqlite3
+from typing import override
 
 from PyQt6.QtCore import QThread, pyqtSignal
 from PyQt6.QtWidgets import QProgressDialog
@@ -15,6 +16,7 @@ class BackupThread(QThread):
         self.backup_db = backup_db
         self.last_percent = 0
 
+    @override
     def run(self):
         src = sqlite3.connect(self.source_db)
         backup = sqlite3.connect(self.backup_db)
@@ -51,6 +53,7 @@ class RestoreThread(QThread):
         self.progressBar.setCancelButtonText(None)
         self.progressBar.show()
 
+    @override
     def run(self):
         src = sqlite3.connect(self.source_db, timeout=10)
         backup = sqlite3.connect(self.backup_db, timeout=10)
