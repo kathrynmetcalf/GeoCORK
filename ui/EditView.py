@@ -244,7 +244,7 @@ class EditView(QtW.QDialog):
         # Populate the value input with a completer based on the selected attribute
 
         query = QSqlQuery()
-        sql_query = f'SELECT {self.name_header} FROM "{self.view}" {self.where}'
+        sql_query = f'SELECT {self.name_header} FROM "{self.table}" {self.where}'
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         query.setForwardOnly(True)
         if not query.exec(sql_query):
