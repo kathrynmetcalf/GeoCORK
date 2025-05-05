@@ -218,6 +218,7 @@ def _process_group_inner(group, recursive_tables):
             recursive_tables[field_key] += 1
             cte_name = f"{meta['cte_name']}{recursive_tables[field_key]}"
             # Create a CTE for the recursive table
+            # todo: fix this to work with selecting from Aliquots, spots, and analyses
             cte = f"""
             {cte_name} AS (
                 SELECT {table}.{meta['id_column']}, {table}.{meta['name_column']} COLLATE NOCASE

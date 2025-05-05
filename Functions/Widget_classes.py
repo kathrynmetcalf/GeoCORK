@@ -132,9 +132,21 @@ class SQLiteTableModel(QAbstractTableModel):
             conn = sqlite3.connect(uri, uri=True)
             with conn:
                 cursor = conn.cursor()
+                start_time = time.time()
                 cursor.execute(query)
+                logger_setup.get_logger().debug(f"Query executed in {time.time() - start_time} seconds")
+                start_time = time.time()
+                # batch_size = 10
+                # while True:
+                #     rows = cursor.fetchmany(batch_size)
+                #     if not rows:
+                #         break
+                #     self._data.extend(rows)
                 self._data = cursor.fetchall()
+                logger_setup.get_logger().debug(f"Data fetched in {time.time() - start_time} seconds")
+                start_time = time.time()
                 self._headers = [desc[0] for desc in cursor.description]
+                logger_setup.get_logger().debug(f"Headers fetched in {time.time() - start_time} seconds")
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
