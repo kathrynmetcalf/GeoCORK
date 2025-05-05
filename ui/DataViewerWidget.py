@@ -431,20 +431,18 @@ class DataViewerWidget(QWidget):
         sql_columns = ', '.join(f'{self.data_filtered_table}.{column}' for column in show_cols)
         if self.data_filtered_table in SQLUtils.user_viewable_trees:
             self.switch_to_tree_2(self.db_stackedWidget_2)
-            source_model = QtS.QSqlTableModel()
-            source_model.setTable(self.data_filtered_table)
-            source_model.select()
             id_col_name = get_headers(self.data_filtered_table)[0]
-            filter_sql = f"""{id_col_name} IN (WITH RECURSIVE ParentTree AS
-                            (SELECT {', '.join(show_cols)} FROM {self.data_filtered_table}
-                            WHERE {id_col_name} {self.sql_data_filtered_ids_to_show}
-                            UNION ALL
-                            SELECT {sql_columns} FROM {self.data_filtered_table}
-                            INNER JOIN ParentTree ON {self.data_filtered_table}.{id_col_name} = ParentTree.Parent{id_col_name})
-                            SELECT {id_col_name} FROM ParentTree)"""
+            where_sql = f"""{id_col_name} IN (WITH RECURSIVE ParentTree AS
+                                        (SELECT {', '.join(show_cols)} FROM {self.data_filtered_table}
+                                        WHERE {id_col_name} {self.sql_data_filtered_ids_to_show}
+                                        UNION ALL
+                                        SELECT {sql_columns} FROM {self.data_filtered_table}
+                                        INNER JOIN ParentTree ON {self.data_filtered_table}.{id_col_name} = ParentTree.Parent{id_col_name})
+                                        SELECT {id_col_name} FROM ParentTree)"""
+            sql_query = f"""SELECT {sql_columns} FROM {self.data_filtered_table} WHERE {where_sql}"""
+            source_model = SQLiteTableModel(sql_query)
 
-            logger_setup.get_logger().debug(f'Tree Filter SQL: {filter_sql}')
-            source_model.setFilter(filter_sql)
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
             self.data_filtered_table_model = TreeModel(source_model, self)
 
@@ -472,19 +470,17 @@ class DataViewerWidget(QWidget):
         elif self.data_filtered_table in SQLUtils.user_viewable_tables or 'View' in self.data_filtered_table:
             self.switch_to_table_2(self.db_stackedWidget_2)
             offset = self.current_page_2 * self.rows_per_page_2
-            self.data_filtered_table_model = QtS.QSqlQueryModel()
-            self.data_filtered_table_proxy_model = ReadableProxyModel()
-
-            # if self.data_filtered_table == '"References"':
-            #     self.data_filtered_table = 'ReferenceView'
 
             sql_query = f"""SELECT * FROM {self.data_filtered_table} WHERE 
-                        {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}
-                        ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
+                                    {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}
+                                    ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
 
             logger_setup.get_logger().debug(f'SQL query: {sql_query}')
-            self.data_filtered_table_model.setQuery(sql_query)
+            self.data_filtered_table_model = SQLiteTableModel(sql_query)
+
+            self.data_filtered_table_proxy_model = ReadableProxyModel()
             self.data_filtered_table_proxy_model.setSourceModel(self.data_filtered_table_model)
+
             if self.data_table == 'Samples':
                 table = 'SampleView'
             elif self.data_table == 'Spots':
