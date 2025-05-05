@@ -419,19 +419,28 @@ tree_tables_schema = {
         'id_column': 'AgeConstraintID',
         'name_column': 'AgeConstraintName',
         'parent_column': 'ParentAgeConstraintID',
-        'cte_name': 'RecursiveAgeConstraints'
+        'cte_name': 'RecursiveAgeConstraints',
+        'bridge_table': 'SampleAges_AgeConstraints',
+        'bridge_from_column': 'SampleAgeID',
+        'bridge_to_column': 'AgeConstraintID',
     },
     'AgeInterpretations.[AgeInterpretationName]': {
         'id_column': 'AgeInterpretationID',
         'name_column': 'AgeInterpretationName',
         'parent_column': 'ParentAgeInterpretationID',
-        'cte_name': 'RecursiveAgeInterpretations'
+        'cte_name': 'RecursiveAgeInterpretations',
+        'bridge_table': 'SampleAges_AgeInterpretations',
+        'bridge_from_column': 'SampleAgeID',
+        'bridge_to_column': 'AgeInterpretationID',
     },
     'AgeSignatures.[AgeSignatureName]': {
         'id_column': 'AgeSignatureID',
         'name_column': 'AgeSignatureName',
         'parent_column': 'ParentAgeSignatureID',
-        'cte_name': 'RecursiveAgeSignatures'
+        'cte_name': 'RecursiveAgeSignatures',
+        'bridge_table': 'SampleAges_AgeSignature',
+        'bridge_from_column': 'SampleAgeID',
+        'bridge_to_column': 'AgeSignatureID',
     },
     'Ages.[AgeName]': {
         'id_column': 'AgeID',
@@ -443,61 +452,91 @@ tree_tables_schema = {
         'id_column': 'AliquotContextID',
         'name_column': 'AliquotContextName',
         'parent_column': 'ParentAliquotContextID',
-        'cte_name': 'RecursiveAliquotContexts'
+        'cte_name': 'RecursiveAliquotContexts',
+        'bridge_table': 'Aliquots_AliquotContexts',
+        'bridge_from_column': 'SampleID',
+        'bridge_to_column': 'AliquotContextID',
     },
     'Regions.[RegionName]': {
         'id_column': 'RegionID',
         'name_column': 'RegionName',
         'parent_column': 'ParentRegionID',
-        'cte_name': 'RecursiveRegions'
+        'cte_name': 'RecursiveRegions',
+        'bridge_table': 'Samples_Regions',
+        'bridge_from_column': 'SampleID',
+        'bridge_to_column': 'RegionID',
     },
     'RockTypes.[RockTypeName]': {
         'id_column': 'RockTypeID',
         'name_column': 'RockTypeName',
         'parent_column': 'ParentRockTypeID',
-        'cte_name': 'RecursiveRockTypes'
+        'cte_name': 'RecursiveRockTypes',
+        'bridge_table': 'Samples_RockTypes',
+        'bridge_from_column': 'SampleID',
+        'bridge_to_column': 'RockTypeID',
     },
     'SampleContexts.[SampleContextName]': {
         'id_column': 'SampleContextID',
         'name_column': 'SampleContextName',
         'parent_column': 'ParentSampleContextID',
-        'cte_name': 'RecursiveSampleContexts'
+        'cte_name': 'RecursiveSampleContexts',
+        'bridge_table': 'Samples_SampleContexts',
+        'bridge_from_column': 'SampleID',
+        'bridge_to_column': 'SampleContextID',
     },
     'SamplingMethods.[SamplingMethodName]': {
         'id_column': 'SamplingMethodID',
         'name_column': 'SamplingMethodName',
         'parent_column': 'ParentSamplingMethodID',
-        'cte_name': 'RecursiveSamplingMethods'
+        'cte_name': 'RecursiveSamplingMethods',
+        'bridge_table': 'Samples_SamplingMethods',
+        'bridge_from_column': 'SampleID',
+        'bridge_to_column': 'SamplingMethodID',
     },
     'Settings.[SettingName]': {
         'id_column': 'SettingID',
         'name_column': 'SettingName',
         'parent_column': 'ParentSettingID',
-        'cte_name': 'RecursiveSettings'
+        'cte_name': 'RecursiveSettings',
+        'bridge_table': 'Samples_Settings',
+        'bridge_from_column': 'SampleID',
+        'bridge_to_column': 'SettingID',
     },
     'SpotCompositions.[SpotCompositionName]': {
         'id_column': 'SpotCompositionID',
         'name_column': 'SpotCompositionName',
         'parent_column': 'ParentSpotCompositionID',
-        'cte_name': 'RecursiveSpotCompositions'
+        'cte_name': 'RecursiveSpotCompositions',
+        'bridge_table': 'Spots_SpotCompositions',
+        'bridge_from_column': 'SpotID',
+        'bridge_to_column': 'SpotCompositionID',
     },
     'SpotContexts.[SpotContextName]': {
         'id_column': 'SpotContextID',
         'name_column': 'SpotContextName',
         'parent_column': 'ParentSpotContextID',
-        'cte_name': 'RecursiveSpotContexts'
+        'cte_name': 'RecursiveSpotContexts',
+        'bridge_table': 'Spots_SpotContexts',
+        'bridge_from_column': 'SpotID',
+        'bridge_to_column': 'SpotContextID',
     },
     'UPbAnalysisMethods.[UPbAnalysisMethodName]': {
         'id_column': 'UPbAnalysisMethodID',
         'name_column': 'UPbAnalysisMethodName',
         'parent_column': 'ParentUPbAnalysisMethodID',
-        'cte_name': 'RecursiveUPbAnalysisMethods'
+        'cte_name': 'RecursiveUPbAnalysisMethods',
+        'bridge_table': 'UPbAnalyses',
+        'bridge_from_column': 'UPbAnalysisMethodID',
+        'bridge_to_column': 'UPbAnalysisMethodID',
     },
     'Units.[UnitName]': {
         'id_column': 'UnitID',
         'name_column': 'UnitName',
         'parent_column': 'ParentUnitID',
-        'cte_name': 'RecursiveUnits'
+        'cte_name': 'RecursiveUnits',
+        'bridge_table': 'Samples_Units',
+        'bridge_from_column': 'SampleID',
+        'bridge_to_column': 'UnitID',
     }
 }
 

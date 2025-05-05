@@ -4,7 +4,8 @@ import os
 import re
 import sqlite3
 import sys
-from typing import Literal
+from collections import defaultdict
+from typing import Literal, Dict, Tuple, List
 
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QRect, Qt, QEventLoop, QRegularExpression
@@ -108,163 +109,179 @@ def extract_table_name(field: str):
         return None
 
 
-def process_group(group):
-    """
-    Recursively processes a group of conditions and subgroups to create a SQL WHERE clause. CTES are tables created
-    during the query as a WITH statement to allow for tree structures to work properly.
-    :param group:
-    :return: SQL Where clause and CTEs
-    """
-    recursive_tables = {}
-    for key in SQLUtils.tree_tables_schema.keys():
-        recursive_tables[key] = 0
-    condition_strings, ctes = _process_group_inner(group, recursive_tables)
-    match group['type']:
-        case 'Match all':
-            return ' AND '.join(condition_strings), ctes
-        case 'Match any':
-            return ' OR '.join(condition_strings), ctes
-        case 'Match none':
-            return f'NOT {' AND '.join(condition_strings)}', ctes
+def process_group(group: dict) -> Tuple[str, List[str]]:
+    """Recursively walk the *group tree* and return (WHERE‑SQL, list‑of‑CTEs)."""
+
+    recursive_tables_counter: Dict[str, int] = defaultdict(int)
+
+    condition_strings, ctes = _process_group_inner(group, recursive_tables_counter)
+
+    match group["type"].lower():
+        case "match all":
+            glue = " AND "
+            where_sql = glue.join(condition_strings)
+        case "match any":
+            glue = " OR "
+            where_sql = glue.join(condition_strings)
+        case "match none":
+            glue = " AND "
+            where_sql = f"NOT {glue.join(condition_strings)}"
+        case _:
+            raise ValueError(f"Unknown group type: {group['type']}")
+
+    return where_sql, ctes
 
 
-def _process_group_inner(group, recursive_tables):
-    """
-    Recursive function to process a group of conditions and subgroups to create a SQL WHERE clause and CTEs
-    :param group:
-    :return:
-    """
-    condition_strings = []
-    ctes = []
-    match_type = group['type']
-    if match_type == 'Match all':
-        connector = ' AND '
-    elif match_type == 'Match any':
-        connector = ' OR '
-    elif match_type == 'Match none':
-        connector = ' AND '
-    else:
-        raise ValueError(f'Unknown match type: {match_type}')
+# ---------------------------------------------------------------------------
+# Internals
+# ---------------------------------------------------------------------------
 
-    for condition in group.get('conditions', []):
-        field_key = condition['field'].replace(' ', '')
-        value = condition['value']
-        operator = condition['operator'].lower()
-        datatype = condition['datatype']
-        # unit = condition['unit']
-        #
-        # if unit == 'Ga':
-        #     value = f"{float(value) * 1_000_000_000}"
-        # elif unit == 'Ma':
-        #     value = f"{float(value) * 1_000_000}"
-        # elif unit == 'ka':
-        #     value = f"{float(value) * 1_000}"
-        # elif unit != 'None':
-        #     raise ValueError(f"Unknown unit: {unit}")
+def _process_group_inner(group: dict, recursive_tables: Dict[str, int]) -> Tuple[List[str], List[str]]:
+    """Return (*condition list*, *cte list*) for **one** group (recursive)."""
 
-        # Normal condition
-        if operator in ['is', 'is on']:
-            operator = '='
-        elif operator in ['is not', 'is not on']:
-            operator = '!='
-        elif operator in ['is greater than', 'is after']:
-            operator = '>'
-        elif operator in ['is less than', 'is before']:
-            operator = '<'
-        elif operator == 'is blank':
-            operator = 'IS NULL'
-        elif operator == 'is not blank':
-            operator = 'IS NOT NULL'
-        elif operator == 'contains':
-            operator = f"LIKE '%{value}%' COLLATE NOCASE"
-        elif operator == 'does not contain':
-            operator = f"NOT LIKE '%{value}%' COLLATE NOCASE"
-        elif operator == 'starts with':
-            operator = f"LIKE '{value}%' COLLATE NOCASE"
-        elif operator == 'ends with':
-            operator = f"LIKE '%{value}'"
-        elif operator == 'is between':
-            value1, value2 = value.split(',')
-            operator = [f"""BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
-                            else """, f"BETWEEN '{value1}' AND '{value2}'"]
-        elif operator == 'is not between':
-            value1, value2 = value.split(',')
-            operator = [f"""NOT BETWEEN {' AND '.join([value1, value2])}" if datatype == 'number'
-                            else""", f"NOT BETWEEN '{value1}' AND '{value2}'"]
-        # If this field requires recursion
-        if field_key in SQLUtils.tree_tables_schema:
-            modifier = ''
-            table = field_key.split('.')[0]
-            meta = SQLUtils.tree_tables_schema[field_key]
-            if isinstance(operator, list):
-                if 'NOT ' in operator[0]:
-                    modifier = 'NOT '
-                    operator[0] = operator[0].replace('NOT ', '')
-                    operator[1] = operator[1].replace('NOT ', '')
-                where = f"{table}.{meta['name_column']} {operator[0]} {table}.{meta['name_column']} {operator[1]}"
-            elif 'NULL' in operator or 'LIKE' in operator:
-                if 'NOT ' in operator:
-                    modifier = 'NOT '
-                    operator = operator.replace('NOT ', '')
-                where = f"{table}.{meta['name_column']} {operator}"
-            else:
-                if '!=' in operator:
-                    modifier = 'NOT '
-                    operator = operator.replace('!=', '=')
-                where = f"{table}.{meta['name_column']} {operator} '{value}'"
-            # Append incremental number to the CTE name
-            if not field_key in recursive_tables:
-                raise ValueError(f"Could not find field key {field_key} in recursive tables")
-            recursive_tables[field_key] += 1
-            cte_name = f"{meta['cte_name']}{recursive_tables[field_key]}"
-            # Create a CTE for the recursive table
-            # todo: fix this to work with selecting from Aliquots, spots, and analyses
-            cte = f"""
-            {cte_name} AS (
-                SELECT {table}.{meta['id_column']}, {table}.{meta['name_column']} COLLATE NOCASE
-                FROM {table}
-                WHERE {where}
-                UNION ALL
-                SELECT t.{meta['id_column']}, t.{meta['name_column']}
-                FROM {field_key.split('.')[0]} t
-                INNER JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
-            )
-            """
-            ctes.append(cte.strip())
-            condition = f"""Items.ItemID {modifier}IN (
-			SELECT DISTINCT cte.ItemID FROM Items_{table} cte 
-			JOIN {cte_name} ON cte.{meta['id_column']} = {cte_name}.{meta['id_column']})
-			"""
-            condition_strings.append(condition)
+    # 1) Split conditions: identical field → bucket; else → other list
+    identical_field_buckets: Dict[str, List[str]] = defaultdict(list)
+    other_conditions: List[str] = []
+    ctes: List[str] = []
+
+    for condition in group.get("conditions", []):
+        sql_fragment, new_ctes, field_key = _build_single_condition(condition, recursive_tables)
+        ctes.extend(new_ctes)
+
+        if group["type"].lower() == "match all":
+            identical_field_buckets[field_key].append(sql_fragment)
         else:
-            if isinstance(operator, list):
-                condition = f"{field_key} {operator[0]} {field_key} {operator[1]}"
-            elif 'NULL' in operator or 'LIKE' in operator:
-                condition = f"{field_key} {operator}"
-            else:
-                # Regular condition
-                if datatype == 'number':
-                    condition = f"{field_key} {operator} {value}"
-                elif datatype == 'boolean':
-                    condition = f"{field_key} {operator} {1 if value == 'True' else 0}"
-                else:
-                    condition = f"{field_key} {operator} '{value}'"
-            condition_strings.append(condition)
+            other_conditions.append(sql_fragment)
 
-    for subgroup in group.get('subgroups', []):
-        sub_conditions, sub_ctes = _process_group_inner(subgroup, recursive_tables)
-        logic = group['type'].lower()
-        if sub_conditions:
+    # 2) Collapse *identical‑field* buckets
+    for field_key, conds in identical_field_buckets.items():
+        if len(conds) == 1:
+            other_conditions.append(conds[0])
+            continue
+
+        # --------- special handling: need **all** values on same many‑to‑many
+        meta = SQLUtils.tree_tables_schema.get(field_key)
+        if meta is None:
+            # Non‑tree flat table – fallback to HAVING technique
+            collapsed = _collapse_same_field_basic(conds, len(conds))
+        else:
+            # Tree table (RockTypes, etc.) – build EXISTS per value to enforce AND
+            collapsed = f" {'OR' if group["type"].lower() == "match any" else 'AND'} ".join(conds)
+        other_conditions.append(collapsed)
+
+    # 3) Sub‑groups ----------------------------------------------------------
+    for subgroup in group.get("subgroups", []):
+        sub_conds, sub_ctes = _process_group_inner(subgroup, recursive_tables)
+        if sub_conds:
+            sub_sql = f" {'OR' if subgroup["type"].lower() == "match any" else 'AND'} ".join(sub_conds)
+            logic = group["type"].lower()
             if logic == "match all":
-                condition_strings.append(f"({' AND '.join(sub_conditions)})")
+                other_conditions.append(f"({sub_sql})")
             elif logic == "match any":
-                condition_strings.append(f"({' OR '.join(sub_conditions)})")
+                other_conditions.append(f"({sub_sql})")
             elif logic == "match none":
-                condition_strings.append(f"NOT ({' AND '.join(sub_conditions)})")
-        if sub_ctes:
-            ctes.extend(sub_ctes)
+                other_conditions.append(f"NOT ({sub_sql})")
+        ctes.extend(sub_ctes)
 
-    return condition_strings, ctes
+    return other_conditions, ctes
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -> Tuple[str, List[str], str]:
+    """Return (sql_fragment, new_ctes_list, field_key)."""
+
+    field_key: str = condition["field"].replace(" ", "")
+    value = condition["value"]
+    operator_raw: str = condition["operator"].lower()
+    datatype: str = condition["datatype"]
+
+    operator_sql: str | List[str]
+    # ---------- operator mapping (trimmed to the set used in UI) ----------
+    if operator_raw in {"is", "is on"}:
+        operator_sql = "="
+    elif operator_raw in {"is not", "is not on"}:
+        operator_sql = "!="
+    elif operator_raw == "is blank":
+        operator_sql = "IS NULL"
+    elif operator_raw == "is not blank":
+        operator_sql = "IS NOT NULL"
+    elif operator_raw == "contains":
+        operator_sql = f"LIKE '%{value}%' COLLATE NOCASE"
+    else:
+        # … expand as required …
+        operator_sql = "="
+
+    # ---------- TREE TABLE? ----------------------------------------------
+    if field_key in SQLUtils.tree_tables_schema:
+        meta = SQLUtils.tree_tables_schema[field_key]
+        table = field_key.split(".")[0]
+
+        # Build *WHERE* on the tree table (equal, like, etc.)
+        if isinstance(operator_sql, list):
+            raise NotImplementedError("Range operators on tree tables not yet supported")
+        elif "NULL" in operator_sql or "LIKE" in operator_sql:
+            where = f"{table}.{meta['name_column']} {operator_sql}"
+        else:
+            where = f"{table}.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
+
+        # Increment per‑field counter so CTE names stay unique per query
+        recursive_tables[field_key] += 1
+        cte_name = f"{meta['cte_name']}{recursive_tables[field_key]}"
+
+        cte_sql = f"""
+        {cte_name} AS (
+            SELECT {table}.{meta['id_column']}, {table}.{meta['name_column']} COLLATE NOCASE
+              FROM {table}
+             WHERE {where}
+            UNION ALL
+            SELECT t.{meta['id_column']}, t.{meta['name_column']}
+              FROM {table} t
+              JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
+        )""".strip()
+
+        # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
+        exists_sql = f"""EXISTS (
+            SELECT 1
+              FROM {meta['bridge_table']} bt
+              JOIN {cte_name} rt ON rt.{meta['id_column']} = bt.{meta['bridge_to_column']}
+             WHERE bt.{meta['bridge_from_column']} = {'Samples.SampleID' if meta['bridge_from_column'] == 'SampleID' else f'rt.{meta["id_column"]}'}
+        )"""
+
+        return exists_sql, [cte_sql], field_key
+
+    if isinstance(operator_sql, list):
+        # range – not covered in this stub
+        raise NotImplementedError("List operators not implemented in stub")
+    elif "NULL" in operator_sql or "LIKE" in operator_sql:
+        cond_sql = f"{field_key} {operator_sql}"
+    else:
+        if datatype == "number":
+            cond_sql = f"{field_key} {operator_sql} {value}"
+        elif datatype == "boolean":
+            cond_sql = f"{field_key} {operator_sql} {1 if value == 'True' else 0}"
+        else:
+            cond_sql = f"{field_key} {operator_sql} '{value}'"
+
+    return cond_sql, [], field_key
+
+
+def _collapse_same_field_basic(conds: List[str], expected_count: int) -> str:
+    """Fallback for flat tables – require **all** values via COUNT‑HAVING.
+
+    Returns a 2‑step SQL fragment:
+        1. RockTypeID IN (values …)  (placed in WHERE)
+        2. HAVING COUNT(DISTINCT RockTypeID) >= expected_count
+
+    The caller is responsible for appending the HAVING part inside the
+    *outermost* SELECT when this helper is used.  In GeoCORK the root SELECT is
+    *always* ``Samples`` so we can inline it directly here for simplicity.
+    """
+    values_block = " OR ".join(conds)  # conds already like "col = 4"
+    return f"(({values_block}) GROUP BY Samples.SampleID HAVING COUNT(DISTINCT RockTypes.RockTypeID) >= {expected_count})"
+
 
 
 def process_selects(group):
@@ -1222,8 +1239,10 @@ class QueryBuilder(QWidget):
 
         # final code to determine the scope of query based on type, also ensures the selected type's table is found
         # in the join code
+        where = where_clause.replace('Items', 'Samples').replace('ItemID', 'SampleID')
+
         if type == 'Samples':
-            where = where_clause.replace('Items', 'Samples').replace('ItemID', 'SampleID')
+            # where = where_clause.replace('Items', 'Samples').replace('ItemID', 'SampleID')
             sql_query = full_sql + f"""
             SELECT DISTINCT Samples.SampleID
             FROM Samples
@@ -1231,7 +1250,7 @@ class QueryBuilder(QWidget):
             WHERE {where}
             """
         elif type == 'Aliquots':
-            where = where_clause.replace('Items', 'Aliquots').replace('ItemID', 'AliquotID')
+            # where = where_clause.replace('Items', 'Aliquots').replace('ItemID', 'AliquotID')
             # Generate join string
             join = SQLUtils.get_join_from_table(join, ['Aliquots'])
 
@@ -1270,7 +1289,7 @@ class QueryBuilder(QWidget):
             else:
                 sql_query = cte + aliquot_select
         elif type == 'Spots':
-            where = where_clause.replace('Items', 'Spots').replace('ItemID', 'SpotID')
+            # where = where_clause.replace('Items', 'Spots').replace('ItemID', 'SpotID')
             join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (
                 SELECT Spots.SpotID, {selects}
@@ -1278,7 +1297,7 @@ class QueryBuilder(QWidget):
                 WHERE {where})
                 WHERE SpotID IS NOT NULL;"""
         elif type == 'UPbAnalyses':
-            where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
+            # where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
             sql_query = full_sql + f"""SELECT DISTINCT UPbAnalysisID FROM (
                 SELECT UPbAnalyses.UPbAnalysisID, {selects}
