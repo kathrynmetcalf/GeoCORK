@@ -101,7 +101,7 @@ class EditTable(QtW.QDialog):
         :return:
         """
         self.model.setQuery(
-            f'SELECT * FROM {self.table} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
+            f'SELECT * FROM "{self.table}" LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
         self.table_headers = get_headers(self.table)
         self.table_proxy_model.setSourceModel(self.model)
         self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns

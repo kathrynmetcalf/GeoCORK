@@ -4010,7 +4010,7 @@ class CheckableTreeCombobox(TreeCombobox):
 
     def show_context_menu(self, pos):
         menu = TreeContextMenu()
-        tree_model = find_tree_model(self.model(), None)
+        tree_model, indexes = find_tree_model(self.model(), None)
         if tree_model.table == 'Aliquots':
             menu.set_view(self.treeView, False, False)
         else:
