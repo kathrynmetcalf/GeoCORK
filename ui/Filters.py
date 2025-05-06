@@ -224,6 +224,8 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             raise NotImplementedError("Range operators on tree tables not yet supported")
         elif "NULL" in operator_sql or "LIKE" in operator_sql:
             where = f"{table}.{meta['name_column']} {operator_sql}"
+        elif '!=' in operator_sql:
+            where = f"{table}.{meta['name_column']} = '{value}'"
         else:
             where = f"{table}.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
 
@@ -243,7 +245,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         )""".strip()
 
         # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
-        exists_sql = f"""EXISTS (
+        exists_sql = f"""{'NOT ' if operator_sql=='!=' else ''}EXISTS (
             SELECT 1
               FROM {meta['bridge_table']} bt
               JOIN {cte_name} rt ON rt.{meta['id_column']} = bt.{meta['bridge_to_column']}
