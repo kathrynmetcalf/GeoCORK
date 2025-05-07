@@ -921,6 +921,32 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                         ON DELETE SET NULL
                     )'''
 
+CREATE_UPB_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisContexts(
+                    UPbAnalysisContextID INTEGER PRIMARY KEY,
+                    ParentUPbAnalysisContextID INTEGER,
+                    UPbAnalysisContextParentRow INTEGER,
+                    UPbAnalysisContextName TEXT NOT NULL CHECK (UPbAnalysisContextName <> ''),
+                    UPbAnalysisContextDescription TEXT, 
+                    UPbAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisContextName COLLATE NOCASE),
+                    UNIQUE (ParentUPbAnalysisContextID, UPbAnalysisContextParentRow)
+                    )'''
+
+CREATE_UPBANALYSES_UPBANALYSISCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_UPbAnalysisContexts(
+                    UPbAnalysisID INTEGER NOT NULL,
+                    UPbAnalysisContextID INTEGER NOT NULL,
+                    UPbAnalyses_UPbAnalysisContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalyses_UPbAnalysisContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisID, UPbAnalysisContextID),
+                    FOREIGN KEY(UPbAnalysisID) REFERENCES UPbAnalyses(UPbAnalysisID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(UPbAnalysisContextID) REFERENCES UPbAnalysisContexts(UPbAnalysisContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
 CREATE_UPBANALYSES_REJECTIONREASONS_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses_RejectionReasons(
                     UPbAnalysisID INTEGER,
                     RejectionReasonID INTEGER,
@@ -1049,6 +1075,11 @@ def create_tables() -> bool:
         return False
     if not query.exec(CREATE_REFERENCES_TABLE):
         logger_setup.get_logger().critical(f'Error creating References table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    if not query.exec(CREATE_UPB_CONTEXT_TABLE):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalysisContexts table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
@@ -1248,6 +1279,11 @@ def create_tables() -> bool:
         return False
 
     # Create many-to-many analysis tables
+    if not query.exec(CREATE_UPBANALYSES_UPBANALYSISCONTEXT_TABLE):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_UPbAnalysisContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
     if not query.exec(CREATE_UPBANALYSES_REJECTIONREASONS_TABLE):
         logger_setup.get_logger().critical(f'Error creating UPbAnalyses_RejectionReasons table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')

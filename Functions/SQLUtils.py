@@ -232,6 +232,7 @@ rejected_text = "'Rejected'"
 accepted_text = "'Accepted'"
 qupb_rejected = f'(CASE WHEN UPbAnalyses.Rejected = 1 THEN {rejected_text} ELSE {accepted_text} END) AS Rejected'
 qupb_rejection_reasons = 'REPLACE(GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName), ",", "; ") AS RejectionReasonName'
+qupb_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisContexts.UPbAnalysisContextName), ",", "; ") AS UPbAnalysisContextName'
 qupb_created = 'UPbAnalysisCreated AS UPbAnalysisCreated'
 qupb_modified = 'UPbAnalysisModified AS UPbAnalysisModified'
 
@@ -329,6 +330,8 @@ upb_concordance_format_join = 'LEFT JOIN ConcordanceFormats ON UPbAnalyses.Conco
 upb_spot_size_unit_join = 'LEFT JOIN DistanceUnits AS SpotSizeUnits ON UPbAnalyses.SpotSizeUnitID=SpotSizeUnits.DistanceUnitID'
 upb_rejection_reason_join = '''LEFT JOIN UPbAnalyses_RejectionReasons ON UPbAnalyses.UPbAnalysisID=UPbAnalyses_RejectionReasons.UPbAnalysisID
                                     LEFT JOIN RejectionReasons AS UPbRejectionReasons ON UPbAnalyses_RejectionReasons.RejectionReasonID=UPbRejectionReasons.RejectionReasonID'''
+upb_context_join = '''LEFT JOIN UPbAnalyses_UPbAnalysisContexts ON UPbAnalyses.UPbAnalysisID=UPbAnalyses_UPbAnalysisContexts.UPbAnalysisID
+                                LEFT JOIN UPbAnalysisContexts ON UPbAnalyses_UPbAnalysisContexts.UPbAnalysisContextID=UPbAnalysisContexts.UPbAnalysisContextID'''
 upb_distinct_join_sample = '''LEFT JOIN DistinctUPbAnalyses ON Samples.SampleID=DistinctUPbAnalyses.SampleID'''
 upb_distinct_join_aliquot = '''LEFT JOIN DistinctUPbAnalyses ON Aliquots.AliquotID=DistinctUPbAnalyses.AliquotID'''
 
@@ -341,7 +344,7 @@ sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcol
                        qspots, qspot_compositions, qspot_contexts, qupb_references, qupb_lab_facilities,
                        qupb_instruments,
                        qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_error_formats, qupb_age_units,
-                       qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons]
+                       qupb_age_interpretations, qconcordance_formats, qspot_sizes, qupb_rejection_reasons, qupb_contexts]
 
 # Many-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate multiple selection dropdowns
 many_editable = {
@@ -351,7 +354,7 @@ many_editable = {
                 'UnitName': 'Units'},
     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
     'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
-    'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons'},
+    'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
     'References': {}
 }
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
@@ -390,17 +393,17 @@ not_null = {
     'Spots': ['SpotName', 'AliquotName', 'SampleName'],
     'UPbAnalyses': ['SpotName', 'AliquotName', 'SampleName']
 }
-"Tables and their columns that cannot be null"
+"Tables that are the basis for view and their columns that cannot be null"
 
 user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
                         'Columns', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
                         'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'SpotCompositions',
-                        'SpotContexts', 'UPbAnalysisMethods', 'Units']
+                        'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable tables and trees used throughout GeoCORK."""
 
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Aliquots',
                        'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
-                       'SpotContexts', 'UPbAnalysisMethods', 'Units']
+                       'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable trees used throughout GeoCORK. If a table is included in this list it is assumed to be in the correct format"""
 
 export_database_tables_viewable = sorted(user_viewable_tables + ['UPbAnalyses', 'Aliquots', 'Spots'])
@@ -529,6 +532,15 @@ tree_tables_schema = {
         'bridge_from_column': 'UPbAnalysisMethodID',
         'bridge_to_column': 'UPbAnalysisMethodID',
     },
+    'UPbAnalysisContexts.[UPbAnalysisContextName]': {
+        'id_column': 'UPbAnalysisContextID',
+        'name_column': 'UPbAnalysisContextName',
+        'parent_column': 'ParentUPbAnalysisContextID',
+        'cte_name': 'RecursiveUPbAnalysisContexts',
+        'bridge_table': 'UPbAnalyses_UPbAnalysisContexts',
+        'bridge_from_column': 'UPbAnalysisID',
+        'bridge_to_column': 'UPbAnalysisContextID',
+    },
     'Units.[UnitName]': {
         'id_column': 'UnitID',
         'name_column': 'UnitName',
@@ -589,6 +601,7 @@ foreign_key_tables = [
     'Aliquots_AliquotContexts',
     'Spots_SpotContexts',
     'UPbAnalyses_RejectionReasons',
+    'UPbAnalyses_UPbAnalysisContexts',
     'SampleAges',
     'UPbAnalyses',
     'Samples',
@@ -609,6 +622,7 @@ database_ordered_tables = ['AgeUnits',
                            'LabFacilities',
                            'RejectionReasons',
                            'References',
+                           'UPbAnalysisContexts',
                            'UPbAnalysisMethods',
                            'SpotCompositions',
                            'SpotContexts',
@@ -646,6 +660,7 @@ database_ordered_tables = ['AgeUnits',
                            'Aliquots_AliquotContexts',
                            'Spots_SpotContexts',
                            'UPbAnalyses_RejectionReasons',
+                           'UPbAnalyses_UPbAnalysisContexts',
                            'FilterGroups'
                            ]
 """Used in MergeDatabase.py as the order of tables to merge first to last. Since the database is relational it must 
@@ -731,7 +746,8 @@ as_table_dict = {
     'UPbAgeUnits': 'AgeUnits',
     'UPbAgeInterpretations': 'AgeInterpretations',
     'SpotSizeUnits': 'DistanceUnits',
-    'UPbRejectionReasons': 'RejectionReasons'
+    'UPbRejectionReasons': 'RejectionReasons',
+    'UPbAnalysisContexts': 'UPbAnalysisContexts'
 }
 """Static list of foreign key references found in tables and their associated table.
 Issues with database properly keeping track of this through pragma queries have led to this
@@ -898,6 +914,10 @@ table_attributes_dict = {
         "UPbAnalysisCreated",
         "UPbAnalysisModified"
     ],
+    'UPbAnalysisContexts': [
+        "UPbAnalysisContextName", "UPbAnalysisContextDescription",
+        "UPbAnalysisContextCreated", "UPbAnalysisContextModified"
+    ],
     'UPbAnalysisMethods': [
         "UPbAnalysisMethodName", "UPbAnalysisMethodDescription",
         "UPbAnalysisMethodCreated", "UPbAnalysisMethodModified"
@@ -924,7 +944,8 @@ view_attributes_dict = {
         f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", f"{qupb_age_error_formats.split('AS ')[1]}",
         f"{qconcordance_formats.split('AS ')[1]}", f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}", f"{qsample_modified.split('AS ')[1]}"
+        f"{qupb_contexts.split('AS ')[1]}", f"{qupb_references.split('AS ')[1]}", f"{qsample_created.split('AS ')[1]}",
+        f"{qsample_modified.split('AS ')[1]}"
         ],
     'ColumnView': [
         f"{qcolumn_id.split('AS ')[1]}", f"{qcolumn_name.split('AS ')[1]}", f"{qcolumn_calc_total_height_depth.split('AS ')[1]}", f"{qcolumn_gps.split('AS ')[1]}",
@@ -943,6 +964,7 @@ view_attributes_dict = {
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
         f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_contexts.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qaliquot_created.split('AS ')[1]}",
         f"{qaliquot_modified.split('AS ')[1]}"
     ],
@@ -961,7 +983,7 @@ view_attributes_dict = {
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
         f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
-        f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_contexts.split('AS ')[1]}",
         f"{qupb_references.split('AS ')[1]}", f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
     'SpotEditView': [
@@ -1003,6 +1025,7 @@ view_attributes_dict = {
         '"CalculatedBestAgeFilled"', '"CalculatedBestAgeErrorFilled"',
         '"CalculatedSpotSize"', '"CalculatedConcordance"',
         f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_contexts.split('AS ')[1]}",
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ],
     'UPbEditView': [
@@ -1043,7 +1066,7 @@ view_attributes_dict = {
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", '"Concordance"',
         f"{qconcordance_formats.split('AS ')[1]}",
         '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
-        f"{qupb_rejection_reasons.split('AS ')[1]}",
+        f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_contexts.split('AS ')[1]}",
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
     ],
     'ReferenceView': [
@@ -1146,6 +1169,7 @@ upb_possible_database_input_fields = [
     'ReferenceID',
     'LabFacilityID',
     'InstrumentID',
+    'UPbAnalysisContextID',
     'UPbAnalysisMethodID'
 ]
 """List of valid columns to be entered through the importer.
@@ -1361,6 +1385,15 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += aliquot_spot_join + '\n'
                 if spot_upb_analysis_join not in join:
                     join += spot_upb_analysis_join + '\n'
+            case 'UPbAnalysisContexts':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_context_join not in join:
+                    join += upb_context_join + '\n'
             case 'UPbAnalysisMethods':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'

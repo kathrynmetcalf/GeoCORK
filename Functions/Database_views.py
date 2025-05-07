@@ -55,6 +55,7 @@ def SampleViewQuery():
                     {SQLUtils.qspot_size},
                     {SQLUtils.qspot_size_unit},
                     {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_contexts},
                     {SQLUtils.qupb_references},
                     {SQLUtils.qsample_created},
                     {SQLUtils.qsample_modified}
@@ -96,6 +97,7 @@ def SampleViewQuery():
                    {SQLUtils.upb_concordance_format_join}
                    {SQLUtils.upb_spot_size_unit_join}
                    {SQLUtils.upb_rejection_reason_join}
+                   {SQLUtils.upb_context_join}
                    GROUP BY Samples.SampleID
                    '''
 
@@ -221,6 +223,7 @@ def AliquotViewQuery():
                     {SQLUtils.qconcordance_formats},
                     {SQLUtils.qspot_sizes},
                     {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_contexts},
                     {SQLUtils.qupb_references},
                     {SQLUtils.qaliquot_created},
                     {SQLUtils.qaliquot_modified}
@@ -242,6 +245,7 @@ def AliquotViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
+                {SQLUtils.upb_context_join}
                 GROUP BY Aliquots.AliquotID
                 '''
 
@@ -289,6 +293,7 @@ def SpotViewQuery():
                     {SQLUtils.qspot_sizes},
                     {SQLUtils.qupb_rejected},
                     {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_contexts},
                     {SQLUtils.qupb_references},
                     {SQLUtils.qspot_created},
                     {SQLUtils.qspot_modified}
@@ -308,6 +313,7 @@ def SpotViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
+                {SQLUtils.upb_context_join}
                 GROUP BY Spots.SpotID
                 '''
 
@@ -373,6 +379,7 @@ def UPbViewQuery():
                     {query_columns},
                     {SQLUtils.qupb_rejected},
                     {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_contexts},
                     {SQLUtils.qupb_created},
                     {SQLUtils.qupb_modified}
                 FROM UPbAnalyses 
@@ -389,6 +396,7 @@ def UPbViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
+                {SQLUtils.upb_context_join}
                 GROUP BY UPbAnalyses.UPbAnalysisID
                 '''
     return upb_query
@@ -432,6 +440,7 @@ def UPbEditViewQuery():
                     {SQLUtils.qspot_size_unit},
                     {SQLUtils.qupb_rejected},
                     {SQLUtils.qupb_rejection_reasons},
+                    {SQLUtils.qupb_contexts},
                     {SQLUtils.qupb_created},
                     {SQLUtils.qupb_modified}
                 FROM UPbAnalyses 
@@ -448,6 +457,7 @@ def UPbEditViewQuery():
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
                 {SQLUtils.upb_rejection_reason_join}
+                {SQLUtils.upb_context_join}
                 GROUP BY UPbAnalyses.UPbAnalysisID
                 '''
     return upb_query

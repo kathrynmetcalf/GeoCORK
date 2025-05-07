@@ -156,6 +156,7 @@ class SelectColumns(QWidget):
 
                 # Store list of checked columns in the settings
                 settings.setValue(self.view_setting_dict[view_name], view_columns)
+                logger_setup.get_logger().info(f'Saved {view_name} columns')
         # self.load_list_states()
 
     def load_list_states(self):

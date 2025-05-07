@@ -44,6 +44,7 @@ class SetSelectedValues(QtW.QDialog):
         self.setWindowTitle('Set selected values')
         self.setModal(True)
         self.close_by_dialog = False
+        self.loading_manager = LoadingDialogManager.get_instance()
         # self.setMinimumSize(600, 200)
 
         self.widget = widget
@@ -65,6 +66,7 @@ class SetSelectedValues(QtW.QDialog):
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
         self.adjustSize()
+        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
 
     def commit(self):
         self.close_by_dialog = True
@@ -129,7 +131,8 @@ class EditView(QtW.QDialog):
                 self.add_pushButton.clicked.connect(self.add_popup)
             elif self.table == 'Samples':
                 self.view = 'SampleView'
-                self.show_cols = settings.value('sample_edit_columns')
+                self.show_cols = settings.value('sample_view_columns')
+                # self.show_cols = settings.value('sample_edit_columns')
                 self.add_pushButton.hide()
             elif self.table == 'Spots' or self.table == 'UPbAnalyses':
                 self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' \
@@ -349,6 +352,7 @@ class EditView(QtW.QDialog):
                 dlg = SetSelectedValues(self, self.lineEdit)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.lineEdit = dlg.widget
+                    self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_lineedit_data()
                 else:
                     self.destroy_lineedit()
@@ -356,6 +360,7 @@ class EditView(QtW.QDialog):
                 dlg = SetSelectedValues(self, self.combo)
                 if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                     self.combo = dlg.widget
+                    self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_dropdown_data()
                 else:
                     self.destroy_dropdown()
@@ -445,6 +450,7 @@ class EditView(QtW.QDialog):
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.view}...')
         end_time = time.time()
         logger_setup.get_logger().info(f'Displayed {self.view} in {end_time - start_time} seconds')
+        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
 
     def display_widget(self):
         if len(self.edit_tableView.selectedIndexes()) == 0:
@@ -477,6 +483,7 @@ class EditView(QtW.QDialog):
             # The column is the name column for the table. This should be edited with a line edit.
             self.create_lineedit()
             return
+        self.loading_manager.show_loading_dialog('Loading', f'Loading...')
         header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal,
                                        QtC.Qt.ItemDataRole.DisplayRole)
         if 'GPS' in header or 'Elevation' in header:
@@ -485,6 +492,7 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                self.loading_manager.close_loading_dialog('Loading', f'Loading...')
                 self.loading_manager.show_loading_dialog('Loading', f'Opening GPS editor...')
                 dlg = GPSDialog(self.table, item_ids, self)
                 dlg.exec()
@@ -508,6 +516,7 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                self.loading_manager.close_loading_dialog('Loading', f'Loading...')
                 self.loading_manager.show_loading_dialog('Loading', f'Opening sample age editor...')
                 dlg = AgeDialog(self.table, item_ids, self)
                 dlg.exec()
@@ -599,6 +608,7 @@ class EditView(QtW.QDialog):
 
     def display_lineedit(self):
         self.lineEdit.installEventFilter(self)
+        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
         self.lineEdit.returnPressed.connect(self.save_lineedit_data)
         self.lineEdit.editingFinished.connect(self.save_lineedit_data)
         self.edit_tableView.setIndexWidget(self.edit_tableView.selectedIndexes()[0], self.lineEdit)
@@ -755,6 +765,7 @@ class EditView(QtW.QDialog):
             self.combo.add_triggered.connect(self.add_tag_popup)
             self.combo.edit_triggered.connect(self.edit_tag_popup)
         # self.combo.activated.connect(self.save_dropdown_data)
+        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
         self.combo.setFocus()
         # print("showing popup")
         self.combo.showPopup()
@@ -946,7 +957,10 @@ class EditView(QtW.QDialog):
                 if self.dropdown_table in values.values():
                     for sub_key, sub_values in dictionary[key].items():
                         if sub_key == view_header:
-                            table = key
+                            if dictionary == SQLUtils.one_editable:
+                                table = key
+                            elif dictionary == SQLUtils.many_editable:
+                                table = f'{key}_{self.dropdown_table}'
                             # We have our table to edit, but now we need to relate the IDs in the current table to the IDs in the edit table
                             edit_id_header = get_headers(table)[0]
                             if edit_id_header in self.show_cols:
@@ -972,11 +986,11 @@ class EditView(QtW.QDialog):
                                 if self.table == 'Samples':
                                     # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
                                     aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(selected_ids, self.table)
-                                    if table == 'Aliquots':
+                                    if table == 'Aliquots' or 'Aliquots_' in table:
                                         item_ids = aliquot_ids
-                                    elif table == 'Spots':
+                                    elif table == 'Spots' or 'Spots_' in table:
                                         item_ids = spot_ids
-                                    elif table == 'UPbAnalyses':
+                                    elif table == 'UPbAnalyses' or 'UPbAnalyses_' in table:
                                         item_ids = upb_analysis_ids
                                     else:
                                         logger_setup.get_logger().error(f'No {table} for selected {self.table} IDs')
@@ -1631,6 +1645,7 @@ class EditView(QtW.QDialog):
             dlg = AddTags(self, self.table)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
+            self.loading_manager.show_loading_dialog('Loading', f'Loading...')
             self.find_added(dlg.ids_added)
         self.display_table()
 
@@ -1676,9 +1691,11 @@ class EditView(QtW.QDialog):
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
+            self.loading_manager.show_loading_dialog('Loading', f'Loading...')
             self.destroy_dropdown()
             self.display_widget()
             self.combo.showPopup()
+            self.loading_manager.close_loading_dialog('Loading', f'Loading...')
 
     def edit_tag_popup(self):
         combo = self.sender()
@@ -1697,9 +1714,11 @@ class EditView(QtW.QDialog):
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Clear and recreate this combo box
+            self.loading_manager.show_loading_dialog('Loading', f'Loading...')
             self.destroy_dropdown()
             self.display_widget()
             self.combo.showPopup()
+            self.loading_manager.close_loading_dialog('Loading', f'Loading...')
 
     def rollback(self):
         rollback_savepoint('before_edit')

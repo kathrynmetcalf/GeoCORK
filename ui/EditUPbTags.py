@@ -106,6 +106,9 @@ class EditUPbTags(QtW.QDialog):
         self.instrument_comboBox.model_modifiable = True
         self.instrument_comboBox.enable_context_menu(True)
         populate_combo_box(self.instrument_comboBox, **{'table': 'Instruments'})
+        self.analysis_context_comboBox.model_modifiable = True
+        self.analysis_context_comboBox.enable_context_menu(True)
+        populate_combo_box(self.analysis_context_comboBox, **{'table': 'UPbAnalysisContexts'})
         populate_combo_box(self.ratio_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
         populate_combo_box(self.age_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
         populate_combo_box(self.age_unit_comboBox, **{'table': 'AgeUnits', 'column': 'AgeUnitAbbreviation'})
@@ -131,6 +134,9 @@ class EditUPbTags(QtW.QDialog):
         self.instrument_comboBox.closing.connect(lambda: self.update_subfield_id('InstrumentID'))
         self.instrument_comboBox.add_triggered.connect(self.add_popup)
         self.instrument_comboBox.edit_triggered.connect(self.edit_popup)
+        self.analysis_context_comboBox.closing.connect(lambda: self.update_many_id('UPbAnalysisContextID'))
+        self.analysis_context_comboBox.add_triggered.connect(self.add_popup)
+        self.analysis_context_comboBox.edit_triggered.connect(self.edit_popup)
         self.ratio_error_format_comboBox.closing.connect(lambda: self.update_subfield_id('RatioErrorFormatID'))
         self.age_error_format_comboBox.closing.connect(lambda: self.update_subfield_id('AgeErrorFormatID'))
         self.age_unit_comboBox.closing.connect(lambda: self.update_subfield_id('AgeUnitID'))
@@ -163,6 +169,8 @@ class EditUPbTags(QtW.QDialog):
         self.concordance_format_comboBox.set_single_click(True)
         self.populate_upb_checks(self.spot_size_unit_comboBox)
         self.spot_size_unit_comboBox.set_single_click(True)
+        self.populate_upb_checks(self.analysis_context_comboBox)
+        self.analysis_context_comboBox.set_single_click(False)
 
         self.loading_manager.close_loading_dialog("Loading", "Populating fields")
 
@@ -338,6 +346,35 @@ class EditUPbTags(QtW.QDialog):
             else:
                 logger_setup.get_logger().info("No samples selected")
         self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
+
+    def update_many_id(self, field: str):
+        combo = self.sender()
+        if isinstance(combo, CheckableTreeCombobox):
+            model, indexes = find_tree_model(combo.model(), None)
+            table = model.table
+            column = get_name_column(table)
+        else:
+            model = combo.model()
+            table = model.tableName()
+            try:
+                view = model.tableView()
+                column = get_view_name_column(view)
+            except AttributeError:
+                column = get_name_column(table)
+        logger_setup.get_logger().info(f"update_many_id called with {table}")
+        self.loading_manager.show_loading_dialog("Updating", f"Updating {field}")
+        start_update_sub_tags_time = time.time()
+        many_table = 'UPbAnalyses_UPbAnalysisContexts'
+        if not model.update_many_table(many_table, self.upb_analysis_ids):
+            logger_setup.get_logger().info(f"Failed to update {field} for {len(self.upb_analysis_ids)} UPb Analyses")
+            self.loading_manager.close_loading_dialog("Updating", f"Updating {field}")
+            return
+        else:
+            logger_setup.get_logger().info(f"Updated {field} for {len(self.upb_analysis_ids)} UPb Analyses")
+            self.updated = True
+            end_update_sub_tags_time = time.time()
+            logger_setup.get_logger().info(
+                f"Updated {field} for {len(self.upb_analysis_ids)} UPb Analyses in {end_update_sub_tags_time - start_update_sub_tags_time} seconds")
 
     def update_fields(self):
         try:
