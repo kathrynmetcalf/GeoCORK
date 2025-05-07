@@ -670,7 +670,9 @@ concordance_formats = [('Concordance ratio', 'Con', 'Ratio agreement between the
                        ('Discordance ratio', 'Dis',
                         'Ratio disagreement between  the 206Pb/238U age to the 207Pb/206Pb age'),
                        ('Discordance percent', 'Dis%',
-                        'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age')]
+                        'Percent disagreement between the 206Pb/238U age and the 207Pb/206Pb age'),
+                       ('Minimum segmented discordance', 'MinSegDis',
+                        'Minimum of |206Pb/238U-207Pb/235U| aged and |206Pb/207Pb-207Pb/235U| ages')]
 """Static list of valid concordance formats. Used to create ConcordanceFormats table."""
 
 direction_units = [('North', 'N','positive north'),

@@ -508,9 +508,9 @@ class ExportWidget(QWidget):
             # sheet 2 (ZrUPb) is list of samples, grains, analysis, and upb data
 
             case 'detritalPy':
-                if settings.value('concordance_format_id', int) == 2: # current format set to Con%
+                if settings.value('concordance_format_id', int) != 3: # Format is not discordance ratio
                     QMessageBox.question(self, 'Wrong Concordance Format',
-                                         'Concordance format is set to Con%, but should be set to Dis ratio. Would you like to swap to Dis ratio?',
+                                         'detritalPy take concordance as discordance ratio. Would you like to swap to discordance ratio?',
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                          QMessageBox.StandardButton.Yes)
                     settings.setValue('concordance_format_id', 3)

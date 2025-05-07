@@ -1277,7 +1277,7 @@ def populate_tables() -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out:  # if there is no output, the table is empty
+    if not out or len(out) != SQLUtils.age_units:  # if there is no output, the table is empty
         populate_age_units()  # populate it
     populate_age_conversions()
 
@@ -1290,7 +1290,7 @@ def populate_tables() -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out:  # if there is no output, the table is empty
+    if not out or len(out) != len(SQLUtils.concordance_formats):  # if there is no output, the table is empty
         populate_concordance_formats()  # populate it
     populate_concordance_conversions()
 
@@ -1303,7 +1303,7 @@ def populate_tables() -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out:  # if there is no output, the table is empty
+    if not out or len(out) != len(SQLUtils.direction_units):  # if there is no output, the table is empty
         populate_direction_units()  # populate it
 
     # Populate the distance unit table during initiation
@@ -1315,7 +1315,7 @@ def populate_tables() -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out:  # if there is no output, the table is empty
+    if not out or len(out) != len(SQLUtils.distance_units):  # if there is no output, the table is empty
         populate_distance_units()  # populate it
     populate_distance_conversions()
 
@@ -1328,7 +1328,7 @@ def populate_tables() -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(1))
-    if not out:
+    if not out or len(out) != len(SQLUtils.error_formats):  # if there is no output, the table is empty
         populate_error_formats()
     populate_error_conversions()
 
@@ -1341,7 +1341,7 @@ def populate_tables() -> bool:
         return False
     out = []
     while query.next(): out.append(query.value(2))
-    if not out:
+    if not out or len(out) != len(SQLUtils.gps_formats):  # if there is no output, the table is empty
         populate_gps_formats()
     sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
@@ -1445,7 +1445,12 @@ def populate_concordance_conversions():
     for format1 in range(len(concordance_formats)):
         for format2 in range(len(concordance_formats)):
             if format2 > format1:
-                if concordance_formats[format1][1][-1] == '%' and concordance_formats[format2][1][-1] == '%':
+                # print(f'Adding conversion for {concordance_formats[format1][1]} to {concordance_formats[format2][1]}')
+                if concordance_formats[format1][1] == 'MinSegDis' or concordance_formats[format2][1] == 'MinSegDis':
+                    # One format is MinSegDis and the other is not. There is no simple conversion, so use a placeholder
+                    conversion1to2 = '-'
+                    conversion2to1 = '-'
+                elif concordance_formats[format1][1][-1] == '%' and concordance_formats[format2][1][-1] == '%':
                     # Both formats are percent
                     conversion1to2 = '100-x'
                     conversion2to1 = '100-x'
@@ -1464,6 +1469,12 @@ def populate_concordance_conversions():
                         # First format is concordance ratio and second format is discordance percent
                         conversion1to2 = '100*(1-x)'
                         conversion2to1 = '1-(x/100)'
+                elif concordance_formats[format1][1][-1] == '%':
+                    # First format is percent and second format is ratio
+                    if (concordance_formats[format1][1] == 'Con%' and concordance_formats[format2][1] == 'Dis'):
+                        # First format is concordance percent and second format is discordance ratio
+                        conversion1to2 = '1-(x/100)'
+                        conversion2to1 = '100*(1-x)'
                 concordance_conversion_model.setFilter(
                     f'FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}")')
                 if concordance_conversion_model.rowCount() == 0:

@@ -330,7 +330,11 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
             if 'y' in calculation:
                 ratio_column = column.replace('Error', '')
                 calculation = calculation.replace('y', ratio_column)
-            sql_alter += f' WHEN {table_id_header}={conversion[0]} THEN ({calculation})'
+            if column in calculation:
+                calculation = f'({calculation})'
+            else:
+                calculation = f'"{calculation}"'
+            sql_alter += f' WHEN {table_id_header}={conversion[0]} THEN {calculation}'
         sql_alter += ' END) VIRTUAL'
 
         logger_setup.get_logger().info(f'Adding the calculated column {column}')
