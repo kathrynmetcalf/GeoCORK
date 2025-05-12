@@ -1298,7 +1298,12 @@ def create_tables() -> bool:
 
     logger_setup.get_logger().info('Successfully created all database tables')
     # Populate the tables
-    populate_tables()
+    if not populate_tables():
+        logger_setup.get_logger().critical(f'Error populating tables')
+        return False
+
+    logger_setup.get_logger().info('Successfully populated all database tables')
+    return True
 
 
 def populate_tables() -> bool:
@@ -1307,71 +1312,80 @@ def populate_tables() -> bool:
     query = QtS.QSqlQuery()
     sql = 'SELECT * FROM AgeUnits'
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error selecting all rows from AgeUnits')
+        logger_setup.get_logger().critical(f'Error getting AgeUnits')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != SQLUtils.age_units:  # if there is no output, the table is empty
-        populate_age_units()  # populate it
-    populate_age_conversions()
+        if not populate_age_units():  # populate it
+            return False
+    if not populate_age_conversions():
+        return False
 
     # Populate the concordance format table during initiation
     sql = '''SELECT * FROM ConcordanceFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error selecting all rows from ConcordanceFormats')
+        logger_setup.get_logger().critical(f'Error getting ConcordanceFormats')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.concordance_formats):  # if there is no output, the table is empty
-        populate_concordance_formats()  # populate it
-    populate_concordance_conversions()
+        if not populate_concordance_formats():  # populate it
+            return False
+    if not populate_concordance_conversions():
+        return False
 
     # Populate the direction unit table during initiation
     sql = '''SELECT * FROM DirectionUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error selecting all rows from DirectionUnits')
+        logger_setup.get_logger().critical(f'Error getting DirectionUnits')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.direction_units):  # if there is no output, the table is empty
-        populate_direction_units()  # populate it
+        if not populate_direction_units():  # populate it
+            return False
 
     # Populate the distance unit table during initiation
     sql = '''SELECT * FROM DistanceUnits'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error selecting all rows from DistanceUnits')
+        logger_setup.get_logger().critical(f'Error getting DistanceUnits')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.distance_units):  # if there is no output, the table is empty
-        populate_distance_units()  # populate it
-    populate_distance_conversions()
+        if not populate_distance_units():  # populate it
+            return False
+    if not populate_distance_conversions():
+        return False
 
     # Populate the error format table during initiation
     sql = '''SELECT * FROM ErrorFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error selecting all rows from ErrorFormats')
+        logger_setup.get_logger().critical(f'Error getting ErrorFormats')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.error_formats):  # if there is no output, the table is empty
-        populate_error_formats()
-    populate_error_conversions()
+        if not populate_error_formats():
+            return False
+    if not populate_error_conversions():
+        return False
 
     # Populate the gps format table during initiation
     sql = '''SELECT * FROM GPSFormats'''
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error selecting all rows from GPSFormats')
+        logger_setup.get_logger().critical(f'Error getting GPSFormats')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
@@ -1381,11 +1395,12 @@ def populate_tables() -> bool:
         populate_gps_formats()
     sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error deleting all rows from GPSFormatConversions')
+        logger_setup.get_logger().critical(f'Error resetting GPSFormatConversions')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    populate_gps_conversions()
+    if not populate_gps_conversions():
+        return False
 
     # Populate the age table during initiation
     sql = '''SELECT * FROM Ages'''
@@ -1393,7 +1408,8 @@ def populate_tables() -> bool:
         out = []
         while query.next(): out.append(query.value(3))
         if not out:  # if there is no output, the table is empty
-            populate_ages()  # populate it
+            if not populate_ages():  # populate it
+                return False
     else:
         logger_setup.get_logger().critical(f'Error selecting all rows from AgeUnits')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -1414,7 +1430,13 @@ def populate_age_units():
     for unit in age_units:
         sql = f'''INSERT INTO AgeUnits(AgeUnitName, AgeUnitAbbreviation) VALUES("{unit[0]}","{unit[1]}")'''
         if not query.exec(sql):
-            print(f'failed to add {unit[0]}')
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical(f'Error populating AgeUnits')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+
+    return True
 
 
 def populate_age_conversions():
@@ -1434,28 +1456,41 @@ def populate_age_conversions():
                     sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                     VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        print(f'failed to add conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
+                        logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
                     if current_conversion != conversion1to2:
                         sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion1to2}"
                                     WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}")'''
                         if not query.exec(sql):
-                            print(f'failed to update conversion for {age_units[unit1][1]} to {age_units[unit2][1]}')
+                            logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
                 age_conversion_model.setFilter(
                     f'FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")')
                 if age_conversion_model.rowCount() == 0:
                     sql = f'''INSERT INTO AgeUnitConversions(FromAgeUnitID, ToAgeUnitID, AgeUnitConversionCalculation)
                                     VALUES((SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}"),(SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        print(f'failed to add conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
+                        logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = age_conversion_model.record(0).value('AgeUnitConversionCalculation')
                     if current_conversion != conversion2to1:
                         sql = f'''UPDATE AgeUnitConversions SET AgeUnitConversionCalculation = "{conversion2to1}"
                                     WHERE FromAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit2][1]}") AND ToAgeUnitID = (SELECT AgeUnitID FROM AgeUnits WHERE AgeUnitAbbreviation = "{age_units[unit1][1]}")'''
                         if not query.exec(sql):
-                            print(f'failed to update conversion for {age_units[unit2][1]} to {age_units[unit1][1]}')
+                            logger_setup.get_logger().critical(f'Error populating AgeUnitConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
+    return True
 
 
 def populate_concordance_formats():
@@ -1469,7 +1504,12 @@ def populate_concordance_formats():
         sql = f'''INSERT INTO ConcordanceFormats(ConcordanceFormatName, ConcordanceFormatAbbreviation, ConcordanceFormatDescription)
                                 VALUES("{concordance_format[0]}","{concordance_format[1]}","{concordance_format[2]}")'''
         if not query.exec(sql):
-            print(f'failed to add {concordance_format[0]}')
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating ConcordanceFormats')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+    return True
 
 
 def populate_concordance_conversions():
@@ -1517,8 +1557,10 @@ def populate_concordance_conversions():
                     sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
                                                             VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        print(
-                            f'failed to add conversion for {concordance_formats[format1][1]} to {concordance_formats[format2][1]}')
+                        logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = concordance_conversion_model.record(0).value(
                         'ConcordanceFormatConversionCalculation')
@@ -1526,16 +1568,20 @@ def populate_concordance_conversions():
                         sql = f'''UPDATE ConcordanceFormatConversions SET ConcordanceFormatConversionCalculation = "{conversion1to2}"
                                                             WHERE FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}")'''
                         if not query.exec(sql):
-                            print(
-                                f'failed to update conversion for {concordance_formats[format1][1]} to {concordance_formats[format2][1]}')
+                            logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
                 concordance_conversion_model.setFilter(
                     f'FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}")')
                 if concordance_conversion_model.rowCount() == 0:
                     sql = f'''INSERT INTO ConcordanceFormatConversions(FromConcordanceFormatID, ToConcordanceFormatID, ConcordanceFormatConversionCalculation)
                                                             VALUES((SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}"),(SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        print(
-                            f'failed to add conversion for {concordance_formats[format2][1]} to {concordance_formats[format1][1]}')
+                        logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = concordance_conversion_model.record(0).value(
                         'ConcordanceFormatConversionCalculation')
@@ -1543,8 +1589,11 @@ def populate_concordance_conversions():
                         sql = f'''UPDATE ConcordanceFormatConversions SET ConcordanceFormatConversionCalculation = "{conversion2to1}"
                                                             WHERE FromConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format2][1]}") AND ToConcordanceFormatID = (SELECT ConcordanceFormatID FROM ConcordanceFormats WHERE ConcordanceFormatAbbreviation = "{concordance_formats[format1][1]}")'''
                         if not query.exec(sql):
-                            print(
-                                f'failed to update conversion for {concordance_formats[format2][1]} to {concordance_formats[format1][1]}')
+                            logger_setup.get_logger().critical('Error populating ConcordanceFormatConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
+    return True
 
 
 def populate_direction_units():
@@ -1555,7 +1604,12 @@ def populate_direction_units():
         sql = f'''INSERT INTO DirectionUnits(DirectionUnitName, DirectionUnitAbbreviation, DirectionUnitAbbreviation)
                                 VALUES("{unit[0]}", "{unit[1]}", "{unit[2]}")'''
         if not query.exec(sql):
-            print(f'failed to add {unit[0]}')
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating DirectionUnits')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+    return True
 
 
 def populate_distance_units():
@@ -1570,7 +1624,12 @@ def populate_distance_units():
         sql = f'''INSERT INTO DistanceUnits(DistanceUnitName, DistanceUnitAbbreviation)
                                     VALUES("{unit[0]}","{unit[1]}")'''
         if not query.exec(sql):
-            print(f'failed to add {unit[0]}')
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating DistanceUnits')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+    return True
 
 
 def populate_distance_conversions():
@@ -1602,30 +1661,41 @@ def populate_distance_conversions():
                     sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
                                             VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        print(f'failed to add conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
+                        logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
                     if current_conversion != conversion1to2:
                         sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion1to2}"
                                             WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}")'''
                         if not query.exec(sql):
-                            print(
-                                f'failed to update conversion for {distance_units[unit1][1]} to {distance_units[unit2][1]}')
+                            logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
                 distance_conversion_model.setFilter(
                     f'FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")')
                 if distance_conversion_model.rowCount() == 0:
                     sql = f'''INSERT INTO DistanceUnitConversions(FromDistanceUnitID, ToDistanceUnitID, DistanceUnitConversionCalculation)
                                             VALUES((SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}"),(SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        print(f'failed to add conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
+                        logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = distance_conversion_model.record(0).value('DistanceUnitConversionCalculation')
                     if current_conversion != conversion2to1:
                         sql = f'''UPDATE DistanceUnitConversions SET DistanceUnitConversionCalculation = "{conversion2to1}"
                                             WHERE FromDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit2][1]}") AND ToDistanceUnitID = (SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = "{distance_units[unit1][1]}")'''
                         if not query.exec(sql):
-                            print(
-                                f'failed to update conversion for {distance_units[unit2][1]} to {distance_units[unit1][1]}')
+                            logger_setup.get_logger().critical('Error populating DistanceUnitConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
+    return True
 
 
 def populate_error_formats():
@@ -1639,7 +1709,12 @@ def populate_error_formats():
         sql = f'''INSERT INTO ErrorFormats(ErrorFormatName, ErrorFormatAbbreviation, ErrorFormatDescription)
                                     VALUES("{error_format[0]}","{error_format[1]}","{error_format[2]}")'''
         if not query.exec(sql):
-            print(f'failed to add {error_format[0]}')
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating ErrorFormats')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+    return True
 
 
 def populate_error_conversions():
@@ -1674,32 +1749,41 @@ def populate_error_conversions():
                     sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
                                         VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),"{conversion1to2}")'''
                     if not query.exec(sql):
-                        print(
-                            f'failed to add conversion for {error_formats[format1][1]} to {error_formats[format2][1]}')
+                        logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
                     if current_conversion != conversion1to2:
                         sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion1to2}"
                                         WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}")'''
                         if not query.exec(sql):
-                            print(
-                                f'failed to update conversion for {error_formats[format1][1]} to {error_formats[format2][1]}')
+                            logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
                 error_conversion_model.setFilter(
                     f'FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")')
                 if error_conversion_model.rowCount() == 0:
                     sql = f'''INSERT INTO ErrorFormatConversions(FromErrorFormatID, ToErrorFormatID, ErrorFormatConversionCalculation)
                                         VALUES((SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}"),(SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}"),"{conversion2to1}")'''
                     if not query.exec(sql):
-                        print(
-                            f'failed to add conversion for {error_formats[format1][1]} to {error_formats[format2][1]}')
+                        logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return False
                 else:
                     current_conversion = error_conversion_model.record(0).value('ErrorFormatConversionCalculation')
                     if current_conversion != conversion2to1:
                         sql = f'''UPDATE ErrorFormatConversions SET ErrorFormatConversionCalculation = "{conversion2to1}"
                                         WHERE FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}")'''
                         if not query.exec(sql):
-                            print(
-                                f'failed to update conversion for {error_formats[format2][1]} to {error_formats[format1][1]}')
+                            logger_setup.get_logger().critical(f'Error populating ErrorFormatConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            return False
+    return True
 
 
 def populate_gps_formats():
@@ -1714,8 +1798,11 @@ def populate_gps_formats():
         sql = f'''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
                     VALUES("{gps_format[0]}","{gps_format[1]}","{gps_format[2]}")'''
         if not query.exec(sql):
-            print(f'failed to add {gps_format[0]}')
-            return False
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating GPSFormats')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
     return True
 
 
@@ -1760,8 +1847,11 @@ def populate_gps_conversions():
                     query.bindValue(1, id_1)
                     query.bindValue(2, f'''{conversion1to1}''')
                     if not query.exec():
-                        print(
-                            f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
+                        logger_setup.get_logger().critical('Error populating GPSFormatConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        return False
                 else:
                     current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
                     if current_conversion != conversion1to1:
@@ -1772,8 +1862,11 @@ def populate_gps_conversions():
                         query.bindValue(1, id_1)
                         query.bindValue(2, id_1)
                         if not query.exec():
-                            print(
-                                f'failed to update conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
+                            logger_setup.get_logger().critical('Error populating GPSFormatConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            return False
             if format2 > format1:
                 if '+/-' in gps_formats[format1][1] and '+/-' in gps_formats[format2][1]:
                     # Both formats are positive/negative
@@ -1940,9 +2033,11 @@ def populate_gps_conversions():
                     query.bindValue(1, id_2)
                     query.bindValue(2, f'''{conversion1to2}''')
                     if not query.exec():
-                        print(
-                            f'failed to add conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
-                    # print(f'Inserted conversion {gps_formats[format1][1]} to {gps_formats[format2][1]}')
+                        logger_setup.get_logger().critical('Error populating GPSFormatConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        return False
                 else:
                     current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
                     if current_conversion != conversion1to2:
@@ -1952,8 +2047,11 @@ def populate_gps_conversions():
                         query.bindValue(1, id_1)
                         query.bindValue(2, id_2)
                         if not query.exec():
-                            print(
-                                f'failed to update conversion for {gps_formats[format1][1]} to {gps_formats[format2][1]}: {query.lastError().text()}')
+                            logger_setup.get_logger().critical('Error populating GPSFormatConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            return False
                 gps_conversion_model.setFilter(f'FromGPSFormatID = {id_2} AND ToGPSFormatID = {id_1}')
                 if gps_conversion_model.rowCount() == 0:
                     query.prepare(
@@ -1963,9 +2061,11 @@ def populate_gps_conversions():
                     query.bindValue(1, id_1)
                     query.bindValue(2, f'''{conversion2to1}''')
                     if not query.exec():
-                        print(
-                            f'failed to add conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}: {query.lastError().text()}')
-                    # print(f'Inserted conversion {gps_formats[format2][1]} to {gps_formats[format1][1]}')
+                        logger_setup.get_logger().critical('Error populating GPSFormatConversions')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                        return False
                 else:
                     current_conversion = gps_conversion_model.record(0).value('GPSFormatConversionCalculation')
                     if current_conversion != conversion2to1:
@@ -1975,8 +2075,12 @@ def populate_gps_conversions():
                         query.bindValue(1, id_2)
                         query.bindValue(2, id_1)
                         if not query.exec():
-                            print(
-                                f'failed to update conversion for {gps_formats[format2][1]} to {gps_formats[format1][1]}: {query.lastError().text()}')
+                            logger_setup.get_logger().critical('Error populating GPSFormatConversions')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            return False
+    return True
 
 
 def populate_ages():
@@ -1997,7 +2101,8 @@ def populate_ages():
     age_row = 0
     for eon in root.findall('Eon'):
         age_item = ('', eon_row, f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
-        add_age(age_item)
+        if not add_age(age_item):
+            return False
         for era in eon.findall('Era'):
             eon_name = eon.get("name")
             if query.exec(f'SELECT AgeID FROM AGES WHERE AgeName = "{eon_name}"'):
@@ -2005,7 +2110,8 @@ def populate_ages():
                 while query.next(): out.append(query.value(0))
                 eon_id = out[0]
                 age_item = (eon_id, era_row, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
-                add_age(age_item)
+                if not add_age(age_item):
+                    return False
                 for period in era.findall('Period'):
                     era_name = era.get("name")
                     if query.exec(f'SELECT AgeID FROM AGES WHERE AgeName = "{era_name}"'):
@@ -2015,7 +2121,8 @@ def populate_ages():
                         age_item = (
                             era_id, period_row, f'{period.get("name")}', f'{period.get("oldest")}',
                             f'{period.get("youngest")}')
-                        add_age(age_item)
+                        if not add_age(age_item):
+                            return False
                         for epoch in period.findall('Epoch'):
                             period_name = period.get("name")
                             if query.exec(f'SELECT AgeID FROM AGES WHERE AgeName = "{period_name}"'):
@@ -2024,7 +2131,8 @@ def populate_ages():
                                 period_id = out[0]
                                 age_item = (period_id, epoch_row, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
                                             f'{epoch.get("youngest")}')
-                                add_age(age_item)
+                                if not add_age(age_item):
+                                    return False
                                 for age in epoch.findall('Age'):
                                     epoch_name = epoch.get("name")
                                     # Many epochs have the same name, need to get most recent one
@@ -2036,7 +2144,8 @@ def populate_ages():
                                         epoch_id = out[0]
                                         age_item = (epoch_id, age_row, f'{age.get("name")}', f'{age.get("oldest")}',
                                                     f'{age.get("youngest")}')
-                                        add_age(age_item)
+                                        if not add_age(age_item):
+                                            return False
                                     age_row += 1
                                 epoch_row += 1
                                 age_row = 0
@@ -2047,12 +2156,15 @@ def populate_ages():
         eon_row += 1
         era_row = 0
 
+    return True
 
-def add_age(age: tuple):
+
+def add_age(age: tuple) -> bool:
     """
     Called by populate_ages
     Adds each age item to the table with its parent ID
     :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma)
+    :return: True if successful, False if error
     """
     query = QtS.QSqlQuery()
     if age[0]:
@@ -2060,9 +2172,20 @@ def add_age(age: tuple):
         sql = f'''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge)
                         VALUES({age[0]}, {age[1]}, "{age[2]}", {age[3]}, {age[4]})'''
         if not query.exec(sql):
-            print(f'failed to add {age[2]}')
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating Ages')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                return False
     else:
         sql = f'''INSERT INTO Ages(AgeParentRow, AgeName, OldestAge, YoungestAge)
                         VALUES({age[1]}, "{age[2]}", {age[3]}, {age[4]})'''
         if not query.exec(sql):
-            print(f'failed to add {age[2]}')
+            if 'UNIQUE constraint failed' not in query.lastError().text():
+                logger_setup.get_logger().critical('Error populating Ages')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                return False
+    return True

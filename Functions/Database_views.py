@@ -991,6 +991,7 @@ def drop_view(view: str):
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
     logger_setup.get_logger().info(f'Successfully dropped view: {view}')
+    return True
 
 
 def drop_all_views():
@@ -1007,9 +1008,12 @@ def drop_all_views():
     while query.next():
         views.append(query.value(0))
     for view in views:
-        drop_view(view)
+        if not drop_view(view):
+            logger_setup.get_logger().critical(f'Error dropping view: {view}')
+            return False
     end_time = time.time()
     logger_setup.get_logger().info(f'All views dropped in {end_time - start_time} seconds')
+    return True
 
 
 

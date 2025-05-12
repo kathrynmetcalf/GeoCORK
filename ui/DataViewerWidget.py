@@ -579,7 +579,9 @@ class DataViewerWidget(QWidget):
             dlg = EditTable(self, table)
         dlg.exec()
         if dlg.updated:
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical(f'Error updating and displaying the database')
+                self.close()
 
             self.display_data_table()
 
@@ -598,7 +600,9 @@ class DataViewerWidget(QWidget):
             selected_samples.append(id_index.data(QtC.Qt.ItemDataRole.DisplayRole))
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
-        update_database()
+        if not update_database():
+            logger_setup.get_logger().critical(f'Error updating and displaying the database')
+            self.close()
 
     def open_doi_link(self, item: QTableWidgetItem):
         if self.dbTable_tableView_2.model().headerData(item.column(), Qt.Orientation.Horizontal,

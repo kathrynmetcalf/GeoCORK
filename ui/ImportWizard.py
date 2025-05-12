@@ -869,7 +869,9 @@ class ImportWizardDialog(QWidget):
             dlg = EditTable(self, table)
         dlg.exec()
         if dlg.updated:
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical('Error updating and displaying database')
+                self.close()
             self.populate_comboBoxes()
 
     def add_combo_box(self, pos, action: QAction | None = None):
@@ -908,7 +910,9 @@ class ImportWizardDialog(QWidget):
             dlg = AddTags(self, table)
         dlg.exec()
         if dlg.updated:
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical('Error updating and displaying database')
+                self.close()
             self.populate_comboBoxes()
 
     def show_left_header_context_menu(self, pos):
@@ -2470,7 +2474,9 @@ class ImportWizardDialog(QWidget):
         QSqlDatabase().commit()
         release_savepoint('before_upb_import')
         QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
-        update_database()
+        if not update_database():
+            logger_setup.get_logger().critical('Error updating and displaying database')
+            self.close()
         self.data_imported.emit(self.sample_ids)
         self.close()
 

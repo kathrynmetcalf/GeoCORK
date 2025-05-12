@@ -100,14 +100,13 @@ class EditTable(QtW.QDialog):
         Creates the model from the given table and paginates the table.
         :return:
         """
+        self.name_column = get_name_column(self.table)
+        self.name_header = self.table_headers[self.name_column]
         self.model.setQuery(
-            f'SELECT * FROM "{self.table}" LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
+            f'SELECT * FROM "{self.table}" ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
         self.table_headers = get_headers(self.table)
         self.table_proxy_model.setSourceModel(self.model)
         self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
-
-        self.name_column = get_name_column(self.table)
-        self.name_header = self.table_headers[self.name_column]
 
         self.display_table()
 
@@ -294,7 +293,10 @@ class EditTable(QtW.QDialog):
             release_savepoint('before_edit')
             # Check if there is another existing savepoint. If not, go ahead and update the database
             if not SavepointManager.get_instance().active_savepoints():
-                update_database()
+                if not update_database():
+                    logger_setup.get_logger().critical(f'Error updating and displaying database')
+                    self.close_by_dialog = True
+                    self.close()
             self.accept()
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True

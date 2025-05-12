@@ -109,7 +109,9 @@ class GeoCORK(QtW.QMainWindow):
         self.savepoint_manager = Savepoint_manager.SavepointManager().get_instance()
         self.msg = QtW.QMessageBox(self)
 
-        # update_database()
+        # if not update_database():
+        #     logger_setup.get_logger().critical('Error updating and displaying database')
+        #     self.close()
 
         # self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
 
@@ -197,7 +199,9 @@ class GeoCORK(QtW.QMainWindow):
         dlg = SettingsDialog()
         dlg.exec()
         if dlg.updated:
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical('Error updating and displaying database')
+                self.close()
             self.update_window_title()
             # If the active tab is a data table, refresh it
             if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':

@@ -191,7 +191,10 @@ class AddTags(QtW.QDialog):
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
             logger_setup.get_logger().info('No active save points - updating the database')
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical(f'Error updating and displaying the database')
+                self.close_by_dialog = True
+                self.close()
         self.accept()
         self.close_by_dialog = True
         self.close()

@@ -232,6 +232,7 @@ class DisplayTables(QtW.QWidget):
                 table = 'SampleView'
                 self.edit_samples_pushButton.show()
                 # table_view = self.dbFrozen_tableView
+                name_header = 'SampleName'
             else:
                 logger_setup.get_logger().info(f'Switching to table view for {self.table}')
                 self.switch_to_table()
@@ -239,15 +240,17 @@ class DisplayTables(QtW.QWidget):
                 if self.table == 'Columns':
                     self.show_cols = ', '.join(settings.value('column_view_columns'))
                     table = 'ColumnView'
+                    name_header = 'ColumnName'
                 elif self.table == 'References':
                     self.show_cols = ', '.join(settings.value('reference_view_columns'))
                     table = 'ReferenceView'
+                    name_header = 'ReferenceDisplay'
                 else:
                     self.show_cols = '*'
                     table = self.table
-
+                    name_header = get_headers(table)[get_name_column(table)]
             self.model = SQLiteTableModel(
-                f'SELECT {self.show_cols} FROM {table} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
+                f'''SELECT {self.show_cols} FROM {table} ORDER BY {name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}''')
             self.table_proxy_model.setSourceModel(self.model)
             self.dbTable_tableView: QTableView
             self.dbTable_tableView.setWordWrap(True)
@@ -341,6 +344,10 @@ class DisplayTables(QtW.QWidget):
         self.loading_manager.show_loading_dialog('Loading', f'Opening Sample Information window...')
         dlg = SampleInformation(self, selected_samples)
         dlg.exec()
+        if dlg.updated:
+            if not update_database():
+                logger_setup.get_logger().critical(f'Error updating and displaying database')
+                self.parent().close()
         self.display_table()
 
     def edit_popup(self):
@@ -354,7 +361,9 @@ class DisplayTables(QtW.QWidget):
             dlg = EditTable(self, self.table)
         dlg.exec()
         if dlg.updated:
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical(f'Error updating and displaying database')
+                self.parent().close()
         self.display_table()
 
     def add_popup(self, action: QtG.QAction | None = None):
@@ -371,7 +380,9 @@ class DisplayTables(QtW.QWidget):
             return
         dlg.exec()
         if dlg.updated:
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical(f'Error updating and displaying database')
+                self.parent().close()
         self.display_table()
 
     def open_doi_link(self, item: QTableWidgetItem):

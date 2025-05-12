@@ -203,6 +203,9 @@ class EditView(QtW.QDialog):
         logger_setup.get_logger().info(f'EditView created for {self.table} in {time.time() - edit_view_start_time:.2f} seconds')
 
     def create_model(self):
+        name_column = get_name_column(self.view)
+        if name_column is not None:
+            self.name_header = get_headers(self.view)[name_column]
         self.model = SQLiteTableModel(f'''
             SELECT {', '.join(self.show_cols)} FROM {self.view} {self.where} LIMIT {self.rows_per_page} 
             OFFSET {self.current_page * self.rows_per_page}

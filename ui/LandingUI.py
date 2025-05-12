@@ -97,7 +97,9 @@ class LandingPage(QWidget):
     def open_about_db(self):
         # This is a new database, so prompt the user to fill in the About Database form
         if not self.test_database_lock():
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().critical('Error updating and displaying database')
+                return
             from ui.Settings import SettingsDialog
             settings_dialog = SettingsDialog()
             settings_dialog.settings_tabWidget.setCurrentIndex(2)
@@ -133,7 +135,9 @@ class LandingPage(QWidget):
                     return
                 Savepoint_manager.SavepointManager()
             if not skip_update:
-                update_database()
+                if not update_database():
+                    logger_setup.get_logger().critical('Error updating and displaying database')
+                    return
             self.hide()
             geo_cork = GeoCORK(self)
             geo_cork.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)

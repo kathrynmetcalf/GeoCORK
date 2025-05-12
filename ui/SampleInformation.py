@@ -836,8 +836,8 @@ class SampleInformation(QtW.QDialog):
 
     def commit(self):
         release_savepoint('before_edit_samples')
-        # Edit occurred in the dialog, so update the database
-        update_database()
+        # Edit occurred in the dialog
+        self.updated = True
         # save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
         self.close_by_dialog = True
         self.close()

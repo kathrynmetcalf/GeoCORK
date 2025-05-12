@@ -515,7 +515,9 @@ class ExportWidget(QWidget):
                                          QMessageBox.StandardButton.Yes)
                     settings.setValue('concordance_format_id', 3)
                     settings.setValue('concordance_format_abbreviation', 'Dis')
-                    update_database()
+                    if not update_database():
+                        logger_setup.get_logger().critical(f'Error updating and displaying database')
+                        self.parent().close()
 
                 # add detritalpy requires in 1 sigma or 2 sigma not sure on abs or %
 

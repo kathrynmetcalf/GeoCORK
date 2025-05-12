@@ -277,7 +277,9 @@ class ViewDataTab(QtW.QWidget):
         else:
             return
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
-            update_database()
+            if not update_database():
+                logger_setup.get_logger().error('Error updating and displaying database')
+                self.parent().close()
             self.display_table()
 
     def search(self):

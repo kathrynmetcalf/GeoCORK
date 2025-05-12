@@ -101,16 +101,24 @@ def update_database() -> bool:
 
     from Functions import Create_database as Create_db, Create_indexes
     from Functions import Alter_database as Alter_db
-    Create_db.create_tables()
-    Create_indexes.create_indexes()
+    if not Create_db.create_tables():
+        logger_setup.get_logger().critical(f"Error creating database tables")
+        return False
+    if not Create_indexes.create_indexes():
+        logger_setup.get_logger().critical(f"Error creating database indexes")
+        return False
     # Need to drop views before dropping and regenerating generated columns
-    DB_views.drop_all_views()
+    if not DB_views.drop_all_views():
+        logger_setup.get_logger().critical(f"Error dropping database views")
+        return False
     # Drop and regenerate the generated columns
-    Alter_db.settings_reset()
+    if not Alter_db.settings_reset():
+        logger_setup.get_logger().critical(f"Error resetting settings")
+        return False
     # Recreate the views
     if not DB_views.create_all_views():
         logger_setup.get_logger().critical(f"Error updating database views")
-
+        return False
     end_time = time.time()
     loading_manager.close_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")
