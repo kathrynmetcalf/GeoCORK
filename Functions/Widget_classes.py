@@ -48,6 +48,7 @@ class FontDelegate(QtW.QStyledItemDelegate):
     Custom delegate to display text with a custom font.
     """
     def initStyleOption(self, option, index):
+        """Initializes the options of the delegate"""
         super().initStyleOption(option, index)
         font = index.data(QtC.Qt.ItemDataRole.FontRole)
         if font:
@@ -58,6 +59,7 @@ class WordWrapDelegate(QtW.QStyledItemDelegate):
     Custom delegate to enable word wrap in QTableView.
     """
     def initStyleOption(self, option, index):
+        """Initializes the options of the delegate"""
         super().initStyleOption(option, index)
         option.textElideMode = Qt.TextElideMode.ElideNone  # Do not cut text
         option.wrapMode = QTextOption.WrapMode.WordWrap  # Allow word wrap
@@ -182,9 +184,19 @@ class SQLiteTableModel(QAbstractTableModel):
         self.endResetModel()
 
     def rowCount(self, parent=None):
+        """
+        Returns the row count of the model.
+        :param parent:
+        :return:
+        """
         return len(self._data)
 
     def columnCount(self, parent=None):
+        """
+        Returns the row count of the model.
+        :param parent:
+        :return:
+        """
         return len(self._headers)
 
     def tableName(self):
@@ -202,6 +214,12 @@ class SQLiteTableModel(QAbstractTableModel):
         return self.view
 
     def record(self, row: int):
+        """
+        Returns a MockRecord containing the same attributes as a QSqlRecord. Used so SQLiteTableModels can be used
+         interchangeably with QSqlTableModel.
+        :param row:
+        :return:
+        """
         class MockRecord:
             """
             Class to mimic QSqlRecord for the SQLiteTableModel.
@@ -211,9 +229,11 @@ class SQLiteTableModel(QAbstractTableModel):
                 self.row = row
 
             def value(self, index):
+                """Mimics QSqlRecord.value()"""
                 return self.row[index]
 
             def count(self):
+                """Mimics QSqlRecord.count()"""
                 return len(self.row)
 
         if 0 <= row < len(self._data):
@@ -691,10 +711,16 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
         return flags
 
     def setQuery(self, query):
+        """
+        Sets the query in the super class method as well as stores the query in class variable.
+        :param query:
+        :return:
+        """
         super().setQuery(query)
         self.query = query
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...):
+
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.EditRole:
@@ -770,6 +796,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
         super().headerData(section, orientation, role)
 
     def _check_doi_column(self):
+        """Checks if a doi column exists in the table and sets the boolean to True."""
         model = self.sourceModel()
         if not model:
             return
@@ -783,6 +810,14 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                 break
 
     def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        """
+        Method to modify data in the table. Currently modifies a doi column's display roles to show invalid/valid dois
+        and adds colors, tooltips, and hyperlinking. Currently implemented roles are ForegroundRole, FontRole,
+        and ToolTipRole.
+        :param index: QModelIndex of the record
+        :param role: ItemDataRole to pass in
+        :return: The modified data and role for the record
+        """
         if not index.isValid():
             return super().data(index, role)
 
@@ -804,7 +839,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                         font.setUnderline(True)
                         return font
                     elif role == Qt.ItemDataRole.ToolTipRole:
-                        return "Valid DOI format, double click to open in broswer"
+                        return "Valid DOI format, double click to open in browser"
                 else:
                     if role == Qt.ItemDataRole.ForegroundRole:
                         return QBrush(QColor("red"))
@@ -818,7 +853,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
         # Default return for all other roles
         return super().data(index, role)
 
-    def setData(self, index: QtC.QModelIndex, value, role: int) -> bool:
+    def setData(self, index: QtC.QModelIndex, value: typing.Any, role: int = Qt.ItemDataRole.EditRole) -> bool:
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
             source_index = self.mapToSource(index)
             return self.sourceModel().setData(source_index, value, role)
@@ -1446,10 +1481,11 @@ def column_as_list(query: str, col: int | str) -> list | None:
 
 def get_name_from_id(table: str, item_id: int):
     """
-    Given an item ID, returns the item name.
-    :param table:
-    :param item_id:
-    :return:
+    Returns the name for a given ID record in a table. Queries the database and returns the associated value with the name column.
+     Gathers the id column from the table headers and assumes the id column is the first column.
+    :param table: name of the table to query (e.g. RockTypes)
+    :param item_id: id of the RockTypeID
+    :return: name (e.g. RockTypeName)
     """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
@@ -1464,6 +1500,13 @@ def get_name_from_id(table: str, item_id: int):
     return query.value(0)
 
 def get_id_from_name(table: str, name: str) -> int:
+    """
+    Returns the primary id for a given name record in a table. Queries the database and returns the first column which
+    should always be the id column. Gathers the name column from the table headers.
+    :param table: name of the table to query (e.g. RockTypes)
+    :param name: name of the RockTypeName (e.g. Basalt, Granite, etc.)
+    :return: id (e.g. RockTypeID)
+    """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
     sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'
@@ -1483,7 +1526,10 @@ def get_id_from_name(table: str, name: str) -> int:
 
 def get_total_records(table: str, where:str='') -> int:
     """
-    Get the total number of records in the table
+    Get the total number of records in a table. Optional where clause can be included.
+    :param table: name of the table to query
+    :param where: optional where clause to append to the count query
+    :return: integer of the total number of records
     """
     query = QSqlQuery()
     sql_query = f'SELECT COUNT() FROM "{table}" {where}'
@@ -1510,7 +1556,10 @@ def get_total_records(table: str, where:str='') -> int:
 
 def get_record_index(table: str, record_id: int):
     """
-    Get the index of a specific record ID
+    Gets the index of the record for a given record_id.
+    :param table: name of the table to query
+    :param record_id: id of the record to find (e.g. RockTypeID=4)
+    :return: row number/index of the record
     """
     query = QSqlQuery()
     if 'View' in table:
@@ -4717,6 +4766,12 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
     logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
 
 def get_readable_header(header: str):
+    """
+    For a given header/col name it will convert to a user readable header value. This method MUST work for all columns
+    and all tables.
+    :param header: header to convert
+    :return: converted header
+    """
     header = TxM.remove_spaces(header)
     if 'ID' in header or 'Abbreviation' in header:
         if 'Elev' in header:

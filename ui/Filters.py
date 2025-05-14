@@ -282,7 +282,7 @@ def _collapse_same_field_basic(conds: List[str], expected_count: int) -> str:
     *always* ``Samples`` so we can inline it directly here for simplicity.
     """
     values_block = " OR ".join(conds)  # conds already like "col = 4"
-    return f"(({values_block}) GROUP BY Samples.SampleID HAVING COUNT(DISTINCT RockTypes.RockTypeID) >= {expected_count})"
+    return f"(({values_block}) GROUP BY Samples.SampleID HAVING COUNT(DISTINCT {get_headers(conds[0].split('.')[0])[0]}) >= {expected_count})"
 
 
 
