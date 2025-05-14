@@ -1,3 +1,6 @@
+![GeoCORK Logo](geocork.svg)
+---
+<h2 align="center"> An improved workflow for geochronology data management</h2>
 
 ## Description
 GeoCORK is a desktop application for managing U-Pb geochronology data which are stored in a local relational database. Data can be imported from .xlsx files in various formats and exported for use in analysis tools and data sharing. For more information on using GeoCORK, refer to Metcalf and Burges, 2025. For more information on GeoCORK development, refer to Burges and Metcalf, 2025.
