@@ -1021,9 +1021,12 @@ def drop_all_views():
 
 def create_SampleViewQuery(show_columns: list = settings.value('sample_view_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'SampleID', order_by: str = 'SampleName'):
+                           group_col: str = 'SampleID', order_col: str = 'SampleName'):
+    table = 'Samples'
 
-    limited_hierarchy = limited_hierarchy_query('Samples', where, order_by, limit)
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, limit)
 
     # Select columns
     query_column_list = [SQLUtils.qsample_id,
@@ -1115,8 +1118,10 @@ def create_SampleViewQuery(show_columns: list = settings.value('sample_view_colu
                    {SQLUtils.upb_age_unit_join}
                    {SQLUtils.upb_concordance_format_join}
                    {SQLUtils.upb_spot_size_unit_join}
-                   GROUP BY ls.{group_by}
-                   ORDER BY ls.{order_by}
+                   {where}
+                   {group_by}
+                   {order_by}
+                   {limit}
                    '''
 
     for key, value in SQLUtils.limited_table_abbreviations.items():
@@ -1129,9 +1134,13 @@ def create_SampleViewQuery(show_columns: list = settings.value('sample_view_colu
 
 def create_SampleEditViewQuery(show_columns: list = settings.value('sample_edit_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'SampleID', order_by: str = 'SampleName'):
+                           group_col: str = 'SampleID', order_col: str = 'SampleName'):
 
-    limited_hierarchy = limited_hierarchy_query('Samples', where, order_by, limit)
+    table = 'Samples'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, limit)
 
     query_column_list = [SQLUtils.qsample_id,
                     SQLUtils.qigsn,
@@ -1217,17 +1226,28 @@ def create_SampleEditViewQuery(show_columns: list = settings.value('sample_edit_
                 {SQLUtils.upb_age_unit_join}
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
-                GROUP BY ls.{group_by}
-                ORDER BY ls.{order_by}
+                {where}
+                {group_by}
+                {order_by}
+                {limit}
                 '''
+
+    for key, value in SQLUtils.limited_table_abbreviations.items():
+        sample_query = sample_query.replace(f' {key}.', f' {value}.')
+        sample_query = sample_query.replace(f'({key}.', f'({value}.')
+    sample_query = sample_query.strip()
 
     # print(sample_query)
     return sample_query
 
 def create_AliquotViewQuery(show_columns: list = settings.value('aliquot_view_columns'),
-                           where: str = '', group_by: str = 'AliquotID', order_by: str = 'AliquotName'):
+                           where: str = '', group_col: str = 'AliquotID', order_col: str = 'AliquotName'):
 
-    limited_hierarchy = limited_hierarchy_query('Aliquots', where, order_by, '')
+    table = 'Aliquots'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, '')
     query_column_list = [SQLUtils.qaliquot_id,
                     SQLUtils.qaliquot_parent_id,
                     SQLUtils.qaliquot_parent_row,
@@ -1251,7 +1271,7 @@ def create_AliquotViewQuery(show_columns: list = settings.value('aliquot_view_co
                     SQLUtils.qupb_references,
                     SQLUtils.qaliquot_created,
                     SQLUtils.qaliquot_modified]
-    query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in show_columns]
+    query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in show_columns]
     query_columns = ',\n'.join(query_column_list)
 
     count_aliquot_subquery = SQLUtils.qupb_count_aliquot_subquery
@@ -1281,16 +1301,26 @@ def create_AliquotViewQuery(show_columns: list = settings.value('aliquot_view_co
                 {SQLUtils.upb_age_unit_join}
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
-                GROUP BY la.{group_by}
-                ORDER BY la.{order_by}
+                {where}
+                {group_by}
+                {order_by}
                 '''
+
+    for key, value in SQLUtils.limited_table_abbreviations.items():
+        aliquot_query = aliquot_query.replace(f' {key}.', f' {value}.')
+        aliquot_query = aliquot_query.replace(f'({key}.', f'({value}.')
+    aliquot_query = aliquot_query.strip()
 
     return aliquot_query
 
 def create_AliquotEditViewQuery(show_columns: list = settings.value('aliquot_edit_columns'),
-                           where: str = '', group_by: str = 'AliquotID', order_by: str = 'AliquotName'):
+                           where: str = '', group_col: str = 'AliquotID', order_col: str = 'AliquotName'):
 
-    limited_hierarchy = limited_hierarchy_query('Aliquots', where, order_by, '')
+    table = 'Aliquots'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, '')
     query_column_list = [SQLUtils.qaliquot_id,
                     SQLUtils.qaliquot_parent_id,
                     SQLUtils.qaliquot_parent_row,
@@ -1300,7 +1330,7 @@ def create_AliquotEditViewQuery(show_columns: list = settings.value('aliquot_edi
                     SQLUtils.qaliquot_created,
                     SQLUtils.qaliquot_modified]
 
-    query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in show_columns]
+    query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in show_columns]
     query_columns = ',\n'.join(query_column_list)
 
     aliquot_query = f'''
@@ -1311,17 +1341,27 @@ def create_AliquotEditViewQuery(show_columns: list = settings.value('aliquot_edi
                 FROM LimitedAliquots la
                 {SQLUtils.limited_aliquot_hierarchy_join}
                 {SQLUtils.limited_aliquot_tags_join}
-                GROUP BY la.{group_by}
-                ORDER BY la.{order_by}
+                {where}
+                {group_by}
+                {order_by}
                 '''
+
+    for key, value in SQLUtils.limited_table_abbreviations.items():
+        aliquot_query = aliquot_query.replace(f' {key}.', f' {value}.')
+        aliquot_query = aliquot_query.replace(f'({key}.', f'({value}.')
+    aliquot_query = aliquot_query.strip()
 
     return aliquot_query
 
 def create_SpotViewQuery(show_columns: list = settings.value('spot_view_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'SpotID', order_by: str = 'SpotName'):
+                           group_col: str = 'SpotID', order_col: str = 'SpotName'):
 
-    limited_hierarchy = limited_hierarchy_query('Spots', where, order_by, limit)
+    table = 'Spots'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, limit)
 
     query_column_list = [SQLUtils.qspot_id,
                     SQLUtils.qaliquot_id,
@@ -1334,7 +1374,7 @@ def create_SpotViewQuery(show_columns: list = settings.value('spot_view_columns'
                     SQLUtils.qspot_created,
                     SQLUtils.qspot_modified]
 
-    query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in show_columns]
+    query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in show_columns]
     query_columns = ',\n'.join(query_column_list)
 
     spot_query = f'''
@@ -1356,18 +1396,29 @@ def create_SpotViewQuery(show_columns: list = settings.value('spot_view_columns'
                 {SQLUtils.upb_age_unit_join}
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
-                GROUP BY lsp.{group_by}
-                ORDER BY lsp.{order_by}
+                {where}
+                {group_by}
+                {order_by}
+                {limit}
                 '''
+
+    for key, value in SQLUtils.limited_table_abbreviations.items():
+        spot_query = spot_query.replace(f' {key}.', f' {value}.')
+        spot_query = spot_query.replace(f'({key}.', f'({value}.')
+    spot_query = spot_query.strip()
 
     return spot_query
 
 
 def create_SpotEditViewQuery(show_columns: list = settings.value('spot_edit_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'SpotID', order_by: str = 'SpotName'):
+                           group_col: str = 'SpotID', order_col: str = 'SpotName'):
 
-    limited_hierarchy = limited_hierarchy_query('Spots', where, order_by, limit)
+    table = 'Spots'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, limit)
 
     query_column_list = [SQLUtils.qspot_id,
                     SQLUtils.qaliquot_id,
@@ -1379,7 +1430,7 @@ def create_SpotEditViewQuery(show_columns: list = settings.value('spot_edit_colu
                     SQLUtils.qspot_contexts,
                     SQLUtils.qspot_created,
                     SQLUtils.qspot_modified]
-    query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in show_columns]
+    query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in show_columns]
     query_columns = ',\n'.join(query_column_list)
 
     spot_query = f'''
@@ -1391,19 +1442,30 @@ def create_SpotEditViewQuery(show_columns: list = settings.value('spot_edit_colu
                 {SQLUtils.limited_spot_hierarchy_join}
                 {SQLUtils.limited_spot_tags_join}
                 {SQLUtils.spot_composition_join}
-                GROUP BY lsp.{group_by}
-                ORDER BY lsp.{order_by}
+                {where}
+                {group_by}
+                {order_by}
+                {limit}
                 '''
+
+    for key, value in SQLUtils.limited_table_abbreviations.items():
+        spot_query = spot_query.replace(f' {key}.', f' {value}.')
+        spot_query = spot_query.replace(f'({key}.', f'({value}.')
+    spot_query = spot_query.strip()
 
     return spot_query
 
 
 def create_UPbViewQuery(show_columns: list = settings.value('upb_analysis_view_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'UPbAnalysisID', order_by: str = 'SpotName'):
+                           group_col: str = 'UPbAnalysisID', order_col: str = 'SpotName'):
 
-    headers = get_headers('UPbAnalyses')
-    limited_hierarchy = limited_hierarchy_query('UPbAnalyses', where, order_by, limit)
+    table = 'UPbAnalyses'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    headers = get_headers(table)
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, limit)
 
     columns = []
     for header in headers:
@@ -1441,14 +1503,14 @@ def create_UPbViewQuery(show_columns: list = settings.value('upb_analysis_view_c
                     SQLUtils.qupb_modified]
 
     query_column_list = query_columns1 + upb_query_columns + query_columns2
-    query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in show_columns]
+    query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in show_columns]
     query_columns = ',\n'.join(query_column_list)
 
     upb_query = f'''
                 {limited_hierarchy},
                 {SQLUtils.limited_upb_tags}
                 SELECT 
-                    {query_columns},
+                    {query_columns}
                 FROM LimitedUPbAnalyses lu
                 {SQLUtils.limited_upb_hierarchy_join}
                 {SQLUtils.limited_upb_tags_join}
@@ -1461,17 +1523,29 @@ def create_UPbViewQuery(show_columns: list = settings.value('upb_analysis_view_c
                 {SQLUtils.upb_age_unit_join}
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
-                GROUP BY lu.{group_by}
-                ORDER BY lsp.{order_by}
+                {where}
+                {group_by}
+                {order_by}
+                {limit}
                 '''
+
+    for key, value in SQLUtils.limited_table_abbreviations.items():
+        upb_query = upb_query.replace(f' {key}.', f' {value}.')
+        upb_query = upb_query.replace(f'({key}.', f'({value}.')
+    upb_query = upb_query.strip()
+
     return upb_query
 
 def create_UPbEditViewQuery(show_columns: list = settings.value('upb_analysis_edit_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'UPbAnalysisID', order_by: str = 'SpotName'):
+                           group_col: str = 'UPbAnalysisID', order_col: str = 'SpotName'):
 
-    headers = get_headers('UPbAnalyses')
-    limited_hierarchy = limited_hierarchy_query('UPbAnalyses', where, order_by, limit)
+    table = 'UPbAnalyses'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
+    headers = get_headers(table)
+    limited_hierarchy, where, limit = limited_hierarchy_query(table, where, order_col, limit)
 
     columns = []
     for header in headers:
@@ -1517,7 +1591,7 @@ def create_UPbEditViewQuery(show_columns: list = settings.value('upb_analysis_ed
                 {limited_hierarchy},
                 {SQLUtils.limited_upb_tags}
                 SELECT 
-                    {query_columns},
+                    {query_columns}
                 FROM LimitedUPbAnalyses lu
                 {SQLUtils.limited_upb_hierarchy_join}
                 {SQLUtils.limited_upb_tags_join}
@@ -1530,18 +1604,26 @@ def create_UPbEditViewQuery(show_columns: list = settings.value('upb_analysis_ed
                 {SQLUtils.upb_age_unit_join}
                 {SQLUtils.upb_concordance_format_join}
                 {SQLUtils.upb_spot_size_unit_join}
-                GROUP BY lu.{group_by}
-                ORDER BY lsp.{order_by}
+                {where}
+                {group_by}
+                {order_by}
+                {limit}
                 '''
     for key, value in SQLUtils.limited_table_abbreviations.items():
         upb_query = upb_query.replace(f' {key}.', f' {value}.')
+        upb_query = upb_query.replace(f'({key}.', f'({value}.')
     upb_query = upb_query.strip()
 
     return upb_query
 
 def create_ColumnViewQuery(show_columns: list = settings.value('column_view_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'Columns.ColumnID', order_by: str = 'Columns.ColumnName'):
+                           group_col: str = 'Columns.ColumnID', order_col: str = 'Columns.ColumnName'):
+
+    table = 'Columns'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
     # Select columns
     query_column_list = [SQLUtils.qcolumn_id,
                     SQLUtils.qcolumn_name,
@@ -1560,8 +1642,8 @@ def create_ColumnViewQuery(show_columns: list = settings.value('column_view_colu
                 FROM Columns
                 {SQLUtils.gps_column_join}
                 {where}
-                GROUP BY {group_by}
-                ORDER BY {order_by}
+                {group_by}
+                {order_by}
                 {limit}
                 '''
     return column_query
@@ -1569,7 +1651,12 @@ def create_ColumnViewQuery(show_columns: list = settings.value('column_view_colu
 
 def create_ColumnEditViewQuery(show_columns: list = settings.value('column_edit_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                           group_by: str = 'Columns.ColumnID', order_by: str = 'Columns.ColumnName'):
+                           group_col: str = 'Columns.ColumnID', order_col: str = 'Columns.ColumnName'):
+
+    table = 'Columns'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
     # Select columns
     query_column_list = [SQLUtils.qcolumn_id,
                     SQLUtils.qcolumn_name,
@@ -1593,8 +1680,8 @@ def create_ColumnEditViewQuery(show_columns: list = settings.value('column_edit_
                     {SQLUtils.gps_column_join}
                     {SQLUtils.gps_column_left_joins}
                     {where}
-                    GROUP BY {group_by}
-                    ORDER BY {order_by}
+                    {group_by}
+                    {order_by}
                     {limit}
                     '''
     # print(column_query)
@@ -1603,8 +1690,13 @@ def create_ColumnEditViewQuery(show_columns: list = settings.value('column_edit_
 
 def create_ReferenceViewQuery(show_columns: list = settings.value('reference_view_columns'),
                            limit: str = f'LIMIT {settings.value("show_per_page")}', where: str = '',
-                              group_by: str = '"References".ReferenceID',
-                              order_by: str = '"References".ReferenceDisplay'):
+                              group_col: str = '"References".ReferenceID',
+                              order_col: str = '"References".ReferenceDisplay'):
+
+    table = '"References"'
+
+    group_by, order_by = get_group_oder_clauses(table, group_col, order_col)
+
     # Select columns
     query_column_list = [SQLUtils.qreference_id,
                     SQLUtils.qreference_display,
@@ -1624,28 +1716,96 @@ def create_ReferenceViewQuery(show_columns: list = settings.value('reference_vie
                     {query_columns}
                 FROM "References"
                 {where}
-                GROUP BY {group_by}
-                ORDER BY {order_by}
+                {group_by}
+                {order_by}
                 {limit}
                 '''
     # print(reference_query)
     return reference_query
 
-def limited_hierarchy_query(table: str, where: str, order_by: str, limit: str):
+def limited_hierarchy_query(table: str, where: str, order_col: str, limit: str) -> tuple:
+    '''
+    Construct the query to limit the Samples, Aliquots, Spots, and UPbAnalyses joined in the main query. Begin with the
+    table that the where clause applies to. Any ordering or limit that does not also apply to this table get returned
+    for application in the main query.
+    :param table: Table that at least the limit applies to
+    :param where: Where clause to limit Samples, Aliquots, Spots, or UPbAnalyses
+    :param order_col: Column to order by, necessary when a limit is being applied to the same table
+    :param limit: Limit clause with or without offset specified
+    :return: tuple of the limited hierarchy query clause, the where clause to use in the main query, and the limit
+            clause to use in the main query.
+    '''
     headers = get_headers(table)
-    # Check if any table headers are in the where clause
-    if any(header in where for header in headers):
-        hierarchy_where = where
-    else:
-        hierarchy_where = ''
-    if any(header in order_by for header in headers):
-        hierarchy_order_by = f'ORDER BY {order_by}'
-    else:
-        hierarchy_order_by = ''
-    if table == 'Samples':
+    table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
+    table_abbreviation_dict.pop(table)
+
+    where_table = table
+    hierarchy_where = ''
+    hierarchy_order_by = ''
+    hierarchy_limit = ''
+    query_where = where
+    query_limit = limit
+
+
+    if where != '':
+        # Check if any table headers are in the where clause
+        if any(header in where for header in headers):
+            hierarchy_where = where
+            query_where = ''
+            if order_col != '' and limit != '':
+                if order_col in headers:
+                    # Everything applies to the same table, so put them all in the hierarchy query
+                    hierarchy_order_by = f'ORDER BY {order_col}'
+                    hierarchy_limit = limit
+                    query_limit = ''
+                else:
+                    # Ordering by a different table than the where clause, so apply the ordering and limit in the main query
+                    hierarchy_order_by = ''
+                    hierarchy_limit = ''
+                    query_limit = limit
+                    # order gets applied in the main query regardless
+            elif limit != '':
+                # Everything not blank applies to the same table, so put them all in the hierarchy query
+                hierarchy_order_by = ''
+                hierarchy_limit = limit
+                query_limit = ''
+        else:
+            for key in table_abbreviation_dict.keys():
+                if any(header in where for header in get_headers(key)):
+                    where_table = key
+                    hierarchy_where = where
+                    query_where = ''
+                    # Limit applies to a different table than the where clause, so wait to apply it in the main query
+                    hierarchy_limit = ''
+                    query_limit = limit
+                    if order_col != '':
+                        if order_col in get_headers(key):
+                            # Order applies to same table as where, so apply in the hierarchy query
+                            hierarchy_order_by = f'ORDER BY {order_col}'
+                    break
+        if hierarchy_where == '':
+            logger_setup.get_logger().info(f'Where clause {where} does not apply to Samples, Aliquots, Spots or UPbAnalyses.')
+            logger_setup.get_logger().info(f'Consider simplifying the query or using the filtering query building.')
+    elif order_col != '' and limit != '':
+        if order_col in headers:
+            # Everything applies to the same table, so put them all in the hierarchy query
+            hierarchy_order_by = f'ORDER BY {order_col}'
+            hierarchy_limit = limit
+            query_limit = ''
+        else:
+            # Ordering by a different table than the where clause, so apply the ordering and limit in the main query
+            hierarchy_order_by = ''
+            hierarchy_limit = ''
+            query_limit = limit
+            # order gets applied in the main query regardless
+    elif limit != '':
+        # Only limit, so apply in the hierarchy
+        hierarchy_limit = limit
+        query_limit = ''
+    if where_table == 'Samples':
         limited_hierarchy = f'''
             WITH RECURSIVE LimitedSamples AS (
-                SELECT * FROM Samples {hierarchy_where} {hierarchy_order_by} {limit}
+                SELECT * FROM Samples {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
             ),
             LimitedAliquots AS (
                 SELECT * FROM Aliquots WHERE SampleID IN (SELECT SampleID FROM LimitedSamples)
@@ -1657,10 +1817,10 @@ def limited_hierarchy_query(table: str, where: str, order_by: str, limit: str):
                 SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
             )
         '''
-    elif table == 'Aliquots':
+    elif where_table == 'Aliquots':
         limited_hierarchy = f'''
             WITH RECURSIVE LimitedAliquots AS (
-                SELECT * FROM Aliquots WHERE {hierarchy_where} {hierarchy_order_by} {limit}
+                SELECT * FROM Aliquots WHERE {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
             ),
             LimitedSpots AS (
                 SELECT * FROM Spots WHERE AliquotID IN (SELECT AliquotID FROM LimitedAliquots)
@@ -1672,10 +1832,10 @@ def limited_hierarchy_query(table: str, where: str, order_by: str, limit: str):
                 SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
             )
         '''
-    elif table == 'Spots':
+    elif where_table == 'Spots':
         limited_hierarchy = f'''
             WITH RECURSIVE LimitedSpots AS (
-                SELECT * FROM Spots WHERE {hierarchy_where} {hierarchy_order_by} {limit}
+                SELECT * FROM Spots WHERE {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
             ),
             LimitedUPbAnalyses AS (
                 SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
@@ -1686,10 +1846,10 @@ def limited_hierarchy_query(table: str, where: str, order_by: str, limit: str):
             LimitedSamples AS (
                 SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
         '''
-    elif table == 'UPbAnalyses':
+    elif where_table == 'UPbAnalyses':
         limited_hierarchy = f'''
             WITH RECURSIVE LimitedUPbAnalyses AS (
-                SELECT * FROM UPbAnalyses {hierarchy_where} {hierarchy_order_by} {limit}
+                SELECT * FROM UPbAnalyses {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
             ),
             LimitedSpots AS (
                 SELECT * FROM Spots WHERE SpotID IN (SELECT SpotID FROM LimitedUPbAnalyses)
@@ -1701,8 +1861,38 @@ def limited_hierarchy_query(table: str, where: str, order_by: str, limit: str):
                 SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
             )
         '''
-    return limited_hierarchy
+    else:
+        # No direct limits on the main hierarchy tables
+        limited_hierarchy = ''
+    return limited_hierarchy, query_where, query_limit
 
+def get_group_oder_clauses(table, group_col, order_col):
+
+    table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
+    table_abbreviation = table_abbreviation_dict[table]
+    table_abbreviation_dict.pop(table)
+
+    group_by = ''
+    if group_col != '':
+        if group_col in get_headers(table):
+            group_by = f'GROUP BY {table_abbreviation}.{group_col}'
+        else:
+            for key in table_abbreviation_dict.keys():
+                if group_col in get_headers(key):
+                    group_by = f'GROUP BY {table_abbreviation_dict[key]}.{group_col}'
+                    break
+
+    order_by = ''
+    if order_col != '':
+        if order_col in get_headers(table):
+            order_by = f'ORDER BY {table_abbreviation}.{order_col}'
+        else:
+            for key in table_abbreviation_dict.keys():
+                if order_col in get_headers(key):
+                    order_by = f'ORDER BY {table_abbreviation_dict[key]}.{order_col}'
+                    break
+
+    return group_by, order_by
 
 if __name__ == '__main__':
     print('CREATE VIEW IF NOT EXISTS SampleView AS'  + SampleViewQuery())

@@ -1353,7 +1353,7 @@ class AgeFields(QtW.QWidget):
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.model(), combo.view())
-            dlg_args = add_tree_popup(combo.view(), combo.model(), action)
+            dlg_args = add_tree_popup(combo.view(), action)
             dlg = AddTreeTags(self, table, **dlg_args)
         else:
             dlg = AddTags(self, table)

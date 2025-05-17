@@ -345,18 +345,18 @@ limited_sample_hierarchy_join = f'''
                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
                         '''
 limited_aliquot_hierarchy_join = f'''
-                        JOIN LimitedSamples ls ON a.SampleID = ls.SampleID
-                        JOIN LimitedSpots lsp ON a.AliquotID = lsp.AliquotID
+                        JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
+                        JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
                         '''
 limited_spot_hierarchy_join = f'''
-                        JOIN LimitedAliquots la ON s.AliquotID = la.AliquotID
+                        JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-                        JOIN LimitedUPbAnalyses lu ON s.SpotID = lu.SpotID
+                        JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
                         '''
 limited_upb_hierarchy_join = f'''
                         JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
-                        JOIN LimitedAliquots la ON ls.AliquotID = la.AliquotID
+                        JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
                     '''
 
@@ -1346,7 +1346,6 @@ upb_possible_database_input_fields = [
     'ReferenceID',
     'LabFacilityID',
     'InstrumentID',
-    'UPbAnalysisContextID',
     'UPbAnalysisMethodID'
 ]
 """List of valid columns to be entered through the importer.

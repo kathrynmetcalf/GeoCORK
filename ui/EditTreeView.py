@@ -985,7 +985,7 @@ class EditTreeView(QtW.QDialog):
     #     return ids
 
     def add_popup(self, action: QtG.QAction | None = None):
-        dlg_args = add_tree_popup(self.edit_treeView, self.tree_model, action)
+        dlg_args = add_tree_popup(self.edit_treeView, action)
         if dlg_args:
             dlg = AddTreeTags(self, self.table, **dlg_args)
         else:
@@ -1005,7 +1005,7 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Add called for {table}')
         dlg = None
         if table in SQLUtils.user_viewable_trees:
-            dlg_args = add_tree_popup(combo.view(), combo.model(), action)
+            dlg_args = add_tree_popup(combo.view(), action)
             if dlg_args:
                 dlg = AddTreeTags(self, table, **dlg_args)
             else:

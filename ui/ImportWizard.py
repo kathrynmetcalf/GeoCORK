@@ -898,8 +898,7 @@ class ImportWizardDialog(QWidget):
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.model(), combo.treeView)
             if action:
-                dlg_args = add_tree_popup(combo.treeView, combo.model(), action)
-            if dlg_args:
+                dlg_args = add_tree_popup(combo.treeView, action)
                 self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
                 dlg = AddTreeTags(self, table, **dlg_args)
         elif table == "References":
@@ -908,6 +907,8 @@ class ImportWizardDialog(QWidget):
         else:
             self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = AddTags(self, table)
+        if not dlg:
+            return
         dlg.exec()
         if dlg.updated:
             if not update_database():

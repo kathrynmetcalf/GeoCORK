@@ -386,7 +386,7 @@ class DisplayTables(QtW.QWidget):
         self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if self.table in self.dbtree_list:
             save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
-            dlg_args = add_tree_popup(self.dbTable_treeView, self.tree_model, action)
+            dlg_args = add_tree_popup(self.dbTable_treeView, action)
             if dlg_args:
                 dlg = AddTreeTags(self, self.table, **dlg_args)
         else:

@@ -3498,6 +3498,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.lineEdit().setPlaceholderText("Search")
         self.lineEdit().setCompleter(self.completer())
+        self.closedOnLineEditClick = False
         self.model_modifiable = False
         self.single_click = False
         self.not_null = False
@@ -3511,6 +3512,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.popup_shown = False
 
         self.view().viewport().installEventFilter(self)
+        self.lineEdit().installEventFilter(self)
 
     def update_line_edit(self):
         checked_ids = self.model().checked_ids
@@ -3642,7 +3644,11 @@ class CheckableComboBox(QtW.QComboBox):
 
     def eventFilter(self, obj, event):
         if obj == self.lineEdit():
-            if event.type() == QtC.QEvent.Type.MouseButtonRelease:
+            if event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.RightButton:
+                if self.context_menu:
+                    self.contextMenuEvent(event)
+                    return True
+            elif event.type() == QtC.QEvent.Type.MouseButtonRelease:
                 if self.closedOnLineEditClick:
                     self.hidePopup()
                 else:
@@ -4336,7 +4342,7 @@ def comboBox_display_table(comboBox):
     else:
         comboBox.tableView.setFixedHeight(total_height)
 
-def add_tree_popup(tree_view: QtW.QTreeView, tree_model: TreeModel, action: QtG.QAction | None = None):
+def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
     dlg_args = None
     indexes = tree_view.selectedIndexes()
     model = tree_view.model()
@@ -4356,8 +4362,8 @@ def add_tree_popup(tree_view: QtW.QTreeView, tree_model: TreeModel, action: QtG.
             dlg_args = {'parent_id' : parent_id}
         elif action.text() == 'Add parent':
             dlg_args = {'add_item': 'parent', 'update_ids': item_ids, 'new_child_ids': parent_ids, 'new_parent_rows': parent_rows}
-        elif action.text() == 'Add to end':
-            dlg_args = None
+        elif action.text() == 'Add to end' or action.text() == 'Add':
+            dlg_args = {'add_item': 'child'}
     return dlg_args
 
 def save_expanded_state(table: str, model, treeView: QtW.QTreeView):

@@ -250,7 +250,12 @@ class EditView(QtW.QDialog):
         # Populate the value input with a completer based on the selected attribute
 
         query = QSqlQuery()
-        sql_query = f'SELECT {self.name_header} FROM "{self.table}" {self.where}'
+        from Functions.Database_views import create_SampleEditViewQuery, create_SpotEditViewQuery, create_UPbEditViewQuery
+        show_cols = [self.name_header]
+        if self.table == 'UPbAnalyses':
+            sql_query = create_UPbEditViewQuery(show_cols, '', self.where, '', '')
+        else:
+            sql_query = f'SELECT {self.name_header} FROM "{self.table}" {self.where}'
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         query.setForwardOnly(True)
         if not query.exec(sql_query):
@@ -1680,7 +1685,7 @@ class EditView(QtW.QDialog):
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.model(), combo.view())
-            dlg_args = add_tree_popup(combo.view(), combo.model(), action)
+            dlg_args = add_tree_popup(combo.view(), action)
             if dlg_args:
                 dlg = AddTreeTags(self, table, **dlg_args)
             else:

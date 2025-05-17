@@ -332,7 +332,9 @@ class GeoCORK(QtW.QMainWindow):
             self.loading_manager.show_loading_dialog('Loading',
                                                      f'Loading {parent_type} {parent_name}: {child_label}...')
             tab = ViewDataTab(p_id, parent_type, child_type, label)
+            tab.setUpdatesEnabled(False)
             self.tabWidget.addTab(tab, label)
+            tab.setUpdatesEnabled(True)
         end_open_tab_time = time.time()
         logger_setup.get_logger().info(f'Time to open tab: {end_open_tab_time - start_open_tab_time}')
 

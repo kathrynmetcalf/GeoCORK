@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QHeaderView, QLabel, QPushButton
 
 import logger_setup
 from Functions.Database_manager import update_database
+from Functions.Database_views import create_AliquotViewQuery, create_SpotViewQuery, create_UPbViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
@@ -106,35 +107,39 @@ class ViewDataTab(QtW.QWidget):
             self.view.customContextMenuRequested.connect(self.show_context_menu)
             self.v_layout.addWidget(self.view)
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
+            table = 'Aliquots'
             # Columns to select from the view
             self.show_cols = settings.value('aliquot_view_columns')
-            self.show_cols = ', '.join(self.show_cols)
-            table_query = f'SELECT {self.show_cols} FROM AliquotView WHERE SampleID = {self.parent_id}'
+            table_query = create_AliquotViewQuery(self.show_cols, f'WHERE SampleID = {self.parent_id}', '', '')
         elif self.child_type == 'Spot':
+            table = 'Spots'
             self.show_cols = settings.value('spot_view_columns')
-            self.show_cols = ', '.join(self.show_cols)
             if self.parent_type == 'Aliquot':
-                table_query = f'SELECT {self.show_cols} FROM SpotView WHERE AliquotID = {self.parent_id}'
+                table_query = create_SpotViewQuery(self.show_cols, '',
+                                                   f'FROM SpotView WHERE AliquotID = {self.parent_id}')
             elif self.parent_type == 'Sample':
-                table_query = f'SELECT {self.show_cols} FROM SpotView WHERE SampleID = {self.parent_id}'
+                table_query = create_SpotViewQuery(self.show_cols, '',
+                                                   f'FROM SpotView WHERE SampleID = {self.parent_id}')
             else:
                 logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for Spot table')
+                table = None
                 table_query = None
         elif self.child_type == 'UPbAnalysis':
+            table = 'UPbAnalyses'
             self.show_cols = settings.value('upb_analysis_view_columns')
-            self.show_cols = ', '.join(self.show_cols)
             if self.parent_type == 'Sample':
-                table_query = f'SELECT {self.show_cols} FROM UPbView WHERE SampleID = {self.parent_id}'
+                table_query = create_UPbViewQuery(self.show_cols, '', f'WHERE SampleID = {self.parent_id}')
             elif self.parent_type == 'Aliquot':
-                table_query = f'SELECT {self.show_cols} FROM UPbView WHERE AliquotID = {self.parent_id}'
+                table_query = create_UPbViewQuery(self.show_cols, '', f'WHERE AliquotID = {self.parent_id}')
             elif self.parent_type == 'Spot':
-                table_query = f'SELECT {self.show_cols} FROM UPbView WHERE SpotID = {self.parent_id}'
+                table_query = create_UPbViewQuery(self.show_cols, '', f'WHERE SpotID = {self.parent_id}')
             else:
                 logger_setup.get_logger().critical(
                     f'Error: Invalid parent type {self.parent_type} for UPbAnalysis table')
                 table_query = None
         else:
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
+            table = None
             table_query = None
         if table_query is not None:
             """
@@ -158,6 +163,8 @@ class ViewDataTab(QtW.QWidget):
             # else:
             #     self.model = SQLiteTableModel(table_query)
             self.model = SQLiteTableModel(table_query)
+            self.model.table = table
+            self.model.table_name_col = get_name_column(table)
             self.proxy_model = ReadableProxyModel()
             if isinstance(self.view, QtW.QTreeView):
                 self.tree_model = TreeModel(self.model)
@@ -165,9 +172,9 @@ class ViewDataTab(QtW.QWidget):
             else:
                 self.proxy_model.setSourceModel(self.model)
                 proxy_name_column = None
-                name_column = get_name_column(self.model.view)
+                name_column = self.model.table_name_col
                 if name_column is not None:
-                    self.name_header = get_headers(self.model.view)[name_column]
+                    self.name_header = get_headers(self.model.table)[name_column]
                     for column in range(self.proxy_model.columnCount()):
                         header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal,
                                                        QtC.Qt.ItemDataRole.DisplayRole)
@@ -184,6 +191,7 @@ class ViewDataTab(QtW.QWidget):
                     self.view.resizeColumnToContents(column)
             else:
                 self.view.resizeColumnsToContents()
+                self.view.setSortingEnabled(True)
                 for column in range(self.proxy_model.columnCount()):
                     if self.view.columnWidth(column) > 400:
                         self.view.setColumnWidth(column, 400)
