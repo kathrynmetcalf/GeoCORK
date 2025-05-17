@@ -225,32 +225,47 @@ class DisplayTables(QtW.QWidget):
         elif self.table in self.dbtable_list:
             logger_setup.get_logger().info(f'Switching to table view for {self.table}')
             self.switch_to_table()
+            self.name_column = get_name_column(self.table)
+            self.name_header = get_headers(self.table)[self.name_column]
+            id_header = get_headers(self.table)[0]
             if self.table == 'Samples':
                 # logger_setup.get_logger().info(f'Switching to frozen table view for {self.table}')
                 # self.switch_to_frozen_table()
-                self.show_cols = ', '.join(settings.value('sample_view_columns'))
-                table = 'SampleView'
+                self.show_cols = settings.value('sample_view_columns')
                 self.edit_samples_pushButton.show()
                 # table_view = self.dbFrozen_tableView
-                name_header = 'SampleName'
+                from Functions.Database_views import create_SampleViewQuery
+                table_query = create_SampleViewQuery(self.show_cols,
+                    f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}', '',
+                    f'{id_header}', f'{self.name_header}'
+                )
             else:
                 logger_setup.get_logger().info(f'Switching to table view for {self.table}')
                 self.switch_to_table()
                 self.edit_samples_pushButton.hide()
                 if self.table == 'Columns':
-                    self.show_cols = ', '.join(settings.value('column_view_columns'))
-                    table = 'ColumnView'
-                    name_header = 'ColumnName'
+                    self.show_cols = settings.value('column_view_columns')
+                    from Functions.Database_views import create_ColumnViewQuery
+                    table_query = create_ColumnViewQuery(self.show_cols,
+                        f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}', '',
+                        f'{id_header}', f'{self.name_header}'
+                    )
                 elif self.table == 'References':
-                    self.show_cols = ', '.join(settings.value('reference_view_columns'))
-                    table = 'ReferenceView'
-                    name_header = 'ReferenceDisplay'
+                    self.show_cols = settings.value('reference_view_columns')
+                    from Functions.Database_views import create_ReferenceViewQuery
+                    table_query = create_ReferenceViewQuery(self.show_cols,
+                        f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}', '',
+                        f'{id_header}', f'{self.name_header}'
+                    )
                 else:
                     self.show_cols = '*'
                     table = self.table
-                    name_header = get_headers(table)[get_name_column(table)]
-            self.model = SQLiteTableModel(
-                f'''SELECT {self.show_cols} FROM {table} ORDER BY {name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}''')
+                    table_query = f'''SELECT {self.show_cols} FROM {table} GROUP BY {id_header} 
+                    ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'''
+            # logger_setup.get_logger().debug(f'SQL query: {table_query}')
+            self.model = SQLiteTableModel(table_query)
+            self.model.table = self.table
+            self.model.table_name_col = get_name_column(self.table)
             self.table_proxy_model.setSourceModel(self.model)
             self.dbTable_tableView: QTableView
             self.dbTable_tableView.setWordWrap(True)

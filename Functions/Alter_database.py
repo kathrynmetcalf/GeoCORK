@@ -468,6 +468,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
     :return: True for success, False for failure
     :rtype: bool
     """
+    logger_setup.get_logger().info(f'Generating GPS column for {affected_column_names}')
     query = QtS.QSqlQuery()
     column = 'GPSLocationConverted'
     variables = ['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
@@ -531,7 +532,7 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                 gps_display = local_vars.get('converted')
                 update_query.prepare(f'UPDATE {table} SET {column}=:gps_display WHERE "GPSLocationID"={gps_id}')
                 update_query.bindValue(':gps_display', gps_display)
-                logger_setup.get_logger().info(f'Updating the calculated {column}')
+                # logger_setup.get_logger().info(f'Updating the calculated {column}')
                 if not update_query.exec():
                     logger_setup.get_logger().critical(f'Error adding the calculated column {column}')
                     logger_setup.get_logger().debug(f'Error: {update_query.lastError().text()}')
@@ -552,9 +553,10 @@ def generate_gps_column(affected_column_names: list[str], table: str, table_id_h
                         logger_setup.get_logger().debug(f'Bound values: {update_query.boundValues()}')
                         rollback_savepoint('before_populate')
                         return False
-                    logger_setup.get_logger().info(f'Successfully updated {gps_column}')
-                logger_setup.get_logger().info(f'Successfully updated {column}')
+                    # logger_setup.get_logger().info(f'Successfully updated {gps_column}')
+                # logger_setup.get_logger().info(f'Successfully updated {column}')
                 break
+    logger_setup.get_logger().info(f'Successfully generated GPS Columns')
     return True
 
 

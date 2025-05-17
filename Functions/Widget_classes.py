@@ -134,6 +134,8 @@ class SQLiteTableModel(QAbstractTableModel):
             conn = sqlite3.connect(uri, uri=True)
             with conn:
                 cursor = conn.cursor()
+                logger_setup.get_logger().info('Populating model with query')
+                logger_setup.get_logger().debug(f'SQL query: {query}')
                 start_time = time.time()
                 cursor.execute(query)
                 logger_setup.get_logger().debug(f"Query executed in {time.time() - start_time} seconds")
@@ -1567,10 +1569,11 @@ def get_record_index(table: str, record_id: int):
 
     # Construct the SQL query
     base_id_column = get_headers(table)[0]
+    name_header = get_headers(table)[get_name_column(table)]
     sql_query = f"""
             SELECT row_number 
             FROM (
-                SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} FROM "{table}"
+                SELECT ROW_NUMBER() OVER (ORDER BY {name_header}) AS row_number, {base_id_column}, {name_header} FROM "{table}"
             ) 
             WHERE {base_id_column} = :record_id
         """

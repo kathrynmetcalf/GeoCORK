@@ -32,7 +32,7 @@ def Puetz_importer():
     that can be used by the model.
     """
     full_data = '/Users/kametcalf/Zotero/storage/9M4KJZG4/DB1_2019.xlsx'
-    db = '/Users/kametcalf/Documents/Research/GeoChron_non_git/Puetz_et_al_2024.db'
+    db = '/Users/kametcalf/Documents/Research/GeoChron_non_git/Puetz_et_al_2024_1.db'
     reference_dict = {}
     ref_sample_dict = {}
     sample_analysis_tags_dict = {}
@@ -596,7 +596,21 @@ def Puetz_importer():
                                    (sample_id, sample_age_id))
                     result = cursor.fetchone()
                     if result is None:
-                        print(f"Failed to add sample {sample_name} to the database")
+                        print(f"Failed to associate {sample_age_est} with sample {sample_name}")
+                        return
+                cursor.execute(f'SELECT SampleID, DefaultSampleAgeID FROM Samples WHERE SampleID = ? AND DefaultSampleAgeID = ?',
+                               (sample_id, sample_age_id))
+                result = cursor.fetchone()
+                if result is None:
+                    # if not, add it to the database
+                    cursor.execute(f'UPDATE Samples SET DefaultSampleAgeID = ? WHERE SampleID = ?',
+                                   (sample_age_id, sample_id))
+                    conn.commit()
+                    cursor.execute(f'SELECT SampleID, DefaultSampleAgeID FROM Samples WHERE SampleID = ? AND DefaultSampleAgeID = ?',
+                                   (sample_id, sample_age_id))
+                    result = cursor.fetchone()
+                    if result is None:
+                        print(f"Failed to set default age for {sample_name}")
                         return
 
             for unit_id in unit_ids:
@@ -614,6 +628,78 @@ def Puetz_importer():
                     if result is None:
                         print(f"Failed to add sample {sample_name} to the database")
                         return
+
+            # Check if the region name contains "Core"
+            for region_id in region_ids:
+                region_name = cursor.execute(f'SELECT RegionName FROM Regions WHERE RegionID = ?',
+                                             (region_id,)).fetchone()
+                if region_name is None:
+                    print(f"Failed to find region {region_id} in the database")
+                    return
+                region_name = region_name[0]
+                # If the region name contains "Core", get the column name and height/depth
+                if re.search(r'\bCore\b', region_name, re.IGNORECASE):
+                    # Check if it ends with the pattern " at [0-9]+ m" or " at [0-9]+ ft" with or without a space
+                    pattern = r'(.*) at (\d+(?:-\d+)?) ?(m|ft)$'
+                    match = re.search(pattern, region_name)
+                    if match:
+                        # Extract the column, height/depth, and unit
+                        column = match.group(1)
+                        depth = match.group(2)
+                        unit = match.group(3)
+
+                        # Get the unit ID for the unit
+                        cursor.execute(
+                            "SELECT DistanceUnitID FROM DistanceUnits WHERE DistanceUnitAbbreviation = ? COLLATE NOCASE",
+                            (unit,))
+                        unit_id = cursor.fetchone()
+                        if unit_id is None:
+                            print(f"Failed to find unit {unit} in the database.")
+                            continue
+                        unit_id = unit_id[0]
+
+                        # Check if the column name is already in the database
+                        cursor.execute("SELECT ColumnID FROM Columns WHERE ColumnName = ? COLLATE NOCASE",
+                                       (column,))
+                        column_id = cursor.fetchone()
+                        if column_id is None:
+                            # Insert the new column into the database
+                            cursor.execute("INSERT INTO Columns (ColumnName) VALUES (?)", (column,))
+                            conn.commit()
+                            cursor.execute("SELECT ColumnID FROM Columns WHERE ColumnName = ? COLLATE NOCASE",
+                                           (column,))
+                            column_id = cursor.fetchone()
+                            if column_id is None:
+                                print(f"Failed to insert column {column} into the database.")
+                                return
+                        column_id = column_id[0]
+                        # Get all the samples associated with the region
+                        cursor.execute("SELECT SampleID FROM Samples_Regions WHERE RegionID = ?", (region_id,))
+                        sample_ids = cursor.fetchall()
+                        if sample_ids is None:
+                            print(f"SampleID for region {region_name} not found.")
+                            continue
+                        for sample_id in sample_ids:
+                            sample_id = sample_id[0]
+                            # Check if the column already exists for the sample
+                            cursor.execute(
+                                "SELECT SampleColumnID FROM Samples WHERE SampleID = ? AND SampleColumnID = ?",
+                                (sample_id, column_id))
+                            sample_column_id = cursor.fetchone()
+                            if sample_column_id is None:
+                                # Insert the new column for the sample
+                                cursor.execute(
+                                    f"UPDATE Samples SET (SampleColumnID, HeightDepth, HeightDepthUnitID) = (?, ?, ?) WHERE SampleID = {sample_id}",
+                                    (column_id, depth, unit_id))
+                                conn.commit()
+                                cursor.execute("""SELECT SampleColumnID FROM Samples 
+                                                        WHERE SampleID = ? AND SampleColumnID = ? AND HeightDepth = ? AND 
+                                                        HeightDepthUnitID = ?""",
+                                               (sample_id, column_id, depth, unit_id))
+                                sample_column_id = cursor.fetchone()
+                                if sample_column_id is None:
+                                    print(f"Failed to insert column {column} for sample {sample_id}.")
+                                    return
 
             sample_analysis_tags_dict[sample_id] = [method_id, facility_id, instrument_id]
 
@@ -648,7 +734,7 @@ def Puetz_importer():
         ref_sample_key = upb_df.iloc[i, 0]
         if pd.isna(ref_sample_key):
             continue
-        print(f'importing {ref_sample_key}')
+        print(f'{i}/{rows}')
         ref_id = ref_sample_key.split('-')[0]
         if ref_id in reference_dict:
             reference_id = reference_dict[ref_id]
@@ -714,7 +800,7 @@ def Puetz_importer():
             spot_id = cursor.fetchone()
             if spot_id is None:
                 # if not, add it to the database
-                print(f'importing {spot_name}')
+                # print(f'importing {spot_name}')
                 cursor.execute(f'INSERT INTO Spots (SpotName, AliquotID, SpotCompositionID) VALUES (?, ?, ?)',
                                (spot_name, aliquot_id, spot_composition_id))
                 conn.commit()
