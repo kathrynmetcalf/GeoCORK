@@ -2449,20 +2449,20 @@ class ImportWizardDialog(QWidget):
                             else:
                                 record["RejectionReasonID"] = create_rejection.lastInsertId()
 
-                            # Add to many-to-many table.
-                            create_upb_rejection_assoc = QSqlQuery()
-                            create_upb_rejection_assoc.prepare(
-                                'INSERT INTO UPbAnalyses_RejectionReasons (UPbAnalysisID, RejectionReasonID) VALUES (:upb_analysis_id, :rejection_reason_id)')
-                            create_upb_rejection_assoc.bindValue(":upb_analysis_id", record["UPbAnalysisID"])
-                            create_upb_rejection_assoc.bindValue(":rejection_reason_id", record["RejectionReasonID"])
+                        # Add to many-to-many table.
+                        create_upb_rejection_assoc = QSqlQuery()
+                        create_upb_rejection_assoc.prepare(
+                            'INSERT INTO UPbAnalyses_RejectionReasons (UPbAnalysisID, RejectionReasonID) VALUES (:upb_analysis_id, :rejection_reason_id)')
+                        create_upb_rejection_assoc.bindValue(":upb_analysis_id", record["UPbAnalysisID"])
+                        create_upb_rejection_assoc.bindValue(":rejection_reason_id", record["RejectionReasonID"])
 
-                            if not create_upb_rejection_assoc.exec():
-                                logger_setup.get_logger().warning(
-                                    f'Failed to associate rejection reason "{record["Rejection Reason"]}" with analysis')
-                                logger_setup.get_logger().debug(
-                                    f'Error: {create_upb_rejection_assoc.lastError().text()}')
-                                logger_setup.get_logger().debug(
-                                    f'SQL query: {create_upb_rejection_assoc.executedQuery()}')
+                        if not create_upb_rejection_assoc.exec():
+                            logger_setup.get_logger().warning(
+                                f'Failed to associate rejection reason "{record["Rejection Reason"]}" with analysis')
+                            logger_setup.get_logger().debug(
+                                f'Error: {create_upb_rejection_assoc.lastError().text()}')
+                            logger_setup.get_logger().debug(
+                                f'SQL query: {create_upb_rejection_assoc.executedQuery()}')
 
                 inserted_count += 1
 
