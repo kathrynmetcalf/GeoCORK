@@ -216,7 +216,7 @@ class ExportWidget(QWidget):
             filtered_where_clause, ctes = Filters.process_json_to_sql(filter_json[1:-1], scope='UPbAnalyses')
             filtered_where_clause = filtered_where_clause[0:-1]
 
-            sql_query = f"SELECT DISTINCT UPbAnalyses.UPbAnalysisID FROM ({filtered_where_clause});"
+            sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
             uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
@@ -269,6 +269,7 @@ class ExportWidget(QWidget):
         # if a sample is checked then len > 2, so UPbAnalysisID are needed, so we limit to LIMIT {self.max_rows_to_display} so its quicker and
         # still shows example data to be exported.
         # if filtered where clause is not blank, len > 0, then we need to filter by UPbAnalysisID
+        # todo: check self.checked_sample_names
         if len(self.checked_sample_names) > 2:
             if len(filtered_where_clause) > 0:
                 query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} LIMIT {self.max_rows_to_display}"

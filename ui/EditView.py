@@ -27,7 +27,7 @@ from Functions.Widget_classes import (
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
 from Functions.Settings_manager import settings
-from Functions.Database_manager import update_database
+from Functions.Database_views import ViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -116,50 +116,14 @@ class EditView(QtW.QDialog):
 
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox()
-        self.view = None
         self.model = None
         self.proxy_model = None
         self.name_column = None
         self.name_header = None
-        self.updated_timestamp = None
         self.show_cols = []
+        self.limit = ''
         self.where = ''
-        if self.table in SQLUtils.trigger_tables:
-            if self.table == 'Columns':
-                self.view = 'ColumnEditView'
-                self.show_cols = settings.value('column_edit_columns')
-                self.add_pushButton.clicked.connect(self.add_popup)
-            elif self.table == 'Samples':
-                self.view = 'SampleView'
-                self.show_cols = settings.value('sample_view_columns')
-                # self.show_cols = settings.value('sample_edit_columns')
-                self.add_pushButton.hide()
-            elif self.table == 'Spots' or self.table == 'UPbAnalyses':
-                self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' \
-                    else 'AliquotID' if self.parent_type == 'Aliquot' \
-                    else 'SpotID' if self.parent_type == 'Spot' else None
-                if self.table == 'Spots':
-                    self.view = 'SpotEditView'
-                    self.show_cols = settings.value('spot_edit_columns')
-                elif self.table == 'UPbAnalyses':
-                    self.view = 'UPbEditView'
-                    self.show_cols = settings.value('upb_analysis_edit_columns')
-                if self.parent_id_header:
-                    self.where = f' WHERE {self.parent_id_header} = {self.parent_id}'
-                self.add_pushButton.hide()
-        elif self.table == 'References':
-            self.view = 'ReferenceView'
-            self.show_cols = settings.value('reference_view_columns')
-            self.add_pushButton.clicked.connect(self.add_popup)
-        if self.table_item_ids is not None:
-            if len(self.table_item_ids) == 1:
-                sql_where_str = f'= {self.table_item_ids[0]}'
-            else:
-                sql_where_str = f'IN {tuple(self.table_item_ids)}'
-            if self.where == '':
-                self.where = f' WHERE {self.show_cols[0]} {sql_where_str}'
-            else:
-                self.where = f'{self.where} AND {self.show_cols[0]} {sql_where_str}'
+
         self.create_model()
         self.combo = None
         self.combo_index = QtC.QModelIndex()
@@ -171,9 +135,6 @@ class EditView(QtW.QDialog):
         self.close_by_dialog = False
         self.tabbed_from_editor = False
 
-        self.view_headers = []
-        if self.view is not None:
-            self.view_headers = get_headers(self.view)
         self.table_headers = get_headers(self.table)
         self.gps_headers = []
         self.age_headers = []
@@ -203,16 +164,49 @@ class EditView(QtW.QDialog):
         logger_setup.get_logger().info(f'EditView created for {self.table} in {time.time() - edit_view_start_time:.2f} seconds')
 
     def create_model(self):
-        name_column = get_name_column(self.view)
+        name_column = get_name_column(self.table)
+        id_header = get_headers(self.table)[0]
         if name_column is not None:
-            self.name_header = get_headers(self.view)[name_column]
-        self.model = SQLiteTableModel(f'''
-            SELECT {', '.join(self.show_cols)} FROM {self.view} {self.where} LIMIT {self.rows_per_page} 
-            OFFSET {self.current_page * self.rows_per_page}
-                                      ''')
-
+            self.name_header = get_headers(self.table)[name_column]
+        if self.table in SQLUtils.trigger_tables:
+            if self.table == 'Columns':
+                self.show_cols = settings.value('column_edit_columns')
+                self.add_pushButton.clicked.connect(self.add_popup)
+            elif self.table == 'Samples':
+                self.show_cols = settings.value('sample_edit_columns')
+                self.add_pushButton.hide()
+            elif self.table == 'Spots' or self.table == 'UPbAnalyses':
+                self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' \
+                    else 'AliquotID' if self.parent_type == 'Aliquot' \
+                    else 'SpotID' if self.parent_type == 'Spot' else None
+                if self.parent_id_header:
+                    self.where = f' WHERE {self.parent_id_header} = {self.parent_id}'
+                if self.table == 'Spots':
+                    self.show_cols = settings.value('spot_edit_columns')
+                elif self.table == 'UPbAnalyses':
+                    self.show_cols = settings.value('upb_analysis_edit_columns')
+                self.add_pushButton.hide()
+        elif self.table == 'References':
+            self.show_cols = settings.value('reference_view_columns')
+            self.add_pushButton.clicked.connect(self.add_popup)
+        if self.table_item_ids is not None:
+            if len(self.table_item_ids) == 1:
+                sql_where_str = f'= {self.table_item_ids[0]}'
+            else:
+                sql_where_str = f'IN {tuple(self.table_item_ids)}'
+            if self.where == '':
+                self.where = f' WHERE {id_header} {sql_where_str}'
+            else:
+                self.where = f'{self.where} AND {id_header} {sql_where_str}'
+        query_args = {'show_columns': self.show_cols, 'limit': self.limit, 'where': self.where}
+        view_query = ViewQuery(self.table, True, **query_args)
+        table_query = view_query.table_query
+        self.model = SQLiteTableModel(table_query)
+        if self.model.last_error is not None:
+            logger_setup.get_logger().critical(f'Error displaying {self.table}.')
+            return
+        self.model.table = self.table
         self.display_table()
-        self.updated_timestamp = time.time()
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
@@ -229,6 +223,7 @@ class EditView(QtW.QDialog):
         self.rows_per_page = int(self.show_per_page_comboBox.currentText())
         self.current_page = 0
         self.create_model()
+        self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
 
     def next_page(self):
         """
@@ -237,6 +232,7 @@ class EditView(QtW.QDialog):
         if (self.current_page + 1) * self.rows_per_page < self.total_records:
             self.current_page += 1
             self.create_model()
+        self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
 
     def previous_page(self):
         """
@@ -245,20 +241,18 @@ class EditView(QtW.QDialog):
         if self.current_page > 0:
             self.current_page -= 1
             self.create_model()
+        self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
 
     def set_go_to_completer(self):
         # Populate the value input with a completer based on the selected attribute
 
         query = QSqlQuery()
-        from Functions.Database_views import create_SampleEditViewQuery, create_SpotEditViewQuery, create_UPbEditViewQuery
-        show_cols = [self.name_header]
-        if self.table == 'UPbAnalyses':
-            sql_query = create_UPbEditViewQuery(show_cols, '', self.where, '', '')
-        else:
-            sql_query = f'SELECT {self.name_header} FROM "{self.table}" {self.where}'
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+        query_args = {'show_columns': [self.name_header], 'where': self.where}
+        view_query = ViewQuery(self.table, True, **query_args)
+        table_query = view_query.table_query
+        logger_setup.get_logger().debug(f'SQL command: {table_query}')
         query.setForwardOnly(True)
-        if not query.exec(sql_query):
+        if not query.exec(table_query):
             logger_setup.get_logger().critical(f'Error creating the completer for input')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         values = set()
@@ -400,14 +394,18 @@ class EditView(QtW.QDialog):
 
     def display_table(self):
         start_time = time.time()
-        logger_setup.get_logger().info(f'Displaying {self.view} table')
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.view}...')
+        logger_setup.get_logger().info(f'Displaying {self.table} table')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.model)
-        self.name_column = get_name_column(self.view)
+        if self.table == 'UPbAnalyses':
+            # Use spot name column in the view
+            self.name_column = 4
+        else:
+            self.name_column = get_name_column(self.table)
         proxy_name_column = None
         if self.name_column is not None:
-            self.name_header = get_headers(self.view)[self.name_column]
+            self.name_header = self.show_cols[self.name_column]
             for column in range(self.proxy_model.columnCount()):
                 header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
                 if header == self.name_header:
@@ -418,7 +416,6 @@ class EditView(QtW.QDialog):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if 'ID' in header:
                 self.edit_tableView.hideColumn(column)
-        self.edit_tableView.resizeColumnsToContents()
         self.edit_tableView.setSortingEnabled(True)
         self.edit_tableView.setWordWrap(True)
         self.edit_tableView.setTextElideMode(QtC.Qt.TextElideMode.ElideNone)  # Prevent text truncation
@@ -433,9 +430,9 @@ class EditView(QtW.QDialog):
             # If the table_item_ids are provided, we need to set the total records based on the filtered data
             self.total_records = len(self.table_item_ids)
         elif self.where != '':
-            self.total_records = get_total_records(self.view, self.where)
+            self.total_records = get_total_records(self.table, self.where)
         else:
-            self.total_records = get_total_records(self.view)
+            self.total_records = get_total_records(self.table)
         self.page_info_label.setText(
             f'{self.current_page * self.rows_per_page + 1}-{min((self.current_page + 1) * self.rows_per_page, self.total_records)} of {self.total_records}')
         self.goto_line_edit.clear()
@@ -455,9 +452,9 @@ class EditView(QtW.QDialog):
             if self.edit_tableView.columnWidth(column) > 400:
                 self.edit_tableView.setColumnWidth(column, 400)
 
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.view}...')
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
         end_time = time.time()
-        logger_setup.get_logger().info(f'Displayed {self.view} in {end_time - start_time} seconds')
+        logger_setup.get_logger().info(f'Displayed {self.table} in {end_time - start_time} seconds')
         self.loading_manager.close_loading_dialog('Loading', f'Loading...')
 
     def display_widget(self):
@@ -487,7 +484,7 @@ class EditView(QtW.QDialog):
             if self.combo is not None:
                 logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
-        if model_index.column() == self.name_column and self.view != 'UPbEditView':
+        if model_index.column() == self.name_column and self.table != 'UPbAnalyses':
             # The column is the name column for the table. This should be edited with a line edit.
             self.create_lineedit()
             return
@@ -508,14 +505,13 @@ class EditView(QtW.QDialog):
                     self.updated = True
                     logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     query = QtS.QSqlQuery()
-                    if not query.exec(f'SELECT {', '.join(self.gps_headers)} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
+                    if not query.exec(f'SELECT {', '.join(self.gps_headers)} FROM {self.table} WHERE {self.table_headers[0]} = {item_ids[0]}'):
                         logger_setup.get_logger().critical(f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
                         return
                     if query.next():
                         for header in self.gps_headers:
                             col = self.show_cols.index(header)
                             self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
-                            self.updated_timestamp = time.time()
                             logger_setup.get_logger().info(f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
             else:
                 self.edit_tableView.setFocus()
@@ -532,13 +528,12 @@ class EditView(QtW.QDialog):
                     self.updated = True
                     logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
                     query = QtS.QSqlQuery()
-                    if not query.exec(f'SELECT {header} FROM {self.view} WHERE {self.view_headers[0]} = {item_ids[0]}'):
+                    if not query.exec(f'SELECT {header} FROM {self.table} WHERE {self.table_headers[0]} = {item_ids[0]}'):
                         logger_setup.get_logger().critical(f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
                         return
                     if query.next():
                         col = self.show_cols.index(header)
                         self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
-                        self.updated_timestamp = time.time()
             else:
                 self.edit_tableView.setFocus()
         else:
@@ -634,7 +629,6 @@ class EditView(QtW.QDialog):
                 model_indexes = [self.proxy_model.mapToSource(self.edit_index)]
             for model_index in model_indexes:
                 if self.model.setData(model_index, edit_value, QtC.Qt.ItemDataRole.EditRole):
-                    self.updated_timestamp = time.time()
                     if self.edit_tableView.currentIndex() == self.edit_index:
                         self.tabbed_from_editor = False
                 else:
@@ -911,7 +905,6 @@ class EditView(QtW.QDialog):
             for model_index in model_indexes:
                 if model_index in self.model.edited_indexes:
                     self.model.edited_indexes.remove(model_index)
-        self.updated_timestamp = time.time()
         if self.edit_tableView.currentIndex() == self.combo_index:
             self.tabbed_from_editor = False
         self.combo = combo
@@ -979,7 +972,7 @@ class EditView(QtW.QDialog):
                                     sql_where_str = f'= {selected_ids[0]}'
                                 else:
                                     sql_where_str = f'IN {tuple(selected_ids)}'
-                                if not query.exec(f'SELECT {edit_id_header} FROM {self.view} WHERE {self.table_headers[0]} {sql_where_str}'):
+                                if not query.exec(f'SELECT {edit_id_header} FROM {self.table} WHERE {self.table_headers[0]} {sql_where_str}'):
                                     logger_setup.get_logger().critical(f'Failed to get {edit_id_header} for {table} IDs {selected_ids}: {query.lastError().text()}')
                                     return None, None
                                 while query.next():
@@ -1368,8 +1361,6 @@ class EditView(QtW.QDialog):
                 self.combo.setCurrentIndex(-1)
                 self.save_dropdown_data()
 
-        self.updated_timestamp = time.time()
-
     def delete_question(self, delete_ids):
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
@@ -1507,8 +1498,11 @@ class EditView(QtW.QDialog):
                 else:
                     update_cols['UPbAnalyses'].append('Rejected')
                     update_col_values['UPbAnalyses'].append('Null')
-                if not query.exec(f'SELECT UPbAnalysisID FROM UPbEditView WHERE {self.show_cols[0]} = {row_id}'):
-                    logger_setup.get_logger().critical(f'Failed to get UPbAnalysisID for {row_id}: {query.lastError().text()}')
+                if not query.exec(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE {self.show_cols[0]} = {row_id}'):
+                    logger_setup.get_logger().critical(f'Error: changes not commited')
+                    logger_setup.get_logger().debug(f'Failed to get UPbAnalysisID for {row_id}')
+                    logger_setup.get_logger().debug(f'{query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     return False
                 while query.next():
                     where_col_ids['UPbAnalyses'].append(query.value(0))
@@ -1662,7 +1656,7 @@ class EditView(QtW.QDialog):
             return
         query = QtS.QSqlQuery()
         for id in ids_added:
-            if not query.exec(f'SELECT {", ".join(self.show_cols)} FROM {self.view} WHERE {self.table_headers[0]} = {id}'):
+            if not query.exec(f'SELECT {", ".join(self.show_cols)} FROM {self.table} WHERE {self.table_headers[0]} = {id}'):
                 logger_setup.get_logger().critical(f'Could not find new {self.table}')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')

@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QHeaderView, QLabel, QPushButton
 
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.Database_views import create_AliquotViewQuery, create_SpotViewQuery, create_UPbViewQuery
+from Functions.Database_views import ViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
@@ -108,40 +108,35 @@ class ViewDataTab(QtW.QWidget):
             self.v_layout.addWidget(self.view)
         if self.child_type == 'Aliquot' and self.parent_type == 'Sample':
             table = 'Aliquots'
-            # Columns to select from the view
             self.show_cols = settings.value('aliquot_view_columns')
-            table_query = create_AliquotViewQuery(self.show_cols, f'WHERE SampleID = {self.parent_id}', '', '')
+            query_args = {'show_columns': self.show_cols, 'where': f'WHERE SampleID = {self.parent_id}'}
         elif self.child_type == 'Spot':
             table = 'Spots'
             self.show_cols = settings.value('spot_view_columns')
             if self.parent_type == 'Aliquot':
-                table_query = create_SpotViewQuery(self.show_cols, '',
-                                                   f'FROM SpotView WHERE AliquotID = {self.parent_id}')
+                query_args = {'show_columns': self.show_cols, 'where': f'FROM SpotView WHERE AliquotID = {self.parent_id}'}
             elif self.parent_type == 'Sample':
-                table_query = create_SpotViewQuery(self.show_cols, '',
-                                                   f'FROM SpotView WHERE SampleID = {self.parent_id}')
+                query_args = {'show_columns': self.show_cols, 'where': f'FROM SpotView WHERE SampleID = {self.parent_id}'}
             else:
                 logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for Spot table')
                 table = None
-                table_query = None
         elif self.child_type == 'UPbAnalysis':
             table = 'UPbAnalyses'
             self.show_cols = settings.value('upb_analysis_view_columns')
             if self.parent_type == 'Sample':
-                table_query = create_UPbViewQuery(self.show_cols, '', f'WHERE SampleID = {self.parent_id}')
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE SampleID = {self.parent_id}'}
             elif self.parent_type == 'Aliquot':
-                table_query = create_UPbViewQuery(self.show_cols, '', f'WHERE AliquotID = {self.parent_id}')
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE AliquotID = {self.parent_id}'}
             elif self.parent_type == 'Spot':
-                table_query = create_UPbViewQuery(self.show_cols, '', f'WHERE SpotID = {self.parent_id}')
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE SpotID = {self.parent_id}'}
             else:
                 logger_setup.get_logger().critical(
                     f'Error: Invalid parent type {self.parent_type} for UPbAnalysis table')
-                table_query = None
+                table = None
         else:
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             table = None
-            table_query = None
-        if table_query is not None:
+        if table is not None:
             """
             The commented out code searches for all children of each aliquot with the selected sample ID. Since all
             aliquots have SampleID and aliquots can only be viewed per sample, this is unnecessary. Just search for all
@@ -162,6 +157,8 @@ class ViewDataTab(QtW.QWidget):
             #     self.model = TreeModel(self.model, None)
             # else:
             #     self.model = SQLiteTableModel(table_query)
+            view_query = ViewQuery(table, False, **query_args)
+            table_query = view_query.table_query
             self.model = SQLiteTableModel(table_query)
             self.model.table = table
             self.model.table_name_col = get_name_column(table)

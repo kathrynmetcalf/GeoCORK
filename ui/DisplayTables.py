@@ -29,6 +29,7 @@ from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
 from Functions.Settings_manager import settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import get_view_name_column
 # from Functions.Widget_classes import add_popup_dialog
 from ui.EditView import EditView
@@ -234,11 +235,11 @@ class DisplayTables(QtW.QWidget):
                 self.show_cols = settings.value('sample_view_columns')
                 self.edit_samples_pushButton.show()
                 # table_view = self.dbFrozen_tableView
-                from Functions.Database_views import create_SampleViewQuery
-                table_query = create_SampleViewQuery(self.show_cols,
-                    f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}', '',
-                    f'{id_header}', f'{self.name_header}'
-                )
+                query_args = {'show_columns': self.show_cols,
+                              'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
+                              'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
+                view_query = ViewQuery('Samples', False, **query_args)
+                table_query = view_query.table_query
             else:
                 logger_setup.get_logger().info(f'Switching to table view for {self.table}')
                 self.switch_to_table()
@@ -246,17 +247,19 @@ class DisplayTables(QtW.QWidget):
                 if self.table == 'Columns':
                     self.show_cols = settings.value('column_view_columns')
                     from Functions.Database_views import create_ColumnViewQuery
-                    table_query = create_ColumnViewQuery(self.show_cols,
-                        f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}', '',
-                        f'{id_header}', f'{self.name_header}'
-                    )
+                    query_args = {'show_columns': self.show_cols,
+                                  'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
+                                  'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
+                    view_query = ViewQuery('Columns', False, **query_args)
+                    table_query = view_query.table_query
                 elif self.table == 'References':
                     self.show_cols = settings.value('reference_view_columns')
                     from Functions.Database_views import create_ReferenceViewQuery
-                    table_query = create_ReferenceViewQuery(self.show_cols,
-                        f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}', '',
-                        f'{id_header}', f'{self.name_header}'
-                    )
+                    query_args = {'show_columns': self.show_cols,
+                                  'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
+                                  'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
+                    view_query = ViewQuery('References', False, **query_args)
+                    table_query = view_query.table_query
                 else:
                     self.show_cols = '*'
                     table = self.table
@@ -264,6 +267,9 @@ class DisplayTables(QtW.QWidget):
                     ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'''
             # logger_setup.get_logger().debug(f'SQL query: {table_query}')
             self.model = SQLiteTableModel(table_query)
+            if self.model.last_error is not None:
+                logger_setup.get_logger().critical(f'Error displaying {self.table}')
+                return
             self.model.table = self.table
             self.model.table_name_col = get_name_column(self.table)
             self.table_proxy_model.setSourceModel(self.model)
@@ -280,18 +286,13 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_tableView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.dbTable_tableView.verticalHeader().hide()
 
-            if 'View' in table:
-                self.name_column = 1
-            else:
-                self.name_column = get_name_column(table)
             self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                      QtC.Qt.ItemDataRole.DisplayRole)
-            if table == 'ReferenceView':
+            if table == 'References':
                 try:
                     self.dbTable_tableView.doubleClicked.disconnect()
                 except TypeError:
                     pass
-
                 self.dbTable_tableView.doubleClicked.connect(self.open_doi_link)
             self.set_go_to_completer()
             # Sort the table by the name column
