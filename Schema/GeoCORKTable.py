@@ -1,0 +1,177 @@
+from enum import Enum
+
+import logger_setup
+
+
+class TableType(Enum):
+    TABLE = 0
+    TREE = 1
+    VIEW = 2
+    INTERNAL = 3
+
+class TableAttributes(object):
+    def __init__(self, attribute_name, data_type, primary_key=False, editable=False, unique=False, not_null=False, not_empty=False):
+        self.attribute_name = attribute_name
+        self.data_type = data_type
+        self.primary_key = primary_key
+        self.editable = editable
+        self.unique = unique
+        self.not_null = not_null
+        self.not_empty = not_empty
+
+    def __str__(self):
+        return (f"{self.attribute_name} "
+                f"{self.data_type} "
+                f"{'PRIMARY KEY' if self.primary_key else ''} "
+                f"{ 'NOT NULL' if self.not_null else ''} "
+                f"({self.attribute_name + " <> ''" if self.not_empty else ""})".strip())
+
+
+class GeoCORKTable():
+
+    def create_query(self) -> str:
+        return (f"CREATE TABLE IF NOT EXISTS {self.table_name} (\n "
+                f"{',\n'.join(str(attr) for attr in self.attributes)})" + \
+                f"{',\n'.join(str(unique) for unique in self.unique_constraints)})")
+
+
+    def __init__(self, table_name, attributes: list[TableAttributes], table_type: TableType = TableType.TABLE,
+                 user_viewable: bool = False, conditionally_editable: bool = False,
+                 static_table: bool = False, contains_foreign_keys: bool = False, as_table_name: str = None,
+                 bridge_table: TableAttributes = None, bridge_from_column, bridge_to_column):
+        """
+
+        :param table_name:
+        :param attributes:
+        :param table_type:
+        :param user_viewable:
+        :param conditionally_editable:
+        :param static_table:
+        :param contains_foreign_keys:
+        :param as_table_name:
+        :param bridge_table:
+        :param bridge_from_column:
+        :param bridge_to_column:
+        """
+
+        self.table_name = table_name
+        self.cte_table_name = f'Recursive{self.table_name}'
+        self.table_type: TableType = table_type
+        self.user_viewable = user_viewable
+        self.conditionally_editable = conditionally_editable
+        self.static_table = static_table
+        self.contains_foreign_keys = contains_foreign_keys
+        self.as_table_name = as_table_name
+
+        self.limited_table_name
+
+        self.bridge_table = bridge_table
+        self.bridge_from_column = bridge_from_column
+        self.bridge_to_column = bridge_to_column
+
+        self.child_tables: list[GeoCORKTable] = []
+        self.parent_tables: list[GeoCORKTable] = []
+
+        self.attributes: list[TableAttributes] = [
+            TableAttributes('SampleID', 'INTEGER PRIMARY KEY'),
+            TableAttributes('SampleName', 'TEXT NOT NULL CHECK (SampleName <> '')'),
+            TableAttributes('SampleDescription', 'TEXT'),
+            TableAttributes('SampleCreated', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
+            TableAttributes('SampleModified', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
+            TableAttributes('SampleLatitude', 'REAL'),
+            TableAttributes('SampleLongitude', 'REAL'),
+            TableAttributes('SampleElevation', 'REAL'),
+            TableAttributes('SampleGPSLocationDisplay', 'TEXT'),
+        ]
+
+
+        #checks to make sure an ID column exists
+        if self.table_type == TableType.TABLE:
+            self.id_column: TableAttributes = None
+            for i in range(self.attributes):
+                if self.attributes[i].primary_key and i == 0:
+                    self.id_column = self.attributes[i]
+                elif self.attributes[i].attribute_name == self.attribute_name[0].attribute_name.replace('ID', 'Name')
+                    self.name_column: TableAttributes = self.attributes[i]
+                    self.name_column_index = i + 1
+            if self.id_column is None:
+                logger_setup.get_logger().critical("No primary key column for table")
+
+        elif self.table_type == TableType.TREE:
+            self.parent_column: TableAttributes = None
+            for i in range(self.attributes):
+                if self.attributes[i].primary_key and i==0:
+                    self.id_column = self.attributes[i]
+                elif self.attributes[i].attribute_name == f'Parent{self.attributes[i].attribute_name}' and i==1:
+                    self.parent_column = self.attributes[i]
+                elif (self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}ParentRow' and i==2):
+                    self.parent_row_column = self.attributes[i]
+                elif (self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}Name' and i==3):
+                    self.name_column = self.attributes[i]
+                    self.name_column_index = i + 1
+                else:
+                    pass
+
+            if self.id_column is None:
+                logger_setup.get_logger().critical("No primary key column for table")
+            if self.parent_column is None:
+                logger_setup.get_logger().critical("No parent column for tree table or invalid name scheme")
+            if self.parent_row_column is None:
+                logger_setup.get_logger().critical("No parent row column for tree table or invalid name scheme")
+
+        self.indexes = {
+            'idx_name': ['name'],
+            'idx_latitude_longitude': ['latitude', 'longitude']
+        }
+
+    @property
+    def id_select(self):
+        return f"{self.table_name}.{self.id_column.attribute_name} AS {self.table_name}"
+
+    @property
+    def name_select(self):
+        return
+
+    def table_attributes_dict(self):
+        return {self.table_name: [attribute.attribute_name for attribute in self.attributes]}
+
+
+
+        limited_sample_hierarchy_join = f'''
+                                JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
+                                JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
+                                JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
+                                '''
+
+        many_editable = {
+            'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'RegionName': 'Regions', 'RockTypeName': 'RockTypes',
+                        'SampleContexName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods',
+                        'SettingName': 'Settings',
+                        'UnitName': 'Units'},
+            'Aliquots': {'AliquotContextName': 'AliquotContexts'},
+            'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
+            'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
+            'References': {}
+        }
+        # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
+        one_editable = {
+            'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges',
+                        'ColumnName': 'Columns',
+                        'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots'},
+            'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits',
+                        'ColumnBaseGPSDisplay': 'GPSLocations'},
+            'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
+            'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
+            'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
+                            'UPbReference': 'References',
+                            'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments',
+                            'UPbAnalysisMethodName': 'UPbAnalysisMethods',
+                            'RatioErrorFormatAbbreviation': 'ErrorFormats', 'AgeUnitAbbreviation': 'AgeUnits',
+                            'AgeErrorFormatAbbreviation': 'ErrorFormats',
+                            'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
+                            'SpotSizeUnitAbbreviation': 'DistanceUnits'},
+            'References': {}
+        }
+
+    def __str__(self):
+        return str(self.table_name)
