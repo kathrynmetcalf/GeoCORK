@@ -11,15 +11,25 @@ class TableType(Enum):
     MANYTOMANY = 3
     INTERNAL = 4
 
-class TableAttributes(object):
+
+class GeoCORKTableAttribute:
+    """
+
+    """
     def __init__(self, attribute_name: str = None, data_type: str = None,
-                 primary_key=False, unique=False, not_null=False, not_empty=False, as_case: str = None):
+                 primary_key=False, unique=False, not_null=False, not_empty=False, as_case: str = None,
+                 visible_to_user: bool = True):
         self.attribute_name = attribute_name
         self.data_type = data_type
         self.primary_key = primary_key
         self.unique = unique
         self.not_null = not_null
         self.not_empty = not_empty
+        self.visible_to_user = visible_to_user
+
+        # any primary key will not be visible to the user
+        if primary_key:
+            self.visible_to_user = False
 
         if self.data_type == 'AS':
             self.as_case = as_case
@@ -28,34 +38,59 @@ class TableAttributes(object):
         return (f"{self.attribute_name} "
                 f"{self.data_type} "
                 f"{'PRIMARY KEY' if self.primary_key else ''} "
-                f"{ 'NOT NULL' if self.not_null else ''} "
+                f"{'NOT NULL' if self.not_null else ''} "
                 f"({self.attribute_name + " <> ''" if self.not_empty else ''})"
-                f"{'DEFAULT CURRENT_TIMESTAMP' if self.data_type=='DATETIME' else ''}"
-                f"({self.as_case if self.data_type=='AS_CASE' else ''}) STORED".strip())
+                f"{'DEFAULT CURRENT_TIMESTAMP' if self.data_type == 'DATETIME' else ''}"
+                f"({self.as_case if self.data_type == 'AS_CASE' else ''}) STORED".strip())
 
 
-class GeoCORKTable():
+class GeoCORKTable:
     """
 
     """
-    def __init__(self, table_name, attributes: list[TableAttributes], table_type: TableType = TableType.TABLE,
+
+    def __init__(self, table_name, attributes: list[GeoCORKTableAttribute], table_type: TableType = TableType.TABLE,
                  user_viewable: bool = False, conditionally_editable: bool = False,
                  static_table: bool = False, contains_foreign_keys: bool = False, as_table_name: list[str] = None,
                  bridge_table: Self = None, bridge_from_column: str = None, bridge_to_column: str = None,
-                 child_tables: list[Self] = None, parent_tables: list[Self] = None):
+                 child_tables: list[Self] = None, parent_tables: list[Self] = None, unique_constraints: list[str] = None):
         """
+        Represents a GeoCORK table definition with attributes, relationships, and metadata for
+        database operations. This class manages attributes, child-parent relationships, unique keys,
+        and type-specific constraints for database tables while ensuring integrity standards such
+        as primary keys, foreign keys, and hierarchical structures.
 
-        :param table_name:
-        :param attributes:
-        :param table_type:
-        :param user_viewable:
-        :param conditionally_editable:
-        :param static_table:
-        :param contains_foreign_keys:
-        :param as_table_name:
-        :param bridge_table:
-        :param bridge_from_column:
-        :param bridge_to_column:
+        :param table_name: The name of the database table.
+        :type table_name: str
+        :param attributes: A list of attributes (columns) for the table.
+        :type attributes: list[GeoCORKTableAttribute]
+        :param table_type: The type of table (e.g., TABLE, TREE). Defaults to TableType.TABLE.
+        :type table_type: TableType, optional
+        :param user_viewable: Whether the table is viewable by the user. Defaults to False.
+        :type user_viewable: bool, optional
+        :param conditionally_editable: Whether the table is conditionally editable. Defaults to False.
+        :type conditionally_editable: bool, optional
+        :param static_table: Whether the table is static (non-editable). Defaults to False.
+        :type static_table: bool, optional
+        :param contains_foreign_keys: Whether the table contains foreign key references. Defaults to False.
+        :type contains_foreign_keys: bool, optional
+        :param as_table_name: A list of aliases for the table name. Defaults to None.
+        :type as_table_name: list[str], optional
+        :param bridge_table: The bridge table associating two tables (if applicable). Defaults to None.
+        :type bridge_table: GeoCORKTable, optional
+        :param bridge_from_column: The source column in the bridge table. Defaults to None.
+        :type bridge_from_column: str, optional
+        :param bridge_to_column: The destination column in the bridge table. Defaults to None.
+        :type bridge_to_column: str, optional
+        :param child_tables: A list of child tables referencing this table. Defaults to None.
+        :type child_tables: list[GeoCORKTable], optional
+        :param parent_tables: A list of parent tables that this table references. Defaults to None.
+        :type parent_tables: list[GeoCORKTable], optional
+        :param unique_constraints: A list of unique constraints defined for the table. Defaults to None.
+        :type unique_constraints: list[str], optional
+
+        :raises CriticalError: If attributes are not provided or critical integrity standards
+            (e.g., primary key) are not met for the table structure.
         """
 
         self.table_name = table_name
@@ -67,7 +102,7 @@ class GeoCORKTable():
         self.contains_foreign_keys = contains_foreign_keys
         self.as_table_name = as_table_name
 
-        self.limited_table_name = limited_table_name = f'Limited{self.table_name}'
+        self.limited_table_name = f'Limited{self.table_name}'
 
         self.bridge_table = bridge_table
         self.bridge_from_column = bridge_from_column
@@ -76,39 +111,43 @@ class GeoCORKTable():
         self.child_tables: list[GeoCORKTable] = child_tables
         self.parent_tables: list[GeoCORKTable] = parent_tables
 
-        self.attributes: list[TableAttributes] = attributes
+        self.attributes: list[GeoCORKTableAttribute] = attributes
 
         if self.attributes is None:
             logger_setup.get_logger().critical('No attributes given for table.')
             return False
 
         # add Modified and Created Attributes
-        self.attributes.append(TableAttributes(f'{self.id_column.attribute_name.replace('ID', 'Created')}', 'DATETIME'))
-        self.attributes.append(TableAttributes(f'{self.id_column.attribute_name.replace('ID', 'Modified')}', 'DATETIME'))
+        self.attributes.append(GeoCORKTableAttribute(f'{self.id_column.attribute_name.replace('ID', 'Created')}', 'DATETIME'))
+        self.attributes.append(
+            GeoCORKTableAttribute(f'{self.id_column.attribute_name.replace('ID', 'Modified')}', 'DATETIME'))
 
-
-        #checks to make sure an ID column exists
+        # checks to make sure an ID column exists
         if self.table_type == TableType.TABLE:
-            self.id_column: TableAttributes = None
-            for i in range(self.attributes):
+            self.id_column: GeoCORKTableAttribute = None
+            for i in range(0, len(self.attributes)):
                 if self.attributes[i].primary_key and i == 0:
                     self.id_column = self.attributes[i]
                 elif self.attributes[i].attribute_name == self.attribute_name[0].attribute_name.replace('ID', 'Name'):
-                    self.name_column: TableAttributes = self.attributes[i]
+                    self.name_column: GeoCORKTableAttribute = self.attributes[i]
                     self.name_column_index = i + 1
             if self.id_column is None:
                 logger_setup.get_logger().critical("No primary key column for table")
 
         elif self.table_type == TableType.TREE:
-            self.parent_column: TableAttributes = None
-            for i in range(self.attributes):
-                if self.attributes[i].primary_key and i==0:
+            self.parent_column: GeoCORKTableAttribute = None
+            for i in range(0, len(self.attributes)):
+                if self.attributes[i].primary_key and i == 0:
                     self.id_column = self.attributes[i]
-                elif self.attributes[i].attribute_name == f'Parent{self.attributes[i].attribute_name}' and i==1:
+                elif self.attributes[i].attribute_name == f'Parent{self.attributes[i].attribute_name}' and i == 1:
+                    # set Parent id to not be visible to user
+                    self.attributes[i].visible_to_user = False
                     self.parent_column = self.attributes[i]
-                elif (self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}ParentRow' and i==2):
+                elif self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}ParentRow' and i == 2:
+                    # set Parent row to not be visible to user
+                    self.attributes[i].visible_to_user = False
                     self.parent_row_column = self.attributes[i]
-                elif (self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}Name' and i==3):
+                elif self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}Name' and i == 3:
                     self.name_column = self.attributes[i]
                     self.name_column_index = i + 1
                 else:
@@ -142,6 +181,18 @@ class GeoCORKTable():
         """
         return {self.table_name: [attribute.attribute_name for attribute in self.attributes]}
 
+    @property
+    def user_viewable_attributes(self) -> list[GeoCORKTableAttribute] :
+        """
+
+        :return:
+        """
+        attributes = []
+        for attribute in self.attributes:
+            if attribute.visible_to_user:
+                attributes.append(attribute)
+        return attributes
+
     def create_query(self) -> str:
         """
         Returns a generate SQL query to create the table.
@@ -150,8 +201,6 @@ class GeoCORKTable():
         return (f"CREATE TABLE IF NOT EXISTS {self.table_name} (\n "
                 f"{',\n'.join(str(attr) for attr in self.attributes)})" + \
                 f"{',\n'.join(str(unique) for unique in self.unique_constraints)})")
-
-
 
         # limited_sample_hierarchy_join = f'''
         #                         JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
