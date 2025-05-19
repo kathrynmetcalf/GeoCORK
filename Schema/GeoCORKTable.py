@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import Self
 
 import logger_setup
 
@@ -11,7 +12,8 @@ class TableType(Enum):
     INTERNAL = 4
 
 class TableAttributes(object):
-    def __init__(self, attribute_name, data_type, primary_key=False, unique=False, not_null=False, not_empty=False):
+    def __init__(self, attribute_name: str = None, data_type: str = None,
+                 primary_key=False, unique=False, not_null=False, not_empty=False, as_case: str = None):
         self.attribute_name = attribute_name
         self.data_type = data_type
         self.primary_key = primary_key
@@ -19,20 +21,28 @@ class TableAttributes(object):
         self.not_null = not_null
         self.not_empty = not_empty
 
+        if self.data_type == 'AS':
+            self.as_case = as_case
+
     def __str__(self):
         return (f"{self.attribute_name} "
                 f"{self.data_type} "
                 f"{'PRIMARY KEY' if self.primary_key else ''} "
                 f"{ 'NOT NULL' if self.not_null else ''} "
-                f"({self.attribute_name + " <> ''" if self.not_empty else ""})".strip())
+                f"({self.attribute_name + " <> ''" if self.not_empty else ''})"
+                f"{'DEFAULT CURRENT_TIMESTAMP' if self.data_type=='DATETIME' else ''}"
+                f"({self.as_case if self.data_type=='AS_CASE' else ''}) STORED".strip())
 
 
 class GeoCORKTable():
+    """
+
+    """
     def __init__(self, table_name, attributes: list[TableAttributes], table_type: TableType = TableType.TABLE,
                  user_viewable: bool = False, conditionally_editable: bool = False,
-                 static_table: bool = False, contains_foreign_keys: bool = False, as_table_name: str = None,
-                 bridge_table: GeoCORKTable = None, bridge_from_column: str = None, bridge_to_column: str = None,
-                 child_tables: list[GeoCORKTable] = None, parent_tables: list[GeoCORKTable] = None):
+                 static_table: bool = False, contains_foreign_keys: bool = False, as_table_name: list[str] = None,
+                 bridge_table: Self = None, bridge_from_column: str = None, bridge_to_column: str = None,
+                 child_tables: list[Self] = None, parent_tables: list[Self] = None):
         """
 
         :param table_name:
@@ -57,7 +67,7 @@ class GeoCORKTable():
         self.contains_foreign_keys = contains_foreign_keys
         self.as_table_name = as_table_name
 
-        self.limited_table_name
+        self.limited_table_name = limited_table_name = f'Limited{self.table_name}'
 
         self.bridge_table = bridge_table
         self.bridge_from_column = bridge_from_column
@@ -72,6 +82,10 @@ class GeoCORKTable():
             logger_setup.get_logger().critical('No attributes given for table.')
             return False
 
+        # add Modified and Created Attributes
+        self.attributes.append(TableAttributes(f'{self.id_column.attribute_name.replace('ID', 'Created')}', 'DATETIME'))
+        self.attributes.append(TableAttributes(f'{self.id_column.attribute_name.replace('ID', 'Modified')}', 'DATETIME'))
+
 
         #checks to make sure an ID column exists
         if self.table_type == TableType.TABLE:
@@ -79,7 +93,7 @@ class GeoCORKTable():
             for i in range(self.attributes):
                 if self.attributes[i].primary_key and i == 0:
                     self.id_column = self.attributes[i]
-                elif self.attributes[i].attribute_name == self.attribute_name[0].attribute_name.replace('ID', 'Name')
+                elif self.attributes[i].attribute_name == self.attribute_name[0].attribute_name.replace('ID', 'Name'):
                     self.name_column: TableAttributes = self.attributes[i]
                     self.name_column_index = i + 1
             if self.id_column is None:
