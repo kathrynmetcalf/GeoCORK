@@ -32,7 +32,7 @@ class GeoCORKSchema:
     # ----------------------------------------------------------------------------------------------- #
     # |     Internal Static Unit/Format/Conversion Tables                                           |
     # ----------------------------------------------------------------------------------------------- #
-    AgeUnits = GeoCORKTable(table_name='AgeUnits', table_type=TableType.INTERNAL, static_table=True,
+    AgeUnits = GeoCORKTable(table_name='AgeUnits', table_type=TableType.UNITS, static_table=True,
                             contains_foreign_keys=True,
                             as_table_name=['UPbAgeUnits'],
                             attributes=[
@@ -41,17 +41,18 @@ class GeoCORKSchema:
                                 GeoCORKTableAttribute('AgeUnitAbbreviation', 'TEXT', not_null=True, not_empty=True),
                                 GeoCORKTableAttribute('AgeUnitDescription', 'TEXT')])
 
-    AgeUnitConversions = GeoCORKTable(table_name='AgeUnitConversions', table_type=TableType.INTERNAL, static_table=True,
+    AgeUnitConversions = GeoCORKTable(table_name='AgeUnitConversions', table_type=TableType.CONVERSION,
+                                      static_table=True,
                                       contains_foreign_keys=True,
                                       attributes=[
                                           GeoCORKTableAttribute('FromAgeUnitID', 'INTEGER', not_null=True,
-                                                                not_empty=True),
+                                                                not_empty=True, foreign_key_table='AgeUnits'),
                                           GeoCORKTableAttribute('ToAgeUnitID', 'INTEGER', not_null=True,
-                                                                not_empty=True),
+                                                                not_empty=True, foreign_key_table='AgeUnits'),
                                           GeoCORKTableAttribute('AgeUnitConversionCalculation', 'TEXT', not_null=True,
                                                                 not_empty=True)])
 
-    ConcordanceFormats = GeoCORKTable(table_name='ConcordanceFormats', table_type=TableType.INTERNAL, static_table=True,
+    ConcordanceFormats = GeoCORKTable(table_name='ConcordanceFormats', table_type=TableType.FORMATS, static_table=True,
                                       contains_foreign_keys=True,
                                       attributes=[
                                           GeoCORKTableAttribute('ConcordanceFormatID', 'INTEGER', primary_key=True),
@@ -63,21 +64,23 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('ConcordanceFormatDescription', 'TEXT')])
 
     ConcordanceFormatConversions = GeoCORKTable(table_name='ConcordanceFormatConversions',
-                                                table_type=TableType.INTERNAL,
+                                                table_type=TableType.CONVERSION,
                                                 static_table=True,
                                                 contains_foreign_keys=True,
                                                 attributes=[
                                                     GeoCORKTableAttribute('FromConcordanceFormatID', 'INTEGER',
                                                                           not_null=True,
-                                                                          not_empty=True),
+                                                                          not_empty=True,
+                                                                          foreign_key_table='ConcordanceFormats'),
                                                     GeoCORKTableAttribute('ToConcordanceFormatID', 'INTEGER',
                                                                           not_null=True,
-                                                                          not_empty=True),
+                                                                          not_empty=True,
+                                                                          foreign_key_table='ConcordanceFormats'),
                                                     GeoCORKTableAttribute('ConcordanceFormatConversionCalculation',
                                                                           'TEXT',
                                                                           not_null=True, not_empty=True)])
 
-    DirectionUnits = GeoCORKTable(table_name='DirectionUnits', table_type=TableType.INTERNAL, static_table=True,
+    DirectionUnits = GeoCORKTable(table_name='DirectionUnits', table_type=TableType.UNITS, static_table=True,
                                   contains_foreign_keys=True,
                                   as_table_name=['SampleLatDirections', 'SampleLonDirections', 'ColumnLatDirections',
                                                  'ColumnLonDirections'],
@@ -88,7 +91,7 @@ class GeoCORKSchema:
                                                             not_empty=True),
                                       GeoCORKTableAttribute('DirectionUnitDescription', 'TEXT')])
 
-    DistanceUnits = GeoCORKTable(table_name='DistanceUnits', table_type=TableType.INTERNAL, static_table=True,
+    DistanceUnits = GeoCORKTable(table_name='DistanceUnits', table_type=TableType.UNITS, static_table=True,
                                  contains_foreign_keys=True,
                                  as_table_name=['SampleElevationUnits', 'ColumnElevationUnits',
                                                 'ColumnHeightDepthUnits',
@@ -100,18 +103,18 @@ class GeoCORKSchema:
                                                                    not_empty=True),
                                              GeoCORKTableAttribute('DistanceUnitDescription', 'TEXT')])
 
-    DistanceUnitConversions = GeoCORKTable(table_name='DistanceUnitConversions', table_type=TableType.INTERNAL,
+    DistanceUnitConversions = GeoCORKTable(table_name='DistanceUnitConversions', table_type=TableType.CONVERSION,
                                            static_table=True,
                                            contains_foreign_keys=True,
                                            attributes=[
                                                GeoCORKTableAttribute('FromDistanceUnitID', 'INTEGER', not_null=True,
-                                                                     not_empty=True),
+                                                                     not_empty=True, foreign_key_table='DistanceUnits'),
                                                GeoCORKTableAttribute('ToDistanceUnitID', 'INTEGER', not_null=True,
-                                                                     not_empty=True),
+                                                                     not_empty=True, foreign_key_table='DistanceUnits'),
                                                GeoCORKTableAttribute('DistanceUnitConversionCalculation', 'TEXT',
                                                                      not_null=True, not_empty=True)])
 
-    ErrorFormats = GeoCORKTable(table_name='ErrorFormats', table_type=TableType.INTERNAL, static_table=True,
+    ErrorFormats = GeoCORKTable(table_name='ErrorFormats', table_type=TableType.FORMATS, static_table=True,
                                 contains_foreign_keys=True,
                                 as_table_name=['DirectAgeErrorFormats', 'RatioErrorFormats', 'AgeErrorFormats'],
                                 attributes=[GeoCORKTableAttribute('ErrorFormatID', 'INTEGER', primary_key=True),
@@ -121,28 +124,29 @@ class GeoCORKSchema:
                                                                   not_empty=True),
                                             GeoCORKTableAttribute('ErrorFormatDescription', 'TEXT')])
 
-    ErrorFormatConversions = GeoCORKTable(table_name='ErrorFormatConversions', table_type=TableType.INTERNAL,
+    ErrorFormatConversions = GeoCORKTable(table_name='ErrorFormatConversions', table_type=TableType.CONVERSION,
                                           static_table=True, contains_foreign_keys=True,
                                           attributes=[
                                               GeoCORKTableAttribute('FromErrorFormatID', 'INTEGER', not_null=True,
-                                                                    not_empty=True),
+                                                                    not_empty=True, foreign_key_table='ErrorFormats'),
                                               GeoCORKTableAttribute('ToErrorFormatID', 'INTEGER', not_null=True,
-                                                                    not_empty=True),
+                                                                    not_empty=True, foreign_key_table='ErrorFormats'),
                                               GeoCORKTableAttribute('ErrorFormatConversionCalculation', 'TEXT',
                                                                     not_null=True, not_empty=True)])
 
-    GPSFormatConversions = GeoCORKTable(table_name='GPSFormatConversions', table_type=TableType.TREE, static_table=True,
+    GPSFormatConversions = GeoCORKTable(table_name='GPSFormatConversions', table_type=TableType.CONVERSION,
+                                        static_table=True,
                                         contains_foreign_keys=True,
                                         attributes=[
                                             GeoCORKTableAttribute('FromGPSFormatID', 'INTEGER', not_null=True,
-                                                                  not_empty=True),
+                                                                  not_empty=True, foreign_key_table='GPSFormat'),
                                             GeoCORKTableAttribute('ToGPSFormatID', 'INTEGER', not_null=True,
-                                                                  not_empty=True),
+                                                                  not_empty=True, foreign_key_table='GPSFormat'),
                                             GeoCORKTableAttribute('GPSFormatConversionCalculation', 'TEXT',
                                                                   not_null=True,
                                                                   not_empty=True)])
 
-    GPSFormats = GeoCORKTable(table_name='GPSFormats', table_type=TableType.INTERNAL, static_table=True,
+    GPSFormats = GeoCORKTable(table_name='GPSFormats', table_type=TableType.FORMATS, static_table=True,
                               contains_foreign_keys=True,
                               as_table_name=['ColumnGPSFormats'],
                               attributes=[GeoCORKTableAttribute('GPSFormatID', 'INTEGER', primary_key=True),
@@ -158,7 +162,7 @@ class GeoCORKSchema:
     Ages = GeoCORKTable(table_name='Ages', table_type=TableType.TREE,
                         user_viewable=True, static_table=True, as_table_name=['OldAge', 'YoungAge'],
                         attributes=[GeoCORKTableAttribute('AgeID', 'INTEGER', primary_key=True),
-                                    GeoCORKTableAttribute('ParentAgeID', 'INTEGER'),
+                                    GeoCORKTableAttribute('ParentAgeID', 'INTEGER', foreign_key_table='Ages'),
                                     GeoCORKTableAttribute('AgeParentRow', 'INTEGER'),
                                     GeoCORKTableAttribute('AgeName', 'TEXT', not_null=True, not_empty=True),
                                     GeoCORKTableAttribute('OldestAge', 'REAL'),
@@ -170,7 +174,8 @@ class GeoCORKSchema:
                                   bridge_table='SampleAges_AgeConstraints', bridge_to_column='AgeConstraintID',
                                   bridge_from_column='SampleAgeID',
                                   attributes=[GeoCORKTableAttribute('AgeConstraintID', 'INTEGER', primary_key=True),
-                                              GeoCORKTableAttribute('ParentAgeConstraintID', 'INTEGER'),
+                                              GeoCORKTableAttribute('ParentAgeConstraintID', 'INTEGER',
+                                                                    foreign_key_table='AgeConstraints'),
                                               GeoCORKTableAttribute('AgeConstraintParentRow', 'INTEGER'),
                                               GeoCORKTableAttribute('AgeConstraintName', 'TEXT', not_null=True,
                                                                     not_empty=True),
@@ -184,7 +189,8 @@ class GeoCORKSchema:
                                       bridge_from_column='SampleAgeID',
                                       attributes=[
                                           GeoCORKTableAttribute('AgeInterpretationID', 'INTEGER', primary_key=True),
-                                          GeoCORKTableAttribute('ParentAgeInterpretationID', 'INTEGER'),
+                                          GeoCORKTableAttribute('ParentAgeInterpretationID', 'INTEGER',
+                                                                foreign_key_table='AgeInterpretations'),
                                           GeoCORKTableAttribute('AgeInterpretationParentRow', 'INTEGER'),
                                           GeoCORKTableAttribute('AgeInterpretationName', 'TEXT', not_null=True,
                                                                 not_empty=True),
@@ -196,7 +202,8 @@ class GeoCORKSchema:
                                  bridge_table='SampleAges_AgeSignature', bridge_to_column='AgeSignatureID',
                                  bridge_from_column='SampleAgeID',
                                  attributes=[GeoCORKTableAttribute('AgeSignatureID', 'INTEGER', primary_key=True),
-                                             GeoCORKTableAttribute('ParentAgeSignatureID', 'INTEGER'),
+                                             GeoCORKTableAttribute('ParentAgeSignatureID', 'INTEGER',
+                                                                   foreign_key_table='AgeSignatures'),
                                              GeoCORKTableAttribute('AgeSignatureParentRow', 'INTEGER'),
                                              GeoCORKTableAttribute('AgeSignatureName', 'TEXT', not_null=True,
                                                                    not_empty=True),
@@ -208,7 +215,8 @@ class GeoCORKSchema:
                                    bridge_table='Aliquots_AliquotContexts', bridge_to_column='AliquotContextID',
                                    bridge_from_column='SampleID',
                                    attributes=[GeoCORKTableAttribute('AliquotContextID', 'INTEGER', primary_key=True),
-                                               GeoCORKTableAttribute('ParentAliquotContextID', 'INTEGER'),
+                                               GeoCORKTableAttribute('ParentAliquotContextID', 'INTEGER',
+                                                                     foreign_key_table='AliquotContexts'),
                                                GeoCORKTableAttribute('AliquotContextParentRow', 'INTEGER'),
                                                GeoCORKTableAttribute('AliquotContextName', 'TEXT', not_null=True,
                                                                      not_empty=True),
@@ -221,33 +229,38 @@ class GeoCORKSchema:
                            attributes=[GeoCORKTableAttribute('ColumnID', 'INTEGER', primary_key=True),
                                        GeoCORKTableAttribute('ColumnName', 'TEXT', not_null=True, not_empty=True),
                                        GeoCORKTableAttribute('ColumnTotalHeightDepth', 'REAL'),
-                                       GeoCORKTableAttribute('ColumnTotalHeightDepthUnitID', 'INTEGER'),
-                                       GeoCORKTableAttribute('ColumnBaseGPSID', 'INTEGER'),
+                                       GeoCORKTableAttribute('ColumnTotalHeightDepthUnitID', 'INTEGER',
+                                                             foreign_key_table='DistanceUnits'),
+                                       GeoCORKTableAttribute('ColumnBaseGPSID', 'INTEGER',
+                                                             foreign_key_table='GPSLocations'),
                                        GeoCORKTableAttribute('ColumnDescription', 'TEXT')])
 
-    GPSLocations = GeoCORKTable(table_name='GPSLocations', table_type=TableType.TREE, conditionally_editable=True,
+    GPSLocations = GeoCORKTable(table_name='GPSLocations', table_type=TableType.TABLE, conditionally_editable=True,
                                 contains_foreign_keys=True, as_table_name=['ColumnGPS'],
                                 attributes=[GeoCORKTableAttribute('GPSLocationID', 'INTEGER', primary_key=True),
                                             GeoCORKTableAttribute('GPSLocationConverted', 'TEXT'),
                                             GeoCORKTableAttribute('GPSLocationDisplay', 'AS',
-                                                                  as_case="""CASE WHEN GPSFormatID = 1 THEN GPSLatDeg || "°, " ||  GPSLonDeg || "° " WHEN GPSFormatID = 2 THEN GPSLatDeg || "° " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonDirectionID WHEN GPSFormatID = 3 THEN GPSLatDeg || "° " || GPSLatMin || "', " || GPSLonDeg || "° " || GPSLonMin || "'" WHEN GPSFormatID = 4 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonDirectionID WHEN GPSFormatID = 5 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'', " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "''" WHEN GPSFormatID = 6 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "'' " || GPSLonDirectionID WHEN GPSFormatID = 7 THEN GPSUTMZone || ", " || GPSUTME || "m E, " || GPSUTMN || "m N" ENDCASE WHEN GPSFormatID = 1 THEN GPSLatDeg || "°, " ||  GPSLonDeg || "° " WHEN GPSFormatID = 2 THEN GPSLatDeg || "° " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonDirectionID WHEN GPSFormatID = 3 THEN GPSLatDeg || "° " || GPSLatMin || "', " || GPSLonDeg || "° " || GPSLonMin || "'" WHEN GPSFormatID = 4 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonDirectionID WHEN GPSFormatID = 5 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'', " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "''" WHEN GPSFormatID = 6 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "'' " || GPSLonDirectionID WHEN GPSFormatID = 7 THEN GPSUTMZone || ", " || GPSUTME || "m E, " || GPSUTMN || "m N" END"""),
+                                                                  as_case="""CASE WHEN GPSFormatID = 1 THEN GPSLatDeg || "°, " ||  GPSLonDeg || "° " WHEN GPSFormatID = 2 THEN GPSLatDeg || "° " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonDirectionID WHEN GPSFormatID = 3 THEN GPSLatDeg || "° " || GPSLatMin || "', " || GPSLonDeg || "° " || GPSLonMin || "'" WHEN GPSFormatID = 4 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonDirectionID WHEN GPSFormatID = 5 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'', " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "''" WHEN GPSFormatID = 6 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "'' " || GPSLonDirectionID WHEN GPSFormatID = 7 THEN GPSUTMZone || ", " || GPSUTME || "m E, " || GPSUTMN || "m N" END"""),
                                             GeoCORKTableAttribute('GPSLatDeg', 'REAL'),
                                             GeoCORKTableAttribute('GPSLatMin', 'REAL'),
                                             GeoCORKTableAttribute('GPSLatSec', 'REAL'),
-                                            GeoCORKTableAttribute('GPSLatDirectionID', 'INTEGER'),
+                                            GeoCORKTableAttribute('GPSLatDirectionID', 'INTEGER',
+                                                                  foreign_key_table='DirectionUnits'),
                                             GeoCORKTableAttribute('GPSLonDeg', 'REAL'),
                                             GeoCORKTableAttribute('GPSLonMin', 'REAL'),
                                             GeoCORKTableAttribute('GPSLonSec', 'REAL'),
-                                            GeoCORKTableAttribute('GPSLonDirectionID', 'INTEGER'),
+                                            GeoCORKTableAttribute('GPSLonDirectionID', 'INTEGER',
+                                                                  foreign_key_table='DirectionUnits'),
                                             GeoCORKTableAttribute('GPSUTMZone', 'TEXT'),
                                             GeoCORKTableAttribute('GPSUTMN', 'REAL'),
                                             GeoCORKTableAttribute('GPSUTME', 'REAL'),
                                             GeoCORKTableAttribute('GPSFormatID', 'INTEGER'),
                                             GeoCORKTableAttribute('GPSElev', 'REAL'),
                                             GeoCORKTableAttribute('GPSElevError', 'REAL'),
-                                            GeoCORKTableAttribute('GPSElevUnitID', 'INTEGER')])
+                                            GeoCORKTableAttribute('GPSElevUnitID', 'INTEGER',
+                                                                  foreign_key_table='DistanceUnits')])
 
-    Instruments = GeoCORKTable(table_name='Instruments', table_type=TableType.TREE,
+    Instruments = GeoCORKTable(table_name='Instruments', table_type=TableType.TABLE,
                                user_viewable=True,
                                contains_foreign_keys=False,
                                bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
@@ -257,7 +270,7 @@ class GeoCORKSchema:
                                                                  not_empty=True),
                                            GeoCORKTableAttribute('InstrumentDescription', 'TEXT'), ])
 
-    LabFacilities = GeoCORKTable(table_name='LabFacilities', table_type=TableType.TREE,
+    LabFacilities = GeoCORKTable(table_name='LabFacilities', table_type=TableType.TABLE,
                                  user_viewable=True,
                                  contains_foreign_keys=False,
                                  bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
@@ -267,7 +280,7 @@ class GeoCORKSchema:
                                                                    not_empty=True),
                                              GeoCORKTableAttribute('LabFacilityDescription', 'TEXT')])
 
-    References = GeoCORKTable(table_name='References', table_type=TableType.TREE,
+    References = GeoCORKTable(table_name='"References"', table_type=TableType.TABLE,
                               user_viewable=True,
                               contains_foreign_keys=False, as_table_name=['AgeReferences', 'UPbReferences'],
                               bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
@@ -285,7 +298,7 @@ class GeoCORKSchema:
                            bridge_table='Samples_Regions', bridge_to_column='RegionID',
                            bridge_from_column='SampleID',
                            attributes=[GeoCORKTableAttribute('RegionID', 'INTEGER', primary_key=True),
-                                       GeoCORKTableAttribute('ParentRegionID', 'INTEGER'),
+                                       GeoCORKTableAttribute('ParentRegionID', 'INTEGER', foreign_key_table='Regions'),
                                        GeoCORKTableAttribute('RegionParentRow', 'INTEGER'),
                                        GeoCORKTableAttribute('RegionName', 'TEXT', not_null=True, not_empty=True),
                                        GeoCORKTableAttribute('RegionDescription', 'TEXT')])
@@ -306,7 +319,8 @@ class GeoCORKSchema:
                              bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
                              bridge_from_column='SampleID',
                              attributes=[GeoCORKTableAttribute('RockTypeID', 'INTEGER', primary_key=True),
-                                         GeoCORKTableAttribute('ParentRockTypeID', 'INTEGER'),
+                                         GeoCORKTableAttribute('ParentRockTypeID', 'INTEGER',
+                                                               foreign_key_table='RockTypes'),
                                          GeoCORKTableAttribute('RockTypeParentRow', 'INTEGER'),
                                          GeoCORKTableAttribute('RockTypeName', 'TEXT', not_null=True, not_empty=True),
                                          GeoCORKTableAttribute('RockTypeDescription', 'TEXT')])
@@ -317,7 +331,8 @@ class GeoCORKSchema:
                                     bridge_table='Spots_SpotCompositions', bridge_to_column='SpotCompositionID',
                                     bridge_from_column='SpotID',
                                     attributes=[GeoCORKTableAttribute('SpotCompositionID', 'INTEGER', primary_key=True),
-                                                GeoCORKTableAttribute('ParentSpotCompositionID', 'INTEGER'),
+                                                GeoCORKTableAttribute('ParentSpotCompositionID', 'INTEGER',
+                                                                      foreign_key_table='SpotCompositions'),
                                                 GeoCORKTableAttribute('SpotCompositionParentRow', 'INTEGER'),
                                                 GeoCORKTableAttribute('SpotCompositionName', 'TEXT', not_null=True,
                                                                       not_empty=True),
@@ -329,7 +344,8 @@ class GeoCORKSchema:
                                 bridge_table='Spots_SpotContexts', bridge_to_column='SpotContextID',
                                 bridge_from_column='SpotID',
                                 attributes=[GeoCORKTableAttribute('SpotContextID', 'INTEGER', primary_key=True),
-                                            GeoCORKTableAttribute('ParentSpotContextID', 'INTEGER'),
+                                            GeoCORKTableAttribute('ParentSpotContextID', 'INTEGER',
+                                                                  foreign_key_table='SpotContexts'),
                                             GeoCORKTableAttribute('SpotContextParentRow', 'INTEGER'),
                                             GeoCORKTableAttribute('SpotContextName', 'TEXT', not_null=True,
                                                                   not_empty=True),
@@ -343,12 +359,14 @@ class GeoCORKSchema:
                               attributes=[GeoCORKTableAttribute('SampleAgeID', 'INTEGER', primary_key=True),
                                           GeoCORKTableAttribute('DirectAge', 'REAL'),
                                           GeoCORKTableAttribute('DirectAgeError', 'REAL'),
-                                          GeoCORKTableAttribute('DirectAgeErrorFormatID', 'INTEGER'),
+                                          GeoCORKTableAttribute('DirectAgeErrorFormatID', 'INTEGER',
+                                                                foreign_key_table='ErrorFormats'),
                                           GeoCORKTableAttribute('OldestDirectAge', 'REAL'),
                                           GeoCORKTableAttribute('YoungestDirectAge', 'REAL'),
-                                          GeoCORKTableAttribute('DirectAgeUnitID', 'INTEGER'),
-                                          GeoCORKTableAttribute('OldestAgeID', 'INTEGER'),
-                                          GeoCORKTableAttribute('YoungestAgeID', 'INTEGER'),
+                                          GeoCORKTableAttribute('DirectAgeUnitID', 'INTEGER',
+                                                                foreign_key_table='ErrorFormats'),
+                                          GeoCORKTableAttribute('OldestAgeID', 'INTEGER', foreign_key_table='Ages'),
+                                          GeoCORKTableAttribute('YoungestAgeID', 'INTEGER', foreign_key_table='Ages'),
                                           GeoCORKTableAttribute('SampleAgeDescription', 'TEXT')])
 
     SampleContexts = GeoCORKTable(table_name='SampleContexts', table_type=TableType.TREE,
@@ -357,7 +375,8 @@ class GeoCORKSchema:
                                   bridge_table='Samples_SampleContexts', bridge_to_column='SampleContextID',
                                   bridge_from_column='SampleID',
                                   attributes=[GeoCORKTableAttribute('SampleContextID', 'INTEGER', primary_key=True),
-                                              GeoCORKTableAttribute('ParentSampleContextID', 'INTEGER'),
+                                              GeoCORKTableAttribute('ParentSampleContextID', 'INTEGER',
+                                                                    foreign_key_table='SampleContexts'),
                                               GeoCORKTableAttribute('SampleContextParentRow', 'INTEGER', not_null=True),
                                               GeoCORKTableAttribute('SampleContextName', 'TEXT', not_null=True,
                                                                     not_empty=True),
@@ -369,7 +388,8 @@ class GeoCORKSchema:
                                    bridge_table='Samples_SamplingMethods', bridge_to_column='SamplingMethodID',
                                    bridge_from_column='SampleID',
                                    attributes=[GeoCORKTableAttribute('SamplingMethodID', 'INTEGER', primary_key=True),
-                                               GeoCORKTableAttribute('ParentSamplingMethodID', 'INTEGER'),
+                                               GeoCORKTableAttribute('ParentSamplingMethodID', 'INTEGER',
+                                                                     foreign_key_table='SamplingMethods'),
                                                GeoCORKTableAttribute('SamplingMethodParentRow', 'INTEGER'),
                                                GeoCORKTableAttribute('SamplingMethodName', 'TEXT', not_null=True,
                                                                      not_empty=True),
@@ -381,7 +401,8 @@ class GeoCORKSchema:
                             bridge_table='Samples_Units', bridge_to_column='UnitID',
                             bridge_from_column='SampleID',
                             attributes=[GeoCORKTableAttribute('SettingID', 'INTEGER', primary_key=True),
-                                        GeoCORKTableAttribute('ParentSettingID', 'INTEGER'),
+                                        GeoCORKTableAttribute('ParentSettingID', 'INTEGER',
+                                                              foreign_key_table='Settings'),
                                         GeoCORKTableAttribute('SettingParentRow', 'INTEGER'),
                                         GeoCORKTableAttribute('SettingName', 'TEXT', not_null=True, not_empty=True),
                                         GeoCORKTableAttribute('SettingDescription', 'TEXT')])
@@ -392,7 +413,7 @@ class GeoCORKSchema:
                          bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
                          bridge_from_column='SampleID',
                          attributes=[GeoCORKTableAttribute('UnitID', 'INTEGER', primary_key=True),
-                                     GeoCORKTableAttribute('ParentUnitID', 'INTEGER'),
+                                     GeoCORKTableAttribute('ParentUnitID', 'INTEGER', foreign_key_table='Units'),
                                      GeoCORKTableAttribute('UnitParentRow', 'INTEGER'),
                                      GeoCORKTableAttribute('UnitName', 'TEXT', not_null=True, not_empty=True),
                                      GeoCORKTableAttribute('UnitDescription', 'TEXT')])
@@ -405,7 +426,8 @@ class GeoCORKSchema:
                                        bridge_from_column='UPbAnalysisID',
                                        attributes=[
                                            GeoCORKTableAttribute('UPbAnalysisContextID', 'INTEGER', primary_key=True),
-                                           GeoCORKTableAttribute('UPbAnalysisContextID', 'INTEGER'),
+                                           GeoCORKTableAttribute('ParentUPbAnalysisContextID', 'INTEGER',
+                                                                 foreign_key_table='UPbAnalysisContexts'),
                                            GeoCORKTableAttribute('UPbAnalysisContextParentRow', 'INTEGER'),
                                            GeoCORKTableAttribute('UPbAnalysisContextName', 'TEXT', not_null=True,
                                                                  not_empty=True),
@@ -418,7 +440,8 @@ class GeoCORKSchema:
                                       bridge_from_column='UPbAnalysisMethodID',
                                       attributes=[
                                           GeoCORKTableAttribute('UPbAnalysisMethodID', 'INTEGER', primary_key=True),
-                                          GeoCORKTableAttribute('ParentUPbAnalysisMethodID', 'INTEGER'),
+                                          GeoCORKTableAttribute('ParentUPbAnalysisMethodID', 'INTEGER',
+                                                                foreign_key_table='UPbAnalysisMethods'),
                                           GeoCORKTableAttribute('UPbAnalysisMethodParentRow', 'INTEGER'),
                                           GeoCORKTableAttribute('UPbAnalysisMethodName', 'TEXT', not_null=True,
                                                                 not_empty=True),
@@ -436,12 +459,15 @@ class GeoCORKSchema:
                            attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', primary_key=True),
                                        GeoCORKTableAttribute('SampleName', 'TEXT', not_null=True, not_empty=True),
                                        GeoCORKTableAttribute('SampleIGSN', 'TEXT'),
-                                       GeoCORKTableAttribute('SampleGPSLocationID', 'INTEGER'),
-                                       GeoCORKTableAttribute('SampleColumnID', 'INTEGER'),
+                                       GeoCORKTableAttribute('SampleGPSLocationID', 'INTEGER',
+                                                             foreign_key_table='GPSLocations'),
+                                       GeoCORKTableAttribute('SampleColumnID', 'INTEGER', foreign_key_table='Columns'),
                                        GeoCORKTableAttribute('HeightDepth', 'REAL'),
                                        GeoCORKTableAttribute('HeightDepthError', 'REAL'),
-                                       GeoCORKTableAttribute('HeightDepthUnitID', 'INTEGER'),
-                                       GeoCORKTableAttribute('DefaultSampleAgeID', 'INTEGER'),
+                                       GeoCORKTableAttribute('HeightDepthUnitID', 'INTEGER',
+                                                             foreign_key_table='DistanceUnits'),
+                                       GeoCORKTableAttribute('DefaultSampleAgeID', 'INTEGER',
+                                                             foreign_key_table='SampleAges'),
                                        GeoCORKTableAttribute('SampleDescription', 'TEXT')])
 
     Aliquots = GeoCORKTable(table_name='Aliquots', table_type=TableType.TREE,
@@ -451,10 +477,12 @@ class GeoCORKSchema:
                             bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
                             bridge_from_column='SampleID',
                             attributes=[GeoCORKTableAttribute('AliquotID', 'INTEGER', primary_key=True),
-                                        GeoCORKTableAttribute('ParentAliquotID', 'INTEGER'),
+                                        GeoCORKTableAttribute('ParentAliquotID', 'INTEGER',
+                                                              foreign_key_table='Aliquots'),
                                         GeoCORKTableAttribute('AliquotParentRow', 'INTEGER'),
                                         GeoCORKTableAttribute('AliquotName', 'TEXT', not_null=True, not_empty=True),
-                                        GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True, not_empty=True)])
+                                        GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True, not_empty=True,
+                                                              foreign_key_table='Samples')])
 
     Spots = GeoCORKTable(table_name='Spots', table_type=TableType.TABLE,
                          user_viewable=True,
@@ -464,8 +492,10 @@ class GeoCORKSchema:
                          bridge_from_column='SampleID',
                          attributes=[GeoCORKTableAttribute('SpotID', 'INTEGER', primary_key=True),
                                      GeoCORKTableAttribute('SpotName', 'TEXT', not_null=True, not_empty=True),
-                                     GeoCORKTableAttribute('AliquotID', 'INTEGER', not_null=True, not_empty=True),
-                                     GeoCORKTableAttribute('SpotCompositionID', 'INTEGER')])
+                                     GeoCORKTableAttribute('AliquotID', 'INTEGER', not_null=True, not_empty=True,
+                                                           foreign_key_table='Aliquots'),
+                                     GeoCORKTableAttribute('SpotCompositionID', 'INTEGER',
+                                                           foreign_key_table='SpotCompositions')])
 
     UPbAnalyses = GeoCORKTable(table_name='UPbAnalyses', table_type=TableType.TABLE,
                                user_viewable=True,
@@ -474,11 +504,16 @@ class GeoCORKSchema:
                                bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
                                bridge_from_column='SampleID',
                                attributes=[GeoCORKTableAttribute('UPbAnalysisID', 'INTEGER', primary_key=True),
-                                           GeoCORKTableAttribute('SpotID', 'INTEGER', not_null=True, not_empty=True),
-                                           GeoCORKTableAttribute('ReferenceID', 'INTEGER'),
-                                           GeoCORKTableAttribute('LabFacilityID', 'INTEGER'),
-                                           GeoCORKTableAttribute('InstrumentID', 'INTEGER'),
-                                           GeoCORKTableAttribute('UPbAnalysisMethodID', 'INTEGER'),
+                                           GeoCORKTableAttribute('SpotID', 'INTEGER', not_null=True, not_empty=True,
+                                                                 foreign_key_table='Spots'),
+                                           GeoCORKTableAttribute('ReferenceID', 'INTEGER',
+                                                                 foreign_key_table='"References"'),
+                                           GeoCORKTableAttribute('LabFacilityID', 'INTEGER',
+                                                                 foreign_key_table='LabFacilities'),
+                                           GeoCORKTableAttribute('InstrumentID', 'INTEGER',
+                                                                 foreign_key_table='Instruments'),
+                                           GeoCORKTableAttribute('UPbAnalysisMethodID', 'INTEGER',
+                                                                 foreign_key_table='UPbAnalysisMethods'),
                                            GeoCORKTableAttribute('Pb204cps', 'REAL'),
                                            GeoCORKTableAttribute('Pb206cps', 'REAL'),
                                            GeoCORKTableAttribute('Pb207cps', 'REAL'),
@@ -491,64 +526,65 @@ class GeoCORKSchema:
                                            GeoCORKTableAttribute('Thppm', 'REAL'),
                                            GeoCORKTableAttribute('U/Th', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('Th/U', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('CalculatedU/Th', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('CalculatedTh/U', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('CalculatedU/Th', 'AS'),
+                                           GeoCORKTableAttribute('CalculatedTh/U', 'AS'),
                                            GeoCORKTableAttribute('206Pb/207Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('206Pb/207PbError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('207Pb/206Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('207Pb/206PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated206Pb/207Pb', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated207Pb/206Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated206Pb/207Pb', 'AS'),
+                                           GeoCORKTableAttribute('Calculated207Pb/206Pb', 'AS'),
                                            GeoCORKTableAttribute('207Pb/235U', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('207Pb/235UError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('235U/207Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('235U/207PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated207Pb/235U', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated235U/207Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated207Pb/235U', 'AS'),
+                                           GeoCORKTableAttribute('Calculated235U/207Pb', 'AS'),
                                            GeoCORKTableAttribute('206Pb/238U', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('206Pb/238UError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('238U/206Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('238U/206PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated206Pb/238U', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated238U/206Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated206Pb/238U', 'AS'),
+                                           GeoCORKTableAttribute('Calculated238U/206Pb', 'AS'),
                                            GeoCORKTableAttribute('208Pb/232Th', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('208Pb/232ThError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('232Th/208Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('232Th/208PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated208Pb/232Th', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated232Th/208Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated208Pb/232Th', 'AS'),
+                                           GeoCORKTableAttribute('Calculated232Th/208Pb', 'AS'),
                                            GeoCORKTableAttribute('238U/232Th', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('238U/232ThError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('232Th/238U', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('232Th/238UError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated238U/232Th', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated232Th/238U', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated238U/232Th', 'AS'),
+                                           GeoCORKTableAttribute('Calculated232Th/238U', 'AS'),
                                            GeoCORKTableAttribute('204Pb/238U', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('204Pb/238UError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('238U/204Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('238U/204PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated204Pb/238U', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated238U/204Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated204Pb/238U', 'AS'),
+                                           GeoCORKTableAttribute('Calculated238U/204Pb', 'AS'),
                                            GeoCORKTableAttribute('206Pb/204Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('206Pb/204PbError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('204Pb/206Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('204Pb/206PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated206Pb/204Pb', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated204Pb/206Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated206Pb/204Pb', 'AS'),
+                                           GeoCORKTableAttribute('Calculated204Pb/206Pb', 'AS'),
                                            GeoCORKTableAttribute('207Pb/204Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('207Pb/204PbError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('204Pb/207Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('204Pb/207PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated207Pb/204Pb', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated204Pb/207Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated207Pb/204Pb', 'AS'),
+                                           GeoCORKTableAttribute('Calculated204Pb/207Pb', 'AS'),
                                            GeoCORKTableAttribute('208Pb/204Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('208Pb/204PbError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('204Pb/208Pb', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('204Pb/208PbError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('Calculated208Pb/204Pb', 'AS', not_null=True),
-                                           GeoCORKTableAttribute('Calculated204Pb/208Pb', 'AS', not_null=True),
+                                           GeoCORKTableAttribute('Calculated208Pb/204Pb', 'AS'),
+                                           GeoCORKTableAttribute('Calculated204Pb/208Pb', 'AS'),
                                            GeoCORKTableAttribute('RatioErrorFormatID', 'INTEGER',
-                                                                 visible_to_user=False),
+                                                                 visible_to_user=False,
+                                                                 foreign_key_table='ErrorFormats'),
                                            GeoCORKTableAttribute('ErrorCorr/Rho', 'REAL'),
                                            GeoCORKTableAttribute('207Pb/206PbAge', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('207Pb/206PbAgeError', 'REAL', visible_to_user=False),
@@ -560,15 +596,20 @@ class GeoCORKSchema:
                                            GeoCORKTableAttribute('208Pb/232ThAgeError', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('BestAge', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('BestAgeError', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('AgeErrorFormatID', 'INTEGER', visible_to_user=False),
-                                           GeoCORKTableAttribute('AgeUnitID', 'INTEGER', visible_to_user=False),
+                                           GeoCORKTableAttribute('AgeErrorFormatID', 'INTEGER', visible_to_user=False,
+                                                                 foreign_key_table='ErrorFormats'),
+                                           GeoCORKTableAttribute('AgeUnitID', 'INTEGER', visible_to_user=False,
+                                                                 foreign_key_table='AgeUnits'),
                                            GeoCORKTableAttribute('AgeInterpretationID', 'INTEGER',
-                                                                 visible_to_user=False),
+                                                                 visible_to_user=False,
+                                                                 foreign_key_table='AgeInterpretations'),
                                            GeoCORKTableAttribute('Concordance', 'REAL', visible_to_user=False),
                                            GeoCORKTableAttribute('ConcordanceFormatID', 'INTEGER',
-                                                                 visible_to_user=False),
+                                                                 visible_to_user=False,
+                                                                 foreign_key_table='ConcordanceFormats'),
                                            GeoCORKTableAttribute('SpotSize', 'REAL', visible_to_user=False),
-                                           GeoCORKTableAttribute('SpotSizeUnitID', 'INTEGER', visible_to_user=False),
+                                           GeoCORKTableAttribute('SpotSizeUnitID', 'INTEGER', visible_to_user=False,
+                                                                 foreign_key_table='DistanceUnits'),
                                            GeoCORKTableAttribute('Rejected', 'INTEGER')])
 
     # ----------------------------------------------------------------------------------------------- #
@@ -578,101 +619,132 @@ class GeoCORKSchema:
     Aliquots_AliquotContexts = GeoCORKTable(table_name='Aliquots_AliquotContexts',
                                             table_type=TableType.MANYTOMANY,
                                             contains_foreign_keys=True,
-                                            attributes=[GeoCORKTableAttribute('AliquotID', 'INTEGER'),
-                                                        GeoCORKTableAttribute('AliquotContextID', 'INTEGER')])
+                                            attributes=[GeoCORKTableAttribute('AliquotID', 'INTEGER', not_null=True,
+                                                                              foreign_key_table='Aliquots'),
+                                                        GeoCORKTableAttribute('AliquotContextID', 'INTEGER',
+                                                                              not_null=True,
+                                                                              foreign_key_table='AliquotContexts')])
 
     SampleAges_AgeConstraints = GeoCORKTable(table_name='SampleAges_AgeConstraints',
                                              table_type=TableType.MANYTOMANY,
                                              contains_foreign_keys=True,
-                                             attributes=[GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True),
+                                             attributes=[GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True,
+                                                                               foreign_key_table='SampleAges'),
                                                          GeoCORKTableAttribute('AgeConstraintID', 'INTEGER',
-                                                                               not_null=True)])
+                                                                               not_null=True,
+                                                                               foreign_key_table='AgeConstraints')])
 
     SampleAges_AgeInterpretations = GeoCORKTable(table_name='SampleAges_AgeInterpretations',
                                                  table_type=TableType.MANYTOMANY,
                                                  contains_foreign_keys=True,
                                                  attributes=[
-                                                     GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True),
+                                                     GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True,
+                                                                           foreign_key_table='SampleAges'),
                                                      GeoCORKTableAttribute('AgeInterpretationID', 'INTEGER',
-                                                                           not_null=True)])
+                                                                           not_null=True,
+                                                                           foreign_key_table='AgeInterpretations')])
 
     SampleAges_References = GeoCORKTable(table_name='SampleAges_References',
                                          table_type=TableType.MANYTOMANY,
                                          contains_foreign_keys=True,
-                                         attributes=[GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True),
-                                                     GeoCORKTableAttribute('ReferenceID', 'INTEGER', not_null=True)])
+                                         attributes=[GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True,
+                                                                           foreign_key_table='SampleAges'),
+                                                     GeoCORKTableAttribute('ReferenceID', 'INTEGER', not_null=True,
+                                                                           foreign_key_table='"References"')])
 
     Samples_AgeSignatures = GeoCORKTable(table_name='Samples_AgeSignatures',
                                          table_type=TableType.MANYTOMANY,
                                          contains_foreign_keys=True,
-                                         attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True),
-                                                     GeoCORKTableAttribute('AgeSignatureID', 'INTEGER', not_null=True)])
+                                         attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                           foreign_key_table='Samples'),
+                                                     GeoCORKTableAttribute('AgeSignatureID', 'INTEGER', not_null=True,
+                                                                           foreign_key_table='AgeSignatures')])
 
     Samples_Regions = GeoCORKTable(table_name='Samples_Regions',
                                    table_type=TableType.MANYTOMANY,
                                    contains_foreign_keys=True,
-                                   attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True),
-                                               GeoCORKTableAttribute('RegionID', 'INTEGER', not_null=True)])
+                                   attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                     foreign_key_table='Samples'),
+                                               GeoCORKTableAttribute('RegionID', 'INTEGER', not_null=True,
+                                                                     foreign_key_table='Regions')])
 
     Samples_RockTypes = GeoCORKTable(table_name='Samples_RockTypes',
                                      table_type=TableType.MANYTOMANY,
                                      contains_foreign_keys=True,
-                                     attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER'),
-                                                 GeoCORKTableAttribute('RockTypeID', 'INTEGER')])
+                                     attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                       foreign_key_table='Samples'),
+                                                 GeoCORKTableAttribute('RockTypeID', 'INTEGER', not_null=True,
+                                                                       foreign_key_table='RockTypes')])
 
     Samples_SampleAges = GeoCORKTable(table_name='Samples_SampleAges',
                                       table_type=TableType.MANYTOMANY,
                                       contains_foreign_keys=True,
-                                      attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True),
-                                                  GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True)])
+                                      attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                        foreign_key_table='Samples'),
+                                                  GeoCORKTableAttribute('SampleAgeID', 'INTEGER', not_null=True,
+                                                                        foreign_key_table='SampleAges')])
 
     Samples_SampleContexts = GeoCORKTable(table_name='Samples_SampleContexts',
                                           table_type=TableType.MANYTOMANY,
                                           contains_foreign_keys=True,
-                                          attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True),
+                                          attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                            foreign_key_table='Samples'),
                                                       GeoCORKTableAttribute('SampleContextID', 'INTEGER',
-                                                                            not_null=True)])
+                                                                            not_null=True,
+                                                                            foreign_key_table='SampleContexts')])
 
     Samples_SamplingMethods = GeoCORKTable(table_name='Samples_SamplingMethods',
                                            table_type=TableType.MANYTOMANY,
                                            contains_foreign_keys=True,
-                                           attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True),
+                                           attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                             foreign_key_table='Samples'),
                                                        GeoCORKTableAttribute('SamplingMethodID', 'INTEGER',
-                                                                             not_null=True)])
+                                                                             not_null=True,
+                                                                             foreign_key_table='SamplingMethods')])
 
     Samples_Settings = GeoCORKTable(table_name='Samples_Settings',
                                     table_type=TableType.MANYTOMANY,
                                     contains_foreign_keys=True,
-                                    attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True),
-                                                GeoCORKTableAttribute('SettingID', 'INTEGER', not_null=True)])
+                                    attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                      foreign_key_table='Samples'),
+                                                GeoCORKTableAttribute('SettingID', 'INTEGER', not_null=True,
+                                                                      foreign_key_table='Settings')])
 
     Samples_Units = GeoCORKTable(table_name='Samples_Units',
                                  table_type=TableType.MANYTOMANY,
                                  contains_foreign_keys=True,
-                                 attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True),
-                                             GeoCORKTableAttribute('UnitID', 'INTEGER', not_null=True)])
+                                 attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', not_null=True,
+                                                                   foreign_key_table='Samples'),
+                                             GeoCORKTableAttribute('UnitID', 'INTEGER', not_null=True,
+                                                                   foreign_key_table='Units')])
 
     Spots_SpotContexts = GeoCORKTable(table_name='Spots_SpotContexts',
                                       table_type=TableType.MANYTOMANY,
                                       contains_foreign_keys=True,
-                                      attributes=[GeoCORKTableAttribute('SpotID', 'INTEGER', not_null=True),
-                                                  GeoCORKTableAttribute('SpotContextID', 'INTEGER', not_null=True)])
+                                      attributes=[GeoCORKTableAttribute('SpotID', 'INTEGER', not_null=True,
+                                                                        foreign_key_table='Spots'),
+                                                  GeoCORKTableAttribute('SpotContextID', 'INTEGER', not_null=True,
+                                                                        foreign_key_table='SpotContexts')])
 
     UPbAnalyses_UPbRejectionReasons = GeoCORKTable(table_name='UPbAnalyses_UPbRejectionReasons',
                                                    table_type=TableType.MANYTOMANY,
                                                    contains_foreign_keys=True,
-                                                   attributes=[GeoCORKTableAttribute('UPbAnalysisID', 'INTEGER'),
-                                                               GeoCORKTableAttribute('RejectionReasonID', 'INTEGER')])
+                                                   attributes=[
+                                                       GeoCORKTableAttribute('UPbAnalysisID', 'INTEGER', not_null=True,
+                                                                             foreign_key_table='UPbAnalyses'),
+                                                       GeoCORKTableAttribute('RejectionReasonID', 'INTEGER',
+                                                                             not_null=True,
+                                                                             foreign_key_table='RejectionReasons')])
 
     UPbAnalyses_UPbAnalysisContexts = GeoCORKTable(table_name='UPbAnalyses_UPbAnalysisContexts',
                                                    table_type=TableType.MANYTOMANY,
                                                    contains_foreign_keys=True,
-                                                   attributes=[GeoCORKTableAttribute('UPbAnalysisID', 'INTEGER'),
-                                                               GeoCORKTableAttribute('UPbAnalysisContextID',
-                                                                                     'INTEGER')])
-
-
-
+                                                   attributes=[
+                                                       GeoCORKTableAttribute('UPbAnalysisID', 'INTEGER', not_null=True,
+                                                                             foreign_key_table='UPbAnalyses'),
+                                                       GeoCORKTableAttribute('UPbAnalysisContextID',
+                                                                             'INTEGER', not_null=True,
+                                                                             foreign_key_table='UPbAnalysisContexts')])
 
     ordered_tables = [
         About, FilterGroups, AgeUnits, AgeUnitConversions, ConcordanceFormats,
@@ -687,3 +759,8 @@ class GeoCORKSchema:
         Samples_SampleContexts, Samples_SamplingMethods, Samples_Settings, Samples_Units,
         Spots_SpotContexts, UPbAnalyses_UPbRejectionReasons, UPbAnalyses_UPbAnalysisContexts
     ]
+
+
+if __name__ == '__main__':
+    for table in GeoCORKSchema.ordered_tables:
+        print(table.create_query() + ';')
