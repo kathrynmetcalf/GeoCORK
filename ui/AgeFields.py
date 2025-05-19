@@ -44,6 +44,7 @@ class AgeFields(QtW.QWidget):
         self.sample_ids = sample_ids
         self.sample_age_id = None
         self.updated = False
+        self.edit_in_progress = False
         self.add_age_pushButton.setAutoDefault(False)
 
         # Disconnect signals to avoid triggering updates during population
@@ -244,7 +245,8 @@ class AgeFields(QtW.QWidget):
             self.direct_age_groupBox.clearFocus()
             if self.direct_age_groupBox.edited:
                 self.lost_widget = self.direct_age_groupBox
-                self.update_age()
+                if not self.edit_in_progress:
+                    self.update_age()
         elif self.relative_age_groupBox.any_child_has_focus() or self.relative_age_groupBox.edited:
             if not self.relative_age_groupBox.edited:
                 for child in self.relative_age_groupBox.findChildren(QtW.QWidget):
@@ -254,7 +256,8 @@ class AgeFields(QtW.QWidget):
             self.relative_age_groupBox.clearFocus()
             if self.relative_age_groupBox.edited:
                 self.lost_widget = self.relative_age_groupBox
-                self.update_age()
+                if not self.edit_in_progress:
+                    self.update_age()
         elif self.age_information_groupBox.any_child_has_focus() or self.age_information_groupBox.edited:
             if not self.age_information_groupBox.edited:
                 for child in self.age_information_groupBox.findChildren(QtW.QWidget):
@@ -264,7 +267,8 @@ class AgeFields(QtW.QWidget):
             self.age_information_groupBox.clearFocus()
             if self.age_information_groupBox.edited:
                 self.lost_widget = self.age_information_groupBox
-                self.update_age()
+                if not self.edit_in_progress:
+                    self.update_age()
 
     def set_focus(self):
         if self.sample_age_model.rowCount() == 0:
@@ -727,6 +731,7 @@ class AgeFields(QtW.QWidget):
             return False
         update_age_id = None
         update_samples = []
+        self.edit_in_progress = True
         create_savepoint('before_update_age')
         duplicate_id = None
         if query.next():
@@ -1008,6 +1013,7 @@ class AgeFields(QtW.QWidget):
         self.direct_age_groupBox.reset_edited()
         self.relative_age_groupBox.reset_edited()
         self.age_information_groupBox.reset_edited()
+        self.edit_in_progress = False
         release_savepoint('before_update_age')
         self.populate_age_dropdown()
         self.populate_fields()
@@ -1347,8 +1353,18 @@ class AgeFields(QtW.QWidget):
             self.populate_fields()
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error adding item")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         if table == 'SampleAges':
@@ -1356,7 +1372,7 @@ class AgeFields(QtW.QWidget):
             return
         dlg = None
         if table in SQLUtils.user_viewable_trees:
-            save_expanded_state(table, combo.model(), combo.view())
+            save_expanded_state(table, combo.view())
             dlg_args = add_tree_popup(combo.view(), action)
             dlg = AddTreeTags(self, table, **dlg_args)
         else:
@@ -1369,7 +1385,7 @@ class AgeFields(QtW.QWidget):
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
             if isinstance(combo, CheckableTreeCombobox):
-                restore_expanded_state(table, combo.model(), combo.view())
+                restore_expanded_state(table, combo.view())
             self.populate_checks(f'Samples_{table}', combo)
 
     def edit_popup(self, combo: QtW.QComboBox):
@@ -1380,8 +1396,18 @@ class AgeFields(QtW.QWidget):
             self.sample_age_id = combo.model().data(combo.model().index(index, 0), QtC.Qt.ItemDataRole.DisplayRole)
             combo.hidePopup()
             return
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error editing table")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:

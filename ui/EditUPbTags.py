@@ -389,13 +389,23 @@ class EditUPbTags(QtW.QDialog):
 
     def add_popup(self, action: QtG.QAction | None = None):
         combo = self.sender()
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error adding item")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         dlg = None
         if table in SQLUtils.user_viewable_trees:
-            save_expanded_state(table, combo.model(), combo.view())
+            save_expanded_state(table, combo.view())
             dlg_args = add_tree_popup(combo.view(), action)
             self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
             if dlg_args:
@@ -413,12 +423,22 @@ class EditUPbTags(QtW.QDialog):
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
             if isinstance(combo, CheckableTreeCombobox):
-                restore_expanded_state(table, combo.model(), combo.view())
+                restore_expanded_state(table, combo.view())
 
     def edit_popup(self, action: QtG.QAction | None = None):
         combo = self.sender()
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error editing table")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:
@@ -433,7 +453,7 @@ class EditUPbTags(QtW.QDialog):
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
             if isinstance(combo, CheckableTreeCombobox):
-                restore_expanded_state(table, combo.model(), combo.view())
+                restore_expanded_state(table, combo.view())
 
     def delete_question(self):
         msg_box = QtW.QMessageBox()
@@ -490,7 +510,7 @@ class EditUPbTags(QtW.QDialog):
 
     def commit(self):
         release_savepoint('before_upb_edit')
-        # save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView, self.settings)
+        # save_expanded_state(self.table, self.edit_treeView, self.settings)
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False

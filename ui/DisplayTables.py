@@ -172,7 +172,7 @@ class DisplayTables(QtW.QWidget):
         start_display_time = time.time()
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
-            save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.previous_table, self.dbTable_treeView)
         if self.table in self.dbtree_list:
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             start_display_tree_time = time.time()
@@ -197,7 +197,7 @@ class DisplayTables(QtW.QWidget):
             # Keep the tree sorted as dictated by the database
             self.dbTable_treeView.setSortingEnabled(False)
             self.dbTable_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
-            restore_expanded_state(table, self.tree_proxy_model, self.dbTable_treeView)
+            restore_expanded_state(table, self.dbTable_treeView)
             self.dbTable_treeView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
 
             self.name_column = get_name_column(self.table)
@@ -385,7 +385,7 @@ class DisplayTables(QtW.QWidget):
         dlg = None
         self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if self.table in self.dbtree_list:
-            save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.table, self.dbTable_treeView)
             dlg_args = add_tree_popup(self.dbTable_treeView, action)
             if dlg_args:
                 dlg = AddTreeTags(self, self.table, **dlg_args)
@@ -644,6 +644,6 @@ class DisplayTables(QtW.QWidget):
 
     def closeEvent(self, event):
         if self.table in self.dbtree_list:
-            save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.table, self.dbTable_treeView)
         event.accept()
         super().closeEvent(event)

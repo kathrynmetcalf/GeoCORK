@@ -572,7 +572,7 @@ class DataViewerWidget(QWidget):
                 dlg_args = {'table_item_ids': ids}
                 dlg = EditView(self, table, **dlg_args)
         elif table in SQLUtils.user_viewable_trees:
-            save_expanded_state(table_name, tree_proxy_model, dbTable_treeView)
+            save_expanded_state(table_name, dbTable_treeView)
             self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {table}...')
             dlg = EditTree(self, table)
         else:

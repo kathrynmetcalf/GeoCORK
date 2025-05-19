@@ -72,7 +72,7 @@ class EditTree(QtW.QDialog):
         self.close_by_dialog = False
         self.search_lineEdit.returnPressed.connect(self.search)
         self.tree_model.save_state.connect(
-            lambda: save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView))
+            lambda: save_expanded_state(self.table, self.edit_treeView))
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
@@ -136,7 +136,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
-        restore_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        restore_expanded_state(self.table, self.edit_treeView)
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table_name}...')
         logger_setup.get_logger().info(
@@ -153,7 +153,7 @@ class EditTree(QtW.QDialog):
         self.display_tree()
 
     def add_popup(self, action: QtG.QAction | None = None):
-        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.edit_treeView)
         dlg_args = add_tree_popup(self.edit_treeView, action)
         self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg_args:
@@ -195,7 +195,7 @@ class EditTree(QtW.QDialog):
         """
         Delete the selected items from the tree view. If there are any children of the selected items, they will be deleted
         """
-        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.edit_treeView)
         tree_indexes = []
         for view_index in self.edit_treeView.selectedIndexes():
             tree_index = self.tree_proxy_model.mapToSource(view_index)
@@ -241,7 +241,7 @@ class EditTree(QtW.QDialog):
         :param list children: list of children ids to be deleted
         :return:
         """
-        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.edit_treeView)
         msg_box = QtW.QMessageBox()
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
         msg_box.setText(f'Are you sure you want to delete these items and all {len(children)} children?')
@@ -274,7 +274,7 @@ class EditTree(QtW.QDialog):
         Rolls back the changes to the database. Rejects the dialog and closes the the window.
         """
         rollback_savepoint('before_edit')
-        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.edit_treeView)
         self.reject()
         self.close_by_dialog = True
         self.close()
@@ -285,7 +285,7 @@ class EditTree(QtW.QDialog):
         Commits the changes to the database. If there is an active savepoint, it is released.
         """
         release_savepoint('before_edit')
-        save_expanded_state(self.table, self.tree_proxy_model, self.edit_treeView)
+        save_expanded_state(self.table, self.edit_treeView)
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
             update_database()

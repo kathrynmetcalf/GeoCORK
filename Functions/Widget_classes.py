@@ -3937,7 +3937,7 @@ class TreeCombobox(QtW.QComboBox):
 
     def show_context_menu(self, pos):
         menu = TreeContextMenu()
-        tree_model = find_tree_model(self.model(), None)
+        tree_model, indexes = find_tree_model(self.model(), None)
         if tree_model.table == 'Aliquots':
             menu.set_view(self.treeView, False, False)
         else:
@@ -3972,7 +3972,7 @@ class TreeCombobox(QtW.QComboBox):
     def showPopup(self):
         tree_model, indexes = find_tree_model(self.model(), None)
         if tree_model:
-            restore_expanded_state(tree_model.table, tree_model, self.treeView)
+            restore_expanded_state(tree_model.table, self.treeView)
         else:
             return
         if tree_model.rowCount(QtC.QModelIndex()) == 0:
@@ -3989,7 +3989,7 @@ class TreeCombobox(QtW.QComboBox):
             super().hidePopup()
             model, indexes = find_tree_model(self.model(), None)
             if model:
-                save_expanded_state(model.table, self.model(), self.treeView)
+                save_expanded_state(model.table, self.treeView)
             self.popup_shown = False
             self.closing.emit()
 
@@ -4034,7 +4034,7 @@ class TreeCombobox(QtW.QComboBox):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
-                    save_expanded_state(model.table, model, self.treeView)
+                    save_expanded_state(model.table, self.treeView)
                     self.showPopup()
                     return True
             return super().eventFilter(obj, event)
@@ -4167,13 +4167,17 @@ class CheckableTreeCombobox(TreeCombobox):
                         self.showPopup()
                     return True
                 else:
-                    print(f'Expanded ids: {settings.value(f'expanded_ids_{self.model().table}', set())}')
+                    if not isinstance(self.model(), TreeModel):
+                        tree_model, indexes = find_tree_model(self.model(), None)
+                    else:
+                        tree_model = self.model()
+                    print(f'Expanded ids: {settings.value(f'expanded_ids_{tree_model.table}', set())}')
                     if self.treeView.isExpanded(index):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
-                    save_expanded_state(self.model().table, self.model(), self.treeView)
-                    print(f'Expanded ids: {settings.value(f'expanded_ids_{self.model().table}', set())}')
+                    save_expanded_state(tree_model.table, self.treeView)
+                    print(f'Expanded ids: {settings.value(f'expanded_ids_{tree_model.table}', set())}')
                     self.showPopup()
                     return True
             elif event.type() == QtC.QEvent.Type.MouseButtonRelease and event.button() == QtC.Qt.MouseButton.RightButton:
@@ -4405,16 +4409,16 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
             dlg_args = {'add_item': 'child'}
     return dlg_args
 
-def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
+def save_expanded_state(table: str, treeView: QtW.QTreeView):
     '''
     Save the expanded state of the tree view to the settings
     @param table: Name of table with parent-child relationships
-    @param model: The model to save the state from, some kind of QSqlQueryModel or QSortFilterProxyModel
     @param treeView: The view displaying the model
     @return:
     '''
 
     expanded_ids = set()
+    model = treeView.model()
 
     def save_state(index):
         if index.isValid() and treeView.isExpanded(index):
@@ -4428,11 +4432,10 @@ def save_expanded_state(table: str, model, treeView: QtW.QTreeView):
         save_state(model.index(i, 0, root_index))
     SettingsManager().db_settings.setValue(f'expanded_ids_{table}', expanded_ids)
 
-def restore_expanded_state(table: str, model, treeView: QtW.QTreeView):
+def restore_expanded_state(table: str, treeView: QtW.QTreeView):
     """
     Restore the expanded state of the tree view from the settings
     :param table: Name of table with parent-child relationships
-    :param model: The model to restore the state to, some kind of QSqlTableModel or QSortFilterProxyModel
     :param treeView: The view to display the model
     :return:
     """
@@ -4441,6 +4444,7 @@ def restore_expanded_state(table: str, model, treeView: QtW.QTreeView):
     expanded_ids = SettingsManager().db_settings.value(f'expanded_ids_{table}', set())
     indexes_to_expand = set()
     indexes_to_collapse = set()
+    model = treeView.model()
 
     def restore_state(index):
         item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
@@ -4513,7 +4517,7 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
     except AttributeError:
         logger_setup.get_logger().error('Error saving expanded state')
         return
-    save_expanded_state(table, model, tree_view)
+    save_expanded_state(table, tree_view)
 
 def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     table: str = None

@@ -227,8 +227,7 @@ class ExportWidget(QWidget):
                 with conn:
                     cursor = conn.cursor()
                     cursor.execute(sql_query)
-                    filtered_upb_ids = [row[0] for row in cursor.fetchall()]
-                    filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
+                    filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
@@ -239,8 +238,7 @@ class ExportWidget(QWidget):
                         with conn:
                             cursor = conn.cursor()
                             cursor.execute(sql_query)
-                            filtered_upb_ids = [row[0] for row in cursor.fetchall()]
-                            filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
+                            filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
                         conn.commit()
                         conn.close()
                     except sqlite3.Error as e:
@@ -263,7 +261,7 @@ class ExportWidget(QWidget):
         logger_setup.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(filtered_upb_ids)}')
 
         # due to how the above logic is, the filters are added with an OR clause, therefore it full unions Filters 1 and 2
-        filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
+        filtered_upb_ids = f"({', '.join(filtered_upb_ids)})"
 
         # checks for logic to see what kind of SQL query is needed.
         # self.checked_sample_names defaults to '()', so length of 2,
@@ -316,8 +314,8 @@ class ExportWidget(QWidget):
                 with conn:
                     cursor = conn.cursor()
                     cursor.execute(sql_query)
-                    filtered_upb_ids = [row[0] for row in cursor.fetchall()]
-                    filtered_upb_ids = f"({', '.join(map(str, filtered_upb_ids))})"
+                    filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
+                    filtered_upb_ids = f"({', '.join(filtered_upb_ids)})"
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:

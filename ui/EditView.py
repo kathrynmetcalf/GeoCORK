@@ -22,7 +22,7 @@ from Functions.Widget_classes import (
     set_table, populate_many_combo_checks, populate_model_checks,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
     get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
-    get_name_from_id, DisplayRoundedQueryModel
+    get_name_from_id, DisplayRoundedQueryModel, find_tree_model
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -1673,13 +1673,23 @@ class EditView(QtW.QDialog):
         logger_setup.get_logger().info(f'Updated {self.table}')
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error adding item")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         dlg = None
         if table in SQLUtils.user_viewable_trees:
-            save_expanded_state(table, combo.model(), combo.view())
+            save_expanded_state(table, combo.view())
             dlg_args = add_tree_popup(combo.view(), action)
             if dlg_args:
                 dlg = AddTreeTags(self, table, **dlg_args)
@@ -1702,8 +1712,18 @@ class EditView(QtW.QDialog):
 
     def edit_tag_popup(self):
         combo = self.sender()
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error editing table")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:

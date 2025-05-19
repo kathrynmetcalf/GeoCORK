@@ -112,7 +112,7 @@ class DisplayTablesSimplified(QtW.QWidget):
         logger_setup.get_logger().info(f'Displaying {self.table}')
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
-            save_expanded_state(self.previous_table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.previous_table, self.dbTable_treeView)
         self.previous_table = self.table
 
         if self.table in self.dbtree_list:
@@ -231,6 +231,6 @@ class DisplayTablesSimplified(QtW.QWidget):
 
     def closeEvent(self, event):
         if self.table in self.dbtree_list:
-            save_expanded_state(self.table, self.tree_proxy_model, self.dbTable_treeView)
+            save_expanded_state(self.table, self.dbTable_treeView)
         event.accept()
         super().closeEvent(event)

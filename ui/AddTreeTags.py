@@ -75,7 +75,7 @@ class AddTreeTags(QtW.QDialog):
         self.display_tags()
         create_savepoint('before_add')
         self.tree_model.dataEdited.connect(self.update_proxy)
-        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.tree_model, self.tags_treeView))
+        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.tags_treeView))
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
@@ -125,7 +125,7 @@ class AddTreeTags(QtW.QDialog):
         self.tags_treeView.hideColumn(1)  # Don't show ID column
         self.tags_treeView.hideColumn(2)  # Don't show parent ID column
         self.tags_treeView.hideColumn(3)  # Don't show parent row column
-        restore_expanded_state(self.table, self.tree_model, self.tags_treeView)
+        restore_expanded_state(self.table, self.tags_treeView)
         self.add_label()
 
         # Get a list of the existing tag names
@@ -145,7 +145,7 @@ class AddTreeTags(QtW.QDialog):
         completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
         self.newName_lineEdit.setCompleter(completer)
 
-        restore_expanded_state(self.table, self.tree_model, self.tags_treeView)
+        restore_expanded_state(self.table, self.tags_treeView)
 
     def show_context_menu(self, pos: QtC.QPoint):
         """
@@ -174,7 +174,7 @@ class AddTreeTags(QtW.QDialog):
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
 
     def add_tree_tag(self):
-        save_expanded_state(self.table, self.tree_model, self.tags_treeView)
+        save_expanded_state(self.table, self.tags_treeView)
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         if self.parent_id == 'Null':
@@ -209,7 +209,7 @@ class AddTreeTags(QtW.QDialog):
             expanded_ids = settings.value(f'expanded_ids_{self.table}', [])
             expanded_ids.add(self.parent_id)
             settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
-        save_expanded_state(self.table, self.tree_model, self.tags_treeView)
+        save_expanded_state(self.table, self.tags_treeView)
         self.update_proxy()
         self.newName_lineEdit.clear()
         self.newDescription_lineEdit.clear()
@@ -240,7 +240,7 @@ class AddTreeTags(QtW.QDialog):
         Rolls back the changes to the database. Rejects the dialog and closes the the window.
         """
         rollback_savepoint('before_add')
-        save_expanded_state(self.table, self.tree_model, self.tags_treeView)
+        save_expanded_state(self.table, self.tags_treeView)
         self.reject()
         self.close_by_dialog = True
         self.close()
@@ -255,7 +255,7 @@ class AddTreeTags(QtW.QDialog):
                 return False
         release_savepoint('before_add')
         logger_setup.get_logger().info(f'Changes committed to {self.table}')
-        save_expanded_state(self.table, self.tree_model, self.tags_treeView)
+        save_expanded_state(self.table, self.tags_treeView)
         # Check if there is another existing savepoint. If not, go ahead and update the database
         if not SavepointManager.get_instance().active_savepoints():
             logger_setup.get_logger().info('No active save points - updating the database')

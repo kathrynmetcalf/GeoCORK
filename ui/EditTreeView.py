@@ -31,6 +31,7 @@ from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTree import EditTree
 from ui.EditTable import EditTable
+from Functions.Widget_classes import find_tree_model
 import time
 
 class SetSelectedValues(QtW.QDialog):
@@ -163,6 +164,8 @@ class EditTreeView(QtW.QDialog):
         if self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.model)
+        self.tree_model.save_state.connect(
+            lambda: save_expanded_state(self.table, self.edit_treeView))
         # print('Created the tree model')
         self.display_tree()
         self.edit_treeView.selectionModel().currentChanged.connect(self.on_index_change)
@@ -230,6 +233,7 @@ class EditTreeView(QtW.QDialog):
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.edit_treeView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectItems)
+        restore_expanded_state(self.table, self.edit_treeView)
 
         # Optimize window resizing
         self.resize_timer = QtC.QTimer()
@@ -718,6 +722,7 @@ class EditTreeView(QtW.QDialog):
         self.updated_timestamp = time.time()
 
     def delete_item(self):
+        save_expanded_state(self.table, self.edit_treeView)
         tree_indexes = []
         for tree_index in self.edit_treeView.selectedIndexes():
             if tree_index.column() == 0 and tree_index not in tree_indexes:
@@ -751,6 +756,7 @@ class EditTreeView(QtW.QDialog):
             self.updated = True
 
     def delete_question(self, item_ids, children: list):
+        save_expanded_state(self.table, self.edit_treeView)
         if children:
             child_string = f' and all {len(children)} children {self.table}'
         else:
@@ -999,8 +1005,18 @@ class EditTreeView(QtW.QDialog):
         self.on_tree_edited()
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error editing table")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         logger_setup.get_logger().info(f'Add called for {table}')
@@ -1025,8 +1041,18 @@ class EditTreeView(QtW.QDialog):
 
     def edit_tag_popup(self):
         combo = self.sender()
-        if isinstance(combo.model(), TreeModel):
-            table = combo.model().table
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error editing table")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
         else:
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:
@@ -1044,6 +1070,7 @@ class EditTreeView(QtW.QDialog):
             self.combo.showPopup()
 
     def rollback(self):
+        save_expanded_state(self.table, self.edit_treeView)
         rollback_savepoint('before_edit')
         self.reject()
         self.close_by_dialog = True
@@ -1056,6 +1083,7 @@ class EditTreeView(QtW.QDialog):
             return
         else:
             release_savepoint('before_edit')
+            save_expanded_state(self.table, self.edit_treeView)
             self.accept()
             self.msg.information(self, 'Success', 'Changes saved', QtW.QMessageBox.StandardButton.Ok)
             self.close_by_dialog = True

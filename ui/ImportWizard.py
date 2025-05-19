@@ -897,7 +897,7 @@ class ImportWizardDialog(QWidget):
         dlg = None
         dlg_args = None
         if table in SQLUtils.user_viewable_trees:
-            save_expanded_state(table, combo.model(), combo.treeView)
+            save_expanded_state(table, combo.treeView)
             if action:
                 dlg_args = add_tree_popup(combo.treeView, action)
                 self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
