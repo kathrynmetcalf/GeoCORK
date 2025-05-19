@@ -23,7 +23,8 @@ from Functions.Widget_classes import SQLiteTableModel, TreeSortFilterProxyModel,
     get_view_name_column
 from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree

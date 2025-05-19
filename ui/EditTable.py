@@ -14,7 +14,8 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
                                       get_id_from_name, get_record_index)

@@ -13,7 +13,8 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions import SQLUtils
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, TreeModel,

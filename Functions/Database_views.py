@@ -6,7 +6,8 @@ from PyQt6 import QtSql as QtS
 import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.Widget_classes import get_headers
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 
 
 def SampleViewQuery():
@@ -541,7 +542,7 @@ def create_sample_view():
             # create_sample_query = create_sample_query.replace(f'"{column}"', f'"{column}Filled"')
     # logger_setup.get_logger().debug(f'SQL query: {create_sample_query}')
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -601,7 +602,7 @@ def create_aliquot_view():
                        'CalculatedBestAgeError'):
             aliquot_query = aliquot_query.replace(f'"{column}"', f'"{column}Filled"')
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -640,7 +641,7 @@ def create_aliquot_edit_view():
     start_time = time.time()
     aliquot_query = AliquotEditViewQuery()
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -682,7 +683,7 @@ def create_spot_view():
                        'CalculatedBestAgeError'):
             spot_query = spot_query.replace(f'"{column}"', f'"{column}Filled"')
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -720,7 +721,7 @@ def create_spot_edit_view():
     start_time = time.time()
     spot_query = SpotEditViewQuery()
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -758,7 +759,7 @@ def create_upb_view():
     start_time = time.time()
     upb_query = UPbViewQuery()
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -795,7 +796,7 @@ def create_upb_view():
 def create_upb_edit_view():
     start_time = time.time()
     upb_query = UPbEditViewQuery()
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -833,7 +834,7 @@ def create_column_view():
     start_time = time.time()
     column_query = ColumnViewQuery()
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -871,7 +872,7 @@ def create_column_edit_view():
     start_time = time.time()
     column_query = ColumnEditViewQuery()
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -909,7 +910,7 @@ def create_reference_view():
     start_time = time.time()
     reference_query = ReferenceViewQuery()
 
-    database = settings._instance.value('db_file', type=str)
+    database = settings.value('db_file', type=str)
     uri = f'file:{database}'
 
     try:
@@ -945,7 +946,6 @@ def create_reference_view():
 
 def create_all_views():
     start_time = time.time()
-    from Functions.Settings_manager import settings
     logger_setup.get_logger().info('Creating all views')
 
     if not create_sample_view():
@@ -1122,8 +1122,13 @@ class ViewQuery:
                         SQLUtils.qsample_created,
                         SQLUtils.qsample_modified]
 
-        query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         count_sample_subquery = SQLUtils.qupb_count_sample_subquery
         count_sample_subquery = count_sample_subquery.replace(' Samples ',' LimitedSamples ls ')
@@ -1235,8 +1240,13 @@ class ViewQuery:
                         SQLUtils.qsample_created,
                         SQLUtils.qsample_modified]
 
-        query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         count_sample_subquery = SQLUtils.qupb_count_sample_subquery
         count_sample_subquery = count_sample_subquery.replace(' Samples ', ' LimitedSamples ls ')
@@ -1327,8 +1337,14 @@ class ViewQuery:
                         SQLUtils.qupb_references,
                         SQLUtils.qaliquot_created,
                         SQLUtils.qaliquot_modified]
-        query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         count_aliquot_subquery = SQLUtils.qupb_count_aliquot_subquery
         count_aliquot_subquery = count_aliquot_subquery.replace(' Aliquots ', ' LimitedAliquots la ')
@@ -1389,8 +1405,13 @@ class ViewQuery:
                         SQLUtils.qaliquot_created,
                         SQLUtils.qaliquot_modified]
 
-        query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         aliquot_query = f'''
                     {self.limited_hierarchy},
@@ -1436,8 +1457,13 @@ class ViewQuery:
                         SQLUtils.qspot_created,
                         SQLUtils.qspot_modified]
 
-        query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         spot_query = f'''
                     {self.limited_hierarchy},
@@ -1494,8 +1520,14 @@ class ViewQuery:
                         SQLUtils.qspot_contexts,
                         SQLUtils.qspot_created,
                         SQLUtils.qspot_modified]
-        query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         spot_query = f'''
                     {self.limited_hierarchy},
@@ -1569,8 +1601,13 @@ class ViewQuery:
                         SQLUtils.qupb_modified]
 
         query_column_list = query_columns1 + upb_query_columns + query_columns2
-        query_column_list = [f' {col}' for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         upb_query = f'''
                     {self.limited_hierarchy},
@@ -1652,8 +1689,13 @@ class ViewQuery:
                         SQLUtils.qupb_created,
                         SQLUtils.qupb_modified]
         query_column_list = query_columns1 + upb_query_columns + query_columns2
-        query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         upb_query = f'''
                     {self.limited_hierarchy},
@@ -1704,8 +1746,14 @@ class ViewQuery:
                         SQLUtils.qcolumn_description,
                         SQLUtils.qcolumn_created,
                         SQLUtils.qcolumn_modified]
-        query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         column_query = f'''
                     SELECT
@@ -1743,8 +1791,14 @@ class ViewQuery:
                         SQLUtils.qcolumn_description,
                         SQLUtils.qcolumn_created,
                         SQLUtils.qcolumn_modified]
-        query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         column_query = f'''
                         SELECT
@@ -1784,8 +1838,14 @@ class ViewQuery:
                         SQLUtils.qreference_description,
                         SQLUtils.qreference_created,
                         SQLUtils.qreference_modified]
-        query_column_list = [col for col in query_column_list if col.split(' AS ')[1] in self.show_columns]
-        query_columns = ',\n '.join(query_column_list)
+
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    query_columns.append(col)
+                    break
+        query_columns = ',\n '.join(query_columns)
 
         reference_query = f'''
                     SELECT

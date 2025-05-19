@@ -20,7 +20,8 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import SQLUtils
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column
 from ui.DataViewerWidget import DataViewerWidget
 
@@ -1173,7 +1174,7 @@ class QueryBuilder(QWidget):
         :return: list of ids or None
         '''
         sql_query = self.get_sql(type)
-        uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
+        uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
         try:
             conn = sqlite3.connect(uri, uri=True)
             with conn:

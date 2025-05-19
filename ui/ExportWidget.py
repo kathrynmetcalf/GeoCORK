@@ -23,7 +23,8 @@ from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel, SQLiteTableModel
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import CheckableComboBox
 from ui import Filters
 from ui.DisplayTablesSimplified import DisplayTablesSimplified
@@ -90,7 +91,7 @@ class ExportWidget(QWidget):
             if widget.inherits("QMainWindow"):
                 self.db_file = widget.db_file
 
-        self.settings = Settings_manager.settings
+        self.settings = SettingsManager().settings
 
         self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
 
@@ -217,7 +218,7 @@ class ExportWidget(QWidget):
             filtered_where_clause = filtered_where_clause[0:-1]
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
-            uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
+            uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
@@ -306,7 +307,7 @@ class ExportWidget(QWidget):
 
             sql_query = f"SELECT DISTINCT UPbAnalysisID FROM ({filtered_where_clause});"
 
-            uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
+            uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             logger_setup.get_logger().info(f'Fetching distinct UPbAnalyisIDs from FilterID: {filter_id}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
@@ -363,7 +364,7 @@ class ExportWidget(QWidget):
                     f'Error dropping TempPivotTable: {drop_table_qry.lastError().text()}')
                 return
 
-            uri = f'file:{settings._instance.value('db_file', type=str)}'
+            uri = f'file:{settings.value('db_file', type=str)}'
             # Execute the query
             sql_temptable_create = 'CREATE TABLE TempPivotTable AS SELECT * FROM (' + query_str + ')'
             logger_setup.get_logger().debug(f'SQL command: {sql_temptable_create}')
@@ -390,7 +391,7 @@ class ExportWidget(QWidget):
 
 
             first_column_list = []
-            uri = f'file:{settings._instance.value('db_file', type=str)}?mode=ro&immutable=1'
+            uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
             # Execute the query
             sql_distinct_first_column = f'SELECT DISTINCT {pivot_col} FROM TempPivotTable ORDER BY {pivot_col}'
             logger_setup.get_logger().debug(f'SQL command: {sql_distinct_first_column}')
@@ -449,7 +450,7 @@ class ExportWidget(QWidget):
 
         # At this point the final query_str is complete, either with or without pivot.
         # saves final string used for exporting, removed LIMIT, and saved model for future use.
-        model = SQLiteTableModel(database = settings._instance.value('db_file', type=str))
+        model = SQLiteTableModel(database = settings.value('db_file', type=str))
         model.setQuery(query_str)
         self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
@@ -979,7 +980,7 @@ class ExportWidget(QWidget):
         for table_name, field_items in SQLUtils.table_attributes_dict.items():
             if table_name == "GPSLocations":
                 # sets the GPSLocations table to have a different set of fields based on user-selection
-                if Settings_manager.settings.value('gps_format_id', 1) == 7:  # UTM Selected
+                if SettingsManager().settings.value('gps_format_id', 1) == 7:  # UTM Selected
                     field_items = ['GPSLocationConverted', 'GPSLocationDisplay', 'CalculatedZone', 'CalculatedEasting',
                                    'CalculatedNorthing', 'CalculatedGPSElev', 'CalculatedGPSElevError']
                 else:

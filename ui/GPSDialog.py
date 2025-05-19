@@ -6,7 +6,8 @@ from PyQt6.uic import loadUi
 import ui.GPSFields
 import logger_setup
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 
 

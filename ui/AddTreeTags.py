@@ -12,7 +12,8 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
                                       restore_expanded_state,
                                       get_headers, get_name_column, description_column, set_table, ReadableProxyModel

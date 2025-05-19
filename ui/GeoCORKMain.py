@@ -20,7 +20,8 @@ from Functions.BackupDatabase import BackupThread
 from Functions.Database_manager import update_database, turn_on_foreign_keys
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import PartiallyCloseableTabWidget
 from Functions.Widget_classes import get_name_from_id, close_loading_dialog
@@ -106,14 +107,14 @@ class GeoCORK(QtW.QMainWindow):
         if not turn_on_foreign_keys():
             return
 
+        SettingsManager().set_db_file(self.db_name)
+        db_settings = SettingsManager().db_settings
         self.savepoint_manager = Savepoint_manager.SavepointManager().get_instance()
         self.msg = QtW.QMessageBox(self)
 
         # if not update_database():
         #     logger_setup.get_logger().critical('Error updating and displaying database')
         #     self.close()
-
-        # self.db = Database_converter.check_database_schema(self.db, blank_schema_file)
 
         self.tabWidget: PartiallyCloseableTabWidget
         self.tabWidget.set_permanent_tabs(['Data Tables', 'Filters', 'Export'])

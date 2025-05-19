@@ -12,13 +12,14 @@ from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, set_table, SampleAgeTableModel,
     CheckableSqlTableModel,
-    FontDelegate, get_name_column, set_comboBox_text, show_column, CheckableComboBox, CheckableSqlQueryModel,
+    FontDelegate, get_name_column, CheckableComboBox, CheckableSqlQueryModel,
     get_selected_tree_ids, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state,
     restore_expanded_state, SQLiteTableModel, populate_tree_model_checks, get_view_name_column, SearchableSQLComboBox,
     FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel
 )
 from Functions import SQLUtils
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 # from Functions.Alter_database import convert_sample_age, update_generated_columns
@@ -483,8 +484,10 @@ class AgeFields(QtW.QWidget):
 
 
         # Age IDs
-        populate_tree_model_checks(self.oldest_rel_comboBox.model(), [self.sample_age_id], 'SampleAges', 'OldestAgeID')
-        populate_tree_model_checks(self.youngest_rel_comboBox.model(), [self.sample_age_id], 'SampleAges', 'YoungestAgeID')
+        oldest_rel_tree, indexes = find_tree_model(self.oldest_rel_comboBox.model(), None)
+        youngest_rel_tree, indexes = find_tree_model(self.youngest_rel_comboBox.model(), None)
+        populate_tree_model_checks(oldest_rel_tree, [self.sample_age_id], 'SampleAges', 'OldestAgeID')
+        populate_tree_model_checks(youngest_rel_tree, [self.sample_age_id], 'SampleAges', 'YoungestAgeID')
 
         # Age tags
         self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_comboBox)
@@ -1149,6 +1152,7 @@ class AgeFields(QtW.QWidget):
 
     def add_age(self):
         logger_setup.get_logger().info("Add age called")
+        self.check_focus()
         self.disconnect_signals()
         query = QtS.QSqlQuery()
         # Search if there is already a blank age for this sample

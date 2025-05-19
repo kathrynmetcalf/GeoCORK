@@ -19,7 +19,8 @@ from Functions import Savepoint_manager
 from Functions.BackupDatabase import RestoreThread
 from Functions.Create_database import create_tables
 from Functions.Database_manager import update_database, turn_on_foreign_keys
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Text_manipulations import shrink_home, expand_home
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog

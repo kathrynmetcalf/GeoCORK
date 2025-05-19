@@ -23,7 +23,8 @@ from Functions.Widget_classes import (
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_manager import update_database
 from ui.New_reference import NewReference

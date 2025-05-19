@@ -260,7 +260,10 @@ def convert_direction_to_sign(lat: list[float, float, float], lon: list[float, f
     if lon_dir == 'E' or lon_dir == '':
         lon_deg = lon[0]
     else:
-        lon_deg = -lon[0]
+        if lon[0] == '':
+            lon_deg = lon[0]
+        else:
+            lon_deg = -lon[0]
     if len(lat) == 2:
         return [lat_deg], [lon_deg]
     elif len(lat) == 3:

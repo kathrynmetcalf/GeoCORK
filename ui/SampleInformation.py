@@ -18,13 +18,14 @@ import Functions.SQLUtils as SQLUtils
 from Functions.Widget_classes import (
     CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
     CheckableSqlTableModel, get_name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
-    CheckableTreeView, save_expanded_state, show_column, set_comboBox_text, find_upb_from_samples, delete_data,
+    CheckableTreeView, save_expanded_state, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
-    DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks
+    DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.GPSFields import GPSFields
@@ -116,7 +117,7 @@ class SampleInformation(QtW.QDialog):
         self.sample_dictionary = {}
         self.populate_dropdowns()
         self.check_all_samples()
-        self.sample_name_comboBox.setModel(self.sample_names_model)
+        self.sample_name_comboBox.setModel(self.sample_names_proxy)
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
 
         self.installEventFilter(self)
@@ -167,6 +168,8 @@ class SampleInformation(QtW.QDialog):
             self.sample_igsn_lineEdit.setEnabled(True)
         self.selected_sample_label.setText(f"Selected Samples: {self.checked_sample_names}")
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
+        self.sample_names_proxy = ReadableProxyModel()
+        self.sample_names_proxy.setSourceModel(self.sample_names_model)
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names}")
         end_update_sample_list_time = time.time()
         logger_setup.get_logger().info(f"Updated sample list: {self.checked_sample_names} in {end_update_sample_list_time - start_update_sample_list_time} seconds")

@@ -27,7 +27,8 @@ import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
 from Functions import Savepoint_manager
 from Functions.Database_manager import update_database
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import get_view_name_column
@@ -246,7 +247,6 @@ class DisplayTables(QtW.QWidget):
                 self.edit_samples_pushButton.hide()
                 if self.table == 'Columns':
                     self.show_cols = settings.value('column_view_columns')
-                    from Functions.Database_views import create_ColumnViewQuery
                     query_args = {'show_columns': self.show_cols,
                                   'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
                                   'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
@@ -254,7 +254,6 @@ class DisplayTables(QtW.QWidget):
                     table_query = view_query.table_query
                 elif self.table == 'References':
                     self.show_cols = settings.value('reference_view_columns')
-                    from Functions.Database_views import create_ReferenceViewQuery
                     query_args = {'show_columns': self.show_cols,
                                   'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
                                   'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}

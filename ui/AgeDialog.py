@@ -5,7 +5,8 @@ from PyQt6.QtWidgets import QApplication
 from PyQt6.uic import loadUi
 import ui.AgeFields
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from ui.AgeFields import AgeFields
 from Functions.LoadingDialog_manager import LoadingDialogManager
 

@@ -10,7 +10,8 @@ from PyQt6.uic import loadUi
 
 import logger_setup
 from Functions import SQLUtils
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column, ReorderListView
 
 

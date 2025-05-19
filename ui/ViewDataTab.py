@@ -10,7 +10,8 @@ import logger_setup
 from Functions.Database_manager import update_database
 from Functions.Database_views import ViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions.Settings_manager import settings
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
                                       TreeContextMenu, expand_collapse, get_name_column, get_headers)
 from ui.EditTreeView import EditTreeView
