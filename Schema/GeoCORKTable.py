@@ -7,14 +7,14 @@ class TableType(Enum):
     TABLE = 0
     TREE = 1
     VIEW = 2
-    INTERNAL = 3
+    MANYTOMANY = 3
+    INTERNAL = 4
 
 class TableAttributes(object):
-    def __init__(self, attribute_name, data_type, primary_key=False, editable=False, unique=False, not_null=False, not_empty=False):
+    def __init__(self, attribute_name, data_type, primary_key=False, unique=False, not_null=False, not_empty=False):
         self.attribute_name = attribute_name
         self.data_type = data_type
         self.primary_key = primary_key
-        self.editable = editable
         self.unique = unique
         self.not_null = not_null
         self.not_empty = not_empty
@@ -28,17 +28,11 @@ class TableAttributes(object):
 
 
 class GeoCORKTable():
-
-    def create_query(self) -> str:
-        return (f"CREATE TABLE IF NOT EXISTS {self.table_name} (\n "
-                f"{',\n'.join(str(attr) for attr in self.attributes)})" + \
-                f"{',\n'.join(str(unique) for unique in self.unique_constraints)})")
-
-
     def __init__(self, table_name, attributes: list[TableAttributes], table_type: TableType = TableType.TABLE,
                  user_viewable: bool = False, conditionally_editable: bool = False,
                  static_table: bool = False, contains_foreign_keys: bool = False, as_table_name: str = None,
-                 bridge_table: TableAttributes = None, bridge_from_column, bridge_to_column):
+                 bridge_table: GeoCORKTable = None, bridge_from_column: str = None, bridge_to_column: str = None,
+                 child_tables: list[GeoCORKTable] = None, parent_tables: list[GeoCORKTable] = None):
         """
 
         :param table_name:
@@ -69,20 +63,14 @@ class GeoCORKTable():
         self.bridge_from_column = bridge_from_column
         self.bridge_to_column = bridge_to_column
 
-        self.child_tables: list[GeoCORKTable] = []
-        self.parent_tables: list[GeoCORKTable] = []
+        self.child_tables: list[GeoCORKTable] = child_tables
+        self.parent_tables: list[GeoCORKTable] = parent_tables
 
-        self.attributes: list[TableAttributes] = [
-            TableAttributes('SampleID', 'INTEGER PRIMARY KEY'),
-            TableAttributes('SampleName', 'TEXT NOT NULL CHECK (SampleName <> '')'),
-            TableAttributes('SampleDescription', 'TEXT'),
-            TableAttributes('SampleCreated', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
-            TableAttributes('SampleModified', 'DATETIME DEFAULT CURRENT_TIMESTAMP'),
-            TableAttributes('SampleLatitude', 'REAL'),
-            TableAttributes('SampleLongitude', 'REAL'),
-            TableAttributes('SampleElevation', 'REAL'),
-            TableAttributes('SampleGPSLocationDisplay', 'TEXT'),
-        ]
+        self.attributes: list[TableAttributes] = attributes
+
+        if self.attributes is None:
+            logger_setup.get_logger().critical('No attributes given for table.')
+            return False
 
 
         #checks to make sure an ID column exists
@@ -126,52 +114,66 @@ class GeoCORKTable():
 
     @property
     def id_select(self):
-        return f"{self.table_name}.{self.id_column.attribute_name} AS {self.table_name}"
+        return f"{self.table_name}.{self.id_column.attribute_name} AS {self.id_column.attribute_name}"
 
     @property
     def name_select(self):
-        return
+        return f"{self.table_name}.{self.name_column.attribute_name} AS {self.name_column.attribute_name}"
 
     def table_attributes_dict(self):
+        """
+        Returns a dictionary of the table's attributes in a dictionary format where the key is the table name and a
+        list of values for attributes.
+        :return:
+        """
         return {self.table_name: [attribute.attribute_name for attribute in self.attributes]}
 
+    def create_query(self) -> str:
+        """
+        Returns a generate SQL query to create the table.
+        :return:
+        """
+        return (f"CREATE TABLE IF NOT EXISTS {self.table_name} (\n "
+                f"{',\n'.join(str(attr) for attr in self.attributes)})" + \
+                f"{',\n'.join(str(unique) for unique in self.unique_constraints)})")
 
 
-        limited_sample_hierarchy_join = f'''
-                                JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
-                                JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
-                                JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-                                '''
 
-        many_editable = {
-            'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'RegionName': 'Regions', 'RockTypeName': 'RockTypes',
-                        'SampleContexName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods',
-                        'SettingName': 'Settings',
-                        'UnitName': 'Units'},
-            'Aliquots': {'AliquotContextName': 'AliquotContexts'},
-            'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
-            'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
-            'References': {}
-        }
-        # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
-        one_editable = {
-            'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges',
-                        'ColumnName': 'Columns',
-                        'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots'},
-            'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits',
-                        'ColumnBaseGPSDisplay': 'GPSLocations'},
-            'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
-            'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
-            'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
-                            'UPbReference': 'References',
-                            'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments',
-                            'UPbAnalysisMethodName': 'UPbAnalysisMethods',
-                            'RatioErrorFormatAbbreviation': 'ErrorFormats', 'AgeUnitAbbreviation': 'AgeUnits',
-                            'AgeErrorFormatAbbreviation': 'ErrorFormats',
-                            'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
-                            'SpotSizeUnitAbbreviation': 'DistanceUnits'},
-            'References': {}
-        }
+        # limited_sample_hierarchy_join = f'''
+        #                         JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
+        #                         JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
+        #                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
+        #                         '''
+        #
+        # many_editable = {
+        #     'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'RegionName': 'Regions', 'RockTypeName': 'RockTypes',
+        #                 'SampleContexName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods',
+        #                 'SettingName': 'Settings',
+        #                 'UnitName': 'Units'},
+        #     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
+        #     'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
+        #     'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
+        #     'References': {}
+        # }
+        # # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
+        # one_editable = {
+        #     'Samples': {'SampleGPSLocationDisplay': 'GPSLocations', 'SampleAgeCalculated': 'SampleAges',
+        #                 'ColumnName': 'Columns',
+        #                 'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots'},
+        #     'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits',
+        #                 'ColumnBaseGPSDisplay': 'GPSLocations'},
+        #     'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
+        #     'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
+        #     'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
+        #                     'UPbReference': 'References',
+        #                     'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments',
+        #                     'UPbAnalysisMethodName': 'UPbAnalysisMethods',
+        #                     'RatioErrorFormatAbbreviation': 'ErrorFormats', 'AgeUnitAbbreviation': 'AgeUnits',
+        #                     'AgeErrorFormatAbbreviation': 'ErrorFormats',
+        #                     'ConcordanceFormatAbbreviation': 'ConcordanceFormats',
+        #                     'SpotSizeUnitAbbreviation': 'DistanceUnits'},
+        #     'References': {}
+        # }
 
     def __str__(self):
         return str(self.table_name)
