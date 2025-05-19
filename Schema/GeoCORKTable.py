@@ -38,7 +38,7 @@ class GeoCORKTableAttribute:
 
     """
     def __init__(self, attribute_name: str = None, data_type: str = None,
-                 primary_key=False, unique=False, not_null=False, not_empty=False, as_case: str = '',
+                 primary_key=False, not_null=False, not_empty=False, as_case: str = '',
                  visible_to_user: bool = True, foreign_key_table: str = None):
         """
 
@@ -55,7 +55,6 @@ class GeoCORKTableAttribute:
         self.attribute_name = attribute_name
         self.data_type = data_type
         self.primary_key = primary_key
-        self.unique = unique
         self.not_null = not_null
         self.not_empty = not_empty
         self.foreign_key_table = foreign_key_table
@@ -94,6 +93,9 @@ class GeoCORKTable:
         database operations. This class manages attributes, child-parent relationships, unique keys,
         and type-specific constraints for database tables while ensuring integrity standards such
         as primary keys, foreign keys, and hierarchical structures.
+
+        If a table is an M:N relationship, it must have exactly two attributes. Automatically creates unique constraint for
+        the two attributes.
 
         :param table_name: The name of the database table.
         :type table_name: str
@@ -184,8 +186,13 @@ class GeoCORKTable:
                 elif self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}Name' and i == 3:
                     self.name_column = self.attributes[i]
                     self.name_column_index = i + 1
-                else:
-                    pass
+        elif self.table_type == TableType.MANYTOMANY:
+            if len(self.attributes) != 2:
+                logger_setup.get_logger().critical("Many-to-many tables must have exactly two attributes.")
+                return
+
+            self.unique_constraints.append([self.attributes[0].attribute_name, self.attributes[1].attribute_name])
+
 
             # if self.id_column is None:
             #     logger_setup.get_logger().critical("No primary key column for table")
@@ -241,7 +248,7 @@ class GeoCORKTable:
         """
         return (f"CREATE TABLE IF NOT EXISTS {self.table_name} (\n\t"
                 f"{',\n\t'.join(str(attr) for attr in self.attributes)}"
-                f"{',\n'.join(str(",".join(unique)) for unique in self.unique_constraints)}"
+                f"{(', \n\t' + ',\n\t'.join(str('UNIQUE (' + ", ".join(unique) + ')') for unique in self.unique_constraints)) if self.unique_constraints else ''}"
                 f"\n)")
 
         # limited_sample_hierarchy_join = f'''

@@ -27,7 +27,8 @@ class GeoCORKSchema:
                                     GeoCORKTableAttribute('FilterGroupName', 'TEXT', not_null=True, not_empty=True),
                                     GeoCORKTableAttribute('SQLQuery', 'TEXT'),
                                     GeoCORKTableAttribute('DefaultColor', 'TEXT'),
-                                    GeoCORKTableAttribute('FilterGroupDescription', 'TEXT')])
+                                    GeoCORKTableAttribute('FilterGroupDescription', 'TEXT')],
+                                unique_constraints=[['FilterGroupName COLLATE NOCASE']])
 
     # ----------------------------------------------------------------------------------------------- #
     # |     Internal Static Unit/Format/Conversion Tables                                           |
@@ -39,7 +40,8 @@ class GeoCORKSchema:
                                 GeoCORKTableAttribute('AgeUnitID', 'INTEGER', primary_key=True),
                                 GeoCORKTableAttribute('AgeUnitName', 'TEXT', not_null=True, not_empty=True),
                                 GeoCORKTableAttribute('AgeUnitAbbreviation', 'TEXT', not_null=True, not_empty=True),
-                                GeoCORKTableAttribute('AgeUnitDescription', 'TEXT')])
+                                GeoCORKTableAttribute('AgeUnitDescription', 'TEXT')],
+                            unique_constraints=[['AgeUnitName COLLATE NOCASE'], ['AgeUnitAbbreviation COLLATE NOCASE']])
 
     AgeUnitConversions = GeoCORKTable(table_name='AgeUnitConversions', table_type=TableType.CONVERSION,
                                       static_table=True,
@@ -50,7 +52,8 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('ToAgeUnitID', 'INTEGER', not_null=True,
                                                                 not_empty=True, foreign_key_table='AgeUnits'),
                                           GeoCORKTableAttribute('AgeUnitConversionCalculation', 'TEXT', not_null=True,
-                                                                not_empty=True)])
+                                                                not_empty=True)],
+                                      unique_constraints=[['FromAgeUnitID', 'ToAgeUnitID']])
 
     ConcordanceFormats = GeoCORKTable(table_name='ConcordanceFormats', table_type=TableType.FORMATS, static_table=True,
                                       contains_foreign_keys=True,
@@ -61,7 +64,8 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('ConcordanceFormatAbbreviation', 'TEXT',
                                                                 not_null=True,
                                                                 not_empty=True),
-                                          GeoCORKTableAttribute('ConcordanceFormatDescription', 'TEXT')])
+                                          GeoCORKTableAttribute('ConcordanceFormatDescription', 'TEXT')],
+                                      unique_constraints=[['ConcordanceFormatName COLLATE NOCASE'], ['ConcordanceFormatAbbreviation COLLATE NOCASE']])
 
     ConcordanceFormatConversions = GeoCORKTable(table_name='ConcordanceFormatConversions',
                                                 table_type=TableType.CONVERSION,
@@ -78,7 +82,8 @@ class GeoCORKSchema:
                                                                           foreign_key_table='ConcordanceFormats'),
                                                     GeoCORKTableAttribute('ConcordanceFormatConversionCalculation',
                                                                           'TEXT',
-                                                                          not_null=True, not_empty=True)])
+                                                                          not_null=True, not_empty=True)],
+                                                unique_constraints=[['FromConcordanceFormatID', 'ToConcordanceFormatID']])
 
     DirectionUnits = GeoCORKTable(table_name='DirectionUnits', table_type=TableType.UNITS, static_table=True,
                                   contains_foreign_keys=True,
@@ -89,7 +94,9 @@ class GeoCORKSchema:
                                       GeoCORKTableAttribute('DirectionUnitName', 'TEXT', not_null=True, not_empty=True),
                                       GeoCORKTableAttribute('DirectionUnitAbbreviation', 'TEXT', not_null=True,
                                                             not_empty=True),
-                                      GeoCORKTableAttribute('DirectionUnitDescription', 'TEXT')])
+                                      GeoCORKTableAttribute('DirectionUnitDescription', 'TEXT')],
+                                  unique_constraints=[['DirectionUnitName COLLATE NOCASE'],
+                                                      ['DirectionUnitAbbreviation COLLATE NOCASE']])
 
     DistanceUnits = GeoCORKTable(table_name='DistanceUnits', table_type=TableType.UNITS, static_table=True,
                                  contains_foreign_keys=True,
@@ -101,7 +108,9 @@ class GeoCORKSchema:
                                                                    not_empty=True),
                                              GeoCORKTableAttribute('DistanceUnitAbbreviation', 'TEXT', not_null=True,
                                                                    not_empty=True),
-                                             GeoCORKTableAttribute('DistanceUnitDescription', 'TEXT')])
+                                             GeoCORKTableAttribute('DistanceUnitDescription', 'TEXT')],
+                                 unique_constraints=[['DistanceUnitName COLLATE NOCASE'],
+                                                     ['DistanceUnitAbbreviation COLLATE NOCASE']])
 
     DistanceUnitConversions = GeoCORKTable(table_name='DistanceUnitConversions', table_type=TableType.CONVERSION,
                                            static_table=True,
@@ -112,7 +121,8 @@ class GeoCORKSchema:
                                                GeoCORKTableAttribute('ToDistanceUnitID', 'INTEGER', not_null=True,
                                                                      not_empty=True, foreign_key_table='DistanceUnits'),
                                                GeoCORKTableAttribute('DistanceUnitConversionCalculation', 'TEXT',
-                                                                     not_null=True, not_empty=True)])
+                                                                     not_null=True, not_empty=True)],
+                                           unique_constraints=[['FromDistanceUnitID', 'ToDistanceUnitID']])
 
     ErrorFormats = GeoCORKTable(table_name='ErrorFormats', table_type=TableType.FORMATS, static_table=True,
                                 contains_foreign_keys=True,
@@ -122,7 +132,9 @@ class GeoCORKSchema:
                                                                   not_empty=True),
                                             GeoCORKTableAttribute('ErrorFormatAbbreviation', 'TEXT', not_null=True,
                                                                   not_empty=True),
-                                            GeoCORKTableAttribute('ErrorFormatDescription', 'TEXT')])
+                                            GeoCORKTableAttribute('ErrorFormatDescription', 'TEXT')],
+                                unique_constraints=[['ErrorFormatName COLLATE NOCASE'],
+                                                    ['ErrorFormatAbbreviation COLLATE NOCASE']])
 
     ErrorFormatConversions = GeoCORKTable(table_name='ErrorFormatConversions', table_type=TableType.CONVERSION,
                                           static_table=True, contains_foreign_keys=True,
@@ -132,7 +144,8 @@ class GeoCORKSchema:
                                               GeoCORKTableAttribute('ToErrorFormatID', 'INTEGER', not_null=True,
                                                                     not_empty=True, foreign_key_table='ErrorFormats'),
                                               GeoCORKTableAttribute('ErrorFormatConversionCalculation', 'TEXT',
-                                                                    not_null=True, not_empty=True)])
+                                                                    not_null=True, not_empty=True)],
+                                          unique_constraints=[['FromErrorFormatID', 'ToErrorFormatID']])
 
     GPSFormatConversions = GeoCORKTable(table_name='GPSFormatConversions', table_type=TableType.CONVERSION,
                                         static_table=True,
@@ -144,7 +157,8 @@ class GeoCORKSchema:
                                                                   not_empty=True, foreign_key_table='GPSFormat'),
                                             GeoCORKTableAttribute('GPSFormatConversionCalculation', 'TEXT',
                                                                   not_null=True,
-                                                                  not_empty=True)])
+                                                                  not_empty=True)],
+                                        unique_constraints=[['FromGPSFormatID', 'ToGPSFormatID']])
 
     GPSFormats = GeoCORKTable(table_name='GPSFormats', table_type=TableType.FORMATS, static_table=True,
                               contains_foreign_keys=True,
@@ -153,7 +167,8 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('GPSFormatName', 'TEXT', not_null=True, not_empty=True),
                                           GeoCORKTableAttribute('GPSFormatAbbreviation', 'TEXT', not_null=True,
                                                                 not_empty=True),
-                                          GeoCORKTableAttribute('GPSFormatDescription', 'TEXT')])
+                                          GeoCORKTableAttribute('GPSFormatDescription', 'TEXT')],
+                              unique_constraints=[['GPSFormatName COLLATE NOCASE'], ['GPSFormatAbbreviation COLLATE NOCASE']])
 
     # ----------------------------------------------------------------------------------------------- #
     #          Tables Used In Other Tables TREES ONLY (Child Tables)
@@ -166,7 +181,8 @@ class GeoCORKSchema:
                                     GeoCORKTableAttribute('AgeParentRow', 'INTEGER'),
                                     GeoCORKTableAttribute('AgeName', 'TEXT', not_null=True, not_empty=True),
                                     GeoCORKTableAttribute('OldestAge', 'REAL'),
-                                    GeoCORKTableAttribute('YoungestAge', 'REAL')])
+                                    GeoCORKTableAttribute('YoungestAge', 'REAL')],
+                        unique_constraints=[['AgeName COLLATE NOCASE'], ['ParentAgeID', 'AgeParentRow']])
 
     AgeConstraints = GeoCORKTable(table_name='AgeConstraints', table_type=TableType.TREE,
                                   user_viewable=True,
@@ -179,7 +195,8 @@ class GeoCORKSchema:
                                               GeoCORKTableAttribute('AgeConstraintParentRow', 'INTEGER'),
                                               GeoCORKTableAttribute('AgeConstraintName', 'TEXT', not_null=True,
                                                                     not_empty=True),
-                                              GeoCORKTableAttribute('AgeConstraintDescription', 'TEXT')])
+                                              GeoCORKTableAttribute('AgeConstraintDescription', 'TEXT')],
+                                  unique_constraints=[['AgeConstraintName COLLATE NOCASE'], ['ParentAgeConstraintID', 'AgeConstraintParentRow']])
 
     AgeInterpretations = GeoCORKTable(table_name='AgeInterpretations', table_type=TableType.TREE,
                                       user_viewable=True,
@@ -194,7 +211,8 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('AgeInterpretationParentRow', 'INTEGER'),
                                           GeoCORKTableAttribute('AgeInterpretationName', 'TEXT', not_null=True,
                                                                 not_empty=True),
-                                          GeoCORKTableAttribute('AgeInterpretationDescription', 'TEXT')])
+                                          GeoCORKTableAttribute('AgeInterpretationDescription', 'TEXT')],
+                                      unique_constraints=[['AgeInterpretationName COLLATE NOCASE'], ['ParentAgeInterpretationID', 'AgeInterpretationParentRow']])
 
     AgeSignatures = GeoCORKTable(table_name='AgeSignatures', table_type=TableType.TREE,
                                  user_viewable=True,
@@ -207,7 +225,9 @@ class GeoCORKSchema:
                                              GeoCORKTableAttribute('AgeSignatureParentRow', 'INTEGER'),
                                              GeoCORKTableAttribute('AgeSignatureName', 'TEXT', not_null=True,
                                                                    not_empty=True),
-                                             GeoCORKTableAttribute('AgeSignatureDescription', 'TEXT')])
+                                             GeoCORKTableAttribute('AgeSignatureDescription', 'TEXT')],
+                                 unique_constraints=[['AgeSignatureName COLLATE NOCASE'],
+                                                     ['ParentAgeSignatureID', 'AgeSignatureParentRow']])
 
     AliquotContexts = GeoCORKTable(table_name='AliquotContexts', table_type=TableType.TREE,
                                    user_viewable=True,
@@ -220,7 +240,9 @@ class GeoCORKSchema:
                                                GeoCORKTableAttribute('AliquotContextParentRow', 'INTEGER'),
                                                GeoCORKTableAttribute('AliquotContextName', 'TEXT', not_null=True,
                                                                      not_empty=True),
-                                               GeoCORKTableAttribute('AliquotContextDescription', 'TEXT')])
+                                               GeoCORKTableAttribute('AliquotContextDescription', 'TEXT')],
+                                   unique_constraints=[['AliquotContextName COLLATE NOCASE'], ['ParentAliquotContextID',
+                                                                                         'AliquotContextParentRow']])
     Columns = GeoCORKTable(table_name='Columns', table_type=TableType.TREE,
                            user_viewable=True,
                            contains_foreign_keys=True,
@@ -233,7 +255,8 @@ class GeoCORKSchema:
                                                              foreign_key_table='DistanceUnits'),
                                        GeoCORKTableAttribute('ColumnBaseGPSID', 'INTEGER',
                                                              foreign_key_table='GPSLocations'),
-                                       GeoCORKTableAttribute('ColumnDescription', 'TEXT')])
+                                       GeoCORKTableAttribute('ColumnDescription', 'TEXT')],
+                           unique_constraints=[['ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitID', 'ColumnBaseGPSID', 'ColumnDescription']])
 
     GPSLocations = GeoCORKTable(table_name='GPSLocations', table_type=TableType.TABLE, conditionally_editable=True,
                                 contains_foreign_keys=True, as_table_name=['ColumnGPS'],
@@ -258,7 +281,8 @@ class GeoCORKSchema:
                                             GeoCORKTableAttribute('GPSElev', 'REAL'),
                                             GeoCORKTableAttribute('GPSElevError', 'REAL'),
                                             GeoCORKTableAttribute('GPSElevUnitID', 'INTEGER',
-                                                                  foreign_key_table='DistanceUnits')])
+                                                                  foreign_key_table='DistanceUnits')],
+                                unique_constraints=[['GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec', 'GPSLonDirectionID', 'GPSUTMZone', 'GPSUTMN', 'GPSUTME', 'GPSElev', 'GPSElevError', 'GPSElevUnitID']])
 
     Instruments = GeoCORKTable(table_name='Instruments', table_type=TableType.TABLE,
                                user_viewable=True,
@@ -268,7 +292,8 @@ class GeoCORKSchema:
                                attributes=[GeoCORKTableAttribute('InstrumentID', 'INTEGER', primary_key=True),
                                            GeoCORKTableAttribute('InstrumentName', 'TEXT', not_null=True,
                                                                  not_empty=True),
-                                           GeoCORKTableAttribute('InstrumentDescription', 'TEXT'), ])
+                                           GeoCORKTableAttribute('InstrumentDescription', 'TEXT')],
+                               unique_constraints=[['InstrumentName COLLATE NOCASE']])
 
     LabFacilities = GeoCORKTable(table_name='LabFacilities', table_type=TableType.TABLE,
                                  user_viewable=True,
@@ -278,7 +303,8 @@ class GeoCORKSchema:
                                  attributes=[GeoCORKTableAttribute('LabFacilityID', 'INTEGER', primary_key=True),
                                              GeoCORKTableAttribute('LabFacilityName', 'TEXT', not_null=True,
                                                                    not_empty=True),
-                                             GeoCORKTableAttribute('LabFacilityDescription', 'TEXT')])
+                                             GeoCORKTableAttribute('LabFacilityDescription', 'TEXT')],
+                                 unique_constraints=[['LabFacilityName COLLATE NOCASE']])
 
     References = GeoCORKTable(table_name='"References"', table_type=TableType.TABLE,
                               user_viewable=True,
@@ -290,7 +316,8 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('Year', 'INTEGER'),
                                           GeoCORKTableAttribute('Title', 'TEXT'),
                                           GeoCORKTableAttribute('Source', 'TEXT'),
-                                          GeoCORKTableAttribute('DOI', 'TEXT')])
+                                          GeoCORKTableAttribute('DOI', 'TEXT')],
+                              unique_constraints=[['Authors COLLATE NOCASE', 'Year', 'Title COLLATE NOCASE', 'Source COLLATE NOCASE', 'DOI COLLATE NOCASE']])
 
     Regions = GeoCORKTable(table_name='Regions', table_type=TableType.TREE,
                            user_viewable=True,
@@ -301,7 +328,8 @@ class GeoCORKSchema:
                                        GeoCORKTableAttribute('ParentRegionID', 'INTEGER', foreign_key_table='Regions'),
                                        GeoCORKTableAttribute('RegionParentRow', 'INTEGER'),
                                        GeoCORKTableAttribute('RegionName', 'TEXT', not_null=True, not_empty=True),
-                                       GeoCORKTableAttribute('RegionDescription', 'TEXT')])
+                                       GeoCORKTableAttribute('RegionDescription', 'TEXT')],
+                           unique_constraints=[['RegionName COLLATE NOCASE'], ['ParentRegionID','RegionParentRow']])
 
     RejectionReasons = GeoCORKTable(table_name='RejectionReasons', table_type=TableType.TREE,
                                     user_viewable=True,
@@ -311,7 +339,8 @@ class GeoCORKSchema:
                                     attributes=[GeoCORKTableAttribute('RejectionReasonID', 'INTEGER', primary_key=True),
                                                 GeoCORKTableAttribute('RejectionReasonName', 'TEXT', not_null=True,
                                                                       not_empty=True),
-                                                GeoCORKTableAttribute('RejectionReasonDescription', 'TEXT')])
+                                                GeoCORKTableAttribute('RejectionReasonDescription', 'TEXT')],
+                                    unique_constraints=[['RejectionReasonName COLLATE NOCASE']])
 
     RockTypes = GeoCORKTable(table_name='RockTypes', table_type=TableType.TREE,
                              user_viewable=True,
@@ -323,7 +352,8 @@ class GeoCORKSchema:
                                                                foreign_key_table='RockTypes'),
                                          GeoCORKTableAttribute('RockTypeParentRow', 'INTEGER'),
                                          GeoCORKTableAttribute('RockTypeName', 'TEXT', not_null=True, not_empty=True),
-                                         GeoCORKTableAttribute('RockTypeDescription', 'TEXT')])
+                                         GeoCORKTableAttribute('RockTypeDescription', 'TEXT')],
+                             unique_constraints=[['RockTypeName COLLATE NOCASE'], ['ParentRockTypeID', 'RockTypeParentRow']])
 
     SpotCompositions = GeoCORKTable(table_name='SpotCompositions', table_type=TableType.TREE,
                                     user_viewable=True,
@@ -336,7 +366,9 @@ class GeoCORKSchema:
                                                 GeoCORKTableAttribute('SpotCompositionParentRow', 'INTEGER'),
                                                 GeoCORKTableAttribute('SpotCompositionName', 'TEXT', not_null=True,
                                                                       not_empty=True),
-                                                GeoCORKTableAttribute('SpotCompositionDescription', 'TEXT')])
+                                                GeoCORKTableAttribute('SpotCompositionDescription', 'TEXT')],
+                                    unique_constraints=[['SpotCompositionName COLLATE NOCASE'],
+                                                    ['ParentSpotCompositionID', 'SpotCompositionParentRow']])
 
     SpotContexts = GeoCORKTable(table_name='SpotContexts', table_type=TableType.TREE,
                                 user_viewable=True,
@@ -349,7 +381,9 @@ class GeoCORKSchema:
                                             GeoCORKTableAttribute('SpotContextParentRow', 'INTEGER'),
                                             GeoCORKTableAttribute('SpotContextName', 'TEXT', not_null=True,
                                                                   not_empty=True),
-                                            GeoCORKTableAttribute('SpotContextDescription', 'TEXT')])
+                                            GeoCORKTableAttribute('SpotContextDescription', 'TEXT')],
+                                unique_constraints=[['SpotContextName COLLATE NOCASE'], ['ParentSpotContextID',
+                                                                                      'SpotContextParentRow']])
 
     SampleAges = GeoCORKTable(table_name='SampleAges', table_type=TableType.TREE,
                               user_viewable=True, conditionally_editable=True,
@@ -367,7 +401,8 @@ class GeoCORKSchema:
                                                                 foreign_key_table='ErrorFormats'),
                                           GeoCORKTableAttribute('OldestAgeID', 'INTEGER', foreign_key_table='Ages'),
                                           GeoCORKTableAttribute('YoungestAgeID', 'INTEGER', foreign_key_table='Ages'),
-                                          GeoCORKTableAttribute('SampleAgeDescription', 'TEXT')])
+                                          GeoCORKTableAttribute('SampleAgeDescription', 'TEXT')],
+                              unique_constraints=[['DirectAge', 'DirectAgeError', 'DirectAgeErrorFormatID', 'OldestDirectAge', 'YoungestDirectAge', 'DirectAgeUnitID', 'OldestAgeID', 'YoungestAgeID']])
 
     SampleContexts = GeoCORKTable(table_name='SampleContexts', table_type=TableType.TREE,
                                   user_viewable=True,
@@ -380,7 +415,9 @@ class GeoCORKSchema:
                                               GeoCORKTableAttribute('SampleContextParentRow', 'INTEGER', not_null=True),
                                               GeoCORKTableAttribute('SampleContextName', 'TEXT', not_null=True,
                                                                     not_empty=True),
-                                              GeoCORKTableAttribute('SampleContextDescription', 'TEXT')])
+                                              GeoCORKTableAttribute('SampleContextDescription', 'TEXT')],
+                                  unique_constraints=[['SampleContextName COLLATE NOCASE'], ['ParentSampleContextID',
+                                                                                          'SampleContextParentRow']])
 
     SamplingMethods = GeoCORKTable(table_name='SamplingMethods', table_type=TableType.TREE,
                                    user_viewable=True,
@@ -393,7 +430,9 @@ class GeoCORKSchema:
                                                GeoCORKTableAttribute('SamplingMethodParentRow', 'INTEGER'),
                                                GeoCORKTableAttribute('SamplingMethodName', 'TEXT', not_null=True,
                                                                      not_empty=True),
-                                               GeoCORKTableAttribute('SamplingMethodDescription', 'TEXT')])
+                                               GeoCORKTableAttribute('SamplingMethodDescription', 'TEXT')],
+                                   unique_constraints=[['SamplingMethodName COLLATE NOCASE'], ['ParentSamplingMethodID',
+                                                                                         'SamplingMethodParentRow']])
 
     Settings = GeoCORKTable(table_name='Settings', table_type=TableType.TREE,
                             user_viewable=True,
@@ -405,7 +444,8 @@ class GeoCORKSchema:
                                                               foreign_key_table='Settings'),
                                         GeoCORKTableAttribute('SettingParentRow', 'INTEGER'),
                                         GeoCORKTableAttribute('SettingName', 'TEXT', not_null=True, not_empty=True),
-                                        GeoCORKTableAttribute('SettingDescription', 'TEXT')])
+                                        GeoCORKTableAttribute('SettingDescription', 'TEXT')],
+                            unique_constraints=[['SettingName COLLATE NOCASE'], ['ParentSettingID', 'SettingParentRow']])
 
     Units = GeoCORKTable(table_name='Units', table_type=TableType.TREE,
                          user_viewable=True,
@@ -416,7 +456,8 @@ class GeoCORKSchema:
                                      GeoCORKTableAttribute('ParentUnitID', 'INTEGER', foreign_key_table='Units'),
                                      GeoCORKTableAttribute('UnitParentRow', 'INTEGER'),
                                      GeoCORKTableAttribute('UnitName', 'TEXT', not_null=True, not_empty=True),
-                                     GeoCORKTableAttribute('UnitDescription', 'TEXT')])
+                                     GeoCORKTableAttribute('UnitDescription', 'TEXT')],
+                         unique_constraints=[['UnitName COLLATE NOCASE'], ['ParentUnitID', 'UnitParentRow']])
 
     UPbAnalysisContexts = GeoCORKTable(table_name='UPbAnalysisContexts', table_type=TableType.TREE,
                                        user_viewable=True,
@@ -431,7 +472,9 @@ class GeoCORKSchema:
                                            GeoCORKTableAttribute('UPbAnalysisContextParentRow', 'INTEGER'),
                                            GeoCORKTableAttribute('UPbAnalysisContextName', 'TEXT', not_null=True,
                                                                  not_empty=True),
-                                           GeoCORKTableAttribute('UPbAnalysisContextDescription', 'TEXT')])
+                                           GeoCORKTableAttribute('UPbAnalysisContextDescription', 'TEXT')],
+                                       unique_constraints=[['UPbAnalysisContextName COLLATE NOCASE'],
+                                                           ['ParentUPbAnalysisContextID', 'UPbAnalysisContextParentRow']])
 
     UPbAnalysisMethods = GeoCORKTable(table_name='UPbAnalysisMethods', table_type=TableType.TREE,
                                       user_viewable=True,
@@ -445,7 +488,9 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('UPbAnalysisMethodParentRow', 'INTEGER'),
                                           GeoCORKTableAttribute('UPbAnalysisMethodName', 'TEXT', not_null=True,
                                                                 not_empty=True),
-                                          GeoCORKTableAttribute('UPbAnalysisMethodDescription', 'TEXT')])
+                                          GeoCORKTableAttribute('UPbAnalysisMethodDescription', 'TEXT')],
+                                      unique_constraints=[['UPbAnalysisMethodName COLLATE NOCASE'],
+                                                          ['ParentUPbAnalysisMethodID', 'UPbAnalysisMethodParentRow']])
 
     # ----------------------------------------------------------------------------------------------- #
     #          Main Data Tables for Samples, Aliquots, Spots, UPb
@@ -495,7 +540,8 @@ class GeoCORKSchema:
                                      GeoCORKTableAttribute('AliquotID', 'INTEGER', not_null=True, not_empty=True,
                                                            foreign_key_table='Aliquots'),
                                      GeoCORKTableAttribute('SpotCompositionID', 'INTEGER',
-                                                           foreign_key_table='SpotCompositions')])
+                                                           foreign_key_table='SpotCompositions')],
+                         unique_constraints=[['SpotName COLLATE NOCASE', 'AliquotID']])
 
     UPbAnalyses = GeoCORKTable(table_name='UPbAnalyses', table_type=TableType.TABLE,
                                user_viewable=True,
