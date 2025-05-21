@@ -1,6 +1,9 @@
 from enum import Enum
 from typing import Self
 
+from PyQt6 import QtSql
+from PyQt6.QtSql import QSqlQuery
+
 import logger_setup
 
 
@@ -37,6 +40,7 @@ class GeoCORKTableAttribute:
     """
 
     """
+
     def __init__(self, attribute_name: str = None, data_type: str = None,
                  primary_key=False, not_null=False, not_empty=False, as_case: str = '',
                  visible_to_user: bool = True, foreign_key_table: str = None):
@@ -83,11 +87,13 @@ class GeoCORKTable:
 
     """
 
-    def __init__(self, table_name, attributes: list[GeoCORKTableAttribute], table_type: TableType = TableType.TABLE,
+    def __init__(self, table_name: str = '', attributes: list[GeoCORKTableAttribute] = [],
+                 table_type: TableType = TableType.TABLE,
                  user_viewable: bool = False, conditionally_editable: bool = False,
                  static_table: bool = False, contains_foreign_keys: bool = False, as_table_name: list[str] = None,
                  bridge_table: Self = None, bridge_from_column: str = None, bridge_to_column: str = None,
-                 child_tables: list[Self] = None, parent_tables: list[Self] = None, unique_constraints: list[list[str]] = None):
+                 child_tables: list[Self] = None, parent_tables: list[Self] = None,
+                 unique_constraints: list[list[str]] = None):
         """
         Represents a GeoCORK table definition with attributes, relationships, and metadata for
         database operations. This class manages attributes, child-parent relationships, unique keys,
@@ -130,7 +136,7 @@ class GeoCORKTable:
             (e.g., primary key) are not met for the table structure.
         """
 
-        self.table_name = table_name
+        self._table_name = table_name
         self.cte_table_name = f'Recursive{self.table_name}'
         self.table_type: TableType = table_type
         self.user_viewable = user_viewable
@@ -151,11 +157,22 @@ class GeoCORKTable:
 
         self.attributes: list[GeoCORKTableAttribute] = attributes
 
-        if self.attributes is None:
+        self.id_column = ''
+        self.id_column_index = -1
+
+        self.name_column = ''
+        self.name_column_index = -1
+
+        self.parent_column = ''
+        self.parent_column_index = -1
+
+        self.parent_row_column = ''
+        self.parent_row_column_index = -1
+
+
+        if len(self.attributes) == 0:
             # logger_setup.get_logger().critical('No attributes given for table.')
-            return False
-
-
+            return
 
         # checks to make sure an ID column exists
         if self.table_type == TableType.TABLE or self.table_type == TableType.INTERNAL:
@@ -163,7 +180,8 @@ class GeoCORKTable:
             for i in range(0, len(self.attributes)):
                 if self.attributes[i].primary_key and i == 0:
                     self.id_column = self.attributes[i]
-                elif self.attributes[i].attribute_name == self.attributes[0].attribute_name.replace('ID', 'Name'):
+                    self.id_column_index = i + 1
+                elif self.attributes[i].attribute_name == self.id_column.attribute_name.replace('ID', 'Name'):
                     self.name_column: GeoCORKTableAttribute = self.attributes[i]
                     self.name_column_index = i + 1
             if self.id_column is None:
@@ -175,15 +193,18 @@ class GeoCORKTable:
             for i in range(0, len(self.attributes)):
                 if self.attributes[i].primary_key and i == 0:
                     self.id_column = self.attributes[i]
-                elif self.attributes[i].attribute_name == f'Parent{self.attributes[i].attribute_name}' and i == 1:
+                    self.id_column_index = i + 1
+                elif self.attributes[i].attribute_name == f'Parent{self.id_column.attribute_name}' and i == 1:
                     # set Parent id to not be visible to user
                     self.attributes[i].visible_to_user = False
                     self.parent_column = self.attributes[i]
-                elif self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}ParentRow' and i == 2:
+                    self.parent_column_index = i + 1
+                elif self.attributes[i].attribute_name == f'{self.id_column.attribute_name.replace('ID','')}ParentRow' and i == 2:
                     # set Parent row to not be visible to user
                     self.attributes[i].visible_to_user = False
                     self.parent_row_column = self.attributes[i]
-                elif self.attributes[i].attribute_name == f'{self.attributes[0].attribute_name}Name' and i == 3:
+                    self.parent_row_column_index = i + 1
+                elif self.attributes[i].attribute_name == f'{self.id_column.attribute_name.replace('ID', '')}Name' and i == 3:
                     self.name_column = self.attributes[i]
                     self.name_column_index = i + 1
         elif self.table_type == TableType.MANYTOMANY:
@@ -192,7 +213,6 @@ class GeoCORKTable:
                 return
 
             self.unique_constraints.append([self.attributes[0].attribute_name, self.attributes[1].attribute_name])
-
 
             # if self.id_column is None:
             #     logger_setup.get_logger().critical("No primary key column for table")
@@ -208,17 +228,31 @@ class GeoCORKTable:
             self.attributes.append(
                 GeoCORKTableAttribute(f'{self.id_column.attribute_name.replace('ID', 'Modified')}', 'DATETIME'))
 
-        self.indexes = {
-            'idx_name': ['name'],
-            'idx_latitude_longitude': ['latitude', 'longitude']
-        }
+
+
+
+    @property
+    def table_name(self):
+        """
+        Returns a non-SQL safe version of the table name. Will not protect against protected keywords
+        :return:
+        """
+        return self._table_name
 
     @property
     def id_select(self):
+        """
+        Returns a SQL select-as statement for the id column of the table.
+        :return:
+        """
         return f"{self.table_name}.{self.id_column.attribute_name} AS {self.id_column.attribute_name}"
 
     @property
     def name_select(self):
+        """
+        Returns a SQL select-as statement for the name column of the table.
+        :return:
+        """
         return f"{self.table_name}.{self.name_column.attribute_name} AS {self.name_column.attribute_name}"
 
     def table_attributes_dict(self):
@@ -230,9 +264,9 @@ class GeoCORKTable:
         return {self.table_name: [attribute.attribute_name for attribute in self.attributes]}
 
     @property
-    def user_viewable_attributes(self) -> list[GeoCORKTableAttribute] :
+    def user_viewable_attributes(self) -> list[GeoCORKTableAttribute]:
         """
-
+        Returns a list of GeoCORKAttribute objects that are visible to the user.
         :return:
         """
         attributes = []
@@ -241,12 +275,57 @@ class GeoCORKTable:
                 attributes.append(attribute)
         return attributes
 
+    def get_total_records(self, where: str = '') -> int:
+        """
+        Get the total number of records in a table. Optional where clause can be included.
+        :param table: name of the table to query
+        :param where: optional where clause to append to the count query
+        :return: integer of the total number of records
+        """
+        query = QSqlQuery()
+        sql_query = f'SELECT COUNT() FROM {self.__str__()} {where}'
+        # if 'View' in table:
+        #     table = get_table_from_view(table)
+        #     if table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses']:
+        #         sql_query = f'SELECT COUNT() FROM (Select * FROM Samples {SQLUtils.get_join_from_table('', [table])}) {where}'
+
+        # Execute the query
+        logger_setup.get_logger().info(f'Fetching total records for {self.table_name}')
+        if not query.exec(sql_query):
+            # Handle query execution error
+            logger_setup.get_logger().critical(f'Error fetching total records')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return 0
+
+        # Fetch the count
+        if query.next():
+            return query.value(0)
+        return 0
+
+    def get_headers(self) -> list:
+        """
+        Return all headers for the given table
+        :param table: Name of the SQL database table
+        :return: list of headers if successful, empty list if not
+        """
+        query = QtSql.QSqlQuery()
+        if not query.exec(f'PRAGMA table_xinfo({self.__str__()})'):
+            logger_setup.get_logger().critical(f"Failed to get headers for {self.table_name}")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            return []
+        headers = []
+        while query.next():
+            headers.append(query.value(1))
+        return headers
+
     def create_query(self) -> str | None:
         """
-        Returns a generate SQL query to create the table.
+        Returns a generated SQL query to create the table.
         :return:
         """
-        return (f"CREATE TABLE IF NOT EXISTS {self.table_name} (\n\t"
+        return (f"CREATE TABLE IF NOT EXISTS {self.__str__()} (\n\t"
                 f"{',\n\t'.join(str(attr) for attr in self.attributes)}"
                 f"{(', \n\t' + ',\n\t'.join(str('UNIQUE (' + ", ".join(unique) + ')') for unique in self.unique_constraints)) if self.unique_constraints else ''}"
                 f"\n)")
@@ -288,4 +367,13 @@ class GeoCORKTable:
         # }
 
     def __str__(self):
-        return str(self.table_name)
+        """
+        Returns a SQL safe version(quoted) of the table_name. Protects against reserved keywords.
+        :return:
+        """
+        return str('"' + self.table_name + '"')
+
+    def __eq__(self, other):
+        if isinstance(other, GeoCORKTable):
+            return self.table_name.replace('"', '') == other.table_name.replace('"', '')
+        return False

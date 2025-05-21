@@ -1,9 +1,19 @@
+import logger_setup
 from Schema.GeoCORKTable import GeoCORKTable, GeoCORKTableAttribute, TableType
 
 
 class GeoCORKSchema:
     """
+    Represents the schema for GeoCORK, which defines a structured configuration of internal and static
+    tables, units, formats, and their conversions for geoscientific data.
 
+    The class contains a detailed collection of static table definitions including attributes, unique
+    constraints, foreign key links, and relational mappings. These tables are categorized into internal
+    tables, static unit/format/conversion tables, and other related schemas to support geoscientific
+    analysis, data conversions, and metadata documentation.
+
+    It facilitates the management of tabular structures needed for defining geoscientific units,
+    formats, conversions, and descriptions required for precise data operations within the GeoCORK system.
     """
     # ----------------------------------------------------------------------------------------------- #
     # |     Internal Tables                                                                         |
@@ -152,9 +162,9 @@ class GeoCORKSchema:
                                         contains_foreign_keys=True,
                                         attributes=[
                                             GeoCORKTableAttribute('FromGPSFormatID', 'INTEGER', not_null=True,
-                                                                  not_empty=True, foreign_key_table='GPSFormat'),
+                                                                  not_empty=True, foreign_key_table='GPSFormats'),
                                             GeoCORKTableAttribute('ToGPSFormatID', 'INTEGER', not_null=True,
-                                                                  not_empty=True, foreign_key_table='GPSFormat'),
+                                                                  not_empty=True, foreign_key_table='GPSFormats'),
                                             GeoCORKTableAttribute('GPSFormatConversionCalculation', 'TEXT',
                                                                   not_null=True,
                                                                   not_empty=True)],
@@ -243,11 +253,9 @@ class GeoCORKSchema:
                                                GeoCORKTableAttribute('AliquotContextDescription', 'TEXT')],
                                    unique_constraints=[['AliquotContextName COLLATE NOCASE'], ['ParentAliquotContextID',
                                                                                          'AliquotContextParentRow']])
-    Columns = GeoCORKTable(table_name='Columns', table_type=TableType.TREE,
+    Columns = GeoCORKTable(table_name='Columns', table_type=TableType.TABLE,
                            user_viewable=True,
                            contains_foreign_keys=True,
-                           bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                           bridge_from_column='SampleID',
                            attributes=[GeoCORKTableAttribute('ColumnID', 'INTEGER', primary_key=True),
                                        GeoCORKTableAttribute('ColumnName', 'TEXT', not_null=True, not_empty=True),
                                        GeoCORKTableAttribute('ColumnTotalHeightDepth', 'REAL'),
@@ -258,7 +266,7 @@ class GeoCORKSchema:
                                        GeoCORKTableAttribute('ColumnDescription', 'TEXT')],
                            unique_constraints=[['ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitID', 'ColumnBaseGPSID', 'ColumnDescription']])
 
-    GPSLocations = GeoCORKTable(table_name='GPSLocations', table_type=TableType.TABLE, conditionally_editable=True,
+    GPSLocations = GeoCORKTable(table_name='GPSLocations', table_type=TableType.INTERNAL, conditionally_editable=True,
                                 contains_foreign_keys=True, as_table_name=['ColumnGPS'],
                                 attributes=[GeoCORKTableAttribute('GPSLocationID', 'INTEGER', primary_key=True),
                                             GeoCORKTableAttribute('GPSLocationConverted', 'TEXT'),
@@ -287,8 +295,6 @@ class GeoCORKSchema:
     Instruments = GeoCORKTable(table_name='Instruments', table_type=TableType.TABLE,
                                user_viewable=True,
                                contains_foreign_keys=False,
-                               bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                               bridge_from_column='SampleID',
                                attributes=[GeoCORKTableAttribute('InstrumentID', 'INTEGER', primary_key=True),
                                            GeoCORKTableAttribute('InstrumentName', 'TEXT', not_null=True,
                                                                  not_empty=True),
@@ -298,15 +304,13 @@ class GeoCORKSchema:
     LabFacilities = GeoCORKTable(table_name='LabFacilities', table_type=TableType.TABLE,
                                  user_viewable=True,
                                  contains_foreign_keys=False,
-                                 bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                                 bridge_from_column='SampleID',
                                  attributes=[GeoCORKTableAttribute('LabFacilityID', 'INTEGER', primary_key=True),
                                              GeoCORKTableAttribute('LabFacilityName', 'TEXT', not_null=True,
                                                                    not_empty=True),
                                              GeoCORKTableAttribute('LabFacilityDescription', 'TEXT')],
                                  unique_constraints=[['LabFacilityName COLLATE NOCASE']])
 
-    References = GeoCORKTable(table_name='"References"', table_type=TableType.TABLE,
+    References = GeoCORKTable(table_name='References', table_type=TableType.VIEW,
                               user_viewable=True,
                               contains_foreign_keys=False, as_table_name=['AgeReferences', 'UPbReferences'],
                               bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
@@ -316,7 +320,8 @@ class GeoCORKSchema:
                                           GeoCORKTableAttribute('Year', 'INTEGER'),
                                           GeoCORKTableAttribute('Title', 'TEXT'),
                                           GeoCORKTableAttribute('Source', 'TEXT'),
-                                          GeoCORKTableAttribute('DOI', 'TEXT')],
+                                          GeoCORKTableAttribute('DOI', 'TEXT'),
+                                          GeoCORKTableAttribute('ReferenceDescription', 'TEXT')],
                               unique_constraints=[['Authors COLLATE NOCASE', 'Year', 'Title COLLATE NOCASE', 'Source COLLATE NOCASE', 'DOI COLLATE NOCASE']])
 
     Regions = GeoCORKTable(table_name='Regions', table_type=TableType.TREE,
@@ -331,11 +336,9 @@ class GeoCORKSchema:
                                        GeoCORKTableAttribute('RegionDescription', 'TEXT')],
                            unique_constraints=[['RegionName COLLATE NOCASE'], ['ParentRegionID','RegionParentRow']])
 
-    RejectionReasons = GeoCORKTable(table_name='RejectionReasons', table_type=TableType.TREE,
+    RejectionReasons = GeoCORKTable(table_name='RejectionReasons', table_type=TableType.TABLE,
                                     user_viewable=True,
                                     contains_foreign_keys=False, as_table_name=['UPbRejectionReasons'],
-                                    bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                                    bridge_from_column='SampleID',
                                     attributes=[GeoCORKTableAttribute('RejectionReasonID', 'INTEGER', primary_key=True),
                                                 GeoCORKTableAttribute('RejectionReasonName', 'TEXT', not_null=True,
                                                                       not_empty=True),
@@ -385,11 +388,9 @@ class GeoCORKSchema:
                                 unique_constraints=[['SpotContextName COLLATE NOCASE'], ['ParentSpotContextID',
                                                                                       'SpotContextParentRow']])
 
-    SampleAges = GeoCORKTable(table_name='SampleAges', table_type=TableType.TREE,
+    SampleAges = GeoCORKTable(table_name='SampleAges', table_type=TableType.TABLE,
                               user_viewable=True, conditionally_editable=True,
                               contains_foreign_keys=True,
-                              bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                              bridge_from_column='SampleID',
                               attributes=[GeoCORKTableAttribute('SampleAgeID', 'INTEGER', primary_key=True),
                                           GeoCORKTableAttribute('DirectAge', 'REAL'),
                                           GeoCORKTableAttribute('DirectAgeError', 'REAL'),
@@ -437,7 +438,7 @@ class GeoCORKSchema:
     Settings = GeoCORKTable(table_name='Settings', table_type=TableType.TREE,
                             user_viewable=True,
                             contains_foreign_keys=False,
-                            bridge_table='Samples_Units', bridge_to_column='UnitID',
+                            bridge_table='Samples_Settings', bridge_to_column='SettingID',
                             bridge_from_column='SampleID',
                             attributes=[GeoCORKTableAttribute('SettingID', 'INTEGER', primary_key=True),
                                         GeoCORKTableAttribute('ParentSettingID', 'INTEGER',
@@ -450,7 +451,7 @@ class GeoCORKSchema:
     Units = GeoCORKTable(table_name='Units', table_type=TableType.TREE,
                          user_viewable=True,
                          contains_foreign_keys=False,
-                         bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
+                         bridge_table='Samples_Units', bridge_to_column='UnitID',
                          bridge_from_column='SampleID',
                          attributes=[GeoCORKTableAttribute('UnitID', 'INTEGER', primary_key=True),
                                      GeoCORKTableAttribute('ParentUnitID', 'INTEGER', foreign_key_table='Units'),
@@ -479,8 +480,6 @@ class GeoCORKSchema:
     UPbAnalysisMethods = GeoCORKTable(table_name='UPbAnalysisMethods', table_type=TableType.TREE,
                                       user_viewable=True,
                                       contains_foreign_keys=False,
-                                      bridge_table='UPbAnalyses', bridge_to_column='UPbAnalysisMethodID',
-                                      bridge_from_column='UPbAnalysisMethodID',
                                       attributes=[
                                           GeoCORKTableAttribute('UPbAnalysisMethodID', 'INTEGER', primary_key=True),
                                           GeoCORKTableAttribute('ParentUPbAnalysisMethodID', 'INTEGER',
@@ -499,8 +498,6 @@ class GeoCORKSchema:
     Samples = GeoCORKTable(table_name='Samples', table_type=TableType.TABLE,
                            user_viewable=True,
                            contains_foreign_keys=True,
-                           bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                           bridge_from_column='SampleID',
                            attributes=[GeoCORKTableAttribute('SampleID', 'INTEGER', primary_key=True),
                                        GeoCORKTableAttribute('SampleName', 'TEXT', not_null=True, not_empty=True),
                                        GeoCORKTableAttribute('SampleIGSN', 'TEXT'),
@@ -519,8 +516,6 @@ class GeoCORKSchema:
                             user_viewable=True,
                             conditionally_editable=True,
                             contains_foreign_keys=True,
-                            bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                            bridge_from_column='SampleID',
                             attributes=[GeoCORKTableAttribute('AliquotID', 'INTEGER', primary_key=True),
                                         GeoCORKTableAttribute('ParentAliquotID', 'INTEGER',
                                                               foreign_key_table='Aliquots'),
@@ -533,8 +528,6 @@ class GeoCORKSchema:
                          user_viewable=True,
                          conditionally_editable=True,
                          contains_foreign_keys=True,
-                         bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                         bridge_from_column='SampleID',
                          attributes=[GeoCORKTableAttribute('SpotID', 'INTEGER', primary_key=True),
                                      GeoCORKTableAttribute('SpotName', 'TEXT', not_null=True, not_empty=True),
                                      GeoCORKTableAttribute('AliquotID', 'INTEGER', not_null=True, not_empty=True,
@@ -547,8 +540,6 @@ class GeoCORKSchema:
                                user_viewable=True,
                                conditionally_editable=True,
                                contains_foreign_keys=True,
-                               bridge_table='Samples_RockTypes', bridge_to_column='RockTypeID',
-                               bridge_from_column='SampleID',
                                attributes=[GeoCORKTableAttribute('UPbAnalysisID', 'INTEGER', primary_key=True),
                                            GeoCORKTableAttribute('SpotID', 'INTEGER', not_null=True, not_empty=True,
                                                                  foreign_key_table='Spots'),
@@ -772,7 +763,7 @@ class GeoCORKSchema:
                                                   GeoCORKTableAttribute('SpotContextID', 'INTEGER', not_null=True,
                                                                         foreign_key_table='SpotContexts')])
 
-    UPbAnalyses_UPbRejectionReasons = GeoCORKTable(table_name='UPbAnalyses_UPbRejectionReasons',
+    UPbAnalyses_RejectionReasons = GeoCORKTable(table_name='UPbAnalyses_RejectionReasons',
                                                    table_type=TableType.MANYTOMANY,
                                                    contains_foreign_keys=True,
                                                    attributes=[
@@ -803,10 +794,90 @@ class GeoCORKSchema:
         SampleAges_AgeConstraints, SampleAges_AgeInterpretations, SampleAges_References,
         Samples_AgeSignatures, Samples_Regions, Samples_RockTypes, Samples_SampleAges,
         Samples_SampleContexts, Samples_SamplingMethods, Samples_Settings, Samples_Units,
-        Spots_SpotContexts, UPbAnalyses_UPbRejectionReasons, UPbAnalyses_UPbAnalysisContexts
+        Spots_SpotContexts, UPbAnalyses_RejectionReasons, UPbAnalyses_UPbAnalysisContexts
     ]
+
+    indexes = []
+    for table in ordered_tables:
+        if table.table_type == TableType.MANYTOMANY:
+            # creates an index to map the left id to right id, most used as we left join the tables
+            # starts from the left most table, Samples <- Samples_RockTypes <- RockTypes
+            indexes.append(f'CREATE INDEX IF NOT EXISTS idx_mtm_{table.table_name} ON '
+                           f'{table.__str__()} ({table.attributes[0].attribute_name}, {table.attributes[1].attribute_name})')
+        elif table.table_type == TableType.TABLE:
+            # creates an index on the id column
+            indexes.append(f'CREATE INDEX IF NOT EXISTS idx_id_col_{table.table_name} ON '
+                           f'{table.__str__()} ({table.id_column.attribute_name})')
+
+            # creates an index on the name column
+            if table.name_column is not '':
+                indexes.append(f'CREATE INDEX IF NOT EXISTS idx_name_col_{table.table_name} ON '
+                               f'{table.__str__()} ({table.name_column.attribute_name})')
+        elif table.table_type == TableType.TREE:
+            # creates an index on the id column
+            indexes.append(f'CREATE INDEX IF NOT EXISTS idx_id_col_{table.table_name} ON '
+                           f'{table.__str__()} ({table.id_column.attribute_name})')
+
+            # creates an index on the name column
+            indexes.append(f'CREATE INDEX IF NOT EXISTS idx_name_col_{table.table_name} ON '
+                           f'{table.__str__()} ({table.name_column.attribute_name})')
+
+            # creates an index for ParentID to ID, useful in recursive queries for filtering
+            indexes.append(f'CREATE INDEX IF NOT EXISTS idx_parentrecursive_{table.table_name} ON '
+                           f'{table.__str__()} ({table.parent_column.attribute_name}, {table.id_column.attribute_name})')
+
+    pass
+
+    def table_from_str(self, table_name):
+        """
+        Returns the table object from the table name.
+        :param table_name:
+        :return:
+        """
+        table_name = table_name.replace('"', '').replace(' ', '')
+        for table in self.ordered_tables:
+            if table.table_name == table_name:
+                return table
+        logger_setup.get_logger().critical(f'Table {table_name} not found in schema.')
+        return None
+
+    @property
+    def all_user_viewable_tables(self):
+        """
+        Returns a list of tables and trees that are user-viewable.
+        :return:
+        """
+        return [table.table_name for table in self.ordered_tables if table.user_viewable]
+
+    @property
+    def user_viewable_tables(self):
+        """
+        Returns a list of tables and trees that are user-viewable.
+        :return:
+        """
+        return [table.table_name for table in self.ordered_tables if table.user_viewable and table.table_type==TableType.TABLE]
+
+
+    @property
+    def user_viewable_trees(self):
+        """
+        Returns a list of trees that are user-viewable.
+        :return:
+        """
+        return [table.table_name for table in self.ordered_tables if table.user_viewable and table.table_type==TableType.TREE]
+
+
+    @property
+    def conditionally_editable_trees(self):
+        """
+        Returns a list of trees that are user-viewable.
+        :return:
+        """
+        return [table.table_name for table in self.ordered_tables if table.conditionally_editable and table.table_type==TableType.TREE]
 
 
 if __name__ == '__main__':
+    print(GeoCORKSchema().user_viewable_tables)
+    print(GeoCORKSchema().user_viewable_trees)
     for table in GeoCORKSchema.ordered_tables:
         print(table.create_query() + ';')
