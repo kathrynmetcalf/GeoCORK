@@ -23,7 +23,7 @@ settings = SettingsManager().settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 # from Functions.Alter_database import convert_sample_age, update_generated_columns
-import Functions.Database_views as DB_views
+from Functions.Database_views import ViewQuery
 from ui.EditTree import EditTree
 from ui.EditTable import EditTable
 from ui.AddTreeTags import AddTreeTags
@@ -126,14 +126,6 @@ class AgeFields(QtW.QWidget):
         self.age_model = SQLiteTableModel('SELECT * FROM Ages')
         set_table(self.direct_age_unit_model, 'AgeUnits')
         set_table(self.direct_age_error_model, 'ErrorFormats')
-        # self.oldest_age_tree.setSourceModel(self.age_model)
-        # self.youngest_age_tree.setSourceModel(self.age_model)
-        # set_table(self.age_constraint_model, 'AgeConstraints')
-        # self.age_constraint_tree.setSourceModel(self.age_constraint_model)
-        # set_table(self.age_interpretation_model, 'AgeInterpretations')
-        # self.age_interpretation_tree.setSourceModel(self.age_interpretation_model)
-        # self.age_reference_model.setQuery('SELECT * FROM ReferenceView')
-
         populate_combo_box(self.direct_unit_comboBox, **{'table': 'AgeUnits', 'column': 'AgeUnitAbbreviation'})
         populate_combo_box(self.direct_age_unit_comboBox, **{'table': 'AgeUnits', 'column': 'AgeUnitAbbreviation'})
         populate_combo_box(self.direct_age_error_format_comboBox, **{'table': 'ErrorFormats', 'column': 'ErrorFormatAbbreviation'})
@@ -156,7 +148,10 @@ class AgeFields(QtW.QWidget):
         self.age_reference_comboBox.model_modifiable = True
         self.age_reference_comboBox.enable_context_menu(True)
         self.age_reference_comboBox.set_single_click(True)
-        populate_combo_box(self.age_reference_comboBox, **{'query': 'SELECT * FROM ReferenceView'})
+        query_args = {}
+        view_query = ViewQuery('References', False, **query_args)
+        table_query = view_query.table_query
+        populate_combo_box(self.age_reference_comboBox, **{'query': table_query})
         self.connect_signals()
         end_populate_dropdowns_time = time.time()
         logger_setup.get_logger().info(f"Populated age dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
@@ -294,6 +289,8 @@ class AgeFields(QtW.QWidget):
         self.direct_age_groupBox.focusLost.connect(self.focus_lost_delay)
         self.relative_age_groupBox.connect_child_signals()
         self.relative_age_groupBox.focusLost.connect(self.focus_lost_delay)
+        # self.oldest_rel_comboBox.lineEdit().textEdited.connect(self.oldest_rel_comboBox.update_filter)
+        # self.youngest_rel_comboBox.lineEdit().textEdited.connect(self.youngest_rel_comboBox.update_filter)
         self.age_information_groupBox.connect_child_signals()
         self.age_information_groupBox.focusLost.connect(self.focus_lost_delay)
         # self.age_description_lineEdit.editingFinished.connect(self.focus_lost_delay)
@@ -459,6 +456,7 @@ class AgeFields(QtW.QWidget):
                 else:
                     self.direct_age_lineEdit.setText(f'{text}')
             elif 'OldestAgeID' in header:
+                self.oldest_rel_comboBox.programmatic_text_change = True
                 if not text:
                     self.oldest_rel_comboBox.setCurrentText(self.oldest_rel_comboBox.placeholderText())
                 else:
@@ -469,7 +467,9 @@ class AgeFields(QtW.QWidget):
                     else:
                         text = ""
                     self.oldest_rel_comboBox.setCurrentText(text)
+                self.oldest_rel_comboBox.programmatic_text_change = False
             elif 'YoungestAgeID' in header:
+                self.youngest_rel_comboBox.programmatic_text_change = True
                 if not text:
                     self.youngest_rel_comboBox.setCurrentText(self.youngest_rel_comboBox.placeholderText())
                 else:
@@ -480,6 +480,7 @@ class AgeFields(QtW.QWidget):
                     else:
                         text = ""
                     self.youngest_rel_comboBox.setCurrentText(text)
+                self.youngest_rel_comboBox.programmatic_text_change = False
             elif 'SampleAgeDescription' in header:
                 if not text:
                     self.age_description_lineEdit.setText(self.age_description_lineEdit.placeholderText())
@@ -1041,6 +1042,8 @@ class AgeFields(QtW.QWidget):
             id_header = get_headers(table)[0]
         start_update_age_tags = time.time()
         many_to_many_model = QtS.QSqlTableModel()
+        if table == '"References"':
+            table = 'References'
         set_table(many_to_many_model, f"SampleAges_{table}")
         if len(self.sample_ids) == 0:
             logger_setup.get_logger().info("No samples selected")
@@ -1453,8 +1456,12 @@ class AgeFields(QtW.QWidget):
         self.oldest_direct_lineEdit.clear()
         self.youngest_direct_lineEdit.clear()
         self.direct_age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
+        self.oldest_rel_comboBox.programmatic_text_change = True
         self.oldest_rel_comboBox.setCurrentText(self.oldest_rel_comboBox.placeholderText())
+        self.oldest_rel_comboBox.programmatic_text_change = False
+        self.youngest_rel_comboBox.programmatic_text_change = True
         self.youngest_rel_comboBox.setCurrentText(self.youngest_rel_comboBox.placeholderText())
+        self.youngest_rel_comboBox.programmatic_text_change = False
         self.age_description_lineEdit.clear()
         self.age_constraint_comboBox.setCurrentText(self.age_constraint_comboBox.placeholderText())
         self.age_interpretation_comboBox.setCurrentText(self.age_interpretation_comboBox.placeholderText())

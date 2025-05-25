@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>518</width>
+    <width>519</width>
     <height>316</height>
    </rect>
   </property>
@@ -30,7 +30,7 @@
      </property>
      <property name="minimumSize">
       <size>
-       <width>500</width>
+       <width>0</width>
        <height>0</height>
       </size>
      </property>
@@ -67,7 +67,7 @@
         </item>
         <item>
          <widget class="QComboBox" name="gps_format_comboBox">
-          <property name="placeholderText" stdset="0">
+          <property name="placeholderText">
            <string/>
           </property>
          </widget>
@@ -176,7 +176,7 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="placeholderText" stdset="0">
+             <property name="placeholderText">
               <string>N/S</string>
              </property>
             </widget>
@@ -257,7 +257,7 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="placeholderText" stdset="0">
+             <property name="placeholderText">
               <string>E/W</string>
              </property>
             </widget>
@@ -425,7 +425,7 @@
                <height>16777215</height>
               </size>
              </property>
-             <property name="placeholderText" stdset="0">
+             <property name="placeholderText">
               <string>Unit</string>
              </property>
             </widget>
