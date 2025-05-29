@@ -1340,7 +1340,7 @@ def get_view_from_table(table: str):
         return 'UPbView'
     elif table == 'Columns':
         return 'ColumnView'
-    elif table == 'References':
+    elif table == 'References' or table == '"References"':
         return 'ReferenceView'
     else:
         return table
@@ -3182,7 +3182,10 @@ class FocusGroupBox(QGroupBox):
 
     def set_edited(self, child: QtW.QWidget):
         if not isinstance(child, QtW.QWidget):
-            child = self.sender()
+            if isinstance(child, str) and isinstance(self.sender(), CheckableComboBox):
+                child = self.sender().lineEdit()
+            else:
+                child = self.sender()
         if isinstance(child, QtW.QLineEdit) and isinstance(child.parent(), QtW.QComboBox):
             # The line edit of the combo box completer has been triggered, but wait until the index changes
             return
@@ -3427,14 +3430,12 @@ class CheckableComboBox(QtW.QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setEditable(True)
-        self.completer().setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
-        self.completer().setFilterMode(QtC.Qt.MatchFlag.MatchContains)
         self.lineEdit().setPlaceholderText("Search")
-        self.lineEdit().setCompleter(self.completer())
-        self.closedOnLineEditClick = False
+        self.lineEdit().setReadOnly(False)
         self.model_modifiable = False
         self.single_click = False
         self.not_null = False
+        self.typing = False
         self.proxy_model = None
         # self.tableView = QtW.QTableView()
         # self.setView(self.tableView)
@@ -3444,8 +3445,22 @@ class CheckableComboBox(QtW.QComboBox):
         self.table = ''
         self.popup_shown = False
 
+        self.view().setFocusProxy(self.lineEdit())
+        self.view().setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.lineEdit().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.lineEdit().textEdited.connect(self.update_filter)
+
         self.view().viewport().installEventFilter(self)
         self.lineEdit().installEventFilter(self)
+
+    def start_typing(self):
+        self.typing = True
+        self.lineEdit().grabKeyboard()
+
+    def stop_typing(self):
+        self.typing = False
+        self.lineEdit().releaseKeyboard()
+        self.proxy_model.setFilterRegularExpression('')
 
     def update_line_edit(self):
         checked_ids = self.model().checked_ids
@@ -3455,6 +3470,22 @@ class CheckableComboBox(QtW.QComboBox):
         text = ', '.join(checked_names)
         self.set_line_edit_text(text)
 
+    def set_line_edit_text(self, text):
+        if not self.typing:
+            self.lineEdit().setText(text)
+
+    def setCurrentText(self, text):
+        if not self.typing:
+            # self.programmatic_text_change = True
+            super().setCurrentText(text)
+            # self.programmatic_text_change = False
+
+    def setCurrentIndex(self, index):
+        if not self.typing:
+            # self.programmatic_text_change = True
+            super().setCurrentIndex(index)
+            # self.programmatic_text_change = False
+
     def model(self):
         if self.proxy_model:
             return self.proxy_model.sourceModel()
@@ -3462,11 +3493,15 @@ class CheckableComboBox(QtW.QComboBox):
             return super().model()
 
     def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel | QtC.QSortFilterProxyModel):
-        super().setModel(model)
-        combo_model = model
         if isinstance(model, QtC.QSortFilterProxyModel):
             self.proxy_model = model
             model = model.sourceModel()
+        else:
+            self.proxy_model = QtC.QSortFilterProxyModel()
+            self.proxy_model.setSourceModel(model)
+        self.proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        super().setModel(self.proxy_model)
+
         column = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         if isinstance(column, int):
             self.table = None
@@ -3492,7 +3527,17 @@ class CheckableComboBox(QtW.QComboBox):
             self.table = model.tableName()
             self.name_col = get_name_column(get_view_from_table(self.table))
         if self.name_col:
-            show_column(self, combo_model.headerData(self.name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            self.proxy_model.setFilterKeyColumn(self.name_col)
+        self.view().setMinimumWidth(self.view().sizeHint().width())
+
+    def update_filter(self, text):
+        self.start_typing()
+        # logger_setup.get_logger().debug(f'Setting filter to: {text}')
+        search_expression = QtC.QRegularExpression(text,
+                                                   options=QtC.QRegularExpression.PatternOption.CaseInsensitiveOption)
+        self.proxy_model.setFilterRegularExpression(search_expression)
+        self.lineEdit().setText(text)
+        self.showPopup()
 
     def enable_context_menu(self, show_context_menu: bool):
         self.context_menu = show_context_menu
@@ -3541,28 +3586,23 @@ class CheckableComboBox(QtW.QComboBox):
     def set_single_click(self, single_click: bool):
         self.single_click = single_click
 
-    def set_closed_on_line_edit_click(self, closedOnLineEditClick: bool):
-        self.closedOnLineEditClick = closedOnLineEditClick
-
-    def set_line_edit_text(self, text):
-        self.lineEdit().setText(text)
-
     def clear_all_checks(self):
         for row in range(self.model().rowCount()):
             index = self.model().index(row, self.name_col)
             self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+        self.lineEdit().setText("")
         logger_setup.get_logger().info(f'Cleared all checks in {self.table} combo box')
 
     def showPopup(self):
-        super().showPopup()
-        if self.model().rowCount() == 0:
+        if self.proxy_model.rowCount() == 0:
             return
-        # self.view().resizeColumnToContents(self.name_col)
         if self.width() > self.view().sizeHintForColumn(self.name_col):
             self.view().setFixedWidth(self.width())
+            self.view().setColumnWidth(self.name_col, self.width())
         else:
             self.view().setFixedWidth(self.view().sizeHintForColumn(self.name_col))
         self.view().setFixedHeight(self.view().sizeHint().height())
+        super().showPopup()
         self.popup_shown = True
 
     def hidePopup(self):
@@ -3570,19 +3610,15 @@ class CheckableComboBox(QtW.QComboBox):
             super().hidePopup()
             self.closing.emit()
             self.popup_shown = False
+            self.stop_typing()
 
     def eventFilter(self, obj, event):
         if obj == self.lineEdit():
             if event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.RightButton:
                 if self.context_menu:
+                    self.stop_typing()
                     self.contextMenuEvent(event)
                     return True
-            elif event.type() == QtC.QEvent.Type.MouseButtonPress:
-                if self.closedOnLineEditClick:
-                    self.hidePopup()
-                else:
-                    self.showPopup()
-                return True
             return super().eventFilter(obj, event)
 
         if obj == self.view().viewport():
@@ -3604,9 +3640,11 @@ class CheckableComboBox(QtW.QComboBox):
                             logger_setup.get_logger().error(f'{self.model().headerData(self.name_col, 
                                Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)} cannot be blank')
                             return True
+                        self.stop_typing()
                         self.view().setCurrentIndex(QtC.QModelIndex())
                     self.clear_all_checks()
                     self.model().setData(source_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                    self.stop_typing()
                     self.set_line_edit_text(source_index.data(QtC.Qt.ItemDataRole.DisplayRole))
                     self.hidePopup()
                     return True
@@ -3621,12 +3659,14 @@ class CheckableComboBox(QtW.QComboBox):
                     checked_names = []
                     for id in checked_ids:
                         checked_names.append(get_name_from_id(self.table, id))
+                    self.stop_typing()
                     text = ', '.join(checked_names)
                     self.set_line_edit_text(text)
                     self.showPopup()
                     return True
             elif event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.RightButton:
                 if self.context_menu:
+                    self.stop_typing()
                     self.contextMenuEvent(event)
                     return True
             return super().eventFilter(obj, event)
@@ -3871,19 +3911,20 @@ class TreeCombobox(QtW.QComboBox):
             self.showPopup()
 
     def set_line_edit_text(self, text):
-        self.programmatic_text_change = True
-        self.lineEdit().setText(text)
-        self.programmatic_text_change = False
+        if not self.typing:
+            self.lineEdit().setText(text)
 
     def setCurrentText(self, text):
-        self.programmatic_text_change = True
-        super().setCurrentText(text)
-        self.programmatic_text_change = False
+        if not self.typing:
+            # self.programmatic_text_change = True
+            super().setCurrentText(text)
+            # self.programmatic_text_change = False
 
     def setCurrentIndex(self, index):
-        self.programmatic_text_change = True
-        super().setCurrentIndex(index)
-        self.programmatic_text_change = False
+        if not self.typing:
+            # self.programmatic_text_change = True
+            super().setCurrentIndex(index)
+            # self.programmatic_text_change = False
 
     def showPopup(self):
         tree_model, indexes = find_tree_model(self.model(), None)
@@ -3975,8 +4016,8 @@ class CheckableTreeCombobox(TreeCombobox):
         # show the empty root item in the combo box
         self.treeView.setRootIsDecorated(True)
         self.treeView.setWindowFlags(QtC.Qt.WindowType.Popup)
-        self.treeView.viewport().installEventFilter(self)
         self.treeView.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.treeView.viewport().installEventFilter(self)
         self.treeView.setFocusProxy(self.lineEdit())
         self.setView(self.treeView)
         self.lineEdit().setFocusPolicy(Qt.FocusPolicy.StrongFocus)

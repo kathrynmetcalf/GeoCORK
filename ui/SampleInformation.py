@@ -147,6 +147,7 @@ class SampleInformation(QtW.QDialog):
     def update_sample_list(self):
         logger_setup.get_logger().info("Updating the sample list")
         start_update_sample_list_time = time.time()
+        previous_checked_sample_list = self.checked_sample_list
         self.checked_sample_list = []
         checked_sample_names = []
         self.checked_sample_names = ""
@@ -158,6 +159,9 @@ class SampleInformation(QtW.QDialog):
                 # add the sample id to the list
                 id_index = self.sample_names_model.index(row, 0, QtC.QModelIndex())
                 self.checked_sample_list.append(self.sample_names_model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole))
+        if self.checked_sample_list == previous_checked_sample_list:
+            logger_setup.get_logger().info("Sample list has not changed, skipping update")
+            return
         if len(checked_sample_names) > 1:
             self.checked_sample_names = ", ".join(checked_sample_names)
             self.sample_name_lineEdit.setEnabled(False)
