@@ -14,7 +14,7 @@ from Functions.Widget_classes import (
     CheckableSqlTableModel,
     FontDelegate, get_name_column, CheckableComboBox, CheckableSqlQueryModel,
     get_selected_tree_ids, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state,
-    restore_expanded_state, SQLiteTableModel, populate_tree_model_checks, get_view_name_column, SearchableSQLComboBox,
+    restore_expanded_state, SQLiteTableModel, populate_tree_model_checks, SearchableSQLComboBox,
     FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel
 )
 from Functions import SQLUtils
@@ -523,10 +523,7 @@ class AgeFields(QtW.QWidget):
             id_col = 1  # ID column is always placed in the second column
         else:
             model = combo.model()
-            try:
-                col = get_view_name_column(model.view)
-            except AttributeError:
-                col = get_name_column(model.tableName())
+            col = get_name_column(model.tableName())
             tag_id_header = model.record().fieldName(0)
             id_col = 0  # ID column is always in the first column
         if not self.sample_age_id:
