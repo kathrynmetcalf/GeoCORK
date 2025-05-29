@@ -5,7 +5,6 @@ from PyQt6 import QtSql as QtS
 
 import Functions.SQLUtils as SQLUtils
 import logger_setup
-from Functions.Widget_classes import get_headers
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 
@@ -346,6 +345,8 @@ def SpotEditViewQuery():
 
 
 def UPbViewQuery():
+    from Functions.Widget_classes import get_headers
+
     headers = get_headers('UPbAnalyses')
     columns = []
     for header in headers:
@@ -404,6 +405,8 @@ def UPbViewQuery():
 
 
 def UPbEditViewQuery():
+    from Functions.Widget_classes import get_headers
+
     headers = get_headers('UPbAnalyses')
     columns = []
     for header in headers:
@@ -1126,7 +1129,12 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
+                    if column.split(' ')[0] != column:
+                        # There is a condition such as DISTINCT or COUNT
+                        sql_col = column.replace(col.split(' AS ')[1], col)
+                        query_columns.append(sql_col)
+                    else:
+                        query_columns.append(col)
                     break
         query_columns = ',\n '.join(query_columns)
 
@@ -1354,7 +1362,9 @@ class ViewQuery:
         aliquot_query = f'''
                     {self.limited_hierarchy},
                     {SQLUtils.limited_aliquot_tags},
-                    {count_aliquot_subquery}
+                    {count_aliquot_subquery},
+                    {SQLUtils.limited_spot_tags},
+                    {SQLUtils.limited_upb_tags}
                     SELECT
                         {query_columns}
                     FROM LimitedAliquots la
@@ -1467,7 +1477,8 @@ class ViewQuery:
 
         spot_query = f'''
                     {self.limited_hierarchy},
-                    {SQLUtils.limited_spot_tags}
+                    {SQLUtils.limited_spot_tags},
+                    {SQLUtils.limited_upb_tags}
                     SELECT
                         {query_columns}
                     FROM LimitedSpots lsp
@@ -1564,6 +1575,8 @@ class ViewQuery:
         self.get_group_oder_clauses()
         self.limited_hierarchy_query()
 
+        from Functions.Widget_classes import get_headers
+
         headers = get_headers(self.table)
         columns = []
         for header in headers:
@@ -1651,6 +1664,8 @@ class ViewQuery:
         self.get_group_oder_clauses()
         self.limited_hierarchy_query()
 
+        from Functions.Widget_classes import get_headers
+
         headers = get_headers(self.table)
         columns = []
         for header in headers:
@@ -1735,7 +1750,7 @@ class ViewQuery:
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
-        self.get_group_oder_clauses()
+        # self.get_group_oder_clauses()
 
         # Select columns
         query_column_list = [SQLUtils.qcolumn_id,
@@ -1777,7 +1792,7 @@ class ViewQuery:
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
-        self.get_group_oder_clauses()
+        # self.get_group_oder_clauses()
 
         # Select columns
         query_column_list = [SQLUtils.qcolumn_id,
@@ -1825,7 +1840,7 @@ class ViewQuery:
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
-        self.get_group_oder_clauses()
+        # self.get_group_oder_clauses()
 
         # Select columns
         query_column_list = [SQLUtils.qreference_id,
@@ -1868,7 +1883,8 @@ class ViewQuery:
         Updates the limited hierarchy query clause, the where clause to use in the main query, and the limit clause to
         use in the main query.
         """
-        # todo: return query where with appropriate table abbreviation.
+        from Functions.Widget_classes import get_headers
+
         headers = get_headers(self.table)
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
         table_abbreviation_dict.pop(self.table)
@@ -2001,6 +2017,7 @@ class ViewQuery:
             self.limited_hierarchy = ''
 
     def get_group_oder_clauses(self):
+        from Functions.Widget_classes import get_headers
 
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
         table_abbreviation = table_abbreviation_dict[self.table]

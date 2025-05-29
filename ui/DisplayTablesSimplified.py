@@ -18,7 +18,7 @@ settings = SettingsManager().settings
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, TreeModel,
-    ReadableProxyModel
+    ReadableProxyModel, get_view_from_table
 )
 
 
@@ -119,11 +119,15 @@ class DisplayTablesSimplified(QtW.QWidget):
             logger_setup.get_logger().info(f'Switching to tree view for {self.table}')
             self.switch_to_tree()
             self.database.open()
-            # if self.table == 'Aliquots':
-            #     table = 'AliquotView'
-            self.model = SQLiteTableModel(f'SELECT * FROM {table}', self.db_file)
-            # self.model.setTable(table)
-            # self.model.select()
+            if get_view_from_table(self.table) != self.table:
+                # This table requires a more complex query to view
+                show_columns = settings.valeu(SQLUtils.view_setting_dict[get_view_from_table(self.table)])
+                query_args = {'show_columns': show_columns}
+                view_query = ViewQuery(self.table, False, **query_args)
+                table_query = view_query.table_query
+            else:
+                table_query = f'SELECT * FROM {table}'
+            self.model = SQLiteTableModel(table_query, self.db_file)
 
             self.tree_model = TreeModel(source_model=self.model, db=self.database)
             self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -143,21 +147,24 @@ class DisplayTablesSimplified(QtW.QWidget):
             self.switch_to_table()
             if self.table == 'Samples':
                 self.show_cols = settings.value('sample_view_columns')
-                self.show_cols = ', '.join(self.show_cols)
-                model = SQLiteTableModel(f'SELECT {self.show_cols} FROM SampleView', database=self.db_file)
-
+                query_args = {'show_columns': self.show_cols}
+                view_query = ViewQuery(self.data_table, False, **query_args)
+                table_query = view_query.table_query
+                model = SQLiteTableModel(table_query, database=self.db_file)
                 self.table_proxy_model.setSourceModel(model)
             elif self.table == 'Spots':
                 self.show_cols = settings.value('spot_view_columns')
-                self.show_cols = ', '.join(self.show_cols)
-                model = SQLiteTableModel(f'SELECT {self.show_cols} FROM SpotView', database=self.db_file)
-
+                query_args = {'show_columns': self.show_cols}
+                view_query = ViewQuery(self.data_table, False, **query_args)
+                table_query = view_query.table_query
+                model = SQLiteTableModel(table_query, database=self.db_file)
                 self.table_proxy_model.setSourceModel(model)
             elif self.table == 'UPbAnalyses':
                 self.show_cols = settings.value('upb_analysis_view_columns')
-                self.show_cols = ', '.join(self.show_cols)
-                model = SQLiteTableModel(f'SELECT {self.show_cols} FROM UPbView', database=self.db_file)
-
+                query_args = {'show_columns': self.show_cols}
+                view_query = ViewQuery(self.data_table, False, **query_args)
+                table_query = view_query.table_query
+                model = SQLiteTableModel(table_query, database=self.db_file)
                 self.table_proxy_model.setSourceModel(model)
             else:
                 logger_setup.get_logger().info(f'Switching to table view for {self.table}')
@@ -165,13 +172,16 @@ class DisplayTablesSimplified(QtW.QWidget):
 
                 if self.table == 'Columns':
                     self.show_cols = settings.value('column_view_columns')
-                    self.show_cols = ', '.join(self.show_cols)
-                    model = SQLiteTableModel(f'SELECT {self.show_cols} FROM ColumnView', database=self.db_file)
+                    query_args = {'show_columns': self.show_cols}
+                    view_query = ViewQuery(self.data_table, False, **query_args)
+                    table_query = view_query.table_query
+                    model = SQLiteTableModel(table_query, database=self.db_file)
                     self.table_proxy_model.setSourceModel(model)
                 elif self.table == 'References':
                     self.show_cols = settings.value('reference_view_columns')
-                    self.show_cols = ', '.join(self.show_cols)
-                    model = SQLiteTableModel(f'SELECT {self.show_cols} FROM ReferenceView', database=self.db_file)
+                    view_query = ViewQuery(self.data_table, False, **query_args)
+                    table_query = view_query.table_query
+                    model = SQLiteTableModel(table_query, database=self.db_file)
                     self.table_proxy_model.setSourceModel(model)
                 else:
                     # self.model.setTable(table)

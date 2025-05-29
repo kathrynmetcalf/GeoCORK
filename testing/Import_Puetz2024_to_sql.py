@@ -4,6 +4,7 @@ import openpyxl
 import sqlite3
 import re
 import time
+from testing.Additional_units_Puetz2024 import additional_unit_tags_dict
 
 def strip_strings(x):
     """
@@ -50,8 +51,8 @@ def edit_duplicate_sample_name(sample_df, reference_dict_df, reference_sql_df):
         sample_df.drop(columns=['lower_Sample_ID'], inplace=True)
         sample_df.drop(columns=['Ref Key'], inplace=True)
         return sample_df
-    print(f'Duplicate sample names found: {duplicates.sum()}')
     duplicates_df = sample_df['lower_Sample_ID'].duplicated(keep=False)
+    print(f'Duplicate sample names found: {duplicates.sum()}')
 
     def edit_name(row):
         """
@@ -120,7 +121,7 @@ def edit_duplicate_grain_name(upb_analysis_df):
             name_count[lower_grain_name] += 1
         else:
             name_count[lower_grain_name] = 1
-        # Display case sensitive name
+        # Display case-sensitive name
         edited_name = f"{grain_name}: {name_count[lower_grain_name]}"
 
         return edited_name
@@ -277,7 +278,7 @@ def Puetz_importer():
     for file in data_files:
         print(f'Loading {file}')
         try:
-            data_df = pd.read_excel(file, sheet_name=sheet_name, engine="openpyxl")
+            data_df = pd.read_excel(file, sheet_name=sheet_name, engine="openpyxl", dtype={'Sample_ID': str})
         except Exception as e:
             print(f"Failed to parse sheet with pandas:\n{e}")
             return
@@ -733,12 +734,21 @@ def Puetz_importer():
     intermediate_unit_names = list(shifted_unit_df['Intermediate Geologic-Geographic Unit'].unique())
     minor_unit_names = list(shifted_unit_df['Minor Geologic-Geographic Unit'].unique())
     sub_minor_unit_names = list(shifted_unit_df['Sub-Minor Geologic-Geographic Unit'].unique())
+    # Add any additional tags not already in units
+    for key in additional_unit_tags_dict.keys():
+        if key not in sub_minor_unit_names:
+            if key not in minor_unit_names:
+                if key not in intermediate_unit_names:
+                    if key not in sub_major_unit_names:
+                        if key not in major_unit_names:
+                            major_unit_names.append(key)
     # Remove nan float values from each list
     major_unit_names = [name for name in major_unit_names if pd.notnull(name)]
     sub_major_unit_names = [name for name in sub_major_unit_names if pd.notnull(name)]
     intermediate_unit_names = [name for name in intermediate_unit_names if pd.notnull(name)]
     minor_unit_names = [name for name in minor_unit_names if pd.notnull(name)]
     sub_minor_unit_names = [name for name in sub_minor_unit_names if pd.notnull(name)]
+
     unit_names = major_unit_names + sub_major_unit_names + intermediate_unit_names + minor_unit_names + sub_minor_unit_names
     duplicates = []
     distinct_names = set()
@@ -826,7 +836,7 @@ def Puetz_importer():
             if sub_major_unit != major_unit:
                 if sub_major_unit not in unit_parent_id_dictionary:
                     sub_major_unit_parent_row = child_sub_major_units.index(sub_major_unit)
-                    unit_parent_id_dictionary[sub_major_unit] = intermediate_unit_parent_id
+                    unit_parent_id_dictionary[sub_major_unit] = sub_major_unit_parent_id
                     unit_parent_row_dictionary[sub_major_unit] = sub_major_unit_parent_row
             child_intermediate_units = list(shifted_unit_df[(shifted_unit_df['Major Geographic-Geologic Description']
                                          == major_unit) & (shifted_unit_df['Sub-Major Geographic-Geologic Description']
@@ -850,6 +860,8 @@ def Puetz_importer():
                 for minor_unit in child_minor_units:
                     if pd.isnull(minor_unit):
                         continue
+                    sub_minor_unit_parent_id = \
+                    unit_sql_df.loc[unit_sql_df['UnitName'] == minor_unit, 'UnitID'].values[0]
                     if minor_unit != intermediate_unit:
                         if minor_unit not in unit_parent_id_dictionary:
                             minor_unit_parent_row = child_minor_units.index(minor_unit)
@@ -868,7 +880,7 @@ def Puetz_importer():
                         if sub_minor_unit != minor_unit:
                             if sub_minor_unit not in unit_parent_id_dictionary:
                                 sub_minor_unit_parent_row = child_sub_minor_units.index(sub_minor_unit)
-                                unit_parent_id_dictionary[sub_minor_unit] = minor_unit_parent_id
+                                unit_parent_id_dictionary[sub_minor_unit] = sub_minor_unit_parent_id
                                 unit_parent_row_dictionary[sub_minor_unit] = sub_minor_unit_parent_row
 
     # Add each dictionary to the appropriate column in unit_sql_df
@@ -892,15 +904,57 @@ def Puetz_importer():
     # Create the Samples_Units table
     sample_unit_sql_df = pd.DataFrame(columns=table_properties['Samples_Units'])
 
-    merged_major_unit_df = merged_sample_id_df.merge(unit_sql_df, left_on=['Major Geographic-Geologic Description'], right_on=['UnitName'], how='left')
-    merged_intermediate_unit_df = merged_sample_id_df.merge(unit_sql_df, left_on=['Intermediate Geologic-Geographic Unit'], right_on=['UnitName'], how='left')
-    merged_minor_unit_df = merged_sample_id_df.merge(unit_sql_df, left_on=['Minor Geologic-Geographic Unit'], right_on=['UnitName'], how='left')
-    merged_sub_minor_unit_df = merged_sample_id_df.merge(unit_sql_df, left_on=['Sub-Minor Geologic-Geographic Unit'], right_on=['UnitName'], how='left')
+    merged_major_unit_df = merged_sample_id_df.merge(unit_sql_df,
+                             left_on=['Major Geographic-Geologic Description'], right_on=['UnitName'], how='left')
+    merged_sub_major_unit_df = merged_sample_id_df.merge(unit_sql_df,
+                             left_on=['Sub-Major Geographic-Geologic Description'], right_on=['UnitName'], how='left')
+    merged_intermediate_unit_df = merged_sample_id_df.merge(unit_sql_df,
+                             left_on=['Intermediate Geologic-Geographic Unit'], right_on=['UnitName'], how='left')
+    merged_minor_unit_df = merged_sample_id_df.merge(unit_sql_df,
+                             left_on=['Minor Geologic-Geographic Unit'], right_on=['UnitName'], how='left')
+    merged_sub_minor_unit_df = merged_sample_id_df.merge(unit_sql_df,
+                             left_on=['Sub-Minor Geologic-Geographic Unit'], right_on=['UnitName'], how='left')
+    # Include additional units
+    missing_sample_names = {}
+    additional_units_selected = pd.DataFrame(columns=['SampleID', 'UnitID'])
+    for key, value in additional_unit_tags_dict.items():
+        # Get the unit ID for the unit key
+        unit_id = unit_sql_df.loc[unit_sql_df['UnitName'] == key, 'UnitID'].values[0]
+        for sample_name in value:
+            # Check if the sample name is in the merged_sample_id_df
+            if sample_name not in merged_sample_id_df['Sample_ID'].values:
+                # Look for sample names that contain the sample name and a colon
+                sample_name_matches = merged_sample_id_df[merged_sample_id_df['Sample_ID'].str.contains(f'{sample_name}: ', na=False)]
+                if sample_name_matches.empty:
+                    # If no matches are found, add the sample name to the missing_sample_names dictionary
+                    if sample_name not in missing_sample_names:
+                        missing_sample_names[sample_name] = []
+                else:
+                    # If matches are found, add a list of matching sample names to the missing_sample_names dictionary
+                    missing_sample_names[sample_name] = sample_name_matches['Sample_ID'].tolist()
+                continue
+            else:
+                # Get the sample ID for the sample name
+                sample_id = merged_sample_id_df.loc[merged_sample_id_df['Sample_ID'] == sample_name,
+                            'SampleID'].values[0]
+                # Add the sample ID and unit ID to the additional_units_selected data frame
+                new_row = pd.DataFrame({'SampleID': [sample_id], 'UnitID': [unit_id]})
+                additional_units_selected = pd.concat([additional_units_selected, new_row], ignore_index=True)
+    # If any sample names are missing, print a message
+    if missing_sample_names:
+        print('The following sample names were not found, but these are close matches:')
+        for key, value in missing_sample_names.items():
+            print(f'{key}: {value}')
+        print('Please check the sample names in the sample additional units dictionary.')
+        return
+
     major_units_selected = merged_major_unit_df[['SampleID', 'UnitID']]
+    sub_major_units_selected = merged_sub_major_unit_df[['SampleID', 'UnitID']]
     intermediate_units_selected = merged_intermediate_unit_df[['SampleID', 'UnitID']]
     minor_units_selected = merged_minor_unit_df[['SampleID', 'UnitID']]
     sub_minor_units_selected = merged_sub_minor_unit_df[['SampleID', 'UnitID']]
-    units_combined_df = pd.concat([major_units_selected, intermediate_units_selected, minor_units_selected, sub_minor_units_selected], ignore_index=True)
+    units_combined_df = pd.concat([major_units_selected, sub_major_units_selected, intermediate_units_selected,
+                                   minor_units_selected, sub_minor_units_selected], ignore_index=True)
 
     sample_unit_sql_df['SampleID'] = pd.Series(units_combined_df['SampleID'], dtype=pd.Int64Dtype())
     sample_unit_sql_df['UnitID'] = pd.Series(units_combined_df['UnitID'], dtype=pd.Int64Dtype())
@@ -1312,7 +1366,7 @@ def Puetz_importer():
     for file in data_files:
         print(f'Loading {file}')
         try:
-            data_df = pd.read_excel(file, sheet_name=sheet_name, engine="openpyxl")
+            data_df = pd.read_excel(file, sheet_name=sheet_name, engine="openpyxl", dtype={'Sample&Grain': str})
         except Exception as e:
             print(f"Failed to parse sheet with pandas:\n{e}")
             return
@@ -1342,7 +1396,7 @@ def Puetz_importer():
     start_time = time.time()
     sheet_name = 'UPb_Data'
     try:
-        upb_db7_df = pd.read_excel(db7_data, sheet_name=sheet_name, engine="openpyxl")
+        upb_db7_df = pd.read_excel(db7_data, sheet_name=sheet_name, engine="openpyxl", dtype={'Sample&Grain': str})
     except Exception as e:
         print(f"Failed to parse sheet with pandas:\n{e}")
         return
@@ -1357,7 +1411,7 @@ def Puetz_importer():
     start_time = time.time()
     sheet_name = 'UPb_Data'
     try:
-        upb_db12_df = pd.read_excel(db12_data, sheet_name=sheet_name, engine="openpyxl")
+        upb_db12_df = pd.read_excel(db12_data, sheet_name=sheet_name, engine="openpyxl", dtype={'Sample&Grain': str})
     except Exception as e:
         print(f"Failed to parse sheet with pandas:\n{e}")
         return
@@ -1372,7 +1426,7 @@ def Puetz_importer():
     start_time = time.time()
     sheet_name = 'UPb_Data'
     try:
-        upb_db11_df = pd.read_excel(db11_data, sheet_name=sheet_name, engine="openpyxl")
+        upb_db11_df = pd.read_excel(db11_data, sheet_name=sheet_name, engine="openpyxl", dtype={'Sample&Grain': str})
     except Exception as e:
         print(f"Failed to parse sheet with pandas:\n{e}")
         return

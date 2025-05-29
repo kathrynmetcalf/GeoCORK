@@ -16,17 +16,17 @@ import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
     set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
-    CheckableSqlTableModel, get_name_column, get_view_name_column, CheckableTreeModel, TreeModel,
+    CheckableSqlTableModel, get_name_column, CheckableTreeModel, TreeModel,
     show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox,
     CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks, save_expanded_state,
-    restore_expanded_state, get_name_from_id, get_id_from_name
+    restore_expanded_state, get_name_from_id, get_id_from_name, get_view_from_table
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
-from Functions.Database_manager import update_database
+from Functions.Database_views import ViewQuery
 from ui.New_reference import NewReference
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -97,7 +97,11 @@ class EditUPbTags(QtW.QDialog):
     def populate_dropdowns(self):
         self.reference_comboBox.model_modifiable = True
         self.reference_comboBox.enable_context_menu(True)
-        populate_combo_box(self.reference_comboBox, **{'table': 'ReferenceView', 'column': 'ReferenceDisplay'})
+        reference_columns = settings.value('reference_view_columns')
+        query_args = {'show_columns': reference_columns}
+        view_query = ViewQuery('References', False, **query_args)
+        table_query = view_query.table_query
+        populate_combo_box(self.reference_comboBox, **{'table': 'References', 'query': table_query, 'column': 'ReferenceDisplay'})
         self.analysis_method_comboBox.model_modifiable = True
         self.analysis_method_comboBox.enable_context_menu(True)
         populate_combo_box(self.analysis_method_comboBox, **{'table': 'UPbAnalysisMethods'})
@@ -181,12 +185,8 @@ class EditUPbTags(QtW.QDialog):
         if isinstance(combo.model(), CheckableSqlTableModel | CheckableSqlQueryModel):
             model = combo.model()
             combo.objectName()
-            try:
-                table = model.view
-                name_column = get_view_name_column(table)
-            except AttributeError:
-                table = model.tableName()
-                name_column = get_name_column(table)
+            table = model.tableName()
+            name_column = get_name_column(table)
             if 'ratio_error' in combo.objectName():
                 table_id_header = 'RatioErrorFormatID'
             elif 'age_error' in combo.objectName():
@@ -203,10 +203,7 @@ class EditUPbTags(QtW.QDialog):
             tree_model, indexes = find_tree_model(combo.model(), None)
             table = tree_model.table
             model = tree_model.sourceModel()
-            try:
-                name_column = get_view_name_column(model.view)
-            except AttributeError:
-                name_column = get_name_column(table)
+            name_column = get_name_column(table)
             if not populate_tree_model_checks(tree_model, self.upb_analysis_ids, 'UPbAnalyses'):
                 return
             checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
@@ -234,11 +231,7 @@ class EditUPbTags(QtW.QDialog):
         else:
             model = combo.model()
             table = model.tableName()
-            try:
-                view = model.tableView()
-                column = get_view_name_column(view)
-            except AttributeError:
-                column = get_name_column(table)
+            column = get_name_column(table)
         logger_setup.get_logger().info(f"update_subfield_id called with {table}")
         self.loading_manager.show_loading_dialog("Updating", f"Updating {field}")
         start_update_sub_tags_time = time.time()
@@ -357,11 +350,7 @@ class EditUPbTags(QtW.QDialog):
         else:
             model = combo.model()
             table = model.tableName()
-            try:
-                view = model.tableView()
-                column = get_view_name_column(view)
-            except AttributeError:
-                column = get_name_column(table)
+            column = get_name_column(table)
         logger_setup.get_logger().info(f"update_many_id called with {table}")
         self.loading_manager.show_loading_dialog("Updating", f"Updating {field}")
         start_update_sub_tags_time = time.time()
@@ -421,7 +410,16 @@ class EditUPbTags(QtW.QDialog):
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
             # Update this combo box
-            populate_combo_box(combo, **{'table': table})
+            if get_view_from_table(table) != table:
+                # This should use a more complex query for a view
+                show_columns = SQLUtils.view_setting_dict[get_view_from_table(table)]
+                query_args = {'show_columns': show_columns}
+                view_query = ViewQuery(table, False, **query_args)
+                table_query = view_query.table_query
+                name_header = show_columns[get_name_column(get_view_from_table(table))]
+                populate_combo_box(combo, **{'table': table, 'query': table_query,'column': name_header})
+            else:
+                populate_combo_box(combo, **{'table': table})
             if isinstance(combo, CheckableTreeCombobox):
                 restore_expanded_state(table, combo.view())
 

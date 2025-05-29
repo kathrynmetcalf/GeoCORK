@@ -116,9 +116,9 @@ def update_database() -> bool:
         logger_setup.get_logger().critical(f"Error resetting settings")
         return False
     # Recreate the views
-    if not DB_views.create_all_views():
-        logger_setup.get_logger().critical(f"Error updating database views")
-        return False
+    # if not DB_views.create_all_views():
+    #     logger_setup.get_logger().critical(f"Error updating database views")
+    #     return False
     end_time = time.time()
     loading_manager.close_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")

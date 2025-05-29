@@ -12,7 +12,9 @@ import logger_setup
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import ColumnListProxyModel, ColumnItemModel, get_view_name_column, ReorderListView
+from Functions.Widget_classes import (
+    ColumnListProxyModel, ColumnItemModel, get_name_column, get_table_from_view, ReorderListView
+)
 
 
 class SelectColumns(QWidget):
@@ -59,7 +61,7 @@ class SelectColumns(QWidget):
     def check_list_view(self, view_name: str):
         logger_setup.get_logger().info(f'Populating checks for {view_name}')
         model = ColumnItemModel()
-        view_name_col = get_view_name_column(view_name)
+        view_name_col = get_name_column(view_name)
         field_items = self.view_dict[view_name]
         settings_columns = settings.value(self.view_setting_dict[view_name])
         if 'Edit' not in view_name:

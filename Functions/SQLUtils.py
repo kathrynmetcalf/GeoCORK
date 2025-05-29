@@ -283,7 +283,6 @@ column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON Columns.ColumnTot
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID = Samples_AgeSignatures.SampleID
                                     LEFT JOIN AgeSignatures ON Samples_AgeSignatures.AgeSignatureID = AgeSignatures.AgeSignatureID'''
 column_join = 'LEFT JOIN Columns ON Samples.SampleColumnID = Columns.ColumnID'
-column_view_join = 'LEFT JOIN ColumnView on Samples.SampleColumnID = ColumnView.ColumnID'
 column_unit_join = '''LEFT JOIN DistanceUnits AS ColumnHeightDepthUnits ON Samples.HeightDepthUnitID = ColumnHeightDepthUnits.DistanceUnitID'''
 region_join = '''LEFT JOIN Samples_Regions ON Samples.SampleID = Samples_Regions.SampleID
                                 LEFT JOIN Regions ON Samples_Regions.RegionID = Regions.RegionID'''
@@ -320,7 +319,6 @@ spot_upb_analysis_join = 'LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.Sp
 # UPbJoins
 upb_spot_join = 'LEFT JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID'
 upb_reference_join = 'LEFT JOIN "References" AS UPbReferences ON UPbAnalyses.ReferenceID = UPbReferences.ReferenceID'
-upb_reference_view_join = 'LEFT JOIN ReferenceView AS UPbReferenceView ON UPbAnalyses.ReferenceID = UPbReferenceView.ReferenceID'
 upb_labs_join = 'LEFT JOIN LabFacilities ON UPbAnalyses.LabFacilityID = LabFacilities.LabFacilityID'
 upb_instruments_join = 'LEFT JOIN Instruments ON UPbAnalyses.InstrumentID = Instruments.InstrumentID'
 upb_method_join = 'LEFT JOIN UPbAnalysisMethods ON UPbAnalyses.UPbAnalysisMethodID = UPbAnalysisMethods.UPbAnalysisMethodID'

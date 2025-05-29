@@ -17,7 +17,7 @@ import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
     CheckableSqlTableModel, SampleAgeTableModel, set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
-    CheckableSqlTableModel, get_name_column, get_view_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
+    CheckableSqlTableModel, get_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
     CheckableTreeView, save_expanded_state, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
     DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel
@@ -26,7 +26,7 @@ from Functions.Savepoint_manager import SavepointManager, create_savepoint, rele
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Database_manager import update_database
+from Functions.Database_views import ViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
@@ -188,7 +188,11 @@ class SampleInformation(QtW.QDialog):
         start_populate_dropdown_time = time.time()
         logger_setup.get_logger().info("Populating dropdowns")
 
-        populate_combo_box(self.column_name_comboBox, **{'table': 'Columns', 'column': 'ColumnName'})
+        column_cols = settings.value('column_view_columns')
+        query_args = {'show_columns': column_cols}
+        view_query = ViewQuery('Columns', False, **query_args)
+        column_query = view_query.table_query
+        populate_combo_box(self.column_name_comboBox, **{'table': 'Columns', 'query': column_query,'column': 'ColumnName'})
         self.column_name_comboBox.model_modifiable = True
         self.column_name_comboBox.enable_context_menu(True)
         self.column_name_comboBox.set_single_click(True)

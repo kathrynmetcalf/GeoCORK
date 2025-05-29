@@ -14,18 +14,18 @@ import Functions.Text_manipulations as TxM
 import logger_setup
 import difflib
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, ReadableProxyModel, DisplayRoundedModel,
-    SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
-    set_table, populate_many_combo_checks, populate_model_checks,
-    WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
-    get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids, TreeContextMenu,
-    expand_collapse, DisplayRoundedQueryModel, get_name_from_id
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, SQLiteTableModel, CheckableComboBox,
+    CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column, set_table, populate_many_combo_checks,
+    populate_model_checks, WordWrapDelegate, get_columns, get_readable_header, find_sub_items, get_id_from_name,
+    add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids, TreeContextMenu,
+    expand_collapse, get_name_from_id
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Database_manager import update_database
+from Functions.Database_views import ViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -105,18 +105,15 @@ class EditTreeView(QtW.QDialog):
         self.table = TxM.remove_spaces(table_name)
         self.msg = QtW.QMessageBox()
         self.edited_timer = QtC.QTimer(self)
-        self.view = None
         self.model = None
         self.tree_model = None
         self.edited_indexes = []
         self.combo_tree_model = None
         self.name_column = None
         self.name_header = None
-        self.updated_timestamp = None
         self.show_cols = []
         self.where = ''
         if self.table == 'Aliquots':
-            self.view = 'AliquotEditView'
             self.show_cols = settings.value('aliquot_edit_columns')
             self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' else None
             if self.parent_id_header:
@@ -136,13 +133,11 @@ class EditTreeView(QtW.QDialog):
         self.combo_model = None
         self.dropdown_table = None
         self.lineEdit = None
+        self.edit_index = QtC.QModelIndex()
         self.msg = QtW.QMessageBox(self)
         self.close_by_dialog = False
         self.tabbed_from_editor = False
 
-        self.view_headers = []
-        if self.view is not None:
-            self.view_headers = get_headers(self.view)
         self.table_headers = get_headers(self.table)
 
         create_savepoint('before_edit')
@@ -160,7 +155,11 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Finished opening edit window for {self.table}')
 
     def create_model(self):
-        self.model = SQLiteTableModel(f'SELECT {', '.join(self.show_cols)} FROM {self.view} {self.where}')
+        query_args = {'show_columns': self.show_cols,
+                      'group_col': f'{self.show_cols[0]}', 'order_col': f'{self.name_header}'}
+        view_query = ViewQuery('Samples', False, **query_args)
+        table_query = view_query.table_query
+        self.model = SQLiteTableModel(table_query)
         if self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.model)

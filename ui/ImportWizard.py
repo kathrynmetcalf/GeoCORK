@@ -26,8 +26,8 @@ settings = SettingsManager().settings
 from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
     CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers,
-    CheckableSqlQueryModel, get_view_name_column, SQLiteTableModel)
-from Functions.Widget_classes import CompleterInputDialog
+    CheckableSqlQueryModel, SQLiteTableModel, CompleterInputDialog, get_table_from_view, get_view_from_table)
+from Functions.Database_views import ViewQuery
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTable import EditTable
@@ -549,9 +549,14 @@ class ImportWizardDialog(QWidget):
         """
         self.combo_reference_comboBox.setFixedWidth(150)
         self.combo_reference_comboBox.set_single_click(True)
-        self.combo_reference.setQuery(f'SELECT * FROM ReferenceView')
+        ref_show_cols = settings.value('reference_view_columns')
+        query_args = {'show_columns': ref_show_cols,
+                      'group_col': f'{ref_show_cols[0]}', 'order_col': f'{ref_show_cols[get_name_column('ReferenceView')]}'}
+        view_query = ViewQuery('References', False, **query_args)
+        table_query = view_query.table_query
+        self.combo_reference.setQuery(table_query)
         self.combo_reference_comboBox.setModel(self.combo_reference)
-        self.combo_reference_comboBox.setModelColumn(get_view_name_column('ReferenceView'))
+        self.combo_reference_comboBox.setModelColumn(get_name_column('ReferenceView'))
         self.combo_reference_comboBox.closing.connect(
             lambda: self.set_all_rows("Reference Display", self.combo_reference))
         self.combo_reference_comboBox.set_line_edit_text(None)
@@ -649,7 +654,7 @@ class ImportWizardDialog(QWidget):
 
         while query.next():
             item_id = query.value(0)
-            item_name = query.value(get_name_column(table_name))
+            item_name = query.value(get_name_column(get_view_from_table(table_name)))
             data_map[item_name] = item_id  # Store in map
             list_widget.addItem(item_name)  # Display only name in list
 
@@ -1548,23 +1553,11 @@ class ImportWizardDialog(QWidget):
         """
         # todo analysis method not checking
         try:
-            if isinstance(model.view, str):
-                if model.view == '':
-                    table = model.tableName()
-                    name_column = get_name_column(table)
-                else:
-                    table = model.view
-                    name_column = get_view_name_column(table)
+            table = model.tableName()
+            name_column = get_name_column(get_table_from_view(table))
         except AttributeError:
-            try:
-                if isinstance(model.tableName, str):
-                    table = model.tableName
-                else:
-                    table = model.tableName()
-                name_column = get_name_column(table)
-            except AttributeError:
-                table = model.table  # for trees
-                name_column = 0  # for trees
+            table = model.table  # for trees
+            name_column = 0  # for trees
         # Determine the column index for the field
         source_checked_row = None
         checked_item_name = None

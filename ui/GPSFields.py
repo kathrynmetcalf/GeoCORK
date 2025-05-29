@@ -32,21 +32,17 @@ class GPSFields(QtW.QWidget):
         if self.table == 'Columns':
             self.table_gps_id_header = 'ColumnBaseGPSID'
             self.item_id_header = 'ColumnID'
-            self.item_edit_view = 'ColumnEditView'
             self.item_view_gps_header = 'ColumnGPSLocationID'
             self.other_table = 'Samples'
             self.other_table_gps_id_header = 'SampleGPSLocationID'
             self.other_table_id_header = 'SampleID'
-            self.other_edit_view = 'SampleEditView'
         elif self.table == 'Samples':
             self.table_gps_id_header = 'SampleGPSLocationID'
             self.item_id_header = 'SampleID'
-            self.item_edit_view = 'SampleEditView'
             self.item_view_gps_header = 'SampleGPSLocationID'
             self.other_table = 'Columns'
             self.other_table_gps_id_header = 'ColumnBaseGPSID'
             self.other_table_id_header = 'ColumnID'
-            self.other_edit_view = 'ColumnEditView'
         else:
             raise ValueError('Table must be either "Columns" or "Samples"')
         self.item_ids = item_ids

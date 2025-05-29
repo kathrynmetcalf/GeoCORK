@@ -13,7 +13,8 @@ from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
-                                      TreeContextMenu, expand_collapse, get_name_column, get_headers)
+                                      TreeContextMenu, expand_collapse, get_name_column, get_headers,
+                                      get_view_from_table)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -115,9 +116,9 @@ class ViewDataTab(QtW.QWidget):
             table = 'Spots'
             self.show_cols = settings.value('spot_view_columns')
             if self.parent_type == 'Aliquot':
-                query_args = {'show_columns': self.show_cols, 'where': f'FROM SpotView WHERE AliquotID = {self.parent_id}'}
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE AliquotID = {self.parent_id}'}
             elif self.parent_type == 'Sample':
-                query_args = {'show_columns': self.show_cols, 'where': f'FROM SpotView WHERE SampleID = {self.parent_id}'}
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE SampleID = {self.parent_id}'}
             else:
                 logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for Spot table')
                 table = None
@@ -161,8 +162,7 @@ class ViewDataTab(QtW.QWidget):
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
             self.model = SQLiteTableModel(table_query)
-            self.model.table = table
-            self.model.table_name_col = get_name_column(table)
+            self.model.set_table(table)
             self.proxy_model = ReadableProxyModel()
             if isinstance(self.view, QtW.QTreeView):
                 self.tree_model = TreeModel(self.model)

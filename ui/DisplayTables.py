@@ -21,7 +21,7 @@ from Functions.Widget_classes import (
     save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
     get_record_index, close_loading_dialog, show_loading_dialog, column_as_list,
-    set_table, MaxWidthDelegate, get_id_from_name, scroll_to_record
+    set_table, MaxWidthDelegate, get_id_from_name, scroll_to_record, get_view_from_table
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
@@ -31,8 +31,6 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_views import ViewQuery
-from Functions.Widget_classes import get_view_name_column
-# from Functions.Widget_classes import add_popup_dialog
 from ui.EditView import EditView
 from ui.EditTable import EditTable
 from ui.EditTree import EditTree
@@ -200,7 +198,7 @@ class DisplayTables(QtW.QWidget):
             restore_expanded_state(table, self.dbTable_treeView)
             self.dbTable_treeView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation
 
-            self.name_column = get_name_column(self.table)
+            self.name_column = get_name_column(get_view_from_table(self.table))
             self.name_header = self.model.headerData(self.name_column, QtC.Qt.Orientation.Horizontal,
                                                      QtC.Qt.ItemDataRole.DisplayRole)
             self.set_go_to_completer()
@@ -227,14 +225,14 @@ class DisplayTables(QtW.QWidget):
         elif self.table in self.dbtable_list:
             logger_setup.get_logger().info(f'Switching to table view for {self.table}')
             self.switch_to_table()
-            self.name_column = get_name_column(self.table)
-            self.name_header = get_headers(self.table)[self.name_column]
+            self.name_column = get_name_column(get_view_from_table(self.table))
             id_header = get_headers(self.table)[0]
             if self.table == 'Samples':
                 # logger_setup.get_logger().info(f'Switching to frozen table view for {self.table}')
                 # self.switch_to_frozen_table()
                 self.show_cols = settings.value('sample_view_columns')
                 self.edit_samples_pushButton.show()
+                self.name_header = self.show_cols[self.name_column]
                 # table_view = self.dbFrozen_tableView
                 query_args = {'show_columns': self.show_cols,
                               'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
@@ -247,6 +245,7 @@ class DisplayTables(QtW.QWidget):
                 self.edit_samples_pushButton.hide()
                 if self.table == 'Columns':
                     self.show_cols = settings.value('column_view_columns')
+                    self.name_header = self.show_cols[self.name_column]
                     query_args = {'show_columns': self.show_cols,
                                   'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
                                   'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
@@ -254,6 +253,7 @@ class DisplayTables(QtW.QWidget):
                     table_query = view_query.table_query
                 elif self.table == 'References':
                     self.show_cols = settings.value('reference_view_columns')
+                    self.name_header = self.show_cols[self.name_column]
                     query_args = {'show_columns': self.show_cols,
                                   'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
                                   'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
@@ -261,6 +261,7 @@ class DisplayTables(QtW.QWidget):
                     table_query = view_query.table_query
                 else:
                     self.show_cols = '*'
+                    self.name_header = get_headers(self.table)[self.name_column]
                     table = self.table
                     table_query = f'''SELECT {self.show_cols} FROM {table} GROUP BY {id_header} 
                     ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'''
@@ -269,8 +270,7 @@ class DisplayTables(QtW.QWidget):
             if self.model.last_error is not None:
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
                 return
-            self.model.table = self.table
-            self.model.table_name_col = get_name_column(self.table)
+            self.model.set_table(self.table)
             self.table_proxy_model.setSourceModel(self.model)
             self.dbTable_tableView: QTableView
             self.dbTable_tableView.setWordWrap(True)
@@ -363,7 +363,7 @@ class DisplayTables(QtW.QWidget):
             if not update_database():
                 logger_setup.get_logger().critical(f'Error updating and displaying database')
                 self.parent().close()
-        self.display_table()
+            self.display_table()
 
     def edit_popup(self):
         self.loading_manager.show_loading_dialog('Loading', f'Opening edit window for {self.table}...')
@@ -379,7 +379,7 @@ class DisplayTables(QtW.QWidget):
             if not update_database():
                 logger_setup.get_logger().critical(f'Error updating and displaying database')
                 self.parent().close()
-        self.display_table()
+            self.display_table()
 
     def add_popup(self, action: QtG.QAction | None = None):
         dlg = None
@@ -398,7 +398,7 @@ class DisplayTables(QtW.QWidget):
             if not update_database():
                 logger_setup.get_logger().critical(f'Error updating and displaying database')
                 self.parent().close()
-        self.display_table()
+            self.display_table()
 
     def open_doi_link(self, item: QTableWidgetItem):
         self.dbTable_tableView: QTableView

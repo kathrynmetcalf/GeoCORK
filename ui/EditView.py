@@ -22,7 +22,7 @@ from Functions.Widget_classes import (
     set_table, populate_many_combo_checks, populate_model_checks,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
     get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
-    get_name_from_id, DisplayRoundedQueryModel, find_tree_model
+    get_name_from_id, DisplayRoundedQueryModel, find_tree_model, get_view_from_table
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -206,7 +206,7 @@ class EditView(QtW.QDialog):
         if self.model.last_error is not None:
             logger_setup.get_logger().critical(f'Error displaying {self.table}.')
             return
-        self.model.table = self.table
+        self.model.set_table(self.table)
         self.display_table()
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
@@ -385,7 +385,8 @@ class EditView(QtW.QDialog):
                 logger_setup.get_logger().error('No rows selected to delete')
                 return
             if self.delete_question(ids_to_delete):
-                logger_setup.get_logger().info(f'Deleting {len(ids_to_delete)} {self.table_headers[get_name_column(self.table)]} from {self.table}')
+                logger_setup.get_logger().info(
+                    f'Deleting {len(ids_to_delete)} {self.table_headers[get_name_column(get_view_from_table(self.table))]} from {self.table}')
                 query = QtS.QSqlQuery()
                 if not query.exec(f'DELETE FROM {self.table} WHERE {self.table_headers[0]} {sql_where_str}'):
                     logger_setup.get_logger().critical(f'Failed to delete selected rows from {self.table}: {query.lastError().text()}')
@@ -403,7 +404,7 @@ class EditView(QtW.QDialog):
             # Use spot name column in the view
             self.name_column = 4
         else:
-            self.name_column = get_name_column(self.table)
+            self.name_column = get_name_column(get_view_from_table(self.table))
         proxy_name_column = None
         if self.name_column is not None:
             self.name_header = self.show_cols[self.name_column]
