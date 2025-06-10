@@ -630,7 +630,7 @@ tree_tables_schema = {
         'parent_column': 'ParentAliquotContextID',
         'cte_name': 'RecursiveAliquotContexts',
         'bridge_table': 'Aliquots_AliquotContexts',
-        'bridge_from_column': 'SampleID',
+        'bridge_from_column': 'AliquotID',
         'bridge_to_column': 'AliquotContextID',
     },
     'Regions.[RegionName]': {
@@ -702,7 +702,7 @@ tree_tables_schema = {
         'parent_column': 'ParentUPbAnalysisMethodID',
         'cte_name': 'RecursiveUPbAnalysisMethods',
         'bridge_table': 'UPbAnalyses',
-        'bridge_from_column': 'UPbAnalysisMethodID',
+        'bridge_from_column': 'UPbAnalysisID',
         'bridge_to_column': 'UPbAnalysisMethodID',
     },
     'UPbAnalysisContexts.[UPbAnalysisContextName]': {
@@ -840,7 +840,7 @@ database_ordered_tables = ['AgeUnits',
 be merged so the related data is merged last so updated primary keys can be properly generated"""
 
 views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
-         'UPbEditView', 'ColumnView', 'ColumnEditView']
+         'UPbEditView', 'ColumnView', 'ColumnEditView', 'ReferenceView']
 """List of all views in the database. These views pull information from other tables for a comprehensive view of data
 See Database_views.py for further"""
 

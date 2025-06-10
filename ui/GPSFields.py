@@ -91,7 +91,7 @@ class GPSFields(QtW.QWidget):
         gps_format_abbreviation = settings.value('gps_format_abbreviation')
 
         populate_combo_box(self.gps_format_comboBox, **{'table': 'GPSFormats', 'column': 'GPSFormatAbbreviation'})
-        self.gps_format_comboBox.setCurrentIndex(-1)
+        self.gps_format_comboBox.setCurrentText(gps_format_abbreviation)
         populate_combo_box(self.lat_comboBox, **{'table': 'DirectionUnits', 'column': 'DirectionUnitAbbreviation'})
         self.lat_direction_model = self.lat_comboBox.model()
         self.lat_direction_model.setFilter('DirectionUnitAbbreviation = "N" OR DirectionUnitAbbreviation = "S"')
@@ -185,7 +185,7 @@ class GPSFields(QtW.QWidget):
         elif len(self.item_ids) == 1:
             query_where_str = f' WHERE {self.item_id_header} = {self.item_ids[0]}'
         else:
-            query_where_str = ''
+            query_where_str = f' WHERE {self.item_id_header} IS NULL'
         self.item_model = QtS.QSqlQueryModel()
         self.item_model.setQuery(f'SELECT {self.table_gps_id_header} FROM {self.table}{query_where_str}')
         logger_setup.get_logger().info(f'Set {self.table} model query')

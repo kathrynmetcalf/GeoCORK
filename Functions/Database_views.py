@@ -1068,7 +1068,7 @@ class ViewQuery:
 
     def create_sample_view_query(self):
         self.show_columns: list = settings.value('sample_view_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'SampleID'
         self.order_col: str = 'SampleName'
@@ -1194,7 +1194,7 @@ class ViewQuery:
 
     def create_sample_edit_view_query(self):
         self.show_columns: list = settings.value('sample_edit_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'SampleID'
         self.order_col: str = 'SampleName'
@@ -1252,8 +1252,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         count_sample_subquery = SQLUtils.qupb_count_sample_subquery
@@ -1350,8 +1351,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         count_aliquot_subquery = SQLUtils.qupb_count_aliquot_subquery
@@ -1412,6 +1414,7 @@ class ViewQuery:
                         SQLUtils.qaliquot_name,
                         SQLUtils.qsample_id,
                         SQLUtils.qaliquot_sample,
+                        SQLUtils.qaliquot_contexts,
                         SQLUtils.qaliquot_created,
                         SQLUtils.qaliquot_modified]
 
@@ -1419,8 +1422,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         aliquot_query = f'''
@@ -1446,7 +1450,7 @@ class ViewQuery:
     def create_spot_view_query(self):
 
         self.show_columns: list = settings.value('spot_view_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'SpotID'
         self.order_col: str = 'SpotName'
@@ -1471,8 +1475,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         spot_query = f'''
@@ -1511,7 +1516,7 @@ class ViewQuery:
 
     def create_spot_edit_view_query(self):
         self.show_columns: list = settings.value('spot_edit_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'SpotID'
         self.order_col: str = 'SpotName'
@@ -1536,8 +1541,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         spot_query = f'''
@@ -1565,7 +1571,7 @@ class ViewQuery:
 
     def create_upb_view_query(self):
         self.show_columns: list = settings.value('upb_analysis_view_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'UPbAnalysisID'
         self.order_col: str = 'SpotName'
@@ -1618,8 +1624,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         upb_query = f'''
@@ -1654,7 +1661,7 @@ class ViewQuery:
 
     def create_upb_edit_view_query(self):
         self.show_columns: list = settings.value('upb_analysis_edit_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'UPbAnalysisID'
         self.order_col: str = 'SpotName'
@@ -1708,8 +1715,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         upb_query = f'''
@@ -1743,14 +1751,15 @@ class ViewQuery:
 
     def create_column_view_query(self):
         self.show_columns: list = settings.value('column_view_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'Columns.ColumnID'
         self.order_col: str = 'Columns.ColumnName'
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
-        # self.get_group_oder_clauses()
+        self.get_group_oder_clauses()
+        self.limited_hierarchy_query()
 
         # Select columns
         query_column_list = [SQLUtils.qcolumn_id,
@@ -1766,8 +1775,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         column_query = f'''
@@ -1780,19 +1790,20 @@ class ViewQuery:
                     {self.order_by}
                     {self.query_limit}
                     '''
-        return column_query
+        self.table_query = column_query
 
 
     def create_column_edit_view_query(self):
         self.show_columns: list = settings.value('column_edit_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'Columns.ColumnID'
         self.order_col: str = 'Columns.ColumnName'
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
-        # self.get_group_oder_clauses()
+        self.get_group_oder_clauses()
+        self.limited_hierarchy_query()
 
         # Select columns
         query_column_list = [SQLUtils.qcolumn_id,
@@ -1811,8 +1822,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         column_query = f'''
@@ -1828,19 +1840,20 @@ class ViewQuery:
                         {self.query_limit}
                         '''
         # print(column_query)
-        return column_query
+        self.table_query = column_query
 
 
     def create_reference_view_query(self):
         self.show_columns: list = settings.value('reference_view_columns')
-        self.limit: str = f'LIMIT {settings.value("show_per_page")}'
+        self.limit: str = ''
         self.where: str = ''
         self.group_col: str = '"References".ReferenceID'
         self.order_col: str = '"References".ReferenceDisplay'
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
-        # self.get_group_oder_clauses()
+        self.get_group_oder_clauses()
+        self.limited_hierarchy_query()
 
         # Select columns
         query_column_list = [SQLUtils.qreference_id,
@@ -1858,8 +1871,9 @@ class ViewQuery:
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    query_columns.append(col)
-                    break
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
         query_columns = ',\n '.join(query_columns)
 
         reference_query = f'''
@@ -1887,7 +1901,6 @@ class ViewQuery:
 
         headers = get_headers(self.table)
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
-        table_abbreviation_dict.pop(self.table)
 
         where_table = self.table
         hierarchy_where = ''
@@ -1896,6 +1909,9 @@ class ViewQuery:
         self.query_where = self.where
         self.query_limit = self.limit
 
+        if self.table not in table_abbreviation_dict:
+            return
+        table_abbreviation_dict.pop(self.table)
 
         if self.where != '':
             # Check if any table headers are in the where clause
@@ -2020,6 +2036,10 @@ class ViewQuery:
         from Functions.Widget_classes import get_headers
 
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
+        if self.table not in table_abbreviation_dict:
+            self.group_by = f'GROUP BY {self.group_col}'
+            self.order_by = f'ORDER BY {self.order_col}'
+            return
         table_abbreviation = table_abbreviation_dict[self.table]
         table_abbreviation_dict.pop(self.table)
 

@@ -1634,6 +1634,7 @@ def Puetz_importer():
     upb_analysis_sql_df['UPbAnalysisMethodID'] = pd.Series(merged_analysis_method_df['UPbAnalysisMethodID'], dtype=pd.Int64Dtype())
 
     upb_analysis_sql_df['SpotSize'] = upb_analysis_df['Spot diam. (μm)']
+    upb_analysis_sql_df['Rejected'] = upb_analysis_df['Rejected']
     upb_analysis_sql_df['206Pb/238U'] = upb_analysis_df['206Pb/238U      ratio']
     upb_analysis_sql_df['206Pb/238UError'] = upb_analysis_df['206Pb/238U            1σ uncert']
     upb_analysis_sql_df['207Pb/235U'] = upb_analysis_df['calculated 207Pb/235U      ratio']

@@ -20,11 +20,14 @@ from Functions.Widget_classes import (
     CheckableSqlTableModel, get_name_column, TreeModel, CheckableTreeCombobox, CheckableTreeModel,
     CheckableTreeView, save_expanded_state, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
-    DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel
+    DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel, show_column,
+    get_view_from_table
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
+from ui.EditView import EditView
+
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
@@ -81,6 +84,11 @@ class SampleInformation(QtW.QDialog):
         self.updated = False
         self.commit_pushed = False
         self.focus_timer = QtC.QTimer(self)
+        self.focus_timer.setSingleShot(True)
+        self.discard_timer = QtC.QTimer(self)
+        self.discard_timer.setSingleShot(True)
+        self.commit_timer = QtC.QTimer(self)
+        self.commit_timer.setSingleShot(True)
         self._isApplicationFocused = True
         QtW.QApplication.instance().installEventFilter(self)
 
@@ -118,6 +126,7 @@ class SampleInformation(QtW.QDialog):
         self.populate_dropdowns()
         self.check_all_samples()
         self.sample_name_comboBox.setModel(self.sample_names_proxy)
+        self.sample_name_comboBox.enable_context_menu(True)
         self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
 
         self.installEventFilter(self)
@@ -183,6 +192,10 @@ class SampleInformation(QtW.QDialog):
         self.loading_manager.show_loading_dialog('Updating','Updating fields...')
         logger_setup.get_logger().info("Updating fields")
         self.disconnect_text_signals()
+        if set(self.gps.item_ids) != set(self.checked_sample_list):
+            self.gps.update_list(self.checked_sample_list)
+        if set(self.age.sample_ids) != set(self.checked_sample_list):
+            self.age.update_list(self.checked_sample_list)
         self.populate_fields()
         self.connect_signals()
         logger_setup.get_logger().info("Fields updated")
@@ -236,7 +249,7 @@ class SampleInformation(QtW.QDialog):
         # Connect signals and slots
         self.upb_analysis_pushButton.clicked.connect(self.edit_upb_popup)
         self.commit_pushButton.clicked.connect(self.commit_clicked)
-        self.cancel_pushButton.clicked.connect(self.discard_question)
+        self.cancel_pushButton.clicked.connect(self.discard_clicked)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
@@ -290,11 +303,12 @@ class SampleInformation(QtW.QDialog):
         elif len(self.checked_sample_list) == 1:
             sample_query = f'SELECT * FROM Samples WHERE SampleID = {self.checked_sample_list[0]}'
         else:
-            sample_query = f'SELECT * FROM Samples'
+            sample_query = f'SELECT * FROM Samples WHERE SampleID IS NULL'
         self.samples_table = QtS.QSqlQueryModel()
         self.samples_table.setQuery(sample_query)
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
+            self.clear_fields()
             return
         for header in headers:
             values = [self.samples_table.record(row).value(header) for row in range(self.samples_table.rowCount())]
@@ -381,13 +395,28 @@ class SampleInformation(QtW.QDialog):
         self.populate_checks('Samples_Settings', self.setting_comboBox)
         self.populate_checks('Samples_AgeSignatures', self.age_signature_comboBox)
 
-        if set(self.gps.item_ids) != set(self.checked_sample_list):
-            self.gps.update_list(self.checked_sample_list)
-        if set(self.age.sample_ids) != set(self.checked_sample_list):
-            self.age.update_list(self.checked_sample_list)
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated fields in {end_populate_fields_time - start_populate_fields_time} seconds")
         logger_setup.get_logger().info("Fields populated")
+
+    def clear_fields(self):
+        logger_setup.get_logger().info("Clearing fields")
+        self.sample_name_lineEdit.setText(self.sample_name_lineEdit.placeholderText())
+        self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
+        self.column_name_comboBox.set_line_edit_text(self.column_name_comboBox.placeholderText())
+        self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
+        self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
+        set_comboBox_text(self.height_depth_unit_comboBox, settings.value('heightdepth_unit_abbreviation'))
+        self.sample_description_textEdit.setText(self.sample_description_textEdit.placeholderText())
+
+        # Sample tags
+        self.populate_checks('Samples_SampleContexts', self.sample_context_comboBox)
+        self.populate_checks('Samples_SamplingMethods', self.sampling_method_comboBox)
+        self.populate_checks('Samples_Units', self.unit_comboBox)
+        self.populate_checks('Samples_RockTypes', self.rock_type_comboBox)
+        self.populate_checks('Samples_Regions', self.region_comboBox)
+        self.populate_checks('Samples_Settings', self.setting_comboBox)
+        self.populate_checks('Samples_AgeSignatures', self.age_signature_comboBox)
 
     def populate_sample_dictionary(self):
         logger_setup.get_logger().info("Populating fields")
@@ -400,7 +429,9 @@ class SampleInformation(QtW.QDialog):
             self.samples_table = SQLiteTableModel(
                 f'SELECT * FROM Samples WHERE SampleID = {self.checked_sample_list[0]}')
         else:
-            self.samples_table = SQLiteTableModel(f'SELECT * FROM Samples')
+            self.samples_table = SQLiteTableModel(f'SELECT * FROM Samples WHERE SampleID IS NULL')
+        if self.samples_table.last_error:
+            logger_setup.get_logger().critical(f"Error populating samples table")
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             return
@@ -413,7 +444,7 @@ class SampleInformation(QtW.QDialog):
         many_to_many_model.select()
         all_items = []
         some_items = []
-        text = ""
+        text = combo.placeholderText()
         if isinstance(combo, CheckableTreeCombobox):
             model, indexes = find_tree_model(combo.model(), None)
             col = 0  # Name column is always placed in the first column
@@ -708,6 +739,7 @@ class SampleInformation(QtW.QDialog):
         release_savepoint('before_update')
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
+        logger_setup.get_logger().info(f"Add popup called")
         model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
@@ -717,8 +749,10 @@ class SampleInformation(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error adding new item")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
         else:
             table = combo.model().tableName()
+        combo.blockSignals(True)
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
@@ -728,10 +762,15 @@ class SampleInformation(QtW.QDialog):
                 dlg = AddTreeTags(self, table, **dlg_args)
             else:
                 dlg = AddTreeTags(self, table)
+        elif table in ['References', '"References"']:
+            table = 'References'
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            dlg = NewReference(self)
         else:
             self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = AddTags(self, table)
         if not dlg:
+            combo.blockSignals(False)
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
         dlg.exec()
@@ -742,10 +781,13 @@ class SampleInformation(QtW.QDialog):
             if isinstance(combo, CheckableTreeCombobox):
                 restore_expanded_state(table, combo.view())
             self.populate_checks(f'Samples_{table}', combo)
+            combo.blockSignals(False)
         else:
+            combo.blockSignals(False)
             return
 
     def edit_popup(self):
+        logger_setup.get_logger().info(f'Edit popup called')
         combo: QtW.QComboBox = self.sender()
         model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
@@ -756,16 +798,22 @@ class SampleInformation(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error editing table")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
             table = model.tableName()
         else:
             table = combo.model().tableName()
+        combo.blockSignals(True)
+        dlg = None
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
+        elif table != get_view_from_table(table):
+            dlg = EditView(self, table)
         else:
             dlg = EditTable(self, table)
         if dlg is None:
+            combo.blockSignals(False)
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
@@ -775,6 +823,7 @@ class SampleInformation(QtW.QDialog):
             if isinstance(combo, CheckableTreeCombobox):
                 restore_expanded_state(table, combo.view())
             self.populate_checks(f'Samples_{table}', combo)
+        combo.blockSignals(False)
 
     def edit_upb_popup(self):
         logger_setup.get_logger().info("Edit U-Pb popup called")
@@ -798,10 +847,17 @@ class SampleInformation(QtW.QDialog):
                 self.focus_timer.timeout.connect(self.update_column_info)
                 self.focus_timer.start(100)
 
+    def discard_clicked(self):
+        logger_setup.get_logger().info("Discard clicked")
+        self.discard_timer.timeout.connect(self.discard_question)
+        self.discard_timer.start(200)
+
     def commit_clicked(self):
         logger_setup.get_logger().info("Commit clicked")
-        self.commit_pushed = True
-        self.commit_question()
+        self.commit_pushButton.blockSignals(True)
+        if not self.commit_pushed:
+            self.commit_pushed = True
+            self.commit_question()
 
     def delete_question(self):
         msg_box = QtW.QMessageBox(self)
@@ -855,6 +911,7 @@ class SampleInformation(QtW.QDialog):
                 self.commit()
             else:
                 self.commit_pushed = False
+                self.commit_pushButton.blockSignals(False)
                 pass
         else:
             self.reject()
@@ -869,6 +926,39 @@ class SampleInformation(QtW.QDialog):
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
+
+    # def eventFilter(self, obj: QtC.QObject, event: QtC.QEvent):
+    #     if event.type() == QtC.QEvent.Type.FocusOut:
+    #         logger_setup.get_logger().debug(f'Focus out event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.FocusIn:
+    #         logger_setup.get_logger().debug(f'Focus in event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.WindowDeactivate:
+    #         logger_setup.get_logger().debug(f'Window deactivate event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.WindowActivate:
+    #         logger_setup.get_logger().debug(f'Window activate event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.WindowStateChange:
+    #         logger_setup.get_logger().debug(f'Window state change on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.Hide:
+    #         logger_setup.get_logger().debug(f'Hide event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.Show:
+    #         logger_setup.get_logger().debug(f'Show event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.LayoutRequest:
+    #         logger_setup.get_logger().debug(f'Layout request event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.Resize:
+    #         logger_setup.get_logger().debug(f'Resize event on {obj.objectName()}')
+    #     elif event.type() == QtC.QEvent.Type.Timer:
+    #         logger_setup.get_logger().debug(f'Timer event on {obj.objectName()}')
+    #         if obj == self.focus_timer:
+    #             logger_setup.get_logger().debug(f'Focus timer event')
+    #         elif obj == self.commit_timer:
+    #             logger_setup.get_logger().debug(f'Commit timer event')
+    #         elif obj == self.discard_timer:
+    #             logger_setup.get_logger().debug(f'Discard timer event')
+    #         elif obj == self.gps.focus_timer:
+    #             logger_setup.get_logger().debug(f'GPS focus timer event')
+    #         elif obj == self.age.focus_timer:
+    #             logger_setup.get_logger().debug(f'Age focus timer event')
+    #     return super().eventFilter(obj, event)
 
     def closeEvent(self, event: QtG.QCloseEvent):
         if not self.close_by_dialog:

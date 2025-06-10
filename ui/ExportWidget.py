@@ -450,6 +450,9 @@ class ExportWidget(QWidget):
         # saves final string used for exporting, removed LIMIT, and saved model for future use.
         model = SQLiteTableModel(database = settings.value('db_file', type=str))
         model.setQuery(query_str)
+        if model.last_error:
+            logger_setup.get_logger().critical(f'Error updating table view')
+            return
         self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 

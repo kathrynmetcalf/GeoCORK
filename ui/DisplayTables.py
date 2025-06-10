@@ -178,8 +178,10 @@ class DisplayTables(QtW.QWidget):
             self.switch_to_tree()
             self.edit_samples_pushButton.hide()
             self.model = SQLiteTableModel(f'SELECT * FROM {self.table}')
-            # set_table(self.model, self.table)
-
+            if self.model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying {self.table}')
+                self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
+                return
             self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
             self.tree_proxy_model.setFilterKeyColumn(-1)
@@ -225,6 +227,8 @@ class DisplayTables(QtW.QWidget):
         elif self.table in self.dbtable_list:
             logger_setup.get_logger().info(f'Switching to table view for {self.table}')
             self.switch_to_table()
+            # Reset column sorting indicator
+            self.dbTable_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
             self.name_column = get_name_column(get_view_from_table(self.table))
             id_header = get_headers(self.table)[0]
             if self.table == 'Samples':
@@ -269,6 +273,7 @@ class DisplayTables(QtW.QWidget):
             self.model = SQLiteTableModel(table_query)
             if self.model.last_error is not None:
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
+                self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
                 return
             self.model.set_table(self.table)
             self.table_proxy_model.setSourceModel(self.model)
@@ -389,6 +394,10 @@ class DisplayTables(QtW.QWidget):
             dlg_args = add_tree_popup(self.dbTable_treeView, action)
             if dlg_args:
                 dlg = AddTreeTags(self, self.table, **dlg_args)
+        elif self.table in ['References', '"References"']:
+            table = 'References'
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            dlg = NewReference(self)
         else:
             dlg = AddTags(self, self.table)
         if not dlg:

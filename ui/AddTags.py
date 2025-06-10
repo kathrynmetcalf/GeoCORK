@@ -42,6 +42,7 @@ class AddTags(QtW.QDialog):
         self.errmsg = QtW.QMessageBox(self)
         self.clear_warning()
         self.cancel_pushButton.setAutoDefault(False)
+        self.ok_pushButton.setAutoDefault(True)
 
         self.sample_info_text = QLabel(parent=self, text='Utilize Edit Samples to modify Sample Metadata. This only adds samples with a name and description.')
         self.layout().insertWidget(4, self.sample_info_text)

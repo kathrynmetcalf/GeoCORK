@@ -205,6 +205,33 @@ class SQLiteTableModel(QAbstractTableModel):
         """
         return self.table
 
+    class MockRecord:
+        """
+        Class to mimic QSqlRecord for the SQLiteTableModel.
+        Stores a row of data from the SQLite database table and provides methods to access the data.
+        """
+
+        def __init__(self, row):
+            self.row = row
+
+        def value(self, index):
+            """Mimics QSqlRecord.value()"""
+            return self.row[index]
+
+        def setValue(self, index, value):
+            """Mimics QSqlRecord.setValue()"""
+            if 0 <= index < len(self.row):
+                # Convert tuple to list to allow item assignment, then convert back to tuple
+                row = list(self.row)
+                row[index] = value
+                self.row = tuple(row)
+                return True
+            return False
+
+        def count(self):
+            """Mimics QSqlRecord.count()"""
+            return len(self.row)
+
     def record(self, row: int):
         """
         Returns a MockRecord containing the same attributes as a QSqlRecord. Used so SQLiteTableModels can be used
@@ -212,24 +239,9 @@ class SQLiteTableModel(QAbstractTableModel):
         :param row:
         :return:
         """
-        class MockRecord:
-            """
-            Class to mimic QSqlRecord for the SQLiteTableModel.
-            Stores a row of data from the SQLite database table and provides methods to access the data.
-            """
-            def __init__(self, row):
-                self.row = row
-
-            def value(self, index):
-                """Mimics QSqlRecord.value()"""
-                return self.row[index]
-
-            def count(self):
-                """Mimics QSqlRecord.count()"""
-                return len(self.row)
 
         if 0 <= row < len(self._data):
-            return MockRecord(self._data[row])
+            return self.MockRecord(self._data[row])
         else:
             return None  # or raise IndexError
 
@@ -428,7 +440,7 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
             logger_setup.get_logger().debug(f"SQL query: {query}")
         else:
             table = query.split('FROM ')[1].split(' ')[0]
-            self.table = table
+            self.table = table.strip()
             self.table_name_col = get_name_column(self.table)
 
     def tableName(self) -> str:
@@ -469,199 +481,6 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
 
     def unrounded_data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = QtC.Qt.ItemDataRole.DisplayRole):
         return super().data(index, role)
-
-# class VerifiableSqlTableModel(DisplayRoundedModel):
-#     """
-#     Custom DisplayRoundedModel (subclass of QSqlTableModel) to verify data before submitting changes to the database
-#     upon row change.
-#     """
-#     row_submitted = QtC.pyqtSignal(int)
-#     def __init__(self):
-#         super().__init__()
-#         self.edited_indexes = []
-#         self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnRowChange)
-#         self.submitError = ''
-#         self.headerToFix = ''
-#
-#     def setData(self, index, value, role = ...):
-#         """Minor screening to prevent adding decimals to integers and set empty values to None. Keeps track of edited
-#         indexes."""
-#         field_type = self.record().field(index.column()).typeID()
-#         logger_setup.get_logger().info(f"Setting {field_type} to {value}")
-#         if role == QtC.Qt.ItemDataRole.EditRole:
-#             if value == '' and field_type in (QMetaType.Type.Double.value, QMetaType.Type.Float.value, QMetaType.Type.Float16.value, QMetaType.Type.Int.value, QMetaType.Type.UInt.value):
-#                 # Set the value to NULL
-#                 value = None
-#             elif '.' not in str(value):
-#                 # Make sure integers don't have decimals added on
-#                 try:
-#                     value = int(value)
-#                 except ValueError:
-#                     pass
-#             self.edited_indexes.append(index)
-#             # return super().setData(index, value, role)
-#         return super().setData(index, value, role)
-#
-#     def submit(self):
-#         """Validate data as necessary before submitting"""
-#         if not self.edited_indexes:
-#             # no changes to submit
-#             return True
-#         # get the edited row
-#         edited_row = self.edited_indexes[0].row()
-#         if self.tableName() in SQLUtils.trigger_tables:
-#             if not self.verify_row(edited_row):
-#                 return False
-#         if super().submit():
-#             self.row_submitted.emit(edited_row)
-#             self.edited_indexes = []
-#             self.submitError = ''
-#             self.headerToFix = ''
-#             return True
-#         else:
-#             if self.submitError:
-#                 logger_setup.get_logger().error(self.submitError)
-#             return False
-#
-#     def verify_row(self, edited_row: int) -> bool:
-#         """
-#         Make sure ID columns contain IDs, collect columns and values to submit, and validates data to update
-#         :param edited_row: edited row being submitted
-#         :return: True if no error, False if there is
-#         """
-#         columns = []
-#         values = []
-#         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-#         id = self.data(self.index(edited_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-#         for column in range(1, self.columnCount()):
-#             header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-#             value = self.data(self.index(edited_row, column), QtC.Qt.ItemDataRole.DisplayRole)
-#             if 'ID' in header and type(value) is not int:
-#                 # name is given instead of ID
-#                 set_value, foreign_table = get_foreign_id_table(self.tableName(), header, value)
-#             else:
-#                 set_value = value
-#             columns.append(header)
-#             values.append(set_value)
-#         where = f'{id_header}={id}'
-#         error, header = validate_update(self.tableName(), columns, values, where)
-#         if error is not None:
-#             self.submitError = error
-#             self.headerToFix = header
-#             return False
-#         return True
-#
-# class VerifiableSqlViewModel(VerifiableSqlTableModel):
-#     """
-#     Custom DisplayRoundedQueryModel (subclass of QSqlTableModel) to verify data before submitting changes to the database
-#     upon row change.
-#     """
-#     row_submitted = QtC.pyqtSignal(int)
-#     def __init__(self):
-#         super().__init__()
-#         self.table = ''
-#         self.setEditStrategy(QtS.QSqlTableModel.EditStrategy.OnManualSubmit)
-#
-#     def setTable(self, tableName):
-#         if 'View' in tableName:
-#             if 'Sample' in tableName:
-#                 self.table = 'Samples'
-#             elif 'Aliquot' in tableName:
-#                 self.table = 'Aliquots'
-#             elif 'Spot' in tableName:
-#                 self.table = 'Spots'
-#             elif 'UPbAnalysis' in tableName:
-#                 self.table = 'UPbAnalyses'
-#             elif 'Column' in tableName:
-#                 self.table = 'Columns'
-#             elif 'Reference' in tableName:
-#                 self.table = 'References'
-#             super().setTable(self.table)
-#         else:
-#             logger_setup.get_logger().error(f'Table {tableName} is not a view')
-#
-#     def submit(self):
-#         if not self.isDirty():
-#             return True
-#         # get the edited row
-#         current_row = self.edited_indexes[0].row()
-#         columns = []
-#         values = []
-#         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-#         id = self.data(self.index(current_row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-#         foreign_table = QtS.QSqlTableModel()
-#         # Need to map the joined columns to the actual table columns
-#         for column in range(1, self.columnCount()):
-#             header = self.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-#             value = self.unrounded_data(self.index(current_row, column), QtC.Qt.ItemDataRole.DisplayRole)
-#             # if header == 'Total Height/Depth':
-#             #     set_header = 'ColumnTotalHeightDepth'
-#             #     set_value = value
-#             if 'Unit' in header:
-#                 set_header = 'ColumnTotalHeightDepthUnitID'
-#                 set_table(foreign_table, 'DistanceUnits')
-#                 foreign_table.setFilter(f'DistanceUnitAbbreviation="{value}"')
-#                 set_value = foreign_table.record(0).value('DistanceUnitID')
-#             elif 'GPS' in header:
-#                 set_header = 'ColumnBaseGPSID'
-#                 query = QtS.QSqlQuery()
-#                 if not query.exec(f'SELECT GPSLocationID FROM GPSLocations WHERE GPSLocationDisplay="{value}"'):
-#                     logger_setup.get_logger().critical(f'Failed to get GPSLocationID for {value}')
-#                     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-#                     logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-#                     return False
-#                 query.next()
-#                 set_value = query.value(0)
-#                 # set_value = foreign_table.record(0).value('GPSLocationID')
-#             else:
-#                 set_header = header
-#                 set_value = value
-#             columns.append(set_header)
-#             values.append(set_value)
-#
-#         error, header = validate_update(self.table, columns, values, f'{id_header}={id}')
-#         if error is not None:
-#             self.submitError = error
-#             self.headerToFix = header
-#             return False
-#         column_str = ", ".join(columns)
-#         # create a string of question marks separated by commas for the values
-#         value_str = ", ".join('?' * len(values))
-#         query = QtS.QSqlQuery()
-#         query.prepare(f'UPDATE {self.table} SET ({column_str}) = ({value_str}) WHERE {id_header}={id}')
-#         for i, value in enumerate(values):
-#             query.bindValue(i, value)
-#         if not query.exec():
-#             logger_setup.get_logger().critical(f'Failed to update {self.table} with {column_str}={value_str}')
-#             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-#             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-#             logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
-#             return False
-#         self.row_submitted.emit(current_row)
-#         if not self.on_row_submitted(current_row):
-#             return False
-#         self.edited_indexes = []
-#         self.submitError = ''
-#         self.headerToFix = ''
-#         return True
-#
-#     def on_row_submitted(self, row):
-#         record_id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-#         error = update_modified_timestamp(self.table, [record_id])
-#         if error is not None:
-#             logger_setup.get_logger().error(error)
-#             return False
-#
-#     def deleteRowFromTable(self, row):
-#         id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-#         id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-#         query = QtS.QSqlQuery()
-#         if not query.exec(f'DELETE FROM {self.table} WHERE {id_header}={id}'):
-#             logger_setup.get_logger().critical(f'Failed to delete {id} from {self.table}')
-#             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-#             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-#             return False
-#         return True
 
 class EditableSqlQueryModel(DisplayRoundedQueryModel):
     """Custom DisplayRoundedQueryModel (subclass of QSqlQueryModel) with editable name column and description column.
@@ -749,6 +568,8 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
 
     def setSourceModel(self, sourceModel):
         super().setSourceModel(sourceModel)
+        self.doi_column_exists = False
+        self.doi_column = None
         self._check_doi_column()
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = ...):
@@ -985,14 +806,15 @@ class CheckableSqlTableModel(DisplayRoundedModel):
         Clears all checked and partially checked states from the model
         and refreshes the corresponding data in the view.
         """
-        self.checked_ids.clear()
-        self.partially_checked_ids.clear()
-
         name_col = get_name_column(get_view_from_table(self.tableName()))
 
         for row in range(self.rowCount()):
             index = self.index(row, name_col)
             self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.CheckStateRole])
+        if self.checked_ids or self.partially_checked_ids:
+            logger_setup.get_logger().critical(f'Error resetting {self.tableName()} checks')
+            logger_setup.get_logger().debug(
+                f'After clear_checks, {self.tableName()} checkable model still has checked_ids ({self.checked_ids}) and partially_checked_ids ({self.partially_checked_ids})')
 
     def update_other_table(self, other_table: str, other_ids: list):
         """
@@ -1109,8 +931,15 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         Clears all checked and partially checked states from the model
         and refreshes the corresponding data in the view.
         """
-        self.checked_ids = []
-        self.partially_checked_ids = []
+        name_col = get_name_column(get_view_from_table(self.tableName()))
+
+        for row in range(self.rowCount()):
+            index = self.index(row, name_col)
+            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.CheckStateRole])
+        if self.checked_ids or self.partially_checked_ids:
+            logger_setup.get_logger().critical(f'Error resetting {self.tableName()} checks')
+            logger_setup.get_logger().debug(
+                f'After clear_checks, {self.tableName()} checkable model still has checked_ids ({self.checked_ids}) and partially_checked_ids ({self.partially_checked_ids})')
 
     def update_other_table(self, other_table: str, other_ids: list):
         """
@@ -1215,6 +1044,9 @@ def get_headers(table: str) -> list:
     :return: list of headers if successful, empty list if not
     """
     query = QtS.QSqlQuery()
+    if 'View' in table:
+        show_columns = settings.value(SQLUtils.view_setting_dict[table])
+        return show_columns
     if table == '"References"':
         table = 'References'
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
@@ -1297,7 +1129,7 @@ def description_column(table: str) -> int | None:
     :param table: Name of the SQL database table or view
     :return: Returns the column number starting from 0
     """
-    headers = get_headers(table)
+    headers = get_headers(get_view_from_table(table))
     for header in headers:
         if 'Description' in header:
             return headers.index(header)
@@ -1369,7 +1201,7 @@ def get_edit_view_from_table(table: str):
 
 def column_as_list_current(query: str, col: int | str) -> list | None:
     """
-    Returns a list of items in a column.
+    Returns a list of items in a column. This method reflects uncommitted changes.
     :param col: column index as integer or SQL table column header
     :param query: SQL query of data for table
     :return: list of items in each row for a given column
@@ -1388,12 +1220,14 @@ def column_as_list_current(query: str, col: int | str) -> list | None:
 
 def column_as_list(query: str, col: int | str) -> list | None:
     """
-    Returns a list of items in a column.
+    Returns a list of items in a column. This method reflects only committed changes.
     :param col: column index as integer or SQL table column header
     :param query: SQL query of data for table
     :return: list of items in each row for a given column
     """
     model = SQLiteTableModel(query)
+    if model.last_error:
+        return None
     if isinstance(col, int):
         column = col
     elif isinstance(col, str):
@@ -1413,6 +1247,8 @@ def get_name_from_id(table: str, item_id: int):
     """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
+    if table == '"References"':
+        table = 'References'
     sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
     # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.exec(sql_query):
@@ -1428,12 +1264,22 @@ def get_id_from_name(table: str, name: str) -> int:
     Returns the primary id for a given name record in a table. Queries the database and returns the first column which
     should always be the id column. Gathers the name column from the table headers.
     :param table: name of the table to query (e.g. RockTypes)
-    :param name: name of the RockTypeName (e.g. Basalt, Granite, etc.)
+    :param name: name of the RockTypeName (e.g. Sandstone, Granite, etc.)
     :return: id (e.g. RockTypeID)
     """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
-    sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'
+    if table in ['"References"', 'References']:
+        # Need to use the ViewQuery to access the generated display column
+        show_cols = settings.value('reference_view_columns')
+        name_column = get_name_column(get_view_from_table(table))
+        name_header = show_cols[name_column]
+        query_args = {'show_columns': show_cols, 'where': f'WHERE {show_cols[name_column]}=:name COLLATE NOCASE',
+                      'group_col': f'{show_cols[0]}', 'order_col': f'{name_header}'}
+        view_query = ViewQuery('References', False, **query_args)
+        sql_query = view_query.table_query
+    else:
+        sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'
     logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.prepare(sql_query):
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
@@ -1457,6 +1303,7 @@ def get_total_records(table: str, where:str='') -> int:
     """
     query = QSqlQuery()
     sql_query = f'SELECT COUNT() FROM "{table}" {where}'
+    table = get_view_from_table(table)
     if 'View' in table:
         table = get_table_from_view(table)
         if table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses']:
@@ -1688,8 +1535,8 @@ def display_gps(string: str):
         utm_e_m = utm_easting.split('m')[0]
         utm_northing = string.split(',')[2]
         utm_n_m = utm_northing.split('m')[0]
-        rounded_northing = ' ' + return_rounded(utm_n_m)
-        rounded_easting = ' ' + return_rounded(utm_e_m)
+        rounded_northing = return_rounded(utm_n_m)
+        rounded_easting = return_rounded(utm_e_m)
         string = string.replace(utm_n_m, f'{rounded_northing}')
         string = string.replace(utm_e_m, f'{rounded_easting}')
     else:
@@ -1859,14 +1706,26 @@ def find_sub_items(data_ids: list, table: str):
     if table == 'Samples':
         for sample_id in data_ids:
             aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Aliquots WHERE SampleID={sample_id}')
+            if aliquot_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding nested data")
+                logger_setup.get_logger().debug(f'Error getting AliquotID for SampleID {sample_id}')
+                return None, None, None
             for a_row in range(aliquot_table.rowCount()):
                 aliquot_id = aliquot_table.data(aliquot_table.index(a_row, 0))
                 aliquot_ids.append(aliquot_id)
                 spot_table = SQLiteTableModel(f'SELECT SpotID FROM Spots WHERE AliquotID={aliquot_id}')
+                if spot_table.last_error:
+                    logger_setup.get_logger().critical(f"Error finding nested data")
+                    logger_setup.get_logger().debug(f'Error getting SpotID for AliquotID {aliquot_id}')
+                    return None, None, None
                 for s_row in range(spot_table.rowCount()):
                     spot_id = spot_table.data(spot_table.index(s_row, 0))
                     spot_ids.append(spot_id)
                     UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
+                    if UPb_analysis_table.last_error:
+                        logger_setup.get_logger().critical(f"Error finding nested data")
+                        logger_setup.get_logger().debug(f'Error getting UPbAnalysisID for SpotID {spot_id}')
+                        return None, None, None
                     for row in range(UPb_analysis_table.rowCount()):
                         upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
                         upb_analysis_ids.append(upb_data_id)
@@ -1874,10 +1733,18 @@ def find_sub_items(data_ids: list, table: str):
     elif table == 'Aliquots':
         for aliquot_id in data_ids:
             spot_table = SQLiteTableModel(f'SELECT SpotID FROM Spots WHERE AliquotID={aliquot_id}')
+            if spot_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding nested data")
+                logger_setup.get_logger().debug(f'Error getting SpotID for AliquotID {aliquot_id}')
+                return None, None
             for s_row in range(spot_table.rowCount()):
                 spot_id = spot_table.data(spot_table.index(s_row, 0))
                 spot_ids.append(spot_id)
                 UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
+                if UPb_analysis_table.last_error:
+                    logger_setup.get_logger().critical(f"Error finding nested data")
+                    logger_setup.get_logger().debug(f'Error getting UPbAnalysisID for SpotID {spot_id}')
+                    return None, None
                 for row in range(UPb_analysis_table.rowCount()):
                     upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
                     upb_analysis_ids.append(upb_data_id)
@@ -1885,6 +1752,10 @@ def find_sub_items(data_ids: list, table: str):
     elif table == 'Spots':
         for spot_id in data_ids:
             UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
+            if UPb_analysis_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding nested data")
+                logger_setup.get_logger().debug(f'Error getting UPbAnalysisID for SpotID {spot_id}')
+                return None
             for row in range(UPb_analysis_table.rowCount()):
                 upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
                 upb_analysis_ids.append(upb_data_id)
@@ -2010,10 +1881,13 @@ class TreeItem:
     def setData(self, column: int, value: typing.Any):
         if column < 0 or column >= self.itemData.count():
             return False
-        else:
+        elif isinstance(self.itemData, QtS.QSqlRecord):
             field = self.itemData.field(column)
             self.itemData.setValue(field.name(), value)
             return True
+        elif isinstance(self.itemData, SQLiteTableModel.MockRecord):
+            # The itemData is a mock record
+            self.itemData.setValue(column, value)
 
     def setRecord(self, record: QtS.QSqlRecord):
         self.itemData = record
@@ -2096,6 +1970,9 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.base_query_sql = f"{self.base_query} WHERE "
         if 'FROM LimitedAliquots' in self.base_query or 'FROM Ages' in self.base_query:
             self.source_model = SQLiteTableModel(query=self.base_query)
+            if self.source_model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying the selected table')
+                return
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
             self.source_model.setQuery(f'{self.base_query}')
@@ -2158,7 +2035,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                     item = TreeItem(record, parent)
                     parent.appendChild(item)
                     # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
-                    logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
+                    # logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
                     new_child_ids = self.find_children(child_id)
                     self.add_to_tree(new_child_ids, item)
 
@@ -2202,6 +2079,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         if not index.isValid():
             return self.root_item
         else:
+            # index = self.index(index.row(), index.column(), index.parent())
             item = index.internalPointer()
             if not item:
                 logger_setup.get_logger().error(f"Error finding item for tree index")
@@ -2294,66 +2172,66 @@ class TreeModel(QtC.QAbstractProxyModel):
                     description_col = header_col
                     break
             if description_col is not None:
-                return super().data(self.index(index.row(), description_col, index.parent()), QtC.Qt.ItemDataRole.DisplayRole)
+                tool_tip = item.data(description_col)
+                return tool_tip
         return None
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.EditRole:
-            sourceIndex = self.mapToSource(index)
-            if sourceIndex.isValid():
-                logger_setup.get_logger().info(
-                    f'Setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
-                treeItem = self.getItem(index)
-                if index.column() == 0:
-                    # Show name in first column
-                    dataCol = 3
-                elif index.column() == 1:
-                    # Show item ID in second column
-                    dataCol = 0
-                elif index.column() == 2:
-                    # Show parent ID in third column
-                    dataCol = 1
-                elif index.column() == 3:
-                    # Show parent row in third column
-                    dataCol = 2
-                else:
-                    dataCol = index.column()
+            logger_setup.get_logger().info(
+                f'Setting data in {self.table} tree at {index.row()},{index.column()}')
+            treeItem = self.getItem(index)
+            if index.column() == 0:
+                # Show name in first column
+                dataCol = 3
+            elif index.column() == 1:
+                # Show item ID in second column
+                dataCol = 0
+            elif index.column() == 2:
+                # Show parent ID in third column
+                dataCol = 1
+            elif index.column() == 3:
+                # Show parent row in third column
+                dataCol = 2
+            else:
+                dataCol = index.column()
+            if not isinstance(self.source_model, SQLiteTableModel):
+                # The model is connected to the database
                 # Get the updated modified timestamp
-                modified_col = self.source_model.columnCount() - 1
-                source_modified_index = self.source_model.index(sourceIndex.row(), modified_col, QtC.QModelIndex())
-                proxy_modified_index = self.mapFromSource(source_modified_index)
-                if proxy_modified_index.isValid() and source_modified_index.isValid():
-                    # If the changed data index and the modified timestamp index are valid for both models, change the data
-                    name_header = self.source_model.headerData(sourceIndex.column(), QtC.Qt.Orientation.Horizontal)
-                    table_id = self.source_model.data(sourceIndex.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole)
-                    query = QtS.QSqlQuery()
-                    query.prepare(f"UPDATE {self.table} SET {name_header}=:value WHERE {self.id_header}={table_id}")
-                    query.bindValue(":value", value)
-                    if not query.exec():
-                        logger_setup.get_logger().critical(f'Error editing data in {self.table}')
-                        logger_setup.get_logger().debug(
-                            f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                        return False
-                    modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
-                    treeItem.setData(dataCol, value)
-                    self.dataChanged.emit(index, index)
-                    update_modified_timestamp(self.table, [table_id])
-                    treeItem.setData(modified_col, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
-                    self.dataChanged.emit(index, index)
+                sourceIndex = self.mapToSource(index)
+                if sourceIndex.isValid():
                     logger_setup.get_logger().info(
-                        f'Successfully set data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()} to {value}')
-                    return True
-                else:
-                    logger_setup.get_logger().critical(f"Error editing data in {self.table}")
-                    logger_setup.get_logger().debug(
-                        f'Invalid indices for setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
-                    return False
-        return False
+                        f'Setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
+                    modified_col = self.source_model.columnCount() - 1
+                    source_modified_index = self.source_model.index(sourceIndex.row(), modified_col, QtC.QModelIndex())
+                    proxy_modified_index = self.mapFromSource(source_modified_index)
+                    if proxy_modified_index.isValid() and source_modified_index.isValid():
+                        # If the changed data index and the modified timestamp index are valid for both models, change the data
+                        name_header = self.source_model.headerData(sourceIndex.column(), QtC.Qt.Orientation.Horizontal)
+                        table_id = self.source_model.data(sourceIndex.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole)
+                        query = QtS.QSqlQuery()
+                        query.prepare(f"UPDATE {self.table} SET {name_header}=:value WHERE {self.id_header}={table_id}")
+                        query.bindValue(":value", value)
+                        if not query.exec():
+                            logger_setup.get_logger().critical(f'Error editing data in {self.table}')
+                            logger_setup.get_logger().debug(
+                                f'Error setting data in {self.table} tree at {sourceIndex.row()},{sourceIndex.column()}')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            return False
+                        modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
+                        update_modified_timestamp(self.table, [table_id])
+                        treeItem.setData(modified_col, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
+                        self.dataChanged.emit(index, index)
+            treeItem.setData(dataCol, value)
+            self.dataChanged.emit(index, index)
+            logger_setup.get_logger().info(
+                f'Successfully set data in {self.table} tree at {index.row()},{index.column()} to {value}')
+            return True
+        return super().setData(index, value, role)
 
     def moveItem(self, item_id: int, row: int, p_id: str):
         """
@@ -2673,6 +2551,7 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def dropMimeData(self, data: QtC.QMimeData, action: QtC.Qt.DropAction, row: int, column: int,
                      parent: QtC.QModelIndex):
+
         if not self.canDropMimeData(data, action, row, column, parent):
             return False
         encodedData = data.data('application/x-qabstractitemmodeldatalist')
@@ -2821,6 +2700,9 @@ class CheckableTreeModel(TreeModel):
                 self.base_query_sql = f"{self.base_query} WHERE "
         if 'FROM LimitedAliquots' in self.base_query or 'FROM Ages' in self.base_query:
             self.source_model = SQLiteTableModel(query=self.base_query)
+            if self.source_model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying the selected table')
+                return
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
             self.source_model.setQuery(f'{self.base_query}')
@@ -3001,11 +2883,39 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
         super().__init__(parent)
         self.setRecursiveFilteringEnabled(True)  # Enables recursive filtering for tree structures
         self.view = view  # The view containing the model (e.g., QTreeView)
+        self.filter_column = 0  # Default column to filter on
+        self.filter_ids = []  # List of IDs to filter by
+
+    def data(self, index: QtC.QModelIndex, role: QtC.Qt.ItemDataRole = ...):
+        if role == Qt.ItemDataRole.ToolTipRole:
+            # If the role is for tooltips, return the data from the source model
+            tree_model, source_indexes = find_tree_model(self, [index])
+            if tree_model and source_indexes:
+                return tree_model.data(source_indexes[0], role)
+        else:
+            # For other roles, use the default implementation
+            return super().data(index, role)
+
+    def mapToSource(self, proxy_index):
+        # Maps the proxy index to the source model index
+        if not proxy_index.isValid():
+            return QtC.QModelIndex()
+        source_index = super().mapToSource(proxy_index)
+        if source_index.isValid():
+            pointed_index = self.sourceModel().index(source_index.row(), source_index.column(), source_index.parent())
+            pointer = pointed_index.internalPointer()
+            return pointed_index
 
     def filterAcceptsRow(self, source_row, source_parent):
         # Override this method to implement custom filtering logic
         model = self.sourceModel()
-
+        # If there is a list of filter IDs, check if the current row's ID matches any of them
+        if self.filter_column and self.filter_ids:
+            item_id = model.data(model.index(source_row, self.filter_column, source_parent),
+                                 QtC.Qt.ItemDataRole.DisplayRole)
+            if item_id not in self.filter_ids:
+                return False
+        # If no filter IDs are set or the current row's ID matches, proceed with the default filtering logic
         # Iterate through visible columns of the given row to check for a match
         column_count = model.columnCount(source_parent)
         for column in range(column_count):
@@ -3017,10 +2927,10 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
             # If the filter pattern is empty, accept all rows
             if self.filterRegularExpression().pattern() == '':
                 return True
-            logger_setup.get_logger().debug(f'Checking if {index.data()} matches filter {self.filterRegularExpression().pattern()}')
+            # logger_setup.get_logger().debug(f'Checking if {index.data()} matches filter {self.filterRegularExpression().pattern()}')
             # If the current column's data matches the filter, accept this row
             if index.data() is not None and self.filterRegularExpression().match(str(index.data())).hasMatch():
-                logger_setup.get_logger().debug(f'We have a match')
+                # logger_setup.get_logger().debug(f'We have a match')
                 return True
         # If no column matches, reject this row
         return False
@@ -3053,8 +2963,16 @@ def find_tree_model(model, indexes: list | None):
     else:
         try:
             source_model = model.sourceModel()
+            source_indexes = []
             if indexes:
-                source_indexes = [model.mapToSource(index) for index in indexes]
+                for index in indexes:
+                    # Map the index to the index in the source model
+                    source_index = model.mapToSource(index)
+                    # Use the index method of the source model to populate the internal pointer if applicable
+                    pointed_index = source_model.index(source_index.row(), source_index.column(), source_index.parent())
+                    if not pointed_index.isValid():
+                        pointed_index = QtC.QModelIndex()
+                    source_indexes.append(pointed_index)
             else:
                 source_indexes = indexes
             tree_model, tree_indexes = find_tree_model(source_model, source_indexes)
@@ -3528,6 +3446,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.name_col = get_name_column(get_view_from_table(self.table))
         if self.name_col:
             self.proxy_model.setFilterKeyColumn(self.name_col)
+            show_column(self, self.name_col)
         self.view().setMinimumWidth(self.view().sizeHint().width())
 
     def update_filter(self, text):
@@ -3557,21 +3476,25 @@ class CheckableComboBox(QtW.QComboBox):
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
             add_action = None
             clear_all_action = menu.addAction("Clear All Checks")
+            select_all_action = menu.addAction("Select All")
             delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
         elif self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses'):
             edit_action = None
             add_action = None
             clear_all_action = None
+            select_all_action = None
             delete_action = None
         elif self.model().rowCount() !=0:
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = menu.addAction("Clear All Checks")
+            select_all_action = menu.addAction("Select All")
             delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
         else:
             edit_action = None
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = None
+            select_all_action = None
             delete_action = None
         action = menu.exec(self.mapToGlobal(event.pos()))
         if action == edit_action:
@@ -3580,6 +3503,8 @@ class CheckableComboBox(QtW.QComboBox):
             self.add_triggered.emit(self)
         elif action == clear_all_action:
             self.clear_all_checks()
+        elif action == select_all_action:
+            self.select_all()
         elif action == delete_action:
             self.delete_triggered.emit(self)
 
@@ -3593,20 +3518,37 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setText("")
         logger_setup.get_logger().info(f'Cleared all checks in {self.table} combo box')
 
+    def select_all(self):
+        for row in range(self.model().rowCount()):
+            index = self.model().index(row, self.name_col)
+            self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+        checked_ids = self.model().checked_ids
+        checked_names = []
+        for id in checked_ids:
+            checked_names.append(get_name_from_id(self.table, id))
+        text = ', '.join(checked_names)
+        self.set_line_edit_text(text)
+        logger_setup.get_logger().info(f'Selected all items in {self.table} combo box')
+
     def showPopup(self):
         if self.proxy_model.rowCount() == 0:
             return
         if self.width() > self.view().sizeHintForColumn(self.name_col):
             self.view().setFixedWidth(self.width())
-            self.view().setColumnWidth(self.name_col, self.width())
+            # self.view().setColumnWidth(self.name_col, self.width())
         else:
             self.view().setFixedWidth(self.view().sizeHintForColumn(self.name_col))
         self.view().setFixedHeight(self.view().sizeHint().height())
         super().showPopup()
         self.popup_shown = True
+        logger_setup.get_logger().debug(f'Popup shown in {self.table} combo box')
 
     def hidePopup(self):
         if self.popup_shown:
+            if not self.single_click:
+                # Check if the cursor is still over the view, if so, do not hide the popup
+                if self.view().rect().contains(self.view().mapFromGlobal(QtG.QCursor.pos())):
+                    return
             super().hidePopup()
             self.closing.emit()
             self.popup_shown = False
@@ -3642,6 +3584,7 @@ class CheckableComboBox(QtW.QComboBox):
                             return True
                         self.stop_typing()
                         self.view().setCurrentIndex(QtC.QModelIndex())
+                        source_index = QtC.QModelIndex()
                     self.clear_all_checks()
                     self.model().setData(source_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                     self.stop_typing()
@@ -3841,6 +3784,7 @@ class TreeCombobox(QtW.QComboBox):
         self.closedOnLineEditClick = False
         self.programmatic_text_change = False
         self.checkable = False
+        self.expand_collapse = False
         self.popup_shown = False
         self.typing = False
         self.context_menu = False
@@ -3852,9 +3796,19 @@ class TreeCombobox(QtW.QComboBox):
         # self.lineEdit().installEventFilter(self)
         self.lineEdit().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.lineEdit().textEdited.connect(self.update_filter)
+        self.setCompleter(None)
+
+    def start_typing(self):
+        self.typing = True
+        self.lineEdit().grabKeyboard()
+
+    def stop_typing(self):
+        self.typing = False
+        self.lineEdit().releaseKeyboard()
+        self.proxy_model.setFilterRegularExpression('')
 
     def set_text(self, text):
-        if not self.checkable:
+        if not self.checkable and not self.typing:
             self.programmatic_text_change = True
             self.lineEdit().setText(text)
             self.programmatic_text_change = False
@@ -3873,8 +3827,7 @@ class TreeCombobox(QtW.QComboBox):
         self.treeView.setSortingEnabled(False)
 
     def update_filter(self, text):
-        self.typing = True
-        self.lineEdit().grabKeyboard()
+        self.start_typing()
         # logger_setup.get_logger().debug(f'Setting filter to: {text}')
         search_expression = QtC.QRegularExpression(text, options=QtC.QRegularExpression.PatternOption.CaseInsensitiveOption)
         self.proxy_model.setRecursiveFilteringEnabled(True)
@@ -3926,6 +3879,12 @@ class TreeCombobox(QtW.QComboBox):
             super().setCurrentIndex(index)
             # self.programmatic_text_change = False
 
+    def setEditText(self, text):
+        if not self.typing:
+            # self.programmatic_text_change = True
+            self.lineEdit().setText(text)
+            # self.programmatic_text_change = False
+
     def showPopup(self):
         tree_model, indexes = find_tree_model(self.model(), None)
         if not tree_model:
@@ -3934,23 +3893,29 @@ class TreeCombobox(QtW.QComboBox):
             return
         if not self.typing:
             restore_expanded_state(tree_model.table, self.treeView)
+        super().showPopup()
         self.treeView.resizeColumnToContents(0)
         # print(self.treeView.sizeHintForColumn(0))
-        self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
-        # self.treeView.setFixedHeight(self.treeView.sizeHint().height())
-        super().showPopup()
+        if self.treeView.width() < self.treeView.sizeHintForColumn(0):
+            self.treeView.setFixedWidth(self.treeView.sizeHintForColumn(0))
+        if self.treeView.height() < self.treeView.sizeHint().height():
+            self.treeView.setFixedHeight(self.treeView.sizeHint().height())
         # logger_setup.get_logger().debug(f'Popup showed: {self.treeView.isVisible()}')
         self.popup_shown = True
 
     def hidePopup(self):
         if self.popup_shown:
+            if self.treeView.rect().contains(self.treeView.mapFromGlobal(QtG.QCursor.pos())):
+                # Check if the cursor is still on the view
+                if self.expand_collapse:
+                    # The click was an expand/collapse action and should not close the popup
+                    return
             super().hidePopup()
             model, indexes = find_tree_model(self.model(), None)
             if model and not self.typing:
                 save_expanded_state(model.table, self.treeView)
             self.popup_shown = False
-            self.typing = False
-            self.lineEdit().releaseKeyboard()
+            self.stop_typing()
             self.closing.emit()
 
     def focusOutEvent(self, event):
@@ -3982,19 +3947,19 @@ class TreeCombobox(QtW.QComboBox):
                     QtW.QStyle.SubElement.SE_TreeViewDisclosureItem,
                     option, self.treeView)
                 if expand_button_rect.contains(event.pos()):
-                    self.typing = False
-                    self.lineEdit().releaseKeyboard()
+                    self.stop_typing()
                     self.set_text(index.data(QtC.Qt.ItemDataRole.DisplayRole))
+                    self.expand_collapse = False
                     self.hidePopup()
                     return True
                 else:
-                    self.typing = False
-                    self.lineEdit().releaseKeyboard()
+                    self.stop_typing()
                     if self.treeView.isExpanded(index):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
                     save_expanded_state(model.table, self.treeView)
+                    self.expand_collapse = True
                     self.showPopup()
                     return True
             return super().eventFilter(obj, event)
@@ -4021,7 +3986,13 @@ class CheckableTreeCombobox(TreeCombobox):
         self.treeView.setFocusProxy(self.lineEdit())
         self.setView(self.treeView)
         self.lineEdit().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.lineEdit().textChanged.connect(self.le_text_changed)
         self.context_menu = False
+
+    def le_text_changed(self):
+        # print(f'{self.objectName()} line edit text changed: {self.lineEdit().text()}')
+        if not self.typing:
+            self.update_line_edit()
 
     def setModel(self, model: CheckableTreeModel):
         super().setModel(model)
@@ -4035,6 +4006,8 @@ class CheckableTreeCombobox(TreeCombobox):
     def update_line_edit(self):
         self.programmatic_text_change = True
         current_line_edit_text = self.lineEdit().text()
+        # If the line edit contains a comma, it is likely a list of items
+        current_names = current_line_edit_text.split('; ')
         tree_model, indexes = find_tree_model(self.model(), None)
         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
             QtC.QModelIndex())
@@ -4043,16 +4016,21 @@ class CheckableTreeCombobox(TreeCombobox):
             self.lineEdit().setText('-')
         elif checked_indices:
             # At least some items are fully checked and should be included in the list
-            new_line_edit_text = str(self.model().data(self.treeView.currentIndex(), QtC.Qt.ItemDataRole.DisplayRole))
+            new_names = []
+            for index in checked_indices:
+                new_name = index.data(QtC.Qt.ItemDataRole.DisplayRole)
+                if new_name not in new_names and new_name != '':
+                    new_names.append(new_name)
             if current_line_edit_text == '' or current_line_edit_text == '-':
-                self.lineEdit().setText(new_line_edit_text)
+                self.lineEdit().setText('; '.join(new_names))
             else:
-                if new_line_edit_text not in current_line_edit_text:
-                    text = ', '.join([current_line_edit_text, new_line_edit_text])
+                if new_names != current_names:
+                    text = ', '.join(new_names)
                     self.lineEdit().setText(text)
         else:
             # No items are checked, so the line edit should be blank
             self.lineEdit().setText('')
+        # logger_setup.get_logger().debug(f'Line edit text updated to {self.lineEdit().text()}')
         self.programatic_text_change = False
 
     def clear_all_checks(self):
@@ -4083,6 +4061,19 @@ class CheckableTreeCombobox(TreeCombobox):
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
 
+    def hidePopup(self):
+        if self.popup_shown:
+            # Check if the cursor is still over the view or the combo box and the combo box has focus, if so, do not hide the popup
+            if (self.treeView.rect().contains(self.treeView.mapFromGlobal(QtG.QCursor.pos()))
+                or self.rect().contains(self.mapFromGlobal(QtG.QCursor.pos()))) and self.hasFocus():
+                if not self.single_click:
+                    return
+                if self.expand_collapse:
+                    # The click was an expand/collapse action and should not close the popup
+                    return
+            super().hidePopup()
+            self.update_line_edit()
+
     def eventFilter(self, obj, event):
         if obj == self.treeView.viewport():
             if event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.LeftButton:
@@ -4103,6 +4094,7 @@ class CheckableTreeCombobox(TreeCombobox):
                 expand_button_rect = self.treeView.style().subElementRect(QtW.QStyle.SubElement.SE_TreeViewDisclosureItem,
                                                                  option, self.treeView)
                 if expand_button_rect.contains(event.pos()):
+                    # This returns true when the expand/collapse icon is NOT clicked
                     if self.single_click:
                         # Was the only selected item unchecked? If so, set the current index to the root before clearing all checks
                         tree_model, indexes = find_tree_model(self.model(), None)
@@ -4112,15 +4104,15 @@ class CheckableTreeCombobox(TreeCombobox):
                             self.treeView.setCurrentIndex(QtC.QModelIndex())
                         self.clear_all_checks()
                         self.treeView.toggle_check_state(self.treeView.currentIndex())
-                        self.typing = False
-                        self.lineEdit().releaseKeyboard()
+                        self.stop_typing()
                         self.set_line_edit_text(self.treeView.currentIndex().data(QtC.Qt.ItemDataRole.DisplayRole))
+                        self.expand_collapse = True
                         self.hidePopup()
                     else:
                         self.treeView.toggle_check_state(self.treeView.currentIndex())
-                        self.typing = False
+                        self.stop_typing()
                         self.update_line_edit()
-                        self.lineEdit().releaseKeyboard()
+                        self.expand_collapse = False
                         self.showPopup()
                     return True
                 else:
@@ -4128,18 +4120,17 @@ class CheckableTreeCombobox(TreeCombobox):
                         tree_model, indexes = find_tree_model(self.model(), None)
                     else:
                         tree_model = self.model()
-                    self.typing = False
-                    self.lineEdit().releaseKeyboard()
+                    self.stop_typing()
                     if self.treeView.isExpanded(index):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
                     save_expanded_state(tree_model.table, self.treeView)
+                    self.expand_collapse = True
                     self.showPopup()
                     return True
             elif event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.RightButton:
-                self.typing = False
-                self.lineEdit().releaseKeyboard()
+                self.stop_typing()
                 self.show_context_menu(event.pos())
                 return True
             return super().eventFilter(obj, event)
@@ -4326,7 +4317,7 @@ def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
     else:
         comboBox.setCurrentText(text)
 
-def show_column(comboBox: QtW.QComboBox, column: str):
+def show_column(comboBox: QtW.QComboBox, column: str | int):
     try:
         if comboBox.proxy_model:
             model = comboBox.proxy_model
@@ -4335,14 +4326,17 @@ def show_column(comboBox: QtW.QComboBox, column: str):
     except AttributeError:
         model = comboBox.model()
     if model:
-        for col in range(model.columnCount()):
-            header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if header == column:
-                comboBox.setModelColumn(col)
-                tree_model, indexes = find_tree_model(model, None)
-                if isinstance(model, QtC.QSortFilterProxyModel) and not tree_model:
-                    model.sort(col, QtC.Qt.SortOrder.AscendingOrder)
-                return
+        if isinstance(column, str):
+            for col in range(model.columnCount()):
+                header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if header == column:
+                    column = col
+                    break
+        comboBox.setModelColumn(column)
+        tree_model, indexes = find_tree_model(model, None)
+        if isinstance(model, QtC.QSortFilterProxyModel) and not tree_model:
+            model.sort(column, QtC.Qt.SortOrder.AscendingOrder)
+        return
 
 def comboBox_display_table(comboBox):
     comboBox.tableView.resizeColumnsToContents()
@@ -4532,6 +4526,9 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             model = proxy_model
     elif table == 'Ages':
         model = SQLiteTableModel('SELECT * FROM Ages')
+        if model.last_error:
+            logger_setup.get_logger().error(f'Error setting up Ages table model')
+            return
     else:
         model = DisplayRoundedModel()
         set_table(model, table)
@@ -4965,11 +4962,11 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     """
         Take the checked ids from a table and update that field in the second column of a many-to-many table with another table.
         The relationship must be many-to-many, so the checked ids may be partial.
-        :param table: table with checked data
-        :param checked_ids: ids of checked items in the table
-        :param partially_checked_ids: ids of partially checked items in the table
-        :param many_table: first table in the manny-to-many table to update
-        :param first_table_ids: ids to update in the first table
+        :param table: table with checked data (e.g. Regions)
+        :param checked_ids: ids of checked items in the table (e.g. list of region IDs)
+        :param partially_checked_ids: ids of partially checked items in the table (e.g. list of region IDs that are partially checked)
+        :param many_table: many-to-many table to update (e.g. Samles_Regions)
+        :param first_table_ids: ids to update in the first table (e.g. list of sample IDs to link to the checked region IDs)
         :return: True if successful or not needed, False if not
     """
     first_table = many_table.split('_')[0]
@@ -4994,7 +4991,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
         pair = (first_id, second_id)
         if pair not in current_pairs:
             current_pairs.append(pair)
-    model_query = f"SELECT {second_table_id_header} FROM {second_table}"
+    model_query = f'SELECT {second_table_id_header} FROM "{second_table}"'
     query_model.setQuery(model_query)
     if query_model.lastError().isValid():
         logger_setup.get_logger().critical(f'Error getting {table} checks for {first_table}')
@@ -5018,7 +5015,7 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
     if to_add == [] and to_remove == []:
         logger_setup.get_logger().info(f'No changes to {many_table}')
         release_savepoint('update_many_table')
-        return False
+        return True
     if to_remove:
         for id in to_remove:
             query.prepare(

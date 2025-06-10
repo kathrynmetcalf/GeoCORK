@@ -22,6 +22,8 @@ from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import create_savepoint, rollback_savepoint, release_savepoint
 from Functions.Settings_manager import SettingsManager
+from ui.EditView import EditView
+
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
@@ -871,6 +873,8 @@ class ImportWizardDialog(QWidget):
             return
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
+        elif table != get_view_from_table(table):
+            dlg = EditView(self, table)
         else:
             dlg = EditTable(self, table)
         dlg.exec()
@@ -1330,16 +1334,16 @@ class ImportWizardDialog(QWidget):
                 len(target_table.selectionModel().selectedIndexes()) > 1):
             return
 
-        # Check if the user wants to flash fill
-        reply = QMessageBox.question(
-            self, "Flash Fill Downward",
-            "Do you want to auto-fill downward with this value for blank cells?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-
-        if reply == QMessageBox.StandardButton.Yes:
-            self.flash_fill_downward(target_table, row, column, current_value)
+        ## Check if the user wants to flash fill - disabled for now
+        # reply = QMessageBox.question(
+        #     self, "Flash Fill Downward",
+        #     "Do you want to auto-fill downward with this value for blank cells?",
+        #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        # )
+        #
+        # if reply == QMessageBox.StandardButton.Yes:
+        #     self.flash_fill_downward(target_table, row, column, current_value)
 
     def flash_fill_downward(self, target_table, start_row, column, value):
         """
@@ -1554,7 +1558,7 @@ class ImportWizardDialog(QWidget):
         # todo analysis method not checking
         try:
             table = model.tableName()
-            name_column = get_name_column(get_table_from_view(table))
+            name_column = get_name_column(get_view_from_table(table))
         except AttributeError:
             table = model.table  # for trees
             name_column = 0  # for trees
@@ -1571,6 +1575,7 @@ class ImportWizardDialog(QWidget):
                     checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
                     checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
                     source_checked_row = row
+                    break
             if checked_item_name is None or checked_item_id is None:
                 return
             logger_setup.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")

@@ -20,6 +20,7 @@ from Functions.Widget_classes import (
     save_expanded_state, restore_expanded_state, TreeModel,
     ReadableProxyModel, get_view_from_table
 )
+from Functions.Database_views import ViewQuery
 
 
 class DisplayTablesSimplified(QtW.QWidget):
@@ -128,6 +129,9 @@ class DisplayTablesSimplified(QtW.QWidget):
             else:
                 table_query = f'SELECT * FROM {table}'
             self.model = SQLiteTableModel(table_query, self.db_file)
+            if self.model.last_error:
+                logger_setup.get_logger().critical(f'Error loading {self.table}')
+                return
 
             self.tree_model = TreeModel(source_model=self.model, db=self.database)
             self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -151,6 +155,9 @@ class DisplayTablesSimplified(QtW.QWidget):
                 view_query = ViewQuery(self.data_table, False, **query_args)
                 table_query = view_query.table_query
                 model = SQLiteTableModel(table_query, database=self.db_file)
+                if model.last_error:
+                    logger_setup.get_logger().critical(f'Error loading {self.table}')
+                    return
                 self.table_proxy_model.setSourceModel(model)
             elif self.table == 'Spots':
                 self.show_cols = settings.value('spot_view_columns')
@@ -158,6 +165,9 @@ class DisplayTablesSimplified(QtW.QWidget):
                 view_query = ViewQuery(self.data_table, False, **query_args)
                 table_query = view_query.table_query
                 model = SQLiteTableModel(table_query, database=self.db_file)
+                if model.last_error:
+                    logger_setup.get_logger().critical(f'Error loading {self.table}')
+                    return
                 self.table_proxy_model.setSourceModel(model)
             elif self.table == 'UPbAnalyses':
                 self.show_cols = settings.value('upb_analysis_view_columns')
@@ -165,6 +175,9 @@ class DisplayTablesSimplified(QtW.QWidget):
                 view_query = ViewQuery(self.data_table, False, **query_args)
                 table_query = view_query.table_query
                 model = SQLiteTableModel(table_query, database=self.db_file)
+                if model.last_error:
+                    logger_setup.get_logger().critical(f'Error loading {self.table}')
+                    return
                 self.table_proxy_model.setSourceModel(model)
             else:
                 logger_setup.get_logger().info(f'Switching to table view for {self.table}')
@@ -176,12 +189,19 @@ class DisplayTablesSimplified(QtW.QWidget):
                     view_query = ViewQuery(self.data_table, False, **query_args)
                     table_query = view_query.table_query
                     model = SQLiteTableModel(table_query, database=self.db_file)
+                    if model.last_error:
+                        logger_setup.get_logger().critical(f'Error loading {self.table}')
+                        return
                     self.table_proxy_model.setSourceModel(model)
                 elif self.table == 'References':
                     self.show_cols = settings.value('reference_view_columns')
+                    query_args = {'show_columns': self.show_cols}
                     view_query = ViewQuery(self.data_table, False, **query_args)
                     table_query = view_query.table_query
                     model = SQLiteTableModel(table_query, database=self.db_file)
+                    if model.last_error:
+                        logger_setup.get_logger().critical(f'Error loading {self.table}')
+                        return
                     self.table_proxy_model.setSourceModel(model)
                 else:
                     # self.model.setTable(table)

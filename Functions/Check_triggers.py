@@ -357,6 +357,8 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
     age_model = None
     if 'ID' in old_column and 'ID' in young_column:
         age_model = SQLiteTableModel('SELECT * FROM Ages')
+        if age_model.last_error:
+            return f'Unable to access Ages table', None
     for pair in pairs:
         if pair[0] == old_column:
             new_old = pair[1]
@@ -390,6 +392,8 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
     age_model = None
     if 'ID' in old_column and 'ID' in young_column:
         age_model = SQLiteTableModel('SELECT * FROM Ages')
+        if age_model.last_error:
+            return f'Unable to access Ages table', None
     for record in all_records:
         if record[0] == old_column:
             new_old = record[1]

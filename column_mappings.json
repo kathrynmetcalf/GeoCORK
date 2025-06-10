@@ -385,5 +385,64 @@
         "21": {
             "field": "207Pb/206PbAgeError"
         }
+    },
+    "Surpless_2024": {
+        "1": {
+            "field": "Uppm"
+        },
+        "0": {
+            "field": "Spot Name"
+        },
+        "2": {
+            "field": "206Pb/204Pb"
+        },
+        "3": {
+            "field": "U/Th"
+        },
+        "4": {
+            "field": "206Pb/207Pb"
+        },
+        "5": {
+            "field": "206Pb/207PbError"
+        },
+        "6": {
+            "field": "207Pb/235U"
+        },
+        "7": {
+            "field": "207Pb/235UError"
+        },
+        "8": {
+            "field": "206Pb/238U"
+        },
+        "9": {
+            "field": "206Pb/238UError"
+        },
+        "10": {
+            "field": "ErrorCorr/Rho"
+        },
+        "11": {
+            "field": "206Pb/238UAge"
+        },
+        "12": {
+            "field": "206Pb/238UAgeError"
+        },
+        "13": {
+            "field": "207Pb/235UAge"
+        },
+        "14": {
+            "field": "207Pb/235UAgeError"
+        },
+        "15": {
+            "field": "207Pb/206PbAge"
+        },
+        "16": {
+            "field": "207Pb/206PbAgeError"
+        },
+        "17": {
+            "field": "BestAge"
+        },
+        "18": {
+            "field": "BestAgeError"
+        }
     }
 }

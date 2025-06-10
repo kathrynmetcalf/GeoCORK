@@ -18,11 +18,13 @@ from Functions.Widget_classes import (
     CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column, set_table, populate_many_combo_checks,
     populate_model_checks, WordWrapDelegate, get_columns, get_readable_header, find_sub_items, get_id_from_name,
     add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids, TreeContextMenu,
-    expand_collapse, get_name_from_id
+    expand_collapse, get_name_from_id, get_view_from_table, column_as_list, TreeSortFilterProxyModel
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
 from Functions.Settings_manager import SettingsManager
+from ui.EditView import EditView
+
 settings = SettingsManager().settings
 from Functions.Database_manager import update_database
 from Functions.Database_views import ViewQuery
@@ -47,6 +49,9 @@ class SetSelectedValues(QtW.QDialog):
         self.widget.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Expanding)
         if isinstance(self.widget, QtW.QComboBox):
             self.widget.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContents)
+            if isinstance(self.widget, CheckableComboBox | CheckableTreeCombobox):
+                self.widget.add_triggered.connect(parent_window.add_tag_popup)
+                self.widget.edit_triggered.connect(parent_window.edit_tag_popup)
         self.commit_button = QtW.QPushButton('Commit')
         self.cancel_button = QtW.QPushButton('Cancel')
         self.commit_button.autoDefault()
@@ -116,17 +121,31 @@ class EditTreeView(QtW.QDialog):
         if self.table == 'Aliquots':
             self.show_cols = settings.value('aliquot_edit_columns')
             self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' else None
-            if self.parent_id_header:
+            if self.parent_id_header and self.parent_id:
                 self.where = f' WHERE {self.parent_id_header} = {self.parent_id}'
-        if self.table_item_ids is not None:
-            if len(self.table_item_ids) == 1:
-                sql_where_str = f'= {self.table_item_ids[0]}'
-            else:
-                sql_where_str = f'IN {tuple(self.table_item_ids)}'
-            if self.where == '':
-                self.where = f' WHERE {self.show_cols[0]} {sql_where_str}'
-            else:
-                self.where = f'{self.where} AND {self.show_cols[0]} {sql_where_str}'
+            elif self.parent_id_header and self.table_item_ids:
+                # If no parent ID header is set, get the list of parent IDs matching the item IDs
+                if len(self.table_item_ids) == 1:
+                    aliquot_where = f' WHERE AliquotID = {self.table_item_ids[0]}'
+                elif len(self.table_item_ids) > 1:
+                    aliquot_where = f' WHERE AliquotID IN {tuple(self.table_item_ids)}'
+                else:
+                    aliquot_where = f' WHERE AliquotID IS NULL'
+                parent_ids = column_as_list(
+                    f'SELECT SampleID FROM Aliquots {aliquot_where}', 'SampleID')
+                if len(parent_ids) == 1:
+                    self.where = f' WHERE {self.parent_id_header} = {parent_ids[0]}'
+                elif len(parent_ids) > 1:
+                    self.where = f' WHERE {self.parent_id_header} IN {tuple(parent_ids)}'
+            elif self.table_item_ids is not None:
+                if len(self.table_item_ids) == 1:
+                    sql_where_str = f'= {self.table_item_ids[0]}'
+                else:
+                    sql_where_str = f'IN {tuple(self.table_item_ids)}'
+                if self.where == '':
+                    self.where = f' WHERE {self.show_cols[0]} {sql_where_str}'
+                else:
+                    self.where = f'{self.where} AND {self.show_cols[0]} {sql_where_str}'
         self.create_model()
         self.combo = None
         self.combo_index = QtC.QModelIndex()
@@ -155,11 +174,16 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Finished opening edit window for {self.table}')
 
     def create_model(self):
-        query_args = {'show_columns': self.show_cols,
+        query_args = {'show_columns': self.show_cols, 'where': self.where,
                       'group_col': f'{self.show_cols[0]}', 'order_col': f'{self.name_header}'}
-        view_query = ViewQuery('Samples', False, **query_args)
+        view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
         self.model = SQLiteTableModel(table_query)
+        if self.model.last_error:
+            logger_setup.get_logger().critical(f'Error displaying {self.table} table')
+            logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+            return
+        self.model.set_table(self.table)
         if self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.model)
@@ -190,8 +214,25 @@ class EditTreeView(QtW.QDialog):
         :return:
         """
         self.edit_treeView: QtW.QTreeView
+        indexes = self.edit_treeView.selectedIndexes()
+        if not indexes:
+            return
+        for index in indexes:
+            if not index.isValid():
+                return
         tree_menu = TreeContextMenu()
         tree_menu.set_view(self.edit_treeView, True, False, False)
+        clear_action = tree_menu.addAction('Clear selected values')
+        single_column = False
+        for index in indexes:
+            if index.column() != indexes[0].column():
+                single_column = False
+                break
+            single_column = True
+        if single_column:
+            set_selected_action = tree_menu.addAction('Set selected values')
+        else:
+            set_selected_action = None
         action = tree_menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if action:
             self.tree_context_menu(action)
@@ -202,24 +243,53 @@ class EditTreeView(QtW.QDialog):
         :param action: The action selected from the context menu
         :return:
         """
+        self.edit_treeView: QtW.QTreeView
+        indexes = self.edit_treeView.selectedIndexes()
         if 'Add' in action.text() or 'Insert' in action.text():
             self.add_popup(action)
         elif 'Expand' in action.text() or 'Collapse' in action.text():
             expand_collapse(self.edit_treeView, action)
         elif 'Delete' in action.text():
             self.delete_item()
+        elif 'Clear' in action.text():
+            self.clear_data()
+        elif 'Set selected' in action.text():
+            self.determine_widget(indexes[0])
+            if self.lineEdit:
+                dlg = SetSelectedValues(self, self.lineEdit)
+                if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                    self.lineEdit = dlg.widget
+                    self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+                    self.save_lineedit_data()
+                    self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+                    self.display_tree()
+                else:
+                    self.destroy_lineedit()
+            elif self.combo:
+                dlg = SetSelectedValues(self, self.combo)
+                if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                    self.combo = dlg.widget
+                    self.loading_manager.show_loading_dialog('Loading', f'Loading...')
+                    self.save_dropdown_data()
+                    self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+                    self.display_tree()
+                else:
+                    self.destroy_dropdown()
 
     def display_tree(self):
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         self.name_column = get_name_column(self.table)
         self.name_header = get_headers(self.table)[self.name_column]
-        self.proxy_model = ReadableProxyModel()
+        self.proxy_model = TreeSortFilterProxyModel()
+        if self.table_item_ids:
+            self.proxy_model.filter_ids = self.table_item_ids
+            self.proxy_model.filter_column = 1  # Tree ID column
         self.proxy_model.setSourceModel(self.tree_model)
         self.edit_treeView.setModel(self.proxy_model)
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-        for column in range(self.tree_model.columnCount()):
-            header = self.tree_model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        for column in range(self.proxy_model.columnCount()):
+            header = self.proxy_model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if 'ID' in header or 'Row' in header:
                 self.edit_treeView.hideColumn(column)
             else:
@@ -233,6 +303,7 @@ class EditTreeView(QtW.QDialog):
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.edit_treeView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectItems)
         restore_expanded_state(self.table, self.edit_treeView)
+        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
 
         # Optimize window resizing
         self.resize_timer = QtC.QTimer()
@@ -244,7 +315,7 @@ class EditTreeView(QtW.QDialog):
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
         logger_setup.get_logger().info(f'Display {self.table} table complete')
-        self.tree_model.dataEdited.connect(self.on_tree_edited)
+        # self.tree_model.dataEdited.connect(self.on_tree_edited)
 
     def display_widget(self):
         if len(self.edit_treeView.selectedIndexes()) == 0:
@@ -358,12 +429,17 @@ class EditTreeView(QtW.QDialog):
     def save_lineedit_data(self):
         logger_setup.get_logger().info('Saving data from line edit')
         if self.lineEdit is not None:
-            text = self.lineEdit.text()
+            edit_text = self.lineEdit.text()
             if not self.edit_index.isValid():
-                tree_indexes =  self.edit_treeView.selectedIndexes()
+                proxy_indexes =  self.edit_treeView.selectedIndexes()
             else:
-                tree_indexes = [self.edit_index]
-            header = self.tree_model.headerData(tree_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
+                proxy_indexes = [self.edit_index]
+            tree_indexes = []
+            for proxy_index in proxy_indexes:
+                tree_index = self.proxy_model.mapToSource(proxy_index)
+                tree_indexes.append(tree_index)
+
+            header = self.proxy_model.headerData(proxy_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
                                                 QtC.Qt.ItemDataRole.DisplayRole)
             col = None
             table = None
@@ -377,7 +453,7 @@ class EditTreeView(QtW.QDialog):
                 self.destroy_lineedit()
                 return False
             ids = []
-            for tree_index in tree_indexes:
+            for tree_index in proxy_indexes:
                 id = self.tree_model.index(tree_index.row(), 1, tree_index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
                 if id not in ids:
                     ids.append(id)
@@ -390,18 +466,23 @@ class EditTreeView(QtW.QDialog):
                 logger_setup.get_logger().error('No ids found to update')
                 self.destroy_lineedit()
                 return False
-            if not query.exec(f'UPDATE {table} SET {header} = "{text}" WHERE {self.table_headers[0]} {sql_where_str}'):
+            if not query.exec(f'UPDATE {table} SET {header} = "{edit_text}" WHERE {self.table_headers[0]} {sql_where_str}'):
                 logger_setup.get_logger().critical(f'Failed to update {get_readable_header(header)} for {ids}: {query.lastError().text()}')
                 self.destroy_lineedit()
                 return False
             for tree_index in tree_indexes:
-                self.on_tree_edited()
-                if tree_index in self.edited_indexes:
-                    self.edited_indexes.remove(tree_index)
+                if not self.tree_model.setData(tree_index, edit_text, QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Failed to set data in the table')
+                    self.destroy_lineedit()
+                    return
+            for index in proxy_indexes:
+                if index in self.edited_indexes:
+                    self.edited_indexes.remove(index)
             if self.edit_treeView.currentIndex() == self.edit_index:
                 self.tabbed_from_editor = False
             logger_setup.get_logger().info('Data saved from line edit')
             self.updated = True
+            # self.on_tree_edited()
             self.destroy_lineedit()
             self.display_tree()
             return True
@@ -421,13 +502,13 @@ class EditTreeView(QtW.QDialog):
         logger_setup.get_logger().info(f'Displaying dropdown for {self.dropdown_table}')
         if len(self.edit_treeView.selectedIndexes()) > 1:
             self.combo_index = QtC.QModelIndex()
-            tree_indexes = self.edit_treeView.selectedIndexes()
+            proxy_indexes = self.edit_treeView.selectedIndexes()
         else:
             self.combo_index = self.edit_treeView.selectedIndexes()[0]
-            tree_indexes = [self.combo_index]
+            proxy_indexes = [self.combo_index]
         self.combo_model = QtS.QSqlTableModel()
         self.combo = QtW.QComboBox()
-        header = self.tree_model.headerData(tree_indexes[0].column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+        header = self.proxy_model.headerData(proxy_indexes[0].column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         header = header.replace(' ', '')
         set_table(self.combo_model, self.dropdown_table)
         if self.dropdown_table in SQLUtils.user_viewable_trees:
@@ -445,8 +526,8 @@ class EditTreeView(QtW.QDialog):
             self.combo.setModel(self.combo_model)
         self.combo.setModelColumn(get_name_column(self.dropdown_table))
         selected_ids = []
-        for tree_index in tree_indexes:
-            selected_id = self.tree_model.index(tree_index.row(), 1, tree_index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
+        for proxy_index in proxy_indexes:
+            selected_id = self.proxy_model.index(proxy_index.row(), 1, proxy_index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
             if selected_id not in selected_ids:
                 selected_ids.append(selected_id)
         if not selected_ids:
@@ -495,40 +576,54 @@ class EditTreeView(QtW.QDialog):
             combo = self.combo
         else:
             return False
+        data_changed = False
         updated = False
         if not self.combo_index.isValid():
-            tree_indexes = self.edit_treeView.selectedIndexes()
+            proxy_indexes = self.edit_treeView.selectedIndexes()
         else:
-            tree_indexes = [self.combo_index]
+            proxy_indexes = [self.combo_index]
         selected_ids = []
-        for tree_index in tree_indexes:
-            item_id = self.tree_model.index(tree_index.row(), 1, tree_index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
+        for proxy_index in proxy_indexes:
+            if not self.proxy_model.data(proxy_index, QtC.Qt.ItemDataRole.DisplayRole) and combo.currentText() == '':
+                pass
+            elif self.proxy_model.data(proxy_index, QtC.Qt.ItemDataRole.DisplayRole) != combo.currentText():
+                data_changed = True
+            item_id = self.proxy_model.index(proxy_index.row(), 1, proxy_index.parent()).data(QtC.Qt.ItemDataRole.DisplayRole)
             if item_id not in selected_ids:
                 selected_ids.append(item_id)
         if not selected_ids:
             logger_setup.get_logger().critical('No selected ids found')
             self.destroy_dropdown()
             return False
+        if not data_changed:
+            logger_setup.get_logger().info('No data changed in the dropdown')
+            self.destroy_dropdown()
+            return True
         # Figure out which table to update and which IDs to update
         edit_table, edit_ids = self.determine_edit_table(selected_ids)
+        if isinstance(combo.model(), QSortFilterProxyModel):
+            # If the model is a proxy model, we need to get the source model
+            combo_model = combo.model().sourceModel()
+        else:
+            combo_model = combo.model()
         if edit_table and edit_ids:
             # Save points are in these methods
             if '_' in edit_table:
                 # Many-to-many table
-                if not combo.model().update_many_table(edit_table, edit_ids):
+                if not combo_model.update_many_table(edit_table, edit_ids):
                     self.destroy_dropdown()
                     return False
                 updated = True
             else:
                 if isinstance(self.combo_model,
                               CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
-                    if not combo.model().update_other_table(edit_table, edit_ids):
+                    if not combo_model.update_other_table(edit_table, edit_ids):
                         self.destroy_dropdown()
                         return False
-                    if combo.model().tableName() == 'Samples' and edit_table == 'Aliquots':
+                    if combo_model.tableName() == 'Samples' and edit_table == 'Aliquots':
                         # Moved aliquot to another sample
                         aliquot_name = get_name_from_id(edit_table, edit_ids[0])
-                        sample_name = get_name_from_id(combo.model().tableName(), combo.model().checked_ids[0])
+                        sample_name = get_name_from_id(combo_model.tableName(), combo_model.checked_ids[0])
                         self.msg.information(self, 'Success', f'Moved aliquot {aliquot_name} to sample {sample_name}',
                                              QtW.QMessageBox.StandardButton.Ok)
                 else:
@@ -537,7 +632,7 @@ class EditTreeView(QtW.QDialog):
                         logger_setup.get_logger().error(f'No ID found for {combo.currentText()}')
                         self.destroy_dropdown()
                         return False
-                    header = self.tree_model.headerData(tree_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
+                    header = self.tree_model.headerData(proxy_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
                                                        QtC.Qt.ItemDataRole.DisplayRole)
                     if 'Abbreviation' in header:
                         header = header.replace('Abbreviation', 'ID')
@@ -558,12 +653,17 @@ class EditTreeView(QtW.QDialog):
                         return False
                     release_savepoint('before_edit_id')
                 updated = True
-                self.display_tree()
         if updated:
-            self.on_tree_edited()
-            for tree_index in tree_indexes:
-                if tree_index in self.edited_indexes:
-                    self.edited_indexes.remove(tree_index)
+            for proxy_index in proxy_indexes:
+                tree_index = self.proxy_model.mapToSource(proxy_index)
+                new_text = self.determine_update_text(tree_index, combo_model, edit_table)
+                if not self.tree_model.setData(tree_index, new_text, QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Failed to set data in the table')
+                    self.destroy_dropdown()
+                    return False
+                print(f'New text: {self.tree_model.data(tree_index, QtC.Qt.ItemDataRole.DisplayRole)}')
+                if proxy_index in self.edited_indexes:
+                    self.edited_indexes.remove(proxy_index)
         self.updated_timestamp = time.time()
         # if self.edit_treeView.currentIndex() == self.combo_index:
         #     self.tabbed_from_editor = False
@@ -640,6 +740,52 @@ class EditTreeView(QtW.QDialog):
                             logger_setup.get_logger().error(f'Could not find ID column for {table} in {self.table}')
                             return None, None
                         return table, item_ids
+
+    def determine_update_text(self, model_index: QtC.QModelIndex, combo_model, edit_table: str):
+        if self.combo.currentText() == '-':
+            # If the current text is '-', data were partially changed, so we need to compare the current and new selections
+            old_text = model_index.data(QtC.Qt.ItemDataRole.DisplayRole)
+            if not old_text:
+                old_values = []
+            else:
+                old_values = old_text.split('; ')
+            if isinstance(combo_model, CheckableTreeModel):
+                checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = (
+                    combo_model.traverse_checkable_tree(QtC.QModelIndex()))
+            elif isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel):
+                checked_ids, partially_checked_ids = combo_model.return_checked_ids()
+            else:
+                return self.combo.currentText()
+            if '_' in edit_table:
+                name_table = edit_table.split('_')[1]
+            else:
+                name_table = edit_table
+            checked_names = []
+            for checked_id in checked_ids:
+                name = get_name_from_id(name_table, checked_id)
+                if name and name not in checked_names:
+                    checked_names.append(name)
+            partially_checked_names = []
+            for partially_checked_id in partially_checked_ids:
+                name = get_name_from_id(name_table, partially_checked_id)
+                if name and name not in partially_checked_names:
+                    partially_checked_names.append(name)
+            new_values = []
+            for value in old_values:
+                # Only add values that are checked or partially checked
+                if (value in checked_names or value in partially_checked_names) and value not in new_values:
+                    new_values.append(value)
+            for value in checked_names:
+                # Add any new checked values that were not in the old values
+                if value not in new_values and value not in new_values:
+                    new_values.append(value)
+            if new_values:
+                return '; '.join(new_values)
+            else:
+                return self.combo.currentText()
+        else:
+            # If the current text is not '-', we can just return it
+            return self.combo.currentText()
 
     def set_selected_value_dialog(self, table, indexes):
         # Get the selected value from the indexes
@@ -1001,7 +1147,8 @@ class EditTreeView(QtW.QDialog):
         self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {self.table}...')
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
-        self.on_tree_edited()
+        # self.on_tree_edited()
+        self.display_tree()
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         model = combo.model()
@@ -1013,6 +1160,7 @@ class EditTreeView(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error editing table")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
             table = model.tableName()
@@ -1041,6 +1189,8 @@ class EditTreeView(QtW.QDialog):
     def edit_tag_popup(self):
         combo = self.sender()
         model = combo.model()
+        if isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
         if isinstance(combo.view(), QtW.QTreeView):
             if not isinstance(model, TreeModel):
                 model, indexes = find_tree_model(model, None)
@@ -1049,13 +1199,13 @@ class EditTreeView(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error editing table")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
-        elif isinstance(model, QtC.QSortFilterProxyModel):
-            model = model.sourceModel()
-            table = model.tableName()
+                return
         else:
-            table = combo.model().tableName()
+            table = model.tableName()
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
+        elif table != get_view_from_table(table):
+            dlg = EditView(self, table)
         else:
             dlg = EditTable(self, table)
         if dlg is None:
@@ -1099,7 +1249,7 @@ class EditTreeView(QtW.QDialog):
         else:
             pass
 
-    def close(self):
+    def closeEvent(self, event: QtG.QCloseEvent):
         self.saveWindowState()
         if not self.close_by_dialog:
             if not self.on_row_change(QtC.QModelIndex(), self.edit_treeView.currentIndex()):
@@ -1107,14 +1257,18 @@ class EditTreeView(QtW.QDialog):
                 self.discard_question()
             elif self.updated:
                 self.discard_question()
+                event.ignore()
+            else:
+                logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
+                event.accept()
         else:
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
-            super().close()
+            event.accept()
 
     def saveWindowState(self):
-        settings.setValue("ui/EditView/pos", self.pos())
-        settings.setValue("ui/EditView/size", self.size())
+        settings.setValue("ui/EditTreeView/pos", self.pos())
+        settings.setValue("ui/EditTreeView/size", self.size())
 
     def loadWindowState(self):
-        self.move(settings.value("ui/EditView/pos", defaultValue=QPoint(410, 241)))
-        self.resize(settings.value("ui/EditView/size", defaultValue=QSize(810, 569)))
+        self.move(settings.value("ui/EditTreeView/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/EditTreeView/size", defaultValue=QSize(810, 569)))

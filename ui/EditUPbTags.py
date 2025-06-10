@@ -7,6 +7,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6.QtCore import QSortFilterProxyModel
 
 from PyQt6.uic import loadUi
 
@@ -19,11 +20,13 @@ from Functions.Widget_classes import (
     CheckableSqlTableModel, get_name_column, CheckableTreeModel, TreeModel,
     show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox,
     CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks, save_expanded_state,
-    restore_expanded_state, get_name_from_id, get_id_from_name, get_view_from_table
+    restore_expanded_state, get_name_from_id, get_id_from_name, get_view_from_table, TreeSortFilterProxyModel
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
 from Functions.Settings_manager import SettingsManager
+from ui.EditView import EditView
+
 settings = SettingsManager().settings
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_views import ViewQuery
@@ -64,6 +67,10 @@ class EditUPbTags(QtW.QDialog):
             else:
                 self.sample_names_model = SQLiteTableModel(
                     f'SELECT SampleName FROM Samples WHERE SampleID = {self.selected_sample_list[0]}')
+            if self.sample_names_model.last_error:
+                logger_setup.get_logger().critical("Error displaying UPb tag dialog")
+                logger_setup.get_logger().debug(f"Error getting sample names")
+                return
             self.sample_name_list = []
             for row in range(self.sample_names_model.rowCount()):
                 index = self.sample_names_model.index(row, 0, QtC.QModelIndex())
@@ -182,11 +189,13 @@ class EditUPbTags(QtW.QDialog):
     def populate_upb_checks(self, combo: QtW.QComboBox):
         start_populate_upb_checks_time = time.time()
         text = ""
-        if isinstance(combo.model(), CheckableSqlTableModel | CheckableSqlQueryModel):
+        if isinstance(combo.model(), QSortFilterProxyModel):
+            model = combo.model().sourceModel()
+        else:
             model = combo.model()
-            combo.objectName()
+        if isinstance(model, CheckableSqlTableModel | CheckableSqlQueryModel):
             table = model.tableName()
-            name_column = get_name_column(table)
+            # name_column = get_name_column(table)
             if 'ratio_error' in combo.objectName():
                 table_id_header = 'RatioErrorFormatID'
             elif 'age_error' in combo.objectName():
@@ -199,11 +208,11 @@ class EditUPbTags(QtW.QDialog):
                 return
             checked_ids = model.checked_ids
             partially_checked_ids = model.partially_checked_ids
-        elif isinstance(combo.model(), CheckableTreeModel):
-            tree_model, indexes = find_tree_model(combo.model(), None)
+        elif isinstance(model, CheckableTreeModel):
+            tree_model, indexes = find_tree_model(model, None)
             table = tree_model.table
-            model = tree_model.sourceModel()
-            name_column = get_name_column(table)
+            # model = tree_model.sourceModel()
+            # name_column = get_name_column(table)
             if not populate_tree_model_checks(tree_model, self.upb_analysis_ids, 'UPbAnalyses'):
                 return
             checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
@@ -387,6 +396,7 @@ class EditUPbTags(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error adding item")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
             table = model.tableName()
@@ -401,6 +411,10 @@ class EditUPbTags(QtW.QDialog):
                 dlg = AddTreeTags(self, table, **dlg_args)
             else:
                 dlg = AddTreeTags(self, table)
+        elif table in ['References', '"References"']:
+            table = 'References'
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            dlg = NewReference(self)
         else:
             self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = AddTags(self, table)
@@ -434,6 +448,7 @@ class EditUPbTags(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error editing table")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
             table = model.tableName()
@@ -441,6 +456,8 @@ class EditUPbTags(QtW.QDialog):
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
+        elif table != get_view_from_table(table):
+            dlg = EditView(self, table)
         else:
             dlg = EditTable(self, table)
         if dlg is None:

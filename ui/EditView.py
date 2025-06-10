@@ -122,7 +122,7 @@ class EditView(QtW.QDialog):
         self.name_column = None
         self.name_header = None
         self.show_cols = []
-        self.limit = ''
+        self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
         self.where = ''
 
         self.create_model()
@@ -357,6 +357,7 @@ class EditView(QtW.QDialog):
                     self.lineEdit = dlg.widget
                     self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_lineedit_data()
+                    self.display_table()
                 else:
                     self.destroy_lineedit()
             elif self.combo:
@@ -365,6 +366,7 @@ class EditView(QtW.QDialog):
                     self.combo = dlg.widget
                     self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_dropdown_data()
+                    self.display_table()
                 else:
                     self.destroy_dropdown()
         elif action == edit_action:
@@ -847,19 +849,29 @@ class EditView(QtW.QDialog):
             updated = True
         else:
             edit_table, edit_ids = self.determine_edit_table(selected_ids)
+            combo_model = combo.model()
+            if isinstance(combo.view(), QtW.QTreeView):
+                if not isinstance(combo_model, TreeModel):
+                    combo_model, indexes = find_tree_model(combo_model, None)
+                if not combo_model:
+                    logger_setup.get_logger().critical(f"Error saving data")
+                    logger_setup.get_logger().debug(f"Error: No tree model found")
+                    return
+            elif isinstance(combo_model, QtC.QSortFilterProxyModel):
+                combo_model = combo_model.sourceModel()
             if edit_table and edit_ids:
                 # Save points are in these methods
                 if '_' in edit_table:
                     # Many-to-many table
-                    if not combo.model().update_many_table(edit_table, edit_ids):
+                    if not combo_model.update_many_table(edit_table, edit_ids):
                         logger_setup.get_logger().info(f'{edit_table} was not updated')
                         self.destroy_dropdown()
                         return
                     updated = True
                 else:
-                    if isinstance(combo.model(),
+                    if isinstance(combo_model,
                                   CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
-                        if not combo.model().update_other_table(edit_table, edit_ids):
+                        if not combo_model.update_other_table(edit_table, edit_ids):
                             logger_setup.get_logger().info(f'{edit_table} was not updated')
                             self.destroy_dropdown()
                             return
@@ -1169,7 +1181,7 @@ class EditView(QtW.QDialog):
             dlg.setWindowTitle(f'Select {child_table} for {parent_table}')
             if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                 child_combo = dlg.widget
-            tree_model = child_combo.model()
+            tree_model, indexes = find_tree_model(child_combo.model(), None)
             checked_ids = tree_model.traverse_checkable_tree(QtC.QModelIndex())[0]
         else:
             proxy_model = ReadableProxyModel()
@@ -1185,6 +1197,15 @@ class EditView(QtW.QDialog):
             if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
                 child_combo = dlg.widget
             table_model = child_combo.model()
+            if isinstance(child_combo.view(), QtW.QTreeView):
+                if not isinstance(table_model, TreeModel):
+                    table_model, indexes = find_tree_model(table_model, None)
+                if not table_model:
+                    logger_setup.get_logger().critical(f"Error adding item")
+                    logger_setup.get_logger().debug(f"Error: No tree model found")
+                    return
+            elif isinstance(table_model, QtC.QSortFilterProxyModel):
+                table_model = table_model.sourceModel()
             checked_ids = table_model.checked_ids
         if len(checked_ids) > 1:
             logger_setup.get_logger().error('Multiple items selected, please select only one')
@@ -1348,6 +1369,7 @@ class EditView(QtW.QDialog):
                 self.edit_tableView.selectionModel.select(selection, QtC.QItemSelectionModel.SelectionFlag.Select)
                 # Reconnect the selection model signal
                 self.edit_tableView.selectionModel().selectionChanged.connect(self.on_index_change)
+                self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
             # Determine which widget to create and display
             self.determine_widget(model_index)
             if self.lineEdit is not None:
@@ -1601,16 +1623,18 @@ class EditView(QtW.QDialog):
                         update_col_values[table].append(text)
         for table in update_cols.keys():
             if update_col_values[table]:
-                sql_cols = ', '.join(update_cols[table])
                 table_headers = get_headers(table)
                 # todo: figure out updating the ids for the table
                 if table == self.table:
-                    item_ids = [self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)]
+                    item_id = self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
                 else:
                     id_col = get_headers(table)[0]
                     item_id = self.retrieve_id(table, id_col)
-                sql_values = ", ".join(str(s) for s in update_col_values[table])
-                query.prepare(f'UPDATE "{table}" SET {sql_cols} = {sql_values} WHERE {table_headers[0]} = {item_id}')
+                sql_values = ", ".join(f':{str(s)}' for s in update_cols[table])
+                sql_cols = ', '.join(update_cols[table])
+                query.prepare(f'UPDATE "{table}" SET ({sql_cols}) = ({sql_values}) WHERE {table_headers[0]} = {item_id}')
+                for i, value in enumerate(update_col_values[table]):
+                    query.bindValue(f':{sql_cols.split(", ")[i]}', value)
                 if not query.exec():
                     logger_setup.get_logger().critical(f'Failed to update {table}')
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -1656,21 +1680,26 @@ class EditView(QtW.QDialog):
     def find_added(self, ids_added):
         if not ids_added:
             return
+        if len(ids_added) == 1:
+            where = f'WHERE {self.table_headers[0]} = {ids_added[0]}'
+        else:
+            where = f'WHERE {self.table_headers[0]} IN {tuple(ids_added)}'
         query = QtS.QSqlQuery()
-        for id in ids_added:
-            if not query.exec(f'SELECT {", ".join(self.show_cols)} FROM {self.table} WHERE {self.table_headers[0]} = {id}'):
-                logger_setup.get_logger().critical(f'Could not find new {self.table}')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                return
-            if query.next():
-                row = []
-                for i in range(query.record().count()):
-                    row.append(query.value(i))
-                self.model.insertRow(row)
-            else:
-                logger_setup.get_logger().critical(f'No new {self.table} in the database')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        query_args = {'show_columns': self.show_cols, 'where': where,
+                      'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
+                      'group_col': f'{self.show_cols[0]}', 'order_col': f'{self.name_header}'}
+        view_query = ViewQuery('References', False, **query_args)
+        table_query = view_query.table_query
+        if not query.exec(table_query):
+            logger_setup.get_logger().critical(f'Could not find new {self.table}')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return
+        while query.next():
+            row = []
+            for i in range(query.record().count()):
+                row.append(query.value(i))
+            self.model.insertRow(row)
         logger_setup.get_logger().info(f'Updated {self.table}')
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
@@ -1683,6 +1712,7 @@ class EditView(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error adding item")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
             table = model.tableName()
@@ -1722,6 +1752,7 @@ class EditView(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error editing table")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
         elif isinstance(model, QtC.QSortFilterProxyModel):
             model = model.sourceModel()
             table = model.tableName()
@@ -1729,6 +1760,8 @@ class EditView(QtW.QDialog):
             table = combo.model().tableName()
         if table in SQLUtils.user_viewable_trees:
             dlg = EditTree(self, table)
+        elif table != get_view_from_table(table):
+            dlg = EditView(self, table)
         else:
             dlg = EditTable(self, table)
         if dlg is None:

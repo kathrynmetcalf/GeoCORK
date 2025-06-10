@@ -6,6 +6,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
+from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.QtCore import QRegularExpression, QSortFilterProxyModel
 from PyQt6.uic import loadUi
 
@@ -15,9 +16,12 @@ from Functions.Check_triggers import update_modified_timestamp
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    restore_expanded_state, add_tree_popup, ReadableProxyModel, QSqlTableModelModifiedTrigger, EditableSqlQueryModel
+    restore_expanded_state, add_tree_popup, ReadableProxyModel, QSqlTableModelModifiedTrigger, EditableSqlQueryModel,
+    TreeSortFilterProxyModel
 )
 from ui.AddTreeTags import AddTreeTags
 
@@ -57,7 +61,7 @@ class EditTree(QtW.QDialog):
         self.setWindowTitle(f'Edit {table_name}')
         self.add_pushButton.setText(f'Add {table_name}')
         logger_setup.get_logger().info('Setting up proxy model')
-        self.tree_proxy_model = ReadableProxyModel()
+        self.tree_proxy_model = TreeSortFilterProxyModel()
         self.tree_proxy_model.setSourceModel(self.tree_model)
         self.tree_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
@@ -137,6 +141,7 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         restore_expanded_state(self.table, self.edit_treeView)
+        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table_name}...')
         logger_setup.get_logger().info(
@@ -311,3 +316,11 @@ class EditTree(QtW.QDialog):
             logger_setup.get_logger().info(f'Closing {self.table} edit dialog')
             release_savepoint('before_edit')
             event.accept()
+
+    def saveWindowState(self):
+        settings.setValue("ui/EditTree/pos", self.pos())
+        settings.setValue("ui/EditTree/size", self.size())
+
+    def loadWindowState(self):
+        self.move(settings.value("ui/EditTree/pos", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/EditTree/size", defaultValue=QSize(810, 569)))

@@ -205,6 +205,9 @@ class DataViewerWidget(QWidget):
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
             self.data_table_model = SQLiteTableModel(table_query)
+            if self.data_table_model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying {self.data_table}')
+                return
             name_column = get_name_column(get_view_from_table(table))
             if name_column is not None:
                 name_header = self.data_table_model.headerData(name_column, QtC.Qt.Orientation.Horizontal,
@@ -250,12 +253,29 @@ class DataViewerWidget(QWidget):
             if self.data_table == 'Aliquots':
                 table = 'Aliquots'
                 self.switch_to_tree(self.db_stackedWidget)
+                # Get the sample IDs for these aliquots
                 show_cols = settings.value('aliquot_view_columns')
-                query_args = {'show_columns': show_cols, 'where': f'WHERE {show_cols[0]} {self.sql_data_ids_to_show}',
+                sample_ids = column_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', 'SampleID')
+                if not sample_ids:
+                    logger_setup.get_logger().critical(f'Error displaying Aliquots')
+                    logger_setup.get_logger().debug(f'No SampleIDs found for Aliquots: {self.sql_data_ids_to_show}')
+                    return
+                elif len(sample_ids) > 1:
+                    if len(sample_ids) > 1000:
+                        if not self.view_many_results(len(sample_ids)):
+                            return
+                    where_samples = f'WHERE SampleID IN ({", ".join([str(i) for i in sample_ids])})'
+                else:
+                    where_samples = f'WHERE SampleID = {sample_ids[0]}'
+                query_args = {'show_columns': show_cols, 'where': where_samples,
                               'order_col': 'SampleName'}
                 view_query = ViewQuery(table, False, **query_args)
                 table_query = view_query.table_query
                 model = SQLiteTableModel(table_query)
+                if model.last_error:
+                    logger_setup.get_logger().critical(f'Error displaying Aliquots')
+                    logger_setup.get_logger().debug(f'Error: {model.last_error}')
+                    return
                 model.table = table
             else:
                 logger_setup.get_logger().info(f"Passed a tree that is not Aliquots")
@@ -263,11 +283,10 @@ class DataViewerWidget(QWidget):
 
             self.data_table_model = TreeModel(model, self)
 
-            # proxy_model = ReadableProxyModel()
-            # proxy_model.setSourceModel(self.data_table_model)
             self.data_table_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
+            self.data_table_proxy_model.filter_ids = self.data_ids_to_show
+            self.data_table_proxy_model.filter_column = 1  # AliquotID column
             self.data_table_proxy_model.setSourceModel(self.data_table_model)
-            # self.data_table_proxy_model.sort(5, QtC.Qt.SortOrder.AscendingOrder)
             self.dbTable_treeView.setModel(self.data_table_proxy_model)
             self.dbTable_treeView.expandAll()
 
@@ -441,6 +460,9 @@ class DataViewerWidget(QWidget):
                                         SELECT {id_col_name} FROM ParentTree)"""
             sql_query = f"""SELECT {sql_columns} FROM {self.data_filtered_table} WHERE {where_sql}"""
             source_model = SQLiteTableModel(sql_query)
+            if source_model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying filtered tree')
+                return
 
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
@@ -480,6 +502,9 @@ class DataViewerWidget(QWidget):
 
             logger_setup.get_logger().debug(f'SQL query: {sql_query}')
             self.data_filtered_table_model = SQLiteTableModel(sql_query)
+            if self.data_filtered_table_model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying filtered table')
+                return
 
             self.data_filtered_table_proxy_model = ReadableProxyModel()
             self.data_filtered_table_proxy_model.setSourceModel(self.data_filtered_table_model)
@@ -512,56 +537,69 @@ class DataViewerWidget(QWidget):
         table = TxM.remove_spaces(table_name)
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if table_name in view_tables:
-            ids = self.data_ids_to_show
+            ids = list(self.data_ids_to_show)
             if table_name == 'Aliquots':
-                # Ask the user which sample they want to edit
-                sample_names = []
-                query = QSqlQuery()
-                for aliquot_id in self.data_ids_to_show:
-                    if not query.exec(f'SELECT SampleID FROM Aliquots WHERE AliquotID = {aliquot_id}'):
-                        logger_setup.get_logger().critical(f'Error fetching SampleID')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        return
-                    if query.next():
-                        sample_id = query.value(0)
-                        if not query.exec(f'SELECT SampleName FROM Samples WHERE SampleID = {sample_id}'):
-                            logger_setup.get_logger().critical(f'Error fetching SampleName')
+                # Ask the user if they want to select a specific sample to edit aliquots
+                response = QMessageBox.question(
+                    self, "Edit Aliquots",
+                    "Do you want to edit aliquots of a specific sample?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                    QMessageBox.StandardButton.No
+                )
+                if response == QMessageBox.StandardButton.No:
+                    dlg_args = {'parent_type': 'Sample', 'table_item_ids': ids}
+                elif response == QMessageBox.StandardButton.Yes:
+                    # Ask the user which sample they want to edit
+                    sample_names = []
+                    query = QSqlQuery()
+                    for aliquot_id in self.data_ids_to_show:
+                        if not query.exec(f'SELECT SampleID FROM Aliquots WHERE AliquotID = {aliquot_id}'):
+                            logger_setup.get_logger().critical(f'Error fetching SampleID')
                             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             return
                         if query.next():
-                            sample_name = query.value(0)
-                            if sample_name not in sample_names:
-                                sample_names.append(sample_name)
-                sample_name, ok = QtW.QInputDialog.getItem(self, "Select Sample",
-                                                           "Edit aliquots of selected sample:", sample_names, 0, False)
-                if not ok:
-                    logger_setup.get_logger().info(f'User cancelled sample selection')
+                            sample_id = query.value(0)
+                            if not query.exec(f'SELECT SampleName FROM Samples WHERE SampleID = {sample_id}'):
+                                logger_setup.get_logger().critical(f'Error fetching SampleName')
+                                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                return
+                            if query.next():
+                                sample_name = query.value(0)
+                                if sample_name not in sample_names:
+                                    sample_names.append(sample_name)
+                    sample_name, ok = QtW.QInputDialog.getItem(self, "Select Sample",
+                                                               "Edit aliquots of selected sample:", sample_names, 0, False)
+                    if not ok:
+                        logger_setup.get_logger().info(f'User cancelled sample selection')
+                        return
+                    if not query.exec(f'SELECT SampleID FROM Samples WHERE SampleName = "{sample_name}"'):
+                        logger_setup.get_logger().critical(f'Error fetching SampleID')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return
+                    if not query.next():
+                        logger_setup.get_logger().critical(f'No SampleID found for the selected sample')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return
+                    sample_id = query.value(0)
+                    if not query.exec(f'SELECT AliquotID FROM Aliquots WHERE SampleID = {sample_id}'):
+                        logger_setup.get_logger().critical(f'Error fetching AliquotID')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        return
+                    ids = []
+                    while query.next():
+                        if query.value(0) in self.data_ids_to_show:
+                            ids.append(query.value(0))
+                    if not ids:
+                        logger_setup.get_logger().critical(f'No AliquotIDs found for the selected sample')
+                        return
+                    dlg_args = {'parent_id': sample_id, 'parent_type': 'Sample', 'table_item_ids': ids}
+                else:
+                    logger_setup.get_logger().info(f'User cancelled aliquot selection')
                     return
-                if not query.exec(f'SELECT SampleID FROM Samples WHERE SampleName = "{sample_name}"'):
-                    logger_setup.get_logger().critical(f'Error fetching SampleID')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    return
-                if not query.next():
-                    logger_setup.get_logger().critical(f'No SampleID found for the selected sample')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    return
-                sample_id = query.value(0)
-                if not query.exec(f'SELECT AliquotID FROM Aliquots WHERE SampleID = {sample_id}'):
-                    logger_setup.get_logger().critical(f'Error fetching AliquotID')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    return
-                ids = []
-                while query.next():
-                    if query.value(0) in self.data_ids_to_show:
-                        ids.append(query.value(0))
-                if not ids:
-                    logger_setup.get_logger().critical(f'No AliquotIDs found for the selected sample')
-                    return
-                dlg_args = {'parent_id': sample_id, 'parent_type': 'Sample', 'table_item_ids': ids}
                 dlg = EditTreeView(self, table, **dlg_args)
             else:
                 dlg_args = {'table_item_ids': ids}

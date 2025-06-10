@@ -12,13 +12,14 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
+from Functions.Database_views import ViewQuery
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
-                                      get_id_from_name, get_record_index)
+                                      get_id_from_name, get_record_index, get_view_from_table)
 from ui.AddTags import AddTags
 
 
@@ -101,8 +102,20 @@ class EditTable(QtW.QDialog):
         Creates the model from the given table and paginates the table.
         :return:
         """
-        self.name_column = get_name_column(self.table)
+        self.name_column = get_name_column(get_view_from_table(self.table))
         self.name_header = self.table_headers[self.name_column]
+        if self.table in ['References', '"References"']:
+            show_cols = settings.value('reference_view_columns')
+            query_args = {'show_columns': show_cols, 'order_col': f'{self.name_header}',
+                          'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'}
+            view_query = ViewQuery('References', False, **query_args)
+            table_query = view_query.table_query
+        elif self.table == 'Columns':
+            show_cols = settings.value('columns_view_columns')
+            query_args = {'show_columns': show_cols, 'order_col': f'{self.name_header}',
+                          'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'}
+            view_query = ViewQuery('Columns', False, **query_args)
+            table_query = view_query.table_query
         self.model.setQuery(
             f'SELECT * FROM "{self.table}" ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
         self.table_headers = get_headers(self.table)

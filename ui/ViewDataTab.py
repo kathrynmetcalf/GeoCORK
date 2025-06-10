@@ -162,6 +162,9 @@ class ViewDataTab(QtW.QWidget):
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
             self.model = SQLiteTableModel(table_query)
+            if self.model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying table')
+                return
             self.model.set_table(table)
             self.proxy_model = ReadableProxyModel()
             if isinstance(self.view, QtW.QTreeView):

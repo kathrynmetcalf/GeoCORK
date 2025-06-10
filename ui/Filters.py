@@ -250,7 +250,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             SELECT 1
               FROM {meta['bridge_table']} bt
               JOIN {cte_name} rt ON rt.{meta['id_column']} = bt.{meta['bridge_to_column']}
-             WHERE bt.{meta['bridge_from_column']} = {'Samples.SampleID' if meta['bridge_from_column'] == 'SampleID' else f'rt.{meta["id_column"]}'}
+             WHERE bt.{meta['bridge_to_column']} = {'Samples.SampleID' if meta['bridge_from_column'] == 'SampleID' else f'rt.{meta["id_column"]}'}
         )"""
 
         return exists_sql, [cte_sql], field_key
@@ -1101,7 +1101,7 @@ class QueryBuilder(QWidget):
         """
         filtered_ids = self.get_filtered_ids('Aliquots')
         if filtered_ids is None:
-            logger_setup.get_logger().critical(
+            logger_setup.get_logger().info(
                 f'No matching Aliquots for given filter(s)')
             return
         if len(set(filtered_ids)) > 1000:
@@ -1173,6 +1173,8 @@ class QueryBuilder(QWidget):
         :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
         :return: list of ids or None
         '''
+        # todo: Currently returns all ids for the type if condition is many-to-many,
+        #  e.g. type Aliquots with condition on AliquotContexts
         sql_query = self.get_sql(type)
         uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
         try:

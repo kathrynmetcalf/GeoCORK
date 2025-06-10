@@ -279,6 +279,7 @@ class GeoCORK(QtW.QMainWindow):
         :return:
         """
         self.loading_manager.show_loading_dialog('Loading', 'Opening Sample Information window...')
+        sample_ids = list(set(sample_ids))
         dlg = SampleInformation(self, sample_ids)
         dlg.exec()
         if dlg.updated:

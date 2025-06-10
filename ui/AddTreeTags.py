@@ -5,6 +5,7 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
+from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
@@ -50,6 +51,7 @@ class AddTreeTags(QtW.QDialog):
         self.table_name = TxM.add_spaces_camel(self.table)
         self.selectTags_label.setText(self.table_name)
         self.cancel_pushButton.setAutoDefault(False)
+        self.ok_pushButton.setAutoDefault(True)
 
         self.msg = QtW.QMessageBox(self)
         self.add_item: str = 'child'
@@ -285,3 +287,12 @@ class AddTreeTags(QtW.QDialog):
             logger_setup.get_logger().info(f'Closing {self.table} add dialog')
             release_savepoint('before_add')
             event.accept()
+
+    def saveWindowState(self):
+        settings.setValue("ui/AddTreeTags/geometry", self.pos())
+        settings.setValue("ui/AddTreeTags/size", self.size())
+
+    def restoreWindowState(self):
+        self.move(settings.value("ui/AddTreeTags/geometry", defaultValue=QPoint(410, 241)))
+        self.resize(settings.value("ui/AddTreeTags/size", defaultValue=QSize(400, 300)))
+
