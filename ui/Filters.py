@@ -22,7 +22,7 @@ import logger_setup
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column
+from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column, get_name_from_id
 from ui.DataViewerWidget import DataViewerWidget
 
 
@@ -394,8 +394,9 @@ class InsertFilterGroupDialog(QDialog):
                 self.name_input.setText(query.value(0))
                 self.description_input.setText(query.value(1))
             else:
-                logger_setup.get_logger().critical(
-                    f'No matching filter group for: {self.update_id}')
+                filter_name = get_name_from_id('FilterGroups', self.update_id)
+                logger_setup.get_logger().critical(f'No filter group "{filter_name}" found.')
+                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         else:
             logger_setup.get_logger().critical(
                 f'Error in populating existing Filters')
@@ -1041,7 +1042,7 @@ class QueryBuilder(QWidget):
             else:
                 logger_setup.get_logger().info(f'Filter {item.text()} deleted')
 
-    def populate_filters(self, filter_name) -> None:
+    def populate_filters(self, filter_name: str) -> None:
         """
         Populates the QueryBuilder based on a given filter name.
         :param str filter_name:
@@ -1054,8 +1055,8 @@ class QueryBuilder(QWidget):
                 WHERE FilterGroupName = :filter_name;
             """
         query.prepare(sql_query)
-        query.bindValue(":filter_name", filter_name.text())
-        logger_setup.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name.text()}')
+        query.bindValue(":filter_name", filter_name)
+        logger_setup.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name}')
         if query.exec():
             if query.next():
                 sql_query_result = query.value(0)
@@ -1069,8 +1070,8 @@ class QueryBuilder(QWidget):
                 self.scrollarea.setWidget(self.main_group_box)
                 self.show()
             else:
-                logger_setup.get_logger().critical(
-                    f'No matching filter group for: {filter_name.text()}')
+                logger_setup.get_logger().error(
+                    f'No matching filter group for: {filter_name}')
         else:
             logger_setup.get_logger().critical(
                 f'Error in populating existing Filters')
@@ -1083,8 +1084,7 @@ class QueryBuilder(QWidget):
         """
         filtered_ids = self.get_filtered_ids('Samples')
         if filtered_ids is None:
-            logger_setup.get_logger().critical(
-                f'No matching Samples for given filter(s)')
+            QMessageBox.information(self, "No results", f'No matching Samples for given filter(s)')
             return
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
@@ -1101,8 +1101,7 @@ class QueryBuilder(QWidget):
         """
         filtered_ids = self.get_filtered_ids('Aliquots')
         if filtered_ids is None:
-            logger_setup.get_logger().info(
-                f'No matching Aliquots for given filter(s)')
+            QMessageBox.information(self, "No results", f'No matching Aliquots for given filter(s)')
             return
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
@@ -1119,8 +1118,7 @@ class QueryBuilder(QWidget):
         """
         filtered_ids = self.get_filtered_ids('Spots')
         if filtered_ids is None:
-            logger_setup.get_logger().critical(
-                f'No matching Spots for given filter(s)')
+            QMessageBox.information(self, "No results", f'No matching Spots for given filter(s)')
             return
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
@@ -1137,8 +1135,7 @@ class QueryBuilder(QWidget):
         """
         filtered_ids = self.get_filtered_ids('UPbAnalyses')
         if filtered_ids is None:
-            logger_setup.get_logger().critical(
-                f'No matching UPb Analyses for given filter(s)')
+            QMessageBox.information(self, "No results", f'No matching UPb Analyses for given filter(s)')
             return
         if len(set(filtered_ids)) > 1000:
             if not self.view_many_results(len(set(filtered_ids))):
@@ -1315,6 +1312,7 @@ class QueryBuilder(QWidget):
             return None
 
         logger_setup.get_logger().debug(f'Filtered SQL command: {sql_query}')
+
         return sql_query
 
     def update_filter_list(self):

@@ -17,12 +17,12 @@ import difflib
 
 from Functions.SQLUtils import spot_aliquot_join, aliquot_sample_join
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, ReadableProxyModel, DisplayRoundedModel,
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel,
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
-    set_table, populate_many_combo_checks, populate_model_checks,
+    set_table, populate_many_combo_checks, populate_model_checks, delete_data,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
     get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
-    get_name_from_id, DisplayRoundedQueryModel, find_tree_model, get_view_from_table
+    get_name_from_id, find_tree_model, get_view_from_table
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -375,26 +375,16 @@ class EditView(QtW.QDialog):
             # get all the rows in the selected indexes
             ids_to_delete = []
             for index in indexes:
-                model_index = self.proxy_model.mapToSource(index)
-                id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                id = self.model.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
                 if id not in ids_to_delete:
                     ids_to_delete.append(id)
-            if len(ids_to_delete) == 1:
-                sql_where_str = f'= {ids_to_delete[0]}'
-            elif len(ids_to_delete) > 1:
-                sql_where_str = f'IN {tuple(ids_to_delete)}'
-            else:
+            if not ids_to_delete:
                 logger_setup.get_logger().error('No rows selected to delete')
                 return
-            if self.delete_question(ids_to_delete):
-                logger_setup.get_logger().info(
-                    f'Deleting {len(ids_to_delete)} {self.table_headers[get_name_column(get_view_from_table(self.table))]} from {self.table}')
-                query = QtS.QSqlQuery()
-                if not query.exec(f'DELETE FROM {self.table} WHERE {self.table_headers[0]} {sql_where_str}'):
-                    logger_setup.get_logger().critical(f'Failed to delete selected rows from {self.table}: {query.lastError().text()}')
-                    return
-                self.model.removeRows(ids_to_delete)
-                self.display_table()
+            if not delete_data(self.table, ids_to_delete):
+                return
+            self.model.removeRows(ids_to_delete)
+            self.display_table()
 
     def display_table(self):
         start_time = time.time()
@@ -1384,29 +1374,6 @@ class EditView(QtW.QDialog):
                     self.combo_model.clear_checks(QtC.QModelIndex())
                 self.combo.setCurrentIndex(-1)
                 self.save_dropdown_data()
-
-    def delete_question(self, delete_ids):
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        if self.table == 'Samples':
-            # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
-            aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(delete_ids, self.table)
-            msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {self.table}?\n'
-                            f'Associated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses')
-        elif self.table == 'Spots':
-            # Spots have a special case where they are related to UPbAnalyses
-            upb_analysis_ids = find_sub_items(delete_ids, self.table)
-            msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {self.table}?\n'
-                            f'Associated with {len(upb_analysis_ids)} U-Pb analyses')
-        else:
-            msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {self.table}?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            return True
-        else:
-            return False
 
     def advance_tab(self):
         currentIndex = self.edit_tableView.currentIndex()

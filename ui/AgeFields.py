@@ -10,11 +10,9 @@ from PyQt6 import QtGui as QtG
 from PyQt6.QtCore import Qt, QSortFilterProxyModel
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, CheckableTreeView, set_table, SampleAgeTableModel,
-    CheckableSqlTableModel,
-    FontDelegate, get_name_column, get_view_from_table, CheckableComboBox, CheckableSqlQueryModel,
-    get_selected_tree_ids, find_tree_model, get_headers, add_tree_popup, populate_combo_box, save_expanded_state,
-    restore_expanded_state, SQLiteTableModel, populate_tree_model_checks, SearchableSQLComboBox,
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, set_table, CheckableSqlTableModel, delete_data,get_name_column,
+    get_view_from_table, CheckableComboBox, CheckableSqlQueryModel, find_tree_model, get_headers, add_tree_popup,
+    populate_combo_box, save_expanded_state, restore_expanded_state, SQLiteTableModel, populate_tree_model_checks,
     FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel
 )
 from Functions import SQLUtils
@@ -197,7 +195,6 @@ class AgeFields(QtW.QWidget):
             self.disable_groups()
             self.sample_age_id = None
             sample_age_model_query = f'SELECT * FROM SampleAges WHERE SampleAgeID IS NULL'
-            self.edit_age_comboBox: SearchableSQLComboBox
             populate_combo_box(self.edit_age_comboBox, **{'query': sample_age_model_query})
             self.age_proxy_model = self.edit_age_comboBox.model()
             self.sample_age_model = self.age_proxy_model.sourceModel()
@@ -220,7 +217,6 @@ class AgeFields(QtW.QWidget):
             # selected_id = self.sample_age_model.data(self.sample_age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
             # if selected_id not in self.default_age_ids:
             #     self.default_age_ids.append(selected_id)
-        self.edit_age_comboBox: SearchableSQLComboBox
         populate_combo_box(self.edit_age_comboBox, **{'query': sample_age_model_query})
         self.age_proxy_model = self.edit_age_comboBox.model()
         self.sample_age_model = self.age_proxy_model.sourceModel()
@@ -511,7 +507,9 @@ class AgeFields(QtW.QWidget):
         oldest_rel_tree, indexes = find_tree_model(self.oldest_rel_comboBox.model(), None)
         youngest_rel_tree, indexes = find_tree_model(self.youngest_rel_comboBox.model(), None)
         populate_tree_model_checks(oldest_rel_tree, [self.sample_age_id], 'SampleAges', 'OldestAgeID')
+        self.oldest_rel_comboBox.treeView.expand_all_checked()
         populate_tree_model_checks(youngest_rel_tree, [self.sample_age_id], 'SampleAges', 'YoungestAgeID')
+        self.youngest_rel_comboBox.treeView.expand_all_checked()
 
         # Age tags
         self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_comboBox)
@@ -610,10 +608,10 @@ class AgeFields(QtW.QWidget):
             text = ""
         else:
             # Sample age has these tags
-            text = ', '.join(tags)
+            text = '; '.join(tags)
         if isinstance(combo, CheckableTreeCombobox):
             model.blockSignals(False)
-            combo.treeView.connect_edited_signal()
+            combo.treeView.expand_all_checked()
         if not text:
             text = combo.placeholderText()
         combo.setCurrentText(text)
@@ -1297,13 +1295,8 @@ class AgeFields(QtW.QWidget):
             return
         elif reply == delete_button:
             logger_setup.get_logger().info(f"Deleting age {self.sample_age_id}")
-            create_savepoint('before_delete')
-            query = QtS.QSqlQuery()
-            if not query.exec(f"DELETE FROM SampleAges WHERE SampleAgeID = {self.sample_age_id}"):
+            if not delete_data('SampleAges', [self.sample_age_id]):
                 logger_setup.get_logger().critical(f"Error deleting selected age", self)
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-                rollback_savepoint('before_delete')
                 self.connect_signals()
                 return
             logger_setup.get_logger().info(f"Deleted age {self.sample_age_id}")
@@ -1437,12 +1430,8 @@ class AgeFields(QtW.QWidget):
         self.oldest_direct_lineEdit.clear()
         self.youngest_direct_lineEdit.clear()
         self.direct_age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
-        self.oldest_rel_comboBox.programmatic_text_change = True
         self.oldest_rel_comboBox.setCurrentText(self.oldest_rel_comboBox.placeholderText())
-        self.oldest_rel_comboBox.programmatic_text_change = False
-        self.youngest_rel_comboBox.programmatic_text_change = True
         self.youngest_rel_comboBox.setCurrentText(self.youngest_rel_comboBox.placeholderText())
-        self.youngest_rel_comboBox.programmatic_text_change = False
         self.age_description_lineEdit.clear()
         self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_comboBox)
         self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_comboBox)

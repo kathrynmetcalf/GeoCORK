@@ -11,7 +11,7 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from numpy import integer
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex
+from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel
 from PyQt6.QtGui import QTextOption, QAction, QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
 from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog, QToolTip, QCompleter
@@ -30,20 +30,6 @@ settings = SettingsManager().settings
 # ---------------------------
 #    Delegate Classes
 # ---------------------------
-
-# class DecimalDelegate(QtW.QStyledItemDelegate):
-#     """
-#     Custom delegate to display numerical values with a fixed number of decimal places based upon user
-#     settings.
-#     """
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-#         self.decimal_places = settings.value('decimals_to_show', type=int)
-#
-#     def displayText(self, value, locale):
-#         if isinstance(value, float):
-#             return f'{value:.{self.decimal_places}f}'
-#         return super().displayText(value, locale)
 
 class FontDelegate(QtW.QStyledItemDelegate):
     """
@@ -109,9 +95,6 @@ class SQLiteTableModel(QAbstractTableModel):
         self.load_data(new_query, self.database)
         logger_setup.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
 
-    def tableName(self) -> str:
-        return self.table if self.table else ''
-
     def update_database(self, new_database: str):
         """
         Updates the model with a new database.
@@ -143,19 +126,9 @@ class SQLiteTableModel(QAbstractTableModel):
                 logger_setup.get_logger().debug(f'SQL query: {query}')
                 start_time = time.time()
                 cursor.execute(query)
-                logger_setup.get_logger().debug(f"Query executed in {time.time() - start_time} seconds")
-                start_time = time.time()
-                # batch_size = 10
-                # while True:
-                #     rows = cursor.fetchmany(batch_size)
-                #     if not rows:
-                #         break
-                #     self._data.extend(rows)
                 self._data = cursor.fetchall()
-                logger_setup.get_logger().debug(f"Data fetched in {time.time() - start_time} seconds")
-                start_time = time.time()
                 self._headers = [desc[0] for desc in cursor.description]
-                logger_setup.get_logger().debug(f"Headers fetched in {time.time() - start_time} seconds")
+                logger_setup.get_logger().debug(f"Model populated in {time.time() - start_time} seconds")
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
@@ -169,18 +142,21 @@ class SQLiteTableModel(QAbstractTableModel):
             self.set_table('table_info')
         elif 'WITH ' in query:
             # The query is too complex to determine the table name directly
-            pass
+            self.set_table(None)
         else:
             self.set_table(query.split('FROM ')[1].split(' ')[0])
         self.endResetModel()
 
-    def set_table(self, new_table: str):
+    def set_table(self, new_table: str | None):
         """
         Updates the model with a new table.
         :param new_table: New table name to apply.
         """
         self.table = new_table
-        self.table_name_col = get_name_column(get_view_from_table(self.table))
+        if self.table:
+            self.table_name_col = get_name_column(get_view_from_table(self.table))
+        else:
+            self.table_name_col = None
 
     def rowCount(self, parent=None):
         """
@@ -215,11 +191,20 @@ class SQLiteTableModel(QAbstractTableModel):
             self.row = row
 
         def value(self, index):
-            """Mimics QSqlRecord.value()"""
+            """
+            Mimics QSqlRecord.value()
+            :param index: index of the value to get
+            :return: value at the given index in the row
+            """
             return self.row[index]
 
-        def setValue(self, index, value):
-            """Mimics QSqlRecord.setValue()"""
+        def setValue(self, index: int, value) -> bool:
+            """
+            Mimics QSqlRecord.setValue()
+            :param index: index of the value to set
+            :param value: new value to set
+            :return: True if the value was set, False if the index is out of range
+            """
             if 0 <= index < len(self.row):
                 # Convert tuple to list to allow item assignment, then convert back to tuple
                 row = list(self.row)
@@ -277,13 +262,23 @@ class SQLiteTableModel(QAbstractTableModel):
         return None  # Return None for roles that are not DisplayRole
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
-        """Return column headers."""
+        """
+        Return column headers.
+        :param section: column index
+        :param orientation: orientation of the header (horizontal or vertical)
+        :param role: expecting DisplayRole
+        """
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
             return self._headers[section]  # Ensure headers are stored properly
         return super().headerData(section, orientation, role)
 
     def setHeaderData(self, section, orientation, value, role=Qt.ItemDataRole.EditRole):
-        """Allow renaming of column headers."""
+        """
+        Allow renaming of column headers.
+        :param section: column index
+        :param orientation: orientation of the header (horizontal or vertical)
+        :param value: new header value
+        """
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.EditRole:
             self._headers[section] = value
             self.headerDataChanged.emit(orientation, section, section)
@@ -346,27 +341,6 @@ class SQLiteTableModel(QAbstractTableModel):
         logger_setup.get_logger().info(f'Updated {self.table}')
         return True
 
-
-class QSqlTableModelModifiedTrigger(QtS.QSqlTableModel):
-    """
-    Custom QSqlTableModel that also updates the modified timestamp when data are changed
-    """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-
-    def setData(self, index: QModelIndex, value, role=Qt.ItemDataRole.EditRole):
-        if role != Qt.ItemDataRole.EditRole:
-            return super().setData(index, value, role)
-
-        row = index.row()
-
-        # Call the base method to update the actual cell
-        if not super().setData(index, value, role):
-            return False
-
-        update_modified_timestamp(self.tableName(), self.index(row, 1))
-
-        return True
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
     """
@@ -541,13 +515,11 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
         return super().setData(index, value, role)
 
     def deleteRowFromTable(self, row):
-        id_header = self.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         id = self.data(self.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
-        query = QtS.QSqlQuery()
-        if not query.exec(f'DELETE FROM {self.table} WHERE {id_header}={id}'):
-            logger_setup.get_logger().critical(f'Failed to delete {id} from {self.table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        if not id:
+            logger_setup.get_logger().warning(f'No ID found for row {row} in {self.table}')
+            return False
+        if not delete_data(self.table, [id]):
             return False
         logger_setup.get_logger().info(f'Successfully deleted {id} from {self.table}')
         return True
@@ -818,14 +790,30 @@ class CheckableSqlTableModel(DisplayRoundedModel):
 
     def update_other_table(self, other_table: str, other_ids: list):
         """
-        Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
-        want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
-        method is useful when editing joined views, like editing the SpotComposition in the SampleView.
-        :param other_table: name of the other table in the one-to-many relationship with the current table
-        :param other_ids: list of foreign keys to update in the other table
+        Collect the checked IDs and partially checked IDs from this table and update that field in another table.
+        It calls the update_other_table_with_checks function to perform the update operation. This is useful for one-to-many
+        relationships, such as updating the ColumnID in the Samples table with the checked ID in the Columns table.
+        The relationship must be one-to-one or one-to-many, so there should be only one checked ID. If there are partially
+        checked IDs, no item has been selected to associate with all IDs in the other table, so do not update. If the
+        relationship is many-to-many, use update_many_table instead.
+        :param other_table: name of the other table to update with the checked IDs from this table (e.g. Samples)
+        :param other_ids: list of IDs in the other table that correspond to the checked items in this tree model
+        (e.g. list of SampleIDs)
+        :return: True if the update was successful, False otherwise
         """
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
+            return False
+        if self.partially_checked_ids:
+            # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
+            logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            return True
+        if len(self.checked_ids) > 1:
+            # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
+            logger_setup.get_logger().error(
+                f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
+            logger_setup.get_logger().debug(
+                f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return False
         if update_other_table_with_checks(self.tableName(), self.checked_ids, self.partially_checked_ids, other_table, other_ids):
             return True
@@ -835,9 +823,9 @@ class CheckableSqlTableModel(DisplayRoundedModel):
     def update_many_table(self, many_table: str, item_ids: list):
         """
         Updates many-to-many relationship with another table. This method is useful when editing joined views, like
-        editing the UnitName in the SampleView.
-        :param many_table: name of the many-to-many table to update, such as Samples_Units
-        :param item_ids: list of foreign keys to update in the many-to-many table
+        editing the Units associated with Samples.
+        :param many_table: name of the many-to-many table to update (e.g. Samples_Units)
+        :param item_ids: list of foreign IDs to update in the many-to-many table (e.g. SampleIDs)
         """
         if not item_ids:
             logger_setup.get_logger().error(f'No item IDs given for {many_table}')
@@ -943,14 +931,30 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
 
     def update_other_table(self, other_table: str, other_ids: list):
         """
-        Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
-        want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
-        method is useful when editing joined views, like editing the SpotComposition in the SampleView.
-        :param other_table: name of the other table in the one-to-many relationship with the current table
-        :param other_ids: list of foreign keys to update in the other table
+        Collect the checked IDs and partially checked IDs from this table and update that field in another table.
+        It calls the update_other_table_with_checks function to perform the update operation. This is useful for one-to-many
+        relationships, such as updating the ColumnID in the Samples table with the checked ID in the Columns table.
+        The relationship must be one-to-one or one-to-many, so there should be only one checked ID. If there are partially
+        checked IDs, no item has been selected to associate with all IDs in the other table, so do not update. If the
+        relationship is many-to-many, use update_many_table instead.
+        :param other_table: name of the other table to update with the checked IDs from this table (e.g. Samples)
+        :param other_ids: list of IDs in the other table that correspond to the checked items in this tree model
+        (e.g. list of SampleIDs)
+        :return: True if the update was successful, False otherwise
         """
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
+            return False
+        if self.partially_checked_ids:
+            # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
+            logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            return True
+        if len(self.checked_ids) > 1:
+            # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
+            logger_setup.get_logger().error(
+                f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
+            logger_setup.get_logger().debug(
+                f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
             return False
         if update_other_table_with_checks(self.table, self.checked_ids, self.partially_checked_ids, other_table, other_ids):
             return True
@@ -960,9 +964,9 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
     def update_many_table(self, many_table: str, item_ids: list):
         """
         Updates many-to-many relationship with another table. This method is useful when editing joined views, like
-        editing the UnitName in the SampleView.
-        :param many_table: name of the many-to-many table to update, such as Samples_Units
-        :param item_ids: list of foreign keys to update in the many-to-many table
+        editing the Units associated with Samples.
+        :param many_table: name of the many-to-many table to update (e.g. Samples_Units)
+        :param item_ids: list of foreign IDs to update in the many-to-many table (e.g. SampleIDs)
         """
         if not item_ids:
             logger_setup.get_logger().error(f'No item IDs given for {many_table}')
@@ -1325,24 +1329,43 @@ def get_total_records(table: str, where:str='') -> int:
     return 0
 
 
-def get_record_index(table: str, record_id: int):
+def get_record_index(table: str, record_id: int, ids_to_show: list = None) -> int:
     """
     Gets the index of the record for a given record_id.
     :param table: name of the table to query
     :param record_id: id of the record to find (e.g. RockTypeID=4)
+    :param ids_to_show: optional list of IDs to filter the results by so can acurately find the row in a filtered table
     :return: row number/index of the record
     """
+    if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+        # If the table is a tree, we cannot use this method to find the index, so return -1
+        logger_setup.get_logger().error(f'Cannot get record index for tree {table}')
+        logger_setup.get_logger().debug(
+            f'Table {table} is a tree view which does not use sorting or paging, so cannot get record index')
+        logger_setup.get_logger().debug(f'Inspect code to remove sorting and paging for trees')
+        return -1
+    if not ids_to_show:
+        ids_to_show = []
+    if record_id not in ids_to_show:
+        record_name = get_name_from_id(table, record_id)
+        logger_setup.get_logger().error(f'Record {record_name} not available in this view')
+        logger_setup.get_logger().debug(f'Record ID {record_id} in the list of IDs to show: {ids_to_show}')
+        return -1
     query = QSqlQuery()
-    if 'View' in table:
-        table = get_table_from_view(table)
-
-    # Construct the SQL query
     base_id_column = get_headers(table)[0]
     name_header = get_headers(table)[get_name_column(table)]
+    if len(ids_to_show) > 1:
+        where = f'WHERE {base_id_column} IN ({", ".join(map(str, ids_to_show))})'
+    elif len(ids_to_show) == 1:
+        where = f'WHERE {base_id_column} = {ids_to_show[0]}'
+    else:
+        where = ''
+    # Construct the SQL query
     sql_query = f"""
             SELECT row_number 
             FROM (
-                SELECT ROW_NUMBER() OVER (ORDER BY {name_header}) AS row_number, {base_id_column}, {name_header} FROM "{table}"
+                SELECT ROW_NUMBER() OVER (ORDER BY {name_header}) AS row_number, {base_id_column}, {name_header} 
+                FROM "{table}" {where}
             ) 
             WHERE {base_id_column} = :record_id
         """
@@ -1401,52 +1424,6 @@ def get_column_types(table: str):
     while query.next():
         column_types.append(query.value(2))
     return column_types
-
-def foreign_key_columns(table: str):
-    query = QtS.QSqlQuery()
-    foreign_keys = {}
-    if not query.exec(f'PRAGMA foreign_key_list("{table}")'):
-        logger_setup.get_logger().critical(f"Failed to get foreign keys for {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        return foreign_keys
-    while query.next():
-        foreign_table = query.value(2)
-        table_display_column = get_name_column(foreign_table)
-        foreign_query = QtS.QSqlQuery()
-        if not foreign_query.exec(f'PRAGMA table_info("{foreign_table}")'):
-            logger_setup.get_logger().error(f"Failed to get columns for {foreign_table}")
-            logger_setup.get_logger().debug(f"Error: {foreign_query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            return foreign_keys
-        table_display_header = None
-        while foreign_query.next():
-            if foreign_query.value(0) == table_display_column:
-                table_display_header = foreign_query.value(1)
-                break
-        if not table_display_header:
-            logger_setup.get_logger().error(f"Failed to get display column for {foreign_table}")
-            return {}
-        foreign_keys[query.value(3)] = {'table': query.value(2), 'id_column': query.value(4), 'display_column': table_display_header}
-    return foreign_keys
-
-def get_foreign_id_table(table: str, header: str, value):
-    if 'ID' not in header:
-        logger_setup.get_logger().error(f"Header {header} does not contain ID")
-        return value
-    foreign_keys = foreign_key_columns(table)
-    if header in foreign_keys.keys():
-        foreign_table = foreign_keys[header]['table']
-        id_column = foreign_keys[header]['id_column']
-        display_column = foreign_keys[header]['display_column']
-        query = QtS.QSqlQuery()
-        if not query.exec(f'SELECT {id_column} FROM {foreign_table} WHERE {display_column}="{value}"'):
-            logger_setup.get_logger().critical(f"Failed to get ID for {value} in {foreign_table}")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            return value
-        query.next()
-        return query.value(0), foreign_table
 
 def display_age(string: str):
     # split string on commas
@@ -1607,43 +1584,69 @@ def return_number(value: str | float | int):
         return value
 
 
-def delete_query(table, ids, id_name):
+def delete_query(table: str, ids: list):
+    if not ids:
+        logger_setup.get_logger().error(f"No IDs given for deletion in {table}")
+        return False
+    create_savepoint('before_delete')
     query = QtS.QSqlQuery()
+    id_header = get_headers(table)[0]  # Get the first header which is the ID column
     if len(ids) > 0:
-        query.prepare(f'DELETE FROM {table} WHERE {id_name} in {tuple(ids)}')
+        query.prepare(f'DELETE FROM {table} WHERE {id_header} in {tuple(ids)}')
     if len(ids) == 1:
-        query.prepare(f'DELETE FROM {table} WHERE {id_name}={ids[0]}')
+        query.prepare(f'DELETE FROM {table} WHERE {id_header}={ids[0]}')
     if not query.exec():
-        logger_setup.get_logger().error(f"Failed to delete {id_name} from {table}")
+        logger_setup.get_logger().error(f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastError().text()}")
+        rollback_savepoint('before_delete')
         return False
+    logger_setup.get_logger().info(f"Deleted {len(ids)} records from {table}")
+    logger_setup.get_logger().info(f"{table} deleted: {', '.join(get_name_from_id(table, item_id) for item_id in ids)}")
+    release_savepoint('before_delete')
     return True
 
-def delete_data(data_ids: list, table: str):
+def delete_data(table: str, data_ids: list):
     """
-    Given Samples, Aliquots, or Spots, delete given ids and all sub items
-    :param data_ids: List of sample, aliquot, or spot IDs
+    Given a table, delete given IDS. If table is Samples, Aliquots, or Spots, delete given ids and all sub items
     :param table: Table the IDs belong to
+    :param data_ids: List of table IDs
     :return: True or False
     """
-    # Delete the selected samples and all aliquots, spots, and UPb data associated with them
+    if len(data_ids) == 0:
+        logger_setup.get_logger().error(f"No IDs given for deletion in {table}")
+        return False
+    # Delete the selected samples from a table and all children, aliquots, spots, and UPb data dependent on them
+    sample_ids = None
+    aliquot_ids = None
+    aliquot_child_ids = None
+    spot_ids = None
+    upb_analysis_ids = None
+    table_child_ids = None
     if table == 'Samples':
         aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(data_ids, table)
+        aliquot_child_ids = []
+        for parent_id in aliquot_ids:
+            aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
         sample_ids = data_ids
-        logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+        logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
     elif table == 'Aliquots':
         spot_ids, upb_analysis_ids = find_sub_items(data_ids, table)
         aliquot_ids = data_ids
-        logger_setup.get_logger().info(f"Deleting {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+        aliquot_child_ids = []
+        for parent_id in aliquot_ids:
+            aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
+        logger_setup.get_logger().info(f"Deleting {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
     elif table == 'Spots':
         upb_analysis_ids = find_sub_items(data_ids, table)
         spot_ids = data_ids
         logger_setup.get_logger().info(f"Deleting {len(spot_ids)} spots and {len(upb_analysis_ids)} UPb analyses")
-    else:
-        logger_setup.get_logger().critical(f"Failed to delete {table}")
-        logger_setup.get_logger().debug(f"Error: This method is only for Samples, Aliquots, and Spots")
-        return False
+    elif table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+        # For user viewable trees, we need to check for child IDs
+        table_child_ids = []
+        for parent_id in data_ids:
+            # Find all child IDs of the given parent_id
+            table_child_ids = find_child_ids(table, parent_id, table_child_ids)
 
     create_savepoint('before_delete')
 
@@ -1651,27 +1654,103 @@ def delete_data(data_ids: list, table: str):
     # Double-check that foreign keys are enabled
     if not turn_on_foreign_keys():
         return False
-    if not delete_query('UPbAnalyses', upb_analysis_ids, 'UPbAnalysisID'):
-        rollback_savepoint('before_delete')
-        return False
-    logger_setup.get_logger().info(f'Deleted {len(upb_analysis_ids)} UPb analyses')
-    if not delete_query('Spots', spot_ids, 'SpotID'):
-        rollback_savepoint('before_delete')
-        return False
-    logger_setup.get_logger().info(f'Deleted {len(spot_ids)} spots')
-    if table in ['Samples', 'Aliquots']:
-        if not delete_query('Aliquots', aliquot_ids, 'AliquotID'):
-            rollback_savepoint('before_delete')
-            return False
-        logger_setup.get_logger().info(f'Deleted {len(aliquot_ids)} Aliquots')
-    if table == 'Samples':
-        if not delete_query('Samples', sample_ids, 'SampleID'):
-            rollback_savepoint('before_delete')
-            return False
-        logger_setup.get_logger().info(f'Deleted {len(sample_ids)} Samples')
+    if table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses'):
+        if upb_analysis_ids:
+            if not delete_query('UPbAnalyses', upb_analysis_ids):
+                rollback_savepoint('before_delete')
+                return False
+            logger_setup.get_logger().info(f'Deleted {len(upb_analysis_ids)} UPb analyses')
+        if spot_ids:
+            if not delete_query('Spots', spot_ids):
+                rollback_savepoint('before_delete')
+                return False
+            logger_setup.get_logger().info(f'Deleted {len(spot_ids)} spots')
+        if aliquot_ids:
+            aliquot_ids.extend(aliquot_child_ids)  # Include child aliquots in the deletion
+            if not delete_query('Aliquots', aliquot_ids):
+                rollback_savepoint('before_delete')
+                return False
+            logger_setup.get_logger().info(f'Deleted {len(aliquot_ids)} Aliquots')
+        if sample_ids:
+            if not delete_query('Samples', sample_ids):
+                rollback_savepoint('before_delete')
+                return False
+            logger_setup.get_logger().info(f'Deleted {len(sample_ids)} Samples')
+    else:
+        if table_child_ids:
+            delete_ids = data_ids + table_child_ids
+        else:
+            delete_ids = data_ids
+        if delete_ids:
+            if not delete_query(table, delete_ids):
+                rollback_savepoint('before_delete')
+                return False
+            logger_setup.get_logger().info(f'Deleted {len(delete_ids)} {table} records')
 
     release_savepoint('before_delete')
     return True
+
+def delete_question(table, delete_ids):
+    msg_box = QtW.QMessageBox()
+    msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+    if table == 'Samples':
+        # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
+        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(delete_ids, table)
+        msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
+                        f'Associated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses')
+    elif table == 'Aliquots':
+        # Look for children of Aliquots
+        child_aliquot_ids = []
+        for aliquot_id in delete_ids:
+            # Find all child aliquots of the given aliquot_id
+            child_aliquot_ids = (aliquot_id, child_aliquot_ids)
+
+        # Aliquots have a special case where they are related to Spots and UPbAnalyses
+        spot_ids, upb_analysis_ids = find_sub_items(delete_ids, table)
+        msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
+                        f'Associated with {len(child_aliquot_ids)} child aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses')
+    elif table == 'Spots':
+        # Spots have a special case where they are related to UPbAnalyses
+        upb_analysis_ids = find_sub_items(delete_ids, table)
+        msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
+                        f'Associated with {len(upb_analysis_ids)} U-Pb analyses')
+    else:
+        if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+            # For user viewable trees, we need to check for child IDs
+            child_ids = []
+            for parent_id in delete_ids:
+                # Find all child IDs of the given parent_id
+                child_ids = find_child_ids(table, parent_id, child_ids)
+            msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
+                                f'Associated with {len(child_ids)} child items')
+        else:
+            msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?')
+    msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+    msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+    response = msg_box.exec()
+    if response == QtW.QMessageBox.StandardButton.Yes:
+        return True
+    else:
+        return False
+
+def find_child_ids(table, parent_id, child_ids=None):
+    # Find all child aliquots of the given aliquot_id
+    if not child_ids:
+        child_ids = []
+    query = QtS.QSqlQuery()
+    id_header = get_headers(table)[0]  # Get the first column header which is the ID column
+    parent_id_header = get_headers(table)[1]  # Get the second column header which is the Parent ID column
+    query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header}=:parent_id')
+    query.bindValue(':parent_id', parent_id)
+    if not query.exec():
+        logger_setup.get_logger().critical(f"Error finding child aliquots to delete")
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        return
+    while query.next():
+        if query.value(0) not in child_ids:
+            child_ids.append(query.value(0))
+            find_child_ids(query.value(0), child_ids)
+    return child_ids
 
 def find_upb_from_samples(sample_ids):
     # Find UPb analyses for a list of samples
@@ -1780,16 +1859,16 @@ https://github.com/openwebos/qt/blob/92fde5feca3d792dfd775348ca59127204ab4ac0/sr
 
 
 class TreeItem:
-    def __init__(self, itemData: QtS.QSqlRecord, parentItem):
+    def __init__(self, itemData: QtS.QSqlRecord | SQLiteTableModel.MockRecord, parent_item):
         """
         Create a tree item with given data and parent item
         Parameters
         ----------
-        itemData: SQL record from QSqlTableModel
-        parentItem: parent tree item
+        itemData: SQL record from a QSql model or a mock record from SQLiteTableModel
+        parent_item: parent tree item
         """
         self.itemData = itemData
-        self.parentItem = parentItem
+        self.parent_item = parent_item
         self.childItems = []
 
     def __del__(self):
@@ -1856,9 +1935,9 @@ class TreeItem:
 
     def row(self):
         # row of item in its parent's list of children
-        if self.parentItem:
+        if self.parent_item:
             # return self.parent_item.childItems.indexOf(TreeItem(self))
-            return self.parentItem.childItems.index(self)
+            return self.parent_item.childItems.index(self)
         return 0
 
     def columnCount(self):
@@ -1897,10 +1976,20 @@ class TreeItem:
         if self.itemData is None:
             return None
         else:
-            return self.parentItem
+            return self.parent_item
 
 
 class TreeModel(QtC.QAbstractProxyModel):
+    """
+    A tree model that can be used to display hierarchical data in a tree view. A proxy model is used to allow for
+    easier translation to and from the source model, which can be a QSqlTableModel, QSqlQueryModel, or SQLiteTableModel.
+    Because the order of children is preserved in the database, sorting should not be used on the tree model.
+    Assumes that the first four data columns are ordered as follows:
+    0: ID
+    1: Parent ID
+    2: Parent Row
+    3: Name
+    """
     dataEdited = QtC.pyqtSignal()
     save_state = QtC.pyqtSignal()
 
@@ -1937,14 +2026,29 @@ class TreeModel(QtC.QAbstractProxyModel):
             self.setSourceModel(self.source_model)
 
     def sourceModel(self):
+        """
+        Returns the source model of the tree model.
+        :return: data model
+        """
         return self.source_model
 
     def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
+        """
+        Set the source model for the tree model. This method initializes the tree model with the given source model,
+        retrieves the table name, and sets up the base query and filter for the model. It also clears any previous tree
+        model data and sets up the root item, parent item, and child item as TreeItems for the tree structure.
+        If the base query is an Aliquot view or from Ages, it will set the source model to a SQLiteTableModel to speed
+        up building the tree. Otherwise, it will set the source model to a DisplayRoundedQueryModel.
+        :param source_model: Populated QSqlTableModel, QSqlQueryModel, or SQLiteTableModel
+        :return: Nothing if there is an error
+        """
         logger_setup.get_logger().info(f'Setting source model for tree model...')
         try:
             if source_model.tableName() != '':
                 self.table = source_model.tableName()
             else:
+                logger_setup.get_logger().critical('Error setting up tree model')
+                logger_setup.get_logger().debug('No table name set')
                 return
         except AttributeError:
             logger_setup.get_logger().critical(f'Error displaying the selected table')
@@ -1989,6 +2093,9 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.setup_model_data()
 
     def setup_model_data(self):
+        """
+        Set up the model data for the tree model. This will build the tree from the source model.
+        """
         # Add all nodes to the tree model
         # start with root item, look for children
         logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
@@ -2004,8 +2111,12 @@ class TreeModel(QtC.QAbstractProxyModel):
         logger_setup.get_logger().info(f'Finished building the {self.table} tree with {self.source_model.rowCount()} items in {time.time() - start_build_time:.2f} seconds')
 
     def find_children(self, parent_id: int):
+        """
+        Find all children of a given parent ID in the source model.
+        :param parent_id: Item ID
+        :return: list of child IDs of the given parent ID
+        """
         # Find children of a given ID using the source_model's filtered data
-        find_time = time.time()
         child_ids = []
         parent_rows = []
         for row in range(self.source_model.rowCount()):
@@ -2018,10 +2129,19 @@ class TreeModel(QtC.QAbstractProxyModel):
                 parent_rows.append(self.source_model.index(row, 2).data(QtC.Qt.ItemDataRole.DisplayRole))
         # Order child IDs by parent row
         child_ids = [x for _, x in sorted(zip(parent_rows, child_ids))]
-        # logger_setup.get_logger().info(f'Found {len(child_ids)} child items in {time.time() - find_time} seconds')
+        logger_setup.get_logger().debug(f'Found {len(child_ids)} child items')
         return child_ids
 
     def add_to_tree(self, child_ids: list, parent: TreeItem):
+        """
+        Add child items with unique child IDs to the tree model under the specified parent item. This method iterates
+        through the list of child IDs, finds the corresponding records in the source model, and creates
+        TreeItem instances for each child. It appends these items to the parent item in the tree structure. If a child
+        ID has children, it recursively calls itself to add those children as well.
+        :param child_ids: list of child IDs to add to the tree
+        :param parent: TreeItem parent to add children to
+        :return: None if there are no child IDs
+        """
         if not child_ids:
             return
         # logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
@@ -2039,10 +2159,10 @@ class TreeModel(QtC.QAbstractProxyModel):
                     new_child_ids = self.find_children(child_id)
                     self.add_to_tree(new_child_ids, item)
 
-    def add_top_item(self, data):
-        TreeItem(data, 0)
-
     def column_headers(self):
+        """
+        Set up the column headers for the tree model based on the source model.
+        """
         for col in range(self.source_model.columnCount()):
             self.sourceHeaders.append(
                 self.source_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
@@ -2067,6 +2187,10 @@ class TreeModel(QtC.QAbstractProxyModel):
                     self.source_model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
 
     def header_variables(self):
+        """
+        Set up variables for commonly-used headers in the tree model based on the source model headers.
+        :return: None if there are no source headers
+        """
         if len(self.sourceHeaders) == 0:
             return
         self.id_header = self.sourceHeaders[0]
@@ -2075,7 +2199,19 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.item_name_header = self.sourceHeaders[3]
         self.item_description_header = self.sourceHeaders[4]
 
+    def tableName(self) -> str:
+        """
+        Returns the name of the table this model is based on.
+        :return: Name of model table
+        """
+        return self.table
+
     def getItem(self, index: QtC.QModelIndex) -> TreeItem:  # returns tree item
+        """
+        Returns the tree item for a given index.
+        :param index: QModelIndex in the model
+        :return: TreeItem for the given index, or root item if index is invalid
+        """
         if not index.isValid():
             return self.root_item
         else:
@@ -2086,7 +2222,15 @@ class TreeModel(QtC.QAbstractProxyModel):
                 logger_setup.get_logger().debug(f"No item for index {index.row()},{index.column()},{index.parent()}")
             return item
 
-    def index(self, row: int, column: int, parent: QModelIndex) -> QtC.QModelIndex:
+    def index(self, row: int, column: int, parent: QModelIndex=QModelIndex()) -> QtC.QModelIndex:
+        """
+        Create an index for a child item at the given row and column under the specified parent.
+        :param row: row number of the child item
+        :param column: column number of the child item
+        :param parent: parent QModelIndex for the child item
+        :return: QModelIndex for the child item, or an invalid QModelIndex if the parent is not valid or the row/column
+        is out of bounds
+        """
         # Given row, column, and parent, create an index for a child item at row and column
         # First check if parent is valid and parent item exists
         # Then get the child at the specified row and create an index for it
@@ -2096,50 +2240,85 @@ class TreeModel(QtC.QAbstractProxyModel):
         if not self.hasIndex(row, column, parent):
             return QtC.QModelIndex()
         if parent.isValid():
-            parentItem = self.getItem(parent)
+            parent_item = self.getItem(parent)
         else:
-            parentItem = self.root_item
-        if not parentItem:
+            parent_item = self.root_item
+        if not parent_item:
             return QtC.QModelIndex()
         if row < 0 or row > self.rowCount(parent):
             return QtC.QModelIndex()
         if column < 0 or column > self.columnCount(parent):
             return QtC.QModelIndex()
-        item = parentItem.child(row)
+        item = parent_item.child(row)
         if item:
             return self.createIndex(row, column, item)
         else:
             return QtC.QModelIndex()
 
     def parent(self, index: QtC.QModelIndex):
+        """
+        Returns the parent index of the given index.
+        :param index: QModelIndex for which to find the parent
+        :return: parent QModelIndex, or an invalid QModelIndex if the index is invalid or has no parent
+        """
         # Given index, find parent and create index for parent item
         if not index.isValid():
             return QtC.QModelIndex()
         item = self.getItem(index)
-        parentItem = item.parent()
-        if parentItem == self.root_item or not parentItem:
+        parent_item = item.parent()
+        if parent_item == self.root_item or not parent_item:
             return QtC.QModelIndex()
-        return self.createIndex(parentItem.row(), 0, parentItem)
+        return self.createIndex(parent_item.row(), 0, parent_item)
 
     def rowCount(self, parent: QtC.QModelIndex = QtC.QModelIndex) -> int:
+        """
+        Returns the number of rows (children) for the given parent index.
+        :param parent: parent QModelIndex for which to count children
+        :return: Number of child items under the parent index, or 0 if the parent is invalid
+        """
         if not parent.isValid():
-            parentItem = self.root_item
+            parent_item = self.root_item
         else:
-            parentItem = self.getItem(parent)
-        return parentItem.childCount()
+            parent_item = self.getItem(parent)
+        return parent_item.childCount()
 
     def columnCount(self, parent: QtC.QModelIndex = ...) -> int:
+        """
+        Returns the number of columns in the model. Regardless of the parent index, the number of columns is always
+        the same as the number of columns in the source model.
+        :param parent: Any parent QModelIndex (not used in this implementation)
+        :return: Number of columns in the source model
+        """
         return self.source_model.columnCount()
 
-    def hasChildren(self, parent: QtC.QModelIndex = ...):
+    def hasChildren(self, parent: QtC.QModelIndex = ...) -> bool:
+        """
+        Check if the given parent index has children.
+        :param parent: parent QModelIndex to check for children
+        :return: True if the parent has children or is the root, False otherwise
+        """
         if not parent.isValid():
             return True
-        parentItem = self.getItem(parent)
-        if parentItem.childCount() > 0:
+        parent_item = self.getItem(parent)
+        if parent_item.childCount() > 0:
             return True
         return False
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        """
+        Returns the data for the given index and role. The expand/collapse icon is only available on the first column,
+        and the first column cannot be hidden without hiding the expand/collapse icon, so the columns are shuffled to
+        return the order as follows:
+        0: Name
+        1: Item ID
+        2: Parent ID
+        3: Parent Row
+        If available, the data in the description column will be shown as a tooltip for the first column. For Ages table,
+        the tooltip will show the geologic timescale age range in millions of years (Ma).
+        :param index: QModelIndex for which to retrieve data
+        :param role: Expected role for the data, such as DisplayRole, EditRole, or ToolTipRole
+        :return: Data for the given index and role
+        """
         if not index.isValid():
             item = self.root_item
         else:
@@ -2174,9 +2353,22 @@ class TreeModel(QtC.QAbstractProxyModel):
             if description_col is not None:
                 tool_tip = item.data(description_col)
                 return tool_tip
-        return None
+        super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
+        """
+        Set the data for the given index and role. This will update the source model and the tree item data. If the
+        source model is not a SQLiteTableModel, it is connected to current database values and will also update the
+        database with the new data.
+        SQLiteTableModel data are based on uncommitted changes, so any changes to the database would not be reflected
+        in the tree model until the changes are committed. Here, we manually update the data for display in the tree
+        model.
+        :param index: QModelIndex for which to set data
+        :param value: value to set for the given index
+        :param role: role for the data, such as EditRole
+        :return: True if the data was successfully set, False if the index is invalid, or the default return value if the
+        role is not EditRole.
+        """
         if not index.isValid():
             return False
         if role == QtC.Qt.ItemDataRole.EditRole:
@@ -2233,13 +2425,13 @@ class TreeModel(QtC.QAbstractProxyModel):
             return True
         return super().setData(index, value, role)
 
-    def moveItem(self, item_id: int, row: int, p_id: str):
+    def moveItem(self, item_id: int, row: int, p_id: str) -> bool:
         """
-        Move an item to a new parent and parent row
+        Move an item to a new parent and parent row. Updates the changes in the source model and the database.
         @param item_id: unique ID of the item to move
         @param row: new parent row number for the item
         @param p_id: new parent ID for the item, represented by a string to use in the setFilter method, either 'IS NULL' or 'is parentID'
-        @return: True if the item was successfully moved, None if there was an error
+        @return: True if the item was successfully moved, False if there was an error
         """
         # Try making change to database, then reset the tree model
         if p_id == 'IS NULL':
@@ -2255,9 +2447,9 @@ class TreeModel(QtC.QAbstractProxyModel):
             f"{self.base_query_sql} {self.id_header} is {item_id}")  # Only one record for each item ID
         oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
         if isinstance(oldParentID, int):
-            opID = f'= {oldParentID}'
+            op_id = f'= {oldParentID}'
         else:
-            opID = 'IS NULL'
+            op_id = 'IS NULL'
             oldParentID = 'NULL'
         oldParentRow = self.source_model.record(0).value(2)  # Get the current parent row
         # Look for children of the new parent at and below the point of insertion, order them by parent row from largest to smallest
@@ -2286,7 +2478,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 return False
         # Look for remaining children of the old parent whose parent rows need to be updated, order them by parent row from smallest to largest
         self.source_model.setQuery(
-            f"{self.base_query_sql}  {self.parent_id_header} {opID} AND {self.parent_row_header} > {oldParentRow} ORDER BY {self.parent_row_header} ASC")
+            f"{self.base_query_sql}  {self.parent_id_header} {op_id} AND {self.parent_row_header} > {oldParentRow} ORDER BY {self.parent_row_header} ASC")
         child_count = self.source_model.rowCount()
         if child_count > 0:
             current_rows = []
@@ -2305,6 +2497,13 @@ class TreeModel(QtC.QAbstractProxyModel):
         return True
 
     def update_parent_info(self, item_id: int, parent_id, parent_row: int):
+        """
+        Update the parent ID and parent row for a given item ID in the database.
+        :param item_id: unique ID of the item to update
+        :param parent_id: unique ID of the new parent, or None if the item has no parent
+        :param parent_row: row number of the new parent in the parent's list of children
+        :return: True if the update was successful, False if there was an error
+        """
         # Update the parent ID and parent row for a given item ID
         query = QtS.QSqlQuery()
         query.prepare(
@@ -2321,13 +2520,22 @@ class TreeModel(QtC.QAbstractProxyModel):
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query.lastError().text()}")
             logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
-            return None
+            return False
         else:
             update_modified_timestamp(self.table, [item_id])
             logger_setup.get_logger().info(f'Successfully updated parent for {item_id} in table {self.table}')
             return True
 
-    def insertItem(self, item_name: str, item_description: str, parent_id=None, parent_row=None):
+    def insertItem(self, item_name: str, item_description: str, parent_id=None, parent_row=None) -> bool:
+        """
+        Insert a new item into the database and the tree model. The item is first added as a top-level item, then moved
+        to the correct parent and row. If no parent ID is given, the item is added to the end of the list.
+        :param item_name: new item name to add to the tree model
+        :param item_description: new item description to add to the tree model
+        :param parent_id: unique ID of the parent item, or None if the item has no parent
+        :param parent_row: row number of the parent item. If None, the item is added to the end of the list.
+        :return: True if the item was successfully inserted, False if there was an error adding or moving item
+        """
         # Add a new item to the database, first as a top-level item, then move it to the correct parent and row
         query = QtS.QSqlQuery()
         p_id = 'IS NULL'
@@ -2346,7 +2554,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
             logger_setup.get_logger().debug(f"Bound values: {query.boundValues()}")
             rollback_savepoint('before_insert')
-            return None
+            return False
         else:
             logger_setup.get_logger().info(f'Successfully inserted new item {item_name}')
             if parent_id:
@@ -2368,52 +2576,34 @@ class TreeModel(QtC.QAbstractProxyModel):
             return True
 
     def removeItem(self, item_id: int, parent_row: int, parent_id=None):
+        """
+        Remove an item and all its children from the database and the tree model. The item is first deleted from the
+        database, then the tree model is updated to reflect the changes. If the item has children, their parent rows are
+        updated to close the gap left by the deleted item.
+        :param item_id: unique ID of the item to remove
+        :param parent_row: row number of the parent item in the parent's list of children
+        :param parent_id: unique ID of the parent item, or None if the item has no parent
+        :return: True if the item was successfully removed or already removed, False if there was an error deleting the
+        item or updating the tree model.
+        """
         # Remove an item and all children from the database
         del_ids = [item_id]
-
-        def find_child_ids(parentID: int, del_ids: list):
-            # Find all children of a given parent ID
-            filtered_model = QtS.QSqlQueryModel()
-            filtered_model.setQuery(f"SELECT * FROM {self.table} WHERE {self.parent_id_header} = {parentID}")
-            for row in range(filtered_model.rowCount()):
-                record = filtered_model.record(row)
-                del_ids.append(record.value(0))
-                find_child_ids(record.value(0), del_ids)
-            return del_ids
-
-        del_ids = find_child_ids(item_id, del_ids)
-        del_join = ', '.join([str(i) for i in del_ids])
-        del_string = f'({del_join})'
-        if len(del_ids) == 1:
-            sql_where_str = f'={del_ids[0]}'
-        elif len(del_ids) > 1:
-            sql_where_str = f'IN {del_string}'
-        elif len(del_ids) == 0:
+        if len(del_ids) == 0:
             logger_setup.get_logger().info(f'Item was already deleted')
             logger_setup.get_logger().debug(f'Item ID: {item_id}')
             return True
-        logger_setup.get_logger().info(
-            f'Deleting item {item_id} and {len(del_ids) - 1} dependents from {self.table}...')
-        self.source_model.setQuery(self.base_query)  # Reset the filter
-        query = QtS.QSqlQuery()
-        query.prepare(f'DELETE FROM {self.table} WHERE {self.id_header} {sql_where_str}')
-        create_savepoint('before_delete')
         self.save_state.emit()
-        if not query.exec():  # if item and children not deleted, rollback
-            logger_setup.get_logger().critical(f'Error deleting items from {self.table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            rollback_savepoint('before_delete')
+        if not delete_data(self.table, del_ids):
             return False
         logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
         if parent_id:
-            pID = f'= {parent_id}'
+            p_id = f'= {parent_id}'
         else:
-            pID = 'IS NULL'
+            p_id = 'IS NULL'
             parent_id = 'NULL'
         filtered_model = QtS.QSqlQueryModel()
         filtered_model.setQuery(
-            f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {pID} AND {self.parent_row_header} >= {parent_row} ORDER BY {self.parent_row_header} ASC")
+            f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} AND {self.parent_row_header} >= {parent_row} ORDER BY {self.parent_row_header} ASC")
         childCount = filtered_model.rowCount()
         if childCount > 0:
             # If the parent already has children at rows beyond the deleted one, update their parent rows to close the gap
@@ -2435,11 +2625,29 @@ class TreeModel(QtC.QAbstractProxyModel):
         return True
 
     def mapToSource(self, proxy_index: QtC.QModelIndex) -> QtC.QModelIndex:
+        """
+        Maps a proxy index (TreeModel index) to the source model index (QSqlQueryModel or SQLiteTableModel index).
+        The expand/collapse icon is only available on the first column, and the first column cannot be hidden without
+        hiding the expand/collapse icon, so the columns are shuffled as follows:
+        TreeModel (proxy model) columns:
+        0: Name,
+        1: Item ID,
+        2: Parent ID,
+        3: Parent Row;
+        Source Model (QSqlQueryModel or SQLiteTableModel) columns:
+        0: Item ID,
+        1: Parent ID,
+        2: Parent Row,
+        3: Item Name;
+        :param proxy_index: index of tree model (proxy model) to map to source model
+        :return: the source model index corresponding to the given proxy index, or an invalid QModelIndex if the proxy
+        index is not valid
+        """
         if not proxy_index.isValid() or not self.source_model:
             return QtC.QModelIndex()
         if not isinstance(self.source_model, QtS.QSqlQueryModel | SQLiteTableModel):
             logger_setup.get_logger().critical(f'Data type error')
-            logger_setup.get_logger().debug(f'Source model is not a QSqlQueryModel')
+            logger_setup.get_logger().debug(f'Source model is not a QSqlQueryModel or SQLiteTableModel')
             return QtC.QModelIndex()
         proxy_col = proxy_index.column()
         item = self.getItem(proxy_index)
@@ -2465,6 +2673,24 @@ class TreeModel(QtC.QAbstractProxyModel):
         return self.source_model.index(source_row, source_col, QtC.QModelIndex())
 
     def mapFromSource(self, source_index: QtC.QModelIndex) -> QtC.QModelIndex:
+        """
+        Maps a source index (QSqlQueryModel or SQLiteTableModel index) to the proxy model index (TreeModel index).
+        The expand/collapse icon is only available on the first column, and the first column cannot be hidden without
+        hiding the expand/collapse icon, so the columns are shuffled as follows:
+        Source Model (QSqlQueryModel or SQLiteTableModel) columns:
+        0: Item ID,
+        1: Parent ID,
+        2: Parent Row,
+        3: Item Name;
+        TreeModel (proxy model) columns:
+        0: Name,
+        1: Item ID,
+        2: Parent ID,
+        3: Parent Row;
+        :param source_index: the source model index to map to the proxy model
+        :return: index of the proxy model (TreeModel) corresponding to the given source index, or an invalid QModelIndex
+        if the source index is not valid
+        """
         if not source_index.isValid():
             return QtC.QModelIndex()
         source_row = source_index.row()
@@ -2490,7 +2716,13 @@ class TreeModel(QtC.QAbstractProxyModel):
             parent_index = self.createIndex(parent_item.row(), proxy_col, parent_item)
         return self.index(proxy_row, proxy_col, parent_index)
 
-    def find_id_in_tree(self, item_id: int) -> TreeItem:  # returns tree item with itemID
+    def find_id_in_tree(self, item_id: int) -> TreeItem:
+        """
+        Find an item in the tree model by its unique ID. This method recursively searches through the tree items to find
+        the item with the given ID.
+        :param item_id: unique ID of the item to find
+        :return: tree item with the given ID, or None if the item is not found
+        """
         def search(item_index: QtC.QModelIndex):
             item = self.getItem(item_index)
             if not item_index.isValid():
@@ -2507,14 +2739,28 @@ class TreeModel(QtC.QAbstractProxyModel):
 
         return search(QtC.QModelIndex())
 
-    def find_id_source_row(self, itemID: int):
+    def find_id_source_row(self, item_id: int):
+        """
+        Find the row number in the source model for a given item ID. This is used to map the item ID to its row in the
+        source model, which is necessary for operations like moving or deleting items.
+        :param item_id: unique ID of the item to find in the source model
+        :return: row number in the source model where the item with the given ID is located, or None if the item is not
+        found
+        """
         for row in range(self.source_model.rowCount()):
             record = self.source_model.record(row)
-            if record.value(0) == itemID:
+            if record.value(0) == item_id:
                 return row
         return
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
+        """
+        Returns the item flags for the given index. This determines whether the item is editable, selectable, draggable,
+        and droppable. All items are selectable, draggable, and droppable, and all but the created and modified
+        timestamp columns are editable. ID columns should not be visible at all.
+        :param index: index for which to get the item flags
+        :return: item flags for the given index
+        """
         if not index.isValid():
             # the root can be a drop destination
             return QtC.Qt.ItemFlag.ItemIsDropEnabled
@@ -2527,9 +2773,19 @@ class TreeModel(QtC.QAbstractProxyModel):
             return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable | QtC.Qt.ItemFlag.ItemIsDragEnabled | QtC.Qt.ItemFlag.ItemIsDropEnabled
 
     def mimeTypes(self):
+        """
+        Returns the MIME types supported by this model for drag and drop operations.
+        :return: List of MIME types supported by this model
+        """
         return ['application/x-qabstractitemmodeldatalist']
 
-    def mimeData(self, indexes):
+    def mimeData(self, indexes: list[QtC.QModelIndex]) -> QtC.QMimeData:
+        """
+        Creates a QMimeData object containing the data for the given indexes. This is used for drag and drop operations.
+        Only the first column (item ID) is included in the MIME data, as it is the unique identifier for the item.
+        :param indexes: list of QModelIndex objects to create MIME data for
+        :return: MIME data object containing the item IDs for the given indexes
+        """
         mimeData = QtC.QMimeData()
         encodedData = QtC.QByteArray()
         stream = QtC.QDataStream(encodedData, QtC.QIODevice.OpenModeFlag.WriteOnly)
@@ -2540,7 +2796,16 @@ class TreeModel(QtC.QAbstractProxyModel):
         mimeData.setData('application/x-qabstractitemmodeldatalist', encodedData)
         return mimeData
 
-    def canDropMimeData(self, data, action, row, column, parent):
+    def canDropMimeData(self, data: QtC.QMimeData, action: QtC.Qt.DropAction, row, column, parent) -> bool:
+        """
+        Checks if the model can accept the dropped MIME data. This is used to determine if the drop operation is valid.
+        :param data: MIME data to check for drop validity
+        :param action: Drop action performed (e.g., MoveAction)
+        :param row: row where the item is dropped, not used in this implementation
+        :param column: column where the item is dropped, not used in this implementation
+        :param parent: parent index where the item is dropped, not used in this implementation
+        :return: False if the action is IgnoreAction or if the data format is not recognized, True otherwise
+        """
         if action == QtC.Qt.DropAction.IgnoreAction:
             return False
         if not data.hasFormat('application/x-qabstractitemmodeldatalist'):
@@ -2551,44 +2816,54 @@ class TreeModel(QtC.QAbstractProxyModel):
 
     def dropMimeData(self, data: QtC.QMimeData, action: QtC.Qt.DropAction, row: int, column: int,
                      parent: QtC.QModelIndex):
-
+        """
+        Handles the drop of MIME data into the model. This method processes the dropped data, updates the source model,
+        and moves the items to the new parent and row. If the drop is successful, it emits the dataEdited signal to
+        notify the view to rebuild the tree model.
+        :param data: MIME data dropped into the model
+        :param action: Drop actio performed (e.g., MoveAction)
+        :param row: row where the item is dropped
+        :param column: column where the item is dropped, not used in this implementation
+        :param parent: parent index where the item is dropped
+        :return:
+        """
         if not self.canDropMimeData(data, action, row, column, parent):
             return False
         encodedData = data.data('application/x-qabstractitemmodeldatalist')
         stream = QtC.QDataStream(encodedData, QtC.QIODevice.OpenModeFlag.ReadOnly)
-        itemIDs = []
+        item_ids = []
         rows = []
         parentID = self.getItem(parent).data(0)
         if isinstance(parentID, int):
-            pID = f'= {parentID}'
+            p_id = f'= {parentID}'
         else:  # If the parent ID is not an integer
-            pID = 'IS NULL'
+            p_id = 'IS NULL'
         create_savepoint('drop_mime_data')
         self.save_state.emit()
         while not stream.atEnd():
-            itemIDs.append(stream.readInt32())
+            item_ids.append(stream.readInt32())
             if row == -1:
                 # If the row is -1, the item is being moved to the end of the list
-                self.source_model.setQuery(f"{self.base_query_sql} {self.sourceHeaders[1]} {pID}")
+                self.source_model.setQuery(f"{self.base_query_sql} {self.sourceHeaders[1]} {p_id}")
                 childCount = self.source_model.rowCount()
                 row = childCount
             rows.append(row)
             row += 1
-        if not itemIDs:
+        if not item_ids:
             logger_setup.get_logger().debug(f'No items to move')
             rollback_savepoint('drop_mime_data')
             return False
-        for move in range(len(itemIDs)):
+        for move in range(len(item_ids)):
             self.source_model.setQuery(
-                f"{self.base_query_sql} {self.id_header} is {itemIDs[move]}")  # Only one record for each item ID
+                f"{self.base_query_sql} {self.id_header} is {item_ids[move]}")  # Only one record for each item ID
             oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
             if self.table == 'Aliquots' and parentID == oldParentID:
                 logger_setup.get_logger().info(f"Cannot reorder top-level aliquots")
                 rollback_savepoint('drop_mime_data')
                 return False
-            if not self.moveItem(itemIDs[move], rows[move], pID):
+            if not self.moveItem(item_ids[move], rows[move], p_id):
                 logger_setup.get_logger().critical(f'Error moving item')
-                logger_setup.get_logger().debug(f'Item: {itemIDs[move]}, rows: {rows[move]}, parent_ID: {pID}')
+                logger_setup.get_logger().debug(f'Item: {item_ids[move]}, rows: {rows[move]}, parent_ID: {p_id}')
                 rollback_savepoint('drop_mime_data')
                 return False
         # All moves were successful
@@ -2599,12 +2874,31 @@ class TreeModel(QtC.QAbstractProxyModel):
         return True
 
     def supportedDropActions(self):
+        """
+        Returns the drop actions supported by this model. This is used to determine what actions are allowed when
+        dropping items into the model.
+        :return: Drop actions supported by this model, which are CopyAction and MoveAction
+        """
         return QtC.Qt.DropAction.CopyAction | QtC.Qt.DropAction.MoveAction
 
     def supportedDragActions(self):
+        """
+        Returns the drag actions supported by this model. This is used to determine what actions are allowed when
+        dragging items from the model. There is no corresponding QtC.Qt.DragAction, so we return the drop actions.
+        :return: Drag actions supported by this model, which are CopyAction and MoveAction
+        """
         return QtC.Qt.DropAction.CopyAction | QtC.Qt.DropAction.MoveAction
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: int = ...):
+        """
+        Returns the header data for the given section and orientation. This is used to display the column headers in the
+        view. The headers are defined in the source model, and this method retrieves the appropriate header based on the
+        section and orientation. If the role is not DisplayRole, it returns an empty QVariant.
+        :param section: column index for which to get the header data
+        :param orientation: header orientation (horizontal or vertical)
+        :param role: role for the header data, such as DisplayRole
+        :return: header data for the given section and orientation, or an empty QVariant if the role is not DisplayRole
+        """
         if role != QtC.Qt.ItemDataRole.DisplayRole:
             return QtC.QVariant()
         if orientation == QtC.Qt.Orientation.Horizontal:
@@ -2612,14 +2906,21 @@ class TreeModel(QtC.QAbstractProxyModel):
         return QtC.QVariant()
 
     def top_node(self, item_ids: list) -> tuple:
+        """
+        Find the top parent ID and row for a list of item IDs. This method traverses the tree model to find the topmost
+        parent that contains any of the given item IDs. It returns the top parent ID and the row number of that parent in
+        the tree model.
+        :param item_ids: list of unique item IDs
+        :return: tuple containing the top parent ID and the row number of the top child in that parent
+        """
         def walk_tree(parent_id, item_ids: list):
             if isinstance(parent_id, int):
-                pID = f'= {parent_id}'
+                p_id = f'= {parent_id}'
             else:
-                pID = 'IS NULL'
+                p_id = 'IS NULL'
             filtered_model = QtS.QSqlQueryModel()
             filtered_model.setQuery(
-                f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {pID} ORDER BY {self.parent_row_header} ASC")
+                f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} ORDER BY {self.parent_row_header} ASC")
             childCount = filtered_model.rowCount()
             for child in range(childCount):
                 child_id = filtered_model.record(child).value(0)
@@ -2635,19 +2936,38 @@ class TreeModel(QtC.QAbstractProxyModel):
 
 
 class CheckableTreeItem(TreeItem):
+    """
+    A tree item that can be checked or unchecked. This is used in the CheckableTreeModel to allow users to select
+    multiple items in the tree. It inherits from TreeItem and adds a check state property to indicate whether the item
+    is checked or not.
+    """
     def __init__(self, record: QtS.QSqlRecord, parent: TreeItem = None):
         super().__init__(record, parent)
         self.checkState = QtC.Qt.CheckState.Unchecked
 
     def setCheckState(self, state: QtC.Qt.CheckState):
+        """
+        Set the check state of the item. This is used to mark the item as checked or unchecked in the tree view.
+        :param state: CheckState to set for the item, such as Checked, Unchecked, or PartiallyChecked
+        """
         self.checkState = state
 
     def getCheckState(self):
+        """
+        Get the check state of the item. This is used to retrieve the current check state of the item in the tree view.
+        :return: CheckState of the item, such as Checked, Unchecked, or PartiallyChecked
+        """
         return self.checkState
 
 
 class CheckableTreeModel(TreeModel):
-    def __init__(self, source_model=QSqlTableModel(), parent=None):
+    """
+    A tree model that supports checkable items. This model extends the TreeModel to allow items to be checked or
+    unchecked in the tree view. It uses CheckableTreeItem to represent each item in the tree, which includes a check
+    state property to indicate whether the item is checked or not. This model is used to display hierarchical data in a
+    tree structure, where each item can be expanded or collapsed, and items can be selected by checking them.
+    """
+    def __init__(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel=QSqlTableModel(), parent=None):
         # database table
         super().__init__(source_model, parent)
         self.root_item = CheckableTreeItem(QtS.QSqlRecord(), None)
@@ -2670,6 +2990,17 @@ class CheckableTreeModel(TreeModel):
             self.setSourceModel(self.source_model)
 
     def setSourceModel(self, source_model: QSqlTableModel | QSqlQueryModel | SQLiteTableModel):
+        """
+        Set the source model for the tree model. This method initializes the tree model with the given source model,
+        retrieves the table name, and sets up the base query and filter for the model. It also clears any previous tree
+        model data and sets up the root item, parent item, and child item as CheckableTreeItems for the tree structure.
+        If the base query is an Aliquot view or from Ages, it will set the source model to a SQLiteTableModel to speed
+        up building the tree. Otherwise, it will set the source model to a DisplayRoundedQueryModel.
+        :param source_model: Populated QSqlTableModel, QSqlQueryModel, or SQLiteTableModel
+        :return: Nothing if there is an error
+        :param source_model:
+        :return:
+        """
         logger_setup.get_logger().info(f'Setting source model for tree model...')
         try:
             if source_model.tableName() != '':
@@ -2719,17 +3050,28 @@ class CheckableTreeModel(TreeModel):
         self.setup_model_data()
         self.source_model.setQuery(self.base_query)
 
-    def add_to_tree(self, child_ids: list, parent: TreeItem):
+    def add_to_tree(self, child_ids: list[int], parent: CheckableTreeItem):
+        """
+        Add child items with unique child IDs to the tree model under the specified parent item. This method iterates
+        through the list of child IDs, finds the corresponding records in the source model, and creates
+        CheckableTreeItem instances for each child. It appends these items to the parent item in the tree structure. If
+        a child ID has children, it recursively calls itself to add those children as well.
+        :param child_ids: list of unique child IDs to add to the tree
+        :param parent: CheckableTreeItem parent to add children to
+        :return: None if there are no child IDs
+        """
         if not child_ids:
             return
         # logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
         # logger_setup.get_logger().debug(f'Child IDs: {child_ids}')
 
         for child_id in child_ids:
-            add_time = time.time()
+            # add_time = time.time()
             for row in range(self.source_model.rowCount()):
                 if self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == child_id:
                     record = self.source_model.record(row)
+                    if not record:
+                        pass
                     item = CheckableTreeItem(record, parent)
                     parent.appendChild(item)
                     # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
@@ -2737,32 +3079,14 @@ class CheckableTreeModel(TreeModel):
                     new_child_ids = self.find_children(child_id)
                     self.add_to_tree(new_child_ids, item)
 
-    def set_item(self, item_ids: list, man_to_many: str):
-        self.item_ids = item_ids
-        self.many_to_many = man_to_many  # Many-to-many table name
-        first_table = self.many_to_many.split('_')[0]
-        first_table_id_header = get_headers(first_table)[0]
-        item_ids = []
-        query = QtS.QSqlQuery()
-        if len(self.item_ids) >= 1:
-            query.prepare(f"SELECT * FROM {self.many_to_many} WHERE {first_table_id_header} in {tuple(self.item_ids)}")
-        if len(self.item_ids) == 1:
-            query.prepare(f"SELECT * FROM {self.many_to_many} WHERE {first_table_id_header} = {self.item_ids[0]}")
-        if query.exec():
-            while query.next():
-                item_ids.append(query.value(1))
-            for item_id in item_ids:
-                item = self.find_id_in_tree(item_id)
-                if item:
-                    item.setCheckState(QtC.Qt.CheckState.Checked)
-            logger_setup.get_logger().info(f'Successfully set {first_table} {self.item_ids} for table {self.many_to_many}')
-        else:
-            logger_setup.get_logger().critical(
-                f'Error checking data for table {self.many_to_many}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
+        """
+        Returns the data for the given index and role. This method is used to retrieve the data for each item in the tree
+        model, including the check state for checkable items.
+        :param index: QModelIndex for which to get the data
+        :param role: role for the data, such as DisplayRole or CheckStateRole
+        :return: CheckState of the item if the index is valid and the role is CheckStateRole, otherwise calls the base class
+        """
         if not index.isValid():
             item = self.root_item
         else:
@@ -2773,6 +3097,16 @@ class CheckableTreeModel(TreeModel):
         return super().data(index, role)
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
+        """
+        Sets the data for the given index and role. This method is used to update the check state of checkable items in
+        the tree model. If the index is valid and the column is the first column (the checkable item), it updates the
+        check state of the item and emits the dataChanged signal to notify the view of the change. If the index is not
+        valid or the column is not the first column, it calls the base class implementation to handle other data roles.
+        :param index: QModelIndex for which to set the data
+        :param value: value to set for the item, such as CheckState
+        :param role: role for the data, such as DisplayRole or CheckStateRole
+        :return: True if the data was successfully set, False otherwise
+        """
         if not index.isValid():
             return False
         if index.column() == 0 and role == QtC.Qt.ItemDataRole.CheckStateRole:
@@ -2785,6 +3119,15 @@ class CheckableTreeModel(TreeModel):
         return super().setData(index, value, role)
 
     def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
+        """
+        Returns the item flags for the given index. This determines whether the item is checkable, editable, selectable,
+        draggable, and droppable. Only the first column (the checkable item) is checkable. For other columns, it calls
+        the base class implementation to get the default flags.
+        :param index: QModelIndex for which to get the item flags
+        :return: Item flags for the given index, which include ItemIsEnabled, ItemIsSelectable, ItemIsEditable,
+        ItemIsUserCheckable, ItemIsDragEnabled, and ItemIsDropEnabled for the first column, or the default flags for other
+        columns.
+        """
         # name_col = name_column(self.table)
         if not index.isValid():
             return Qt.ItemFlag.NoItemFlags
@@ -2794,12 +3137,30 @@ class CheckableTreeModel(TreeModel):
         return super().flags(index)
 
     def clear_checks(self, parent: QtC.QModelIndex):
+        """
+        Clears the check state of all items in the tree model under the specified parent index. This method iterates
+        through all rows under the parent index and sets the check state of each item to Unchecked. It also clears any
+        checks recursively for child items.
+        :param parent: QModelIndex of the parent item whose children should be unchecked, usually first called with
+        QModelIndex() for the root item
+        """
         for row in range(self.rowCount(parent)):
             name_index = self.index(row, 0, parent)
             self.setData(name_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
             self.clear_checks(name_index)
 
-    def check_checkable_tree(self, parent: QtC.QModelIndex, checked_items: list, partially_checked_items: list):
+    def check_checkable_tree(self, parent: QtC.QModelIndex, checked_items: list[int], partially_checked_items: list[int]):
+        """
+        Checks the checkable items in the tree model based on the provided lists of checked and partially checked IDs.
+        This method iterates through all rows under the specified parent index and sets the check state of each item
+        according to whether its ID is in the checked_items or partially_checked_items lists. It also recursively checks
+        child items under the parent index.
+        :param parent: QModelIndex of the parent item whose children should be unchecked, usually first called with
+        QModelIndex() for the root item
+        :param checked_items: list of item IDs that should be checked
+        :param partially_checked_items: list of item IDs that should be partially checked
+        :return:
+        """
         for row in range(self.rowCount(parent)):
             name_index = self.index(row, 0, parent)
             id_index = self.index(row, 1, parent)
@@ -2812,6 +3173,16 @@ class CheckableTreeModel(TreeModel):
             self.check_checkable_tree(name_index, checked_items, partially_checked_items)
 
     def traverse_checkable_tree(self, parent: QtC.QModelIndex):
+        """
+        Traverses the checkable tree model and collects the IDs of checked and partially checked items. This method
+        iterates through all rows under the specified parent index and checks the check state of each item. It collects
+        the IDs of checked items and partially checked items, as well as their corresponding indices in the tree model.
+        It also recursively traverses child items under the parent index to gather their checked and partially checked
+        IDs and indices.
+        :param parent: QModelIndex of the parent item whose children should be checked, usually first called with
+        QModelIndex() for the root item
+        :return: tuple containing lists of checked IDs, partially checked IDs, checked indices, and partially checked indices.
+        """
         checked_ids = []
         partially_checked_ids = []
         checked_indices = []
@@ -2832,27 +3203,47 @@ class CheckableTreeModel(TreeModel):
             partially_checked_indices.extend(child_partially_checked_indices)
         return checked_ids, partially_checked_ids, checked_indices, partially_checked_indices
 
-    def update_other_table(self, other_table: str, other_ids: list):
-        # Updates another table with the checked IDs. These are one-to-many relationships like SpotComposition, where we
-        # want to update the SpotCompositionID in the Spots table with the checked IDs in the SpotComposition table. This
-        # method is useful when editing joined views, like editing the SpotComposition in the SampleEditView.
+    def update_other_table(self, other_table: str, other_ids: list[int]):
+        """
+        Collect the checked IDs and partially checked IDs from this table and update that field in another table.
+        It calls the update_other_table_with_checks function to perform the update operation. This is useful for one-to-many
+        relationships. The relationship must be one-to-one or one-to-many, so there should be only one checked ID. If
+        there are partially checked IDs, no item has been selected to associate with all IDs in the other table, so do
+        not update. If the relationship is many-to-many, use update_many_table instead.
+        :param other_table: name of the other table to update with the checked IDs from this table (e.g. Samples)
+        :param other_ids: list of IDs in the other table that correspond to the checked items in this tree model
+        (e.g. list of SampleIDs)
+        :return: True if the update was successful, False otherwise
+        """
         if not other_ids:
             logger_setup.get_logger().error(f'No item IDs given for {other_table}')
             return False
         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = self.traverse_checkable_tree(
             QtC.QModelIndex())
-        checked_ids = []
-        partially_checked_ids = []
-        for index in checked_indices:
-            checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
-        for index in partially_checked_indices:
-            partially_checked_ids.append(self.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole))
+        if partially_checked_ids:
+            # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
+            logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
+            return True
+        if len(checked_ids) > 1:
+            # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
+            logger_setup.get_logger().error(
+                f'Multiple checked IDs given for {self.tableName()}. Select only one ID to update {other_table}.')
+            logger_setup.get_logger().debug(
+                f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
+            return False
         if update_other_table_with_checks(self.table, checked_ids, partially_checked_ids, other_table, other_ids):
             return True
         else:
             return False
 
     def update_many_table(self, many_table: str, item_ids: list | None):
+        """
+        Updates many-to-many relationship with another table. This method is useful when editing joined views, like
+        editing the Units associated with Samples.
+        :param many_table: name of the many-to-many table to update (e.g. Samples_Units)
+        :param item_ids: list of foreign IDs to update in the many-to-many table (e.g. SampleIDs)
+        :return: True if the update was successful, False otherwise
+        """
         if not item_ids:
             logger_setup.get_logger().error(f'No item IDs provided for updating many-to-many table {self.many_to_many}')
             return False
@@ -2862,23 +3253,13 @@ class CheckableTreeModel(TreeModel):
         else:
             return False
 
-class TreeListProxyModel(QtC.QSortFilterProxyModel):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.column = 0
-
-    def filterAcceptsColumn(self, source_column, source_parent):
-        return source_column == self.column
-
-    def data(self, index: QtC.QModelIndex, role: QtC.Qt.ItemDataRole = ...):
-        if not index.isValid():
-            return QtC.QVariant()
-        if role == QtC.Qt.ItemDataRole.DisplayRole:
-            source_index = self.mapToSource(index)
-            return self.sourceModel().data(source_index, role)
-        return super().data(index, role)
-
 class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
+    """
+    A proxy model that filters and sorts items in a tree structure. This model extends QSortFilterProxyModel to
+    provide custom filtering logic for tree items. It allows filtering based on a regular expression and supports
+    recursive filtering for tree structures. The model can be used with a QTreeView to display hierarchical data
+    while applying the specified filter criteria.
+    """
     def __init__(self, parent=None, view: QtW.QTreeView =None):
         super().__init__(parent)
         self.setRecursiveFilteringEnabled(True)  # Enables recursive filtering for tree structures
@@ -2906,7 +3287,14 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
             pointer = pointed_index.internalPointer()
             return pointed_index
 
-    def filterAcceptsRow(self, source_row, source_parent):
+    def filterAcceptsRow(self, source_row: int, source_parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
+        """
+        Determines whether a row in the source model should be accepted or rejected based on the filter criteria.
+        This method checks if the row matches the filter pattern and if the row's ID is in the list of filter IDs.
+        :param source_row: row number in the source model to check for acceptance
+        :param source_parent: parent index in the source model, used for hierarchical filtering
+        :return: True if the row matches the filter criteria, False otherwise
+        """
         # Override this method to implement custom filtering logic
         model = self.sourceModel()
         # If there is a list of filter IDs, check if the current row's ID matches any of them
@@ -2940,7 +3328,15 @@ class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
 #    Tree Methods
 # ---------------------------
 
-def get_selected_tree_ids(selected_model: QtC.QAbstractItemModel | QtC.QAbstractProxyModel, indexes: list):
+def get_selected_tree_ids(selected_model: TreeModel, indexes: list[QtC.QModelIndex]):
+    """
+    Return the item IDs, parent IDs, and parent rows for the selected items in a tree model. This method iterates through
+    the provided indexes, which are expected to be from a tree model, and retrieves the item ID, parent ID, and parent row
+    for each selected item. It returns three lists: item IDs, parent IDs, and parent rows.
+    :param selected_model: TreeModel from which to retrieve the selected items
+    :param indexes: list of QModelIndex objects representing the selected items in the tree model
+    :return: tuple containing three lists: item_ids, parent_ids, and parent_rows
+    """
     item_ids = []
     parent_ids = []
     parent_rows = []
@@ -2954,7 +3350,17 @@ def get_selected_tree_ids(selected_model: QtC.QAbstractItemModel | QtC.QAbstract
             parent_rows.append(parent_row)
     return item_ids, parent_ids, parent_rows
 
-def find_tree_model(model, indexes: list | None):
+def find_tree_model(model, indexes: list[QtC.QModelIndex] | None):
+    """
+    Find the tree model and mapped indexes from a given model and indexes. This is useful when there may be layers of
+    proxy models between the view and the actual tree model. The function checks if the provided model
+    is an instance of CheckableTreeModel or TreeModel. If it is, it returns the model and the indexes as they are.
+    If the model is a proxy model, it attempts to retrieve the source model and map the indexes to the source model.
+    Indexes may be none if there are no indexes to map, in which case it returns the model and an empty list.
+    :param model: tree model or proxy model from which to find the tree model
+    :param indexes: list of QModelIndex objects to map to the source model
+    :return: tuple containing the tree model and the mapped indexes, or None if no tree model is found
+    """
     # Dig down through any proxy models to find the tree model and retrieve the model and mapped indexes
     if isinstance(model, CheckableTreeModel | TreeModel):
         tree_model = model
@@ -2994,6 +3400,11 @@ def find_tree_model(model, indexes: list | None):
 # ---------------------------
 
 class EditingTextEdit(QtW.QTextEdit):
+    """
+    A QTextEdit subclass that emits a signal when editing is finished. This is useful for detecting when the user has
+    finished editing the text in the QTextEdit, such as when they click outside of it or press Enter. The signal is
+    not emitted when the application loses focus, to avoid incomplete edits being processed.
+    """
     editingFinished = QtC.pyqtSignal()
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -3014,6 +3425,13 @@ class EditingTextEdit(QtW.QTextEdit):
             self.editingFinished.emit()
 
 class FocusGroupBox(QGroupBox):
+    """
+    A QGroupBox subclass that emits a signal when it loses focus. This is useful for detecting when the user has
+    clicked outside the group box or switched focus to another widget. Some data require validation to ensure that
+    values have units set, etc. Only once editing within the group box is finished should validation and errors be
+    processed. This class also tracks whether any child widgets have been edited to prevent unnecessary updates when
+    the group box loses focus without any changes.
+    """
     focusLost = QtC.pyqtSignal()
     def __init__(self, parent=None):
         super(FocusGroupBox, self).__init__(parent)
@@ -3027,10 +3445,25 @@ class FocusGroupBox(QGroupBox):
         self.reset_edited()
 
     def reset_edited(self):
+        """
+        Reset the edited state of the group box and reconnect child signals. This is useful when the changes have been
+        processed and the group box is ready for new edits.
+        :return:
+        """
         self.edited = False
         self.connect_child_signals()
 
     def connect_child_signals(self):
+        """
+        Connect signals for child widgets to track changes. This method iterates through all child widgets of the group
+        box and connects their edit signals to the set_edited method. It also stores the initial values of the child widgets
+        to compare against later. This allows the group box to detect if any child widget has been edited, and thus
+        whether the group box itself has been edited. The initial values are stored in a list of pairs, where each pair
+        contains the child widget and its initial value. The signals are disconnected first to avoid duplicate connections.
+        This is useful for ensuring that the group box can accurately track changes made to its child widgets.
+        Currently supports QLineEdit, QComboBox, CheckableComboBox, CheckableTreeCombobox, and QCheckBox.
+        :return:
+        """
         self.initial_values = []
         for child in self.findChildren(QtW.QWidget):
             if isinstance(child, QtW.QLineEdit):
@@ -3066,6 +3499,12 @@ class FocusGroupBox(QGroupBox):
             child.installEventFilter(self)
 
     def disconnect_child_signals(self):
+        """
+        Disconnect signals for child widgets to prevent memory leaks and unwanted behavior. This method iterates through
+        all child widgets of the group box and disconnects their signals that were connected in connect_child_signals.
+        It also removes the event filter from each child widget.
+        :return:
+        """
         for child in self.findChildren(QtW.QWidget):
             if isinstance(child, QtW.QLineEdit):
                 try:
@@ -3099,6 +3538,15 @@ class FocusGroupBox(QGroupBox):
             child.removeEventFilter(self)
 
     def set_edited(self, child: QtW.QWidget):
+        """
+        Set the edited state of the group box based on the child's current value compared to its initial value. This method
+        checks if the current value of the child widget differs from its initial value stored in self.initial_values. If
+        the values differ, it sets the edited state of the group box to True and logs the change. This is useful for
+        tracking changes made to the child widgets and determining if the group box needs to be updated. The method also
+        handles different types of child widgets, including QLineEdit, CheckableComboBox, CheckableTreeCombobox,
+        :param child:
+        :return:
+        """
         if not isinstance(child, QtW.QWidget):
             if isinstance(child, str) and isinstance(self.sender(), CheckableComboBox):
                 child = self.sender().lineEdit()
@@ -3129,11 +3577,28 @@ class FocusGroupBox(QGroupBox):
                 self.edited = True
 
     def eventFilter(self, obj, event):
+        """
+        Event filter to set a delay when focus is lost to allow other widgets to process their focus and edit events.
+        :param obj:
+        :param event:
+        :return:
+        """
         if event.type() == QtC.QEvent.Type.FocusOut:
             self.focus_lost_timer.start(100)
         return super().eventFilter(obj, event)
 
-    def check_focus_state(self, child=None):
+    def check_focus_state(self, child: QtW.QWidget=None):
+        """
+        Check if the group box or any of its children has focus. If not, emit the focusLost signal. This method is called
+        when the focus lost timer times out, indicating that the group box has lost focus. It checks if any child widget
+        has focus. If no child has focus, it emits the focusLost signal to notify that the group box has lost focus.
+        If a specific child is provided, it checks that child's focus state instead.
+        :param child: widget within the group box to check the focus state of, if None checks all children
+        :return:
+        """
+        if child is not None:
+            # If a specific child is provided, check its focus state
+            has_focus = child.hasFocus()
         has_focus = self.any_child_has_focus()
         if not has_focus:
             logger_setup.get_logger().info(f'{self.objectName()} has lost focus')
@@ -3142,12 +3607,26 @@ class FocusGroupBox(QGroupBox):
                 self.focusLost.emit()
 
     def any_child_has_focus(self):
+        """
+        Check if any child widget of the group box has focus. This method iterates through all child widgets of the group
+        box and checks if any of them has focus. If at least one child has focus, it returns True; otherwise, it returns
+        False. This is useful for determining if the group box itself has focus or if any of its child widgets are being
+        edited. It helps to avoid unnecessary signals when working within a group box.
+        :return: True if any child has focus, False otherwise
+        """
         for child in self.findChildren(QtW.QWidget):
             if child.hasFocus():
                 return True
         return False
 
 class CustomDragTabBar(QtW.QTabBar):
+    """
+    A custom QTabBar that allows for drag-and-drop reordering of tabs and maintains a list of permanent tabs.
+    This class extends QTabBar to provide functionality for dragging tabs, reordering them, and ensuring that certain
+    tabs remain in a fixed position (permanent tabs). It also provides methods to update the list of permanent tabs
+    and to correct the order of tabs after a drag-and-drop operation. The mouseReleaseEvent is overridden to ensure
+    that the permanent tabs are always in the correct order after a drag-and-drop operation.
+    """
     def __init__(self, permanent_tabs: list, parent=None):
         super().__init__(parent)
         self.permanent_tabs = permanent_tabs
@@ -3161,16 +3640,35 @@ class CustomDragTabBar(QtW.QTabBar):
             QTabBar::tab {padding: 10px;}
             """)
 
-    def update_permanent_tabs(self, names: list):
+    def update_permanent_tabs(self, names: list[str]):
+        """
+        Update the list of permanent tabs. This method is used to set or update the names of the tabs that should
+        remain in a fixed position (permanent tabs) in the tab bar. It can be called to change the permanent tabs
+        dynamically, for example, when the user changes the configuration of the application or when new tabs are added.
+        :param names: list of names of the tabs that should be permanent, which will not be closable or movable
+        :return:
+        """
         self.permanent_tabs = names
 
     def mouseReleaseEvent(self, event):
+        """
+        Handle the mouse release event to ensure that permanent tabs are always in the correct order after a drag-and-drop operation.
+        :param event:
+        :return:
+        """
         # Move the permanent tabs to the left side of the tab bar
         super().mouseReleaseEvent(event)
         if self.permanent_tabs:
             self.correct_tab_order()
 
     def correct_tab_order(self):
+        """
+        Correct the order of permanent tabs in the tab bar. This method checks the current order of tabs in the tab bar
+        and ensures that the permanent tabs are in the correct positions. If a permanent tab is not in the correct position,
+        it moves it to the correct position. This is useful after a drag-and-drop operation to ensure that the permanent
+        tabs remain in their designated positions.
+        :return:
+        """
         for index in range(self.count()):
             if self.tabText(index) in self.permanent_tabs:
                 for i in range(len(self.permanent_tabs)):
@@ -3182,6 +3680,10 @@ class CustomDragTabBar(QtW.QTabBar):
                             break
 
 class PartiallyCloseableTabWidget(QtW.QTabWidget):
+    """
+    Custom QTabWidget that allows for some permanent tabs that cannot be closed or moved, but allows other tabs to be
+    created, moved, and closed.
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.permanent_tabs = []
@@ -3190,12 +3692,25 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
         self.setTabsClosable(True)
         self.setMovable(True)
 
-    def set_permanent_tabs(self, names: list):
+    def set_permanent_tabs(self, names: list[str]):
+        """
+        Set the list of permanent tabs that should not be closable or movable. This method updates the list of permanent
+        tabs in the tab widget. Permanent tabs are those that should always remain in the tab bar and cannot be closed
+        or moved by the user.
+        :param names: list of names of the tabs that should be permanent, which will not be closable or movable
+        :return:
+        """
         self.permanent_tabs = names
         self.tabBar.update_permanent_tabs(self.permanent_tabs)
         self.update_close_buttons()
 
     def update_close_buttons(self):
+        """
+        Update the close buttons for the tabs in the tab widget. This method iterates through all tabs and sets the
+        close buttons for each tab based on whether the tab is a permanent tab or not. Permanent tabs will not have
+        close buttons, while other tabs will have close buttons that allow them to be closed by the user.
+        :return:
+        """
         for index in range(self.count()):
             if self.tabText(index) in self.permanent_tabs:
                 self.tabBar.setTabButton(index, QtW.QTabBar.ButtonPosition.LeftSide, None)
@@ -3203,7 +3718,14 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
         # self.setTabsClosable(True)
         # self.setMovable(True)
 
-    def addTab(self, widget, name):
+    def addTab(self, widget: QtW.QWidget, name: str):
+        """
+        Add a new tab to the tab widget with the specified widget and name. If a tab with the same name already exists,
+        it will set focus to that tab instead of creating a new one. This prevents duplicate tabs with the same name.
+        :param widget: QWidget to be added as a tab
+        :param name: Name of the tab to be added
+        :return:
+        """
         for index in range(self.count()):
             # Check all tabs to see if the name already exists, set focus to that tab if it does
             if self.tabText(index) == name:
@@ -3215,7 +3737,15 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
         self.update_close_buttons()
         self.setCurrentIndex(self.count() - 1)
 
-    def insertTab(self, index, widget, name):
+    def insertTab(self, index: int, widget: QtW.QWidget, name: str):
+        """
+        Insert a new tab at the specified index with the given widget and name. If a tab with the same name already
+        exists, it will set focus to that tab instead of creating a new one. This prevents duplicate tabs with the same name.
+        :param index: Position at which to insert the new tab
+        :param widget: QWidget to be added as a tab
+        :param name: Name of the tab to be added
+        :return:
+        """
         for i in range(self.count()):
             if self.tabText(i) == name:
                 self.setCurrentIndex(i)
@@ -3224,7 +3754,12 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
         self.update_close_buttons()
         self.setCurrentIndex(index)
 
-    def removeTab(self, index):
+    def removeTab(self, index: int):
+        """
+        Remove the tab at the specified index. If the tab being removed is a permanent tab, it will not be removed.
+        :param index: Position at which to remove the tab
+        :return:
+        """
         super().removeTab(index)
         self.update_close_buttons()
         if self.tabText(index) in self.permanent_tabs and self.tabText(index-1) in self.permanent_tabs:
@@ -3239,6 +3774,11 @@ class PartiallyCloseableTabWidget(QtW.QTabWidget):
             # self.tabBar.add_vertical_line()
 
 class CompleterInputDialog(QtW.QDialog):
+    """
+    A dialog that allows the user to input text with a completer. This dialog contains a combo box with a completer
+    that provides suggestions based on a list of strings. The user can type in the combo box, and the completer will
+    suggest completions based on the input.
+    """
     def __init__(self, parent: QtW.QWidget, title: str, label: str, completer_list: list[str], editable: bool = False):
         super().__init__(parent)
         self.setWindowTitle(title)
@@ -3262,13 +3802,26 @@ class CompleterInputDialog(QtW.QDialog):
         return self.line_edit.text()
 
 class ReorderListView(QtW.QListView):
+    """
+    A QListView subclass that allows for reordering items via drag-and-drop. This class extends QListView to provide
+    functionality for dragging and dropping items to reorder them within the list. It sets the default drop action to
+    MoveAction and enables drag-and-drop mode. The startDrag method is overridden to prevent dragging the permanent header,
+    which is always at the top of the list. The dropEvent method is overridden to handle dropping items between other items
+    while preventing drops before the permanent header or on an item.
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.setDragDropMode(QtW.QListView.DragDropMode.DragDrop)
         self.setDragEnabled(True)
 
-    def startDrag(self, action):
+    def startDrag(self, action: QtC.Qt.DropAction):
+        """
+        Start the drag operation for the selected item. This method is called when the user starts dragging an item
+        from the list view. It checks if the current index is valid and if the item is not the permanent header.
+        :param action: DropAction to be used for the drag operation because there is no DragAction
+        :return:
+        """
         index = self.currentIndex()
         # The permanent header will always be at the top, so this works even with multiple selection.
         if index.isValid():
@@ -3278,6 +3831,12 @@ class ReorderListView(QtW.QListView):
             super().startDrag(action)
 
     def dropEvent(self, event):
+        """
+        Handle the drop event for the list view. This method is called when the user drops an item onto the list view.
+        It checks if the drop is valid, ensuring that the item is not being dropped before the permanent header or on an item.
+        :param event:
+        :return:
+        """
         index = self.indexAt(event.pos())
         if index.isValid():
             if index.row() == 0 and self.model().sourceModel().permanent_header != '':
@@ -3292,6 +3851,10 @@ class ReorderListView(QtW.QListView):
 
 
 class ColumnListProxyModel(QtC.QSortFilterProxyModel):
+    """
+    A proxy model that filters and sorts columns in a list. This model extends QSortFilterProxyModel to display headers
+    in the list as user-readable strings instead of raw database column names.
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
 
@@ -3303,15 +3866,33 @@ class ColumnListProxyModel(QtC.QSortFilterProxyModel):
         return super().data(index, role)
 
 class ColumnItemModel(QtG.QStandardItemModel):
+    """
+    A model that represents a list of columns with checkable items. This model extends QStandardItemModel to provide
+    functionality for displaying a list of columns with checkboxes. It allows users to select which columns should be
+    displayed in a view. The model can be used with a QTreeView or QListView to show the columns as checkable items.
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.permanent_header = ''
 
     def set_permanent_header(self, header: str):
+        """
+        Set the permanent header that should always be checked. This header will not be allowed to be unchecked by the user.
+        :param header: name of the header that should always be checked
+        :return:
+        """
         # Set the header that should always be checked, the name or display column
         self.permanent_header = header
 
     def data(self, index, role: int = ...):
+        """
+        Return the data for the given index and role. This method overrides the default data method to provide
+        custom behavior for the check state role. If the role is CheckStateRole, it checks if the item is the permanent
+        header and returns Checked if it is, otherwise it calls the superclass method to get the default behavior.
+        :param index:
+        :param role:
+        :return:
+        """
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
             if self.data(index, QtC.Qt.ItemDataRole.DisplayRole) == self.permanent_header:
                 return QtC.Qt.CheckState.Checked
@@ -3320,27 +3901,31 @@ class ColumnItemModel(QtG.QStandardItemModel):
         return super().data(index, role)
 
     def setData(self, index, value, role: int = ...):
+        """
+        Set the data for the given index and role. This method overrides the default setData method to provide
+        custom behavior for the check state role. If the role is CheckStateRole and the item is the permanent header,
+        it prevents the user from unchecking it by returning False. Otherwise, it calls the superclass method to set the data.
+        :param index:
+        :param value:
+        :param role:
+        :return:
+        """
         if role == QtC.Qt.ItemDataRole.CheckStateRole:
             if self.data(index, QtC.Qt.ItemDataRole.DisplayRole) == self.permanent_header and value == QtC.Qt.CheckState.Unchecked:
                 return False
         return super().setData(index, value, role)
 
-class CheckableSampleTableView(QtW.QTableView):
-    def __init__(self):
-        super().__init__()
-        self.resizeColumnsToContents()
-        self.clicked.connect(self.toggle_check_state)
-
-
-    def toggle_check_state(self, index: QtC.QModelIndex):
-        if self.model():
-            self.model().dataChanged.connect(self.update)
-            if index.isValid() and QtC.Qt.ItemFlag.ItemIsUserCheckable in self.model().flags(index):
-                current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
-                new_state = QtC.Qt.CheckState.Unchecked if current_state == QtC.Qt.CheckState.Checked else QtC.Qt.CheckState.Checked
-                self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
-
 class CheckableComboBox(QtW.QComboBox):
+    """
+    A QComboBox subclass that allows for checkable items in the dropdown list. This class extends QComboBox to provide
+    functionality for displaying a list of items with checkboxes. It allows users to select multiple items from the
+    dropdown list by checking the checkboxes next to each item. Closing the dropdown will emit a signal similar to editing
+    finished that can be connected to a slot for further processing. A proxy model filter allows the user can search for
+    items by typing in the line edit. The view supports a context menu for editing, adding, and deleting items.
+    Setting single_click to True will upon click uncheck all items except the one clicked, forcing the user to select
+    only one item at a time.
+    Setting not_null to True will prevent the user from unchecking all items, ensuring that at least one item is always selected.
+    """
     closing = QtC.pyqtSignal()
     edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
     add_triggered = QtC.pyqtSignal(QtW.QComboBox)
@@ -3372,45 +3957,81 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().installEventFilter(self)
 
     def start_typing(self):
+        """
+        Start typing in the line edit, which will grab the keyboard focus and allow the user to type in the search box.
+        :return:
+        """
         self.typing = True
         self.lineEdit().grabKeyboard()
 
     def stop_typing(self):
+        """
+        Stop typing in the line edit, which will release the keyboard focus and clear the search filter.
+        :return:
+        """
         self.typing = False
         self.lineEdit().releaseKeyboard()
         self.proxy_model.setFilterRegularExpression('')
 
     def update_line_edit(self):
+        """
+        Update the line edit text with the names of the checked items. This method retrieves the IDs of the checked items
+        from the model and converts them to names using the get_name_from_id function. The names are then joined into a
+        colon-separated string and set as the text of the line edit. This is useful for displaying the selected items
+        in the line edit of the combo box.
+        :return:
+        """
         checked_ids = self.model().checked_ids
         checked_names = []
         for id in checked_ids:
             checked_names.append(get_name_from_id(self.table, id))
-        text = ', '.join(checked_names)
+        text = '; '.join(checked_names)
         self.set_line_edit_text(text)
 
-    def set_line_edit_text(self, text):
+    def set_line_edit_text(self, text: str):
+        """
+        Set the text of the line edit to the given text. This method is used to check if the user is typing in the line edit
+        and only update the text if they are not currently typing.
+        :param text: string to set as the text of the line edit
+        :return:
+        """
         if not self.typing:
             self.lineEdit().setText(text)
 
-    def setCurrentText(self, text):
+    def setCurrentText(self, text: str):
+        """
+        Set the current text of the combo box to the given text. The text is only set if the user is not currently typing.
+        :param text: String to set as the current text of the combo box
+        :return:
+        """
         if not self.typing:
-            # self.programmatic_text_change = True
             super().setCurrentText(text)
-            # self.programmatic_text_change = False
 
-    def setCurrentIndex(self, index):
+    def setCurrentIndex(self, index: int):
+        """
+        Set the current index of the combo box to the given index. The index is only set if the user is not currently typing.
+        :param index: row index to set as the current index of the combo box
+        :return:
+        """
         if not self.typing:
-            # self.programmatic_text_change = True
             super().setCurrentIndex(index)
-            # self.programmatic_text_change = False
 
     def model(self):
+        """
+        Get the model of the combo box. If a proxy model is set, it returns the source model of the proxy model.
+        :return: checkable model
+        """
         if self.proxy_model:
             return self.proxy_model.sourceModel()
         else:
             return super().model()
 
     def setModel(self, model: CheckableSqlTableModel | CheckableSqlQueryModel | SampleAgeTableModel | QtC.QSortFilterProxyModel):
+        """
+        Set the model for the combo box. If a proxy model is provided, it sets the source model of the proxy model.
+        :param model: checkable model or proxy model
+        :return:
+        """
         if isinstance(model, QtC.QSortFilterProxyModel):
             self.proxy_model = model
             model = model.sourceModel()
@@ -3425,31 +4046,21 @@ class CheckableComboBox(QtW.QComboBox):
             self.table = None
             self.name_col = None
             return
-        # If it is not a table model, it may be a view, get the name of the table
-        if not isinstance(model, QtS.QSqlTableModel) and 'SampleAge' not in column and 'Reference' not in column:
-            if 'Sample' in column:
-                self.table = 'Samples'
-            elif 'Aliquot' in column:
-                self.table = 'Aliquots'
-            elif 'Spot' in column:
-                self.table = 'Spots'
-            elif 'UPbAnalysis' in column:
-                self.table = 'UPbAnalyses'
-            elif 'Column' in column:
-                self.table = 'Columns'
-            elif 'Reference' in column:
-                self.table = '"References"'
-            self.name_col = get_name_column(get_view_from_table(self.table))
-        # If it is just a table or SampleAge query, use the table name
-        else:
-            self.table = model.tableName()
-            self.name_col = get_name_column(get_view_from_table(self.table))
+        self.table = model.tableName()
+        self.name_col = get_name_column(get_view_from_table(self.table))
         if self.name_col:
             self.proxy_model.setFilterKeyColumn(self.name_col)
             show_column(self, self.name_col)
         self.view().setMinimumWidth(self.view().sizeHint().width())
 
-    def update_filter(self, text):
+    def update_filter(self, text: str):
+        """
+        Update the filter of the proxy model based on the text entered in the line edit. This method is called whenever
+        the text in the line edit is edited by typing. It sets the filter regular expression of the proxy model
+        to match (case-insensitive) the text entered by the user.
+        :param text: string to filter the items in the combo box
+        :return:
+        """
         self.start_typing()
         # logger_setup.get_logger().debug(f'Setting filter to: {text}')
         search_expression = QtC.QRegularExpression(text,
@@ -3459,6 +4070,13 @@ class CheckableComboBox(QtW.QComboBox):
         self.showPopup()
 
     def enable_context_menu(self, show_context_menu: bool):
+        """
+        Enable or disable the context menu for the combo box. If show_context_menu is True and the model is modifiable,
+        it sets the context menu policy to CustomContextMenu and connects the customContextMenuRequested signal to
+        the contextMenuEvent method. If show_context_menu is False or the model is not modifiable, it disables the context menu.
+        :param show_context_menu:
+        :return:
+        """
         self.context_menu = show_context_menu
         if self.context_menu and self.model_modifiable:
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -3467,6 +4085,14 @@ class CheckableComboBox(QtW.QComboBox):
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
 
     def contextMenuEvent(self, event):
+        """
+        Handle the context menu event for the combo box. This method is called when the user right-clicks on the combo box.
+        It creates a context menu with options to edit, add, clear all checks, select all, and delete items based on the
+        current table of the combo box. Actions are processed based on the user's selection in the context menu and
+        emit signals for editing, adding, and deleting items to be handled by the parent widget.
+        :param event:
+        :return:
+        """
         menu = TreeContextMenu()
         if self.table == '"References"':
             table = 'References'
@@ -3476,7 +4102,7 @@ class CheckableComboBox(QtW.QComboBox):
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
             add_action = None
             clear_all_action = menu.addAction("Clear All Checks")
-            select_all_action = menu.addAction("Select All")
+            select_all_action = menu.addAction("Check All")
             delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
         elif self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses'):
             edit_action = None
@@ -3488,7 +4114,7 @@ class CheckableComboBox(QtW.QComboBox):
             edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = menu.addAction("Clear All Checks")
-            select_all_action = menu.addAction("Select All")
+            select_all_action = menu.addAction("Check All")
             delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
         else:
             edit_action = None
@@ -3509,9 +4135,21 @@ class CheckableComboBox(QtW.QComboBox):
             self.delete_triggered.emit(self)
 
     def set_single_click(self, single_click: bool):
+        """
+        Set whether the combo box should allow single-click selection of items. If single_click is True, clicking on an
+        item will uncheck all other items and select only the clicked item. If single_click is False, clicking on an
+        item will toggle its check state without affecting other items.
+        :param single_click: True or False
+        :return:
+        """
         self.single_click = single_click
 
     def clear_all_checks(self):
+        """
+        Clear all checks in the combo box. This method iterates through all rows in the model and sets the check state
+        of each item to Unchecked. It also clears the text in the line edit to indicate that no items are selected.
+        :return:
+        """
         for row in range(self.model().rowCount()):
             index = self.model().index(row, self.name_col)
             self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
@@ -3519,6 +4157,11 @@ class CheckableComboBox(QtW.QComboBox):
         logger_setup.get_logger().info(f'Cleared all checks in {self.table} combo box')
 
     def select_all(self):
+        """
+        Set all items in the combo box to Checked. This method iterates through all rows in the model and sets
+        the check state of each item to Checked. It also updates the line edit text to show the names of all checked items.
+        :return:
+        """
         for row in range(self.model().rowCount()):
             index = self.model().index(row, self.name_col)
             self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
@@ -3526,11 +4169,18 @@ class CheckableComboBox(QtW.QComboBox):
         checked_names = []
         for id in checked_ids:
             checked_names.append(get_name_from_id(self.table, id))
-        text = ', '.join(checked_names)
+        text = '; '.join(checked_names)
         self.set_line_edit_text(text)
         logger_setup.get_logger().info(f'Selected all items in {self.table} combo box')
 
     def showPopup(self):
+        """
+        Show the popup for the combo box. This method is called to display the dropdown list of items in the combo box.
+        The popup is shown only if there are items in the model. It sets the width of the view to fit the width of the
+        combo box or the size hint for the name column, whichever is larger. It also sets the height of the view to
+        fit the size hint of the view. The popup_shown flag is set to True to indicate that the popup is currently shown.
+        :return:
+        """
         if self.proxy_model.rowCount() == 0:
             return
         if self.width() > self.view().sizeHintForColumn(self.name_col):
@@ -3544,6 +4194,13 @@ class CheckableComboBox(QtW.QComboBox):
         logger_setup.get_logger().debug(f'Popup shown in {self.table} combo box')
 
     def hidePopup(self):
+        """
+        Hide the popup for the combo box. This method is called to hide the dropdown view in the combo box only if it
+        is shown. It checks if the user has clicked outside the view or if the single_click mode is enabled to keep the
+        popup open when selecting multiple items is allowed. If the popup is shown, it hides the popup and emits the
+        closing signal.
+        :return:
+        """
         if self.popup_shown:
             if not self.single_click:
                 # Check if the cursor is still over the view, if so, do not hide the popup
@@ -3555,6 +4212,17 @@ class CheckableComboBox(QtW.QComboBox):
             self.stop_typing()
 
     def eventFilter(self, obj, event):
+        """
+        Filter events for the combo box and its view. This method is used to handle mouse button press events on the
+        combo box and its view. It checks if the event is a mouse button press on the line edit or the view's viewport.
+        If the event is a right-click on the line edit, it shows the context menu if it is enabled. If the event is a
+        left-click on the view's viewport, it checks if single_click mode is enabled. If it is, it clears all checks
+        and sets the current index to the clicked item, updating the line edit text accordingly. If the event is a right-click
+        on the view's viewport, it shows the context menu if it is enabled. Other events are passed to the superclass.
+        :param obj:
+        :param event:
+        :return:
+        """
         if obj == self.lineEdit():
             if event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.RightButton:
                 if self.context_menu:
@@ -3616,56 +4284,13 @@ class CheckableComboBox(QtW.QComboBox):
 
         return super().eventFilter(obj, event)
 
-class SearchableSQLComboBox(QtW.QComboBox):
-    closing = QtC.pyqtSignal()
-    delete_triggered = QtC.pyqtSignal(QtW.QComboBox)
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.context_menu = False
-        self.name_col = None
-        self.userTyped = False
-        self.previous_index = self.currentIndex()
-        self.proxy_model = QtC.QSortFilterProxyModel()
-
-    def setModel(self, model: QtS.QSqlTableModel | QtS.QSqlQueryModel | SQLiteTableModel):
-        self.proxy_model.setSourceModel(model)
-        super().setModel(self.proxy_model)
-        self.name_col = get_name_column(get_view_from_table(self.tableName()))
-        self.setModelColumn(self.name_col)
-
-    def search_items(self, text):
-        self.userTyped = True
-        self.proxy_model.setFilterFixedString(text)
-        self.showPopup()
-        if self.proxy_model.rowCount() > 0:
-            self.setCurrentIndex(0)
-        else:
-            self.setCurrentIndex(0)
-
-    def enable_context_menu(self, show_context_menu: bool):
-        self.context_menu = show_context_menu
-        if self.context_menu:
-            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-            # self.customContextMenuRequested.connect(self.contextMenuEvent)
-        else:
-            self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
-
-    def contextMenuEvent(self, event):
-        menu = QtW.QMenu(self)
-        if self.model().rowCount() !=0:
-            delete_action = menu.addAction(f"Delete item")
-        else:
-            delete_action = None
-        action = menu.exec(self.mapToGlobal(event.pos()))
-        if action == delete_action:
-            self.delete_triggered.emit(self)
-
-    def hidePopup(self):
-        super().hidePopup()
-        self.closing.emit()
-        # self.update_line_edit()
-
 class SearchableComboBox(QtW.QComboBox):
+    """
+    A QComboBox subclass that allows for searching items in the dropdown list. This class extends QComboBox to provide
+    functionality for searching items in the dropdown list by typing in the line edit. It uses a completer to filter
+    the items containing the text entered by the user. The selection_changed signal is emitted whenever the
+    selection in the combo box changes, allowing for custom handling of selection changes.
+    """
     selection_changed = QtC.pyqtSignal(QtW.QComboBox)
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -3680,16 +4305,35 @@ class SearchableComboBox(QtW.QComboBox):
         self.lineEdit().editingFinished.connect(self.validate_input)
 
     def addItem(self, text: str):
+        """
+        Add a single item to the combo box. This method overrides the default addItem method to set the default text
+        to blank after adding the item. This ensures that the combo box does not display 'None' as a default value.
+        :param text: text to be added as an item to the combo box
+        :return:
+        """
         super().addItem(text)
         # Set the default text to blank
         self.lineEdit().setText(None)
 
-    def addItems(self, texts):
+    def addItems(self, texts: list[str]):
+        """
+        Add multiple items to the combo box. This method overrides the default addItems method to set the default text
+        to blank after adding the items. This ensures that the combo box does not display 'None' as a default value.
+        :param texts: list of text strings to be added as items to the combo box
+        :return:
+        """
         super().addItems(texts)
         # Set the default text to blank
         self.lineEdit().setText(None)
 
     def validate_input(self):
+        """
+        Validate the input in the line edit. This method checks if the text entered in the line edit matches any of
+        the items in the combo box. If the text does not match any item, it sets the text to None and resets the current
+        index to -1. If the text matches an item, it sets the current index to that item. This ensures that the combo box
+        does not display 'None' as a default value and only shows valid selections.
+        :return:
+        """
         text = self.lineEdit().text()
         if self.findText(text) == -1 or text == 'None':
             self.lineEdit().setText(None)
@@ -3700,17 +4344,11 @@ class SearchableComboBox(QtW.QComboBox):
             self.lineEdit().setText(None)
             self.setCurrentIndex(-1)
 
-class TemporaryComboBox(QtW.QComboBox):
-    closing = QtC.pyqtSignal()
-    def __init__(self, parent=None):
-        super().__init__(parent)
-
-    def hidePopup(self):
-        super().hidePopup()
-        self.closing.emit()
-
 class CheckableTreeView(QtW.QTreeView):
-    close = QtC.pyqtSignal()
+    """
+    A QTreeView subclass that allows for checkable items in a tree structure. This class extends QTreeView to allows users
+    to select multiple items. The model can be set to a CheckableTreeModel, which provides the data for the tree.
+    """
 
     def __init__(self):
         super().__init__()
@@ -3722,31 +4360,37 @@ class CheckableTreeView(QtW.QTreeView):
         self.setHeaderHidden(False)
 
         self.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
-        self.model_edited = False
         # self.clicked.connect(self.toggle_check_state)
 
-    def setModel(self, model: TreeModel):
+    def setModel(self, model: CheckableTreeModel | QSortFilterProxyModel):
+        """
+        Set the model for the tree view. This method overrides the default setModel method to ensure that the model
+        is a CheckableTreeModel or a proxy model wrapping a CheckableTreeModel.
+        :param model: CheckableTreeModel to be set as the model for the tree view
+        :return:
+        """
+        if isinstance(model, QSortFilterProxyModel):
+            if not isinstance(model.sourceModel(), CheckableTreeModel):
+                raise TypeError("Model must be a CheckableTreeModel or a QSortFilterProxyModel wrapping a CheckableTreeModel")
         super().setModel(model)
-        self.connect_edited_signal()
 
     def resizeColumnsToContents(self):
+        """
+        Resize all columns in the tree view to fit their contents. This method iterates through all columns in the model
+        and resizes each column to fit the contents of the items in that column. This is useful for ensuring that all
+        columns are displayed correctly and that the text in each column is fully visible.
+        :return:
+        """
         for column in range(self.model().columnCount()):
             self.resizeColumnToContents(column)
 
-    def connect_edited_signal(self):
-        self.model().dataChanged.connect(lambda: self.toggle_edited(True))
-
-    def disconnect_edited_signal(self):
-        try:
-            self.model().dataChanged.disconnect(lambda: self.toggle_edited(True))
-        except TypeError:
-            pass
-
-    def toggle_edited(self, edited: bool):
-        self.model_edited = edited
-        # print(f'{self.model().table} edited {edited}')
-
     def toggle_check_state(self, index: QtC.QModelIndex):
+        """
+        Toggle the check state of the item at the given index. This method checks if the model is set and if the index
+        is valid and user-checkable. If so, it toggles the check state of the item between Checked and Unchecked.
+        :param index: QModelIndex to be checked or unchecked
+        :return:
+        """
         if self.model():
             if index.isValid() and QtC.Qt.ItemFlag.ItemIsUserCheckable in self.model().flags(index):
                 current_state = self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole)
@@ -3754,10 +4398,21 @@ class CheckableTreeView(QtW.QTreeView):
                 self.model().setData(index, new_state, QtC.Qt.ItemDataRole.CheckStateRole)
 
     def expand_all_checked(self):
+        """
+        Expand all parents of checked items in the tree view. This method traverses the tree model and expands all
+        parent items of checked and partially checked items. It ensures that all parents of checked items are visible
+        in the tree view, making it easier for users to see the hierarchy of checked items.
+        :return:
+        """
         tree_model, indexes = find_tree_model(self.model(), [])
         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
 
         def expand_parents(item_index: QtC.QModelIndex):
+            """
+            Expand parent index of the given item index in the tree view. Recursively expands each parent.
+            :param item_index: QModelIndex of the item whose parent should be expanded
+            :return:
+            """
             parent = item_index.parent()
             while parent.isValid():
                 self.expand(parent)
@@ -3769,6 +4424,13 @@ class CheckableTreeView(QtW.QTreeView):
             expand_parents(index)
 
 class TreeCombobox(QtW.QComboBox):
+    """
+    Custom QComboBox subclass that displays a tree structure in the dropdown list. This class extends QComboBox to provide
+    functionality for displaying a tree view of items in the dropdown list. It allows users to search for items by typing
+    in the line edit, and it uses a TreeSortFilterProxyModel to filter the items based on the text entered. The tree view
+    supports context menus for editing, adding, and expanding/collapsing items. The combo box can be used to select items
+    from a tree structure, making it suitable for hierarchical data representation.
+    """
     closing = QtC.pyqtSignal()
     edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
     add_triggered = QtC.pyqtSignal(QtW.QComboBox, QAction)
@@ -3782,7 +4444,6 @@ class TreeCombobox(QtW.QComboBox):
         self.treeView = QtW.QTreeView()
         self.treeView.setRootIsDecorated(True)
         self.closedOnLineEditClick = False
-        self.programmatic_text_change = False
         self.checkable = False
         self.expand_collapse = False
         self.popup_shown = False
@@ -3799,21 +4460,43 @@ class TreeCombobox(QtW.QComboBox):
         self.setCompleter(None)
 
     def start_typing(self):
+        """
+        Start typing in the line edit, which will grab the keyboard focus and allow the user to type in the search box.
+        :return:
+        """
         self.typing = True
         self.lineEdit().grabKeyboard()
 
     def stop_typing(self):
+        """
+        Stop typing in the line edit, which will release the keyboard focus and clear the search filter.
+        :return:
+        """
         self.typing = False
         self.lineEdit().releaseKeyboard()
         self.proxy_model.setFilterRegularExpression('')
 
-    def set_text(self, text):
+    def set_text(self, text: str):
+        """
+        Set the text of the line edit to the given text. This method is used to update the line edit text when the user
+        selects an item from the tree view or when the text is set programmatically. It checks if the combo box is not
+        currently typing before setting the text to avoid conflicts with user input. If the model is checkable, the
+        subclass CheckableTreeModel will handle the check state of items, and this method will set the text
+        :param text: text to set as the text of the line edit
+        :return:
+        """
         if not self.checkable and not self.typing:
-            self.programmatic_text_change = True
             self.lineEdit().setText(text)
-            self.programmatic_text_change = False
 
-    def setModel(self, model):
+    def setModel(self, model: CheckableTreeModel | QSortFilterProxyModel):
+        """
+        Set the model for the tree view in the combo box. This method overrides the default setModel method to set
+        a TreeSortFilterProxyModel as the source model for the tree view. The proxy model allows for filtering of items
+        based on the text entered in the line edit. It also sets the filter case sensitivity to case-insensitive and
+        enables recursive filtering. The first column is shown, and all other columns are hidden by default.
+        :param model:
+        :return:
+        """
         self.proxy_model = TreeSortFilterProxyModel(self, self.treeView)
         self.proxy_model.setSourceModel(model)
         self.proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -3826,7 +4509,15 @@ class TreeCombobox(QtW.QComboBox):
         self.treeView.setMinimumWidth(self.treeView.sizeHint().width())
         self.treeView.setSortingEnabled(False)
 
-    def update_filter(self, text):
+    def update_filter(self, text: str):
+        """
+        Update the filter of the proxy model based on the text entered in the line edit. This method is called whenever
+        the text in the line edit is edited by typing. It sets the filter regular expression of the proxy model
+        to match (case-insensitive) the text entered by the user. If the text is not empty, it expands all items in
+        the tree view to show all matching items. This allows users to search for items in the tree structure by typing.
+        :param text: text to filter the items in the tree view
+        :return:
+        """
         self.start_typing()
         # logger_setup.get_logger().debug(f'Setting filter to: {text}')
         search_expression = QtC.QRegularExpression(text, options=QtC.QRegularExpression.PatternOption.CaseInsensitiveOption)
@@ -3837,6 +4528,13 @@ class TreeCombobox(QtW.QComboBox):
         self.showPopup()
 
     def enable_context_menu(self, show_context_menu: bool):
+        """
+        Enable or disable the context menu for the tree view in the combo box. If show_context_menu is True, it sets
+        the context menu policy to CustomContextMenu and connects the customContextMenuRequested signal to the
+        show_context_menu method. If show_context_menu is False, it sets the context menu policy to NoContextMenu.
+        :param show_context_menu: True or False to enable or disable the context menu
+        :return:
+        """
         self.context_menu = show_context_menu
         if self.context_menu:
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -3845,6 +4543,16 @@ class TreeCombobox(QtW.QComboBox):
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.NoContextMenu)
 
     def show_context_menu(self, pos):
+        """
+        Show the context menu for the tree view in the combo box. This method is called when the user right-clicks
+        on the tree view. It creates a TreeContextMenu and sets the view to the tree view. The context menu includes
+        options for editing, adding, expanding/collapsing items, and other actions based on the current table of the model.
+        If the model is an Aliquots table, it sets the view to the tree view with specific options. The action selected
+        in the context menu is processed, and signals are emitted for editing or adding items. The popup is shown after
+        the context menu is executed to ensure that the user can continue interacting with the combo box.
+        :param pos:
+        :return:
+        """
         menu = TreeContextMenu()
         tree_model, indexes = find_tree_model(self.model(), None)
         if tree_model.table == 'Aliquots':
@@ -3863,29 +4571,53 @@ class TreeCombobox(QtW.QComboBox):
                 expand_collapse(self.treeView, action)
             self.showPopup()
 
-    def set_line_edit_text(self, text):
+    def set_line_edit_text(self, text: str):
+        """
+        Set the text of the line edit to the given text. This method is only called when the user is not currently typing.
+        :param text: text to set as the text of the line edit
+        :return:
+        """
         if not self.typing:
             self.lineEdit().setText(text)
 
-    def setCurrentText(self, text):
+    def setCurrentText(self, text: str):
+        """
+        Set the current text of the combo box to the given text. The text is only set if the user is not currently typing.
+        :param text: text to set as the current text of the combo box
+        :return:
+        """
         if not self.typing:
-            # self.programmatic_text_change = True
             super().setCurrentText(text)
-            # self.programmatic_text_change = False
 
-    def setCurrentIndex(self, index):
+    def setCurrentIndex(self, index: int):
+        """
+        Set the current index of the combo box to the given index. The index is only set if the user is not currently typing.
+        :param index: row index to set as the current index of the combo box
+        :return:
+        """
         if not self.typing:
-            # self.programmatic_text_change = True
             super().setCurrentIndex(index)
-            # self.programmatic_text_change = False
 
-    def setEditText(self, text):
+    def setEditText(self, text: str):
+        """
+        Set the text of the line edit to the given text. This method is used to update the line edit text when the user
+        selects an item from the tree view or when the text is set programmatically. It checks if the combo box is not
+        currently typing before setting the text to avoid conflicts with user input.
+        :param text: String to set as the current text of the combo box
+        :return:
+        """
         if not self.typing:
-            # self.programmatic_text_change = True
             self.lineEdit().setText(text)
-            # self.programmatic_text_change = False
 
     def showPopup(self):
+        """
+        Show the popup for the combo box. This method is called to display the dropdown list of items in the combo box.
+        If the model is a tree model and the user is not typing, it restores the expanded state of the tree view before
+        showing the popup. It resizes the columns to fit the contents and sets the width and height of the tree view to
+        fit the size hint for the name column. The popup_shown flag is set to True to indicate that the popup is
+        currently shown. If the tree model has no items, it does not show the popup.
+        :return:
+        """
         tree_model, indexes = find_tree_model(self.model(), None)
         if not tree_model:
             return
@@ -3904,6 +4636,15 @@ class TreeCombobox(QtW.QComboBox):
         self.popup_shown = True
 
     def hidePopup(self):
+        """
+        Hide the popup for the combo box. This method is called to hide the dropdown view in the combo box only if it
+        is shown. It checks if the user has clicked outside the view or if the expand/collapse action was triggered to
+        keep the popup open when expanding/collapsing or selecting multiple items is allowed. When hiding, it saves the
+        expanded state of the tree view if the model is a tree model and the user is not typing. This ensures that the
+        expansions to show filtered items do not overwrite the user's expanded state. The typing state is stopped and the
+        closing signal is emitted to notify that the popup is being closed.
+        :return:
+        """
         if self.popup_shown:
             if self.treeView.rect().contains(self.treeView.mapFromGlobal(QtG.QCursor.pos())):
                 # Check if the cursor is still on the view
@@ -3919,11 +4660,29 @@ class TreeCombobox(QtW.QComboBox):
             self.closing.emit()
 
     def focusOutEvent(self, event):
+        """
+        Handle the focus out event for the combo box. This method is called when the combo box loses focus. If the event
+        is a focus out event, it hides the popup to ensure that the dropdown list is not visible when the combo box
+        loses focus.
+        :param event:
+        :return:
+        """
         if event == QtC.QEvent.Type.FocusOut:
             self.hidePopup()
         super().focusOutEvent(event)
 
     def eventFilter(self, obj, event):
+        """
+        Filter events for the combo box and its view. This method is used to handle mouse button press events on the
+        combo box and its view. It checks if the event is a mouse button press on the line edit or the view's viewport.
+        If the event is a right-click on the line edit, it shows the context menu if it is enabled. If the event is a
+        left-click on the view's viewport, it checks if the expand/collapse action was triggered. If it was, it expands
+        or collapses the item at the clicked position without selecting it. If the event is a right-click on the view's
+        viewport, it shows the context menu if it is enabled. Other events are passed to the superclass.
+        :param obj:
+        :param event:
+        :return:
+        """
         if obj == self.treeView.viewport():
             if event.type() == QtC.QEvent.Type.MouseButtonPress:
                 # If the user clicks on the expand/collapse button, do not select the item, only expand/collapse
@@ -3966,6 +4725,15 @@ class TreeCombobox(QtW.QComboBox):
         return super().eventFilter(obj, event)
 
 class CheckableTreeCombobox(TreeCombobox):
+    """
+    Custom QComboBox subclass that displays a checkable tree structure in the dropdown list. This class extends TreeCombobox
+    to provide functionality checkable tree models. It allows users to select multiple items from the
+    dropdown list by checking the checkboxes next to each item. Closing the dropdown will emit a signal similar to editing
+    finished that can be connected to a slot for further processing. A proxy model filter allows the user can search for
+    items by typing in the line edit. The view supports a context menu for editing, adding, and deleting items.
+    Setting single_click to True will upon click uncheck all items except the one clicked, forcing the user to select
+    only one item at a time.
+    """
     closing = QtC.pyqtSignal()
     edit_triggered = QtC.pyqtSignal(QtW.QComboBox)
     add_triggered = QtC.pyqtSignal(QtW.QComboBox, QAction)
@@ -3990,21 +4758,49 @@ class CheckableTreeCombobox(TreeCombobox):
         self.context_menu = False
 
     def le_text_changed(self):
+        """
+        Handle text changes in the line edit. This method is called whenever the text in the line edit is changed while
+        not typing to make sure that it reflects the current state of the tree view.
+        :return:
+        """
         # print(f'{self.objectName()} line edit text changed: {self.lineEdit().text()}')
         if not self.typing:
             self.update_line_edit()
 
     def setModel(self, model: CheckableTreeModel):
+        """
+        Set the model for the checkable tree combo box. This method overrides the TreeCombobox setModel method to ensure
+        connect the dataChanged signal of the model to the update_line_edit method to update the line edit text whenever
+        the data in the model changes. It also expands all checked items in the tree view to show the hierarchy of checked
+        items.
+        :param model: CheckableTreeModel to be set as the model for the checkable tree combo box
+        :return:
+        """
         super().setModel(model)
         if self.model():
             self.model().dataChanged.connect(self.update_line_edit)
         self.treeView.expand_all_checked()
 
     def set_single_click(self, single_click):
+        """
+        Set whether the checkable tree combo box should allow single-click selection. If single_click is True, clicking
+        on an item will uncheck all other items and select only the clicked item. If single_click is False, multiple items
+        can be selected.
+        :param single_click:
+        :return:
+        """
         self.single_click = single_click
 
     def update_line_edit(self):
-        self.programmatic_text_change = True
+        """
+        Update the line edit text based on the checked items in the tree view. This method is called whenever the data
+        in the model changes or when the user interacts with the tree view. It retrieves the checked items from the tree
+        model and updates the line edit text accordingly. If there are partially checked items, the line edit is set to a
+        dash ('-'). If there are fully checked items, the line edit is set to a semicolon-separated list of their names.
+        If no items are checked, the line edit is set to the placeholder text. This ensures that the line edit always
+        reflects the current state of the tree view and provides a clear indication of the selected items.
+        :return:
+        """
         current_line_edit_text = self.lineEdit().text()
         # If the line edit contains a comma, it is likely a list of items
         current_names = current_line_edit_text.split('; ')
@@ -4025,15 +4821,19 @@ class CheckableTreeCombobox(TreeCombobox):
                 self.lineEdit().setText('; '.join(new_names))
             else:
                 if new_names != current_names:
-                    text = ', '.join(new_names)
-                    self.lineEdit().setText(text)
+                    self.lineEdit().setText('; '.join(new_names))
         else:
-            # No items are checked, so the line edit should be blank
-            self.lineEdit().setText('')
+            # No items are checked, so the line edit should be set to the placeholder text
+            self.lineEdit().setText(self.placeholderText())
         # logger_setup.get_logger().debug(f'Line edit text updated to {self.lineEdit().text()}')
         self.programatic_text_change = False
 
     def clear_all_checks(self):
+        """
+        Clear all checks in the checkable tree combo box. This method traverses the tree model and unchecks all items
+        in the tree view.
+        :return:
+        """
         # traverse the tree and uncheck all items
         def traverse_tree(parent: QtC.QModelIndex):
             for row in range(self.model().rowCount(parent)):
@@ -4043,7 +4843,32 @@ class CheckableTreeCombobox(TreeCombobox):
 
         traverse_tree(QtC.QModelIndex())
 
+    def check_all(self):
+        """
+        Check all items in the checkable tree combo box. This method traverses the tree model and checks all items
+        in the tree view.
+        :return:
+        """
+        # traverse the tree and check all items
+        def traverse_tree(parent: QtC.QModelIndex):
+            for row in range(self.model().rowCount(parent)):
+                index = self.model().index(row, 0, parent)
+                self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
+                traverse_tree(index)
+
+        traverse_tree(QtC.QModelIndex())
+
     def show_context_menu(self, pos):
+        """
+        Show the context menu for the checkable tree combo box. This method is called when the user right-clicks on
+        the checkable tree view or the line edit. It creates a TreeContextMenu and passes the tree view. The context menu
+        includes options for editing, adding, expanding/collapsing items, and other actions based on the current table of
+        the model. The action selected in the context menu is processed, and signals are emitted for editing or adding
+        items. The popup is shown after the context menu is executed to ensure that the user can continue interacting
+        with the combo box.
+        :param pos:
+        :return:
+        """
         menu = TreeContextMenu()
         tree_model, indexes = find_tree_model(self.model(), None)
         if tree_model.table == 'Aliquots':
@@ -4060,8 +4885,21 @@ class CheckableTreeCombobox(TreeCombobox):
                 self.add_triggered.emit(self, action)
             elif 'Expand' in action.text() or 'Collapse' in action.text():
                 expand_collapse(self.treeView, action)
+            elif 'Check all' in action.text():
+                self.check_all()
+            elif 'Clear all checks' in action.text():
+                self.clear_all_checks()
 
     def hidePopup(self):
+        """
+        Hide the popup for the checkable tree combo box. This method is called to hide the dropdown view in the combo box
+        only if it is shown. It checks if the user has clicked outside the view or if the expand/collapse action was
+        triggered to keep the popup open when expanding/collapsing or selecting multiple items is allowed. When hiding, it
+        saves the expanded state of the tree view if the model is a tree model and the user is not typing. This ensures that
+        the expansions to show filtered items do not overwrite the user's expanded state. The typing state is stopped and the
+        closing signal is emitted to notify that the popup is being closed. If the popup is already hidden, it does nothing.
+        :return:
+        """
         if self.popup_shown:
             # Check if the cursor is still over the view or the combo box and the combo box has focus, if so, do not hide the popup
             if (self.treeView.rect().contains(self.treeView.mapFromGlobal(QtG.QCursor.pos()))
@@ -4075,6 +4913,16 @@ class CheckableTreeCombobox(TreeCombobox):
             self.update_line_edit()
 
     def eventFilter(self, obj, event):
+        """
+        Filter events for the viewport of the checkable tree combo box. This method is used to handle mouse button press
+        events on the viewport of the tree view. If the event is a left-click on the viewport, it checks if the
+        expand/collapse button was clicked. If it was, it expands or collapses the item at the clicked position. If not,
+        it toggles the check state of the item at the clicked position. If the event is a right-click on the viewport,
+        it shows the context menu if it is enabled. Other events are passed to the superclass.
+        :param obj:
+        :param event:
+        :return:
+        """
         if obj == self.treeView.viewport():
             if event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.LeftButton:
                 index = self.treeView.indexAt(event.pos())
@@ -4137,6 +4985,16 @@ class CheckableTreeCombobox(TreeCombobox):
         return super().eventFilter(obj, event)
 
 class TreeContextMenu(QtW.QMenu):
+    """
+    Custom context menu for tree views. This class extends QMenu to provide a context menu for tree views with options
+    for editing, adding, expanding/collapsing items, and viewing data. It dynamically adds actions based on the selected
+    items in the tree view. The context menu can handle both single and multiple selections, and it provides options
+    for inserting items above or below the selected item, adding child items, and adding parent items. It also includes
+    options for expanding and collapsing items, as well as viewing data related to the selected items. A tree view is
+    passed with bool values to enable or disable specific actions such as delete, add, and edit. The context menu
+    can be used with both checkable and non-checkable tree views, and it provides a flexible way to interact with tree
+    structures in the application.
+    """
     def __init__(self, parent = None):
         super().__init__(parent)
         self.tree_view = None
@@ -4144,6 +5002,18 @@ class TreeContextMenu(QtW.QMenu):
         self.indexes = None
 
     def set_view(self, tree_view: QtW.QTreeView, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
+        """
+        Set the view for the context menu. This method initializes the context menu with actions based on the selected
+        items in the tree view. It retrieves the model and indexes of the selected items, and then adds actions for
+        editing, adding, deleting, expanding, and collapsing items. It also adds actions for viewing data if the model
+        is an Aliquots table. The actions are added based on whether the delete, add, and edit actions are active or not.
+        Actions are also different depending on if single or multiple items are selected.
+        :param tree_view: QTreeView that contains selected items for which the context menu is created
+        :param delete_active: Adds delete action if True, otherwise does not add it
+        :param add_active: Adds add actions if True, otherwise does not add it
+        :param edit_active: Adds edit actions if True, otherwise does not add it
+        :return:
+        """
         self.tree_view = tree_view
         self.model, self.indexes = find_tree_model(self.tree_view.model(), self.tree_view.selectedIndexes())
         item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.model, self.indexes)
@@ -4156,76 +5026,90 @@ class TreeContextMenu(QtW.QMenu):
             self.add_view_data_actions()
 
     def add_single_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
+        """
+        Add actions for a single selected item in the tree view. This method adds actions for editing, adding, and deleting
+        a single item in the tree view. Several hierarchical add actions are available for a single item.
+        :param delete_active: Adds delete action if True, otherwise does not add it
+        :param add_active: Adds add actions if True, otherwise does not add it
+        :param edit_active: Adds edit action if True, otherwise does not add it
+        :return:
+        """
         if edit_active:
-            edit_action = self.addAction('Edit')
+            self.addAction('Edit')
         if add_active:
             add_menu = self.addMenu('Add')
-            insert_above_action = add_menu.addAction('Insert above')
-            insert_below_action = add_menu.addAction('Insert below')
-            add_child_action = add_menu.addAction('Add child')
-            add_parent_action = add_menu.addAction('Add parent')
-            add_end_action = add_menu.addAction('Add to end')
+            add_menu.addAction('Insert above')
+            add_menu.addAction('Insert below')
+            add_menu.addAction('Add child')
+            add_menu.addAction('Add parent')
+            add_menu.addAction('Add to end')
         if delete_active:
-            delete_action = self.addAction('Delete')
+            self.addAction('Delete')
 
     def add_multi_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
+        """
+        Add actions for multiple selected items in the tree view. This method adds actions for editing, adding, and deleting
+        multiple items in the tree view. No hierarchical add actions are available for multiple items.
+        :param delete_active:
+        :param add_active:
+        :param edit_active:
+        :return:
+        """
         if edit_active:
-            edit_action = self.addAction('Edit')
+            self.addAction('Edit')
         if delete_active:
-            delete_action = self.addAction('Delete')
+            self.addAction('Delete')
         if add_active:
-            add_action = self.addAction('Add')
+            self.addAction('Add')
 
     def add_expand_collapse_actions(self):
+        """
+        Add actions for expanding and collapsing items in the tree view. This method adds actions for expanding and collapsing
+        children, all children, and all items in the tree view. These actions allow users to quickly expand or collapse
+        the tree structure to view or hide the details of the items. The actions are grouped into Expand and Collapse menus.
+        :return:
+        """
         expand_menu = self.addMenu('Expand')
-        expand_children_action = expand_menu.addAction('Expand children')
-        expand_all_children_action = expand_menu.addAction('Expand all children')
-        expand_all_action = expand_menu.addAction('Expand all')
+        expand_menu.addAction('Expand children')
+        expand_menu.addAction('Expand all children')
+        expand_menu.addAction('Expand all')
         collapse_menu = self.addMenu('Collapse')
-        collapse_children_action = collapse_menu.addAction('Collapse children')
-        collapse_all_children_action = collapse_menu.addAction('Collapse all children')
-        collapse_all_action = collapse_menu.addAction('Collapse all')
+        collapse_menu.addAction('Collapse children')
+        collapse_menu.addAction('Collapse all children')
+        collapse_menu.addAction('Collapse all')
 
     def add_checkable_actions(self):
+        """
+        Add actions for checkable tree views. This method adds actions to check all items or clear all checks in the
+        checkable tree view.
+        :return:
+        """
         if isinstance(self.tree_view, CheckableTreeView):
-            clear_action = self.addAction('Clear checks')
+            self.addAction('Clear all checks')
+            self.addAction('Check all')
 
     def add_view_data_actions(self):
+        """
+        Add actions for viewing data related to the selected items in the tree view. This method adds actions to view
+        spots and U-Pb analyses for the selected aliquots in separate tabs.
+        :return:
+        """
         view_data_menu = self.addMenu('View Data')
-        view_spot_action = view_data_menu.addAction('View Spots')
-        view_upb_analyses_action = view_data_menu.addAction('View U-Pb Analyses')
-
-
-class TreeModelCompleter(QtW.QCompleter):
-    def __init__(self, model=None, parent=None):
-        super().__init__(model, parent)
-
-    def complete(self, rect: QtC.QRect = QtC.QRect):
-        logger_setup.get_logger().debug('Complete called')
-        logger_setup.get_logger().debug(f'Filter mode: {self.filterMode()}')
-
-        # If the model is a TreeModel, we need to ensure that the completer works with the tree structure
-        if isinstance(self.model(), TreeModel) or isinstance(self.model(), TreeSortFilterProxyModel):
-            # Create a list of all items in the tree model
-            items = []
-            def traverse_tree(index: QtC.QModelIndex):
-                if not index.isValid():
-                    return
-                items.append(index.data(QtC.Qt.ItemDataRole.DisplayRole))
-                for row in range(self.model().rowCount(index)):
-                    child_index = self.model().index(row, 0, index)
-                    traverse_tree(child_index)
-
-            traverse_tree(self.model().index(0, 0))
-            if len(items) > 0:
-                logger_setup.get_logger().debug(f'{len(items)} items found')
-
-        super().complete()
-
-    # def showPopup(self):
+        view_data_menu.addAction('View Spots')
+        view_data_menu.addAction('View U-Pb Analyses')
 
 
 class FrozenTableView(QtW.QTableView):
+    """
+    Custom QTableView subclass that allows freezing the first column of the table. This class extends QTableView to
+    provide functionality for freezing the first column of the table, allowing it to remain visible while scrolling
+    horizontally. The frozen column is displayed in a separate QTableView that is stacked over the main table view.
+    The frozen table view is updated whenever the model is set or when the section sizes change. It also synchronizes
+    the vertical scroll bar with the main table view to ensure that both views scroll together. The frozen column
+    is updated whenever the section sizes change, and the geometry of the frozen table view is adjusted to match the
+    main table view's geometry.
+    """
+    # todo: Troubleshoot the frozen column resizing issue when the table is resized
     def __init__(self, parent=None):
         super().__init__(parent)
         self.frozen_table_view = QtW.QTableView()
@@ -4252,6 +5136,14 @@ class FrozenTableView(QtW.QTableView):
         # self.frozen_table_view.installEventFilter(self)
 
     def setModel(self, model):
+        """
+        Set the model for the frozen table view and the main table view. This method overrides the QTableView setModel
+        method to ensure that both the main table view and the frozen table view are set to the same model. It also
+        hides all columns except the first one in the frozen table view. The frozen table view is updated to match the
+        geometry of the main table view, and the section widths are set to match the main table view's column widths.
+        :param model:
+        :return:
+        """
         super().setModel(model)
         self.frozen_table_view.setModel(model)
         self.frozen_table_view.setSelectionModel(self.selectionModel())
@@ -4259,31 +5151,88 @@ class FrozenTableView(QtW.QTableView):
             if col != 1:
                 self.frozen_table_view.hideColumn(col)
 
-        self.update_frozen_table_geometry
+        self.update_frozen_table_geometry()
 
-    def update_section_height(self, logicalIndex, oldSize, newSize):
+    def update_section_height(self, logicalIndex):
+        """
+        Update the height of the frozen table view's row based on the logical index. This method is called whenever
+        the height of a section in the main table view changes. It sets the row height of the frozen table view to
+        match the row height of the main table view for the specified logical index. This ensures that the frozen column
+        remains aligned with the main table view's rows even when the row heights change.
+        :param logicalIndex:
+        :return:
+        """
         self.frozen_table_view.setRowHeight(logicalIndex, self.rowHeight(logicalIndex))
 
-    def update_section_width(self, logicalIndex, oldSize, newSize):
+    def update_section_width(self, logicalIndex):
+        """
+        Update the width of the frozen table view's column based on the logical index. This method is called whenever
+        the width of a section in the main table view changes. It sets the column width of the frozen table view to
+        match the column width of the main table view for the specified logical index. This ensures that the frozen column
+        remains aligned with the main table view's columns even when the column widths change.
+        :param logicalIndex:
+        :return:
+        """
         self.frozen_table_view.setColumnWidth(logicalIndex, self.columnWidth(logicalIndex))
         self.update_frozen_table_geometry()
 
     def resizeEvent(self, event):
+        """
+        Handle the resize event for the frozen table view. This method is called whenever the main table view is resized.
+        It updates the geometry of the frozen table view to match the new size of the main table view. The frozen table
+        view's geometry is adjusted to ensure that it occupies the same space as the first column of the main table view.
+        :param event:
+        :return:
+        """
         super().resizeEvent(event)
         self.update_frozen_table_geometry()
 
     def moveCursor(self, cursorAction, modifiers):
+        """
+        Move the cursor in the frozen table view based on the cursor action and modifiers. This method overrides the
+        QTableView moveCursor method to handle the case where the cursor is moved left and the current column is greater
+        than 1. If the cursor is moved left and the current column is greater than 1, it checks if the visual rectangle
+        of the current index is outside the width of the frozen column. If it is, it adjusts the horizontal scroll bar
+        value to ensure that the frozen column remains visible. This allows the user to navigate through the table while
+        keeping the frozen column in view. The method returns the current index after moving the cursor.
+        :param cursorAction:
+        :param modifiers:
+        :return: current index after moving the cursor
+        """
         current = super().moveCursor(cursorAction, modifiers)
-        if cursorAction == QtW.QAbstractItemView.CursorAction.MoveLeft and current.column() > 1 and self.visualRect(current).topLeft().x() < self.frozen_table_view.columnWidth(1):
-            new_value = self.horizontalScrollBar().value() + self.visualRect(current).topLeft().x() - self.frozen_table_view.columnWidth(1)
+        if (cursorAction == QtW.QAbstractItemView.CursorAction.MoveLeft and current.column() > 1 and
+                self.visualRect(current).topLeft().x() < self.frozen_table_view.columnWidth(1)):
+            new_value = (self.horizontalScrollBar().value() + self.visualRect(current).topLeft().x() -
+                         self.frozen_table_view.columnWidth(1))
             self.horizontalScrollBar().setValue(new_value)
         return current
 
     def scrollTo(self, index, hint = ...):
+        """
+        Scroll to the specified index in the frozen table view. This method overrides the QTableView scrollTo method
+        to handle the case where the index is in a column greater than 1. If the index's column is greater than 1, it
+        calls the superclass scrollTo method to scroll to the specified index. This ensures that the frozen column remains
+        visible while scrolling through the table. The hint parameter is passed to the superclass method to specify
+        how the scrolling should be performed (e.g., whether to scroll to the top, center, etc.). If the index is in
+        the first two columns, it does not scroll to the index, as the frozen column is always visible.
+        :param index:
+        :param hint:
+        :return:
+        """
         if index.column() > 1:
             super().scrollTo(index, hint)
 
     def update_frozen_table_geometry(self):
+        """
+        Update the geometry of the frozen table view to match the main table view's geometry. This method is called
+        whenever the model is set or when the section sizes change. It adjusts the geometry of the frozen table view
+        to ensure that it occupies the same space as the first column of the main table view. The frozen table view's
+        geometry is set based on the vertical header width, frame width, column width of the first column, and the
+        viewport height of the main table view. This ensures that the frozen column remains aligned with the main table
+        view's rows and columns, even when the table is resized or the section sizes change. The geometry is set to
+        ensure that the frozen column is positioned correctly relative to the main table view's viewport and headers.
+        :return:
+        """
 
         self.frozen_table_view.setGeometry(self.verticalHeader().width() + self.frameWidth() - 1,
                                            self.frameWidth() - 1, self.columnWidth(1) + 1,
@@ -4298,26 +5247,31 @@ class FrozenTableView(QtW.QTableView):
     #         object = self.viewport()
     #     super().eventFilter(object, event)
 
-class MaxWidthDelegate(QStyledItemDelegate):
-    def __init__(self, max_width, parent=None):
-        super().__init__(parent)
-        self.max_width = max_width
-
-    def sizeHint(self, option, index):
-        size = super().sizeHint(option, index)
-        return QtC.QSize(min(size.width(), self.max_width), size.height())
-
 # ---------------------------
 #    Widget Methods
 # ---------------------------
 
 def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
+    """
+    Set the text of a combo box. This method updates the current index of the combo box based on the provided text.
+    :param comboBox: combo box to set the text for
+    :param text: text string to set in the combo box
+    :return:
+    """
     if text == '' or text == '-':
         comboBox.setCurrentIndex(-1)
     else:
         comboBox.setCurrentText(text)
 
 def show_column(comboBox: QtW.QComboBox, column: str | int):
+    """
+    Set the model column for a combo box. This method sets the model column of the combo box to the specified column.
+    If the column is a string, it searches for the column index by matching the header data. If the column is an integer,
+    it sets the model column directly. It also sorts the model if it is a proxy model and not a tree.
+    :param comboBox: combo box to set the model column for
+    :param column: column name or index to set as the model column
+    :return:
+    """
     try:
         if comboBox.proxy_model:
             model = comboBox.proxy_model
@@ -4336,38 +5290,9 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
         tree_model, indexes = find_tree_model(model, None)
         if isinstance(model, QtC.QSortFilterProxyModel) and not tree_model:
             model.sort(column, QtC.Qt.SortOrder.AscendingOrder)
-        return
-
-def comboBox_display_table(comboBox):
-    comboBox.tableView.resizeColumnsToContents()
-    columns = comboBox.model().columnCount()
-    width_hint = 0
-    for col in range(0, columns):
-        # hide all but name and description
-        col_name = comboBox.model().headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        if "Name" in col_name or "Description" in col_name:
-            comboBox.tableView.showColumn(col)
-            # Add up the size hints for all the visible columns
-            width_hint += comboBox.tableView.columnWidth(col)
-        else:
-            comboBox.tableView.hideColumn(col)
-    comboBox.tableView.setSortingEnabled(False)
-    width_c1 = comboBox.tableView.sizeHintForColumn(1)
-    width_tree = comboBox.tableView.sizeHint().width()
-    if width_hint < 2 * width_c1:
-        size_hint = width_hint
-    else:
-        size_hint = 2 * width_c1
-    comboBox.tableView.setMinimumWidth(size_hint)
-    # row height * number of rows plus header height
-    total_height = comboBox.tableView.rowHeight(
-        0) * comboBox.tableView.model().rowCount() + comboBox.tableView.horizontalHeader().height()
-    if total_height > comboBox.tableView.sizeHint().height():
-        comboBox.tableView.setFixedHeight(comboBox.tableView.sizeHint().height())
-    else:
-        comboBox.tableView.setFixedHeight(total_height)
 
 def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
+    """"""
     dlg_args = None
     indexes = tree_view.selectedIndexes()
     model = tree_view.model()
@@ -4392,12 +5317,12 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
     return dlg_args
 
 def save_expanded_state(table: str, treeView: QtW.QTreeView):
-    '''
+    """
     Save the expanded state of the tree view to the settings
     @param table: Name of table with parent-child relationships
     @param treeView: The view displaying the model
     @return:
-    '''
+    """
 
     expanded_ids = set()
     model = treeView.model()
@@ -4587,7 +5512,15 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
             item_table = item_edit_view
     for row in range(model.rowCount()):
         table_id = model.index(row, 0).data()
-        if item_table == 'References':
+        if 'View' in item_table:
+            # If the item_table is a view, we need to use the view query
+            show_columns = settings.value(SQLUtils.view_setting_dict[item_table])
+            where = f"WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
+            edit_view = True if 'Edit' in item_table else False
+            query_args = {'show_columns': show_columns, 'where': where}
+            view_query = ViewQuery(item_table, edit_view, **query_args)
+            model_query = view_query.table_query
+        elif item_table == 'References':
             model_query = f'SELECT {table_id_header}, {item_id_header} FROM "References" WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}'
         else:
             model_query = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
@@ -4778,7 +5711,7 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
         text = "-"
     if isinstance(combo, CheckableTreeCombobox):
         model.blockSignals(False)
-        combo.treeView.connect_edited_signal()
+        combo.treeView.expand_all_checked()
     if not text:
         text = combo.placeholderText()
     combo.setCurrentText(text)
@@ -4879,8 +5812,6 @@ def get_readable_header(header: str):
         header = header.replace(' U ', 'U ')
     return header
 
-
-
 def show_loading_dialog(title, message, cancel_callback=None):
     """
     Show a loading dialog while the action is taking places
@@ -4906,12 +5837,14 @@ def close_loading_dialog(title, message):
 def update_other_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, update_table: str, update_ids: list):
     """
     Take the checked ids from a table and update that field in another table. The relationship must be one-to-one or
-    one-to-many, so the checked ids should be complete. If the relationship is many-to-many, use update_many_table_with_checks.
-    :param table: table with checked data
-    :param checked_ids: ids of checked items in the table
+    one-to-many, so there should be only one checked ID. If there are partially checked IDs, no item has been selected
+    to associate with all IDs in the other table, so do not update. If the relationship is many-to-many, use
+    update_many_table_with_checks.
+    :param table: table with checked data (e.g. Columns)
+    :param checked_ids: ids of checked items in the table, must be a single ID for one-to-one or one-to-many relationships
     :param partially_checked_ids: ids of partially checked items in the table
-    :param update_table: table to update
-    :param update_ids: ids to update in the update table
+    :param update_table: table to update (e.g. Samples)
+    :param update_ids: ids to update in the update table (e.g. list of sample IDs to link to the checked column ID)
     :return: True if successful or not needed, False if not
     """
     if not update_ids:
@@ -4921,6 +5854,11 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         # Any selection for a one-to-many relationship should be complete, so there should be no partially checked IDs
         logger_setup.get_logger().info(f'Partially checked IDs for one-to-many relationship, no changes to update')
         return True
+    if len(checked_ids) > 1:
+        # If there are multiple checked IDs, this is a many-to-many relationship, so we should not use this function
+        logger_setup.get_logger().error(f'Multiple checked IDs given for {table}. Select only one ID to update {update_table}.')
+        logger_setup.get_logger().debug(f'This should be a one-to-many relationship, so set the checkable combo box to single click.')
+        return False
     id_header = get_headers(table)[0]
     other_id_header = get_headers(update_table)[0]
     current_ids = []
@@ -4945,29 +5883,26 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
         logger_setup.get_logger().info(f'Checks are up to date')
         return False
     create_savepoint('update_other_table')
-    if len(checked_ids) == 1:
-        if not query.exec(f'UPDATE {update_table} SET {id_header} = {checked_ids[0]} WHERE {other_id_header} {query_where_str}'):
-            logger_setup.get_logger().critical(f'Failed to add item to {update_table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-            rollback_savepoint('update_other_table')
-            return False
-        logger_setup.get_logger().info(f'Added {id_header} {checked_ids[0]} to {update_table}')
-        release_savepoint('update_other_table')
-        return True
-    else:
-        logger_setup.get_logger().critical(f'Too many checks for {update_table}')
+    if not query.exec(f'UPDATE {update_table} SET {id_header} = {checked_ids[0]} WHERE {other_id_header} {query_where_str}'):
+        logger_setup.get_logger().critical(f'Failed to add item to {update_table}')
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        rollback_savepoint('update_other_table')
+        return False
+    logger_setup.get_logger().info(f'Added {id_header} {checked_ids[0]} to {update_table}')
+    release_savepoint('update_other_table')
+    return True
 
 def update_many_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, many_table: str, first_table_ids: list) -> bool:
     """
-        Take the checked ids from a table and update that field in the second column of a many-to-many table with another table.
-        The relationship must be many-to-many, so the checked ids may be partial.
-        :param table: table with checked data (e.g. Regions)
-        :param checked_ids: ids of checked items in the table (e.g. list of region IDs)
-        :param partially_checked_ids: ids of partially checked items in the table (e.g. list of region IDs that are partially checked)
-        :param many_table: many-to-many table to update (e.g. Samles_Regions)
-        :param first_table_ids: ids to update in the first table (e.g. list of sample IDs to link to the checked region IDs)
-        :return: True if successful or not needed, False if not
+    Take the checked ids from a table and update that field in the second column of a many-to-many table with another table.
+    The relationship must be many-to-many, so the checked ids may be partial.
+    :param table: table with checked data (e.g. Regions)
+    :param checked_ids: ids of checked items in the table (e.g. list of region IDs)
+    :param partially_checked_ids: ids of partially checked items in the table (e.g. list of region IDs that are partially checked)
+    :param many_table: many-to-many table to update (e.g. Samples_Regions)
+    :param first_table_ids: ids to update in the first table (e.g. list of sample IDs to link to the checked region IDs)
+    :return: True if successful or not needed, False if not
     """
     first_table = many_table.split('_')[0]
     second_table = many_table.split('_')[1]

@@ -20,8 +20,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    restore_expanded_state, add_tree_popup, ReadableProxyModel, QSqlTableModelModifiedTrigger, EditableSqlQueryModel,
-    TreeSortFilterProxyModel
+    restore_expanded_state, add_tree_popup, TreeSortFilterProxyModel
 )
 from ui.AddTreeTags import AddTreeTags
 

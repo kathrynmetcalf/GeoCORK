@@ -76,17 +76,20 @@ class DataViewerWidget(QWidget):
 
         self.dbTable_tableView_2.doubleClicked.connect(self.open_doi_link)
         # Pagination variables
-        # todo add rows_per_page combobox and signals to connect to settings values
-        # self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
-        # self.rows_per_page: int = settings.value('show_per_page')
-        # self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
+        self.rows_per_page: int = settings.value('show_per_page')
+        self.show_per_page_comboBox.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
         self.current_page_1 = 0
-        self.rows_per_page_1 = 2000
+        self.rows_per_page_1 = self.rows_per_page
         self.total_records_1 = self.get_total_records_1()
+        self.show_per_page_comboBox.currentTextChanged.connect(self.change_rows_per_page_1)
 
+        self.show_per_page_comboBox_2.addItems(['10', '25', '50', '100', '250', '500', '1000'])
+        self.show_per_page_comboBox_2.setCurrentText(str(self.rows_per_page))
         self.current_page_2 = 0
-        self.rows_per_page_2 = 2000
+        self.rows_per_page_2 = self.rows_per_page
         self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
+        self.show_per_page_comboBox_2.currentTextChanged.connect(self.change_rows_per_page_2)
 
         self.goto_line_edit.returnPressed.connect(self.go_to_record_1)
         self.goto_line_edit_2.returnPressed.connect(self.go_to_record_2)
@@ -137,9 +140,9 @@ class DataViewerWidget(QWidget):
         new_table = self.dbTable_comboBox.currentText()
         filtered_ids = self.query_builder.get_filtered_ids(new_table)
         if filtered_ids is None:
-            logger_setup.get_logger().critical(
-                f'No matching Spots for given filter(s)')
-            self.dbTable_comboBox.setText(self.data_table)
+            logger_setup.get_logger().error(
+                f'No matching {new_table} for given filter(s)')
+            self.dbTable_comboBox.setCurrentText(self.data_table)
             return
         else:
             if len(set(filtered_ids)) > 1000:
@@ -201,7 +204,7 @@ class DataViewerWidget(QWidget):
                         f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
                     return
             query_args = {'show_columns': show_cols, 'where': f'WHERE {show_cols[0]} {self.sql_data_ids_to_show}',
-                          'limit': f'LIMIT {self.rows_per_page_1} OFFSET {offset}', 'order_col': 'SampleName'}
+                          'limit': f'LIMIT {self.rows_per_page_1} OFFSET {offset}'}
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
             self.data_table_model = SQLiteTableModel(table_query)
@@ -250,40 +253,38 @@ class DataViewerWidget(QWidget):
             if self.data_table not in SQLUtils.user_viewable_trees:
                 logger_setup.get_logger().critical(f"Error {self.data_table}: Tried to display a table as a tree...")
                 return
-            if self.data_table == 'Aliquots':
-                table = 'Aliquots'
-                self.switch_to_tree(self.db_stackedWidget)
-                # Get the sample IDs for these aliquots
-                show_cols = settings.value('aliquot_view_columns')
-                sample_ids = column_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', 'SampleID')
-                if not sample_ids:
-                    logger_setup.get_logger().critical(f'Error displaying Aliquots')
-                    logger_setup.get_logger().debug(f'No SampleIDs found for Aliquots: {self.sql_data_ids_to_show}')
-                    return
-                elif len(sample_ids) > 1:
-                    if len(sample_ids) > 1000:
-                        if not self.view_many_results(len(sample_ids)):
-                            return
-                    where_samples = f'WHERE SampleID IN ({", ".join([str(i) for i in sample_ids])})'
-                else:
-                    where_samples = f'WHERE SampleID = {sample_ids[0]}'
-                query_args = {'show_columns': show_cols, 'where': where_samples,
-                              'order_col': 'SampleName'}
-                view_query = ViewQuery(table, False, **query_args)
-                table_query = view_query.table_query
-                model = SQLiteTableModel(table_query)
-                if model.last_error:
-                    logger_setup.get_logger().critical(f'Error displaying Aliquots')
-                    logger_setup.get_logger().debug(f'Error: {model.last_error}')
-                    return
-                model.table = table
-            else:
-                logger_setup.get_logger().info(f"Passed a tree that is not Aliquots")
+            table = 'Aliquots'
+            self.switch_to_tree(self.db_stackedWidget)
+            # Get the sample IDs for these aliquots, then apply a filter to show only the aliquot IDs in data_ids_to_show
+            # Otherwise, the tree structure is not maintained
+            show_cols = settings.value('aliquot_view_columns')
+            sample_ids = column_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', 'SampleID')
+            if not sample_ids:
+                logger_setup.get_logger().critical(f'Error displaying Aliquots')
+                logger_setup.get_logger().debug(f'No SampleIDs found for Aliquots: {self.sql_data_ids_to_show}')
                 return
+            elif len(sample_ids) > 1:
+                if len(sample_ids) > 1000:
+                    if not self.view_many_results(len(sample_ids)):
+                        return
+                where_samples = f'WHERE SampleID IN ({", ".join([str(i) for i in sample_ids])})'
+            else:
+                where_samples = f'WHERE SampleID = {sample_ids[0]}'
+            query_args = {'show_columns': show_cols, 'where': where_samples,
+                          'order_col': 'SampleName'}
+            view_query = ViewQuery(table, False, **query_args)
+            table_query = view_query.table_query
+            model = SQLiteTableModel(table_query)
+            if model.last_error:
+                logger_setup.get_logger().critical(f'Error displaying Aliquots')
+                logger_setup.get_logger().debug(f'Error: {model.last_error}')
+                return
+            model.table = table
 
             self.data_table_model = TreeModel(model, self)
 
             self.data_table_proxy_model = TreeSortFilterProxyModel(view=self.dbTable_treeView)
+            # Now apply the filter to the model so that only the filtered AliquotIDs are shown
             self.data_table_proxy_model.filter_ids = self.data_ids_to_show
             self.data_table_proxy_model.filter_column = 1  # AliquotID column
             self.data_table_proxy_model.setSourceModel(self.data_table_model)
@@ -298,7 +299,7 @@ class DataViewerWidget(QWidget):
                 self.dbTable_treeView.resizeColumnToContents(column)
         else:
             logger_setup.get_logger().critical(
-                f"Error {self.data_table}: Tried to switch to a table with no table or tree...")
+                f"Error {self.data_table}: Tried to switch to an unknown table...")
 
         self.edit_pushButton.setText(f"Edit {self.data_table}")
 
@@ -735,6 +736,14 @@ class DataViewerWidget(QWidget):
         if dbTable_treeView is not None:
             dbTable_treeView.expandAll()
 
+    def change_rows_per_page_1(self):
+        """
+        Slot to change the number of rows displayed per page for the sample table
+        """
+        self.rows_per_page_1 = int(self.show_per_page_comboBox.currentText())
+        self.current_page_1 = 0
+        self.display_data_table()
+
     def next_page_1(self):
         """
         Slot to move to the next page for the sample table
@@ -750,6 +759,14 @@ class DataViewerWidget(QWidget):
         if self.current_page_1 > 0:
             self.current_page_1 -= 1
             self.display_data_table()
+
+    def change_rows_per_page_2(self):
+        """
+        Slot to change the number of rows displayed per page for the sample table
+        """
+        self.rows_per_page_2 = int(self.show_per_page_comboBox_2.currentText())
+        self.current_page_2 = 0
+        self.display_table_with_data_filter()
 
     def next_page_2(self):
         """
@@ -769,7 +786,7 @@ class DataViewerWidget(QWidget):
 
     def go_to_record_1(self):
         """
-        Slot to go to a specific record ID for the sample table.
+        Slot to go to a specific record name for the sample table.
         """
         try:
             record_name = self.goto_line_edit.text()
@@ -777,9 +794,9 @@ class DataViewerWidget(QWidget):
                 return
             record_id = get_id_from_name(self.dbTable_comboBox.currentText(), record_name)
             if not record_id:
-                logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                logger_setup.get_logger().error(f'Could not find record name: {record_name}')
                 return
-            index = get_record_index(self.dbTable_comboBox.currentText(), record_id)
+            index = get_record_index(self.dbTable_comboBox.currentText(), record_id, self.data_ids_to_show)
 
             if index != -1:
                 new_page = index // self.rows_per_page_1
@@ -788,7 +805,7 @@ class DataViewerWidget(QWidget):
                 else:
                     self.current_page_1 = new_page
                     self.display_data_table()
-                self.goto_line_edit.setText('')
+                # self.goto_line_edit.setText(self.goto_line_edit.placeholderText())
 
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
@@ -798,7 +815,7 @@ class DataViewerWidget(QWidget):
 
     def go_to_record_2(self):
         """
-        Slot to go to a specific record ID for the filter table
+        Slot to go to a specific record name for the filter table
         """
         try:
             record_name = self.goto_line_edit_2.text()
@@ -806,9 +823,9 @@ class DataViewerWidget(QWidget):
                 return
             record_id = get_id_from_name(self.dbTable_comboBox_2.currentText(), record_name)
             if not record_id:
-                logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
+                logger_setup.get_logger().error(f'Could not find record name: {record_name}')
                 return
-            index = get_record_index(self.dbTable_comboBox_2.currentText(), record_id)
+            index = get_record_index(self.dbTable_comboBox_2.currentText(), record_id, self.data_filtered_ids_to_show)
 
             if index != -1:
                 new_page = index // self.rows_per_page_2
@@ -817,12 +834,12 @@ class DataViewerWidget(QWidget):
                 else:
                     self.current_page_2 = new_page
                     self.display_table_with_data_filter()
-                self.goto_line_edit_2.setText('')
+                self.goto_line_edit_2.setText(self.go_to_line_edit_2.placeholderText())
 
             else:
-                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit_2.text()}")
         except Exception as e:
-            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
+            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit_2.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
 
     def get_total_records_1(self) -> int:
@@ -872,45 +889,45 @@ class DataViewerWidget(QWidget):
 
         return 0
 
-    def get_record_index(self, record_id, dbTable_comboBox):
-        """
-        Get the index of a specific record ID
-        """
-        table_name = dbTable_comboBox.currentText()
-        table = TxM.remove_spaces(table_name)
-        query = QSqlQuery()
-
-        # Construct the SQL query
-        base_id_column = get_headers(table)[0]
-        sql_query = f"""
-                SELECT row_number 
-                FROM (
-                    SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column} 
-                    FROM {table} 
-                    WHERE {base_id_column} {self.data_ids_to_show}
-                ) 
-                WHERE {base_id_column} = :record_id
-            """
-
-        # Prepare and bind parameters
-        query.prepare(sql_query)
-        query.bindValue(":record_id", record_id)
-
-        logger_setup.get_logger().info('Getting the record index for record ID: {record_id}')
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-        # Execute the query
-        if not query.exec():
-            # Handle query execution error
-            logger_setup.get_logger().critical(
-                f'Error fetching records index: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
-            return -1
-
-        # Fetch the result
-        if query.next():
-            return query.value(0) - 1  # Convert to zero-based index
-
-        return -1
+    # def get_record_index(self, record_id, dbTable_comboBox):
+    #     """
+    #     Get the index of a specific record id
+    #     """
+    #     table_name = dbTable_comboBox.currentText()
+    #     table = TxM.remove_spaces(table_name)
+    #     query = QSqlQuery()
+    #
+    #     # Construct the SQL query
+    #     base_id_column = get_headers(table)[0]
+    #     sql_query = f"""
+    #             SELECT row_number
+    #             FROM (
+    #                 SELECT ROW_NUMBER() OVER (ORDER BY {base_id_column}) AS row_number, {base_id_column}
+    #                 FROM {table}
+    #                 WHERE {base_id_column} {self.data_ids_to_show}
+    #             )
+    #             WHERE {base_id_column} = :record_id
+    #         """
+    #
+    #     # Prepare and bind parameters
+    #     query.prepare(sql_query)
+    #     query.bindValue(":record_id", record_id)
+    #
+    #     logger_setup.get_logger().info('Getting the record index for record ID: {record_id}')
+    #     logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+    #     # Execute the query
+    #     if not query.exec():
+    #         # Handle query execution error
+    #         logger_setup.get_logger().critical(
+    #             f'Error fetching records index: {query.lastError().text()}')
+    #         logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+    #         return -1
+    #
+    #     # Fetch the result
+    #     if query.next():
+    #         return query.value(0) - 1  # Convert to zero-based index
+    #
+    #     return -1
 
     def switch_to_table(self, stacked_widget: QStackedWidget):
         """
@@ -919,6 +936,8 @@ class DataViewerWidget(QWidget):
         """
         stacked_widget.setCurrentIndex(0)
         self.page_info_label.show()
+        self.show_per_page_label.show()
+        self.show_per_page_comboBox.show()
         self.prev_button.show()
         self.next_button.show()
         self.goto_line_edit.show()
@@ -930,6 +949,8 @@ class DataViewerWidget(QWidget):
         """
         stacked_widget.setCurrentIndex(1)
         self.page_info_label.hide()
+        self.show_per_page_label.hide()
+        self.show_per_page_comboBox.hide()
         self.prev_button.hide()
         self.next_button.hide()
         self.goto_line_edit.hide()
@@ -941,6 +962,8 @@ class DataViewerWidget(QWidget):
         """
         stacked_widget.setCurrentIndex(0)
         self.page_info_label_2.show()
+        self.show_per_page_label_2.show()
+        self.show_per_page_comboBox_2.show()
         self.prev_button_2.show()
         self.next_button_2.show()
         self.goto_line_edit_2.show()
@@ -952,6 +975,8 @@ class DataViewerWidget(QWidget):
         """
         stacked_widget.setCurrentIndex(1)
         self.page_info_label_2.hide()
+        self.show_per_page_label_2.hide()
+        self.show_per_page_comboBox_2.hide()
         self.prev_button_2.hide()
         self.next_button_2.hide()
         self.goto_line_edit_2.hide()

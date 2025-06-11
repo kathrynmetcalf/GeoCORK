@@ -541,7 +541,7 @@ class SampleInformation(QtW.QDialog):
             text = "-"
         if isinstance(combo, CheckableTreeCombobox):
             model.blockSignals(False)
-            combo.treeView.connect_edited_signal()
+            combo.treeView.expand_all_checked()
         if not text:
             text = combo.placeholderText()
         combo.setCurrentText(text)
@@ -573,9 +573,17 @@ class SampleInformation(QtW.QDialog):
         elif action == unselect_action:
             self.uncheck_all_samples()
         elif action == delete_action:
-            if self.delete_question():
-                delete_data(selected_indexes, 'Samples')
+            selected_ids = []
+            for index in selected_indexes:
+                id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if id is not None:
+                    selected_ids.append(id)
+            if selected_ids:
+                delete_data( 'Samples', selected_ids)
                 action = None
+            else:
+                action = None
+                return
         elif action == add_action:
             self.add_popup(combo, action)
             action = None
@@ -858,18 +866,6 @@ class SampleInformation(QtW.QDialog):
         if not self.commit_pushed:
             self.commit_pushed = True
             self.commit_question()
-
-    def delete_question(self):
-        msg_box = QtW.QMessageBox(self)
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to delete these samples and all associated data?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            return True
-        else:
-            return False
 
     def discard_question(self):
         logger_setup.get_logger().info("Discard question called")

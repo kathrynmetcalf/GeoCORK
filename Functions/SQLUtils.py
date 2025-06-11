@@ -528,7 +528,7 @@ many_editable = {
                 'SettingName': 'Settings',
                 'UnitName': 'Units'},
     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
-    'Spots': {'SpotCompositionName': 'SpotCompositions', 'SpotContextName': 'SpotContexts'},
+    'Spots': {'SpotContextName': 'SpotContexts'},
     'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
     'References': {}
 }
@@ -677,15 +677,6 @@ tree_tables_schema = {
         'bridge_table': 'Samples_Settings',
         'bridge_from_column': 'SampleID',
         'bridge_to_column': 'SettingID',
-    },
-    'SpotCompositions.[SpotCompositionName]': {
-        'id_column': 'SpotCompositionID',
-        'name_column': 'SpotCompositionName',
-        'parent_column': 'ParentSpotCompositionID',
-        'cte_name': 'RecursiveSpotCompositions',
-        'bridge_table': 'Spots_SpotCompositions',
-        'bridge_from_column': 'SpotID',
-        'bridge_to_column': 'SpotCompositionID',
     },
     'SpotContexts.[SpotContextName]': {
         'id_column': 'SpotContextID',

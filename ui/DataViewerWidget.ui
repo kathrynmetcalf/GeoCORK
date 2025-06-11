@@ -57,6 +57,16 @@
         </widget>
        </item>
        <item>
+        <widget class="QLabel" name="show_per_page_label_2">
+         <property name="text">
+          <string>Show per page:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="show_per_page_comboBox_2"/>
+       </item>
+       <item>
         <widget class="QLabel" name="page_info_label_2">
          <property name="minimumSize">
           <size>
@@ -96,7 +106,7 @@
           </size>
          </property>
          <property name="placeholderText">
-          <string>Go to record ID</string>
+          <string>Go to record name</string>
          </property>
         </widget>
        </item>
@@ -143,6 +153,16 @@
         </widget>
        </item>
        <item>
+        <widget class="QLabel" name="show_per_page_label">
+         <property name="text">
+          <string>Show per page:</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QComboBox" name="show_per_page_comboBox"/>
+       </item>
+       <item>
         <widget class="QLabel" name="page_info_label">
          <property name="minimumSize">
           <size>
@@ -182,7 +202,7 @@
           </size>
          </property>
          <property name="placeholderText">
-          <string>Go to record ID</string>
+          <string>Go to record name</string>
          </property>
         </widget>
        </item>
@@ -525,7 +545,7 @@
           <property name="currentText">
            <string/>
           </property>
-          <property name="placeholderText" stdset="0">
+          <property name="placeholderText">
            <string/>
           </property>
          </widget>

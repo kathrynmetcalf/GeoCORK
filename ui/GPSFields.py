@@ -8,7 +8,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (set_table, set_comboBox_text, SQLiteTableModel, populate_combo_box, get_headers,
-    return_number)
+    return_number, delete_data)
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
@@ -698,10 +698,8 @@ class GPSFields(QtW.QWidget):
                 update_modified_timestamp('GPSLocations', gps_id)
                 logger_setup.get_logger().info(f"Updated GPSLocationID {gps_id}")
         if len(gps_to_delete) > 0:
-            if not query.exec(f'DELETE FROM GPSLocations WHERE GPSLocationID in {tuple(gps_to_delete)}'):
+            if not delete_data('GPSLocations', gps_to_delete):
                 logger_setup.get_logger().critical(f"Error deleting unused GPS")
-                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-                logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                 rollback_savepoint('before_update')
                 return False
             logger_setup.get_logger().info(f"Deleted unused GPSLocationIDs {gps_to_delete}")

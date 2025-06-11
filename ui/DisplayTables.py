@@ -18,10 +18,10 @@ from PyQt6.QtWidgets import QFileDialog, QWidget, QPushButton, QTabWidget, QTabl
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
-    save_expanded_state, restore_expanded_state, expand_collapse, get_selected_tree_ids, TreeContextMenu, TreeModel,
+    save_expanded_state, restore_expanded_state, expand_collapse, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
     get_record_index, close_loading_dialog, show_loading_dialog, column_as_list,
-    set_table, MaxWidthDelegate, get_id_from_name, scroll_to_record, get_view_from_table
+    set_table, get_id_from_name, scroll_to_record, get_view_from_table
 )
 import Functions.Text_manipulations as TxM
 from Functions import SQLUtils
