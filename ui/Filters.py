@@ -249,7 +249,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         exists_sql = f"""{'NOT ' if operator_sql=='!=' else ''}EXISTS (
             SELECT 1
               FROM {cte_name}
-             WHERE {cte_name}.{meta['bridge_to_column']} = {'Samples.SampleID' if meta['bridge_from_column'] == 'SampleID' else f'{table}.{meta["id_column"]}'}
+             WHERE {cte_name}.{meta['bridge_to_column']} = {table}.{meta["id_column"]}
         )"""
 
         return exists_sql, [cte_sql], field_key
