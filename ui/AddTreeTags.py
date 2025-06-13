@@ -11,26 +11,27 @@ from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Database_manager import update_database
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
-                                      restore_expanded_state,
+                                      restore_expanded_state, show_loading_dialog, close_loading_dialog,
                                       get_headers, get_name_column, description_column, set_table, ReadableProxyModel
                                       )
 
 
 class AddTreeTags(QtW.QDialog):
     """
-    A dialog for adding tags to a tree table in the database.
+    A dialog window for adding tags to a tree table in the database. It can be used to add child items to an existing
+    parent item, or to add a new parent item. The dialog allows the user to enter a name and description for the new
+    item, and to select the parent item if applicable. The dialog also displays the existing items in the tree view,
+    allowing the user to see the hierarchy of items and to select where to add the new item. A completer is provided for
+    the name field to avoid duplicates, and a warning label is shown if a duplicate name is entered.
     """
 
-    # def __init__(self, table: str, add_item: str = 'child', item_id=None, parent_id=None, parent_row=None, *argv):
     def __init__(self, parent_window, table: str, **kwargs):
         super().__init__(parent_window)
         logger_setup.get_logger().info(f'Starting AddTreeTags dialog for {table}...')
-        self.loading_manager = LoadingDialogManager.get_instance()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "AddTreeTags.ui")
         loadUi(sources_ui_file, self)
@@ -77,14 +78,19 @@ class AddTreeTags(QtW.QDialog):
         self.display_tags()
         create_savepoint('before_add')
         self.tree_model.dataEdited.connect(self.update_proxy)
-        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.tags_treeView))
+        # self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.tags_treeView))
         self.ok_pushButton.clicked.connect(self.add_tree_tag)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.finish_pushButton.clicked.connect(self.commit)
 
-        self.loading_manager.close_loading_dialog('Loading', f'Opening add window for {self.table}...')
+        close_loading_dialog('Loading', f'Opening add window for {self.table}...')
 
     def add_label(self):
+        """
+        Adds a label to the dialog indicating what is being added. The label is based on the type of item being added
+        (parent or child) and the current state of the dialog (whether a parent ID or item ID is set).
+        :return:
+        """
         if self.add_item == 'child':
             query = QtS.QSqlQuery()
             if self.parent_id:
@@ -119,9 +125,10 @@ class AddTreeTags(QtW.QDialog):
 
     def display_tags(self):
         """
-        Displays the tags in the tree view.
+        Displays the existing tags in the tree view.
         """
-        self.tags_treeView.setModel(self.tree_model)
+        show_loading_dialog('Loading', f'Loading {self.table}...')
+        self.tags_treeView.setModel(self.tree_proxy_model)
         self.tags_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
         self.tags_treeView.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tags_treeView.hideColumn(1)  # Don't show ID column
@@ -137,6 +144,7 @@ class AddTreeTags(QtW.QDialog):
         if not query.exec():
             logger_setup.get_logger().critical(
                 f'Error selecting display column from {self.table}: {query.lastError().text()}')
+            close_loading_dialog('Loading', f'Loading {self.table}...')
             return False
         self.existing_names = set()
         while query.next():
@@ -148,6 +156,7 @@ class AddTreeTags(QtW.QDialog):
         self.newName_lineEdit.setCompleter(completer)
 
         restore_expanded_state(self.table, self.tags_treeView)
+        close_loading_dialog('Loading', f'Loading {self.table}...')
 
     def show_context_menu(self, pos: QtC.QPoint):
         """
@@ -169,6 +178,11 @@ class AddTreeTags(QtW.QDialog):
         self.warning_label.hide()
 
     def search(self):
+        """
+        Searches the tree view for items that match the text in the newName_lineEdit. The search is case-insensitive
+        and uses a regular expression to match the text. The search is applied to the first column of the tree view.
+        :return:
+        """
         self.newName_lineEdit: QtW.QLineEdit
         self.tree_proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.tree_proxy_model.setRecursiveFilteringEnabled(True)
@@ -176,15 +190,30 @@ class AddTreeTags(QtW.QDialog):
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
 
     def add_tree_tag(self):
+        """
+        Adds a new tag to the tree view. If the add_item is 'child', it adds a child item to the selected parent item.
+        If the add_item is 'parent', it adds a new parent item to the tree view. The name and description are taken from
+        the newName_lineEdit and newDescription_lineEdit fields. If the name already exists, a warning label is shown
+        and the function returns without adding the item. If the parent_id is 'Null', it adds the item to the top level
+        of the tree view. If the parent_id is not 'Null', it adds the item to the specified parent item. If the add_item
+        is 'parent', it updates the parent of all new child IDs to the newly-added item. The function returns True if
+        the item was added successfully, or False if there was an error. It also updates the tree model and clears the
+        newName_lineEdit and newDescription_lineEdit fields after adding the item. The function also updates the
+        settings with the expanded state of the tree view and the parent ID of the newly-added item.
+        :return:
+        """
+        show_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
         save_expanded_state(self.table, self.tags_treeView)
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
         if self.parent_id == 'Null':
             if not self.tree_model.insertItem(name, description, None, self.parent_row):
+                close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                 return False
             logger_setup.get_logger().info(f'Added {name} to top level of {self.table}')
         else:
             if not self.tree_model.insertItem(name, description, self.parent_id, self.parent_row):
+                close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                 return False
             logger_setup.get_logger().info(f'Added {name} to {self.parent_id} in {self.table}')
         if self.add_item == 'parent':  # Need to update the parent of all new child ids to the newly-added item
@@ -194,6 +223,7 @@ class AddTreeTags(QtW.QDialog):
             if not query.exec():
                 logger_setup.get_logger().error(
                     f'Error selecting {self.item_name_header} {name}: {query.lastError().text()}')
+                close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                 return
             query.next()
             new_parent_id = query.value(0)
@@ -203,6 +233,7 @@ class AddTreeTags(QtW.QDialog):
                 pID = 'IS NULL'
             for child in range(len(self.new_child_ids)):
                 if not self.tree_model.moveItem(self.new_child_ids[child], self.new_parent_rows[child], pID):
+                    close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                     return False
             logger_setup.get_logger().info(f'Updated parent of {self.new_child_ids} to {new_parent_id} in {self.table}')
         self.updated = True
@@ -212,12 +243,19 @@ class AddTreeTags(QtW.QDialog):
             expanded_ids.add(self.parent_id)
             settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
         save_expanded_state(self.table, self.tags_treeView)
-        self.update_proxy()
+        self.source_model.dataChanged.emit()
+        # self.update_proxy()
         self.newName_lineEdit.clear()
         self.newDescription_lineEdit.clear()
+        close_loading_dialog('Adding item', f'Adding {name} to {self.table}...')
         return True
 
     def update_proxy(self):
+        """
+        Rebuilds the tree and updates the proxy model to reflect the changes made in the tree model. This is necessary
+        to ensure that the tree view displays the most up-to-date information after adding or editing items in the database.
+        :return:
+        """
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.source_model)
@@ -226,22 +264,33 @@ class AddTreeTags(QtW.QDialog):
         self.display_tags()
 
     def discard_question(self):
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to discard all changes?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            self.rollback()
+        """
+        Displays a confirmation dialog asking the user if they want to discard all changes made in the dialog.
+        :return:
+        """
+        self.discard_pushButton.blockSignals(True)
+        if self.updated:
+            msg_box = QtW.QMessageBox()
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setText('Are you sure you want to discard all changes?')
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                self.rollback()
+            else:
+                self.discard_pushButton.blockSignals(False)
         else:
-            pass
+            logger_setup.get_logger().info(f'No changes made to {self.table}, closing dialog')
+            self.rollback()
+
 
     def rollback(self):
         """
-        Rolls back the changes to the database. Rejects the dialog and closes the the window.
+        Rolls back the changes to the database. Rejects the dialog and closes the window.
         """
         rollback_savepoint('before_add')
+        self.updated = False
         save_expanded_state(self.table, self.tags_treeView)
         self.reject()
         self.close_by_dialog = True
@@ -272,7 +321,10 @@ class AddTreeTags(QtW.QDialog):
 
     def closeEvent(self, event: QtG.QCloseEvent):
         """
-        Overridden close event to handle the case where the user tries to close the dialog
+        Overridden close event to handle the user closing the dialog. If there are unsaved changes, it prompts the user
+        to confirm whether they want to discard the changes or not before proceeding. If the dialog was closed by the
+        user and no updates were made, it releases the savepoint and closes. If the dialog was closed by the dialog itself
+        (e.g., after committing or discarding changes), it also releases the savepoint.
         :param QCloseEvent event:
         """
         if not self.close_by_dialog:
@@ -289,10 +341,18 @@ class AddTreeTags(QtW.QDialog):
             event.accept()
 
     def saveWindowState(self):
+        """
+        Saves the current window state to the settings. This includes the position and size of the dialog.
+        :return:
+        """
         settings.setValue("ui/AddTreeTags/geometry", self.pos())
         settings.setValue("ui/AddTreeTags/size", self.size())
 
     def restoreWindowState(self):
+        """
+        Restores the window state from the settings. This includes the position and size of the dialog.
+        :return:
+        """
         self.move(settings.value("ui/AddTreeTags/geometry", defaultValue=QPoint(410, 241)))
         self.resize(settings.value("ui/AddTreeTags/size", defaultValue=QSize(400, 300)))
 

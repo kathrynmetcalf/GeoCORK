@@ -493,6 +493,7 @@ class EditUPbTags(QtW.QDialog):
             if response == QtW.QMessageBox.StandardButton.Yes:
                 logger_setup.get_logger().info("Discarding changes")
                 rollback_savepoint('before_upb_edit')
+                self.updated = False
                 self.reject()
                 self.close_by_dialog = True
                 self.close()

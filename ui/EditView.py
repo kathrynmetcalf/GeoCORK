@@ -223,8 +223,8 @@ class EditView(QtW.QDialog):
         """
         self.rows_per_page = int(self.show_per_page_comboBox.currentText())
         self.current_page = 0
-        self.create_model()
         self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
+        self.create_model()
 
     def next_page(self):
         """
@@ -232,8 +232,8 @@ class EditView(QtW.QDialog):
         """
         if (self.current_page + 1) * self.rows_per_page < self.total_records:
             self.current_page += 1
+            self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
             self.create_model()
-        self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
 
     def previous_page(self):
         """
@@ -241,8 +241,8 @@ class EditView(QtW.QDialog):
         """
         if self.current_page > 0:
             self.current_page -= 1
+            self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
             self.create_model()
-        self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
 
     def set_go_to_completer(self):
         # Populate the value input with a completer based on the selected attribute
@@ -279,7 +279,7 @@ class EditView(QtW.QDialog):
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record ID for record name: {record_name}')
                 return
-            index = get_record_index(self.table, record_id)
+            index = get_record_index(self.table, record_id, self.table_item_ids)
 
             if index != -1:
                 new_page = index // self.rows_per_page
@@ -294,7 +294,7 @@ class EditView(QtW.QDialog):
             logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
         self.goto_line_edit.clear()
-        self.goto_line_edit.setText('')
+        self.goto_line_edit.setText(self.goto_line_edit.placeholderText())
 
     def eventFilter(self, object, event):
         if event.type() in (
@@ -375,7 +375,7 @@ class EditView(QtW.QDialog):
             # get all the rows in the selected indexes
             ids_to_delete = []
             for index in indexes:
-                id = self.model.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                id = self.proxy_model.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
                 if id not in ids_to_delete:
                     ids_to_delete.append(id)
             if not ids_to_delete:
@@ -757,13 +757,14 @@ class EditView(QtW.QDialog):
         self.combo.model_modifiable = True
         self.combo.closedOnLineEditClick = False
         if isinstance(self.combo, CheckableComboBox | CheckableTreeCombobox):
+            # Enable context menu for checkable comboboxes
             self.combo.enable_context_menu(True)
             self.combo.add_triggered.connect(self.add_tag_popup)
             self.combo.edit_triggered.connect(self.edit_tag_popup)
-        # self.combo.activated.connect(self.save_dropdown_data)
+            # Save data and delete combo box when the dropdown view is closed
+            self.combo.closing.connect(self.save_dropdown_data)
         self.loading_manager.close_loading_dialog('Loading', f'Loading...')
         self.combo.setFocus()
-        # print("showing popup")
         self.combo.showPopup()
 
     def save_dropdown_data(self):
@@ -928,6 +929,7 @@ class EditView(QtW.QDialog):
         try:
             self.combo.add_triggered.disconnect(self.add_tag_popup)
             self.combo.edit_triggered.disconnect(self.edit_tag_popup)
+            self.combo.closing.disconnect(self.save_dropdown_data)
         except TypeError:
             pass
         except AttributeError:
@@ -1746,6 +1748,7 @@ class EditView(QtW.QDialog):
 
     def rollback(self):
         rollback_savepoint('before_edit')
+        self.updated = False
         self.reject()
         self.close_by_dialog = True
         self.close()

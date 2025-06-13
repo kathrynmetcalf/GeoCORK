@@ -4,6 +4,7 @@ import sys
 import time
 import webbrowser
 
+import qtawesome
 from PyQt6 import QtCore as QtC, QtWidgets, QtGui, QtCore
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
@@ -59,6 +60,12 @@ class DataViewerWidget(QWidget):
         loadUi(sources_ui_file, self)
 
         self.loadWindowState()
+
+        # Display and connect the refresh buttons
+        self.refresh_pushButton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
+        self.refresh_pushButton.clicked.connect(self.data_table_switcher)
+        self.refresh_pushButton_2.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
+        self.refresh_pushButton_2.clicked.connect(self.display_table_with_data_filter)
 
         # Remove Samples from user-viewable tables
         items = SQLUtils.user_viewable_tables.copy()

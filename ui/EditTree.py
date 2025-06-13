@@ -6,13 +6,12 @@ from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
-from PyQt6.QtCore import QRegularExpression, QSortFilterProxyModel
+from PyQt6.QtCore import QPoint, QSize
+from PyQt6.QtCore import QRegularExpression
 from PyQt6.uic import loadUi
 
 import Functions.Text_manipulations as TxM
 import logger_setup
-from Functions.Check_triggers import update_modified_timestamp
 from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
@@ -20,7 +19,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
-    restore_expanded_state, add_tree_popup, TreeSortFilterProxyModel
+    restore_expanded_state, add_tree_popup, TreeSortFilterProxyModel, delete_data
 )
 from ui.AddTreeTags import AddTreeTags
 
@@ -69,21 +68,27 @@ class EditTree(QtW.QDialog):
         self.edit_treeView.customContextMenuRequested.connect(self.show_context_menu)
 
         self.msg = QtW.QMessageBox(self)
+
         self.display_tree()
         create_savepoint('before_edit')
 
         self.close_by_dialog = False
         self.search_lineEdit.returnPressed.connect(self.search)
-        self.tree_model.save_state.connect(
-            lambda: save_expanded_state(self.table, self.edit_treeView))
-        self.tree_model.dataEdited.connect(self.update_proxy)
         self.add_pushButton.clicked.connect(self.add_popup)
         self.commit_pushButton.clicked.connect(self.commit)
         self.cancel_pushButton.clicked.connect(self.discard_question)
+        self.tree_model.dataChanged.connect(self.set_updated)
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table_name}...')
         logger_setup.get_logger().info(
             f'Opened {table_name} tree edit dialog in {time.time() - start_edit_tree_time} seconds')
+
+    def set_updated(self):
+        """
+        Sets the updated flag to True when the data in the model is changed.
+        This is used to determine if the user has made changes to the data.
+        """
+        self.updated = True
 
     def search(self):
         self.search_lineEdit: QtW.QLineEdit
@@ -129,24 +134,28 @@ class EditTree(QtW.QDialog):
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table_name}...')
         self.edit_treeView.setModel(self.tree_proxy_model)
         self.edit_treeView.header().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        start_hide_columns_time = time.time()
         self.edit_treeView.hideColumn(1)  # don't show ID column
         self.edit_treeView.hideColumn(2)  # don't show parent ID column
         self.edit_treeView.hideColumn(3)  # don't show parent row column
+        logger_setup.get_logger().info(f'Hid columns in {time.time() - start_hide_columns_time} seconds')
         self.edit_treeView.setSortingEnabled(False)
+        restore_expanded_state(self.table, self.edit_treeView)
         self.edit_treeView.setDragEnabled(True)
         self.edit_treeView.setAcceptDrops(True)
         self.edit_treeView.setDropIndicatorShown(True)
         self.edit_treeView.setDragDropMode(QtW.QAbstractItemView.DragDropMode.InternalMove)
         self.edit_treeView.setDefaultDropAction(QtC.Qt.DropAction.MoveAction)
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
-        restore_expanded_state(self.table, self.edit_treeView)
-        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
+        # self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
+        self.tree_model.dataEdited.connect(self.update_proxy)
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table_name}...')
         logger_setup.get_logger().info(
             f'Displayed {self.table_name} tree in {time.time() - start_display_tree_time} seconds')
 
     def update_proxy(self):
+        save_expanded_state(self.table, self.edit_treeView)
         if self.sender() == self.tree_model:
             self.updated = True
         if self.tree_proxy_model.sourceModel() == self.tree_model:
@@ -209,75 +218,39 @@ class EditTree(QtW.QDialog):
         if not item_ids:
             return
 
-        # Look for any children of the selected items
-        def get_children(item_id):
-            """
-            Get all children of the selected item. This is a recursive function that will get all children of the selected
-            :param item_id:
-            :return:
-            """
-            delete_children = []
-            children = self.tree_model.find_children(item_id)
-            if children:
-                for child in children:
-                    if child not in delete_children:
-                        delete_children.append(child)
-                        delete_children.extend(get_children(child))
-            return delete_children
-
-        all_children = []
-        for item_id in item_ids:
-            children_ids = get_children(item_id)
-            if children_ids:
-                all_children.extend(children_ids)
-        if self.delete_question(all_children):
-            for item_id in item_ids:
-                item = self.tree_model.find_id_in_tree(item_id)
-                parent_id = item.data(1)
-                parent_row = item.data(2)
-                self.tree_model.removeItem(item_id, parent_row, parent_id)
+        if delete_data(self.table, item_ids):
             self.updated = True
             self.update_proxy()
-
-    def delete_question(self, children: list):
-        """
-        Promote the user with a question to delete the selected items and all children.
-        :param list children: list of children ids to be deleted
-        :return:
-        """
-        save_expanded_state(self.table, self.edit_treeView)
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText(f'Are you sure you want to delete these items and all {len(children)} children?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            return True
-        else:
-            return False
 
     def discard_question(self):
         """
         Asks the user if they want to discard changes. If they do, the changes are rolled back.
         :return:
         """
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setText('Are you sure you want to discard all changes?')
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            self.rollback()
+        if self.updated:
+            msg_box = QtW.QMessageBox()
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setText('Are you sure you want to discard all changes?')
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                self.rollback()
+            else:
+                pass
         else:
-            pass
+            logger_setup.get_logger().info(f'Closing {self.table} edit dialog without changes')
+            release_savepoint('before_edit')
+            self.close_by_dialog = True
+            self.close()
+            self.close_by_dialog = False
 
     def rollback(self):
         """
         Rolls back the changes to the database. Rejects the dialog and closes the the window.
         """
         rollback_savepoint('before_edit')
+        self.updated = False
         save_expanded_state(self.table, self.edit_treeView)
         self.reject()
         self.close_by_dialog = True

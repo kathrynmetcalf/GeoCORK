@@ -1061,9 +1061,9 @@ class ImportWizardDialog(QWidget):
     #     """
     #     Show a popup with a QSqlTableModel for the specified table.
     #     Args:
-    #         @param table_name: Name of the database table to display.
-    #         @param column_index:
-    #         @param row:
+    #         :param table_name: Name of the database table to display.
+    #         :param column_index:
+    #         :param row:
     #     """
     #     if table_name == "Reference Display":
     #         table_name = '"References"'
@@ -1146,8 +1146,8 @@ class ImportWizardDialog(QWidget):
     def add_column(self, column_index=None, before=False, field=None):
         """
         Adds a column to the right QTableWidget
-        @param column_index: Int index of the column to add.
-        @param before:
+        :param column_index: Int index of the column to add.
+        :param before:
         """
         # Open the Column Map Dialog to let the user select a column name and data type
 

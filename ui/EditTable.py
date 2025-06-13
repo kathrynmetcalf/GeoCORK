@@ -19,7 +19,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
-                                      get_id_from_name, get_record_index, get_view_from_table)
+                                      get_id_from_name, get_record_index, delete_data)
 from ui.AddTags import AddTags
 
 
@@ -102,20 +102,9 @@ class EditTable(QtW.QDialog):
         Creates the model from the given table and paginates the table.
         :return:
         """
-        self.name_column = get_name_column(get_view_from_table(self.table))
+        self.name_column = get_name_column(self.table)
+        self.table_headers = get_headers(self.table)
         self.name_header = self.table_headers[self.name_column]
-        if self.table in ['References', '"References"']:
-            show_cols = settings.value('reference_view_columns')
-            query_args = {'show_columns': show_cols, 'order_col': f'{self.name_header}',
-                          'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'}
-            view_query = ViewQuery('References', False, **query_args)
-            table_query = view_query.table_query
-        elif self.table == 'Columns':
-            show_cols = settings.value('columns_view_columns')
-            query_args = {'show_columns': show_cols, 'order_col': f'{self.name_header}',
-                          'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'}
-            view_query = ViewQuery('Columns', False, **query_args)
-            table_query = view_query.table_query
         self.model.setQuery(
             f'SELECT * FROM "{self.table}" ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
         self.table_headers = get_headers(self.table)
@@ -123,14 +112,6 @@ class EditTable(QtW.QDialog):
         self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns
 
         self.display_table()
-
-    def change_rows_per_page(self):
-        """
-        Slot to change the number of rows displayed per page
-        """
-        self.rows_per_page = int(self.show_per_page_comboBox.currentText())
-        self.current_page = 0
-        self.create_model()
 
     def next_page(self):
         """
@@ -168,27 +149,17 @@ class EditTable(QtW.QDialog):
         if action == clear_action:
             self.model.setData(indexes[0], '', QtC.Qt.ItemDataRole.EditRole)
         elif action == delete_action:
-            delete_msg = QtW.QMessageBox()
-            delete_msg.setWindowTitle(f'Delete row')
-            # get all the rows in the selected indexes
-            rows = []
-            for index in indexes:
-                model_index = self.table_proxy_model.mapToSource(index)
-                if model_index.row() not in rows:
-                    rows.append(model_index.row())
-            if len(rows) == 1:
-                delete_msg.setText(f'Are you sure you want to delete the selected row?')
-            else:
-                delete_msg.setText(f'Are you sure you want to delete the {len(rows)} selected rows?')
-            delete_msg.setIcon(QtW.QMessageBox.Icon.Warning)
-            delete_msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-            delete_msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-            response = delete_msg.exec()
-            if response == QtW.QMessageBox.StandardButton.Yes:
-                for row in rows:
-                    if not self.model.deleteRowFromTable(row):
-                        logger_setup.get_logger().critical(
-                            f'Failed to delete row {row} from {self.table}: {self.model.lastError().text()}')
+            # get all the ids in the selected indexes
+            delete_ids = []
+            for index in self.edit_tableView.selectedIndexes():
+                if index.column() == 0:
+                    id = self.table_proxy_model.data(index, QtC.Qt.ItemDataRole.DisplayRole)
+                else:
+                    id = self.table_proxy_model.data(index.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole)
+                if id not in delete_ids:
+                    delete_ids.append(id)
+            if delete_data(self.table, delete_ids):
+                self.updated = True
                 self.create_model()
                 self.display_table()
 
@@ -282,12 +253,14 @@ class EditTable(QtW.QDialog):
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
         self.create_model()
+        self.display_table()
 
     def rollback(self):
         """
         Rolls back the changes to the database. Rejects the dialog and closes the window.
         """
         rollback_savepoint('before_edit')
+        self.updated = False
         self.reject()
         self.close_by_dialog = True
         self.close()

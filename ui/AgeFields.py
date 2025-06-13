@@ -1,6 +1,5 @@
 import os
 import sys
-from cgitb import reset
 
 import PyQt6
 from PyQt6 import QtWidgets as QtW
@@ -10,10 +9,11 @@ from PyQt6 import QtGui as QtG
 from PyQt6.QtCore import Qt, QSortFilterProxyModel
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, set_table, CheckableSqlTableModel, delete_data,get_name_column,
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, set_table, CheckableSqlTableModel, delete_data,
+    get_name_column,
     get_view_from_table, CheckableComboBox, CheckableSqlQueryModel, find_tree_model, get_headers, add_tree_popup,
     populate_combo_box, save_expanded_state, restore_expanded_state, SQLiteTableModel, populate_tree_model_checks,
-    FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel
+    FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel, show_loading_dialog, close_loading_dialog
 )
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
@@ -35,8 +35,9 @@ import time
 class AgeFields(QtW.QWidget):
     def __init__(self, table: str, sample_ids: list):
         super().__init__()
-
+        show_loading_dialog('Loading', 'Loading Age Fields...')
         logger_setup.get_logger().info('Starting AgeFields')
+        start_init_time = time.time()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "AgeFields.ui")
         loadUi(sources_ui_file, self)
@@ -55,7 +56,7 @@ class AgeFields(QtW.QWidget):
         self.sample_age_model.rounded = False
         self.age_proxy_model = SampleAgeProxyModel()
         self.age_tree_view = QtW.QTreeView()
-        self.age_model = None
+        self.rel_ages_model = None
         self.oldest_age_tree = TreeModel()
         self.youngest_age_tree = TreeModel()
         self.direct_age_unit_model = QtS.QSqlTableModel()
@@ -87,8 +88,11 @@ class AgeFields(QtW.QWidget):
 
         self.populate_dropdowns()
         self.populate_rel_age_dropdown()
-        self.populate_age_dropdown()
         self.update_list(self.sample_ids)
+        end_init_time = time.time()
+        logger_setup.get_logger().info(
+            f"Age fields initialized in {end_init_time - start_init_time} seconds")
+        close_loading_dialog('Loading', 'Loading Age Fields...')
 
     def update_direct_unit(self):
         sender = self.sender()
@@ -121,7 +125,6 @@ class AgeFields(QtW.QWidget):
             self.set_focus()
         else:
             self.clear_fields() # Also disconnects signals
-            self.populate_dropdowns()
             self.populate_age_dropdown()
             self.populate_fields()
 
@@ -131,8 +134,8 @@ class AgeFields(QtW.QWidget):
         self.disconnect_signals()
         set_table(self.sample_model, self.table)
         self.sample_id_header = self.sample_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-        self.age_model = SQLiteTableModel('SELECT * FROM Ages')
-        if self.age_model.last_error:
+        self.rel_ages_model = SQLiteTableModel('SELECT * FROM Ages')
+        if self.rel_ages_model.last_error:
             logger_setup.get_logger().critical(f"Error loading Ages table")
         set_table(self.direct_age_unit_model, 'AgeUnits')
         set_table(self.direct_age_error_model, 'ErrorFormats')
@@ -156,9 +159,12 @@ class AgeFields(QtW.QWidget):
         populate_combo_box(self.age_reference_comboBox, **{'query': table_query, 'table': 'References'})
         self.connect_signals()
         end_populate_dropdowns_time = time.time()
-        logger_setup.get_logger().info(f"Populated age dropdowns in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
+        logger_setup.get_logger().info(f"Populated dropdowns for sample ages in {end_populate_dropdowns_time - start_populate_dropdowns_time} seconds")
 
     def populate_rel_age_dropdown(self):
+        self.oldest_rel_comboBox: CheckableTreeCombobox
+        self.youngest_rel_comboBox: CheckableTreeCombobox
+        start_populate_rel_age_dropdowns_time = time.time()
         self.oldest_rel_comboBox.model_modifiable = False
         self.oldest_rel_comboBox.enable_context_menu(False)
         self.oldest_rel_comboBox.set_single_click(True)
@@ -167,6 +173,8 @@ class AgeFields(QtW.QWidget):
         self.youngest_rel_comboBox.enable_context_menu(False)
         self.youngest_rel_comboBox.set_single_click(True)
         populate_combo_box(self.youngest_rel_comboBox, **{'table': 'Ages'})
+        end_populate_rel_age_dropdowns_time = time.time()
+        logger_setup.get_logger().info(f"Populated relative age dropdowns in {end_populate_rel_age_dropdowns_time - start_populate_rel_age_dropdowns_time} seconds")
 
     def populate_age_dropdown(self):
         start_populate_age_dropdown_time = time.time()
@@ -474,8 +482,8 @@ class AgeFields(QtW.QWidget):
                     oldest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [], [])
                 else:
                     id = text
-                    self.age_model = SQLiteTableModel(f'SELECT * FROM Ages WHERE AgeID = {id}')
-                    if self.age_model.last_error or self.age_model.rowCount() == 0:
+                    self.rel_ages_model = SQLiteTableModel(f'SELECT * FROM Ages WHERE AgeID = {id}')
+                    if self.rel_ages_model.last_error or self.rel_ages_model.rowCount() == 0:
                         oldest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [], [])
                     else:
                         oldest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [int(id)], [])
@@ -490,8 +498,8 @@ class AgeFields(QtW.QWidget):
                     youngest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [], [])
                 else:
                     id = text
-                    self.age_model = SQLiteTableModel(f'SELECT * FROM Ages WHERE AgeID = {id}')
-                    if self.age_model.last_error or self.age_model.rowCount() == 0:
+                    self.rel_ages_model = SQLiteTableModel(f'SELECT * FROM Ages WHERE AgeID = {id}')
+                    if self.rel_ages_model.last_error or self.rel_ages_model.rowCount() == 0:
                         youngest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [], [])
                     else:
                         youngest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [int(id)], [])
@@ -638,6 +646,7 @@ class AgeFields(QtW.QWidget):
                 return
         self.disconnect_signals()
         logger_setup.get_logger().info("Collecting input age information")
+        show_loading_dialog('Updating', 'Updating age...')
         default_age = self.default_age_checkBox.isChecked()
         if not self.direct_age_lineEdit.text() or self.direct_age_lineEdit.text() == '':
             direct_age = QtC.QVariant()
@@ -649,6 +658,7 @@ class AgeFields(QtW.QWidget):
             except ValueError:
                 logger_setup.get_logger().error("Invalid direct age input")
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
         if not self.direct_age_error_lineEdit.text() or self.direct_age_error_lineEdit.text() == '':
             direct_age_error = QtC.QVariant()
@@ -658,6 +668,7 @@ class AgeFields(QtW.QWidget):
             except ValueError:
                 logger_setup.get_logger().error("Invalid direct age error input")
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
         direct_age_unit = self.direct_age_unit_comboBox.currentText()
         direct_age_error_type = self.direct_age_error_format_comboBox.currentText()
@@ -671,6 +682,7 @@ class AgeFields(QtW.QWidget):
             except ValueError:
                 logger_setup.get_logger().error("Invalid oldest direct age input")
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
         if not self.youngest_direct_lineEdit.text() or self.youngest_direct_lineEdit.text() == '':
             youngest_direct = QtC.QVariant()
@@ -682,6 +694,7 @@ class AgeFields(QtW.QWidget):
             except ValueError:
                 logger_setup.get_logger().error("Invalid youngest direct age input")
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
         oldest_rel = self.oldest_rel_comboBox.currentText()
         youngest_rel = self.youngest_rel_comboBox.currentText()
@@ -704,30 +717,33 @@ class AgeFields(QtW.QWidget):
         if oldest_rel == '':
             oldest_rel_id = QtC.QVariant()
         else:
-            self.age_model = SQLiteTableModel(f"SELECT * FROM Ages WHERE AgeName = '{oldest_rel}'")
-            if not self.age_model.last_error and self.age_model.rowCount() > 0:
-                oldest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            self.rel_ages_model = SQLiteTableModel(f"SELECT * FROM Ages WHERE AgeName = '{oldest_rel}'")
+            if not self.rel_ages_model.last_error and self.rel_ages_model.rowCount() > 0:
+                oldest_rel_id = self.rel_ages_model.data(self.rel_ages_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
             else:
                 logger_setup.get_logger().critical(f"Error updating age")
                 logger_setup.get_logger().debug(f"Error retrieving oldest age ID for '{oldest_rel}'")
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
         if youngest_rel == '':
             youngest_rel_id = QtC.QVariant()
         else:
-            self.age_model = SQLiteTableModel(f"SELECT * FROM Ages WHERE AgeName = '{youngest_rel}'")
-            if not self.age_model.last_error and self.age_model.rowCount() > 0:
-                youngest_rel_id = self.age_model.data(self.age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
+            self.rel_ages_model = SQLiteTableModel(f"SELECT * FROM Ages WHERE AgeName = '{youngest_rel}'")
+            if not self.rel_ages_model.last_error and self.rel_ages_model.rowCount() > 0:
+                youngest_rel_id = self.rel_ages_model.data(self.rel_ages_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
             else:
                 logger_setup.get_logger().critical(f"Error updating age")
                 logger_setup.get_logger().debug(f"Error retrieving youngest age ID for '{youngest_rel}'")
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
-        self.age_model = SQLiteTableModel("SELECT * FROM Ages")
-        if self.age_model.last_error and self.age_model.rowCount() == 0:
+        self.rel_ages_model = SQLiteTableModel("SELECT * FROM Ages")
+        if self.rel_ages_model.last_error and self.rel_ages_model.rowCount() == 0:
             logger_setup.get_logger().critical(f"Error updating age")
             logger_setup.get_logger().debug(f"Error retrieving ages from database")
             self.connect_signals()
+            close_loading_dialog('Updating', 'Updating age...')
             return False
         logger_setup.get_logger().info(f"Checking if any SampleAges exist with these values")
         # Catch entries with all same age data but different descriptions and/or tags
@@ -752,6 +768,7 @@ class AgeFields(QtW.QWidget):
             logger_setup.get_logger().debug(f'Unable to prepare query: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             self.connect_signals()
+            close_loading_dialog('Updating', 'Updating age...')
             return False
         for i, value in enumerate(age_values):
             if not isinstance(value, QtC.QVariant):
@@ -761,6 +778,7 @@ class AgeFields(QtW.QWidget):
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             self.connect_signals()
+            close_loading_dialog('Updating', 'Updating age...')
             return False
         update_age_id = None
         update_samples = []
@@ -779,6 +797,7 @@ class AgeFields(QtW.QWidget):
                     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     self.connect_signals()
+                    close_loading_dialog('Updating', 'Updating age...')
                     return False
                 if not query.next():
                     logger_setup.get_logger().info(f"No age found with ID {duplicate_id}")
@@ -817,6 +836,7 @@ class AgeFields(QtW.QWidget):
                         logger_setup.get_logger().error(
                             "Cannot duplicate data.\nChange sample age data to create a new sample age")
                         self.connect_signals()
+                        close_loading_dialog('Updating', 'Updating age...')
                         return False
                     else:
                         logger_setup.get_logger().info("User chose to associate SampleAgeID with selected samples")
@@ -837,15 +857,19 @@ class AgeFields(QtW.QWidget):
                                     logger_setup.get_logger().error(f'SQL query: {query.lastQuery()}')
                                     rollback_savepoint('before_update_age')
                                     self.connect_signals()
+                                    close_loading_dialog('Updating', 'Updating age...')
                                     return False
                                 if not self.update_age_tags(self.age_constraint_comboBox):
                                     self.connect_signals()
+                                    close_loading_dialog('Updating', 'Updating age...')
                                     return False
                                 if not self.update_age_tags(self.age_interpretation_comboBox):
                                     self.connect_signals()
+                                    close_loading_dialog('Updating', 'Updating age...')
                                     return False
                                 if not self.update_age_tags(self.age_reference_comboBox):
                                     self.connect_signals()
+                                    close_loading_dialog('Updating', 'Updating age...')
                                     return False
                             else:
                                 logger_setup.get_logger().info("User chose to use existing values")
@@ -909,10 +933,12 @@ class AgeFields(QtW.QWidget):
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
             if not query.next():
                 logger_setup.get_logger().critical(f'No results for SampleAgeID {self.sample_age_id}', self)
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
             existing_values = [query.value(i) for i in range(query.record().count())]
             for s in existing_values:
@@ -929,6 +955,7 @@ class AgeFields(QtW.QWidget):
                     logger_setup.get_logger().error(f'Invalid age input: {error}')
                     rollback_savepoint('before_update_age')
                     self.connect_signals()
+                    close_loading_dialog('Updating', 'Updating age...')
                     return False
                 logger_setup.get_logger().info(f"Valid age information")
                 sql_placeholders = ", ".join('?' * len(age_values))
@@ -941,6 +968,7 @@ class AgeFields(QtW.QWidget):
                     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                     rollback_savepoint('before_update_age')
                     self.connect_signals()
+                    close_loading_dialog('Updating', 'Updating age...')
                     return False
                 error = update_modified_timestamp('SampleAges', [self.sample_age_id])
                 if error:
@@ -948,16 +976,20 @@ class AgeFields(QtW.QWidget):
                     logger_setup.get_logger().debug(f'Error : {error}')
                     rollback_savepoint('before_update_age')
                     self.connect_signals()
+                    close_loading_dialog('Updating', 'Updating age...')
                     return False
                 logger_setup.get_logger().info(f"Updated age information for SampleAgeID {self.sample_age_id}")
             if not self.update_age_tags(self.age_constraint_comboBox):
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
             if not self.update_age_tags(self.age_interpretation_comboBox):
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
             if not self.update_age_tags(self.age_reference_comboBox):
                 self.connect_signals()
+                close_loading_dialog('Updating', 'Updating age...')
                 return False
         if update_age_id:
             self.sample_age_id = update_age_id
@@ -977,6 +1009,7 @@ class AgeFields(QtW.QWidget):
                         logger_setup.get_logger().critical(f'Unable to insert Samples_SampleAges: {query.lastError().text()}', self)
                         rollback_savepoint('before_update_age')
                         self.connect_signals()
+                        close_loading_dialog('Updating', 'Updating age...')
                         return False
                     logger_setup.get_logger().info(f"Inserted SampleAgeID {self.sample_age_id} for SampleID {sample_id}")
                 if default_age:
@@ -985,6 +1018,7 @@ class AgeFields(QtW.QWidget):
                         logger_setup.get_logger().critical(f'Unable to update Sample default age: {query.lastError().text()}', self)
                         rollback_savepoint('before_update_age')
                         self.connect_signals()
+                        close_loading_dialog('Updating', 'Updating age...')
                         return False
                     error = update_modified_timestamp('Samples', [sample_id])
                     if error:
@@ -992,6 +1026,7 @@ class AgeFields(QtW.QWidget):
                         logger_setup.get_logger().debug(f'Error : {error}')
                         rollback_savepoint('before_update_age')
                         self.connect_signals()
+                        close_loading_dialog('Updating', 'Updating age...')
                         return False
                     logger_setup.get_logger().info(f"Updated DefaultSampleAgeID to {self.sample_age_id} for SampleID {sample_id}")
                 elif not default_age and (self.sample_age_id in self.default_age_ids):
@@ -1002,6 +1037,7 @@ class AgeFields(QtW.QWidget):
                         logger_setup.get_logger().debug(f'SQL query : {query.lastQuery()}')
                         rollback_savepoint('before_update_age')
                         self.connect_signals()
+                        close_loading_dialog('Updating', 'Updating age...')
                         return False
                     if query.next():
                         current_default = query.value(0)
@@ -1013,6 +1049,7 @@ class AgeFields(QtW.QWidget):
                                 logger_setup.get_logger().debug(f'SQL query : {query.lastQuery()}')
                                 rollback_savepoint('before_update_age')
                                 self.connect_signals()
+                                close_loading_dialog('Updating', 'Updating age...')
                                 return False
                             query.bindValue(':null', QtC.QVariant())
                             if not query.exec():
@@ -1021,6 +1058,7 @@ class AgeFields(QtW.QWidget):
                                 logger_setup.get_logger().debug(f'SQL query : {query.lastQuery()}')
                                 rollback_savepoint('before_update_age')
                                 self.connect_signals()
+                                close_loading_dialog('Updating', 'Updating age...')
                                 return False
                             logger_setup.get_logger().info(f'Removed {self.sample_age_id} from default age')
                 if old_sample_age_id != self.sample_age_id:
@@ -1029,6 +1067,7 @@ class AgeFields(QtW.QWidget):
                         logger_setup.get_logger().critical(f'Unable to delete old SampleAgeID: {query.lastError().text()}', self)
                         rollback_savepoint('before_update_age')
                         self.connect_signals()
+                        close_loading_dialog('Updating', 'Updating age...')
                         return False
             self.default_age_ids = []
             for sample_id in update_samples:
@@ -1050,6 +1089,7 @@ class AgeFields(QtW.QWidget):
         release_savepoint('before_update_age')
         self.populate_age_dropdown()
         self.populate_fields()
+        close_loading_dialog('Updating', 'Updating age...')
         return True
 
     def update_age_tags(self, combo: CheckableTreeCombobox | CheckableComboBox):
@@ -1353,7 +1393,7 @@ class AgeFields(QtW.QWidget):
         if not dlg:
             return
         logger_setup.get_logger().info(f"Showing {table} add dialog")
-        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted and dlg.updated:
             self.updated = True
             # Update this combo box
             populate_combo_box(combo, **{'table': table})
@@ -1394,10 +1434,14 @@ class AgeFields(QtW.QWidget):
         if dlg is None:
             return
         logger_setup.get_logger().info(f"Showing {table} edit dialog")
-        dlg.exec()
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted and dlg.updated:
+            self.updated = True
+            # Update this combo box
+            populate_combo_box(combo, **{'table': table})
+            if isinstance(combo, CheckableTreeCombobox):
+                restore_expanded_state(table, combo.view())
+            self.populate_checks(f'Samples_{table}', combo)
         self.parent().setFocus()
-        self.populate_dropdowns()
-        self.populate_fields()
 
     def disable_groups(self):
         logger_setup.get_logger().info(f"Disabling groups")

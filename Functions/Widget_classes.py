@@ -321,11 +321,12 @@ class SQLiteTableModel(QAbstractTableModel):
         """
         self.beginRemoveRows(QtC.QModelIndex(), 0, len(self._data) - 1)
         ids_to_remove.sort(reverse=False)
-        for id in ids_to_remove:
-            for row in self._data:
-                if id in row:
-                    self._data.remove(row)
-                    break
+        new_data = self._data.copy()  # Create a copy of the data to avoid modifying while iterating
+        for row in self._data:
+            # The first column is assumed to be the primary key
+            if row[0] in ids_to_remove:
+                new_data.remove(row)
+        self._data = new_data
         self.endRemoveRows()
         return True
 
@@ -1021,6 +1022,23 @@ class SampleAgeTableModel(CheckableSqlQueryModel):
 # ---------------------------
 
 
+def get_database_tables() -> list:
+    """
+    Returns a list of all tables in the database.
+    :return: list of table names
+    """
+    query = QtS.QSqlQuery()
+    if not query.exec('SELECT name FROM sqlite_master WHERE type="table"'):
+        logger_setup.get_logger().critical("Failed to get database tables")
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        return []
+    tables = []
+    while query.next():
+        if query.value(0) not in tables:
+            tables.append(query.value(0))
+    return tables
+
+
 def set_table(model: QtS.QSqlTableModel, table: str) -> QtS.QSqlTableModel | bool:
     """
     Convenience method to set the table for a QSqlTableModel and select the data. Notifies if any errors occur.
@@ -1589,20 +1607,27 @@ def delete_query(table: str, ids: list):
         logger_setup.get_logger().error(f"No IDs given for deletion in {table}")
         return False
     create_savepoint('before_delete')
+    delete_names = []
+    for item_id in ids:
+        name = get_name_from_id(table, item_id)
+        if name:
+            delete_names.append(name)
+        else:
+            logger_setup.get_logger().warning(f"Could not find name for ID {item_id} in {table}")
+    logger_setup.get_logger().info(f"Deleting {table}: {delete_names}")
     query = QtS.QSqlQuery()
     id_header = get_headers(table)[0]  # Get the first header which is the ID column
     if len(ids) > 0:
-        query.prepare(f'DELETE FROM {table} WHERE {id_header} in {tuple(ids)}')
+        query.prepare(f'DELETE FROM "{table}" WHERE {id_header} in {tuple(ids)}')
     if len(ids) == 1:
-        query.prepare(f'DELETE FROM {table} WHERE {id_header}={ids[0]}')
+        query.prepare(f'DELETE FROM "{table}" WHERE {id_header}={ids[0]}')
     if not query.exec():
         logger_setup.get_logger().error(f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
         rollback_savepoint('before_delete')
         return False
     logger_setup.get_logger().info(f"Deleted {len(ids)} records from {table}")
-    logger_setup.get_logger().info(f"{table} deleted: {', '.join(get_name_from_id(table, item_id) for item_id in ids)}")
     release_savepoint('before_delete')
     return True
 
@@ -1616,6 +1641,10 @@ def delete_data(table: str, data_ids: list):
     if len(data_ids) == 0:
         logger_setup.get_logger().error(f"No IDs given for deletion in {table}")
         return False
+    if not delete_question(table, data_ids):
+        logger_setup.get_logger().info(f"Deletion cancelled for {table} with IDs: {', '.join(map(str, data_ids))}")
+        return False
+    show_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
     # Delete the selected samples from a table and all children, aliquots, spots, and UPb data dependent on them
     sample_ids = None
     aliquot_ids = None
@@ -1648,32 +1677,31 @@ def delete_data(table: str, data_ids: list):
             # Find all child IDs of the given parent_id
             table_child_ids = find_child_ids(table, parent_id, table_child_ids)
 
-    create_savepoint('before_delete')
-
     from Functions.Database_manager import turn_on_foreign_keys
     # Double-check that foreign keys are enabled
     if not turn_on_foreign_keys():
+        close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
         return False
     if table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses'):
         if upb_analysis_ids:
             if not delete_query('UPbAnalyses', upb_analysis_ids):
-                rollback_savepoint('before_delete')
+                close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
             logger_setup.get_logger().info(f'Deleted {len(upb_analysis_ids)} UPb analyses')
         if spot_ids:
             if not delete_query('Spots', spot_ids):
-                rollback_savepoint('before_delete')
+                close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
             logger_setup.get_logger().info(f'Deleted {len(spot_ids)} spots')
         if aliquot_ids:
             aliquot_ids.extend(aliquot_child_ids)  # Include child aliquots in the deletion
             if not delete_query('Aliquots', aliquot_ids):
-                rollback_savepoint('before_delete')
+                close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
             logger_setup.get_logger().info(f'Deleted {len(aliquot_ids)} Aliquots')
         if sample_ids:
             if not delete_query('Samples', sample_ids):
-                rollback_savepoint('before_delete')
+                close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
             logger_setup.get_logger().info(f'Deleted {len(sample_ids)} Samples')
     else:
@@ -1683,22 +1711,26 @@ def delete_data(table: str, data_ids: list):
             delete_ids = data_ids
         if delete_ids:
             if not delete_query(table, delete_ids):
-                rollback_savepoint('before_delete')
+                close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
             logger_setup.get_logger().info(f'Deleted {len(delete_ids)} {table} records')
 
-    release_savepoint('before_delete')
+    close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
     return True
 
 def delete_question(table, delete_ids):
+    show_loading_dialog('Preparing', 'Gathering information...')
     msg_box = QtW.QMessageBox()
     msg_box.setIcon(QtW.QMessageBox.Icon.Question)
     if table == 'Samples':
+        sample_names = [get_name_from_id(table, sample_id) for sample_id in delete_ids]
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
         aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(delete_ids, table)
-        msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
-                        f'Associated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses')
+        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
+                    f'\nSamples: {", ".join(sample_names)}' \
+                    f'\nAssociated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
     elif table == 'Aliquots':
+        aliquot_names = [get_name_from_id(table, aliquot_id) for aliquot_id in delete_ids]
         # Look for children of Aliquots
         child_aliquot_ids = []
         for aliquot_id in delete_ids:
@@ -1707,13 +1739,16 @@ def delete_question(table, delete_ids):
 
         # Aliquots have a special case where they are related to Spots and UPbAnalyses
         spot_ids, upb_analysis_ids = find_sub_items(delete_ids, table)
-        msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
-                        f'Associated with {len(child_aliquot_ids)} child aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses')
+        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
+                    f'\nAliquots: {", ".join(aliquot_names)}' \
+                    f'\nAssociated with {len(child_aliquot_ids)} child aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
     elif table == 'Spots':
+        spot_names = [get_name_from_id(table, spot_id) for spot_id in delete_ids]
         # Spots have a special case where they are related to UPbAnalyses
         upb_analysis_ids = find_sub_items(delete_ids, table)
-        msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
-                        f'Associated with {len(upb_analysis_ids)} U-Pb analyses')
+        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
+                    f'\nSpots: {", ".join(spot_names)}' \
+                    f'\nAssociated with {len(upb_analysis_ids)} U-Pb analyses'
     else:
         if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
             # For user viewable trees, we need to check for child IDs
@@ -1721,25 +1756,65 @@ def delete_question(table, delete_ids):
             for parent_id in delete_ids:
                 # Find all child IDs of the given parent_id
                 child_ids = find_child_ids(table, parent_id, child_ids)
-            msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
-                                f'Associated with {len(child_ids)} child items')
+            all_delete_ids = set(delete_ids + child_ids)
+            tree_item_names = [get_name_from_id(table, item_id) for item_id in all_delete_ids]
+            msg_text = f'Are you sure you want to delete these {len(all_delete_ids)} {table}?' \
+                        f'\n{table}: {", ".join(tree_item_names)}'
         else:
-            msg_box.setText(f'Are you sure you want to delete these {len(delete_ids)} {table}?')
+            item_names = [get_name_from_id(table, item_id) for item_id in delete_ids]
+            all_delete_ids = set(delete_ids)
+            msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
+                        f'\n{table}: {", ".join(item_names)}'
+        associations = find_foreign_associations(table, list(all_delete_ids))
+        if len(associations) == 0:
+            association_text = ''
+        elif len(associations) < 4:
+            # List the associations with their names for up to three table associations
+            association_text = '\nAssociated with: '
+            for associated_table, ids in associations.items():
+                if len(ids) == 0:
+                    continue
+                # append the association text with the number of IDs and the names of the IDs
+                elif len(ids) < 11:
+                    association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids)})'
+                else:
+                    if associated_table == 'UPbAnalyses':
+                        # We can use spot names, but just list the number of analyses
+                        association_text += f'\n{len(ids)} {associated_table}'
+                    else:
+                        association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids[:10])}...)'
+        else:
+            association_text = f'\nAssociated with '
+            for associated_table, ids in associations.items():
+                # append the association text with the number of IDs and the names of the IDs
+                association_text += f'{len(ids)} {associated_table}, '
+        msg_text += association_text
+    msg_box.setText(msg_text)
     msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
     msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+    close_loading_dialog('Preparing', 'Gathering information...')
     response = msg_box.exec()
     if response == QtW.QMessageBox.StandardButton.Yes:
         return True
     else:
         return False
 
+
 def find_child_ids(table, parent_id, child_ids=None):
+    """
+    Find all child IDs of a given parent ID in a table. This is used to find all child aliquots of a given aliquot ID.
+    :param table: database table to search for child IDs
+    :param parent_id: ID of the parent record to find children for
+    :param child_ids: list of child IDs so far, used for recursion
+    :return:
+    """
     # Find all child aliquots of the given aliquot_id
     if not child_ids:
         child_ids = []
     query = QtS.QSqlQuery()
-    id_header = get_headers(table)[0]  # Get the first column header which is the ID column
-    parent_id_header = get_headers(table)[1]  # Get the second column header which is the Parent ID column
+    table_headers = get_headers(table)
+    id_header = table_headers[0]  # Get the first column header which is the ID column
+    parent_id_header = table_headers[1]  # Get the second column header which is the Parent ID column
     query.prepare(f'SELECT {id_header} FROM {table} WHERE {parent_id_header}=:parent_id')
     query.bindValue(':parent_id', parent_id)
     if not query.exec():
@@ -1749,8 +1824,70 @@ def find_child_ids(table, parent_id, child_ids=None):
     while query.next():
         if query.value(0) not in child_ids:
             child_ids.append(query.value(0))
-            find_child_ids(query.value(0), child_ids)
+            find_child_ids(table, query.value(0), child_ids)
     return child_ids
+
+
+def find_foreign_associations(table, item_ids):
+    """
+    One-to-many and many-to-many associations for a given table and item IDs, such as UPbAnalyses and LabFacilities or
+    Samples_Units.
+    :param table: table of foreign key in another table or second table in many-to-many relationship
+    :param item_ids: list of item IDs to check for associations
+    :return: dictionary of associations with table names as keys and lists of item IDs as values
+    """
+    # Find all many-to-many tables where table is the second table in the relationship
+    if not item_ids:
+        logger_setup.get_logger().warning(f"No item IDs provided for finding foreign associations in {table}")
+        return {}
+    logger_setup.get_logger().info(f"Finding foreign associations for {len(item_ids)} {table}")
+    id_header = get_headers(table)[0]
+    associations = {}
+    db_tables = get_database_tables()
+    if len(item_ids) > 1:
+        where = f'WHERE {id_header} IN {tuple(item_ids)}'
+    elif len(item_ids) == 1:
+        where = f'WHERE {id_header} = {item_ids[0]}'
+    for db_table in db_tables:
+        if 'Conversions' in db_table or ('Units' in db_table and db_table not in ['Samples_Units', 'Units']):
+            # Skip Conversions table as it is not a foreign key association
+            continue
+        elif '_' in db_table and db_table.split('_')[1] == table:
+            # This is a many-to-many table where table is the second table in the relationship
+            first_table = db_table.split('_')[0]
+            first_table_id_header = get_headers(first_table)[0]  # Get the first column header which is the ID column
+            if first_table not in associations:
+                associations[first_table] = []
+            foreign_table_model = SQLiteTableModel(f'SELECT {first_table_id_header} FROM "{db_table}" {where}')
+            if not foreign_table_model.last_error:
+                for row in range(foreign_table_model.rowCount()):
+                    foreign_id = foreign_table_model.data(foreign_table_model.index(row, 0))
+                    if foreign_id not in associations[first_table]:
+                        associations[first_table].append(foreign_id)
+        else:
+            if table in ['Units']:
+                # These are tables without one-to-one or one-to-many relationships, so skip them
+                continue
+            # Check if the table is a foreign key in db_table. Not capable of handling non-editable table ID headers
+            # (e.g. DistanceUnitID), but handles anything that can be edited by the user
+            for header in get_headers(db_table):
+                if id_header in header and get_headers(db_table)[0] not in header:
+                    # This is a one-to-many relationship where table is the foreign key in db_table
+                    if db_table not in associations:
+                        associations[db_table] = []
+                    if id_header != header:
+                        where_one = where.replace(f'{id_header}', f'"{header}"')
+                    else:
+                        where_one = where
+                    foreign_table_model = SQLiteTableModel(f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" {where_one}')
+                    if not foreign_table_model.last_error:
+                        for row in range(foreign_table_model.rowCount()):
+                            foreign_id = foreign_table_model.data(foreign_table_model.index(row, 0))
+                            if foreign_id not in associations[db_table]:
+                                associations[db_table].append(foreign_id)
+                    break
+    return associations
+
 
 def find_upb_from_samples(sample_ids):
     # Find UPb analyses for a list of samples
@@ -2072,11 +2209,16 @@ class TreeModel(QtC.QAbstractProxyModel):
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        if 'FROM LimitedAliquots' in self.base_query or 'FROM Ages' in self.base_query:
-            self.source_model = SQLiteTableModel(query=self.base_query)
-            if self.source_model.last_error:
-                logger_setup.get_logger().critical(f'Error displaying the selected table')
-                return
+        if (('FROM LimitedAliquots' in self.base_query or 'FROM Ages' in self.base_query) or
+                isinstance(source_model, SQLiteTableModel)):
+            if isinstance(source_model, SQLiteTableModel) and source_model.query_text == self.base_query:
+                # If the source model is already a SQLiteTableModel with the same query, use it
+                self.source_model = source_model
+            else:
+                self.source_model = SQLiteTableModel(query=self.base_query)
+                if self.source_model.last_error:
+                    logger_setup.get_logger().critical(f'Error displaying the selected table')
+                    return
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
             self.source_model.setQuery(f'{self.base_query}')
@@ -2129,7 +2271,7 @@ class TreeModel(QtC.QAbstractProxyModel):
                 parent_rows.append(self.source_model.index(row, 2).data(QtC.Qt.ItemDataRole.DisplayRole))
         # Order child IDs by parent row
         child_ids = [x for _, x in sorted(zip(parent_rows, child_ids))]
-        logger_setup.get_logger().debug(f'Found {len(child_ids)} child items')
+        # logger_setup.get_logger().debug(f'Found {len(child_ids)} child items')
         return child_ids
 
     def add_to_tree(self, child_ids: list, parent: TreeItem):
@@ -2353,7 +2495,8 @@ class TreeModel(QtC.QAbstractProxyModel):
             if description_col is not None:
                 tool_tip = item.data(description_col)
                 return tool_tip
-        super().data(index, role)
+        # super().data(index, role)  # Slows down the model considerably
+        return None
 
     def setData(self, index: QtC.QModelIndex, value: typing.Any, role: QtC.Qt.ItemDataRole = ...) -> bool:
         """
@@ -2374,6 +2517,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         if role == QtC.Qt.ItemDataRole.EditRole:
             logger_setup.get_logger().info(
                 f'Setting data in {self.table} tree at {index.row()},{index.column()}')
+            start_set_time = time.time()
             treeItem = self.getItem(index)
             if index.column() == 0:
                 # Show name in first column
@@ -2414,24 +2558,23 @@ class TreeModel(QtC.QAbstractProxyModel):
                             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                             logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                             return False
-                        modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
+                        # modified = self.source_model.data(source_modified_index, QtC.Qt.ItemDataRole.DisplayRole)
                         update_modified_timestamp(self.table, [table_id])
                         treeItem.setData(modified_col, datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'))
-                        self.dataChanged.emit(index, index)
             treeItem.setData(dataCol, value)
             self.dataChanged.emit(index, index)
             logger_setup.get_logger().info(
-                f'Successfully set data in {self.table} tree at {index.row()},{index.column()} to {value}')
+                f'Successfully set data in {self.table} tree at {index.row()},{index.column()} to {value} in {time.time() - start_set_time:.2f} seconds')
             return True
         return super().setData(index, value, role)
 
     def moveItem(self, item_id: int, row: int, p_id: str) -> bool:
         """
         Move an item to a new parent and parent row. Updates the changes in the source model and the database.
-        @param item_id: unique ID of the item to move
-        @param row: new parent row number for the item
-        @param p_id: new parent ID for the item, represented by a string to use in the setFilter method, either 'IS NULL' or 'is parentID'
-        @return: True if the item was successfully moved, False if there was an error
+        :param item_id: unique ID of the item to move
+        :param row: new parent row number for the item
+        :param p_id: new parent ID for the item, represented by a string to use in the setFilter method, either 'IS NULL' or 'is parentID'
+        :return: True if the item was successfully moved, False if there was an error
         """
         # Try making change to database, then reset the tree model
         if p_id == 'IS NULL':
@@ -2443,6 +2586,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         if self.source_model.rowCount() > 0:
             # If the item is already in the correct place, do nothing
             return True
+        # self.save_state.emit()
         self.source_model.setQuery(
             f"{self.base_query_sql} {self.id_header} is {item_id}")  # Only one record for each item ID
         oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
@@ -2547,7 +2691,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         query.bindValue(':item_name', item_name)
         query.bindValue(':item_description', None if item_description=='' else item_description)
         create_savepoint('before_insert')
-        self.save_state.emit()
+        # self.save_state.emit()
         if not query.exec():
             logger_setup.get_logger().critical(f'Error inserting new item {item_name}')
             logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
@@ -2592,7 +2736,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             logger_setup.get_logger().info(f'Item was already deleted')
             logger_setup.get_logger().debug(f'Item ID: {item_id}')
             return True
-        self.save_state.emit()
+        # self.save_state.emit()
         if not delete_data(self.table, del_ids):
             return False
         logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
@@ -2839,7 +2983,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         else:  # If the parent ID is not an integer
             p_id = 'IS NULL'
         create_savepoint('drop_mime_data')
-        self.save_state.emit()
+        # self.save_state.emit()
         while not stream.atEnd():
             item_ids.append(stream.readInt32())
             if row == -1:
@@ -3029,11 +3173,16 @@ class CheckableTreeModel(TreeModel):
                 self.base_query_sql = f"{self.base_query} AND "
             else:
                 self.base_query_sql = f"{self.base_query} WHERE "
-        if 'FROM LimitedAliquots' in self.base_query or 'FROM Ages' in self.base_query:
-            self.source_model = SQLiteTableModel(query=self.base_query)
-            if self.source_model.last_error:
-                logger_setup.get_logger().critical(f'Error displaying the selected table')
-                return
+        if (('FROM LimitedAliquots' in self.base_query or 'FROM Ages' in self.base_query) or
+                isinstance(source_model, SQLiteTableModel)):
+            if isinstance(source_model, SQLiteTableModel) and source_model.query_text == self.base_query:
+                # If the source model is already a SQLiteTableModel with the same query, do not reset it
+                self.source_model = source_model
+            else:
+                self.source_model = SQLiteTableModel(query=self.base_query)
+                if self.source_model.last_error:
+                    logger_setup.get_logger().critical(f'Error displaying the selected table')
+                    return
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
             self.source_model.setQuery(f'{self.base_query}')
@@ -3048,7 +3197,6 @@ class CheckableTreeModel(TreeModel):
         self.parent_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.child_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
-        self.source_model.setQuery(self.base_query)
 
     def add_to_tree(self, child_ids: list[int], parent: CheckableTreeItem):
         """
@@ -3253,7 +3401,7 @@ class CheckableTreeModel(TreeModel):
         else:
             return False
 
-class TreeSortFilterProxyModel(QtC.QSortFilterProxyModel):
+class TreeSortFilterProxyModel(ReadableProxyModel):
     """
     A proxy model that filters and sorts items in a tree structure. This model extends QSortFilterProxyModel to
     provide custom filtering logic for tree items. It allows filtering based on a regular expression and supports
@@ -4032,6 +4180,7 @@ class CheckableComboBox(QtW.QComboBox):
         :param model: checkable model or proxy model
         :return:
         """
+        start_set_model_time = time.time()
         if isinstance(model, QtC.QSortFilterProxyModel):
             self.proxy_model = model
             model = model.sourceModel()
@@ -4052,6 +4201,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.proxy_model.setFilterKeyColumn(self.name_col)
             show_column(self, self.name_col)
         self.view().setMinimumWidth(self.view().sizeHint().width())
+        logger_setup.get_logger().debug(f'Set model for {self.table} combo box in {time.time() - start_set_model_time:.2f} seconds')
 
     def update_filter(self, text: str):
         """
@@ -4438,6 +4588,7 @@ class TreeCombobox(QtW.QComboBox):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.proxy_model = None
+        self.tree_model = None
         self.setEditable(True)
         self.lineEdit().setPlaceholderText("Search")
         self.lineEdit().setReadOnly(False)
@@ -4464,17 +4615,21 @@ class TreeCombobox(QtW.QComboBox):
         Start typing in the line edit, which will grab the keyboard focus and allow the user to type in the search box.
         :return:
         """
-        self.typing = True
-        self.lineEdit().grabKeyboard()
+        if not self.typing:
+            save_expanded_state(self.tree_model.tableName(), self.treeView)
+            self.typing = True
+            self.lineEdit().grabKeyboard()
 
     def stop_typing(self):
         """
         Stop typing in the line edit, which will release the keyboard focus and clear the search filter.
         :return:
         """
-        self.typing = False
-        self.lineEdit().releaseKeyboard()
-        self.proxy_model.setFilterRegularExpression('')
+        if self.typing:
+            self.typing = False
+            self.lineEdit().releaseKeyboard()
+            self.proxy_model.setFilterRegularExpression('')
+            restore_expanded_state(self.tree_model.tableName(), self.treeView)
 
     def set_text(self, text: str):
         """
@@ -4497,17 +4652,18 @@ class TreeCombobox(QtW.QComboBox):
         :param model:
         :return:
         """
+        start_set_model_time = time.time()
+        self.tree_model, indexes = find_tree_model(model, None)
         self.proxy_model = TreeSortFilterProxyModel(self, self.treeView)
         self.proxy_model.setSourceModel(model)
         self.proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
         self.proxy_model.setRecursiveFilteringEnabled(True)
         super().setModel(self.proxy_model)
-        # Hide all but the first column
-        for column in range(1, self.proxy_model.columnCount()):
-            self.treeView.hideColumn(column)
+        show_column(self, 0)
         self.treeView.resizeColumnToContents(0)
         self.treeView.setMinimumWidth(self.treeView.sizeHint().width())
         self.treeView.setSortingEnabled(False)
+        logger_setup.get_logger().debug(f'Set model for tree combobox in {time.time() - start_set_model_time:.2f} seconds')
 
     def update_filter(self, text: str):
         """
@@ -4717,7 +4873,7 @@ class TreeCombobox(QtW.QComboBox):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
-                    save_expanded_state(model.table, self.treeView)
+                    # save_expanded_state(model.table, self.treeView)
                     self.expand_collapse = True
                     self.showPopup()
                     return True
@@ -5281,6 +5437,10 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
         model = comboBox.model()
     if model:
         if isinstance(column, str):
+            # If the column is a string, find the index of the column by its header data
+            if isinstance(model, ReadableProxyModel):
+                # If the model is a ReadableProxyModel, get the readable header to compare
+                column = get_readable_header(column)
             for col in range(model.columnCount()):
                 header = model.headerData(col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
                 if header == column:
@@ -5292,7 +5452,13 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
             model.sort(column, QtC.Qt.SortOrder.AscendingOrder)
 
 def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
-    """"""
+    """
+    Determine the arguments to pass to a dialog for adding or inserting items in a tree view based on the selected
+    indexes and the action.
+    :param tree_view: QtW.QTreeView to add or insert items in
+    :param action: QtG.QAction that specifies the action to perform (e.g., insert above, insert below, add child, etc.)
+    :return: library dialog arguments to pass to the dialog for adding or inserting items in the tree view
+    """
     dlg_args = None
     indexes = tree_view.selectedIndexes()
     model = tree_view.model()
@@ -5316,63 +5482,74 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
             dlg_args = {'add_item': 'child'}
     return dlg_args
 
-def save_expanded_state(table: str, treeView: QtW.QTreeView):
+def save_expanded_state(table: str, tree_view: QtW.QTreeView):
     """
     Save the expanded state of the tree view to the settings
-    @param table: Name of table with parent-child relationships
-    @param treeView: The view displaying the model
-    @return:
+    :param table: Name of table with parent-child relationships
+    :param tree_view: The view displaying the model
+    :return:
     """
-
+    show_loading_dialog('Saving expanded state', 'Saving the expanded state of the tree view...')
+    start_save_expanded_time = time.time()
     expanded_ids = set()
-    model = treeView.model()
-
+    model = tree_view.model()
     def save_state(index):
-        if index.isValid() and treeView.isExpanded(index):
+        if index.isValid() and tree_view.isExpanded(index):
             item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
             expanded_ids.add(item_id)
-        for i in range(model.rowCount(index)):
+        row_count = model.rowCount(index)
+        for i in range(row_count):
             save_state(model.index(i, 0, index))
 
     root_index = QtC.QModelIndex()
-    for i in range(model.rowCount(root_index)):
+    root_row_count = model.rowCount(root_index)
+    for i in range(root_row_count):
         save_state(model.index(i, 0, root_index))
     SettingsManager().db_settings.setValue(f'expanded_ids_{table}', expanded_ids)
+    logger_setup.get_logger().debug(f'Expanded state saved for {table} table in {time.time() - start_save_expanded_time} seconds')
+    close_loading_dialog('Saving expanded state', 'Saving the expanded state of the tree view...')
 
-def restore_expanded_state(table: str, treeView: QtW.QTreeView):
+def restore_expanded_state(table: str, tree_view: QtW.QTreeView):
     """
-    Restore the expanded state of the tree view from the settings
+    Restore the expanded state of the tree view from the set of expanded ids stored in settings
     :param table: Name of table with parent-child relationships
-    :param treeView: The view to display the model
+    :param tree_view: The view to display the model
     :return:
     """
-    logger_setup.get_logger().info(f'Restoring expanded state for {table} table')
+    # logger_setup.get_logger().info(f'Restoring expanded state for {table} table')
+    show_loading_dialog('Restoring expanded state', 'Restoring the expanded state of the tree view...')
     start_expand_tree_time = time.time()
     expanded_ids = SettingsManager().db_settings.value(f'expanded_ids_{table}', set())
-    indexes_to_expand = set()
-    indexes_to_collapse = set()
-    model = treeView.model()
+    model = tree_view.model()
 
     def restore_state(index):
-        item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
-        if index == QtC.QModelIndex():
-            pass
-        elif item_id in expanded_ids:
-            indexes_to_expand.add(index)
-        else:
-            indexes_to_collapse.add(index)
-        for row in range(model.rowCount(index)):
+        if index.isValid():
+            item_id = model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
+            is_expanded = item_id in expanded_ids
+            tree_view.setExpanded(index, is_expanded)
+        row_count = model.rowCount(index)
+        for row in range(row_count):
             restore_state(model.index(row, 0, index))
 
     restore_state(QtC.QModelIndex())
-    for index in indexes_to_expand:
-        treeView.setExpanded(index, True)
-    for index in indexes_to_collapse:
-        treeView.setExpanded(index, False)
     logger_setup.get_logger().info(f'Expanded state restored in {time.time() - start_expand_tree_time} seconds')
+    close_loading_dialog('Restoring expanded state', 'Restoring the expanded state of the tree view...')
 
 def expand_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):
-    model = tree_view.model()
+    """
+    Expand all children of the given parent index in the tree view. This method recursively expands all child items
+    of the specified parent index in the tree view. It ensures that all child items are expanded, allowing the user
+    to view the entire hierarchy of items under the specified parent. If the parent index is invalid, it defaults to
+    the root index. If the parent index does not have column 0, it is adjusted to ensure that the correct column is used
+    for expanding children. The method iterates through all rows of the model under the parent index and recursively
+    calls itself for each child index. After expanding all children, it also expands the parent index itself if it is not
+    already expanded. This is useful for ensuring that the parent item's children are visible in the tree view after
+    expanding them.
+    :param tree_view: the tree view to expand children in
+    :param parent_index: the parent index whose children should be expanded
+    :return:
+    """
+    show_loading_dialog('Expanding children', 'Expanding all children in the tree view...')
     # make sure the parent_index has column 0
     if not parent_index.isValid():
         parent_index = QtC.QModelIndex()  # parent is root
@@ -5385,8 +5562,22 @@ def expand_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex)
         expand_all_children(tree_view, child_index)
     if not tree_view.isExpanded(parent_index):
         tree_view.expand(parent_index)
+    close_loading_dialog('Expanding children', 'Expanding all children in the tree view...')
 
 def collapse_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelIndex):
+    """
+    Collapse all children of the given parent index in the tree view. This method recursively collapses all child items
+    of the specified parent index in the tree view. It ensures that all child items are collapsed, hiding their details
+    from the view. If the parent index is invalid, it defaults to the root index. If the parent index does not have
+    column 0, it is adjusted to ensure that the correct column is used for collapsing children. The method iterates
+    through all rows of the model under the parent index and recursively calls itself for each child index. After collapsing
+    all children, it also collapses the parent index itself if it is currently expanded. This is useful for ensuring
+    that the parent item's children are hidden in the tree view after collapsing them.
+    :param tree_view: the tree view to collapse children in
+    :param parent_index: the parent index whose children should be collapsed
+    :return:
+    """
+    show_loading_dialog('Collapsing children', 'Collapsing all children in the tree view...')
     # make sure the parent_index has column 0
     if not parent_index.isValid():
         parent_index = QtC.QModelIndex()  # parent is root
@@ -5399,8 +5590,18 @@ def collapse_all_children(tree_view: QtW.QTreeView, parent_index: QtC.QModelInde
         collapse_all_children(tree_view, child_index)
     if tree_view.isExpanded(parent_index):
         tree_view.collapse(parent_index)
+    close_loading_dialog('Collapsing children', 'Collapsing all children in the tree view...')
 
 def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
+    """
+    Handles TreContextMenu actions for expanding and collapsing items in a tree view. This method checks the text of the
+    action and performs the corresponding operation on the selected indexes in the tree view. It can expand or collapse
+    children, expand or collapse all children, expand or collapse all items, and save the expanded state of the tree
+    view after performing the action.
+    :param tree_view: QTreeView to perform the action on
+    :param action: QAction selected from a TreeContextMenu
+    :return:
+    """
     if action.text() == 'Expand children':
         tree_view.expand(tree_view.selectedIndexes()[0])
     elif action.text() == 'Expand all children':
@@ -5427,9 +5628,24 @@ def expand_collapse(tree_view: QtW.QTreeView, action: QtG.QAction):
     save_expanded_state(table, tree_view)
 
 def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
+    """
+    Populate a combo box with data from a database table or query. This method sets the model for the combo box based
+    on the provided keyword arguments. It can handle both SQL queries and table names, and it supports displaying
+    hierarchical data in a tree structure if the table is part of a user viewable tree. The method also allows specifying
+    a specific column to display in the combo box. If a query is provided, it uses a DisplayRoundedQueryModel; otherwise,
+    it uses a DisplayRoundedModel or a SQLiteTableModel based on the table name. If the table is part of a user viewable
+    tree, it sets the model to a CheckableTreeModel or TreeModel. If the combo box is a CheckableComboBox, it uses
+    CheckableSqlTableModel or CheckableSqlQueryModel to populate the combo box. The method also ensures that the
+    specified column is displayed in the combo box, and it defaults to showing the name column if no specific column
+    is provided.
+    :param comboBox: QComboBox or subclass combo box to populate with data
+    :param kwargs: keyword arguments to specify the table: str, query: str, and/or column: str
+    :return:
+    """
     table: str = None
     query: str = None
     column: str = None
+    start_populate_combo_time = time.time()
     for key, value in kwargs.items():
         if key == 'table':
             table = TxM.remove_spaces(value)  # ensure there are no spaces in the table name
@@ -5488,8 +5704,25 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         else:
             name_col = get_name_column(get_view_from_table(model.tableName()))
         show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+    logger_setup.get_logger().debug(f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
 
-def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids, item_table: str=None, table_id_header: str=None):
+def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids: list, item_table: str=None, table_id_header: str=None):
+    """
+    Populate the checkable model with checks based on the item IDs and the item table, e.g. given a checkable Columns
+    model and a list of Sample IDs, mark what columns are associated with those samples. This method iterates through
+    the rows of the model and checks how many of the given item IDs have a specific tag in the item table. It updates
+    the check state of the model's data based on the number of item IDs that have the tag. If all items have the tag,
+    the check state is set to Checked; if some items have the tag, it is set to PartiallyChecked; and if no items
+    have the tag, it is set to Unchecked.
+    :param model: checkable model to populate with checks, data from a database table (e.g. Columns)
+    :param item_ids: list of item IDs from a separate table (e.g. Sample IDs)
+    :param item_table: table the list of item IDs is from. If the relationship is one-to-one or one-to-many, this may be
+    a main table (e.g. Samples). If the relationship is many-to-many, this may be a junction table (e.g. SampleAges_References).
+    :param table_id_header: name of the column in item_table that contains the IDs to check in the model. This may be
+    different from the model table ID column (e.g. SampleColumnID column in the Samples table)
+    :return: True if the model was populated successfully, False otherwise
+    """
+    start_populate_model_checks_time = time.time()
     if table_id_header is None:
         table_id_header = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
     item_id_header = get_headers(item_table)[0]
@@ -5502,8 +5735,9 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         logger_setup.get_logger().error(f'No item IDs given for {model.tableName()}')
         return False
     col = get_name_column(get_view_from_table(model.tableName()))
+    # Check that the table_id_header is in the item_table headers
     if table_id_header not in get_headers(item_table):
-        # Try selecting from a view instead
+        # If not, check if it is a header of a view
         item_view = get_view_from_table(item_table)
         item_edit_view = get_edit_view_from_table(item_table)
         if table_id_header in get_headers(item_view):
@@ -5540,9 +5774,25 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         else:
             # No items have this tag, go ahead and uncheck it
             model.setData(model.index(row, col), QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
+    logger_setup.get_logger().debug(f'Populated model checks for {model.tableName()} in {time.time() - start_populate_model_checks_time} seconds')
     return True
 
-def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids, item_table: str=None, table_id_header: str=None):
+def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, item_table: str=None, table_id_header: str=None):
+    """
+    Populate the tree model with checks based on the item IDs and the item table, e.g. given a checkable Units model and
+    a list of Sample IDs, mark what units are associated with those samples. This method recursively iterates through
+    the rows of the tree model and checks how many of the given item IDs have a specific tag in the item table. If all
+    items have the tag, the check state is set to Checked; if some items have the tag, it is set to PartiallyChecked;
+    and if no items have the tag, it is set to Unchecked.
+    :param tree_model: checkable tree model to populate with checks, data from a database table (e.g. Units)
+    :param item_ids: list of item IDs from a separate table (e.g. Sample IDs)
+    :param item_table: table the list of item IDs is from. If the relationship is one-to-one or one-to-many, this may be
+    a main table (e.g. Samples). If the relationship is many-to-many, this may be a junction table (e.g. SamplesUnits).
+    :param table_id_header: name of the column in item_table that contains the IDs to check in the model. This may be
+    different from the model table ID column in a one-to-one or one-to-many relationship.
+    :return: True if the model was populated successfully, False otherwise
+    """
+    start_populate_tree_model_checks_time = time.time()
     id_col = 1  # ID column is always placed in the second column
     if not item_ids[0]:
         tree_model.blockSignals(True)
@@ -5586,9 +5836,24 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids, item_ta
     tree_model.blockSignals(True)
     tree_model.check_checkable_tree(QtC.QModelIndex(), all_items, some_items)
     tree_model.blockSignals(False)
+    logger_setup.get_logger().debug(f'Populated tree model checks for {table} in {time.time() - start_populate_tree_model_checks_time} seconds')
     return True
 
 def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, first_table_ids: list):
+    """
+    Populate a combo box with checks based on a many-to-many relationship table and a list of IDs from the first table.
+    This method checks how many of the given IDs have a specific tag in the many-to-many relationship table. It updates
+    the check state of the combo box's model based on the number of IDs that have the tag. If all items have the tag,
+    the check state is set to Checked; if some items have the tag, it is set to PartiallyChecked; and if no items
+    have the tag, it is set to Unchecked. The method also handles both CheckableTreeCombobox and regular QComboBox
+    instances, adjusting the model and column indices accordingly.
+    :param many_to_many_table: Many-to-many relationship table name (e.g. SampleAges_References)
+    :param combo: combo box to populate with checks, can be a CheckableTreeCombobox or a regular QComboBox. Data must be
+    from the second table in the many-to-many relationship (e.g. References)
+    :param first_table_ids: list of IDs from the first table (e.g. Sample IDs)
+    :return:
+    """
+    start_populate_many_checks_time = time.time()
     if first_table_ids == []:
         return
     logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
@@ -5718,12 +5983,12 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
     end_populate_checks_time = time.time()
     logger_setup.get_logger().info(
         f"Populated checks for {many_to_many_table} in {end_populate_checks_time - start_populate_checks_time} seconds")
-    logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
+    logger_setup.get_logger().info(f"Populated checks for {many_to_many_table} in {time.time() - start_populate_many_checks_time} seconds")
 
 def get_readable_header(header: str):
     """
-    For a given header/col name it will convert to a user readable header value. This method MUST work for all columns
-    and all tables.
+    For a given header/col name it will convert to a user readable header format by removing spaces, abbreviations, and
+    adding units from the settings where appropriate. This method MUST work for all viewable columns and tables.
     :param header: header to convert
     :return: converted header
     """
@@ -5812,22 +6077,31 @@ def get_readable_header(header: str):
         header = header.replace(' U ', 'U ')
     return header
 
-def show_loading_dialog(title, message, cancel_callback=None):
+loading_manager = LoadingDialogManager.get_instance()
+
+def show_loading_dialog(title, message):
     """
-    Show a loading dialog while the action is taking places
+    Show a loading dialog while the action is taking place. This method uses a timer to delay the display of the loading
+    dialog to avoid showing it unnecessarily if the action completes quickly. The loading dialog is managed by the
+    LoadingDialogManager, which ensures that it is closed properly after the action is completed. The title and message
+    of the loading dialog can be customized.
+    :param title: Title of the loading dialog
+    :param message: Message to display in the loading dialog
     :return:
     """
-    # Wait one second before showing the loading dialog
+    # Wait one second before showing the loading dialog in case it is not needed
     timer = QtC.QTimer()
+    timer.timeout.connect(lambda: loading_manager.close_loading_dialog(title, message))
     timer.start(1000)
-    LoadingDialogManager.show_loading_dialog(message, title, cancel_callback)
 
 def close_loading_dialog(title, message):
     """
-    Close the loading dialog
+    Close the loading dialog with the given title and message. This ensures that the loading dialog is closed properly.
+    :param title: Title of the loading dialog to close
+    :param message: Message displayed in the loading dialog to close
     :return:
     """
-    LoadingDialogManager.close_loading_dialog(title, message)
+    loading_manager.close_loading_dialog(title, message)
 
 
 # ---------------------------
@@ -5842,7 +6116,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     update_many_table_with_checks.
     :param table: table with checked data (e.g. Columns)
     :param checked_ids: ids of checked items in the table, must be a single ID for one-to-one or one-to-many relationships
-    :param partially_checked_ids: ids of partially checked items in the table
+    :param partially_checked_ids: ids of partially checked items in the table (e.g. Column IDs)
     :param update_table: table to update (e.g. Samples)
     :param update_ids: ids to update in the update table (e.g. list of sample IDs to link to the checked column ID)
     :return: True if successful or not needed, False if not
@@ -5896,7 +6170,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
 def update_many_table_with_checks(table: str, checked_ids: list, partially_checked_ids: list, many_table: str, first_table_ids: list) -> bool:
     """
     Take the checked ids from a table and update that field in the second column of a many-to-many table with another table.
-    The relationship must be many-to-many, so the checked ids may be partial.
+    The relationship must be many-to-many, so partially checked IDs are permitted.
     :param table: table with checked data (e.g. Regions)
     :param checked_ids: ids of checked items in the table (e.g. list of region IDs)
     :param partially_checked_ids: ids of partially checked items in the table (e.g. list of region IDs that are partially checked)

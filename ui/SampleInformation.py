@@ -21,7 +21,7 @@ from Functions.Widget_classes import (
     CheckableTreeView, save_expanded_state, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
     DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel, show_column,
-    get_view_from_table
+    get_view_from_table, close_loading_dialog, show_loading_dialog
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -30,7 +30,6 @@ from ui.EditView import EditView
 
 settings = SettingsManager().settings
 from Functions.Database_views import ViewQuery
-from Functions.LoadingDialog_manager import LoadingDialogManager
 from ui.GPSFields import GPSFields
 from ui.AgeFields import AgeFields
 from ui.EditTable import EditTable
@@ -45,7 +44,6 @@ class SampleInformation(QtW.QDialog):
     def __init__(self, parent_window, sample_id_list: list | None):
         super().__init__(parent=parent_window)
         logger_setup.get_logger().info("Starting the sample information dialog")
-        self.loading_manager = LoadingDialogManager.get_instance()
         start_init_time = time.time()
         self.parent_window = parent_window
         self.savepoint_manager = SavepointManager.get_instance()
@@ -58,11 +56,14 @@ class SampleInformation(QtW.QDialog):
 
         self.selected_sample_label: QtW.QLabel
         self.selected_sample_label.setWordWrap(True)
+        close_loading_dialog('Loading', f'Opening Sample Information window...')
         self.gps = GPSFields('Samples', sample_id_list)
         self.top_horizontalLayout: QtW.QHBoxLayout
         self.top_horizontalLayout.addWidget(self.gps)
         self.age = AgeFields('Samples', sample_id_list)
         self.top_horizontalLayout.addWidget(self.age)
+
+        show_loading_dialog('Loading', f'Opening Sample Information window...')
 
         # Sample names table
         self.sample_names_model = CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
@@ -134,7 +135,7 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info(f"Sample information dialog initialized in {end_init_time - start_init_time} seconds")
         self.showMaximized()
 
-        self.loading_manager.close_loading_dialog('Loading', f'Opening Sample Information window...')
+        close_loading_dialog('Loading', f'Opening Sample Information window...')
 
     def check_all_samples(self):
         logger_setup.get_logger().info("Checking all samples")
@@ -189,7 +190,7 @@ class SampleInformation(QtW.QDialog):
         self.update_fields()
 
     def update_fields(self):
-        self.loading_manager.show_loading_dialog('Updating','Updating fields...')
+        show_loading_dialog('Updating','Updating fields...')
         logger_setup.get_logger().info("Updating fields")
         self.disconnect_text_signals()
         if set(self.gps.item_ids) != set(self.checked_sample_list):
@@ -199,7 +200,7 @@ class SampleInformation(QtW.QDialog):
         self.populate_fields()
         self.connect_signals()
         logger_setup.get_logger().info("Fields updated")
-        self.loading_manager.close_loading_dialog('Updating', 'Updating fields...')
+        close_loading_dialog('Updating', 'Updating fields...')
 
     def populate_dropdowns(self):
         start_populate_dropdown_time = time.time()
@@ -672,9 +673,6 @@ class SampleInformation(QtW.QDialog):
         else:
             logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}")
             return False
-        if not combo.treeView.model_edited:
-            logger_setup.get_logger().info(f"No changes to {table}")
-            return True
         start_update_sample_tags = time.time()
         many_to_many_model = QtS.QSqlTableModel()
         set_table(many_to_many_model, f"Samples_{table}")
@@ -692,7 +690,6 @@ class SampleInformation(QtW.QDialog):
                 rollback_savepoint('before_update')
                 return
             self.updated = True
-            combo.treeView.toggle_edited(False)
             populate_many_combo_checks(f'Samples_{table}', combo, self.checked_sample_list)
             end_update_sample_tags_time = time.time()
             logger_setup.get_logger().info(f"Updated {table} for {len(self.checked_sample_list)} samples in {end_update_sample_tags_time - start_update_sample_tags} seconds")
@@ -765,17 +762,17 @@ class SampleInformation(QtW.QDialog):
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())
             dlg_args = add_tree_popup(combo.view(), action)
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            show_loading_dialog('Loading', f'Opening add window for {table}...')
             if dlg_args:
                 dlg = AddTreeTags(self, table, **dlg_args)
             else:
                 dlg = AddTreeTags(self, table)
         elif table in ['References', '"References"']:
             table = 'References'
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = NewReference(self)
         else:
-            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            show_loading_dialog('Loading', f'Opening add window for {table}...')
             dlg = AddTags(self, table)
         if not dlg:
             combo.blockSignals(False)
@@ -835,11 +832,13 @@ class SampleInformation(QtW.QDialog):
 
     def edit_upb_popup(self):
         logger_setup.get_logger().info("Edit U-Pb popup called")
-        self.loading_manager.show_loading_dialog("Loading", "Showing U-Pb analysis edit dialog")
+        show_loading_dialog("Loading", "Showing U-Pb analysis edit dialog")
+        self.sender().blockSignals(True)
         dlg = EditUPbTags(self, self.checked_sample_list)
         dlg.exec()
         if dlg.updated:
             self.updated = True
+        self.sender().blockSignals(False)
 
     def check_focus(self):
         if self.column_groupBox.any_child_has_focus() and self.column_groupBox.edited:
@@ -857,6 +856,7 @@ class SampleInformation(QtW.QDialog):
 
     def discard_clicked(self):
         logger_setup.get_logger().info("Discard clicked")
+        self.cancel_pushButton.blockSignals(True)
         self.discard_timer.timeout.connect(self.discard_question)
         self.discard_timer.start(200)
 
@@ -885,8 +885,12 @@ class SampleInformation(QtW.QDialog):
                 self.close()
                 self.close_by_dialog = False
             else:
+                self.cancel_pushButton.blockSignals(False)
                 pass
         else:
+            self.updated = False
+            self.gps.updated = False
+            self.age.updated = False
             self.reject()
             self.close_by_dialog = True
             self.close()
@@ -904,6 +908,7 @@ class SampleInformation(QtW.QDialog):
             msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
             response = msg_box.exec()
             if response == QtW.QMessageBox.StandardButton.Yes:
+                self.updated = True
                 self.commit()
             else:
                 self.commit_pushed = False
@@ -922,39 +927,6 @@ class SampleInformation(QtW.QDialog):
         self.close_by_dialog = True
         self.close()
         self.close_by_dialog = False
-
-    # def eventFilter(self, obj: QtC.QObject, event: QtC.QEvent):
-    #     if event.type() == QtC.QEvent.Type.FocusOut:
-    #         logger_setup.get_logger().debug(f'Focus out event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.FocusIn:
-    #         logger_setup.get_logger().debug(f'Focus in event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.WindowDeactivate:
-    #         logger_setup.get_logger().debug(f'Window deactivate event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.WindowActivate:
-    #         logger_setup.get_logger().debug(f'Window activate event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.WindowStateChange:
-    #         logger_setup.get_logger().debug(f'Window state change on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.Hide:
-    #         logger_setup.get_logger().debug(f'Hide event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.Show:
-    #         logger_setup.get_logger().debug(f'Show event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.LayoutRequest:
-    #         logger_setup.get_logger().debug(f'Layout request event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.Resize:
-    #         logger_setup.get_logger().debug(f'Resize event on {obj.objectName()}')
-    #     elif event.type() == QtC.QEvent.Type.Timer:
-    #         logger_setup.get_logger().debug(f'Timer event on {obj.objectName()}')
-    #         if obj == self.focus_timer:
-    #             logger_setup.get_logger().debug(f'Focus timer event')
-    #         elif obj == self.commit_timer:
-    #             logger_setup.get_logger().debug(f'Commit timer event')
-    #         elif obj == self.discard_timer:
-    #             logger_setup.get_logger().debug(f'Discard timer event')
-    #         elif obj == self.gps.focus_timer:
-    #             logger_setup.get_logger().debug(f'GPS focus timer event')
-    #         elif obj == self.age.focus_timer:
-    #             logger_setup.get_logger().debug(f'Age focus timer event')
-    #     return super().eventFilter(obj, event)
 
     def closeEvent(self, event: QtG.QCloseEvent):
         if not self.close_by_dialog:

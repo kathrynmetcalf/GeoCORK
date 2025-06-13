@@ -112,6 +112,7 @@ class EditTreeView(QtW.QDialog):
         self.edited_timer = QtC.QTimer(self)
         self.model = None
         self.tree_model = None
+        self.proxy_model = None
         self.edited_indexes = []
         self.combo_tree_model = None
         self.name_column = None
@@ -187,17 +188,17 @@ class EditTreeView(QtW.QDialog):
         if self.tree_model:
             self.tree_model.deleteLater()
         self.tree_model = TreeModel(self.model)
-        self.tree_model.save_state.connect(
-            lambda: save_expanded_state(self.table, self.edit_treeView))
+        # self.tree_model.save_state.connect(
+        #     lambda: save_expanded_state(self.table, self.edit_treeView))
         # print('Created the tree model')
         self.display_tree()
         self.edit_treeView.selectionModel().currentChanged.connect(self.on_index_change)
         self.updated_timestamp = time.time()
 
-    def on_tree_edited(self):
-        self.edited_timer.setSingleShot(True)
-        self.edited_timer.timeout.connect(self.create_model)
-        self.edited_timer.start(100)
+    # def on_tree_edited(self):
+    #     self.edited_timer.setSingleShot(True)
+    #     self.edited_timer.timeout.connect(self.create_model)
+    #     self.edited_timer.start(100)
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
@@ -262,7 +263,7 @@ class EditTreeView(QtW.QDialog):
                     self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_lineedit_data()
                     self.loading_manager.close_loading_dialog('Loading', f'Loading...')
-                    self.display_tree()
+                    # self.display_tree()
                 else:
                     self.destroy_lineedit()
             elif self.combo:
@@ -272,7 +273,7 @@ class EditTreeView(QtW.QDialog):
                     self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_dropdown_data()
                     self.loading_manager.close_loading_dialog('Loading', f'Loading...')
-                    self.display_tree()
+                    # self.display_tree()
                 else:
                     self.destroy_dropdown()
 
@@ -303,7 +304,7 @@ class EditTreeView(QtW.QDialog):
         self.edit_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.edit_treeView.setSelectionBehavior(QtW.QAbstractItemView.SelectionBehavior.SelectItems)
         restore_expanded_state(self.table, self.edit_treeView)
-        self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
+        # self.tree_model.save_state.connect(lambda: save_expanded_state(self.table, self.edit_treeView))
 
         # Optimize window resizing
         self.resize_timer = QtC.QTimer()
@@ -484,7 +485,7 @@ class EditTreeView(QtW.QDialog):
             self.updated = True
             # self.on_tree_edited()
             self.destroy_lineedit()
-            self.display_tree()
+            # self.display_tree()
             return True
 
     def destroy_lineedit(self):
@@ -1148,7 +1149,7 @@ class EditTreeView(QtW.QDialog):
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             self.updated = True
         # self.on_tree_edited()
-        self.display_tree()
+        # self.display_tree()
 
     def add_tag_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
         model = combo.model()
@@ -1221,6 +1222,7 @@ class EditTreeView(QtW.QDialog):
     def rollback(self):
         save_expanded_state(self.table, self.edit_treeView)
         rollback_savepoint('before_edit')
+        self.updated = False
         self.reject()
         self.close_by_dialog = True
         self.close()

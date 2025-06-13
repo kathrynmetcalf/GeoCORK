@@ -12,10 +12,10 @@ def update_modified_timestamp(table: str, record_ids: list):
     :param list record_ids: list of record ids to be updated
     :return:
     """
+    if not record_ids or not table:
+        logger_setup.get_logger().error('No record ids or table given for updating modified timestamp')
+        return
     # Get the header for the first column, the ID column
-    table_model = QtS.QSqlTableModel()
-    table_model.setTable(table)
-    table_model.select()
     from Functions.Widget_classes import get_headers
     headers = get_headers(table)
     modified_header = None
@@ -29,18 +29,14 @@ def update_modified_timestamp(table: str, record_ids: list):
     query = QtS.QSqlQuery()
     logger_setup.get_logger().info('Updating modified timestamp')
     if len(record_ids) > 1:
-        record_ids = ', '.join(str(id) for id in record_ids)
-        if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {record_id_header} IN ({record_ids})'):
-            logger_setup.get_logger().error(
-                f'Unable to update modified timestamps for {table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-    if len(record_ids) == 1:
-        if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {record_id_header} = {record_ids[0]}'):
-            logger_setup.get_logger().error(
-                f'Unable to update modified timestamps for {table}')
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        where_sql = f'{record_id_header} IN {tuple(record_ids)}'
+    elif len(record_ids) == 1:
+        where_sql = f'{record_id_header} = {record_ids[0]}'
+    if not query.exec(f'UPDATE {table} SET {modified_header} = CURRENT_TIMESTAMP WHERE {where_sql}'):
+        logger_setup.get_logger().error(
+            f'Unable to update modified timestamps for {table}')
+        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
 
 def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | None):
     """
@@ -750,21 +746,21 @@ def check_gps_format_update(all_records: list, new_format_id: int):
 def check_dependencies(table: str, record_id_header: str, record_ids: list, record_names: list):
     """
     Check whether the records provided are being used in other tables
-    @param table: the table to be deleted from
-    @param record_id_header: the header for the id column
-    @param record_ids: the list of record ids to be deleted
-    @return: Nothing if successful, error message if not
+    :param table: the table to be deleted from
+    :param record_id_header: the header for the id column
+    :param record_ids: the list of record ids to be deleted
+    :return: Nothing if successful, error message if not
     """
 
     def build_dependencies_check(table: str, dependent_table: str, record_id_header: str, record_ids: list, record_names: list):
         """
         Check if the records are being used in the dependent table
-        @param table: name of the table to be checked
-        @param dependent_table: name of the table that the records are being checked against
-        @param record_id_header: name of the column to be checked in the dependent table
-        @param record_ids: list of record ids to be checked
-        @param record_names: list of names of the records, empty string if not applicable
-        @return: text of the dependencies
+        :param table: name of the table to be checked
+        :param dependent_table: name of the table that the records are being checked against
+        :param record_id_header: name of the column to be checked in the dependent table
+        :param record_ids: list of record ids to be checked
+        :param record_names: list of names of the records, empty string if not applicable
+        :return: text of the dependencies
         """
         query = QtS.QSqlQuery()
         dependencies_text = ''

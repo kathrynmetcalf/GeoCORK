@@ -8,7 +8,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtCore as QtC
 from PyQt6.uic import loadUi
 from Functions.Widget_classes import (set_table, set_comboBox_text, SQLiteTableModel, populate_combo_box, get_headers,
-    return_number, delete_data)
+                                      return_number, delete_data, show_loading_dialog, close_loading_dialog)
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
@@ -21,9 +21,9 @@ import logger_setup
 class GPSFields(QtW.QWidget):
     def __init__(self, table: str, item_ids: list | None, parent=None):
         super().__init__(parent)
-
+        show_loading_dialog('Loading', 'Loading GPS Fields...')
         logger_setup.get_logger().info('Starting GPSFields')
-
+        start_gps_time = time.time()
         base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
         sources_ui_file = os.path.join(base_path, "GPSFields.ui")
         loadUi(sources_ui_file, self)
@@ -70,6 +70,8 @@ class GPSFields(QtW.QWidget):
         self.populate_dropdowns()
         self.populate_fields()
         self.connect_signals()
+        close_loading_dialog('Loading', 'Loading GPS Fields...')
+        logger_setup.get_logger().info(f'Finished GPSFields initialization in {time.time() - start_gps_time} seconds')
 
     def update_list(self, item_ids):
         self.item_ids = item_ids
@@ -537,13 +539,16 @@ class GPSFields(QtW.QWidget):
         if not self.lost_group_box.edited:
             logger_setup.get_logger().info(f"GPS fields not edited")
             return
+        show_loading_dialog('Updating', 'Updating GPS...')
         logger_setup.get_logger().info('Update_gps called. Collecting input values.')
         if len(self.item_ids) == 0:
             logger_setup.get_logger().info(f"No samples to update")
+            close_loading_dialog('Updating', 'Updating GPS...')
             return
         gps_columns, gps_values = self.get_values()
         if gps_values == self.initial_values:
             logger_setup.get_logger().info(f"GPS fields not edited")
+            close_loading_dialog('Updating', 'Updating GPS...')
             return
         format_index = gps_columns.index('GPSFormatID')
         gps_format_id = gps_values[format_index]
@@ -555,6 +560,7 @@ class GPSFields(QtW.QWidget):
             self.update_multiple_gps(gps_columns, gps_values)
         self.lost_group_box.reset_edited()
         self.lost_group_box = None
+        close_loading_dialog('Updating', 'Updating GPS...')
 
     def update_multiple_gps(self, gps_columns, gps_values):
         """

@@ -76,7 +76,7 @@ class DisplayTables(QtW.QWidget):
         self.model = DisplayRoundedModel()
         self.query_model = DisplayRoundedQueryModel()
         self.tree_model = TreeModel()
-        self.tree_proxy_model = ReadableProxyModel()
+        self.tree_proxy_model = TreeSortFilterProxyModel()
         self.table_proxy_model = ReadableProxyModel()
         self.table = ''
         self.previous_table = ''
@@ -219,10 +219,10 @@ class DisplayTables(QtW.QWidget):
                 self.dbTable_treeView.resizeColumnToContents(column)
                 if self.dbTable_treeView.columnWidth(column) > 400:
                     self.dbTable_treeView.setColumnWidth(column, 400)
-            logger_setup.get_logger().info(f'Resized columns in {time.time() - start_column_resize_time:.2f} seconds')
+            logger_setup.get_logger().info(f'Resized columns in {time.time() - start_column_resize_time} seconds')
 
             logger_setup.get_logger().info(
-                f'Set up tree view for {self.table} in {time.time() - start_display_tree_time:.2f} seconds')
+                f'Set up tree view for {self.table} in {time.time() - start_display_tree_time} seconds')
 
         elif self.table in self.dbtable_list:
             logger_setup.get_logger().info(f'Switching to table view for {self.table}')
@@ -376,6 +376,7 @@ class DisplayTables(QtW.QWidget):
         if self.table in view_tables:
             dlg = EditView(self, self.table)
         elif self.table in self.dbtree_list:
+            save_expanded_state(self.table, self.dbTable_treeView)
             dlg = EditTree(self, self.table)
         else:
             dlg = EditTable(self, self.table)

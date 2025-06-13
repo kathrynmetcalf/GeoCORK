@@ -1042,12 +1042,13 @@ class QueryBuilder(QWidget):
             else:
                 logger_setup.get_logger().info(f'Filter {item.text()} deleted')
 
-    def populate_filters(self, filter_name: str) -> None:
+    def populate_filters(self, item: QListWidgetItem) -> None:
         """
         Populates the QueryBuilder based on a given filter name.
-        :param str filter_name:
+        :param item: QListWidgetItem containing the name of the filter to populate from
         """
         # query for the SQLQuery and name for a given name
+        filter_name = item.text()
         query = QSqlQuery()
         sql_query = """
                 SELECT SQLQuery, FilterGroupName 
