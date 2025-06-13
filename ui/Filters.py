@@ -236,11 +236,11 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
 
         cte_sql = f"""
         {cte_name} AS (
-            SELECT {table}.{meta['id_column']}, {table}.{meta['name_column']} COLLATE NOCASE
+            SELECT {meta['id_column']} 
               FROM {table}
              WHERE {where}
             UNION ALL
-            SELECT t.{meta['id_column']}, t.{meta['name_column']}
+            SELECT t.{meta['id_column']}
               FROM {table} t
               JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
         )""".strip()
@@ -248,9 +248,8 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
         exists_sql = f"""{'NOT ' if operator_sql=='!=' else ''}EXISTS (
             SELECT 1
-              FROM {meta['bridge_table']} bt
-              JOIN {cte_name} rt ON rt.{meta['id_column']} = bt.{meta['bridge_to_column']}
-             WHERE bt.{meta['bridge_to_column']} = {'Samples.SampleID' if meta['bridge_from_column'] == 'SampleID' else f'rt.{meta["id_column"]}'}
+              FROM {cte_name}
+             WHERE {cte_name}.{meta['bridge_to_column']} = {'Samples.SampleID' if meta['bridge_from_column'] == 'SampleID' else f'{table}.{meta["id_column"]}'}
         )"""
 
         return exists_sql, [cte_sql], field_key
