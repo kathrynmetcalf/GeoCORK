@@ -231,44 +231,25 @@ class DisplayTables(QtW.QWidget):
             self.dbTable_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
             self.name_column = get_name_column(get_view_from_table(self.table))
             id_header = get_headers(self.table)[0]
-            if self.table == 'Samples':
-                # logger_setup.get_logger().info(f'Switching to frozen table view for {self.table}')
-                # self.switch_to_frozen_table()
-                self.show_cols = settings.value('sample_view_columns')
-                self.edit_samples_pushButton.show()
+            if self.table != get_view_from_table(self.table):
+                # This table requires a more complex query to view
+                self.show_cols = settings.value(SQLUtils.view_setting_dict[get_view_from_table(self.table)])
                 self.name_header = self.show_cols[self.name_column]
-                # table_view = self.dbFrozen_tableView
                 query_args = {'show_columns': self.show_cols,
                               'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
                               'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
-                view_query = ViewQuery('Samples', False, **query_args)
+                view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
             else:
-                logger_setup.get_logger().info(f'Switching to table view for {self.table}')
-                self.switch_to_table()
+                self.show_cols = '*'
+                self.name_header = get_headers(self.table)[self.name_column]
+                table = self.table
+                table_query = f'''SELECT {self.show_cols} FROM {table} GROUP BY {id_header} ORDER BY {self.name_header} 
+                                LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'''
+            if self.table == 'Samples':
+                self.edit_samples_pushButton.show()
+            else:
                 self.edit_samples_pushButton.hide()
-                if self.table == 'Columns':
-                    self.show_cols = settings.value('column_view_columns')
-                    self.name_header = self.show_cols[self.name_column]
-                    query_args = {'show_columns': self.show_cols,
-                                  'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
-                                  'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
-                    view_query = ViewQuery('Columns', False, **query_args)
-                    table_query = view_query.table_query
-                elif self.table == 'References':
-                    self.show_cols = settings.value('reference_view_columns')
-                    self.name_header = self.show_cols[self.name_column]
-                    query_args = {'show_columns': self.show_cols,
-                                  'limit': f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}',
-                                  'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
-                    view_query = ViewQuery('References', False, **query_args)
-                    table_query = view_query.table_query
-                else:
-                    self.show_cols = '*'
-                    self.name_header = get_headers(self.table)[self.name_column]
-                    table = self.table
-                    table_query = f'''SELECT {self.show_cols} FROM {table} GROUP BY {id_header} 
-                    ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'''
             # logger_setup.get_logger().debug(f'SQL query: {table_query}')
             self.model = SQLiteTableModel(table_query)
             if self.model.last_error is not None:

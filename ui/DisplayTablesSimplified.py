@@ -110,6 +110,9 @@ class DisplayTablesSimplified(QtW.QWidget):
         self.dbTable_comboBox: QtW.QComboBox
         table = self.dbTable_comboBox.currentText()
         self.table = TxM.remove_spaces(table)
+        if not self.table:
+            logger_setup.get_logger().warning('No table selected to display')
+            return
         logger_setup.get_logger().info(f'Displaying {self.table}')
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:
@@ -149,64 +152,19 @@ class DisplayTablesSimplified(QtW.QWidget):
             self.dbTable_treeView: QTreeView
         elif self.table in self.dbtable_list:
             self.switch_to_table()
-            if self.table == 'Samples':
-                self.show_cols = settings.value('sample_view_columns')
-                query_args = {'show_columns': self.show_cols}
-                view_query = ViewQuery(self.data_table, False, **query_args)
+            if self.table != get_view_from_table(self.table):
+                # This table requires a more complex query to view
+                show_columns = settings.value(SQLUtils.view_setting_dict[get_view_from_table(self.table)])
+                query_args = {'show_columns': show_columns}
+                view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
-                model = SQLiteTableModel(table_query, database=self.db_file)
-                if model.last_error:
-                    logger_setup.get_logger().critical(f'Error loading {self.table}')
-                    return
-                self.table_proxy_model.setSourceModel(model)
-            elif self.table == 'Spots':
-                self.show_cols = settings.value('spot_view_columns')
-                query_args = {'show_columns': self.show_cols}
-                view_query = ViewQuery(self.data_table, False, **query_args)
-                table_query = view_query.table_query
-                model = SQLiteTableModel(table_query, database=self.db_file)
-                if model.last_error:
-                    logger_setup.get_logger().critical(f'Error loading {self.table}')
-                    return
-                self.table_proxy_model.setSourceModel(model)
-            elif self.table == 'UPbAnalyses':
-                self.show_cols = settings.value('upb_analysis_view_columns')
-                query_args = {'show_columns': self.show_cols}
-                view_query = ViewQuery(self.data_table, False, **query_args)
-                table_query = view_query.table_query
-                model = SQLiteTableModel(table_query, database=self.db_file)
-                if model.last_error:
-                    logger_setup.get_logger().critical(f'Error loading {self.table}')
-                    return
-                self.table_proxy_model.setSourceModel(model)
             else:
-                logger_setup.get_logger().info(f'Switching to table view for {self.table}')
-                self.switch_to_table()
-
-                if self.table == 'Columns':
-                    self.show_cols = settings.value('column_view_columns')
-                    query_args = {'show_columns': self.show_cols}
-                    view_query = ViewQuery(self.data_table, False, **query_args)
-                    table_query = view_query.table_query
-                    model = SQLiteTableModel(table_query, database=self.db_file)
-                    if model.last_error:
-                        logger_setup.get_logger().critical(f'Error loading {self.table}')
-                        return
-                    self.table_proxy_model.setSourceModel(model)
-                elif self.table == 'References':
-                    self.show_cols = settings.value('reference_view_columns')
-                    query_args = {'show_columns': self.show_cols}
-                    view_query = ViewQuery(self.data_table, False, **query_args)
-                    table_query = view_query.table_query
-                    model = SQLiteTableModel(table_query, database=self.db_file)
-                    if model.last_error:
-                        logger_setup.get_logger().critical(f'Error loading {self.table}')
-                        return
-                    self.table_proxy_model.setSourceModel(model)
-                else:
-                    # self.model.setTable(table)
-                    # self.model.select()
-                    self.table_proxy_model.setSourceModel(self.model)
+                table_query = f'SELECT * FROM {table}'
+            self.model = SQLiteTableModel(table_query, database=self.db_file)
+            if self.model.last_error:
+                logger_setup.get_logger().critical(f'Error loading {self.table}')
+                return
+            self.table_proxy_model.setSourceModel(self.model)
 
             self.dbTable_tableView.setWordWrap(True)
             self.dbTable_tableView.setTextElideMode(Qt.TextElideMode.ElideNone)  # Prevent text truncation

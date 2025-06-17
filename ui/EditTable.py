@@ -169,8 +169,9 @@ class EditTable(QtW.QDialog):
         """
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+        # Reset column sorting indicator
+        self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
         self.edit_tableView.setModel(self.table_proxy_model)
-        # self.edit_tableView.setModel(self.filter_proxy_model)
         for column in range(self.table_proxy_model.columnCount()):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if 'ID' in header:

@@ -3,6 +3,7 @@ import time
 import qtawesome
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtWidgets as QtW
+from PyQt6 import QtGui as QtG
 from PyQt6.QtCore import Qt, QTimer, QRegularExpression
 from PyQt6.QtWidgets import QHeaderView, QLabel, QPushButton
 
@@ -48,24 +49,25 @@ class ViewDataTab(QtW.QWidget):
         self.h_layout = QtW.QHBoxLayout()
         self.edit_pushButton = QtW.QPushButton(f'Edit {label}')
         self.edit_pushButton.clicked.connect(self.edit_popup)
-        self.h_layout.addWidget(self.edit_pushButton)
+        self.top_spacer = QtW.QSpacerItem(20, 20, QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Minimum)
         self.refresh_button = QPushButton()
         self.refresh_button.setFixedSize(QtC.QSize(25, 25))
         self.refresh_button.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
         self.refresh_button.clicked.connect(self.display_table)
+        self.h_layout.addWidget(self.edit_pushButton)
         self.h_layout.addWidget(self.refresh_button)
-        self.h_layout.addStretch(2)
+        self.h_layout.addItem(self.top_spacer)
         self.search_label = QLabel('Search: ')
         self.search_lineEdit = QtW.QLineEdit()
         self.search_lineEdit.setPlaceholderText('search this page')
         self.search_lineEdit.setMinimumWidth(100)
+        self.search_lineEdit.returnPressed.connect(self.search)
         self.h_layout.addWidget(self.search_label)
         self.h_layout.addWidget(self.search_lineEdit)
         self.v_layout.addLayout(self.h_layout)
         self.resize_timer = QTimer()
         self.display_table()
 
-        self.search_lineEdit.textChanged.connect(self.search)
         self.loading_manager.close_loading_dialog('Loading', f'Loading {label}...')
         end_view_data_tab_time = time.time()
         logger_setup.get_logger().info(
@@ -139,26 +141,6 @@ class ViewDataTab(QtW.QWidget):
             logger_setup.get_logger().critical(f'Error: Invalid child type {self.child_type}')
             table = None
         if table is not None:
-            """
-            The commented out code searches for all children of each aliquot with the selected sample ID. Since all
-            aliquots have SampleID and aliquots can only be viewed per sample, this is unnecessary. Just search for all
-            with the sample ID.
-            """
-            # if self.child_type == 'Aliquot':
-            #     query = (f'SELECT * FROM AliquotView WHERE AliquotID IN ( '
-            #                     f'WITH RECURSIVE ParentTree AS '
-            #                     f'(SELECT * FROM AliquotView '
-            #                     f'WHERE SampleID = {self.parent_id} '
-            #                     f'UNION ALL '
-            #                     f'SELECT AliquotView.* FROM AliquotView '
-            #                     f'INNER JOIN ParentTree ON AliquotView.AliquotID = ParentTree.ParentAliquotID) '
-            #                     f'SELECT AliquotID FROM ParentTree) ')
-            #     logger_setup.get_logger().debug(f'SQL command: {query}')
-            #     self.model = SQLiteTableModel(query, None)
-            #
-            #     self.model = TreeModel(self.model, None)
-            # else:
-            #     self.model = SQLiteTableModel(table_query)
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
             self.model = SQLiteTableModel(table_query)
@@ -184,6 +166,7 @@ class ViewDataTab(QtW.QWidget):
                             break
                 if proxy_name_column:
                     self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
+            self.proxy_model.setFilterKeyColumn(-1) # search all columns
             self.view.setModel(self.proxy_model)
             if self.child_type == 'Aliquot':
                 self.view.setSortingEnabled(False)
@@ -302,7 +285,7 @@ class ViewDataTab(QtW.QWidget):
         search_expression = QtC.QRegularExpression(self.search_lineEdit.text(),
                                                    options=QRegularExpression.PatternOption.CaseInsensitiveOption)
         if self.child_type == 'Aliquot':
-            # self.proxy_model.setRecursiveFilteringEnabled(True)
+            self.proxy_model.setRecursiveFilteringEnabled(True)
             self.proxy_model.setFilterRegularExpression(search_expression)
             if search_expression != "":
                 self.view.expandAll()

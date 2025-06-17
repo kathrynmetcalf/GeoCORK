@@ -395,10 +395,14 @@ class DataViewerWidget(QWidget):
         # `selected_data_filter_ids` now contains ONLY the IDs the user selected
 
         if self.data_filtered_table in SQLUtils.as_table_dict.values():
-            for key, value in SQLUtils.as_table_dict.items():
-                if value == self.data_filtered_table:
-                    as_table = key
-                    break
+            if SQLUtils.as_table_dict['UPbReferences'] == self.data_filtered_table:
+                # Use UPbReferences instead of AgeReferences
+                as_table = 'UPbReferences'
+            else:
+                for key, value in SQLUtils.as_table_dict.items():
+                    if value == self.data_filtered_table:
+                        as_table = key
+                        break
         else:
             as_table = self.data_filtered_table
 
@@ -455,7 +459,7 @@ class DataViewerWidget(QWidget):
         except:
             pass
 
-        sql_columns = ', '.join(f'{self.data_filtered_table}.{column}' for column in show_cols)
+        sql_columns = ', '.join(f'"{self.data_filtered_table}".{column}' for column in show_cols)
         if self.data_filtered_table in SQLUtils.user_viewable_trees:
             self.switch_to_tree_2(self.db_stackedWidget_2)
             id_col_name = get_headers(self.data_filtered_table)[0]
@@ -504,7 +508,7 @@ class DataViewerWidget(QWidget):
                 query_columns = sql_columns
             else:
                 query_columns = '*'
-            sql_query = f"""SELECT {query_columns} FROM {self.data_filtered_table} WHERE 
+            sql_query = f"""SELECT {query_columns} FROM "{self.data_filtered_table}" WHERE 
                                     {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}
                                     ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
 

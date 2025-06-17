@@ -744,6 +744,8 @@ class SampleInformation(QtW.QDialog):
         release_savepoint('before_update')
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
+        # todo: Still looping sometimes, even though signals are blocked
+        combo.blockSignals(True)
         logger_setup.get_logger().info(f"Add popup called")
         model = combo.model()
         if isinstance(combo.view(), QtW.QTreeView):
@@ -754,10 +756,10 @@ class SampleInformation(QtW.QDialog):
             else:
                 logger_setup.get_logger().critical(f"Error adding new item")
                 logger_setup.get_logger().debug(f"Error: No tree model found")
+                combo.blockSignals(False)
                 return
         else:
             table = combo.model().tableName()
-        combo.blockSignals(True)
         dlg = None
         if table in SQLUtils.user_viewable_trees:
             save_expanded_state(table, combo.view())

@@ -170,6 +170,7 @@ class EditTreeView(QtW.QDialog):
         self.cancel_pushButton.clicked.connect(self.rollback)
         self.edit_treeView.selectionModel().currentRowChanged.connect(self.on_row_change)
         self.edit_treeView.doubleClicked.connect(self.display_widget)
+        self.search_lineEdit.returnPressed.connect(self.search)
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         logger_setup.get_logger().info(f'Finished opening edit window for {self.table}')
@@ -199,6 +200,15 @@ class EditTreeView(QtW.QDialog):
     #     self.edited_timer.setSingleShot(True)
     #     self.edited_timer.timeout.connect(self.create_model)
     #     self.edited_timer.start(100)
+
+    def search(self):
+        self.search_lineEdit: QtW.QLineEdit
+        self.tree_proxy_model.setRecursiveFilteringEnabled(True)
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(),
+                                                   options=QtC.QRegularExpression.PatternOption.CaseInsensitiveOption)
+        self.tree_proxy_model.setFilterRegularExpression(search_expression)
+        if self.search_lineEdit.text() != '':
+            self.edit_treeView.expandAll()
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""

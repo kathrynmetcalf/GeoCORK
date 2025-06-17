@@ -470,3 +470,23 @@
 #         self.closing.emit()
 #         # self.update_line_edit()
 
+"""
+            The commented out code searches for all children of each aliquot with the selected sample ID. Since all
+            aliquots have SampleID and aliquots can only be viewed per sample, this is unnecessary. Just search for all
+            with the sample ID.
+            """
+# if self.child_type == 'Aliquot':
+#     query = (f'SELECT * FROM AliquotView WHERE AliquotID IN ( '
+#                     f'WITH RECURSIVE ParentTree AS '
+#                     f'(SELECT * FROM AliquotView '
+#                     f'WHERE SampleID = {self.parent_id} '
+#                     f'UNION ALL '
+#                     f'SELECT AliquotView.* FROM AliquotView '
+#                     f'INNER JOIN ParentTree ON AliquotView.AliquotID = ParentTree.ParentAliquotID) '
+#                     f'SELECT AliquotID FROM ParentTree) ')
+#     logger_setup.get_logger().debug(f'SQL command: {query}')
+#     self.model = SQLiteTableModel(query, None)
+#
+#     self.model = TreeModel(self.model, None)
+# else:
+#     self.model = SQLiteTableModel(table_query)
