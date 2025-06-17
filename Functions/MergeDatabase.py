@@ -207,6 +207,7 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
         schema = table_schemas[table_name]
         pk_col = schema["primary_key"]
         col_names = [c["name"] for c in schema["columns"]]
+        name_count = {}  # to track names and avoid duplicates
 
         # SELECT all rows from incoming
         col_list_str = ", ".join(col_names)
@@ -246,7 +247,6 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
             # while loop to constantly try new values to insert into the table in case
             # there are duplicate entries, such as source db and incoming db RockTypeName = "Sandstone"
             # the incoming db RockTypeName would change to append '(1)' creating "Sandstone (1).
-            # todo: Change to increment rather than append, so '(1)(1)' would becoming '(2)'
             while True:
                 try:
                     source_conn.execute(insert_sql, to_insert)
@@ -254,7 +254,12 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                 except sqlite3.Error as e:
                     if "UNIQUE constraint failed" in str(e):
                         current_value = str(to_insert[name_index])
-                        to_insert[name_index] = current_value + '(1)'
+                        if current_value in name_count:
+                            # Increment the count for this name
+                            name_count[current_value] += 1
+                        else:
+                            name_count[current_value] = 1
+                        to_insert[name_index] = current_value + f'({name_count[current_value]})'
                     else:
                         logger_setup.get_logger().critical(f'Could not insert row into database')
                         logger_setup.get_logger().debug(f'{e.sqlite_errorname}: {e.__str__()}')

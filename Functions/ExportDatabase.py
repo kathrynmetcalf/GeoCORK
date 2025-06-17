@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Set, Optional, Tuple
 
+import PyQt6.QtWidgets as QtW
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from Functions import SQLUtils
@@ -104,7 +105,7 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
         for i, val in enumerate(row):
             if val == '':
                 val = None
-            logger_setup.get_logger().debug(f'{table_name}: Binding value {i}:{val}')
+            # logger_setup.get_logger().debug(f'{table_name}: Binding value {i}:{val}')
             query.bindValue(i, val)
         if not query.exec():
             if "UNIQUE constraint failed: " in query.lastError().text():
@@ -150,19 +151,6 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
                 logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {create_index_sql}')
 
-    # Copy Views
-    view_rows = fetchall(
-        "SELECT name, sql FROM sqlite_master WHERE type='view' AND name NOT LIKE 'sqlite_%'",
-        conn_source
-    )
-    for view_name, create_view_sql in view_rows:
-        if create_view_sql:
-            success = execute_sql(create_view_sql, conn_target)
-            if not success:
-                logger_setup.get_logger().critical(f'Error creating view {view_name}')
-                logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {create_view_sql}')
-
 
 def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> None:
     """
@@ -173,6 +161,32 @@ def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> 
     for table in SQLUtils.static_tables:
         logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
         copy_table(table, conn_source, conn_target)
+
+
+def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
+    """
+    Export the metadata tables from the source database to the target database.
+    :param QSqlDatabase conn_source: Source database connection
+    :param QSqlDatabase conn_target: Target database connection
+    :return: True if the export was successful, False if cancelled or no tables selected.
+    """
+
+    logger_setup.get_logger().info("Copying metadata tables")
+    turn_off_foreign_keys(conn_target)
+
+    # Copy metadata tables
+    editable_tables = SQLUtils.user_viewable_tables
+    for table in editable_tables:
+        if table not in ['Columns', 'Samples']:
+            logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
+            copy_table(table, conn_source, conn_target)
+
+    turn_on_foreign_keys(conn_target)
+
+    QSqlDatabase.removeDatabase(conn_source.connectionName())
+    QSqlDatabase.removeDatabase(conn_target.connectionName())
+
+    return True
 
 
 def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> List[Dict[str, Any]]:
@@ -221,13 +235,13 @@ def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> Lis
 def subset_many_to_many_bridges(
     conn_source: QSqlDatabase,
     conn_target: QSqlDatabase,
-    sample_ids: Set[int],
+    export_ids: Set[int],
     bridges_info: List[Dict[str, Any]],
-    samples_table_name="Samples"
+    edit_table_name="Samples"
 ):
     """
-    For each discovered bridge table referencing 'Samples' and another table,
-    copy only the rows referencing the given sample_ids, then copy the
+    For each discovered bridge table referencing edit table (e.g. Samples) and another table,
+    copy only the rows referencing the given export_ids, then copy the
     associated rows from the 'other' table.
     """
     for bridge_info in bridges_info:
@@ -235,41 +249,41 @@ def subset_many_to_many_bridges(
         refs = bridge_info["refs"]
 
         # Identify which reference is to 'Samples' and which is 'other'
-        sample_ref = None
+        edit_ref = None
         other_ref = None
         for rd in refs:
-            if rd["parent_table"] == samples_table_name:
-                sample_ref = rd
+            if rd["parent_table"] == edit_table_name:
+                edit_ref = rd
             else:
                 other_ref = rd
 
-        if not sample_ref or not other_ref:
+        if not edit_ref or not other_ref:
             continue  # Not a valid bridging scenario
 
-        sample_fk_col = sample_ref["child_col"]
+        edit_table_fk_col = edit_ref["child_col"]
         other_table_name = other_ref["parent_table"]
         other_fk_col = other_ref["child_col"]
         other_pk_col = other_ref["parent_col"]
 
-        # 1) Fetch bridging rows for these sample_ids
-        if not sample_ids:
+        # 1) Fetch bridging rows for these export_ids
+        if not export_ids:
             continue
 
         col_info_bridge = fetchall(f"PRAGMA table_info('{bridge_table}')", conn_source)
         insert_cols_bridge = [c[1] for c in col_info_bridge]
         # insert_cols_bridge = [f"[{item}]" for item in insert_cols_bridge]
 
-        placeholder = ",".join(["?"] * len(sample_ids))
+        placeholder = ",".join(["?"] * len(export_ids))
 
         bridge_table = bridge_table.replace('_old', '')
 
         bridge_rows = fetchall(
             f"""
             SELECT {','.join([f"[{item}]" for item in insert_cols_bridge])} FROM {bridge_table}
-            WHERE {sample_fk_col} IN ({placeholder})
+            WHERE {edit_table_fk_col} IN ({placeholder})
             """,
             conn_source,
-            tuple(sample_ids)
+            tuple(export_ids)
         )
 
         if not bridge_rows:
@@ -743,30 +757,48 @@ def subset_sample_ages_m2m(
                 if ageinterpretations_rows:
                     insert_rows(conn_target, "AgeInterpretations", ageinterpretations_rows, insert_cols_ageinterpretations)
 
-def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, sample_ids: list[int]) -> bool:
+def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to_export: list[int] | None, export_table: str = None) -> bool:
     """
-    Creates a new subset DB that includes:
+    Creates a new subset DB. Currently, assumes the IDs are from the 'Samples' table, but can be expanded later to handle
+    filtered UPbAnalyses, Spots, or Aliquots.
+    The new DB includes:
       - The specified SampleID row from 'Samples',
       - Dynamically discovered many-to-many references (bridge tables),
       - Known one-to-many chain: Samples -> Aliquots -> Spots -> UPbAnalyses,
       - The 'parent' references from UPbAnalyses,
       - Any 'tree' tables that have 'Parent...' columns or self-reference,
         traversing them downward (schema-dependent).
+    :param conn_source: QSqlDatabase connection to the source database.
+    :param conn_target: QSqlDatabase connection to the target database.
+    :param ids_to_export: List of IDs to export, typically SampleIDs.
+    :param export_table: The table to export IDs from, default is 'Samples' but could also be 'Aliquots', 'Spots',
+    or 'UPbAnalyses'
     """
 
-    # 2) Copy schema
+    if not export_table:
+        export_table = 'Samples'
+
+    # 1) Copy schema
     copy_schema(conn_source, conn_target)
 
     copy_static_tables(conn_source, conn_target)
 
-    for sample_id in sample_ids:
-        # 3) Retrieve the requested Sample row from source
-        col_info_samples = fetchall("PRAGMA table_info('Samples')", conn_source)
+    # 2) If no IDs to export, just copy the metadata tables. Otherwise, proceed with the export based on IDs.
+    if not ids_to_export:
+        return metadata_database(conn_source, conn_target)
 
+
+    col_info_export_table = fetchall(f"PRAGMA table_info('{export_table}')", conn_source)
+    if not col_info_export_table:
+        logger_setup.get_logger().error(f"Table '{export_table}' does not exist in the source database.")
+        return False
+    export_id_header = col_info_export_table[0][1]  # Assuming first column is the ID column
+    for export_id in ids_to_export:
+        # 3) Retrieve the requested Sample row from source
         row = fetchall(
-            f"SELECT {','.join([item[1] for item in col_info_samples])} FROM Samples WHERE SampleID = ?",
+            f"SELECT {','.join([item[1] for item in col_info_export_table])} FROM {export_table} WHERE {export_id_header} = ?",
             conn_source,
-            (sample_id,)
+            (export_id,)
         )
         if not row:
             conn_source.close()
@@ -774,26 +806,29 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, sample
             return False
 
         # Insert the sample row
-        insert_cols_info_samples = [c[1] for c in col_info_samples]
-        insert_rows(conn_target, "Samples", row, insert_cols_info_samples)
-        sample_ids = {sample_id}
+        insert_cols_info_export_table = [c[1] for c in col_info_export_table]
+        insert_rows(conn_target, f"{export_table}", row, insert_cols_info_export_table)
+        export_ids = {export_id}
 
         # 4) Dynamically find bridging (many-to-many) tables referencing Samples
-        bridges_info = find_bridge_tables('Samples', conn_source)
+        bridges_info = find_bridge_tables(f"{export_table}", conn_source)
 
         # 5) Subset those bridging tables + their 'other' table references
-        subset_many_to_many_bridges(
-            conn_source,
-            conn_target,
-            sample_ids=sample_ids,
-            bridges_info=bridges_info,
-            samples_table_name="Samples"
-        )
+        if bridges_info:
+            logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing '{export_table}'.")
+            if export_table == 'Samples':
+                subset_many_to_many_bridges(
+                    conn_source,
+                    conn_target,
+                    export_ids=export_ids,
+                    bridges_info=bridges_info,
+                    edit_table_name=f"{export_table}"
+                )
 
         # 6) Known one-to-many chain
-        subset_one_to_many_chain(conn_source, conn_target, sample_ids)
+        subset_one_to_many_chain(conn_source, conn_target, export_ids)
 
-        subset_sample_ages_m2m(conn_source, conn_target, sample_ids)
+        subset_sample_ages_m2m(conn_source, conn_target, export_ids)
 
         # 7) Handle any 'tree' tables
         tree_tables = find_tree_tables(conn_source)
@@ -840,4 +875,46 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, sample
     QSqlDatabase.removeDatabase(conn_target.connectionName())
 
     return True
+
+
+class SelectExportMetadata(QtW.QDialog):
+    def __init__(self, parent_window, widget: QtW.QWidget):
+        super().__init__(parent=parent_window)
+        self.setWindowTitle('Set selected values')
+        self.setModal(True)
+        self.close_by_dialog = False
+
+        self.widget = widget
+        self.widget.setVisible(True)
+        self.widget.setSizePolicy(QtW.QSizePolicy.Policy.Expanding, QtW.QSizePolicy.Policy.Expanding)
+        if isinstance(self.widget, QtW.QComboBox):
+            self.widget.setSizeAdjustPolicy(QtW.QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.export_button = QtW.QPushButton('Export')
+        self.cancel_button = QtW.QPushButton('Cancel')
+        self.export_button.autoDefault()
+        self.export_button.clicked.connect(self.commit)
+        self.cancel_button.clicked.connect(self.cancel)
+
+        button_layout = QtW.QHBoxLayout()
+        button_layout.addWidget(self.cancel_button)
+        button_layout.addWidget(self.export_button)
+        main_layout = QtW.QVBoxLayout()
+        main_layout.addWidget(self.widget)
+        main_layout.addLayout(button_layout)
+        self.setLayout(main_layout)
+        self.adjustSize()
+
+    def commit(self):
+        self.close_by_dialog = True
+        self.accept()
+
+    def cancel(self):
+        self.close_by_dialog = True
+        self.reject()
+
+    def closeEvent(self, event):
+        if self.close_by_dialog:
+            event.accept()
+        else:
+            self.cancel()
 

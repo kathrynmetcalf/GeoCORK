@@ -176,4 +176,5 @@ class MergeDatabaseDialog(QDialog):
             if not merge_database(self.source_db_file, self.incoming_db_file):
                 logger_setup.get_logger().critical("Databases could not be merged")
             logger_setup.get_logger().info("Databases have been merged successfully")
+            QMessageBox.information(QMessageBox(), "Success", "Databases merged successfully")
         super().accept()

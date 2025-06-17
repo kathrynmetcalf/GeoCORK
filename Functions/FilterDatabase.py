@@ -67,7 +67,7 @@
 # # DISCOVERING MANY-TO-MANY BRIDGE TABLES
 # ###############################################################################
 #
-# def find_bridge_tables(conn: QSqlDatabase, samples_table_name="Samples") -> List[Dict[str, Any]]:
+# def find_bridge_tables(conn: QSqlDatabase, edit_table_name="Samples") -> List[Dict[str, Any]]:
 #     """
 #     Dynamically discover many-to-many 'bridge' tables that reference the
 #     'Samples' table and exactly one other table (2 foreign keys total).
@@ -94,8 +94,8 @@
 #                     "parent_col": fk[4],  # column in parent_table
 #                 })
 #
-#             # Check if one references samples_table_name
-#             if any(rd["parent_table"] == samples_table_name for rd in ref_data):
+#             # Check if one references edit_table_name
+#             if any(rd["parent_table"] == edit_table_name for rd in ref_data):
 #                 bridge_tables_info.append({
 #                     "bridge_table": table_name,
 #                     "refs": ref_data
@@ -142,17 +142,17 @@
 #
 # def subset_many_to_many_bridges_ids(
 #         conn_source: QSqlDatabase,
-#         sample_ids: Set[int],
+#         export_ids: Set[int],
 #         bridges_info: List[Dict[str, Any]],
 #         table_ids_dict: Dict[str, Set[int]],
-#         samples_table_name="Samples"
+#         edit_table_name="Samples"
 # ):
 #     """
 #     For each discovered bridge table referencing 'Samples' and another table,
 #     collect:
 #       - The bridge row PK IDs (if any),
 #       - The 'other' table's PK IDs
-#     based on the provided sample_ids.
+#     based on the provided export_ids.
 #     """
 #     for bridge_info in bridges_info:
 #         bridge_table = bridge_info["bridge_table"]
@@ -162,7 +162,7 @@
 #         sample_ref = None
 #         other_ref = None
 #         for rd in refs:
-#             if rd["parent_table"] == samples_table_name:
+#             if rd["parent_table"] == edit_table_name:
 #                 sample_ref = rd
 #             else:
 #                 other_ref = rd
@@ -175,18 +175,18 @@
 #         other_fk_col = other_ref["child_col"]
 #         other_pk_col = other_ref["parent_col"]
 #
-#         if not sample_ids:
+#         if not export_ids:
 #             continue
 #
-#         # 1) Fetch bridging rows for these sample_ids
-#         placeholder = ",".join(["?"] * len(sample_ids))
+#         # 1) Fetch bridging rows for these export_ids
+#         placeholder = ",".join(["?"] * len(export_ids))
 #         bridge_rows = fetchall(
 #             f"""
 #             SELECT * FROM {bridge_table}
 #             WHERE {sample_fk_col} IN ({placeholder})
 #             """,
 #             conn_source,
-#             tuple(sample_ids)
+#             tuple(export_ids)
 #         )
 #
 #         if not bridge_rows:
@@ -227,7 +227,7 @@
 #
 # def subset_one_to_many_chain_ids(
 #         conn_source: QSqlDatabase,
-#         sample_ids: Set[int],
+#         export_ids: Set[int],
 #         table_ids_dict: Dict[str, Set[int]]
 # ):
 #     """
@@ -237,17 +237,17 @@
 #       References, Instruments, LabFacilities, UPbAnalysisMethod
 #     This function simply collects PKs that should be included.
 #     """
-#     if not sample_ids:
+#     if not export_ids:
 #         return
 #
 #     # -------------------------------------------------------------------------
 #     # A) Aliquots referencing Samples
 #     # -------------------------------------------------------------------------
-#     placeholder = ",".join(["?"] * len(sample_ids))
+#     placeholder = ",".join(["?"] * len(export_ids))
 #     aliq_rows = fetchall(
 #         f"SELECT * FROM Aliquots WHERE SampleID IN ({placeholder})",
 #         conn_source,
-#         tuple(sample_ids)
+#         tuple(export_ids)
 #     )
 #     add_pk_from_rows(conn_source, "Aliquots", aliq_rows, table_ids_dict)
 #
@@ -412,11 +412,11 @@
 #
 # def gather_ids_for_subset(
 #         conn_source: QSqlDatabase,
-#         sample_ids: List[int]
+#         export_ids: List[int]
 # ) -> Dict[str, Set[int]]:
 #     """
 #     Collects (table_name -> set of PK IDs) that should be included for the
-#     given sample_ids, based on:
+#     given export_ids, based on:
 #       - The specified Sample(s) in 'Samples',
 #       - Many-to-many bridging references to those samples,
 #       - The known one-to-many chain (Samples -> Aliquots -> Spots -> UPbData),
@@ -428,7 +428,7 @@
 #     table_ids_dict: Dict[str, Set[int]] = {}
 #
 #     # 1) For each sample, collect its PK in table_ids_dict (assuming PK is SampleID).
-#     for sid in sample_ids:
+#     for sid in export_ids:
 #         row = fetchall(
 #             "SELECT * FROM Samples WHERE SampleID = ?",
 #             conn_source,
@@ -440,7 +440,7 @@
 #         add_pk_from_rows(conn_source, "Samples", row, table_ids_dict)
 #
 #     # Convert the list to a set for repeated usage
-#     sample_ids_set = set(sample_ids)
+#     sample_ids_set = set(export_ids)
 #
 #     # 2) Find bridging tables
 #     bridges_info = find_bridge_tables(conn_source, "Samples")
@@ -451,7 +451,7 @@
 #         sample_ids_set,
 #         bridges_info,
 #         table_ids_dict,
-#         samples_table_name="Samples"
+#         edit_table_name="Samples"
 #     )
 #
 #     # 4) Known one-to-many chain: Samples -> Aliquots -> Spots -> UPbData
