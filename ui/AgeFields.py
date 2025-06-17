@@ -198,12 +198,13 @@ class AgeFields(QtW.QWidget):
             logger_setup.get_logger().info(f"No ages for selected samples {self.sample_ids}")
             self.sample_ages = []
             self.default_age_ids = []
-            populate_combo_box(self.edit_age_comboBox, **{'query': 'SELECT * FROM SampleAges WHERE SampleAgeID IS NULL'})
+            populate_combo_box(self.edit_age_comboBox, **{'table': 'SampleAges',
+                                                          'query': 'SELECT * FROM SampleAges WHERE SampleAgeID IS NULL'})
             self.clear_fields()
             self.disable_groups()
             self.sample_age_id = None
             sample_age_model_query = f'SELECT * FROM SampleAges WHERE SampleAgeID IS NULL'
-            populate_combo_box(self.edit_age_comboBox, **{'query': sample_age_model_query})
+            populate_combo_box(self.edit_age_comboBox, **{'table': 'SampleAges', 'query': sample_age_model_query})
             self.age_proxy_model = self.edit_age_comboBox.model()
             self.sample_age_model = self.age_proxy_model.sourceModel()
             self.edit_age_comboBox.setPlaceholderText('No ages')
@@ -225,7 +226,7 @@ class AgeFields(QtW.QWidget):
             # selected_id = self.sample_age_model.data(self.sample_age_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
             # if selected_id not in self.default_age_ids:
             #     self.default_age_ids.append(selected_id)
-        populate_combo_box(self.edit_age_comboBox, **{'query': sample_age_model_query})
+        populate_combo_box(self.edit_age_comboBox, **{'table': 'SampleAges', 'query': sample_age_model_query})
         self.age_proxy_model = self.edit_age_comboBox.model()
         self.sample_age_model = self.age_proxy_model.sourceModel()
         self.enable_groups()
@@ -1105,9 +1106,6 @@ class AgeFields(QtW.QWidget):
             else:
                 logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}", self)
                 return False
-            if not combo.treeView.model_edited:
-                logger_setup.get_logger().info(f"No changes to {table}")
-                return True
         elif isinstance(combo, CheckableComboBox):
             model = combo.model()
             if isinstance(model, QSortFilterProxyModel):
@@ -1137,9 +1135,6 @@ class AgeFields(QtW.QWidget):
                 id_header = get_headers(table)[0]
             else:
                 logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}", self)
-                return False
-            if not combo.treeView.model_edited:
-                logger_setup.get_logger().info(f"No changes to {table}")
                 return False
         elif isinstance(combo, CheckableComboBox):
             model = combo.model()
