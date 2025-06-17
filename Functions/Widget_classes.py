@@ -144,7 +144,7 @@ class SQLiteTableModel(QAbstractTableModel):
             # The query is too complex to determine the table name directly
             self.set_table(None)
         else:
-            self.set_table(query.split('FROM ')[1].split(' ')[0])
+            self.set_table(query.split('FROM ')[1].split(' ')[0].strip())
         self.endResetModel()
 
     def set_table(self, new_table: str | None):
@@ -399,6 +399,7 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
         self.table = ''
         self.table_name_col = ''
         self.db = db
+        self.query = ''
         self.rounded = True
 
     def setQuery(self, query: str):
@@ -414,9 +415,29 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
             logger_setup.get_logger().debug(f"Failed to set query: {self.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {query}")
         else:
-            table = query.split('FROM ')[1].split(' ')[0]
-            self.table = table.strip()
-            self.table_name_col = get_name_column(self.table)
+            self.query = query
+            if 'table_info' in query:
+                self.set_table('table_info')
+            elif 'WITH ' in query:
+                # The query is too complex to determine the table name directly
+                self.set_table(None)
+            else:
+                self.set_table(query.split('FROM ')[1].split(' ')[0].strip())
+
+    def set_table(self, new_table: str | None):
+        """
+        Updates the model with a new table.
+        :param new_table: New table name to apply.
+        """
+        self.table = new_table
+        if self.table:
+            if 'JOIN' in self.query or 'ReferenceDisplay' in self.query:
+                # Most likely a view query
+                self.table_name_col = get_name_column(get_view_from_table(self.table))
+            else:
+                self.table_name_col = get_name_column(self.table)
+        else:
+            self.table_name_col = None
 
     def tableName(self) -> str:
         """
@@ -471,15 +492,6 @@ class EditableSqlQueryModel(DisplayRoundedQueryModel):
         if index.column() == col or 'Description' in self.headerData(index.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole):
             flags |= QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
         return flags
-
-    def setQuery(self, query):
-        """
-        Sets the query in the super class method as well as stores the query in class variable.
-        :param query:
-        :return:
-        """
-        super().setQuery(query)
-        self.query = query
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = ...):
 
@@ -1121,7 +1133,7 @@ def get_name_column(table: str) -> int | None:
     :param table: Name of the SQL database table or view
     :return: Returns the column number starting from 0
     """
-    table = table.replace('"', '')
+    table = table.replace('"', '').strip()
     if (table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or
             table in ['AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView']):
         return 3
@@ -1271,7 +1283,13 @@ def get_name_from_id(table: str, item_id: int):
     headers = get_headers(table)
     if table == '"References"':
         table = 'References'
-    sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
+    if table != 'UPbAnalyses':
+        sql_query = f'SELECT {headers[get_name_column(table)]} FROM "{table}" WHERE {headers[0]}={item_id}'
+    else:
+        # For UPbAnalyses, we need to use the SpotName column
+        sql_query = f'''SELECT SpotName FROM UPbAnalyses
+                        JOIN Spots ON UPbAnalyses.SpotID=Spots.SpotID
+                        WHERE UPbAnalysisID={item_id}'''
     # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.exec(sql_query):
         logger_setup.get_logger().critical(f"Failed to get name for {item_id} in {table}")
@@ -1300,6 +1318,11 @@ def get_id_from_name(table: str, name: str) -> int:
                       'group_col': f'{show_cols[0]}', 'order_col': f'{name_header}'}
         view_query = ViewQuery('References', False, **query_args)
         sql_query = view_query.table_query
+    elif table == 'UPbAnalyses':
+        # For UPbAnalyses, we need to use the SpotName column
+        sql_query = f'''SELECT UPbAnalysisID FROM UPbAnalyses
+                        JOIN Spots ON UPbAnalyses.SpotID=Spots.SpotID
+                        WHERE SpotName=:name COLLATE NOCASE'''
     else:
         sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'
     logger_setup.get_logger().debug(f'SQL command: {sql_query}')
@@ -1646,12 +1669,15 @@ def delete_data(table: str, data_ids: list):
         return False
     show_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
     # Delete the selected samples from a table and all children, aliquots, spots, and UPb data dependent on them
-    sample_ids = None
-    aliquot_ids = None
-    aliquot_child_ids = None
-    spot_ids = None
-    upb_analysis_ids = None
-    table_child_ids = None
+    sample_ids = []
+    aliquot_ids = []
+    aliquot_child_ids = []
+    spot_ids = []
+    upb_analysis_ids = []
+    table_child_ids = []
+    childless_samples = []
+    childless_aliquots = []
+    childless_spots = []
     if table == 'Samples':
         aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(data_ids, table)
         aliquot_child_ids = []
@@ -1666,16 +1692,103 @@ def delete_data(table: str, data_ids: list):
         for parent_id in aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
         logger_setup.get_logger().info(f"Deleting {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+        parent_samples = find_parent_items(aliquot_ids, table)
+        if parent_samples:
+            # Determine if all aliquots of these samples are being deleted
+            for sample_id in parent_samples:
+                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_sub_items([sample_id], 'Samples')
+                if not any(aliquot_id not in aliquot_ids for aliquot_id in sub_aliquot_ids):
+                    # If all aliquots of the sample are being deleted, add the sample to the list
+                    if sample_id not in childless_samples:
+                        childless_samples.append(sample_id)
     elif table == 'Spots':
         upb_analysis_ids = find_sub_items(data_ids, table)
         spot_ids = data_ids
         logger_setup.get_logger().info(f"Deleting {len(spot_ids)} spots and {len(upb_analysis_ids)} UPb analyses")
+        parent_samples, parent_aliquots = find_parent_items(data_ids, table)
+        if parent_aliquots:
+            # Determine if all spots of these aliquots are being deleted
+            for aliquot_id in parent_aliquots:
+                sub_spot_ids, sub_upb_analysis_ids = find_sub_items([aliquot_id], 'Aliquots')
+                if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
+                    # If all spots of the aliquot are being deleted, add the aliquot to the list
+                    if aliquot_id not in childless_aliquots:
+                        childless_aliquots.append(aliquot_id)
+        if childless_aliquots:
+            # Determine if all spots of these samples are being deleted
+            for sample_id in parent_samples:
+                sub_spot_ids, sub_upb_analysis_ids = find_sub_items([sample_id], 'Samples')
+                if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
+                    # If all spots of the sample are being deleted, add the sample to the list
+                    if sample_id not in childless_samples:
+                        childless_samples.append(sample_id)
+    elif table == 'UPbAnalyses':
+        upb_analysis_ids = data_ids
+        logger_setup.get_logger().info(f"Deleting {len(upb_analysis_ids)} UPb analyses")
+        parent_samples, parent_aliquots, parent_spots = find_parent_items(data_ids, table)
+        if parent_spots:
+            # Determine if all UPb analyses of these spots are being deleted
+            for spot_id in parent_spots:
+                sub_upb_analysis_ids = find_sub_items([spot_id], 'Spots')
+                if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
+                    # If all UPb analyses of the spot are being deleted, add the spot to the list
+                    if spot_id not in childless_spots:
+                        childless_spots.append(spot_id)
+        if childless_spots:
+            # Determine if all UPb analyses of these aliquots are being deleted
+            for aliquot_id in parent_aliquots:
+                sub_spot_ids, sub_upb_analysis_ids = find_sub_items([aliquot_id], 'Aliquots')
+                if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
+                    # If all UPb analyses of the aliquot are being deleted, add the aliquot to the list
+                    if aliquot_id not in childless_aliquots:
+                        childless_aliquots.append(aliquot_id)
+        if childless_aliquots:
+            # Determine if all UPb analyses of these samples are being deleted
+            for sample_id in parent_samples:
+                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_sub_items([sample_id], 'Samples')
+                if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
+                    # If all UPb analyses of the sample are being deleted, add the sample to the list
+                    if sample_id not in childless_samples:
+                        childless_samples.append(sample_id)
     elif table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
         # For user viewable trees, we need to check for child IDs
         table_child_ids = []
         for parent_id in data_ids:
             # Find all child IDs of the given parent_id
             table_child_ids = find_child_ids(table, parent_id, table_child_ids)
+    if childless_samples or childless_aliquots or childless_spots:
+        # If there are childless samples, aliquots, or spots, warn the user these will be deleted as well and ask if they want to proceed
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setWindowTitle('Delete Empty Items')
+        msg_text = f'Deleting these {len(data_ids)} {table} will also delete the following empty items:'
+        if childless_samples:
+            sample_names = [get_name_from_id('Samples', sample_id) for sample_id in childless_samples]
+            msg_text += f'\n{len(childless_samples)} Samples: {", ".join(sample_names)}'
+        if childless_aliquots:
+            aliquot_names = [get_name_from_id('Aliquots', aliquot_id) for aliquot_id in childless_aliquots]
+            msg_text += f'\n{len(childless_aliquots)} Aliquots: {", ".join(aliquot_names)}'
+        if childless_spots:
+            spot_names = [get_name_from_id('Spots', spot_id) for spot_id in childless_spots]
+            msg_text += f'\n{len(childless_spots)} Spots: {", ".join(spot_names)}'
+        msg_text += '\n\nDo you want to continue?'
+        msg_box.setText(msg_text)
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            # If the user wants to delete the empty items, add them to the deletion lists
+            if childless_samples:
+                sample_ids.extend(childless_samples)
+            if childless_aliquots:
+                aliquot_ids.extend(childless_aliquots)
+            if childless_spots:
+                spot_ids.extend(childless_spots)
+        else:
+            # If the user does not want to delete the empty items, cancel the deletion
+            close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
+            logger_setup.get_logger().info(f"Deletion cancelled for {table} with IDs: {', '.join(map(str, data_ids))}")
+            return False
 
     from Functions.Database_manager import turn_on_foreign_keys
     # Double-check that foreign keys are enabled
@@ -1976,6 +2089,92 @@ def find_sub_items(data_ids: list, table: str):
                 upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
                 upb_analysis_ids.append(upb_data_id)
         return upb_analysis_ids
+
+
+def find_parent_items(data_ids: list, table: str):
+    """
+    Find parent items for a list of data IDs in a given table. This is intended to find parent items for Aliquots, Spots,
+    and UPbAnalyses.
+    :param data_ids: List of data IDs to find parent items for
+    :param table: Table to search for parent items
+    :return: Tuple of lists of parent sample IDs, aliquot IDs, and spot IDs
+    """
+    logger_setup.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
+    sample_ids = []
+    aliquot_ids = []
+    spot_ids = []
+    if table == 'UPbAnalyses':
+        # Find parent Spot IDs
+        for upb_analysis_id in data_ids:
+            spot_table = SQLiteTableModel(f'SELECT SpotID FROM UPbAnalyses WHERE UPbAnalysisID={upb_analysis_id}')
+            if spot_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding parent items")
+                logger_setup.get_logger().debug(f'Error getting SpotID for UPbAnalysisID {upb_analysis_id}')
+                return None
+            for row in range(spot_table.rowCount()):
+                spot_id = spot_table.data(spot_table.index(row, 0))
+                if spot_id not in spot_ids:
+                    spot_ids.append(spot_id)
+        # Find parent Aliquot IDs
+        for spot_id in spot_ids:
+            aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Spots WHERE SpotID={spot_id}')
+            if aliquot_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding parent items")
+                logger_setup.get_logger().debug(f'Error getting AliquotID for SpotID {spot_id}')
+                return None
+            for row in range(aliquot_table.rowCount()):
+                aliquot_id = aliquot_table.data(aliquot_table.index(row, 0))
+                if aliquot_id not in aliquot_ids:
+                    aliquot_ids.append(aliquot_id)
+        # Find parent Sample IDs
+        for aliquot_id in aliquot_ids:
+            sample_table = SQLiteTableModel(f'SELECT SampleID FROM Aliquots WHERE AliquotID={aliquot_id}')
+            if sample_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding parent items")
+                logger_setup.get_logger().debug(f'Error getting SampleID for AliquotID {aliquot_id}')
+                return None
+            for row in range(sample_table.rowCount()):
+                sample_id = sample_table.data(sample_table.index(row, 0))
+                if sample_id not in sample_ids:
+                    sample_ids.append(sample_id)
+        return sample_ids, aliquot_ids, spot_ids
+    elif table == 'Spots':
+        # Find parent Aliquot IDs
+        for spot_id in data_ids:
+            aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Spots WHERE SpotID={spot_id}')
+            if aliquot_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding parent items")
+                logger_setup.get_logger().debug(f'Error getting AliquotID for SpotID {spot_id}')
+                return None
+            for row in range(aliquot_table.rowCount()):
+                aliquot_id = aliquot_table.data(aliquot_table.index(row, 0))
+                if aliquot_id not in aliquot_ids:
+                    aliquot_ids.append(aliquot_id)
+        # Find parent Sample IDs
+        for aliquot_id in aliquot_ids:
+            sample_table = SQLiteTableModel(f'SELECT SampleID FROM Aliquots WHERE AliquotID={aliquot_id}')
+            if sample_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding parent items")
+                logger_setup.get_logger().debug(f'Error getting SampleID for AliquotID {aliquot_id}')
+                return None
+            for row in range(sample_table.rowCount()):
+                sample_id = sample_table.data(sample_table.index(row, 0))
+                if sample_id not in sample_ids:
+                    sample_ids.append(sample_id)
+        return sample_ids, aliquot_ids
+    elif table == 'Aliquots':
+        # Find parent Sample IDs
+        for aliquot_id in data_ids:
+            sample_table = SQLiteTableModel(f'SELECT SampleID FROM Aliquots WHERE AliquotID={aliquot_id}')
+            if sample_table.last_error:
+                logger_setup.get_logger().critical(f"Error finding parent items")
+                logger_setup.get_logger().debug(f'Error getting SampleID for AliquotID {aliquot_id}')
+                return None
+            for row in range(sample_table.rowCount()):
+                sample_id = sample_table.data(sample_table.index(row, 0))
+                if sample_id not in sample_ids:
+                    sample_ids.append(sample_id)
+    return sample_ids
 
 
 
@@ -2573,7 +2772,7 @@ class TreeModel(QtC.QAbstractProxyModel):
         Move an item to a new parent and parent row. Updates the changes in the source model and the database.
         :param item_id: unique ID of the item to move
         :param row: new parent row number for the item
-        :param p_id: new parent ID for the item, represented by a string to use in the setFilter method, either 'IS NULL' or 'is parentID'
+        :param p_id: new parent ID for the item, either 'IS NULL' or 'is parentID'
         :return: True if the item was successfully moved, False if there was an error
         """
         # Try making change to database, then reset the tree model
@@ -2673,7 +2872,8 @@ class TreeModel(QtC.QAbstractProxyModel):
     def insertItem(self, item_name: str, item_description: str, parent_id=None, parent_row=None) -> bool:
         """
         Insert a new item into the database and the tree model. The item is first added as a top-level item, then moved
-        to the correct parent and row. If no parent ID is given, the item is added to the end of the list.
+        to the correct parent and row. If no parent ID is given, the item is added to the root item. If no parent row is
+        given, the item is added to the end of the child list.
         :param item_name: new item name to add to the tree model
         :param item_description: new item description to add to the tree model
         :param parent_id: unique ID of the parent item, or None if the item has no parent
@@ -3075,6 +3275,12 @@ class TreeModel(QtC.QAbstractProxyModel):
                     walk_tree(child_id, item_ids)
 
         parent_id = 'Null'
+        if len(item_ids) == 0:
+            logger_setup.get_logger().debug(f'No item IDs provided, returning None')
+            return None, None
+        if '' in item_ids:
+            logger_setup.get_logger().debug(f'Empty item ID found, referencing root. Returning None')
+            return None, None
         (top_parent_id, top_parent_row) = walk_tree(parent_id, item_ids)
         return top_parent_id, top_parent_row
 
@@ -4100,9 +4306,19 @@ class CheckableComboBox(QtW.QComboBox):
         self.view().setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.lineEdit().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.lineEdit().textEdited.connect(self.update_filter)
-
+        self.lineEdit().textChanged.connect(self.le_text_changed)
         self.view().viewport().installEventFilter(self)
         self.lineEdit().installEventFilter(self)
+
+    def le_text_changed(self):
+        """
+        Handle text changes in the line edit. This method is called whenever the text in the line edit is changed while
+        not typing to make sure that it reflects the current state of the tree view.
+        :return:
+        """
+        # print(f'{self.objectName()} line edit text changed: {self.lineEdit().text()}')
+        if not self.typing:
+            self.update_line_edit()
 
     def start_typing(self):
         """
@@ -4129,8 +4345,27 @@ class CheckableComboBox(QtW.QComboBox):
         in the line edit of the combo box.
         :return:
         """
-        checked_ids = self.model().checked_ids
+        checked_ids = []
         checked_names = []
+        try:
+            checked_ids = self.model().checked_ids
+        except AttributeError:
+            # If the model does not have a list of checked ids, get checked state of each row
+            if self.model().columnCount() > 1:
+                for row in range(self.model().rowCount()):
+                    index = self.model().index(row, 0)
+                    if self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                        checked_id = self.model().data(index, QtC.Qt.ItemDataRole.UserRole)
+                        if checked_id is not None and checked_id not in checked_ids:
+                            checked_ids.append(checked_id)
+            else:
+                # If the model has only one column, assume it is a list of names
+                for row in range(self.model().rowCount()):
+                    index = self.model().index(row, 0)
+                    if self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
+                        checked_name = self.model().data(index, QtC.Qt.ItemDataRole.DisplayRole)
+                        if checked_name is not None and checked_name not in checked_names:
+                            checked_names.append(checked_name)
         for id in checked_ids:
             checked_names.append(get_name_from_id(self.table, id))
         text = '; '.join(checked_names)
@@ -4188,6 +4423,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.proxy_model = QtC.QSortFilterProxyModel()
             self.proxy_model.setSourceModel(model)
         self.proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        self.table = model.tableName()
         super().setModel(self.proxy_model)
 
         column = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -4195,7 +4431,6 @@ class CheckableComboBox(QtW.QComboBox):
             self.table = None
             self.name_col = None
             return
-        self.table = model.tableName()
         self.name_col = get_name_column(get_view_from_table(self.table))
         if self.name_col:
             self.proxy_model.setFilterKeyColumn(self.name_col)
@@ -4416,13 +4651,8 @@ class CheckableComboBox(QtW.QComboBox):
                         self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
                     elif self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Unchecked:
                         self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    checked_ids = self.model().checked_ids
-                    checked_names = []
-                    for id in checked_ids:
-                        checked_names.append(get_name_from_id(self.table, id))
                     self.stop_typing()
-                    text = ', '.join(checked_names)
-                    self.set_line_edit_text(text)
+                    self.update_line_edit()
                     self.showPopup()
                     return True
             elif event.type() == QtC.QEvent.Type.MouseButtonPress and event.button() == QtC.Qt.MouseButton.RightButton:
@@ -5423,7 +5653,8 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
     """
     Set the model column for a combo box. This method sets the model column of the combo box to the specified column.
     If the column is a string, it searches for the column index by matching the header data. If the column is an integer,
-    it sets the model column directly. It also sorts the model if it is a proxy model and not a tree.
+    it sets the model column directly. It also sorts the model if it is a proxy model and not a tree. All other columns
+    will not be shown in the view. This allows the combo box to display only the specified column while hiding others.
     :param comboBox: combo box to set the model column for
     :param column: column name or index to set as the model column
     :return:
@@ -5447,6 +5678,14 @@ def show_column(comboBox: QtW.QComboBox, column: str | int):
                     column = col
                     break
         comboBox.setModelColumn(column)
+        if not isinstance(comboBox.view(), QtW.QListView):
+            for model_column in range(model.columnCount()):
+                if model_column != column:
+                    try:
+                        comboBox.view().hideColumn(model_column)
+                    except AttributeError:
+                        # If the view does not have a hideColumn method, no need
+                        pass
         tree_model, indexes = find_tree_model(model, None)
         if isinstance(model, QtC.QSortFilterProxyModel) and not tree_model:
             model.sort(column, QtC.Qt.SortOrder.AscendingOrder)
@@ -5477,7 +5716,7 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
             parent_id = item_ids[0]
             dlg_args = {'parent_id' : parent_id}
         elif action.text() == 'Add parent':
-            dlg_args = {'add_item': 'parent', 'update_ids': item_ids, 'new_child_ids': parent_ids, 'new_parent_rows': parent_rows}
+            dlg_args = {'add_item': 'parent', 'item_ids': item_ids, 'old_parent_ids': parent_ids, 'old_parent_rows': parent_rows}
         elif action.text() == 'Add to end' or action.text() == 'Add':
             dlg_args = {'add_item': 'child'}
     return dlg_args
@@ -5658,6 +5897,8 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     if query:
         model = DisplayRoundedQueryModel()
         model.setQuery(query)
+        if table:
+            model.set_table(table)
         if not table:
             table = model.tableName()
         if table == 'SampleAges':
@@ -5670,6 +5911,14 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         if model.last_error:
             logger_setup.get_logger().error(f'Error setting up Ages table model')
             return
+    elif table != get_view_from_table(table):
+        # Need to use a special view query
+        query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict[table])}
+        view_query = ViewQuery(table, edit_view=False, **query_args)
+        table_query = view_query.table_query
+        model = DisplayRoundedQueryModel()
+        model.setQuery(table_query)
+        model.set_table(table)
     else:
         model = DisplayRoundedModel()
         set_table(model, table)
@@ -5687,9 +5936,15 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         else:
             show_column(comboBox, tree_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
     else:
-        if isinstance(comboBox, CheckableComboBox) and not query:
+        checkable_model = None
+        if isinstance(comboBox, CheckableComboBox) and not query and (table == get_view_from_table(table)):
+            # If the combo box is a CheckableComboBox and the table is not a view, use CheckableSqlTableModel
             checkable_model = CheckableSqlTableModel()
-            set_table(checkable_model, table)
+            comboBox.setModel(checkable_model)
+        elif isinstance(comboBox, CheckableComboBox) and not query:
+            # If the combo box is a CheckableComboBox and the table is a view, use CheckableSqlQueryModel
+            checkable_model = CheckableSqlQueryModel()
+            checkable_model.setQuery(table_query)
             comboBox.setModel(checkable_model)
         elif isinstance(comboBox, CheckableComboBox) and query:
             checkable_model = CheckableSqlQueryModel()
@@ -5697,13 +5952,19 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             comboBox.setModel(checkable_model)
         else:
             comboBox.setModel(model)
+        if checkable_model and not checkable_model.tableName():
+            if table:
+                checkable_model.set_table(table)
+            elif model.tableName():
+                checkable_model.set_table(model.tableName())
         if column:
             show_column(comboBox, column)
-        if isinstance(model, SampleAgeProxyModel):
-            name_col = get_name_column('SampleAges')
         else:
-            name_col = get_name_column(get_view_from_table(model.tableName()))
-        show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
+            if isinstance(model, SampleAgeProxyModel):
+                name_col = get_name_column('SampleAges')
+            else:
+                name_col = get_name_column(get_view_from_table(model.tableName()))
+            show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
     logger_setup.get_logger().debug(f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
 
 def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel, item_ids: list, item_table: str=None, table_id_header: str=None):
@@ -6090,9 +6351,10 @@ def show_loading_dialog(title, message):
     :return:
     """
     # Wait one second before showing the loading dialog in case it is not needed
-    timer = QtC.QTimer()
-    timer.timeout.connect(lambda: loading_manager.close_loading_dialog(title, message))
-    timer.start(1000)
+    # timer = QtC.QTimer()
+    # timer.timeout.connect(lambda: loading_manager.show_loading_dialog(title, message))
+    # timer.start(100)
+    loading_manager.show_loading_dialog(title, message)
 
 def close_loading_dialog(title, message):
     """
@@ -6119,7 +6381,7 @@ def update_other_table_with_checks(table: str, checked_ids: list, partially_chec
     :param partially_checked_ids: ids of partially checked items in the table (e.g. Column IDs)
     :param update_table: table to update (e.g. Samples)
     :param update_ids: ids to update in the update table (e.g. list of sample IDs to link to the checked column ID)
-    :return: True if successful or not needed, False if not
+    :return: True if successful, False if not or not needed
     """
     if not update_ids:
         logger_setup.get_logger().error(f'No item IDs given for {update_table}')

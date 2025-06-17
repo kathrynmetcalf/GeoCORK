@@ -524,7 +524,7 @@ sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcol
 # Many-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate multiple selection dropdowns
 many_editable = {
     'Samples': {'SampleAgeSignatureName': 'AgeSignatures', 'RegionName': 'Regions', 'RockTypeName': 'RockTypes',
-                'SampleContexName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods',
+                'SampleContextName': 'SampleContexts', 'SamplingMethodName': 'SamplingMethods',
                 'SettingName': 'Settings',
                 'UnitName': 'Units'},
     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
@@ -719,6 +719,7 @@ tree_tables_schema = {
 static_foreign_key_tables = [
     'AgeUnitConversions',
     'AgeUnits',
+    'Ages',
     'ConcordanceFormatConversions',
     'ConcordanceFormats',
     'DirectionUnits',
@@ -1438,9 +1439,6 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
             case 'Columns':
                 if column_join not in join:
                     join += column_join + '\n'
-            case 'ColumnView':
-                if column_view_join not in join:
-                    join += column_view_join + '\n'
             case 'LabFacilities':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
@@ -1480,8 +1478,6 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += aliquot_spot_join + '\n'
                 if spot_upb_analysis_join not in join:
                     join += spot_upb_analysis_join + '\n'
-                if upb_reference_view_join not in join:
-                    join += upb_reference_view_join + '\n'
             case 'Regions':
                 if region_join not in join:
                     join += region_join + '\n'
@@ -1569,8 +1565,6 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += aliquot_spot_join + '\n'
                 if spot_upb_analysis_join not in join:
                     join += spot_upb_analysis_join + '\n'
-                if upb_reference_view_join not in join:
-                    join += upb_reference_view_join + '\n'
             case 'Units':
                 if unit_join not in join:
                     join += unit_join + '\n'

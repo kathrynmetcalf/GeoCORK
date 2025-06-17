@@ -17,7 +17,7 @@ import difflib
 
 from Functions.SQLUtils import spot_aliquot_join, aliquot_sample_join
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel,
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, populate_combo_box,
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
     set_table, populate_many_combo_checks, populate_model_checks, delete_data,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
@@ -159,6 +159,7 @@ class EditView(QtW.QDialog):
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
+        self.search_lineEdit.returnPressed.connect(self.search)
         self.set_go_to_completer()
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
@@ -208,6 +209,16 @@ class EditView(QtW.QDialog):
             return
         self.model.set_table(self.table)
         self.display_table()
+
+    def search(self):
+        """
+        Searches the table for the text in the search line edit using case-insensitive regex.
+        """
+        self.search_lineEdit: QtW.QLineEdit
+        self.proxy_model.setRecursiveFilteringEnabled(True)
+        search_expression = QtC.QRegularExpression(self.search_lineEdit.text(),
+                                                   options=QtC.QRegularExpression.PatternOption.CaseInsensitiveOption)
+        self.proxy_model.setFilterRegularExpression(search_expression)
 
     def optimizeVerticalResize(self, logical_index, old_size, new_size):
         """Trigger a delayed row height update when the user resizes the window vertically."""
@@ -390,6 +401,8 @@ class EditView(QtW.QDialog):
         start_time = time.time()
         logger_setup.get_logger().info(f'Displaying {self.table} table')
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+        # Reset column sorting indicator
+        self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
         self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.model)
         if self.table == 'UPbAnalyses':
@@ -665,60 +678,85 @@ class EditView(QtW.QDialog):
             self.combo.addItem('Accepted')
             self.combo.addItem('Rejected')
         else:
-            if self.dropdown_table == 'References':
-                self.combo = CheckableComboBox()
-                self.combo_model = CheckableSqlQueryModel()
-                self.combo_model.setQuery(f'SELECT * FROM "References"')
-                self.combo_proxy = ReadableProxyModel()
-                self.combo_proxy.setSourceModel(self.combo_model)
-                self.combo.setModel(self.combo_proxy)
-            else:
-                set_table(self.combo_model, self.dropdown_table)
+            # if self.dropdown_table == 'References':
+            #     self.combo = CheckableComboBox()
+            #     self.combo_model = CheckableSqlQueryModel()
+            #     self.combo_model.setQuery(f'SELECT * FROM "References"')
+            #     self.combo_proxy = ReadableProxyModel()
+            #     self.combo_proxy.setSourceModel(self.combo_model)
+            #     self.combo.setModel(self.combo_proxy)
+            # else:
+            #     set_table(self.combo_model, self.dropdown_table)
+            # if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Aliquots', 'Spots')) or
+            #       (self.table == 'Spots' and self.dropdown_table == 'Aliquots')):
+            #     if self.parent_type == 'Sample':
+            #         if self.dropdown_table == 'Aliquot':
+            #             self.combo = CheckableTreeCombobox()
+            #             combo_model = CheckableSqlQueryModel()
+            #             combo_model.setQuery(f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}')
+            #             self.tree_model = CheckableTreeModel()
+            #             self.tree_model.setSourceModel(combo_model)
+            #             self.combo.setModel(self.tree_model)
+            #         elif self.dropdown_table == 'Spots':
+            #             self.combo = CheckableComboBox()
+            #             self.combo_model = CheckableSqlQueryModel()
+            #             self.combo_model.setQuery(f'''SELECT * FROM Spots
+            #                 {SQLUtils.spot_aliquot_join}
+            #                 WHERE SampleID = {self.parent_id}''')
+            #             self.combo_proxy = ReadableProxyModel()
+            #             self.combo_proxy.setSourceModel(self.combo_model)
+            #             self.combo.setModel(self.combo_proxy)
+            #     elif self.parent_type == 'Aliquot':
+            #         if self.dropdown_table == 'Spots':
+            #             self.combo = CheckableComboBox()
+            #             self.combo_model = CheckableSqlQueryModel()
+            #             self.combo_model.setQuery(f'SELECT * FROM Spots WHERE AliquotID = {self.parent_id}')
+            #             self.combo_proxy = ReadableProxyModel()
+            #             self.combo_proxy.setSourceModel(self.combo_model)
+            #             self.combo.setModel(self.combo_proxy)
+            # elif self.dropdown_table in SQLUtils.user_viewable_trees:
+            #     self.combo = CheckableTreeCombobox()
+            #     self.tree_model = CheckableTreeModel()
+            #     self.tree_model.setSourceModel(self.combo_model)
+            #     self.combo.setModel(self.tree_model)
+            # elif self.dropdown_table == 'References':
+            #     pass
+            # elif 'Abbreviation' in header:
+            #     self.combo = QtW.QComboBox()
+            #     self.combo.setModel(self.combo_model)
+            # else:
+            #     self.combo = CheckableComboBox()
+            #     self.combo_model = CheckableSqlTableModel()
+            #     set_table(self.combo_model, self.dropdown_table)
+            #     self.combo_proxy = ReadableProxyModel()
+            #     self.combo_proxy.setSourceModel(self.combo_model)
+            #     self.combo.setModel(self.combo_proxy)
+            # self.combo.setModelColumn(get_name_column(self.dropdown_table))
+
+            query = None
             if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Aliquots', 'Spots')) or
                   (self.table == 'Spots' and self.dropdown_table == 'Aliquots')):
                 if self.parent_type == 'Sample':
                     if self.dropdown_table == 'Aliquot':
                         self.combo = CheckableTreeCombobox()
-                        combo_model = CheckableSqlQueryModel()
-                        combo_model.setQuery(f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}')
-                        self.tree_model = CheckableTreeModel()
-                        self.tree_model.setSourceModel(combo_model)
-                        self.combo.setModel(self.tree_model)
+                        query = f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}'
                     elif self.dropdown_table == 'Spots':
                         self.combo = CheckableComboBox()
-                        self.combo_model = CheckableSqlQueryModel()
-                        self.combo_model.setQuery(f'''SELECT * FROM Spots 
+                        query = f'''SELECT * FROM Spots 
                             {SQLUtils.spot_aliquot_join}
-                            WHERE SampleID = {self.parent_id}''')
-                        self.combo_proxy = ReadableProxyModel()
-                        self.combo_proxy.setSourceModel(self.combo_model)
-                        self.combo.setModel(self.combo_proxy)
+                            WHERE SampleID = {self.parent_id}'''
                 elif self.parent_type == 'Aliquot':
                     if self.dropdown_table == 'Spots':
                         self.combo = CheckableComboBox()
-                        self.combo_model = CheckableSqlQueryModel()
-                        self.combo_model.setQuery(f'SELECT * FROM Spots WHERE AliquotID = {self.parent_id}')
-                        self.combo_proxy = ReadableProxyModel()
-                        self.combo_proxy.setSourceModel(self.combo_model)
-                        self.combo.setModel(self.combo_proxy)
+                        query = f'SELECT * FROM Spots WHERE AliquotID = {self.parent_id}'
             elif self.dropdown_table in SQLUtils.user_viewable_trees:
                 self.combo = CheckableTreeCombobox()
-                self.tree_model = CheckableTreeModel()
-                self.tree_model.setSourceModel(self.combo_model)
-                self.combo.setModel(self.tree_model)
-            elif self.dropdown_table == 'References':
-                pass
             elif 'Abbreviation' in header:
                 self.combo = QtW.QComboBox()
-                self.combo.setModel(self.combo_model)
             else:
                 self.combo = CheckableComboBox()
-                self.combo_model = CheckableSqlTableModel()
-                set_table(self.combo_model, self.dropdown_table)
-                self.combo_proxy = ReadableProxyModel()
-                self.combo_proxy.setSourceModel(self.combo_model)
-                self.combo.setModel(self.combo_proxy)
-            self.combo.setModelColumn(get_name_column(self.dropdown_table))
+            populate_combo_box(self.combo, **{'table': self.dropdown_table, 'query': query})
+
             selected_ids = []
             for model_index in model_indexes:
                 selected_id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -886,6 +924,20 @@ class EditView(QtW.QDialog):
                                 logger_setup.get_logger().info(f'No ID found for {combo.currentText()}')
                                 self.destroy_dropdown()
                                 return
+                        query.prepare(f'SELECT {header} FROM "{edit_table}" WHERE {get_headers(edit_table)[0]} {sql_where_str}')
+                        if not query.exec():
+                            logger_setup.get_logger().critical(f'Error determining if data changed for {get_readable_header(header)}.\nChanges not saved.')
+                            logger_setup.get_logger().debug(f'Query: {query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            self.destroy_dropdown()
+                            return
+                        existing = set()
+                        while query.next():
+                            existing.add(query.value(0))
+                        if len(existing) == 1 and list(existing)[0] == clicked_id:
+                            logger_setup.get_logger().info(f'No change to {get_readable_header(header)} value')
+                            self.destroy_dropdown()
+                            return
                         create_savepoint('before_edit_id')
                         query.prepare(f'UPDATE "{edit_table}" SET {header} = :clicked_id WHERE {get_headers(edit_table)[0]} {sql_where_str}')
                         query.bindValue(':clicked_id', clicked_id)
