@@ -16,7 +16,8 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (TreeModel, TreeContextMenu, expand_collapse, save_expanded_state,
                                       restore_expanded_state, show_loading_dialog, close_loading_dialog,
-                                      get_headers, get_name_column, description_column, set_table, ReadableProxyModel
+                                      get_headers, get_name_column, description_column, set_table, ReadableProxyModel,
+                                      get_id_from_name
                                       )
 
 
@@ -56,9 +57,11 @@ class AddTreeTags(QtW.QDialog):
 
         self.msg = QtW.QMessageBox(self)
         self.add_item: str = 'child'
-        self.item_id: int = None
-        self.parent_id: int = None
-        self.parent_row: int = None
+        self.parent_id: int | None = None
+        self.parent_row: int | None = None
+        self.item_ids: list[int] = []
+        self.old_parent_ids: list[int] = []
+        self.old_parent_rows: list[int] = []
         for key, value in kwargs.items():
             setattr(self, key, value)
         # if add_item is not one of the keys, set it to 'child'
@@ -104,22 +107,22 @@ class AddTreeTags(QtW.QDialog):
                 parent_name = query.value(3)
             else:
                 parent_name = 'top level'
-            if self.item_id:
-                query.prepare(
-                    f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.item_id}')
-                if not query.exec():
-                    logger_setup.get_logger().error(
-                        f'Error selecting {self.id_header} {self.item_id}: {query.lastError().text()}')
-                    return
-                query.next()
-                item_name = query.value(3)
-            else:
-                item_name = 'new item'
+            # if self.item_id:
+            #     query.prepare(
+            #         f'SELECT * FROM {self.table} WHERE {self.id_header} = {self.item_id}')
+            #     if not query.exec():
+            #         logger_setup.get_logger().error(
+            #             f'Error selecting {self.id_header} {self.item_id}: {query.lastError().text()}')
+            #         return
+            #     query.next()
+            #     item_name = query.value(3)
+            # else:
+            #     item_name = 'new item'
             if self.parent_row:
                 row_name = f'row {self.parent_row + 1}'
             else:
                 row_name = 'new row'
-            self.adding_label.setText(f'Adding {item_name} to {parent_name} at {row_name}')
+            self.adding_label.setText(f'Adding new item to {parent_name} at {row_name}')
         else:
             self.adding_label.setText('Adding new parent item')
 
@@ -206,36 +209,50 @@ class AddTreeTags(QtW.QDialog):
         save_expanded_state(self.table, self.tags_treeView)
         name = self.newName_lineEdit.text()
         description = self.newDescription_lineEdit.text()
-        if self.parent_id == 'Null':
-            if not self.tree_model.insertItem(name, description, None, self.parent_row):
-                close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
-                return False
-            logger_setup.get_logger().info(f'Added {name} to top level of {self.table}')
-        else:
-            if not self.tree_model.insertItem(name, description, self.parent_id, self.parent_row):
-                close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
-                return False
-            logger_setup.get_logger().info(f'Added {name} to {self.parent_id} in {self.table}')
-        if self.add_item == 'parent':  # Need to update the parent of all new child ids to the newly-added item
-            query = QtS.QSqlQuery()
-            query.prepare(
-                f'SELECT * FROM {self.table} WHERE {self.item_name_header} = "{name}"')
-            if not query.exec():
-                logger_setup.get_logger().error(
-                    f'Error selecting {self.item_name_header} {name}: {query.lastError().text()}')
-                close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
-                return
-            query.next()
-            new_parent_id = query.value(0)
-            if isinstance(new_parent_id, int):
-                pID = f'= {new_parent_id}'
-            else:  # If the parent ID is not an integer
-                pID = 'IS NULL'
-            for child in range(len(self.new_child_ids)):
-                if not self.tree_model.moveItem(self.new_child_ids[child], self.new_parent_rows[child], pID):
+        if self.add_item == 'child':
+            if not self.parent_id or self.parent_id == 'Null':
+                if not self.tree_model.insertItem(name, description, None, self.parent_row):
                     close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
                     return False
-            logger_setup.get_logger().info(f'Updated parent of {self.new_child_ids} to {new_parent_id} in {self.table}')
+                logger_setup.get_logger().info(f'Added {name} to top level of {self.table}')
+            else:
+                if not self.tree_model.insertItem(name, description, self.parent_id, self.parent_row):
+                    close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
+                    return False
+                logger_setup.get_logger().info(f'Added {name} to {self.parent_id} in {self.table}')
+        elif self.add_item == 'parent':  # Need to update the parent of all new child ids to the newly-added item
+            # Find the top-level parent ID in the list of old parent IDs
+            top_parent_id, top_parent_row = self.tree_model.top_node(self.old_parent_ids)
+            parent_id = top_parent_id
+            parent_row = top_parent_row
+            if not parent_id and not parent_row:
+                # find all old parent IDs that are None or not integers and get the smallest row index
+                parent_row = min((row for row, pid in zip(self.old_parent_rows, self.old_parent_ids) if pid is None or not isinstance(pid, int)), default=None)
+            if not self.tree_model.insertItem(name, description, parent_id, parent_row):
+                close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
+                return False
+            logger_setup.get_logger().info(f'Added new parent {name} to {self.table}')
+            new_parent_id = get_id_from_name(self.table, name)
+            if not new_parent_id or not isinstance(new_parent_id, int):
+                # If the parent ID is None or not an integer, set it to NULL
+                pID = 'IS NULL'
+            else:  # If the parent ID is an integer
+                pID = f'= {new_parent_id}'
+            parent_row = 0
+            for child in range(len(self.item_ids)):
+                # Move only if the child currently has the old parent ID
+                current_parent_ID = self.old_parent_ids[child] if isinstance(self.old_parent_ids[child], int) else None
+                if current_parent_ID == parent_id:
+                    if not self.tree_model.moveItem(self.item_ids[child], parent_row, pID):
+                        close_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
+                        return False
+                    parent_row += 1
+            logger_setup.get_logger().info(f'Updated parent of {self.item_ids} to {new_parent_id} in {self.table}')
+            if new_parent_id:
+                # Add the new parent ID to the list of expanded IDs in the settings
+                expanded_ids = settings.value(f'expanded_ids_{self.table}', [])
+                expanded_ids.add(new_parent_id)
+                settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
         self.updated = True
         if self.parent_id:
             # Add it to the settings list of expanded items
@@ -243,8 +260,8 @@ class AddTreeTags(QtW.QDialog):
             expanded_ids.add(self.parent_id)
             settings.setValue(f'expanded_ids_{self.table}', expanded_ids)
         save_expanded_state(self.table, self.tags_treeView)
-        self.source_model.dataChanged.emit()
-        # self.update_proxy()
+        # self.source_model.dataChanged.emit()
+        self.update_proxy()
         self.newName_lineEdit.clear()
         self.newDescription_lineEdit.clear()
         close_loading_dialog('Adding item', f'Adding {name} to {self.table}...')
