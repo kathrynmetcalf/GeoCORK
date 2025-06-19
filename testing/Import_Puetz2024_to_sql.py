@@ -853,7 +853,7 @@ def Puetz_importer():
                         unit_parent_row_dictionary[intermediate_unit] = intermediate_unit_parent_row
                 child_minor_units = list(
                     shifted_unit_df[(shifted_unit_df['Major Geographic-Geologic Description'] == major_unit) & (
-                    shifted_unit_df['Major Geographic-Geologic Description'] == sub_major_unit) & (
+                    shifted_unit_df['Sub-Major Geographic-Geologic Description'] == sub_major_unit) & (
                     shifted_unit_df['Intermediate Geologic-Geographic Unit'] == intermediate_unit)
                     ]['Minor Geologic-Geographic Unit'].unique())
                 child_minor_units = sorted([unit for unit in child_minor_units if pd.notnull(unit)])
