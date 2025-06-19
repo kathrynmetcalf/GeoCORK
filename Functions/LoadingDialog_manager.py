@@ -11,13 +11,16 @@ class LoadingDialogManager:
 
     def __init__(self):
         if LoadingDialogManager._instance is None:
-            # self.dialog = None
             self.dialog = None
-            # self.thread = QtC.QThread()
-            self.title = None
-            self.message = None
+            self.layout = QtW.QHBoxLayout()
+            self.messageLabel = None
+            self.titles = []
+            self.messages = []
             self.timer = QtC.QTimer()
             LoadingDialogManager._instance = self
+            self.timer.setSingleShot(True)
+            # self.timer.setInterval(1000)
+            self.timer.timeout.connect(self.begin)
 
     @staticmethod
     def get_instance():
@@ -26,42 +29,41 @@ class LoadingDialogManager:
         return LoadingDialogManager._instance
 
     def show_loading_dialog(self, title: str, message: str):
-        if self.dialog is None:
-            self.title = title
-            self.message = message
+        if message not in self.messages:
+            self.messages.append(message)
+            self.titles.append(title)
+        # if not self.timer.isActive():
+        if not self.dialog:
+            # logger_setup.get_logger().info(f'Starting timer for {message}')
+            # self.timer.start(1)  # Start the timer to show the dialog after  ms
             self.begin()
         else:
-            return
-        # self.timer.setSingleShot(True)
-        # self.timer.setInterval(1000)
-        # self.timer.timeout.connect(self.timeout)
-        # logger_setup.get_logger().info(f'Starting timer for {message}')
-        # self.timer.start()
+            logger_setup.get_logger().info(f'Updating dialog with title: {title} and message: {message}')
+            self.dialog.setWindowTitle(self.titles[-1])
+            self.messageLabel.setText(self.messages[-1])
+            self.update_dialog()
 
     def begin(self):
-        # logger_setup.get_logger().info(f'{self.message} for more than 1 second, loading dialog')
+        if len(self.messages) == 0:
+            logger_setup.get_logger().info('No messages to display, returning')
+            return
+        logger_setup.get_logger().info(f'{self.messages} for more than 1 second, loading dialog')
         self.dialog = QtW.QDialog()
-        self.dialog.setWindowTitle(self.title)
+        # Show the most recent title and message
+        self.dialog.setWindowTitle(self.titles[-1])
         self.dialog.setFixedSize(QSize(250, 75))
         self.layout = QtW.QHBoxLayout(self.dialog)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
 
-        self.messageLabel = QLabel(self.message, parent=self.dialog)
+        self.messageLabel = QLabel(self.messages[-1], parent=self.dialog)
         self.messageLabel.setObjectName('messageLabel')
         self.layout.addWidget(self.messageLabel, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # self.dialog.setLabelText(self.message)
-        # self.dialog.setBar(None)
-        # self.dialog.setCancelButton(None)
         self.dialog.setWindowFlags(QtC.Qt.WindowType.WindowStaysOnTopHint)
         self.dialog.adjustSize()
         self.dialog.show()
         QtW.QApplication.processEvents()
-        # self.timer.timeout.connect(self.update_dialog)
-        # self.timer.start(1)
-        # self.worker.moveToThread(self.thread)
-        # self.thread.start()
 
     def update_dialog(self):
         if self.dialog is not None:
@@ -69,35 +71,25 @@ class LoadingDialogManager:
             QtW.QApplication.processEvents()
 
     def close_loading_dialog(self, title: str, message: str):
+        logger_setup.get_logger().info(f'Closing loading dialog with title: {title} and message: {message}')
         # Check if the dialog exists and has the same title and message
+        if len(self.messages) > 0:
+            # Remove the title and message from the lists
+            if message in self.messages:
+                self.messages.remove(message)
+                self.titles.remove(title)
         if self.dialog is not None:
-            if self.dialog.windowTitle() == title and self.dialog.findChild(QLabel, 'messageLabel').text() == message:
-                # self.thread.quit()
-                # self.thread.wait()
+            if len(self.messages) <= 1:
+                logger_setup.get_logger().info('Closing loading dialog')
+                # self.timer.stop()
                 self.dialog.close()
                 self.dialog = None
-                self.title = None
-                self.message = None
+            else:
+                logger_setup.get_logger().info(f'Updating loading dialog with next message: {self.messages[-1]}')
+                # Update the dialog with the next title and message
+                self.dialog.setWindowTitle(self.titles[-1])
+                self.messageLabel.setText(self.messages[-1])
+                self.update_dialog()
         else:
             return
 
-# class LoadingWorker(QtC.QObject):
-#     def __init__(self):
-#         super().__init__()
-#         self.dialog = None
-#
-# class LoadingDialog(QtW.QDialog):
-#     def __init__(self, title='Loading', message='Loading...'):
-#         super().__init__()
-#         self.setWindowTitle(title)
-#         self.setLayout(QtW.QVBoxLayout())
-#         self.message_label = QtW.QLabel(message)
-#         self.layout().addWidget(self.message_label)
-#         self.progress_bar = QtW.QProgressBar()
-#         self.progress_bar.setRange(0, 0)
-#         self.layout().addWidget(self.progress_bar)
-#         # self.button_box = QtW.QDialogButtonBox(QtW.QDialogButtonBox.StandardButton.Cancel)
-#         # self.layout().addWidget(self.button_box)
-#         # self.button_box.rejected.connect(self.cancel)
-#         self.setWindowFlags(self.windowFlags() | QtC.Qt.WindowType.WindowStaysOnTopHint)
-#         self.setModal(True)

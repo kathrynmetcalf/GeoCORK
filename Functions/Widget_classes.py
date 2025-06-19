@@ -860,6 +860,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
         super().__init__()
         self.checked_ids = []
         self.partially_checked_ids = []
+        self.primary_key_column = 0
 
     def flags(self, index):
         """Set check boxes on the name column only"""

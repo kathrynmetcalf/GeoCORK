@@ -15,7 +15,7 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
                                       TreeContextMenu, expand_collapse, get_name_column, get_headers,
-                                      get_view_from_table)
+                                      get_view_from_table, TreeSortFilterProxyModel, get_readable_header)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -148,27 +148,16 @@ class ViewDataTab(QtW.QWidget):
                 logger_setup.get_logger().critical(f'Error displaying table')
                 return
             self.model.set_table(table)
-            self.proxy_model = ReadableProxyModel()
             if isinstance(self.view, QtW.QTreeView):
+                self.proxy_model = TreeSortFilterProxyModel()
                 self.tree_model = TreeModel(self.model)
                 self.proxy_model.setSourceModel(self.tree_model)
             else:
+                self.proxy_model = ReadableProxyModel()
                 self.proxy_model.setSourceModel(self.model)
-                proxy_name_column = None
-                name_column = self.model.table_name_col
-                if name_column is not None:
-                    self.name_header = get_headers(self.model.table)[name_column]
-                    for column in range(self.proxy_model.columnCount()):
-                        header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal,
-                                                       QtC.Qt.ItemDataRole.DisplayRole)
-                        if header == self.name_header:
-                            proxy_name_column = column
-                            break
-                if proxy_name_column:
-                    self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
             self.proxy_model.setFilterKeyColumn(-1) # search all columns
             self.view.setModel(self.proxy_model)
-            if self.child_type == 'Aliquot':
+            if isinstance(self.view, QtW.QTreeView):
                 self.view.setSortingEnabled(False)
                 self.view.header().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
                 for column in range(self.model.columnCount()):
@@ -176,6 +165,18 @@ class ViewDataTab(QtW.QWidget):
             else:
                 self.view.resizeColumnsToContents()
                 self.view.setSortingEnabled(True)
+                proxy_name_column = None
+                name_column = self.model.table_name_col
+                if name_column is not None:
+                    name_header = get_readable_header(get_headers(get_view_from_table(self.model.table))[name_column])
+                    for column in range(self.proxy_model.columnCount()):
+                        header = self.proxy_model.headerData(column, QtC.Qt.Orientation.Horizontal,
+                                                             QtC.Qt.ItemDataRole.DisplayRole)
+                        if header == name_header:
+                            proxy_name_column = column
+                            break
+                if proxy_name_column:
+                    self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
                 for column in range(self.proxy_model.columnCount()):
                     if self.view.columnWidth(column) > 400:
                         self.view.setColumnWidth(column, 400)

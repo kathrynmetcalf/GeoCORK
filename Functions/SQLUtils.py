@@ -277,7 +277,7 @@ gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON Co
                         LEFT JOIN GPSFormats AS ColumnGPSFormats ON ColumnGPS.GPSFormatID = ColumnGPSFormats.GPSFormatID'''
 
 # ColumnJoins
-column_units_join = 'LEFT JOIN DistanceUnits as ColumnUnits ON Columns.ColumnTotalHeightDepthUnitID = ColumnUnits.DistanceUnitID'
+column_units_join = 'LEFT JOIN DistanceUnits AS ColumnUnits ON Columns.ColumnTotalHeightDepthUnitID = ColumnUnits.DistanceUnitID'
 
 # SampleJoins
 age_signature_join = '''LEFT JOIN Samples_AgeSignatures ON Samples.SampleID = Samples_AgeSignatures.SampleID
@@ -292,7 +292,7 @@ sample_context_join = '''LEFT JOIN Samples_SampleContexts ON Samples.SampleID = 
                                 LEFT JOIN SampleContexts ON Samples_SampleContexts.SampleContextID = SampleContexts.SampleContextID'''
 sample_sampleage_join = '''LEFT JOIN Samples_SampleAges ON Samples.DefaultSampleAgeID = Samples_SampleAges.SampleAgeID
                                     LEFT JOIN SampleAges ON Samples_SampleAges.SampleAgeID = SampleAges.SampleAgeID'''
-default_sample_age_join = '''LEFT JOIN SampleAges as DefaultSampleAges ON Samples.DefaultSampleAgeID = DefaultSampleAges.SampleAgeID'''
+default_sample_age_join = '''LEFT JOIN SampleAges AS DefaultSampleAges ON Samples.DefaultSampleAgeID = DefaultSampleAges.SampleAgeID'''
 sampling_method_join = '''LEFT JOIN Samples_SamplingMethods ON Samples.SampleID = Samples_SamplingMethods.SampleID
                                 LEFT JOIN SamplingMethods ON Samples_SamplingMethods.SamplingMethodID = SamplingMethods.SamplingMethodID'''
 setting_join = '''LEFT JOIN Samples_Settings ON Samples.SampleID = Samples_Settings.SampleID
@@ -910,7 +910,8 @@ as_table_dict = {
     'UPbAgeInterpretations': 'AgeInterpretations',
     'SpotSizeUnits': 'DistanceUnits',
     'UPbRejectionReasons': 'RejectionReasons',
-    'UPbAnalysisContexts': 'UPbAnalysisContexts'
+    'UPbAnalysisContexts': 'UPbAnalysisContexts',
+    'DefaultSampleAges': 'SampleAges'
 }
 """Static list of foreign key references found in tables and their associated table.
 Issues with database properly keeping track of this through pragma queries have led to this
@@ -974,7 +975,7 @@ table_attributes_dict = {
         "RockTypeCreated", "RockTypeModified"
     ],
     'SampleAges': [
-        "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge",
+        "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge"
         "SampleAgeDescription", "SampleAgeCreated", "SampleAgeModified"
     ],
     'SampleContexts': [

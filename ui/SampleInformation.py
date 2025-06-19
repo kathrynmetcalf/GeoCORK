@@ -56,14 +56,11 @@ class SampleInformation(QtW.QDialog):
 
         self.selected_sample_label: QtW.QLabel
         self.selected_sample_label.setWordWrap(True)
-        close_loading_dialog('Loading', f'Opening Sample Information window...')
         self.gps = GPSFields('Samples', sample_id_list)
         self.top_horizontalLayout: QtW.QHBoxLayout
         self.top_horizontalLayout.addWidget(self.gps)
         self.age = AgeFields('Samples', sample_id_list)
         self.top_horizontalLayout.addWidget(self.age)
-
-        show_loading_dialog('Loading', f'Opening Sample Information window...')
 
         # Sample names table
         self.sample_names_model = CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description

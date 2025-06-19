@@ -22,7 +22,7 @@ from Functions.Widget_classes import (
     set_table, populate_many_combo_checks, populate_model_checks, delete_data,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
     get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
-    get_name_from_id, find_tree_model, get_view_from_table
+    get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -42,6 +42,7 @@ import time
 class SetSelectedValues(QtW.QDialog):
     def __init__(self, parent_window, widget: QtW.QWidget):
         super().__init__(parent=parent_window)
+        self.parent: EditView
         self.setWindowTitle('Set selected values')
         self.setModal(True)
         self.close_by_dialog = False
@@ -67,7 +68,121 @@ class SetSelectedValues(QtW.QDialog):
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
         self.adjustSize()
+        if isinstance(self.widget, CheckableComboBox):
+            self.widget.add_triggered.connect(self.add_popup)
+            self.widget.edit_triggered.connect(self.edit_popup)
+            self.widget.delete_triggered.connect(self.delete_item)
+        elif isinstance(self.widget, CheckableTreeCombobox):
+            self.widget.add_triggered.connect(self.add_popup)
+            self.widget.edit_triggered.connect(self.edit_popup)
         self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+
+    def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
+        combo.blockSignals(True)
+        logger_setup.get_logger().info(f"Add popup called")
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error adding new item")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+                combo.blockSignals(False)
+                return
+        elif isinstance(combo.model(), QSortFilterProxyModel):
+            model = combo.model().sourceModel()
+            table = model.tableName()
+        else:
+            table = combo.model().tableName()
+        dlg = None
+        if table in SQLUtils.user_viewable_trees:
+            save_expanded_state(table, combo.view())
+            dlg_args = add_tree_popup(combo.view(), action)
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            if dlg_args:
+                dlg = AddTreeTags(self, table, **dlg_args)
+            else:
+                dlg = AddTreeTags(self, table)
+        elif table in ['References', '"References"']:
+            table = 'References'
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            dlg = NewReference(self)
+        else:
+            self.loading_manager.show_loading_dialog('Loading', f'Opening add window for {table}...')
+            dlg = AddTags(self, table)
+        if not dlg:
+            combo.blockSignals(False)
+            return
+        logger_setup.get_logger().info(f"Showing {table} add dialog")
+        dlg.exec()
+        if dlg.updated:
+            # Update this combo box
+            self.parent().create_dropdown()
+            self.widget = self.parent().combo
+            combo.blockSignals(False)
+        else:
+            combo.blockSignals(False)
+            return
+
+    def edit_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
+        logger_setup.get_logger().info(f'Edit popup called')
+        combo: QtW.QComboBox
+        model = combo.model()
+        if isinstance(combo.view(), QtW.QTreeView):
+            if not isinstance(model, TreeModel):
+                model, indexes = find_tree_model(model, None)
+            if model:
+                table = model.table
+            else:
+                logger_setup.get_logger().critical(f"Error editing table")
+                logger_setup.get_logger().debug(f"Error: No tree model found")
+                return
+        elif isinstance(model, QtC.QSortFilterProxyModel):
+            model = model.sourceModel()
+            table = model.tableName()
+        else:
+            table = combo.model().tableName()
+        combo.blockSignals(True)
+        dlg = None
+        if table in SQLUtils.user_viewable_trees:
+            dlg = EditTree(self, table)
+        elif table != get_view_from_table(table):
+            dlg = EditView(self, table)
+        else:
+            dlg = EditTable(self, table)
+        if dlg is None:
+            combo.blockSignals(False)
+            return
+        logger_setup.get_logger().info(f"Showing {table} edit dialog")
+        if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            # Update this combo box
+            self.parent().create_dropdown()
+            self.widget = self.parent().combo
+            combo.blockSignals(False)
+        else:
+            combo.blockSignals(False)
+            return
+
+    def delete_item(self):
+        combo = self.widget
+        selected_ids = []
+        for index in combo.view().selectedIndexes:
+            id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if id is not None:
+                selected_ids.append(id)
+        model = combo.model()
+        table = None
+        while not table:
+            try:
+                table = model.tableName()
+            except AttributeError:
+                model = model.sourceModel()
+        if selected_ids:
+            delete_data(table, selected_ids)
+        else:
+            return
 
     def commit(self):
         self.close_by_dialog = True
@@ -129,6 +244,7 @@ class EditView(QtW.QDialog):
         self.combo = None
         self.combo_index = QtC.QModelIndex()
         self.combo_model = None
+        self.combo_tree_model = None
         self.combo_proxy = None
         self.dropdown_table = None
         self.lineEdit = None
@@ -369,6 +485,7 @@ class EditView(QtW.QDialog):
                     self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_lineedit_data()
                     self.display_table()
+                    self.loading_manager.close_loading_dialog('Loading', f'Loading...')
                 else:
                     self.destroy_lineedit()
             elif self.combo:
@@ -378,6 +495,7 @@ class EditView(QtW.QDialog):
                     self.loading_manager.show_loading_dialog('Loading', f'Loading...')
                     self.save_dropdown_data()
                     self.display_table()
+                    self.loading_manager.close_loading_dialog('Loading', f'Loading...')
                 else:
                     self.destroy_dropdown()
         elif action == edit_action:
@@ -588,6 +706,7 @@ class EditView(QtW.QDialog):
                     logger_setup.get_logger().error(f'{get_readable_header(header)} is auto-generated and not editable')
                     return
                 self.create_dropdown()
+        self.loading_manager.close_loading_dialog('Loading', f'Loading...')
 
     def create_lineedit(self):
         logger_setup.get_logger().info('Displaying line edit')
@@ -756,7 +875,16 @@ class EditView(QtW.QDialog):
             else:
                 self.combo = CheckableComboBox()
             populate_combo_box(self.combo, **{'table': self.dropdown_table, 'query': query})
-
+            if isinstance(self.combo.model(), TreeSortFilterProxyModel):
+                self.combo_proxy = self.combo.model()
+                self.combo_tree_model = find_tree_model(self.combo_proxy, None)[0]
+                if self.combo_tree_model:
+                    self.combo_model = self.combo_tree_model.sourceModel()
+            elif isinstance(self.combo.model(), QSortFilterProxyModel):
+                self.combo_proxy = self.combo.model()
+                self.combo_model = self.combo_proxy.sourceModel()
+            else:
+                self.combo_model = self.combo.model()
             selected_ids = []
             for model_index in model_indexes:
                 selected_id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -1279,7 +1407,8 @@ class EditView(QtW.QDialog):
         columns = {}
         rows = []
         for index in indexes:
-            header = self.model.headerData(index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+            model_index = self.proxy_model.mapToSource(index)
+            header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             if header in SQLUtils.not_null[self.table]:
                 logger_setup.get_logger().error(f'{get_readable_header(header)} cannot be empty')
                 return
@@ -1289,7 +1418,6 @@ class EditView(QtW.QDialog):
                 return
             if header not in columns.keys():
                 columns[header] = []
-            model_index = self.proxy_model.mapToSource(index)
             rows.append(model_index.row())
             id = self.model.index(model_index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if id not in columns[header]:
@@ -1424,8 +1552,8 @@ class EditView(QtW.QDialog):
                 # Clear the combo box checks
                 if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel):
                     self.combo_model.clear_checks()
-                elif isinstance(self.combo_model, CheckableTreeModel):
-                    self.combo_model.clear_checks(QtC.QModelIndex())
+                elif isinstance(self.combo_tree_model, CheckableTreeModel):
+                    self.combo_tree_model.clear_checks(QtC.QModelIndex())
                 self.combo.setCurrentIndex(-1)
                 self.save_dropdown_data()
 
