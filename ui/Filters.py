@@ -211,6 +211,32 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         operator_sql = "IS NOT NULL"
     elif operator_raw == "contains":
         operator_sql = f"LIKE '%{value}%' COLLATE NOCASE"
+    elif operator_raw == "does not contain":
+        operator_sql = f"NOT LIKE '%{value}%' COLLATE NOCASE"
+    elif operator_raw == "starts with":
+        operator_sql = f"LIKE '{value}%' COLLATE NOCASE"
+    elif operator_raw == "ends with":
+        operator_sql = f"LIKE '%{value}' COLLATE NOCASE"
+    elif operator_raw == "is less than":
+        operator_sql = "<"
+    elif operator_raw == "is greater than":
+        operator_sql = ">"
+    elif operator_raw == "is between":
+        # Range operator – return a list of two conditions
+        if datatype == "date":
+            operator_sql = [f">= '{value.split(',')[0]}'", f"<= '{value.split(',')[1]}'"]
+        elif datatype == "number":
+            operator_sql = [f">= {value.split(',')[0]}", f"<= {value.split(',')[1]}"]
+        else:
+            raise ValueError(f"Unsupported datatype for range operator: {datatype}")
+    elif operator_raw == "is not between":
+        # Range operator – return a list of two conditions
+        if datatype == "date":
+            operator_sql = [f"< '{value.split(',')[0]}'", f"> '{value.split(',')[1]}'"]
+        elif datatype == "number":
+            operator_sql = [f"< {value.split(',')[0]}", f"> {value.split(',')[1]}"]
+        else:
+            raise ValueError(f"Unsupported datatype for range operator: {datatype}")
     else:
         # … expand as required …
         operator_sql = "="
@@ -1165,13 +1191,11 @@ class QueryBuilder(QWidget):
             return False
 
     def get_filtered_ids(self, type) -> list | None:
-        '''
+        """
         Queries the database with the generated filter sql query at the given type scope
         :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
         :return: list of ids or None
-        '''
-        # todo: Currently returns all ids for the type if condition is many-to-many,
-        #  e.g. type Aliquots with condition on AliquotContexts
+        """
         sql_query = self.get_sql(type)
         uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
         try:
@@ -1329,6 +1353,7 @@ class QueryBuilder(QWidget):
                 item.setToolTip(query.value(4))  # description
                 item.setText(query.value(1))  # FilterGroupName
                 self.listWidget.addItem(item)
+            self.listWidget.sortItems()
         else:
             logger_setup.get_logger().info(f'Failed to get all filters from the database')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
