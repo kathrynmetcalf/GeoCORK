@@ -251,10 +251,13 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             raise NotImplementedError("Range operators on tree tables not yet supported")
         elif "NULL" in operator_sql or "LIKE" in operator_sql:
             where = f"{table}.{meta['name_column']} {operator_sql}"
+            t_where = f"t.{meta['name_column']} {operator_sql}"
         elif '!=' in operator_sql:
             where = f"{table}.{meta['name_column']} = '{value}'"
+            t_where = f"t.{meta['name_column']} = '{value}'"
         else:
             where = f"{table}.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
+            t_where = f"t.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
 
         # Increment per‑field counter so CTE names stay unique per query
         recursive_tables[field_key] += 1
@@ -269,6 +272,7 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             SELECT t.{meta['id_column']}
               FROM {table} t
               JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
+              WHERE {t_where}
         )""".strip()
 
         # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
@@ -413,7 +417,6 @@ class InsertFilterGroupDialog(QDialog):
         query.prepare(sql_query)
         query.bindValue(":filter_id", self.update_id)
         logger_setup.get_logger().info(f'Populating fields for filter: {self.update_id}')
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if query.exec():
             if query.next():
                 self.name_input.setText(query.value(0))
@@ -442,7 +445,6 @@ class InsertFilterGroupDialog(QDialog):
         query.prepare(check_query)
         query.bindValue(":name", name)
         logger_setup.get_logger().info(f'Checking if name: {name} already exists in FilterGroups table')
-        logger_setup.get_logger().debug(f'SQL command: {check_query}')
         if not query.exec():
             logger_setup.get_logger().critical(
                 f'Error in checking for existing Filters')
@@ -750,10 +752,10 @@ class RuleWidget(QWidget):
             value_completer = QtWidgets.QCompleter()
             query = QSqlQuery()
             sql_query = f'SELECT DISTINCT {self.attribute_combo.currentText()} FROM "{self.table_combo.currentText()}"'
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec(sql_query):
                 logger_setup.get_logger().critical(f'Error creating the completer for input')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             values = set()
             while query.next():
                 values.add(query.value(0))
@@ -1058,7 +1060,6 @@ class QueryBuilder(QWidget):
                 """
             query.prepare(sql_query)
             query.bindValue(":filter_name", item.text())
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             if not query.exec():
                 logger_setup.get_logger().critical(
                     f'Could not delete filter')

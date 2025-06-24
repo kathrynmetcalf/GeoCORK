@@ -13,7 +13,7 @@ import logger_setup
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import get_headers
+from Functions.Widget_classes import get_headers, loading_manager
 from ui.SelectColumns import SelectColumns
 
 settings_list = [
@@ -465,6 +465,7 @@ class SettingsDialog(QtW.QDialog):
         """
         # No longer using default settings
         logger_setup.get_logger().info('Updating settings')
+        self.loading_manager.show_loading_dialog('Updating', 'Updating settings...')
         settings.setValue('default_settings', 'false')
 
         # Save the settings to the QSettings object
@@ -516,6 +517,7 @@ class SettingsDialog(QtW.QDialog):
         update_stylesheet()
 
         self.populate_fields()
+        self.loading_manager.close_loading_dialog('Updating', 'Updating settings...')
         self.updated = True
 
     def update_settings_close(self):

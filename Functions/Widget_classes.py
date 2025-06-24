@@ -4501,7 +4501,7 @@ class CheckableComboBox(QtW.QComboBox):
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
             clear_all_action = menu.addAction("Clear All Checks")
             select_all_action = menu.addAction("Check All")
-            delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
+            delete_action = menu.addAction(f"Delete checked {TxM.add_spaces_camel(table)}")
         else:
             edit_action = None
             add_action = menu.addAction(f"Add {TxM.add_spaces_camel(table)}")
@@ -5431,7 +5431,7 @@ class TreeContextMenu(QtW.QMenu):
             add_menu.addAction('Add parent')
             add_menu.addAction('Add to end')
         if delete_active:
-            self.addAction('Delete')
+            self.addAction('Delete selected')
 
     def add_multi_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
         """
@@ -5445,7 +5445,7 @@ class TreeContextMenu(QtW.QMenu):
         if edit_active:
             self.addAction('Edit')
         if delete_active:
-            self.addAction('Delete')
+            self.addAction('Delete selected')
         if add_active:
             self.addAction('Add')
 
@@ -5914,7 +5914,7 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             return
     elif table != get_view_from_table(table):
         # Need to use a special view query
-        query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict[table])}
+        query_args = {'show_columns': settings.value(SQLUtils.view_setting_dict[get_view_from_table(table)])}
         view_query = ViewQuery(table, edit_view=False, **query_args)
         table_query = view_query.table_query
         model = DisplayRoundedQueryModel()
@@ -5941,6 +5941,7 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         if isinstance(comboBox, CheckableComboBox) and not query and (table == get_view_from_table(table)):
             # If the combo box is a CheckableComboBox and the table is not a view, use CheckableSqlTableModel
             checkable_model = CheckableSqlTableModel()
+            set_table(checkable_model, table)
             comboBox.setModel(checkable_model)
         elif isinstance(comboBox, CheckableComboBox) and not query:
             # If the combo box is a CheckableComboBox and the table is a view, use CheckableSqlQueryModel
@@ -5952,12 +5953,17 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             checkable_model.setQuery(query)
             comboBox.setModel(checkable_model)
         else:
-            comboBox.setModel(model)
+            try:
+                comboBox.setModel(model)
+            except Exception as e:
+                logger_setup.get_logger().error(f'Error setting model for combo box {comboBox.objectName()}')
+                logger_setup.get_logger().debug(f'Error: {e}')
+                return
         if checkable_model and not checkable_model.tableName():
             if table:
-                checkable_model.set_table(table)
+                set_table(checkable_model, table)
             elif model.tableName():
-                checkable_model.set_table(model.tableName())
+                set_table(checkable_model, model.tableName())
         if column:
             show_column(comboBox, column)
         else:

@@ -7,6 +7,7 @@ from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
+from PyQt6.QtCore import QSortFilterProxyModel
 
 from PyQt6.uic import loadUi
 
@@ -250,6 +251,8 @@ class SampleInformation(QtW.QDialog):
         self.cancel_pushButton.clicked.connect(self.discard_clicked)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
         self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
+        self.sample_name_comboBox.edit_triggered.connect(self.edit_popup)
+        self.sample_name_comboBox.delete_triggered.connect(self.delete_item)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
         self.column_groupBox.focusLost.connect(self.focus_lost_delay)
         self.sample_context_comboBox.closing.connect(lambda: self.update_sample_tags(self.sample_context_comboBox))
@@ -838,6 +841,26 @@ class SampleInformation(QtW.QDialog):
         if dlg.updated:
             self.updated = True
         self.sender().blockSignals(False)
+
+    def delete_item(self):
+        logger_setup.get_logger().info(f"Delete item called")
+        combo = self.sender()
+        selected_ids = []
+        model = combo.model()
+        table = None
+        while not table:
+            try: table = model.tableName()
+            except AttributeError:
+                model = model.sourceModel()
+        if isinstance(combo, CheckableComboBox):
+            selected_ids = model.checked_ids
+        elif isinstance(combo, CheckableTreeCombobox):
+            selected_ids, partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
+                QtC.QModelIndex())
+        if selected_ids:
+            delete_data(table, selected_ids)
+        else:
+            return
 
     def check_focus(self):
         if self.column_groupBox.any_child_has_focus() and self.column_groupBox.edited:

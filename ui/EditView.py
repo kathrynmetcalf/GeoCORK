@@ -168,7 +168,7 @@ class SetSelectedValues(QtW.QDialog):
     def delete_item(self):
         combo = self.widget
         selected_ids = []
-        for index in combo.view().selectedIndexes:
+        for index in combo.view().selectedIndexes():
             id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
             if id is not None:
                 selected_ids.append(id)

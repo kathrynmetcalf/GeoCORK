@@ -409,9 +409,27 @@ class DataViewerWidget(QWidget):
         table_condition = ''
         sql_table = as_table
 
-        sql_columns = ', '.join(f'{sql_table}.{column}' for column in show_cols)
-        sql = f'SELECT DISTINCT {sql_columns} FROM Samples '
-        sql += SQLUtils.get_join_from_table("", [sql_table] + [self.data_table])
+        join_str = ''
+        if sql_table == 'Columns':
+            query_args = {'show_columns': show_cols}
+            view_query = ViewQuery(sql_table, False, **query_args)
+            table_query = (view_query.table_query.replace('SELECT', 'SELECT DISTINCT')
+                           .replace('FROM Columns', f'FROM Samples\n{SQLUtils.column_join}'))
+            joins = table_query.split('GROUP BY')[0]
+            for join in joins.split('LEFT'):
+                if 'JOIN' in join:
+                    join_str += f'LEFT{join}'
+            sql = table_query.split('LEFT')[0]
+        elif sql_table == 'References':
+            query_args = {'show_columns': show_cols}
+            view_query = ViewQuery(sql_table, False, **query_args)
+            table_query = (view_query.table_query.replace('SELECT', 'SELECT DISTINCT')
+                           .replace('FROM "References"', f'FROM Samples'))
+            sql = table_query
+        else:
+            sql_columns = ', '.join(f'{sql_table}.{column}' for column in show_cols)
+            sql = f'SELECT DISTINCT {sql_columns} FROM Samples '
+        sql += SQLUtils.get_join_from_table(join_str, [sql_table] + [self.data_table])
         if selected_data_filter_ids:
             if len(selected_data_filter_ids) > 1:
                 sql_selected_data_filter_ids = f'IN ({", ".join([str(i) for i in selected_data_filter_ids])})'
@@ -430,7 +448,6 @@ class DataViewerWidget(QWidget):
             return
 
         sql += table_condition
-        logger_setup.get_logger().debug(f'Distinct Filtered Selection SQL Command: {sql}')
 
         query = QSqlQuery()
         # Execute the query
@@ -474,9 +491,9 @@ class DataViewerWidget(QWidget):
             source_model = SQLiteTableModel(sql_query)
             if source_model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying filtered tree')
+                logger_setup.get_logger().debug(f'Error: {source_model.last_error}')
+                logger_setup.get_logger().debug(f'SQL command: {sql_query}')
                 return
-
-            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
 
             self.data_filtered_table_model = TreeModel(source_model, self)
 
@@ -505,17 +522,24 @@ class DataViewerWidget(QWidget):
             self.switch_to_table_2(self.db_stackedWidget_2)
             offset = self.current_page_2 * self.rows_per_page_2
             if self.data_filtered_table == 'Columns' or self.data_filtered_table == 'References':
-                query_columns = sql_columns
+                show_cols = settings.value(SQLUtils.view_setting_dict[get_view_from_table(self.data_filtered_table)])
+                where = f'WHERE {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}'
+                order_col = get_headers(self.data_filtered_table)[0]
+                limit = f'LIMIT {self.rows_per_page_2} OFFSET {offset}'
+                query_args = {'show_cols': show_cols, 'where': where, 'order_col': order_col, 'limit': limit}
+                view_query = ViewQuery(self.data_filtered_table, False, **query_args)
+                sql_query = view_query.table_query
             else:
                 query_columns = '*'
-            sql_query = f"""SELECT {query_columns} FROM "{self.data_filtered_table}" WHERE 
-                                    {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}
-                                    ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
+                sql_query = f"""SELECT {query_columns} FROM "{self.data_filtered_table}" WHERE 
+                                        {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}
+                                        ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
 
-            logger_setup.get_logger().debug(f'SQL query: {sql_query}')
             self.data_filtered_table_model = SQLiteTableModel(sql_query)
             if self.data_filtered_table_model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying filtered table')
+                logger_setup.get_logger().debug(f'Error: {self.data_filtered_table_model.last_error}')
+                logger_setup.get_logger().debug(f'SQL query: {sql_query}')
                 return
 
             self.data_filtered_table_proxy_model = ReadableProxyModel()
@@ -705,9 +729,10 @@ class DataViewerWidget(QWidget):
             case _:
                 sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {self.sql_data_ids_to_show}'
 
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         all_names = column_as_list(sql_query, name_header)
         if not all_names:
+            logger_setup.get_logger().debug(f'No names found for {name_header}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             return
         values = set(all_names)
         name_completer.setModel(QtC.QStringListModel(values))
@@ -863,11 +888,10 @@ class DataViewerWidget(QWidget):
 
         # Execute the query
         logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_table}')
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             # Handle query execution error
-            logger_setup.get_logger().critical(
-                f'Error fetching total records: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'Error fetching total records')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             return 0
 
@@ -886,11 +910,10 @@ class DataViewerWidget(QWidget):
 
         # Execute the query
         logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_filtered_table}')
-        logger_setup.get_logger().debug(f'SQL command: {sql_query}')
         if not query.exec(sql_query):
             # Handle query execution error
-            logger_setup.get_logger().critical(
-                f'Error fetching total records: {query.lastError().text()}')
+            logger_setup.get_logger().critical(f'Error fetching total records')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().critical(f'SQL command: {sql_query}')
             return 0
 
