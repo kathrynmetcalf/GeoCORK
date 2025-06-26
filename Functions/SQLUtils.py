@@ -888,6 +888,17 @@ gps_formats = [
     ('Universal Transverse Mercator', 'UTM', 'Universal Transverse Mercator with zone, northing, and easting')]
 """Static list of valid GPS formats. Used to create GPSFormats table."""
 
+export_formats = [
+    'Custom',
+    'detritalPy',
+    'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06',
+    'IsoplotR - 38/06, 07/06',
+    'DZstats',
+    'DZmix, DZmds, DZnmf',
+    'AgeCalcML concordia',
+    'Database'
+]
+
 as_table_dict = {
     'DirectAgeErrorFormats': 'ErrorFormats',
     'OldAge': 'Ages',
@@ -975,7 +986,7 @@ table_attributes_dict = {
         "RockTypeCreated", "RockTypeModified"
     ],
     'SampleAges': [
-        "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge"
+        "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge",
         "SampleAgeDescription", "SampleAgeCreated", "SampleAgeModified"
     ],
     'SampleContexts': [

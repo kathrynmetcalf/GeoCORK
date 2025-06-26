@@ -2,15 +2,16 @@ import csv
 import os
 import sqlite3
 import sys
+import time
 
 import qtawesome
 from PyQt6 import QtCore
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QAbstractTableModel
 from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
-    QLabel, QCheckBox, QSpacerItem,
+    QLabel, QCheckBox, QSpacerItem, QComboBox,
     QSizePolicy, QTabWidget, QInputDialog, QDialog, QListWidget, QHBoxLayout, QMessageBox, QGroupBox, QScrollArea,
     QHeaderView, QAbstractItemView, QListWidgetItem
 )
@@ -23,7 +24,7 @@ from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel, SQLiteTableModel, find_parent_items, \
-    show_loading_dialog, close_loading_dialog
+    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import CheckableComboBox
@@ -53,16 +54,21 @@ class ExportWidget(QWidget):
         """List of SampleIDs that are currently checked to be included in the export"""
 
         self.checked_sample_names = '()'
-        """checked SampleIDs in the format (1, 2, 3) to be used in the SQL query to limit the results to only those samples"""
+        """checked SampleIDs in the format (1, 2, 3) to be used in the SQL query to limit the results to only those 
+        samples"""
 
         self.checked_filter_list = []
-        """list of FilterGroupIDs that are currently checked to filter selected data by, mutliple filters can be 
+        """list of FilterGroupIDs that are currently checked to filter selected data by, multiple filters can be 
         selected but are OR'd together, so if Filter 1 and Filter 2 are selected, then the both filter;s data will be
         included."""
 
+        self.checked_filter_names = '()'
+        """checked FilterGroupIDs in the format (1, 2, 3) to be used in the SQL query to limit the results to only 
+        those filter groups"""
+
         self.checked_grouped_filter_list = []
         """list of FilterGroupIDs that are currently checked to add as a grouped new sample. If FilterGroupID with name 
-        Modern Samples is selected, all samples matching the critera will be added to the exporter as a distinct sample
+        Modern Samples is selected, all samples matching the criteria will be added to the exporter as a distinct sample
         called 'Modern Samples'."""
 
         self.filtered_upb_ids = set()
@@ -93,34 +99,31 @@ class ExportWidget(QWidget):
         self.previous_worksheet = None
         """variable to hold the name of the previous worksheet"""
 
+        self.exportformat_comboBox: QComboBox
+        # Clear all the existing items in the combo box
+        while self.exportformat_comboBox.count() > 0:
+            self.exportformat_comboBox.removeItem(0)
+        for export_format in SQLUtils.export_formats:
+            self.exportformat_comboBox.addItem(export_format)
+
         for widget in QApplication.topLevelWidgets():
             if widget.inherits("QMainWindow"):
                 self.db_file = widget.db_file
 
         self.settings = SettingsManager().settings
 
-        self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
-
         self.max_rows_to_display = 1000
 
-        self.samples_model = CheckableSqlTableModel()
-        self.samples_model = self.set_table(self.samples_model, 'Samples')
-        self.samplesincluded_comboBox.setModel(self.samples_model)
-        self.samplesincluded_comboBox.closing.connect(self.update_table_view)
+        self.sample_count = 0
+
+        self.samples_model = CheckableSqlQueryModel()
+        self.samples_proxy = ReadableProxyModel()
 
         self.filter_model = CheckableSqlTableModel()
-        self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
-        self.filterselection_comboBox.setModel(self.filter_model)
-        self.filterselection_comboBox.closing.connect(self.update_table_view)
+        self.filter_proxy = ReadableProxyModel()
 
         self.groupedfilter_model = CheckableSqlTableModel()
-        self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
-        self.groupedfilter_comboBox.setModel(self.groupedfilter_model)
-        self.groupedfilter_comboBox.closing.connect(self.update_table_view)
-
-        self.export_format()
-        self.update_step_2_list()
-        self.populate_stack()
+        self.groupedfilter_proxy = ReadableProxyModel()
 
         # Connect buttons to methods
         self.add_workbook_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, {}))
@@ -129,11 +132,6 @@ class ExportWidget(QWidget):
         self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
         self.edit_columnnames_pushButton.clicked.connect(self.open_columnname_mapping_dialog)
 
-        self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
-        self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
-        self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
-
-        self.samplesincluded_comboBox.clearEditText()
 
     def update_table_view(self, order_changed: bool = False, worksheet_name: str = None):
         """
@@ -145,10 +143,16 @@ class ExportWidget(QWidget):
         # Get the current workbook
         logger_setup.get_logger().info('Updating table view with new parameters')
         show_loading_dialog('Loading', 'Updating table view with new parameters')
+        start_update_table_view_time = time.time()
         if worksheet_name is None:
             current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         else:
             current_worksheet_name = worksheet_name
+
+        # Clear the previous filtered UPb IDs
+        self.filtered_upb_ids = set()
+
+        # Get the current selected samples, filters, and grouped filters
         self.checked_sample_list = self.samples_model.return_checked_ids()[0]
         self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
 
@@ -156,10 +160,6 @@ class ExportWidget(QWidget):
         self.checked_filter_names = f"({', '.join(map(str, self.checked_filter_list))})"
 
         self.checked_grouped_filter_list = self.groupedfilter_model.return_checked_ids()[0]
-
-        # if self.exportformat_comboBox.currentText() == 'Database':
-        #     # if the export format is Database, then we only need to get the checked samples, and not update the table view
-        #     return
 
         # Get the current TableView
         tableView: QTableView = self.worksheet_tabs_dict[current_worksheet_name]['tableView']
@@ -197,15 +197,47 @@ class ExportWidget(QWidget):
         else:
             columns_str = ''
             # creates column select string in format [SampleID], [CalculatedU/Th] AS 'RenamedColumn', etc...
+            concat_col_str = ''
+            # creates column select string for concatenated columns, in format REPLACE(GROUP_CONCAT(DISTINCT [field]), ',', '; ') AS 'RenamedColumn'
             for table, field in self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']:
                 tables.add(table)
-                if field in self.column_name_mappings:
-                    columns_str += f"[{field}] AS '{self.column_name_mappings[field]}', "
+                # If the export format is detritalPy and the current worksheet is Samples and the field is not Sample ID or name,
+                # we need to group_concat other fields
+                if (self.exportformat_comboBox.currentText() == 'detritalPy' and
+                        current_worksheet_name == 'Samples'):
+                    if field not in ('SampleID', 'SampleName'):
+                        concat_field_str = f"REPLACE(GROUP_CONCAT(DISTINCT [{field}]), ',', '; ')"
+                    else:
+                        concat_field_str = f"[{field}]"
                 else:
-                    columns_str += f'[{field}], '
+                    concat_field_str = ''
+                field_str = f"[{field}]"
+                for key, values in SQLUtils.many_editable.items():
+                    if field in values:
+                        # If the field is in the many_editable dictionary, then there may be multiple values for it,
+                        # so we need to use GROUP_CONCAT
+                        field_str = f"REPLACE(GROUP_CONCAT(DISTINCT [{field}]), ',', '; ')"
+                        break
+                # if "GROUP_CONCAT" not in field_str:
+                #     for key, values in SQLUtils.one_editable.items():
+                #         if key != 'Samples':
+                #             if field in values:
+                #                 # If the field is in the one_editable dictionary, then we need to use GROUP_CONCAT
+                #                 field_str = f"REPLACE(GROUP_CONCAT(DISTINCT [{field}]), ',', '; ')"
+                #                 break
+                if field in self.column_name_mappings:
+                    columns_str += f"{field_str} AS '{self.column_name_mappings[field]}', "
+                    if concat_field_str:
+                        concat_col_str += f"{concat_field_str} AS '{self.column_name_mappings[field]}', "
+                else:
+                    columns_str += f'{field_str}, '
+                    if concat_field_str:
+                        concat_col_str += f'{concat_field_str}, '
 
-            # removes final ", "
+            # remove final ", "
             columns_str = columns_str[0:-2]
+            if concat_col_str:
+                concat_col_str = concat_col_str[0:-2]
             # always ensures samples is included, since tables is a set only one copy will exist
         tables.add('Samples')
 
@@ -243,7 +275,7 @@ class ExportWidget(QWidget):
                 with conn:
                     cursor = conn.cursor()
                     cursor.execute(sql_query)
-                    self.filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
+                    filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
                 conn.commit()
                 conn.close()
             except sqlite3.Error as e:
@@ -254,7 +286,7 @@ class ExportWidget(QWidget):
                         with conn:
                             cursor = conn.cursor()
                             cursor.execute(sql_query)
-                            self.filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
+                            filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
                         conn.commit()
                         conn.close()
                     except sqlite3.Error as e:
@@ -276,34 +308,48 @@ class ExportWidget(QWidget):
                 return None
 
             logger_setup.get_logger().info(f'Fetched distinct UPbAnalysisIDs from FilterID: {filter_id} sucessfully')
+            # add the filtered UPbAnalysisIDs to the set
+            self.filtered_upb_ids.update(filtered_upb_ids)
 
         logger_setup.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(self.filtered_upb_ids)}')
 
         # due to how the above logic is, the filters are added with an OR clause, therefore it full unions Filters 1 and 2
-        filtered_upb_ids = f"({', '.join(self.filtered_upb_ids)})"
+        filtered_upb_ids_sql = f"({', '.join(self.filtered_upb_ids)})"
 
         # checks for logic to see what kind of SQL query is needed.
         # self.checked_sample_names defaults to '()', so length of 2,
         # if a sample is checked then len > 2, so UPbAnalysisID are needed, so we limit to LIMIT {self.max_rows_to_display} so its quicker and
         # still shows example data to be exported.
         # if filtered where clause is not blank, len > 0, then we need to filter by UPbAnalysisID
-        # todo: check self.checked_sample_names
+        if "AS 'Sample_ID'" in columns_str and current_worksheet_name == 'Samples':
+            group_by = 'GROUP BY Sample_ID'
+        else:
+            group_by = ''
         if len(self.checked_sample_names) > 2:
             if len(filtered_where_clause) > 0:
-                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} LIMIT {self.max_rows_to_display}"
+                where_clause = f"WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids_sql}"
             else:
-                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE Samples.SampleID IN {self.checked_sample_names} LIMIT {self.max_rows_to_display}"
+                where_clause = f"WHERE Samples.SampleID IN {self.checked_sample_names}"
         else:
             if len(filtered_where_clause) > 0:
-                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} LIMIT {self.max_rows_to_display}"
+                where_clause = f"WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids_sql}"
             else:
-                query_str = f"SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} {columns_str} FROM Samples {join} WHERE FALSE"
+                where_clause = f"WHERE FALSE"
+        sample_query_str = f"""SELECT {'DISTINCT' if self.worksheet_tabs_dict[current_worksheet_name]['distinct'] is True else ''} 
+                                {columns_str} FROM Samples {join}
+                                {where_clause}
+                                {group_by} LIMIT {self.max_rows_to_display}"""
 
-        logger_setup.get_logger().debug(f'Final TableView SQL command: {query_str}')
+        logger_setup.get_logger().debug(f'Final TableView SQL command: {sample_query_str}')
 
         # code to add optional grouped filters as a new Sample ID, if a filter name is 'Modern River Sand'
         # and returns UPbAnalysesIDs from multiple samples it will group them all together as
         # SampleName = 'Modern River Sand'
+        if len(self.checked_grouped_filter_list) > 0 and "FALSE" in sample_query_str.split('WHERE')[1]:
+            # If the WHERE clause is 'WHERE FALSE', this will return an extra row with NULL values, so we need to remove it
+            query_str = ""
+        else:
+            query_str = sample_query_str
         for filter_id in self.checked_grouped_filter_list:
             json_query = QSqlQuery()
             json_query.prepare('SELECT FilterGroupName, SQLQuery FROM FilterGroups WHERE FilterGroupID = :filter_id')
@@ -334,7 +380,7 @@ class ExportWidget(QWidget):
                     cursor.execute(sql_query)
                     filtered_upb_ids = [str(row[0]) for row in cursor.fetchall()]
                     # add the filtered UPbAnalysisIDs to the set
-                    self.filtered_upb_ids.extend(filtered_upb_ids)
+                    self.filtered_upb_ids.update(filtered_upb_ids)
                     filtered_upb_ids = f"({', '.join(filtered_upb_ids)})"
                 conn.commit()
                 conn.close()
@@ -349,15 +395,23 @@ class ExportWidget(QWidget):
 
             # remove LIMIT {self.max_rows_to_display} from original query_str, can only have one of those
             query_str = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
-            # take the original query_str and only the content before WHERE CLAUSE
-            modified_query_str = query_str.split('WHERE')[0]
+            # take the original sample_query_str and only the content before WHERE CLAUSE
+            modified_query_str = sample_query_str.split('WHERE')[0]
+            if concat_col_str:
+                # If there are concatenated columns, we need to add them to the modified query string
+                modified_query_str = modified_query_str.replace(columns_str, concat_col_str)
             # replace SampleName with filter name AS
             modified_query_str = modified_query_str.replace('[SampleName]', f'\'{name}\'')
             modified_query_str = modified_query_str.replace('SELECT', 'SELECT DISTINCT')
             modified_query_str = modified_query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
             modified_query_str = modified_query_str.replace('DISTINCT DISTINCT', 'DISTINCT')
+            # If this is the detritalPy export format and the worksheet is Samples, we need to group by SampleID
+            if "AS 'Sample_ID'" in modified_query_str and current_worksheet_name == 'Samples':
+                group_by = 'GROUP BY Sample_ID'
+            else:
+                group_by = ''
 
-            query_str = f"{query_str} \n UNION ALL \n {modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} LIMIT {self.max_rows_to_display} \n"
+            query_str = f"{query_str} \nUNION ALL \n {modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
             logger_setup.get_logger().debug(f'SQL command: {query_str}')
 
         # code to transform the query into a pivot table
@@ -373,10 +427,10 @@ class ExportWidget(QWidget):
             if not db.isOpen():
                 logger_setup.get_logger().critical('Error opening database connection')
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
-                return
+                return None
             if not turn_on_foreign_keys():
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
-                return
+                return None
 
             drop_table_qry = QSqlQuery()
             logger_setup.get_logger().info('Dropping TempPivotTable')
@@ -524,6 +578,8 @@ class ExportWidget(QWidget):
         tableView.setModel(proxy_model)
         tableView.resizeColumnsToContents()
         close_loading_dialog('Loading', 'Updating table view with new parameters')
+        logger_setup.get_logger().info(f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
+
 
     def export_format(self):
         """
@@ -549,19 +605,38 @@ class ExportWidget(QWidget):
             # sheet 2 (ZrUPb) is list of samples, grains, analysis, and upb data
 
             case 'detritalPy':
-                if settings.value('concordance_format_id', int) != 3: # Format is not discordance ratio
-                    QMessageBox.question(self, 'Wrong Concordance Format',
-                                         'detritalPy take concordance as discordance ratio. Would you like to swap to discordance ratio?',
-                                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                         QMessageBox.StandardButton.Yes)
-                    settings.setValue('concordance_format_id', 3)
-                    settings.setValue('concordance_format_abbreviation', 'Dis')
-                    if not update_database():
-                        logger_setup.get_logger().critical(f'Error updating and displaying database')
-                        self.parent().close()
-
-                # add detritalpy requires in 1 sigma or 2 sigma, abs on ages, % on ratios
-
+                if (settings.value('concordance_format_id', int) != 3 or
+                    settings.value('age_error_format_id', int) not in (1,2) or
+                    settings.value('ratio_error_format_id', int) not in (3,4)): # Format is not discordance ratio, abs error on ages, or % error on ratios
+                    response = QMessageBox.question(self, 'Update settings',
+                         'detritalPy uses discordance ratio, absolute error for ages, and percentage error for ratios.\nWould you like to update the settings now?',
+                         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
+                    if response == QMessageBox.StandardButton.Yes:
+                        settings.setValue('concordance_format_id', 3)
+                        settings.setValue('concordance_format_abbreviation', 'Dis')
+                        if settings.value('age_error_format_id', int) == 3:  # 1 sigma %
+                            settings.setValue('age_error_format_id', 1)
+                            settings.setValue('age_error_format_abbreviation', '1σ abs')
+                            # Match the ratio error format sigma to the age error format
+                            settings.setValue('ratio_error_format_id', 3)
+                            settings.setValue('ratio_error_format_abbreviation', '1σ %')
+                        elif settings.value('age_error_format_id', int) == 4:  # 2 sigma %
+                            settings.setValue('age_error_format_id', 2)
+                            settings.setValue('age_error_format_abbreviation', '2σ abs')
+                            # Match the ratio error format sigma to the age error format
+                            settings.setValue('ratio_error_format_id', 4)
+                            settings.setValue('ratio_error_format_abbreviation', '2σ %')
+                        elif settings.value('age_error_format_id', int) == 1:  # 1 sigma abs
+                            # Match the ratio error format sigma to the age error format
+                            settings.setValue('ratio_error_format_id', 3)
+                            settings.setValue('ratio_error_format_abbreviation', '1σ %')
+                        elif settings.value('age_error_format_id', int) == 2:  # 2 sigma abs
+                            # Match the ratio error format sigma to the age error format
+                            settings.setValue('ratio_error_format_id', 4)
+                            settings.setValue('ratio_error_format_abbreviation', '2σ %')
+                        if not update_database():
+                            logger_setup.get_logger().critical(f'Error updating and displaying database')
+                            self.parent().close()
 
                 self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 Samples_columns = {
@@ -573,6 +648,7 @@ class ExportWidget(QWidget):
                     ('References', 'ReferenceDisplay'): True
                 }
                 self.add_worksheet_tab('Samples', True, False, Samples_columns, Samples_columns, True)
+                self.previous_worksheet = 'Samples'
 
                 ZrUPb_columns = {
                     ('Samples', 'SampleName'): True,
@@ -657,7 +733,6 @@ class ExportWidget(QWidget):
                 # 207/206
                 # 204/207
                 # 204/206
-                # requires 1sig abs
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('UPbAnalyses', 'Calculated207Pb/235U'): True,
@@ -688,7 +763,7 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
-            case 'DZStats':
+            case 'DZstats':
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
@@ -696,14 +771,25 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', 'CalculatedBestAgeErrorFilled'): True
                 }
                 self.add_worksheet_tab('DZStats', False, True, UPb_columns, UPb_columns, False)
-            # case 'DZStats - Two Sample Compare':
-            #     self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
-            #     UPb_columns = {
-            #         ('Samples', 'SampleName'): True,
-            #         ('UPbAnalyses', 'CalculatedBestAge'): True,
-            #         ('UPbAnalyses', 'CalculatedBestAgeError'): True
-            #     }
-            #     self.add_worksheet_tab('DZStats - Two Sample Compare', False, True, UPb_columns, UPb_columns, False)
+            case 'DZmix, DZmds, DZnmf':
+                self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
+                UPb_columns = {
+                    ('Samples', 'SampleName'): True,
+                    ('UPbAnalyses', 'CalculatedBestAgeFilled'): True,
+                    ('UPbAnalyses', 'CalculatedBestAgeErrorFilled'): True
+                }
+                self.add_worksheet_tab('DZmix, DZmds, DZnmf', False, True, UPb_columns, UPb_columns, True)
+            case 'AgeCalcML concordia':
+                self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
+                UPb_columns = {
+                    ('Samples', 'SampleName'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/235U'): True,
+                    ('UPbAnalyses', 'Calculated207Pb/235UError'): True,
+                    ('UPbAnalyses', 'Calculated206Pb/238U'): True,
+                    ('UPbAnalyses', 'Calculated206Pb/238UError'): True,
+                    ('UPbAnalyses', 'ErrorCorr/Rho'): True
+                }
+                self.add_worksheet_tab('AgeCalcML concordia', False, True, UPb_columns, UPb_columns, True)
             case 'Database':
                 self.fileformat_comboBox.setEnabled(False)
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
@@ -772,30 +858,32 @@ class ExportWidget(QWidget):
     def update_step_2_list(self):
         """Updates the CheckableComboBox model based upon selected values. Allows the user to select
          samples by either Samples or FilterGroups """
-        self.samplesincluded_comboBox.setEnabled(True)
+        logger_setup.get_logger().info(f'Updating Step 2 list for {self.selectionscope_comboBox.currentText()}')
+        start_update_step_2_time = time.time()
+        if self.sample_count > 1000:
+            self.samplesincluded_comboBox.setEnabled(False)
+            self.samplesincluded_comboBox.hide()
+            self.selectionscope_comboBox.setCurrentText('Filter Groups')
+        else:
+            self.samplesincluded_comboBox.setEnabled(True)
+            self.samplesincluded_comboBox.show()
         self.step_2_label.show()
-        self.samplesincluded_comboBox.show()
         self.filters_label.show()
         self.filters_label.setText("Select Additional Filters (optional):")
         self.filters_label.setToolTip(
-            "Additional filters to filter the samples, multiple filters union their sets together.")
-        self.samplesincluded_comboBox.update_line_edit()
-        self.filterselection_comboBox.update_line_edit()
-        self.groupedfilter_comboBox.update_line_edit()
+            "Additional filters to filter the samples, multiple filters are combined with OR.")
 
-        if self.selectionscope_comboBox.currentText() == 'Samples':
-            self.samplesincluded_comboBox.update_line_edit()
-        elif self.selectionscope_comboBox.currentText() == 'Filter Groups':
+        if self.selectionscope_comboBox.currentText() == 'Filter Groups':
             self.step_2_label.hide()
             self.samplesincluded_comboBox.hide()
             self.samplesincluded_comboBox: CheckableComboBox
-            self.samplesincluded_comboBox
             self.samples_model.clear_checks()
             self.checked_sample_list = []
 
             self.filters_label.setText("Select Filters:")
             self.filters_label.setToolTip("")
             self.update_table_view()
+        logger_setup.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
 
     def tab_changed(self):
         """Method to update the table view when a tab/worksheet is changed or switched by the user. QTabWidgets
@@ -1109,7 +1197,8 @@ class ExportWidget(QWidget):
         tab widget is the new tab.
         :param previous_worksheet: The name of the previous worksheet, if any. If None, use the current worksheet.
         """
-
+        if self.exportformat_comboBox.currentText() != 'Custom':
+            return
         current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
         checkbox_states = {}
 
@@ -1258,49 +1347,99 @@ class ExportWidget(QWidget):
 
     def refresh_button(self):
         """
-        Method to force a refresh of the table view.
+        Method to force a refresh of the dropdowns and table view.
         """
         logger_setup.get_logger().info('Refresh Button Clicked')
-        self.update_table_view()
+        self.samples_model = CheckableSqlQueryModel()
+        self.samples_proxy = ReadableProxyModel()
+
+        self.filter_model = CheckableSqlTableModel()
+        self.filter_proxy = ReadableProxyModel()
+
+        self.groupedfilter_model = CheckableSqlTableModel()
+        self.groupedfilter_proxy = ReadableProxyModel()
+        self.showEvent(None)
 
     def showEvent(self, a0):
         """Overridden showEvent to repopulate the table models when the widget is shown. This occurs mainly when
         the tabs are switched so if samples, filters are modified, the models are updated."""
 
-        self.samples_model = CheckableSqlTableModel()
-        self.samples_model = self.set_table(self.samples_model, 'Samples')
-        self.samples_proxy = ReadableProxyModel()
+        if self.samples_model.tableName():
+            # if the samples model is already set, then do not set it again
+            return
+
+        logger_setup.get_logger().info('Populating ExportWidget with data from the database')
+        start_show_time = time.time()
+        show_loading_dialog('Loading', 'Loading data for export...')
+        self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
+
+        query = QSqlQuery(db=self.database)
+        # Get a count of the number of samples in the database
+        query.prepare('SELECT COUNT(*) FROM Samples')
+        if not query.exec():
+            logger_setup.get_logger().critical('Could not count samples in the database')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            close_loading_dialog('Loading', 'Loading data for export...')
+            return
+        if not query.next():
+            logger_setup.get_logger().critical('Could not get sample count from database')
+            close_loading_dialog('Loading', 'Loading data for export...')
+            return
+        self.sample_count = query.value(0)
+        logger_setup.get_logger().info(f'Found {self.sample_count} samples in the database')
+
+        sample_name_query = f'SELECT SampleID, SampleName FROM Samples ORDER BY SampleName LIMIT 1000'
+        self.samples_model.setQuery(sample_name_query)
         self.samples_proxy.setSourceModel(self.samples_model)
+        self.samplesincluded_comboBox.setModel(self.samples_proxy)
         self.samples_model.check_ids_from_list(self.checked_sample_list)
 
-        self.filter_model = CheckableSqlTableModel()
+        # self.samples_model.dataChanged.connect(self.update_table_view)
+
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
-        self.filter_proxy = ReadableProxyModel()
         self.filter_proxy.setSourceModel(self.filter_model)
         self.filterselection_comboBox.setModel(self.filter_proxy)
         self.filter_model.check_ids_from_list(self.checked_filter_list)
 
-        # self.filter_model.dataChanged.connect(lambda: self.update_filter_list(self.filter_model))
+        # self.filter_model.dataChanged.connect(self.update_table_view)
 
-        self.groupedfilter_model = CheckableSqlTableModel()
         self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
-        self.groupedfilter_proxy = ReadableProxyModel()
         self.groupedfilter_proxy.setSourceModel(self.groupedfilter_model)
         self.groupedfilter_comboBox.setModel(self.groupedfilter_proxy)
         self.groupedfilter_model.check_ids_from_list(self.checked_grouped_filter_list)
 
-        # self.groupedfilter_model.dataChanged.connect(lambda: self.update_groupedfilter_list(self.groupedfilter_model))
 
+
+        # self.groupedfilter_model.dataChanged.connect(self.update_table_view)
+
+        self.export_format()
         self.update_step_2_list()
+        self.populate_stack()
+
+        self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
+        self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
+        self.samplesincluded_comboBox.closing.connect(self.update_table_view)
+        self.filterselection_comboBox.closing.connect(self.update_table_view)
+        self.groupedfilter_comboBox.closing.connect(self.update_table_view)
+        self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
+
+        self.samplesincluded_comboBox.clearEditText()
 
         super().showEvent(a0)
 
         self.update_table_view()
+        close_loading_dialog('Loading', 'Loading data for export...')
+        logger_setup.get_logger().info(f'ExportWidget populated in {time.time() - start_show_time:.2f} seconds')
+        if self.sample_count > 1000:
+            QMessageBox.warning(self, "Large Dataset Warning",
+                                "The database is large, so use filters to select data for export."
+                                )
 
     def export_button(self):
         """Method to export the generated tableView and SQL code to a given format. Based on the exportformat_comboBox's
          current index. This method is called when the export_puhsbutton is clicked."""
-
+        show_loading_dialog('Export', 'Exporting data...')
         if self.exportformat_comboBox.currentText() == 'Database':
             self.export_to_datbase()
         else:
@@ -1308,6 +1447,7 @@ class ExportWidget(QWidget):
                 self.export_to_excel()
             elif self.fileformat_comboBox.currentText() == 'Comma-Separated Value (.csv)':
                 self.export_to_csv()
+        close_loading_dialog('Export', 'Exporting data...')
 
 
     def export_to_datbase(self):

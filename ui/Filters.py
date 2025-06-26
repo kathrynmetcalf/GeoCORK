@@ -250,14 +250,11 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         if isinstance(operator_sql, list):
             raise NotImplementedError("Range operators on tree tables not yet supported")
         elif "NULL" in operator_sql or "LIKE" in operator_sql:
-            where = f"{table}.{meta['name_column']} {operator_sql}"
-            t_where = f"t.{meta['name_column']} {operator_sql}"
+            where = f"{table}.{meta['name_column']} {operator_sql.replace('NOT ','')}"
         elif '!=' in operator_sql:
             where = f"{table}.{meta['name_column']} = '{value}'"
-            t_where = f"t.{meta['name_column']} = '{value}'"
         else:
             where = f"{table}.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
-            t_where = f"t.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
 
         # Increment per‑field counter so CTE names stay unique per query
         recursive_tables[field_key] += 1
@@ -272,14 +269,14 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             SELECT t.{meta['id_column']}
               FROM {table} t
               JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
-              WHERE {t_where}
         )""".strip()
 
         # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
-        exists_sql = f"""{'NOT ' if operator_sql=='!=' else ''}EXISTS (
+        exists_sql = f"""{'NOT ' if (operator_sql=='!=' or 'NOT' in operator_sql) else ''}EXISTS (
             SELECT 1
-              FROM {cte_name}
-             WHERE {cte_name}.{meta['bridge_to_column']} = {table}.{meta["id_column"]}
+              FROM {meta['bridge_table']}
+              JOIN {cte_name} ON {meta['bridge_table']}.{meta['bridge_to_column']} = {cte_name}.{meta['bridge_to_column']}
+             WHERE {meta['bridge_table']}.{meta['bridge_from_column']} = {meta['bridge_table'].split('_')[0]}.{meta['bridge_from_column']}
         )"""
 
         return exists_sql, [cte_sql], field_key
