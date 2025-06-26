@@ -795,7 +795,7 @@ class CheckableSqlTableModel(DisplayRoundedModel):
 
         for row in range(self.rowCount()):
             index = self.index(row, name_col)
-            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.CheckStateRole])
+            self.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
         if self.checked_ids or self.partially_checked_ids:
             logger_setup.get_logger().critical(f'Error resetting {self.tableName()} checks')
             logger_setup.get_logger().debug(
@@ -937,7 +937,7 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
 
         for row in range(self.rowCount()):
             index = self.index(row, name_col)
-            self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.CheckStateRole])
+            self.setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
         if self.checked_ids or self.partially_checked_ids:
             logger_setup.get_logger().critical(f'Error resetting {self.tableName()} checks')
             logger_setup.get_logger().debug(

@@ -1970,9 +1970,9 @@ class EditView(QtW.QDialog):
         if len(self.model.edited_indexes) > 0:
             self.updated = True
         if self.updated:
-            self.msg.question(self, 'Discard changes', 'Are you sure you want to discard all changes?',QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-            self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-            response = self.msg.exec()
+            response = self.msg.question(self, 'Discard changes', 'Are you sure you want to discard all changes?',
+                                         QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No,
+                                         QtW.QMessageBox.StandardButton.No)
             if response == QtW.QMessageBox.StandardButton.Yes:
                 self.rollback()
             else:
