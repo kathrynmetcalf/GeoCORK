@@ -432,13 +432,14 @@ def Puetz_importer():
     # Add the column information to sample_sql_df
     column_names_df = pd.DataFrame.from_dict(column_dict, orient='index')
     column_names_df.reset_index(inplace=True)
-    column_names_df.rename(columns={'index': 'OriginalColumnName', 0: 'ColumnName', 1: 'Height_Depth', 2: 'Height_Depth_UnitID'}, inplace=True)
+    column_names_df.rename(columns={'index': 'OriginalColumnName', 0: 'ColumnName', 1: 'Height_Depth', 2: 'Height_Depth_Error', 3: 'Height_Depth_UnitID'}, inplace=True)
 
     merged_columns_df = sample_df.merge(column_names_df, left_on=['Column'], right_on=['OriginalColumnName'], how='left')
     merged_columns_df = merged_columns_df.merge(column_sql_df, left_on=['ColumnName'], right_on=['ColumnName'], how='left')
 
     sample_sql_df['SampleColumnID'] = pd.Series(merged_columns_df['ColumnID'], dtype=pd.Int64Dtype())
     sample_sql_df['HeightDepth'] = merged_columns_df['Height_Depth']
+    sample_sql_df['HeightDepthError'] = merged_columns_df['Height_Depth_Error']
     sample_sql_df['HeightDepthUnitID'] = pd.Series(merged_columns_df['Height_Depth_UnitID'], dtype=pd.Int64Dtype())
 
     print(f'Imported {column_sql_df.shape[0]} columns')
