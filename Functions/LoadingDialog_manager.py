@@ -51,7 +51,7 @@ class LoadingDialogManager:
         self.dialog = QtW.QDialog()
         # Show the most recent title and message
         self.dialog.setWindowTitle(self.titles[-1])
-        self.dialog.setFixedSize(QSize(250, 75))
+        self.dialog.setMinimumSize(QSize(250, 75))
         self.layout = QtW.QHBoxLayout(self.dialog)
         self.layout.setContentsMargins(0, 0, 0, 0)
         self.layout.setSpacing(0)
@@ -61,8 +61,8 @@ class LoadingDialogManager:
         self.layout.addWidget(self.messageLabel, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.dialog.setWindowFlags(QtC.Qt.WindowType.WindowStaysOnTopHint)
-        self.dialog.adjustSize()
         self.dialog.show()
+        self.dialog.adjustSize()
         QtW.QApplication.processEvents()
 
     def update_dialog(self):

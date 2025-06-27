@@ -100,7 +100,8 @@ def default_settings():
         'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
         '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
-        'RejectionReasonName', 'UPbAnalysisContextName', 'UPbReference', 'SampleCreated', 'SampleModified'
+        'RejectionReasonName', 'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'UPbReference', 'SampleCreated',
+        'SampleModified'
     ])
 
     settings.setValue('default_sample_edit_columns', [
@@ -112,7 +113,7 @@ def default_settings():
         'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
         'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
         'ConcordanceFormatAbbreviation', 'SpotSize', 'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference',
-        'UPbAnalysisContextName', 'SampleCreated', 'SampleModified'
+        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'SampleCreated', 'SampleModified'
     ])
 
     settings.setValue('default_aliquot_view_columns', [
@@ -120,7 +121,7 @@ def default_settings():
         'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
-        'UPbAnalysisContextName', 'UPbReference', 'AliquotCreated', 'AliquotModified'
+        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'UPbReference', 'AliquotCreated', 'AliquotModified'
     ])
 
     settings.setValue('default_aliquot_edit_columns', [
@@ -132,7 +133,8 @@ def default_settings():
         'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'SpotCompositionName',
         'SpotContextName', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
-        'Rejected', 'UPbAnalysisContextName', 'RejectionReasonName', 'UPbReference', 'SpotCreated', 'SpotModified'
+        'Rejected', 'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
+        'SpotCreated', 'SpotModified'
     ])
 
     settings.setValue('default_spot_edit_columns', [
@@ -168,7 +170,7 @@ def default_settings():
         '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAgeFilled"',
         '"CalculatedBestAgeErrorFilled"',
         '"CalculatedSpotSize"', '"CalculatedConcordance"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
+        'UPbAgeInterpretationName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
 
     settings.setValue('default_upb_analysis_edit_columns', [
@@ -191,7 +193,7 @@ def default_settings():
         '"BestAge"', '"BestAgeError"', '"BestAgeFilled"', '"BestAgeErrorFilled"',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"', 'ConcordanceFormatAbbreviation',
         '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAnalysisCreated', 'UPbAnalysisModified'
+        'UPbAgeInterpretationName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
 
     settings.setValue('default_column_view_columns', [

@@ -24,8 +24,8 @@ qage_range_display = 'NULLIF(COALESCE(OldestDirectAge, " ") || "-" || COALESCE(Y
 qage_unit = 'DirectAgeUnitAbbreviation AS SampleAgeUnitAbbreviation'
 qage_error_format = 'DirectAgeErrorFormatAbbreviation AS SampleAgeErrorFormatAbbreviation'
 qsample_age_constraint = 'REPLACE(GROUP_CONCAT(DISTINCT AgeConstraintName), ",", "; ") AS SampleAgeConstraintName'
-qsample_age_interpretation = 'REPLACE(GROUP_CONCAT(DISTINCT AgeInterpretationName), ",", "; ") AS SampleAgeInterpretationName'
-qsample_age_references = 'GROUP_CONCAT(DISTINCT AgeReferences.ReferenceDisplay) AS SampleAgeReferenceDisplay'
+qsample_age_interpretation = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeInterpretations.AgeInterpretationName), ",", "; ") AS SampleAgeInterpretationName'
+qsample_age_references = 'GROUP_CONCAT(DISTINCT SampleAgeReferences.ReferenceDisplay) AS SampleAgeReferenceDisplay'
 qsample_description = 'Samples.SampleDescription AS SampleDescription'
 qage_signature = 'REPLACE(GROUP_CONCAT(DISTINCT AgeSignatureName), ",", "; ") AS SampleAgeSignatureName'
 qregions = 'REPLACE(GROUP_CONCAT(DISTINCT RegionName), ",", "; ") AS RegionName'
@@ -223,7 +223,7 @@ qupb_calc_best_age = 'UPbAnalyses."CalculatedBestAge" AS "CalculatedBestAge"'
 qupb_calc_best_age_error = 'UPbAnalyses."CalculatedBestAgeError" AS "CalculatedBestAgeError"'
 qupb_age_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS AgeErrorFormatAbbreviation'
 qupb_age_units = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation), ",", "; ") AS AgeUnitAbbreviation'
-qupb_age_interpretations = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInterpretationName), ",", "; ") AS AgeInterpretationName'
+qupb_age_interpretations = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInterpretationName), ",", "; ") AS UPbAgeInterpretationName'
 qupb_concordance = 'UPbAnalyses.Concordance AS Concordance'
 qupb_calc_concordance = 'UPbAnalyses."CalculatedConcordance" AS "CalculatedConcordance"'
 qconcordance_formats = 'REPLACE(GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation), ",", "; ") AS ConcordanceFormatAbbreviation'
@@ -260,9 +260,9 @@ sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON Sa
 sampleage_age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID = SampleAges_AgeConstraints.SampleAgeID
                         LEFT JOIN AgeConstraints ON SampleAges_AgeConstraints.AgeConstraintID = AgeConstraints.AgeConstraintID'''
 sampleage_age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID = SampleAges_AgeInterpretations.SampleAgeID
-                        LEFT JOIN AgeInterpretations ON SampleAges_AgeInterpretations.AgeInterpretationID = AgeInterpretations.AgeInterpretationID'''
+                        LEFT JOIN AgeInterpretations AS SampleAgeInterpretations ON SampleAges_AgeInterpretations.AgeInterpretationID = SampleAgeInterpretations.AgeInterpretationID'''
 sampleage_age_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID = SampleAges_References.SampleAgeID
-                        LEFT JOIN "References" AS AgeReferences ON SampleAges_References.ReferenceID = AgeReferences.ReferenceID'''
+                        LEFT JOIN "References" AS SampleAgeReferences ON SampleAges_References.ReferenceID = SampleAgeReferences.ReferenceID'''
 
 # GPSLocation joins
 gps_sample_join = '''LEFT JOIN GPSLocations AS GPSLocations ON Samples.SampleGPSLocationID = GPSLocations.GPSLocationID'''
@@ -467,8 +467,8 @@ limited_sample_tags_join = f'''
     LEFT JOIN LimitedSamples_RockTypes lsrt ON ls.SampleID = lsrt.SampleID
     LEFT JOIN LimitedSamples_SampleAges lssa ON ls.DefaultSampleAgeID = lssa.SampleAgeID
     LEFT JOIN LimitedSampleAges_AgeConstraints lsaac ON ls.DefaultSampleAgeID = lsaac.SampleAgeID
-    LEFT JOIN LimitedSampleAges_AgeInterpretations lsaai ON ls.DefaultSampleAgeID = lsaai.SampleAgeID
-    LEFT JOIN LimitedSampleAges_References AS AgeReferences ON ls.DefaultSampleAgeID = AgeReferences.SampleAgeID
+    LEFT JOIN LimitedSampleAges_AgeInterpretations AS SampleAgeInterpretations ON ls.DefaultSampleAgeID = SampleAgeInterpretations.SampleAgeID
+    LEFT JOIN LimitedSampleAges_References AS SampleAgeReferences ON ls.DefaultSampleAgeID = SampleAgeReferences.SampleAgeID
     LEFT JOIN LimitedSamples_SampleContexts lssc ON ls.SampleID = lssc.SampleID
     LEFT JOIN LimitedSamples_SamplingMethods lssm ON ls.SampleID = lssm.SampleID
     LEFT JOIN LimitedSamples_Settings lss ON ls.SampleID = lss.SampleID
@@ -903,7 +903,8 @@ as_table_dict = {
     'DirectAgeErrorFormats': 'ErrorFormats',
     'OldAge': 'Ages',
     'YoungAge': 'Ages',
-    'AgeReferences': 'References',
+    'SampleAgeInterpretations': 'AgeInterpretations',
+    'SampleAgeReferences': 'References',
     'SampleLatDirections': 'DirectionUnits',
     'SampleLonDirections': 'DirectionUnits',
     'SampleElevationUnits': 'DistanceUnits',
@@ -914,7 +915,6 @@ as_table_dict = {
     'ColumnGPSFormats': 'GPSFormats',
     'ColumnHeightDepthUnits': 'DistanceUnits',
     'UPbReferences': 'References',
-    'UPbReferenceView': 'ReferenceView',
     'RatioErrorFormats': 'ErrorFormats',
     'AgeErrorFormats': 'ErrorFormats',
     'UPbAgeUnits': 'AgeUnits',
@@ -1451,6 +1451,9 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
             case 'Columns':
                 if column_join not in join:
                     join += column_join + '\n'
+            case 'DefaultSampleAges':
+                if sample_sampleage_join not in join and default_sample_age_join not in join:
+                    join += default_sample_age_join + '\n'
             case 'LabFacilities':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
@@ -1508,6 +1511,16 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
             case 'SampleAges':
                 if default_sample_age_join not in join and sample_sampleage_join not in join:
                     join += default_sample_age_join + '\n'
+            case 'SampleAgeInterpretations':
+                if default_sample_age_join not in join and sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
+                if sampleage_age_interpretation_join not in join:
+                    join += sampleage_age_interpretation_join + '\n'
+            case 'SampleAgeReferences':
+                if default_sample_age_join not in join and sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
+                if sampleage_age_reference_join not in join:
+                    join += sampleage_age_reference_join + '\n'
             case 'SampleContexts':
                 if sample_context_join not in join:
                     join += sample_context_join + '\n'
@@ -1536,6 +1549,15 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += aliquot_spot_join + '\n'
                 if spot_context_join not in join:
                     join += spot_context_join + '\n'
+            case 'UPbAgeInterpretations':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_upb_analysis_join not in join:
+                    join += spot_upb_analysis_join + '\n'
+                if upb_age_interpretation_join not in join:
+                    join += upb_age_interpretation_join + '\n'
             case 'UPbAnalyses':
                 if sample_aliquot_join not in join:
                     join += sample_aliquot_join + '\n'
@@ -1570,13 +1592,6 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_reference_join not in join:
                     join += upb_reference_join + '\n'
-            case 'UPbReferenceView':
-                if sample_aliquot_join not in join:
-                    join += sample_aliquot_join + '\n'
-                if aliquot_spot_join not in join:
-                    join += aliquot_spot_join + '\n'
-                if spot_upb_analysis_join not in join:
-                    join += spot_upb_analysis_join + '\n'
             case 'Units':
                 if unit_join not in join:
                     join += unit_join + '\n'

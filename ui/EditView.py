@@ -22,7 +22,8 @@ from Functions.Widget_classes import (
     set_table, populate_many_combo_checks, populate_model_checks, delete_data,
     WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
     get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
-    get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel
+    get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel, populate_tree_model_checks,
+    column_as_list
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -216,7 +217,8 @@ class EditView(QtW.QDialog):
 
         self.parent_id: int = None
         self.parent_type: str = None
-        self.table_item_ids: list = None
+        self.set_table_item_ids: list = None
+        self.table_item_ids: list = []
         for key, value in kwargs.items():
             setattr(self, key, value)
         if isinstance(self.parent_id, str):
@@ -284,6 +286,7 @@ class EditView(QtW.QDialog):
     def create_model(self):
         name_column = get_name_column(self.table)
         id_header = get_headers(self.table)[0]
+        self.table_item_ids = []
         if name_column is not None:
             self.name_header = get_headers(self.table)[name_column]
         if self.table in SQLUtils.trigger_tables:
@@ -307,11 +310,12 @@ class EditView(QtW.QDialog):
         elif self.table == 'References':
             self.show_cols = settings.value('reference_view_columns')
             self.add_pushButton.clicked.connect(self.add_popup)
-        if self.table_item_ids is not None:
-            if len(self.table_item_ids) == 1:
-                sql_where_str = f'= {self.table_item_ids[0]}'
+        if self.set_table_item_ids is not None:
+            self.table_item_ids = self.set_table_item_ids
+            if len(self.set_table_item_ids) == 1:
+                sql_where_str = f'= {self.set_table_item_ids[0]}'
             else:
-                sql_where_str = f'IN {tuple(self.table_item_ids)}'
+                sql_where_str = f'IN {tuple(self.set_table_item_ids)}'
             if self.where == '':
                 self.where = f' WHERE {id_header} {sql_where_str}'
             else:
@@ -323,6 +327,11 @@ class EditView(QtW.QDialog):
         if self.model.last_error is not None:
             logger_setup.get_logger().critical(f'Error displaying {self.table}.')
             return
+        if not self.table_item_ids:
+            query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
+            view_query = ViewQuery(self.table, True, **query_args)
+            table_query = view_query.table_query
+            self.table_item_ids = column_as_list(table_query, 0)
         self.model.set_table(self.table)
         self.display_table()
 
@@ -414,14 +423,15 @@ class EditView(QtW.QDialog):
                     QMessageBox.information(self, 'Record Found', 'Record already displayed')
                 else:
                     self.current_page = new_page
+                    self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
                     self.create_model()
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
         except Exception as e:
             logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
-        self.goto_line_edit.clear()
-        self.goto_line_edit.setText(self.goto_line_edit.placeholderText())
+        # self.goto_line_edit.clear()
+        # self.goto_line_edit.setText(self.goto_line_edit.placeholderText())
 
     def eventFilter(self, object, event):
         if event.type() in (
@@ -879,7 +889,7 @@ class EditView(QtW.QDialog):
                 self.combo_proxy = self.combo.model()
                 self.combo_tree_model = find_tree_model(self.combo_proxy, None)[0]
                 if self.combo_tree_model:
-                    self.combo_model = self.combo_tree_model.sourceModel()
+                    self.combo_model = self.combo_tree_model
             elif isinstance(self.combo.model(), QSortFilterProxyModel):
                 self.combo_proxy = self.combo.model()
                 self.combo_model = self.combo_proxy.sourceModel()
@@ -903,8 +913,11 @@ class EditView(QtW.QDialog):
                 populate_many_combo_checks(edit_table, self.combo, edit_ids)
                 self.combo.single_click = False
             else:
-                if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel | CheckableTreeModel):
+                if isinstance(self.combo_model, CheckableSqlTableModel | CheckableSqlQueryModel):
                     populate_model_checks(self.combo_model, edit_ids, edit_table)
+                    self.combo.single_click = True
+                elif isinstance(self.combo_model, CheckableTreeModel):
+                    populate_tree_model_checks(self.combo_model, edit_ids, edit_table)
                     self.combo.single_click = True
         if not self.combo_index.isValid():
             selected_text = model_indexes[0].data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -1202,7 +1215,6 @@ class EditView(QtW.QDialog):
         create_savepoint('before_update_chain')
         if self.table == 'UPbAnalyses':
             if self.dropdown_table == 'Samples':
-                self.table_item_ids
                 sample_name = self.combo.currentText()
                 sample_id = get_id_from_name('Samples', sample_name)
                 if not sample_id:

@@ -65,11 +65,22 @@ class DataViewerWidget(QWidget):
         self.refresh_pushButton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
         self.refresh_pushButton.clicked.connect(self.data_table_switcher)
         self.refresh_pushButton_2.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
-        self.refresh_pushButton_2.clicked.connect(self.display_table_with_data_filter)
+        self.refresh_pushButton_2.clicked.connect(self.data_filter_table_switcher)
 
         # Remove Samples from user-viewable tables
         items = SQLUtils.user_viewable_tables.copy()
+        # Samples can be shown on the left side, but not on the right side
         items.remove('Samples')
+        # Remove ambiguous tables
+        items.remove('References')
+        items.remove('AgeInterpretations')
+        items.remove('Ages')
+        # Add specific table relations
+        items.append('SampleAgeReferences')
+        items.append('SampleAgeInterpretations')
+        items.append('UPbReferences')
+        items.append('UPbAgeInterpretations')
+        items.sort()
         self.dbTable_comboBox_2.addItems(items)
         self.dbTable_comboBox_2.setCurrentText(self.data_filtered_table)
 
@@ -79,7 +90,7 @@ class DataViewerWidget(QWidget):
         self.dbTable_comboBox.currentTextChanged.connect(self.data_table_switcher)
 
         # Display filtered table for the first time
-        self.dbTable_comboBox_2.currentTextChanged.connect(self.display_table_with_data_filter)
+        self.dbTable_comboBox_2.currentTextChanged.connect(self.data_filter_table_switcher)
 
         self.dbTable_tableView_2.doubleClicked.connect(self.open_doi_link)
         # Pagination variables
@@ -115,8 +126,9 @@ class DataViewerWidget(QWidget):
 
         self.selectionTimer = QTimer()
         self.selectionTimer.setSingleShot(True)
-        self.selectionTimer.timeout.connect(self.display_table_with_data_filter)
-        self.display_data_table()
+        self.selectionTimer.timeout.connect(self.data_filter_table_switcher)
+        self.data_table_switcher()
+        # self.display_data_table()
 
         self.show()
         end_time = time.time()
@@ -146,6 +158,8 @@ class DataViewerWidget(QWidget):
     def data_table_switcher(self):
         new_table = self.dbTable_comboBox.currentText()
         filtered_ids = self.query_builder.get_filtered_ids(new_table)
+        self.goto_line_edit.setCompleter(None)
+        self.goto_line_edit_2.setCompleter(None)
         if filtered_ids is None:
             logger_setup.get_logger().error(
                 f'No matching {new_table} for given filter(s)')
@@ -153,12 +167,32 @@ class DataViewerWidget(QWidget):
             return
         else:
             if len(set(filtered_ids)) > 1000:
-                if not self.view_many_results(len(set(filtered_ids))):
-                    return
+                if self.data_table_model:
+                    # Only prompt if the model is already set to prevent unnecessary prompts
+                    if not self.view_many_results(len(set(filtered_ids))):
+                        return
             self.setWindowTitle(f'Filtered {self.data_table} View')
             self.data_table = new_table
             self.data_ids_to_show = set(filtered_ids)
+            if self.data_table != 'Aliquots':
+                self.switch_to_table(self.db_stackedWidget)
+            else:
+                self.switch_to_tree(self.db_stackedWidget)
             self.display_data_table()
+
+    def data_filter_table_switcher(self):
+        table = self.dbTable_comboBox_2.currentText()
+        if table in SQLUtils.as_table_dict.keys():
+            table = SQLUtils.as_table_dict[table]
+        if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+            self.switch_to_tree_2(self.db_stackedWidget_2)
+        elif table in SQLUtils.user_viewable_tables or table in SQLUtils.conditionally_editable_tables:
+            self.switch_to_table_2(self.db_stackedWidget_2)
+        else:
+            logger_setup.get_logger().critical(
+            f"Error {self.data_filtered_table}: Tried to switch to a table with no table or tree..Don't know how it got here")
+        self.goto_line_edit_2.setCompleter(None)
+        self.display_table_with_data_filter()
 
     def view_many_results(self, number: int) -> bool:
         """
@@ -169,7 +203,7 @@ class DataViewerWidget(QWidget):
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle('Many results')
-        msg.setText(f'Would you like to view {number} results? This may take a while to load.')
+        msg.setText(f'Would you like to view {number} {self.data_table}? This may take a while to load.')
         msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         msg.setDefaultButton(QMessageBox.StandardButton.Yes)
         reply = msg.exec()
@@ -187,12 +221,11 @@ class DataViewerWidget(QWidget):
             logger_setup.get_logger().info(f'No table selected to display')
             return
 
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.data_table}...')
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying {len(self.data_ids_to_show)} {self.data_table}...')
         self.data_table_model = None
         self.data_table_proxy_model = None
 
         if self.data_table != 'Aliquots':
-            self.switch_to_table(self.db_stackedWidget)
             self.total_records_1 = self.get_total_records_1()
             offset = self.current_page_1 * self.rows_per_page_1
 
@@ -261,7 +294,6 @@ class DataViewerWidget(QWidget):
                 logger_setup.get_logger().critical(f"Error {self.data_table}: Tried to display a table as a tree...")
                 return
             table = 'Aliquots'
-            self.switch_to_tree(self.db_stackedWidget)
             # Get the sample IDs for these aliquots, then apply a filter to show only the aliquot IDs in data_ids_to_show
             # Otherwise, the tree structure is not maintained
             show_cols = settings.value('aliquot_view_columns')
@@ -318,7 +350,7 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
             self.dbTable_tableView.selectAll()
 
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.data_table}...')
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {len(self.data_ids_to_show)} {self.data_table}...')
 
     def on_select_changed(self):
         """
@@ -333,6 +365,7 @@ class DataViewerWidget(QWidget):
         Displays the selected table
         :return:
         """
+        self.loading_manager.show_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
         if self.data_table == 'Aliquots':
             data_filter = self.dbTable_treeView
         else:
@@ -355,7 +388,7 @@ class DataViewerWidget(QWidget):
         else:
             self.edit_pushButton_2.show()
         show_cols = ['*']
-        if self.data_filtered_table == "References":
+        if self.data_filtered_table == "References" or "References" in self.data_filtered_table:
             show_cols = settings.value('reference_view_columns')
         elif self.data_filtered_table == 'Columns':
             show_cols = settings.value('column_view_columns')
@@ -395,14 +428,10 @@ class DataViewerWidget(QWidget):
         # `selected_data_filter_ids` now contains ONLY the IDs the user selected
 
         if self.data_filtered_table in SQLUtils.as_table_dict.values():
-            if SQLUtils.as_table_dict['UPbReferences'] == self.data_filtered_table:
-                # Use UPbReferences instead of AgeReferences
-                as_table = 'UPbReferences'
-            else:
-                for key, value in SQLUtils.as_table_dict.items():
-                    if value == self.data_filtered_table:
-                        as_table = key
-                        break
+            for key, value in SQLUtils.as_table_dict.items():
+                if value == self.data_filtered_table:
+                    as_table = key
+                    break
         else:
             as_table = self.data_filtered_table
 
@@ -458,7 +487,7 @@ class DataViewerWidget(QWidget):
             while query.next():  # Iterate through all results
                 row_id = query.value(0)
                 if row_id is not None and row_id != '':
-                    self.data_filtered_ids_to_show.add(str(row_id))
+                    self.data_filtered_ids_to_show.add(row_id)
         else:
             logger_setup.get_logger().critical(
                 f'Error in displaying table with selection-based filter')
@@ -476,9 +505,12 @@ class DataViewerWidget(QWidget):
         except:
             pass
 
+        # Now that we have the data_filtered_ids_to_show, we can display the filtered table. If the table was renamed
+        # when joining to Samples, we need to use the original table name
+        if self.data_filtered_table in SQLUtils.as_table_dict.keys():
+            self.data_filtered_table = SQLUtils.as_table_dict[self.data_filtered_table]
         sql_columns = ', '.join(f'"{self.data_filtered_table}".{column}' for column in show_cols)
         if self.data_filtered_table in SQLUtils.user_viewable_trees:
-            self.switch_to_tree_2(self.db_stackedWidget_2)
             id_col_name = get_headers(self.data_filtered_table)[0]
             where_sql = f"""{id_col_name} IN (WITH RECURSIVE ParentTree AS
                                         (SELECT {', '.join(show_cols)} FROM {self.data_filtered_table}
@@ -517,14 +549,17 @@ class DataViewerWidget(QWidget):
             self.edit_pushButton_2.clicked.connect(
                 lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, tree_proxy_model,
                                         self.dbTable_comboBox_2))
+            logger_setup.get_logger().info(
+                f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
 
         elif self.data_filtered_table in SQLUtils.user_viewable_tables:
-            self.switch_to_table_2(self.db_stackedWidget_2)
+            self.set_go_to_completer(self.goto_line_edit_2, get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)], self.data_filtered_table)
+            self.total_records_2 = self.get_total_records_2(self.dbTable_comboBox_2)
             offset = self.current_page_2 * self.rows_per_page_2
             if self.data_filtered_table == 'Columns' or self.data_filtered_table == 'References':
                 show_cols = settings.value(SQLUtils.view_setting_dict[get_view_from_table(self.data_filtered_table)])
                 where = f'WHERE {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}'
-                order_col = get_headers(self.data_filtered_table)[0]
+                order_col = get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)]
                 limit = f'LIMIT {self.rows_per_page_2} OFFSET {offset}'
                 query_args = {'show_cols': show_cols, 'where': where, 'order_col': order_col, 'limit': limit}
                 view_query = ViewQuery(self.data_filtered_table, False, **query_args)
@@ -533,7 +568,8 @@ class DataViewerWidget(QWidget):
                 query_columns = '*'
                 sql_query = f"""SELECT {query_columns} FROM "{self.data_filtered_table}" WHERE 
                                         {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}
-                                        ORDER BY {get_headers(self.data_filtered_table)[0]} LIMIT {self.rows_per_page_2} OFFSET {offset}"""
+                                        ORDER BY {get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)]} 
+                                        LIMIT {self.rows_per_page_2} OFFSET {offset}"""
 
             self.data_filtered_table_model = SQLiteTableModel(sql_query)
             if self.data_filtered_table_model.last_error:
@@ -555,6 +591,8 @@ class DataViewerWidget(QWidget):
             self.dbTable_tableView_2.setSortingEnabled(True)
             self.dbTable_tableView_2.setEditTriggers(QtW.QAbstractItemView.EditTrigger.NoEditTriggers)
             self.data_filtered_table_proxy_model.sort(get_name_column(get_view_from_table(table)), QtC.Qt.SortOrder.AscendingOrder)
+            self.dbTable_tableView_2.setSizeAdjustPolicy(
+                QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
 
             self.search_lineEdit_2.returnPressed.connect(
                 lambda: self.search(self.search_lineEdit_2, self.data_filtered_table_proxy_model))
@@ -562,14 +600,22 @@ class DataViewerWidget(QWidget):
                 lambda: self.edit_popup(self.dbTable_tableView_2, self.dbTable_treeView_2, self.data_filtered_table_proxy_model,
                                         self.dbTable_comboBox_2))
 
-            logger_setup.get_logger().info('Sucessfully displayed table with selection-based filter')
-        else:
-            logger_setup.get_logger().critical(
-                f"Error {self.data_filtered_table}: Tried to switch to a table with no table or tree..Don't know how it got here")
+            # Update page info label
+            start_record = offset + 1
+            end_record = min(offset + self.rows_per_page_2, self.total_records_2)
+            self.page_info_label_2.setText(
+                f"Showing records {start_record} - {end_record} of {self.total_records_2}")
+
+            logger_setup.get_logger().info(f'Sucessfully displayed {self.data_filtered_table} with selection-based filter')
+
+
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
 
     def edit_popup(self, dbTable_tableView, dbTable_treeView, tree_proxy_model, dbTable_comboBox):
         dbTable_comboBox: QComboBox
         table_name = dbTable_comboBox.currentText()
+        if table_name in SQLUtils.as_table_dict.keys():
+            table_name = SQLUtils.as_table_dict[table_name]
         table = TxM.remove_spaces(table_name)
         view_tables = ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Columns', 'References']
         if table_name in view_tables:
@@ -693,41 +739,17 @@ class DataViewerWidget(QWidget):
 
     def set_go_to_completer(self, lineedit: QLineEdit, name_header, table):
         # Populate the value input with a completer based on the selected attribute
+        if lineedit.completer():
+            return
         name_completer = QCompleter(parent=lineedit)
-        query = QSqlQuery()
-        match self.data_table:
-            case 'Samples':
-                show_cols = settings.value('sample_view_columns')
-                query_args = {'show_columns': [f'DISTINCT {name_header}'],
-                              'where': f'WHERE {show_cols[0]} {self.sql_data_ids_to_show}'}
-                view_query = ViewQuery(self.data_table, False, **query_args)
-                sql_query = view_query.table_query
-            case 'Spots':
-                show_cols = settings.value('spot_view_columns')
-                query_args = {'show_columns': [f'DISTINCT {name_header}'],
-                              'where': f'WHERE {show_cols[0]} {self.sql_data_ids_to_show}'}
-                view_query = ViewQuery(self.data_table, False, **query_args)
-                sql_query = view_query.table_query
-            case 'UPbAnalyses':
-                show_cols = settings.value('upb_analysis_view_columns')
-                query_args = {'show_columns': [f'DISTINCT {name_header}'],
-                              'where': f'WHERE {show_cols[0]} {self.sql_data_ids_to_show}'}
-                view_query = ViewQuery(self.data_table, False, **query_args)
-                sql_query = view_query.table_query
-            case '"References"':
-                show_cols = settings.value('reference_view_columns')
-                query_args = {'show_columns': [f'DISTINCT {name_header}'],
-                              'where': f'WHERE {show_cols[0]} {self.sql_data_ids_to_show}'}
-                view_query = ViewQuery(self.data_table, False, **query_args)
-                sql_query = view_query.table_query
-            case 'Columns':
-                show_cols = settings.value('column_view_columns')
-                query_args = {'show_columns': [f'DISTINCT {name_header}'],
-                              'where': f'WHERE {show_cols[0]} {self.sql_data_ids_to_show}'}
-                view_query = ViewQuery(self.data_table, False, **query_args)
-                sql_query = view_query.table_query
-            case _:
-                sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {self.sql_data_ids_to_show}'
+        if lineedit == self.goto_line_edit:
+            ids = self.sql_data_ids_to_show
+        elif lineedit == self.goto_line_edit_2:
+            ids = self.sql_data_filtered_ids_to_show
+        else:
+            logger_setup.get_logger().info('Unknown lineedit for completer')
+            return
+        sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {ids}'
 
         all_names = column_as_list(sql_query, name_header)
         if not all_names:
@@ -845,9 +867,13 @@ class DataViewerWidget(QWidget):
 
             else:
                 logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit.text()}")
+                return
         except Exception as e:
             logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
+            return
+
+        logger_setup.get_logger().info(f'Gone to record: {record_name} in {self.data_table}')
 
     def go_to_record_2(self):
         """
@@ -857,11 +883,15 @@ class DataViewerWidget(QWidget):
             record_name = self.goto_line_edit_2.text()
             if record_name == "":
                 return
-            record_id = get_id_from_name(self.dbTable_comboBox_2.currentText(), record_name)
+            name_header = get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)]
+            record_id = get_id_from_name(self.data_filtered_table, record_name)
             if not record_id:
                 logger_setup.get_logger().error(f'Could not find record name: {record_name}')
                 return
-            index = get_record_index(self.dbTable_comboBox_2.currentText(), record_id, self.data_filtered_ids_to_show)
+            table = TxM.remove_spaces(self.dbTable_comboBox_2.currentText())
+            if table in SQLUtils.as_table_dict.keys():
+                table = SQLUtils.as_table_dict[table]
+            index = get_record_index(table, record_id, self.data_filtered_ids_to_show)
 
             if index != -1:
                 new_page = index // self.rows_per_page_2
@@ -870,13 +900,17 @@ class DataViewerWidget(QWidget):
                 else:
                     self.current_page_2 = new_page
                     self.display_table_with_data_filter()
-                self.goto_line_edit_2.setText(self.go_to_line_edit_2.placeholderText())
+                # self.goto_line_edit_2.setText(self.goto_line_edit_2.placeholderText())
 
             else:
-                logger_setup.get_logger().critical(f"Record {self.name_header} not found: {self.goto_line_edit_2.text()}")
+                logger_setup.get_logger().critical(f"{name_header} not found: {self.goto_line_edit_2.text()}")
+                return
         except Exception as e:
-            logger_setup.get_logger().critical(f"Invalid Record {self.name_header}: {self.goto_line_edit_2.text()}")
+            logger_setup.get_logger().critical(f"Invalid Record: {self.goto_line_edit_2.text()}")
             logger_setup.get_logger().debug(f'Error: {e}')
+            return
+
+        logger_setup.get_logger().info(f'Gone to record: {record_name} in {self.data_filtered_table}')
 
     def get_total_records_1(self) -> int:
         """
@@ -906,7 +940,7 @@ class DataViewerWidget(QWidget):
         Get the total number of records in the Samples table
         """
         query = QSqlQuery()
-        sql_query = f"SELECT COUNT(*) FROM {self.data_filtered_table} WHERE {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}"
+        sql_query = f"SELECT COUNT(*) FROM '{self.data_filtered_table}' WHERE {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}"
 
         # Execute the query
         logger_setup.get_logger().info(f'Fetching total records for the table type: {self.data_filtered_table}')
@@ -914,7 +948,7 @@ class DataViewerWidget(QWidget):
             # Handle query execution error
             logger_setup.get_logger().critical(f'Error fetching total records')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().critical(f'SQL command: {sql_query}')
+            logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             return 0
 
         # Fetch the count
@@ -975,6 +1009,8 @@ class DataViewerWidget(QWidget):
         self.prev_button.show()
         self.next_button.show()
         self.goto_line_edit.show()
+        self.goto_line_edit.setText(self.goto_line_edit.placeholderText())
+        self.current_page_1 = 0
 
     def switch_to_tree(self, stacked_widget: QStackedWidget):
         """
@@ -1001,6 +1037,8 @@ class DataViewerWidget(QWidget):
         self.prev_button_2.show()
         self.next_button_2.show()
         self.goto_line_edit_2.show()
+        self.goto_line_edit_2.setText(self.goto_line_edit_2.placeholderText())
+        self.current_page_2 = 0
 
     def switch_to_tree_2(self, stacked_widget: QStackedWidget):
         """

@@ -106,6 +106,7 @@ class ViewQuery:
                         SQLUtils.qspot_size_unit,
                         SQLUtils.qupb_rejection_reasons,
                         SQLUtils.qupb_contexts,
+                        SQLUtils.qupb_age_interpretations,
                         SQLUtils.qupb_references,
                         SQLUtils.qsample_created,
                         SQLUtils.qsample_modified]
@@ -162,6 +163,7 @@ class ViewQuery:
                        {SQLUtils.upb_age_error_format_join}
                        {SQLUtils.upb_age_unit_join}
                        {SQLUtils.upb_concordance_format_join}
+                       {SQLUtils.upb_age_interpretation_join}
                        {SQLUtils.upb_spot_size_unit_join}
                         {self.query_where}
                         {self.group_by}
@@ -228,6 +230,8 @@ class ViewQuery:
                         SQLUtils.qspot_size,
                         SQLUtils.qspot_size_unit,
                         SQLUtils.qupb_rejection_reasons,
+                        SQLUtils.qupb_contexts,
+                        SQLUtils.qupb_age_interpretations,
                         SQLUtils.qupb_references,
                         SQLUtils.qsample_created,
                         SQLUtils.qsample_modified]
@@ -280,6 +284,8 @@ class ViewQuery:
                     {SQLUtils.upb_age_error_format_join}
                     {SQLUtils.upb_age_unit_join}
                     {SQLUtils.upb_concordance_format_join}
+                    {SQLUtils.upb_context_join}
+                    {SQLUtils.upb_age_interpretation_join}
                     {SQLUtils.upb_spot_size_unit_join}
                     {self.query_where}
                     {self.group_by}
@@ -327,6 +333,7 @@ class ViewQuery:
                         SQLUtils.qspot_sizes,
                         SQLUtils.qupb_rejection_reasons,
                         SQLUtils.qupb_contexts,
+                        SQLUtils.qupb_age_interpretations,
                         SQLUtils.qupb_references,
                         SQLUtils.qaliquot_created,
                         SQLUtils.qaliquot_modified]
@@ -368,6 +375,8 @@ class ViewQuery:
                     {SQLUtils.upb_age_error_format_join}
                     {SQLUtils.upb_age_unit_join}
                     {SQLUtils.upb_concordance_format_join}
+                    {SQLUtils.upb_context_join}
+                    {SQLUtils.upb_age_interpretation_join}
                     {SQLUtils.upb_spot_size_unit_join}
                     {self.query_where}
                     {self.group_by}
@@ -452,6 +461,10 @@ class ViewQuery:
                         SQLUtils.qsample_name,
                         SQLUtils.qspot_composition,
                         SQLUtils.qspot_contexts,
+                        SQLUtils.qupb_rejection_reasons,
+                        SQLUtils.qupb_contexts,
+                        SQLUtils.qupb_age_interpretations,
+                        SQLUtils.qupb_references,
                         SQLUtils.qspot_created,
                         SQLUtils.qspot_modified]
 
@@ -483,6 +496,8 @@ class ViewQuery:
                     {SQLUtils.upb_age_error_format_join}
                     {SQLUtils.upb_age_unit_join}
                     {SQLUtils.upb_concordance_format_join}
+                    {SQLUtils.upb_context_join}
+                    {SQLUtils.upb_age_interpretation_join}
                     {SQLUtils.upb_spot_size_unit_join}
                     {self.query_where}
                     {self.group_by}
@@ -600,6 +615,7 @@ class ViewQuery:
         query_columns2 = [SQLUtils.qupb_rejected,
                         SQLUtils.qupb_rejection_reasons,
                         SQLUtils.qupb_contexts,
+                        SQLUtils.qupb_age_interpretations,
                         SQLUtils.qupb_created,
                         SQLUtils.qupb_modified]
 
@@ -629,6 +645,8 @@ class ViewQuery:
                     {SQLUtils.upb_age_error_format_join}
                     {SQLUtils.upb_age_unit_join}
                     {SQLUtils.upb_concordance_format_join}
+                    {SQLUtils.upb_context_join}
+                    {SQLUtils.upb_age_interpretation_join}
                     {SQLUtils.upb_spot_size_unit_join}
                     {self.query_where}
                     {self.group_by}
@@ -692,6 +710,7 @@ class ViewQuery:
                         SQLUtils.qupb_rejected,
                         SQLUtils.qupb_rejection_reasons,
                         SQLUtils.qupb_contexts,
+                        SQLUtils.qupb_age_interpretations,
                         SQLUtils.qupb_created,
                         SQLUtils.qupb_modified]
         query_column_list = query_columns1 + upb_query_columns + query_columns2
@@ -720,6 +739,8 @@ class ViewQuery:
                     {SQLUtils.upb_age_error_format_join}
                     {SQLUtils.upb_age_unit_join}
                     {SQLUtils.upb_concordance_format_join}
+                    {SQLUtils.upb_context_join}
+                    {SQLUtils.upb_age_interpretation_join}
                     {SQLUtils.upb_spot_size_unit_join}
                     {self.query_where}
                     {self.group_by}
