@@ -38,16 +38,16 @@ class LoadingDialogManager:
             # self.timer.start(1)  # Start the timer to show the dialog after  ms
             self.begin()
         else:
-            logger_setup.get_logger().info(f'Updating dialog with title: {title} and message: {message}')
+            # logger_setup.get_logger().info(f'Updating dialog with title: {title} and message: {message}')
             self.dialog.setWindowTitle(self.titles[-1])
             self.messageLabel.setText(self.messages[-1])
             self.update_dialog()
 
     def begin(self):
         if len(self.messages) == 0:
-            logger_setup.get_logger().info('No messages to display, returning')
+            # logger_setup.get_logger().info('No messages to display, returning')
             return
-        logger_setup.get_logger().info(f'{self.messages} for more than 1 second, loading dialog')
+        # logger_setup.get_logger().info(f'{self.messages} for more than 1 second, loading dialog')
         self.dialog = QtW.QDialog()
         # Show the most recent title and message
         self.dialog.setWindowTitle(self.titles[-1])
@@ -67,11 +67,11 @@ class LoadingDialogManager:
 
     def update_dialog(self):
         if self.dialog is not None:
-            logger_setup.get_logger().info('updating dialog')
+            # logger_setup.get_logger().info('updating dialog')
             QtW.QApplication.processEvents()
 
     def close_loading_dialog(self, title: str, message: str):
-        logger_setup.get_logger().info(f'Closing loading dialog with title: {title} and message: {message}')
+        # logger_setup.get_logger().info(f'Closing loading dialog with title: {title} and message: {message}')
         # Check if the dialog exists and has the same title and message
         if len(self.messages) > 0:
             # Remove the title and message from the lists
@@ -80,12 +80,12 @@ class LoadingDialogManager:
                 self.titles.remove(title)
         if self.dialog is not None:
             if len(self.messages) <= 1:
-                logger_setup.get_logger().info('Closing loading dialog')
+                # logger_setup.get_logger().info('Closing loading dialog')
                 # self.timer.stop()
                 self.dialog.close()
                 self.dialog = None
             else:
-                logger_setup.get_logger().info(f'Updating loading dialog with next message: {self.messages[-1]}')
+                # logger_setup.get_logger().info(f'Updating loading dialog with next message: {self.messages[-1]}')
                 # Update the dialog with the next title and message
                 self.dialog.setWindowTitle(self.titles[-1])
                 self.messageLabel.setText(self.messages[-1])

@@ -13,7 +13,8 @@ from Functions.Widget_classes import (
     get_name_column,
     get_view_from_table, CheckableComboBox, CheckableSqlQueryModel, find_tree_model, get_headers, add_tree_popup,
     populate_combo_box, save_expanded_state, restore_expanded_state, SQLiteTableModel, populate_tree_model_checks,
-    FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel, show_loading_dialog, close_loading_dialog
+    FocusGroupBox, DisplayRoundedQueryModel, SampleAgeProxyModel, show_loading_dialog, close_loading_dialog,
+    populate_many_combo_checks
 )
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
@@ -521,9 +522,9 @@ class AgeFields(QtW.QWidget):
         self.youngest_rel_comboBox.treeView.expand_all_checked()
 
         # Age tags
-        self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_comboBox)
-        self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_comboBox)
-        self.populate_checks('SampleAges_References', self.age_reference_comboBox)
+        populate_many_combo_checks('SampleAges_AgeConstraints', self.age_constraint_comboBox, [self.sample_age_id])
+        populate_many_combo_checks('SampleAges_AgeInterpretations', self.age_interpretation_comboBox, [self.sample_age_id])
+        populate_many_combo_checks('SampleAges_References', self.age_reference_comboBox, [self.sample_age_id])
 
         if self.direct_age_groupBox.edited or self.relative_age_groupBox.edited or self.age_information_groupBox.edited:
             self.direct_age_groupBox.reset_edited()
@@ -532,102 +533,6 @@ class AgeFields(QtW.QWidget):
         self.connect_signals()
         end_populate_fields_time = time.time()
         logger_setup.get_logger().info(f"Populated age fields in {end_populate_fields_time - start_populate_fields_time} seconds")
-
-    def populate_checks(self, many_to_many_table: str, combo: QtW.QComboBox):
-        logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
-        start_populate_checks_time = time.time()
-        self.disconnect_signals()
-        many_to_many_model = QtS.QSqlTableModel()
-        many_to_many_model.setTable(many_to_many_table)
-        many_to_many_model.select()
-        tags = []
-        text = ""
-        if isinstance(combo, CheckableTreeCombobox):
-            model, indexes = find_tree_model(combo.model(), None)
-            col = 0  # Name column is always placed in the first column
-            tag_id_header = model.source_model.record().fieldName(0)
-            id_col = 1  # ID column is always placed in the second column
-        else:
-            model = combo.model()
-            col = get_name_column(get_view_from_table(model.tableName()))
-            tag_id_header = model.record().fieldName(0)
-            id_col = 0  # ID column is always in the first column
-        if not self.sample_age_id:
-            logger_setup.get_logger().info("No age selected, so uncheck everything")
-            if isinstance(combo, CheckableTreeCombobox):
-                model.blockSignals(True)
-                # recursively uncheck everything
-                def uncheck_all(model: CheckableTreeModel, index: QtC.QModelIndex):
-                    for row in range(model.rowCount(index)):
-                        model_index = model.index(row, col, index)
-                        model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        uncheck_all(model, model_index)
-                uncheck_all(model, QtC.QModelIndex())
-                model.blockSignals(False)
-            else:
-                for row in range(model.rowCount()):
-                    model_index = model.index(row, col)
-                    model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    if model.lastError().text():
-                        logger_setup.get_logger().critical(
-                            f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}", self)
-            logger_setup.get_logger().info("Unchecked everything")
-            combo.setCurrentText(text)
-        else:
-            logger_setup.get_logger().info(f"Checking {many_to_many_table}")
-            if isinstance(combo, CheckableTreeCombobox):
-                model.blockSignals(True)
-                # recursively check data
-                def check_data(model: CheckableTreeModel, index: QtC.QModelIndex):
-                    for row in range(model.rowCount(index)):
-                        model_index = model.index(row, col, index)
-                        id_index = model.index(row, id_col, index)
-                        tag_id = model.data(id_index, QtC.Qt.ItemDataRole.DisplayRole)
-                        many_to_many_model.setFilter(f"SampleAgeID = {self.sample_age_id} AND {tag_id_header} = {tag_id}")
-                        if many_to_many_model.rowCount() > 0:
-                            # All samples have this tag
-                            model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                            tags.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                        else:
-                            # No samples have this tag
-                            model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        check_data(model, model_index)
-                check_data(model, QtC.QModelIndex())
-                combo.update_line_edit()
-            else:
-                for row in range(model.rowCount()):
-                    tag_id = model.index(row, id_col).data()
-                    many_to_many_model.setFilter(f"SampleAgeID = {self.sample_age_id} AND {tag_id_header} = {tag_id}")
-                    model_index = model.index(row, col)
-                    if many_to_many_model.rowCount() > 0:
-                        # Selected sample age has this tag
-                        model.setData(model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        if model.lastError().text():
-                            logger_setup.get_logger().critical(
-                                f"Error setting checked for {model.tableName()}: {model.lastError().text()}", self)
-                        tags.append(model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole))
-                    else:
-                        # No samples have this tag
-                        model.setData(model_index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                        if model.lastError().text():
-                            logger_setup.get_logger().critical(
-                                f"Error setting unchecked for {model.tableName()}: {model.lastError().text()}", self)
-        if not tags:
-            # Sample age does not have these tags
-            text = ""
-        else:
-            # Sample age has these tags
-            text = '; '.join(tags)
-        if isinstance(combo, CheckableTreeCombobox):
-            model.blockSignals(False)
-            combo.treeView.expand_all_checked()
-        if not text:
-            text = combo.placeholderText()
-        combo.setCurrentText(text)
-        self.connect_signals()
-        end_populate_checks_time = time.time()
-        logger_setup.get_logger().info(
-            f"Populated checks for {many_to_many_table} in {end_populate_checks_time - start_populate_checks_time} seconds")
 
     def update_age(self):
         logger_setup.get_logger().info(f"Updating data for SampleAgeID {self.sample_age_id}")
@@ -1100,17 +1005,14 @@ class AgeFields(QtW.QWidget):
             return False
         if isinstance(combo, CheckableTreeCombobox):
             model, indexes = find_tree_model(combo.model(), None)
-            if model:
-                table = model.table
-                id_header = get_headers(table)[0]
-            else:
+            if not model:
                 logger_setup.get_logger().critical(f"Could not find model for combo box {combo.objectName()}", self)
                 return False
         elif isinstance(combo, CheckableComboBox):
             model = combo.model()
             if isinstance(model, QSortFilterProxyModel):
                 model = model.sourceModel()
-            table = model.tableName()
+        table = model.tableName()
         start_update_age_tags = time.time()
         if table == '"References"':
             table = 'References'
@@ -1394,7 +1296,7 @@ class AgeFields(QtW.QWidget):
             populate_combo_box(combo, **{'table': table})
             if isinstance(combo, CheckableTreeCombobox):
                 restore_expanded_state(table, combo.view())
-            self.populate_checks(f'Samples_{table}', combo)
+            populate_many_combo_checks(f'Samples_{table}', combo, [self.sample_age_id])
 
     def edit_popup(self, combo: QtW.QComboBox):
         if combo == self.edit_age_comboBox:
@@ -1435,7 +1337,7 @@ class AgeFields(QtW.QWidget):
             populate_combo_box(combo, **{'table': table})
             if isinstance(combo, CheckableTreeCombobox):
                 restore_expanded_state(table, combo.view())
-            self.populate_checks(f'Samples_{table}', combo)
+            populate_many_combo_checks(f'Samples_{table}', combo, [self.sample_age_id])
         self.parent().setFocus()
 
     def disable_groups(self):
@@ -1472,7 +1374,7 @@ class AgeFields(QtW.QWidget):
         self.oldest_rel_comboBox.setCurrentText(self.oldest_rel_comboBox.placeholderText())
         self.youngest_rel_comboBox.setCurrentText(self.youngest_rel_comboBox.placeholderText())
         self.age_description_lineEdit.clear()
-        self.populate_checks('SampleAges_AgeConstraints', self.age_constraint_comboBox)
-        self.populate_checks('SampleAges_AgeInterpretations', self.age_interpretation_comboBox)
-        self.populate_checks('SampleAges_References', self.age_reference_comboBox)
+        populate_many_combo_checks('SampleAges_AgeConstraints', self.age_constraint_comboBox,[])
+        populate_many_combo_checks('SampleAges_AgeInterpretations', self.age_interpretation_comboBox, [])
+        populate_many_combo_checks('SampleAges_References', self.age_reference_comboBox, [])
         self.connect_signals()

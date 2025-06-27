@@ -2345,6 +2345,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         self.root_item = TreeItem(QtS.QSqlRecord(), None)
         self.parent_item = TreeItem(QtS.QSqlRecord(), None)
         self.child_item = TreeItem(QtS.QSqlRecord(), None)
+        self.parent_to_children = {}
+        self.item_data = {}
         self.lastError = QtS.QSqlError()
         self.db = db
 
@@ -2438,52 +2440,49 @@ class TreeModel(QtC.QAbstractProxyModel):
         """
         Set up the model data for the tree model. This will build the tree from the source model.
         """
+        self.parent_to_children = {}
+        self.item_data = {}
+        for row in range(self.source_model.rowCount()):
+            record = self.source_model.record(row)
+            item_id = record.value(0)  # Assuming the first column is the ID
+            parent_id = record.value(1)  # Assuming the second column is the Parent ID
+
+            self.item_data[item_id] = record
+            if parent_id not in self.parent_to_children:
+                self.parent_to_children[parent_id] = []
+
+            self.parent_to_children[parent_id].append(item_id)
+
+        for parent_id, child_ids in self.parent_to_children.items():
+            child_ids.sort(key=lambda x: self.item_data[x].value(2))  # Sort by parent row
+
         # Add all nodes to the tree model
         # start with root item, look for children
         logger_setup.get_logger().info(f'Building the {self.table} tree from the model...')
+        show_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
         start_build_time = time.time()
-        root_id = 0
-        child_ids = self.find_children(root_id)
         # add each child to model with parent (root)
-        self.add_to_tree(child_ids, self.root_item)
+        self.add_to_tree(self.root_item)
         # look for children of those
         # add each child to the model with parent
         # etc. until there are no more children
-        self.source_model.setQuery(f"{self.base_query}")
+        close_loading_dialog('Loading', f'Building the {self.table} tree with {self.source_model.rowCount()} items...')
         logger_setup.get_logger().info(f'Finished building the {self.table} tree with {self.source_model.rowCount()} items in {time.time() - start_build_time:.2f} seconds')
 
-    def find_children(self, parent_id: int):
-        """
-        Find all children of a given parent ID in the source model.
-        :param parent_id: Item ID
-        :return: list of child IDs of the given parent ID
-        """
-        # Find children of a given ID using the source_model's filtered data
-        child_ids = []
-        parent_rows = []
-        for row in range(self.source_model.rowCount()):
-            if parent_id == 0 and (self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) is None or
-                    self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) == ''):
-                child_ids.append(self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                parent_rows.append(self.source_model.index(row, 2).data(QtC.Qt.ItemDataRole.DisplayRole))
-            elif self.source_model.index(row, 1).data(QtC.Qt.ItemDataRole.DisplayRole) == parent_id:
-                child_ids.append(self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                parent_rows.append(self.source_model.index(row, 2).data(QtC.Qt.ItemDataRole.DisplayRole))
-        # Order child IDs by parent row
-        child_ids = [x for _, x in sorted(zip(parent_rows, child_ids))]
-        # logger_setup.get_logger().debug(f'Found {len(child_ids)} child items')
-        return child_ids
-
-    def add_to_tree(self, child_ids: list, parent: TreeItem):
+    def add_to_tree(self, parent: TreeItem):
         """
         Add child items with unique child IDs to the tree model under the specified parent item. This method iterates
         through the list of child IDs, finds the corresponding records in the source model, and creates
         TreeItem instances for each child. It appends these items to the parent item in the tree structure. If a child
         ID has children, it recursively calls itself to add those children as well.
-        :param child_ids: list of child IDs to add to the tree
         :param parent: TreeItem parent to add children to
         :return: None if there are no child IDs
         """
+        if parent == self.root_item:
+            parent_id = None
+        else:
+            parent_id = parent.itemData.value(0)
+        child_ids = self.parent_to_children.get(parent_id, [])
         if not child_ids:
             return
         # logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
@@ -2491,15 +2490,12 @@ class TreeModel(QtC.QAbstractProxyModel):
 
         for child_id in child_ids:
             add_time = time.time()
-            for row in range(self.source_model.rowCount()):
-                if self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == child_id:
-                    record = self.source_model.record(row)
-                    item = TreeItem(record, parent)
-                    parent.appendChild(item)
-                    # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
-                    # logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
-                    new_child_ids = self.find_children(child_id)
-                    self.add_to_tree(new_child_ids, item)
+            record = self.item_data[child_id]
+            item = TreeItem(record, parent)
+            parent.appendChild(item)
+            # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
+            # logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
+            self.add_to_tree(item)
 
     def column_headers(self):
         """
@@ -3405,34 +3401,36 @@ class CheckableTreeModel(TreeModel):
         self.child_item = CheckableTreeItem(QtS.QSqlRecord(), None)
         self.setup_model_data()
 
-    def add_to_tree(self, child_ids: list[int], parent: CheckableTreeItem):
+    def add_to_tree(self, parent: CheckableTreeItem):
         """
         Add child items with unique child IDs to the tree model under the specified parent item. This method iterates
         through the list of child IDs, finds the corresponding records in the source model, and creates
-        CheckableTreeItem instances for each child. It appends these items to the parent item in the tree structure. If
-        a child ID has children, it recursively calls itself to add those children as well.
-        :param child_ids: list of unique child IDs to add to the tree
+        CheckableTreeItem instances for each child. It appends these items to the parent item in the tree structure.
+        If a child ID has children, it recursively calls itself to add those children as well.
         :param parent: CheckableTreeItem parent to add children to
         :return: None if there are no child IDs
         """
+        if parent == self.root_item:
+            for parent_id in (None, '', 'NULL'):
+                child_ids = self.parent_to_children.get(parent_id, [])
+                if child_ids:
+                    break
+        else:
+            parent_id = parent.itemData.value(0)
+            child_ids = self.parent_to_children.get(parent_id, [])
         if not child_ids:
             return
         # logger_setup.get_logger().info(f'Adding {len(child_ids)} children to the tree...')
         # logger_setup.get_logger().debug(f'Child IDs: {child_ids}')
 
         for child_id in child_ids:
-            # add_time = time.time()
-            for row in range(self.source_model.rowCount()):
-                if self.source_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == child_id:
-                    record = self.source_model.record(row)
-                    if not record:
-                        pass
-                    item = CheckableTreeItem(record, parent)
-                    parent.appendChild(item)
-                    # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
-                    # logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
-                    new_child_ids = self.find_children(child_id)
-                    self.add_to_tree(new_child_ids, item)
+            add_time = time.time()
+            record = self.item_data[child_id]
+            item = CheckableTreeItem(record, parent)
+            parent.appendChild(item)
+            # logger_setup.get_logger().debug(f'Added {child_id} to the tree')
+            # logger_setup.get_logger().info(f'Added {record.value(3)} in {time.time() - add_time} seconds')
+            self.add_to_tree(item)
 
     def data(self, index: QtC.QModelIndex = ..., role: QtC.Qt.ItemDataRole = ...):
         """
@@ -4786,6 +4784,9 @@ class CheckableTreeView(QtW.QTreeView):
         :return:
         """
         tree_model, indexes = find_tree_model(self.model(), [])
+        if not tree_model:
+            logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            return
         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
 
         def expand_parents(item_index: QtC.QModelIndex):
@@ -4885,6 +4886,9 @@ class TreeCombobox(QtW.QComboBox):
         """
         start_set_model_time = time.time()
         self.tree_model, indexes = find_tree_model(model, None)
+        if not self.tree_model:
+            logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            return
         self.proxy_model = TreeSortFilterProxyModel(self, self.treeView)
         self.proxy_model.setSourceModel(model)
         self.proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
@@ -4942,7 +4946,10 @@ class TreeCombobox(QtW.QComboBox):
         """
         menu = TreeContextMenu()
         tree_model, indexes = find_tree_model(self.model(), None)
-        if tree_model.table == 'Aliquots':
+        if not tree_model:
+            logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            return
+        if tree_model.tableName() == 'Aliquots':
             menu.set_view(self.treeView, False, False)
         else:
             menu.set_view(self.treeView, False)
@@ -5192,6 +5199,9 @@ class CheckableTreeCombobox(TreeCombobox):
         # If the line edit contains a comma, it is likely a list of items
         current_names = current_line_edit_text.split('; ')
         tree_model, indexes = find_tree_model(self.model(), None)
+        if not tree_model:
+            logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            return
         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
             QtC.QModelIndex())
         if partially_checked_indices:
@@ -5258,7 +5268,10 @@ class CheckableTreeCombobox(TreeCombobox):
         """
         menu = TreeContextMenu()
         tree_model, indexes = find_tree_model(self.model(), None)
-        if tree_model.table == 'Aliquots':
+        if not tree_model:
+            logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+            return
+        if tree_model.tableName() == 'Aliquots':
             menu.set_view(self.treeView, False, False)
         else:
             menu.set_view(self.treeView, False)
@@ -5333,6 +5346,9 @@ class CheckableTreeCombobox(TreeCombobox):
                     if self.single_click:
                         # Was the only selected item unchecked? If so, set the current index to the root before clearing all checks
                         tree_model, indexes = find_tree_model(self.model(), None)
+                        if not tree_model:
+                            logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
+                            return True
                         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = (
                             tree_model.traverse_checkable_tree(QtC.QModelIndex()))
                         if self.treeView.currentIndex() in checked_indices:
@@ -5360,7 +5376,8 @@ class CheckableTreeCombobox(TreeCombobox):
                         self.treeView.collapse(index)
                     else:
                         self.treeView.expand(index)
-                    save_expanded_state(tree_model.table, self.treeView)
+                    if tree_model:
+                        save_expanded_state(tree_model.table, self.treeView)
                     self.expand_collapse = True
                     self.showPopup()
                     return True
@@ -5403,6 +5420,9 @@ class TreeContextMenu(QtW.QMenu):
         """
         self.tree_view = tree_view
         self.model, self.indexes = find_tree_model(self.tree_view.model(), self.tree_view.selectedIndexes())
+        if not self.model:
+            logger_setup.get_logger().info(f'No checkable tree model found in {self.tree_view.objectName()}')
+            return
         item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.model, self.indexes)
         if len(item_ids) == 1:  # only one item selected
             self.add_single_tree_actions(delete_active, add_active, edit_active)
@@ -5703,6 +5723,9 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
     indexes = tree_view.selectedIndexes()
     model = tree_view.model()
     tree_model, tree_indexes = find_tree_model(model, indexes)
+    if not tree_model:
+        logger_setup.get_logger().info(f'No tree model found in {tree_view.objectName()}')
+        return dlg_args
     item_ids, parent_ids, parent_rows = get_selected_tree_ids(tree_model, tree_indexes)
     if action:
         if action.text() == 'Insert above':
@@ -5926,12 +5949,10 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     if table in SQLUtils.user_viewable_trees:
         if isinstance(comboBox, CheckableTreeCombobox):
             tree_model = CheckableTreeModel()
-            tree_model.setSourceModel(model)
-            comboBox.setModel(tree_model)
         else:
             tree_model = TreeModel()
-            tree_model.setSourceModel(model)
-            comboBox.setModel(tree_model)
+        tree_model.setSourceModel(model)
+        comboBox.setModel(tree_model)
         if column:
             show_column(comboBox, column)
         else:
@@ -6122,8 +6143,6 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
     :return:
     """
     start_populate_many_checks_time = time.time()
-    if first_table_ids == []:
-        return
     logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
     start_populate_checks_time = time.time()
     many_to_many_model = QtS.QSqlTableModel()
@@ -6137,13 +6156,20 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
 
     if isinstance(combo, CheckableTreeCombobox):
         model, indexes = find_tree_model(combo.model(), None)
+        if not model:
+            logger_setup.get_logger().info(f"Could not find tree model for {combo.objectName()}")
+            return
         col = 0  # Name column is always placed in the first column
         tag_id_header = model.source_model.record().fieldName(0)
         id_col = 1  # ID column is always placed in the second column
     else:
         model = combo.model()
-        col = get_name_column(get_view_from_table(model.tableName()))
-        tag_id_header = model.record().fieldName(0)
+        try:
+            col = get_name_column(get_view_from_table(model.tableName()))
+            tag_id_header = model.record().fieldName(0)
+        except AttributeError:
+            logger_setup.get_logger().info(f'No table name found for {combo.objectName()}')
+            return
         id_col = 0  # ID column is always in the first column
     if len(first_table_ids) == 0:
         logger_setup.get_logger().info("No items selected, so unchecking everything")
