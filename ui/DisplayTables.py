@@ -20,7 +20,7 @@ from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
-    get_record_index, close_loading_dialog, show_loading_dialog, column_as_list,
+    get_record_index, close_loading_dialog, show_loading_dialog, columns_as_list,
     set_table, get_id_from_name, scroll_to_record, get_view_from_table
 )
 import Functions.Text_manipulations as TxM
@@ -107,7 +107,7 @@ class DisplayTables(QtW.QWidget):
 
         sql_query = f'SELECT DISTINCT {self.name_header} FROM "{self.table}"'
         logger_setup.get_logger().debug(f'SQL command: {sql_query}')
-        all_names = column_as_list(sql_query, self.name_header)
+        all_names = columns_as_list(sql_query, [self.name_header])[0]
         if not all_names:
             return
         values = set(all_names)
@@ -322,6 +322,8 @@ class DisplayTables(QtW.QWidget):
         self.goto_line_edit.clear()
         self.goto_line_edit.setPlaceholderText(f'Go to {self.name_header}...')
         self.previous_table = self.table
+        self.search_lineEdit.setText("")
+        self.search()
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
         logger_setup.get_logger().info(f'Displayed {self.table} in {time.time() - start_display_time} seconds')
 

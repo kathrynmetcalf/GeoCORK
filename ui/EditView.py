@@ -20,10 +20,10 @@ from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, populate_combo_box,
     SQLiteTableModel, CheckableComboBox, CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column,
     set_table, populate_many_combo_checks, populate_model_checks, delete_data,
-    WordWrapDelegate, get_columns, get_table_from_view, find_sub_items, get_total_records, get_record_index,
+    WordWrapDelegate, get_columns, get_table_from_view, find_current_sub_items, get_total_records, get_record_index,
     get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel, populate_tree_model_checks,
-    column_as_list
+    columns_as_list
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -331,7 +331,7 @@ class EditView(QtW.QDialog):
             query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
             view_query = ViewQuery(self.table, True, **query_args)
             table_query = view_query.table_query
-            self.table_item_ids = column_as_list(table_query, 0)
+            self.table_item_ids = columns_as_list(table_query, [0])[0]
         self.model.set_table(self.table)
         self.display_table()
 
@@ -1185,7 +1185,7 @@ class EditView(QtW.QDialog):
                                 # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
                                 if self.table == 'Samples':
                                     # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
-                                    aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(selected_ids, self.table)
+                                    aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(selected_ids, self.table)
                                     if table == 'Aliquots' or 'Aliquots_' in table:
                                         item_ids = aliquot_ids
                                     elif table == 'Spots' or 'Spots_' in table:

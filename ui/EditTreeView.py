@@ -15,9 +15,9 @@ import logger_setup
 from Functions.Widget_classes import (
     TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, SQLiteTableModel, CheckableComboBox,
     CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column, set_table, populate_many_combo_checks,
-    populate_model_checks, WordWrapDelegate, get_columns, get_readable_header, find_sub_items, get_id_from_name,
+    populate_model_checks, WordWrapDelegate, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
     add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids, TreeContextMenu,
-    expand_collapse, get_name_from_id, get_view_from_table, column_as_list, TreeSortFilterProxyModel, delete_data
+    expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current, TreeSortFilterProxyModel, delete_data
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -246,8 +246,8 @@ class EditTreeView(QtW.QDialog):
                     aliquot_where = f' WHERE AliquotID IN {tuple(self.table_item_ids)}'
                 else:
                     aliquot_where = f' WHERE AliquotID IS NULL'
-                parent_ids = column_as_list(
-                    f'SELECT SampleID FROM Aliquots {aliquot_where}', 'SampleID')
+                parent_ids = columns_as_list_current(
+                    f'SELECT SampleID FROM Aliquots {aliquot_where}', ['SampleID'])[0]
                 if len(parent_ids) == 1:
                     self.where = f' WHERE {self.parent_id_header} = {parent_ids[0]}'
                 elif len(parent_ids) > 1:
@@ -851,7 +851,7 @@ class EditTreeView(QtW.QDialog):
                         # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
                         if self.table == 'Samples':
                             # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
-                            aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(selected_ids)
+                            aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(selected_ids)
                             if table == 'Aliquots':
                                 item_ids = aliquot_ids
                             elif table == 'Spots':
@@ -1035,8 +1035,8 @@ class EditTreeView(QtW.QDialog):
         msg_box.setIcon(QtW.QMessageBox.Icon.Question)
         if self.table == 'Aliquots':
             # Aliquots have a special case where they are related to Samples, Spots, and UPbAnalyses
-            aliquot_spot_ids, aliquot_upb_ids = find_sub_items(item_ids, self.table)
-            child_spot_ids, child_upb_analysis_ids = find_sub_items(children, self.table)
+            aliquot_spot_ids, aliquot_upb_ids = find_current_sub_items(item_ids, self.table)
+            child_spot_ids, child_upb_analysis_ids = find_current_sub_items(children, self.table)
             total_spot_ids = aliquot_spot_ids + child_spot_ids
             total_upb_ids = aliquot_upb_ids + child_upb_analysis_ids
             msg_box.setText(f'Are you sure you want to delete these {self.table}{child_string}?\n'

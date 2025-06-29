@@ -5,6 +5,7 @@ from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
+from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 import logger_setup
 
 
@@ -126,6 +127,7 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
     :return:
     """
     # Read all tables + their CREATE statements from the source
+    show_loading_dialog('Copying database schema', 'Copying empty tables to target database...')
     table_rows = fetchall(
         "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
         conn_source
@@ -150,6 +152,7 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
                 logger_setup.get_logger().critical(f'Error creating index {index_name}')
                 logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {create_index_sql}')
+    close_loading_dialog('Copying database schema', 'Copying empty tables to target database...')
 
 
 def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> None:
@@ -158,9 +161,11 @@ def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> 
     :param QSqlDatabase conn_source:
     :param QSqlDatabase conn_target:
     """
+    show_loading_dialog('Copying static tables', 'Copying static tables to target database...')
     for table in SQLUtils.static_tables:
         logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
         copy_table(table, conn_source, conn_target)
+    close_loading_dialog('Copying static tables', 'Copying static tables to target database...')
 
 
 def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
@@ -172,6 +177,7 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     """
 
     logger_setup.get_logger().info("Copying metadata tables")
+    show_loading_dialog('Copying metadata tables', 'Copying metadata tables to target database...')
     turn_off_foreign_keys(conn_target)
 
     # Copy metadata tables
@@ -186,6 +192,7 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     QSqlDatabase.removeDatabase(conn_source.connectionName())
     QSqlDatabase.removeDatabase(conn_target.connectionName())
 
+    close_loading_dialog('Copying metadata tables', 'Copying metadata tables to target database...')
     return True
 
 
@@ -793,7 +800,17 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
         logger_setup.get_logger().error(f"Table '{export_table}' does not exist in the source database.")
         return False
     export_id_header = col_info_export_table[0][1]  # Assuming first column is the ID column
+    progress_dialog = QtW.QProgressDialog(
+        f"Exporting {len(ids_to_export)} {export_table}...", "Cancel", 0, len(ids_to_export)
+    )
+    exported_count = 0
     for export_id in ids_to_export:
+        progress_dialog.setValue(exported_count + 1)
+        # Let the event loop process the dialog's updates
+        QtW.QApplication.processEvents()
+        # If the user clicked "Cancel", we can break out
+        if progress_dialog.wasCanceled():
+            return False
         # 3) Retrieve the requested Sample row from source
         row = fetchall(
             f"SELECT {','.join([item[1] for item in col_info_export_table])} FROM {export_table} WHERE {export_id_header} = ?",
@@ -870,7 +887,7 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
                         parent_col=f'{tbl_name[0:-1]}ID',
                         root_ids=root_ids
                     )
-
+        exported_count += 1
     QSqlDatabase.removeDatabase(conn_source.connectionName())
     QSqlDatabase.removeDatabase(conn_target.connectionName())
 

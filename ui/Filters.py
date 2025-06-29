@@ -22,7 +22,8 @@ import logger_setup
 from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column, get_name_from_id
+from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column, get_name_from_id, \
+    show_loading_dialog, close_loading_dialog
 from ui.DataViewerWidget import DataViewerWidget
 
 
@@ -149,7 +150,7 @@ def _process_group_inner(group: dict, recursive_tables: Dict[str, int]) -> Tuple
         sql_fragment, new_ctes, field_key = _build_single_condition(condition, recursive_tables)
         ctes.extend(new_ctes)
 
-        if group["type"].lower() == "match all":
+        if group["type"].lower() == "match all" or group["type"].lower() == "match none":
             identical_field_buckets[field_key].append(sql_fragment)
         else:
             other_conditions.append(sql_fragment)
@@ -175,7 +176,7 @@ def _process_group_inner(group: dict, recursive_tables: Dict[str, int]) -> Tuple
         sub_conds, sub_ctes = _process_group_inner(subgroup, recursive_tables)
         if sub_conds:
             sub_sql = f" {'OR' if subgroup["type"].lower() == "match any" else 'AND'} ".join(sub_conds)
-            logic = group["type"].lower()
+            logic = subgroup["type"].lower()
             if logic == "match all":
                 other_conditions.append(f"({sub_sql})")
             elif logic == "match any":
@@ -271,13 +272,19 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
               JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
         )""".strip()
 
-        # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
-        exists_sql = f"""{'NOT ' if (operator_sql=='!=' or 'NOT' in operator_sql) else ''}EXISTS (
-            SELECT 1
-              FROM {meta['bridge_table']}
-              JOIN {cte_name} ON {meta['bridge_table']}.{meta['bridge_to_column']} = {cte_name}.{meta['bridge_to_column']}
-             WHERE {meta['bridge_table']}.{meta['bridge_from_column']} = {meta['bridge_table'].split('_')[0]}.{meta['bridge_from_column']}
-        )"""
+        if meta['bridge_table'].split('_')[0] == 'UPbAnalyses':
+            # If this is an analysis tag, using EXISTS to much too slow with a large database
+            # Instead, we use an IN check
+            exists_sql = f"""{meta['bridge_table']}.{meta['bridge_to_column']} {'NOT ' if (operator_sql=='!=' or 'NOT' in operator_sql) else ''}IN 
+            (SELECT {meta['bridge_to_column']} FROM {cte_name})"""
+        else:
+            # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
+            exists_sql = f"""{'NOT ' if (operator_sql=='!=' or 'NOT' in operator_sql) else ''}EXISTS (
+                SELECT 1
+                  FROM {meta['bridge_table']}
+                  JOIN {cte_name} ON {meta['bridge_table']}.{meta['bridge_to_column']} = {cte_name}.{meta['bridge_to_column']}
+                 WHERE {meta['bridge_table']}.{meta['bridge_from_column']} = {meta['bridge_table'].split('_')[0]}.{meta['bridge_from_column']}
+            )"""
 
         return exists_sql, [cte_sql], field_key
 
@@ -1192,8 +1199,9 @@ class QueryBuilder(QWidget):
         """
         Queries the database with the generated filter sql query at the given type scope
         :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
-        :return: list of ids or None
+        :return: list of ids of given type or None
         """
+        show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
         sql_query = self.get_sql(type)
         uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
         try:
@@ -1211,6 +1219,7 @@ class QueryBuilder(QWidget):
             return None
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
         logger_setup.get_logger().info('Gathered filtered ids successfully')
+        close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
         return results if results else None
 
     def get_sql(self, type: str) -> str:

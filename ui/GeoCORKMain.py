@@ -138,7 +138,7 @@ class GeoCORK(QtW.QMainWindow):
         actionNew.triggered.connect(self.new_database)
 
         self.loading_manager.close_loading_dialog('Opening',
-                                              f'Opening {self.db_name}... \n(This may take a while for large databases)')
+                                              f'Opening {self.db_name}... \n(GeoCORK may be slower for large databases)')
         self.showMaximized()
         self.show()
 

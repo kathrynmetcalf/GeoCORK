@@ -24,7 +24,7 @@ from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel, SQLiteTableModel, find_parent_items, \
-    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel
+    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel, columns_as_list
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import CheckableComboBox
@@ -194,6 +194,7 @@ class ExportWidget(QWidget):
         if self.exportformat_comboBox.currentText() == 'Database':
             # if the export format is Database, then we only need the list of analyses that pass the filters
             columns_str = 'UPbAnalyses.UPbAnalysisID'
+            concat_col_str = ''
         else:
             columns_str = ''
             # creates column select string in format [SampleID], [CalculatedU/Th] AS 'RenamedColumn', etc...
@@ -313,6 +314,13 @@ class ExportWidget(QWidget):
 
         logger_setup.get_logger().info(f'Number of Filtered UPbAnalysis IDs Found: {len(self.filtered_upb_ids)}')
 
+        if self.exportformat_comboBox.currentText() == 'Database':
+            # If the export format is Database, then we only need the list of analyses that pass the filters
+            # The set of analyses that pass the filters is already stored in self.filtered_upb_ids
+            self.export_format()
+            close_loading_dialog('Loading', 'Updating table view with new parameters')
+            return
+
         # due to how the above logic is, the filters are added with an OR clause, therefore it full unions Filters 1 and 2
         filtered_upb_ids_sql = f"({', '.join(self.filtered_upb_ids)})"
 
@@ -411,7 +419,10 @@ class ExportWidget(QWidget):
             else:
                 group_by = ''
 
-            query_str = f"{query_str} \nUNION ALL \n {modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
+            if query_str:
+                query_str = f"{query_str} \nUNION ALL \n {modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
+            else:
+                query_str = f"{modified_query_str} WHERE UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids} {group_by} LIMIT {self.max_rows_to_display} \n"
             logger_setup.get_logger().debug(f'SQL command: {query_str}')
 
         # code to transform the query into a pivot table
@@ -527,13 +538,6 @@ class ExportWidget(QWidget):
             FROM cte c
             GROUP BY c.RowNum
             ORDER BY c.RowNum""")
-
-        if self.exportformat_comboBox.currentText() == 'Database':
-            # If the export format is Database, then we only need the list of analyses that pass the filters
-            # The set of analyses that pass the filters is already stored in self.filtered_upb_ids
-            self.export_format()
-            close_loading_dialog('Loading', 'Updating table view with new parameters')
-            return
 
         # At this point the final query_str is complete, either with or without pivot.
         # saves final string used for exporting, removed LIMIT, and saved model for future use.
@@ -809,34 +813,53 @@ class ExportWidget(QWidget):
                 self.groupedfilter_comboBox.hide()
                 self.groupedfilter_label.hide()
                 # self.filters_label.hide()
-                if os.path.isfile("temp.db"):
-                    if 'temp' in QSqlDatabase().connectionNames():
-                        QSqlDatabase.database('temp').close()
-                        QSqlDatabase().removeDatabase('temp')
-                        os.remove("temp.db")
-                tgt_db_file = "temp.db"
 
-                tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'temp')
-                tgt_db.setDatabaseName(tgt_db_file)
-                tgt_db.open()
-                if not tgt_db.isOpen():
-                    logger_setup.get_logger().critical('Could not open target database')
-                    return
-                if not turn_on_foreign_keys():
-                    return
+                if len(self.filtered_upb_ids) == 0:
+                    sample_ids_to_subset = []
+                else:
+                    if len(self.filtered_upb_ids) == 1:
+                        where = f"= {list(self.filtered_upb_ids)[0]}"
+                    else:
+                        where = f"IN ({', '.join(self.filtered_upb_ids)})"
+                    sample_query = f"""SELECT DISTINCT SampleID FROM UPbAnalyses
+                                        {SQLUtils.upb_spot_join}
+                                        {SQLUtils.spot_aliquot_join}
+                                        WHERE UPbAnalyses.UPbAnalysisID {where}"""
+                    sample_ids_to_subset = columns_as_list(sample_query, [0])[0]
 
-                src_db = QSqlDatabase()
+                """The following code creates a temporary database file to export the selected data to.
+                It is time consuming for large databases, so use DataViewerWidget instead."""
+                # if os.path.isfile("temp.db"):
+                #     if 'temp' in QSqlDatabase().connectionNames():
+                #         QSqlDatabase.database('temp').close()
+                #         QSqlDatabase().removeDatabase('temp')
+                #         os.remove("temp.db")
+                # tgt_db_file = "temp.db"
+                #
+                # tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'temp')
+                # tgt_db.setDatabaseName(tgt_db_file)
+                # tgt_db.open()
+                # if not tgt_db.isOpen():
+                #     logger_setup.get_logger().critical('Could not open target database')
+                #     return
+                # if not turn_on_foreign_keys():
+                #     return
+                #
+                # src_db = QSqlDatabase()
+                #
+                # show_loading_dialog('Loading', 'Loading selected data...')
+                # ExportDatabase.subset_database(src_db, tgt_db, sample_ids_to_subset)
+                # close_loading_dialog('Loading', 'Loading selected data...')
+                # tgt_db.commit()
+                # tgt_db.close()
+                #
+                # # Create a new tab
+                # new_tab = DisplayTablesSimplified(self, tgt_db_file)
+                # tab_layout = QVBoxLayout(self)
+                # new_tab.setLayout(tab_layout)
 
-                sample_ids_to_subset, aliquots, spots = find_parent_items(list(self.filtered_upb_ids), 'UPbAnalyses')
-
-                show_loading_dialog('Loading', 'Loading selected data...')
-                ExportDatabase.subset_database(src_db, tgt_db, sample_ids_to_subset)
-                close_loading_dialog('Loading', 'Loading selected data...')
-                tgt_db.commit()
-                tgt_db.close()
-
-                # Create a new tab
-                new_tab = DisplayTablesSimplified(self, tgt_db_file)
+                from ui.DataViewerWidget import DataViewerWidget
+                new_tab = DataViewerWidget(self, sample_ids_to_subset, 'Samples')
                 tab_layout = QVBoxLayout(self)
                 new_tab.setLayout(tab_layout)
 
@@ -1511,7 +1534,7 @@ class ExportWidget(QWidget):
         # show completion message
         msg = QMessageBox.information(QMessageBox(), "Database Export", "Database has exported successfully",
                                       buttons=QMessageBox.StandardButton.Ok)
-        msg.exec()
+        # msg.exec()
         QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(os.path.dirname(fileName)))
 
     def export_to_excel(self) -> bool:

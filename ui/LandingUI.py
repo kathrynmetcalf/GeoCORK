@@ -111,10 +111,10 @@ class LandingPage(QWidget):
         if not self.test_database_lock():
             if '/' in self.selected_files:
                 self.loading_manager.show_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('/')[-1]}... \n(This may take a while for large databases)")
+                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
             elif '\\' in self.selected_files:
                 self.loading_manager.show_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('\\')[-1]}... \n(This may take a while for large databases)")
+                         f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
             QtWidgets.QApplication.processEvents()
             from ui.GeoCORKMain import GeoCORK
             for widget in QApplication.allWidgets():
@@ -199,10 +199,10 @@ class LandingPage(QWidget):
     def cancel_open(self):
         if '/' in self.selected_files:
             self.loading_manager.close_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('/')[-1]}... \n(This may take a while for large databases)")
+                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
         elif '\\' in self.selected_files:
             self.loading_manager.close_loading_dialog("Opening",
-                         f"Opening {self.selected_files.split('\\')[-1]}... \n(This may take a while for large databases)")
+                         f"Opening {self.selected_files.split('\\')[-1]}... \n(GeoCORK may be slower for large databases)")
         self.db.close()
         self.db = None
 

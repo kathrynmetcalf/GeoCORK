@@ -1234,51 +1234,89 @@ def get_edit_view_from_table(table: str):
         return table
 
 
-def column_as_list_current(query: str, col: int | str) -> list | None:
+def columns_as_list_current(query: str, cols: list) -> list | None:
     """
-    Returns a list of items in a column. This method reflects uncommitted changes.
-    :param col: column index as integer or SQL table column header
+    Returns lists of items in given columns. This method reflects uncommitted changes.
+    :param cols: List of column indexes as integers or SQL table column headers
     :param query: SQL query of data for table
-    :return: list of items in each row for a given column
+    :return: lists of items in each row for given columns
     """
     model = QtS.QSqlQueryModel()
     model.setQuery(query)
-    if isinstance(col, int):
-        column = col
-    elif isinstance(col, str):
-        headers = [model.headerData(i, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole) for i in range(model.columnCount())]
-        column = headers.index(col)
-    else:
-        return None
-    column_list = [model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in range(model.rowCount())]
-    return column_list
+    if model.lastError().text():
+        logger_setup.get_logger().critical(f"Failed to get columns from query: {query}")
+        logger_setup.get_logger().debug(f"Error: {model.lastError().text()}")
+        return [None for column in cols]
+    columns = []
+    for col in cols:
+        if isinstance(col, int):
+            column = col
+        elif isinstance(col, str):
+            headers = [model.headerData(i, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole) for i in range(model.columnCount())]
+            column = headers.index(col)
+        else:
+            logger_setup.get_logger().critical(f"Failed to get list in table")
+            logger_setup.get_logger().debug(f"Invalid column: {col}")
+            logger_setup.get_logger().debug(f"SQL query: {query}")
+            return [None for column in cols]
+        if column < 0 or column >= model.columnCount():
+            logger_setup.get_logger().critical(f"Failed to get list in table")
+            logger_setup.get_logger().debug(f"Column index {column} out of range for model with {model.columnCount()} columns")
+            logger_setup.get_logger().debug(f"SQL query: {query}")
+            return [None for column in cols]
+        columns.append(column)
+    column_lists = []
+    for column in columns:
+        # Collect unique values from the column
+        column_list = list(set(model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in range(model.rowCount())))
+        column_lists.append(column_list)
+    return column_lists
 
-def column_as_list(query: str, col: int | str) -> list | None:
+def columns_as_list(query: str, cols: list) -> list | None:
     """
-    Returns a list of items in a column. This method reflects only committed changes.
-    :param col: column index as integer or SQL table column header
+    Returns lists of items in given columns. This method reflects only committed changes.
+    :param cols: List of column indexes as integers or SQL table column headers
     :param query: SQL query of data for table
-    :return: list of items in each row for a given column
+    :return: lists of items in each row for given columns
     """
     model = SQLiteTableModel(query)
     if model.last_error:
         return None
-    if isinstance(col, int):
-        column = col
-    elif isinstance(col, str):
-        column = model._headers.index(col)
-    else:
-        return None
-    column_list = [model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in range(model.rowCount())]
-    return column_list
+    columns = []
+    for col in cols:
+        if isinstance(col, int):
+            column = col
+        elif isinstance(col, str):
+            headers = [model.headerData(i, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole) for i in
+                       range(model.columnCount())]
+            column = headers.index(col)
+        else:
+            logger_setup.get_logger().critical(f"Failed to get list in table")
+            logger_setup.get_logger().debug(f"Invalid column: {col}")
+            logger_setup.get_logger().debug(f"SQL query: {query}")
+            return [None for column in cols]
+        if column < 0 or column >= model.columnCount():
+            logger_setup.get_logger().critical(f"Failed to get list in table")
+            logger_setup.get_logger().debug(
+                f"Column index {column} out of range for model with {model.columnCount()} columns")
+            logger_setup.get_logger().debug(f"SQL query: {query}")
+            return [None for column in cols]
+        columns.append(column)
+    column_lists = []
+    for column in columns:
+        # Collect unique values from the column
+        column_list = list(set(model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in
+                       range(model.rowCount())))
+        column_lists.append(column_list)
+    return column_lists
 
 def get_name_from_id(table: str, item_id: int):
     """
     Returns the name for a given ID record in a table. Queries the database and returns the associated value with the name column.
      Gathers the id column from the table headers and assumes the id column is the first column.
-    :param table: name of the table to query (e.g. RockTypes)
-    :param item_id: id of the RockTypeID
-    :return: name (e.g. RockTypeName)
+    :param table: Name of the table to query (e.g. RockTypes)
+    :param item_id: ID to retrieve the name from (e.g. RockTypeID)
+    :return: Name (e.g. RockTypeName)
     """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
@@ -1304,9 +1342,9 @@ def get_id_from_name(table: str, name: str) -> int:
     """
     Returns the primary id for a given name record in a table. Queries the database and returns the first column which
     should always be the id column. Gathers the name column from the table headers.
-    :param table: name of the table to query (e.g. RockTypes)
-    :param name: name of the RockTypeName (e.g. Sandstone, Granite, etc.)
-    :return: id (e.g. RockTypeID)
+    :param table: Name of the table to query (e.g. RockTypes)
+    :param name: Name to retrieve the ID from (e.g. Sandstone, Granite, etc.)
+    :return: ID (e.g. RockTypeID)
     """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
@@ -1680,37 +1718,37 @@ def delete_data(table: str, data_ids: list):
     childless_aliquots = []
     childless_spots = []
     if table == 'Samples':
-        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(data_ids, table)
+        aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
         aliquot_child_ids = []
         for parent_id in aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
         sample_ids = data_ids
         logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
     elif table == 'Aliquots':
-        spot_ids, upb_analysis_ids = find_sub_items(data_ids, table)
+        spot_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
         aliquot_ids = data_ids
         aliquot_child_ids = []
         for parent_id in aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
         logger_setup.get_logger().info(f"Deleting {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
-        parent_samples = find_parent_items(aliquot_ids, table)
+        parent_samples = find_current_parent_items(aliquot_ids, table)
         if parent_samples:
             # Determine if all aliquots of these samples are being deleted
             for sample_id in parent_samples:
-                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_sub_items([sample_id], 'Samples')
+                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(aliquot_id not in aliquot_ids for aliquot_id in sub_aliquot_ids):
                     # If all aliquots of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
                         childless_samples.append(sample_id)
     elif table == 'Spots':
-        upb_analysis_ids = find_sub_items(data_ids, table)
+        upb_analysis_ids = find_current_sub_items(data_ids, table)
         spot_ids = data_ids
         logger_setup.get_logger().info(f"Deleting {len(spot_ids)} spots and {len(upb_analysis_ids)} UPb analyses")
-        parent_samples, parent_aliquots = find_parent_items(data_ids, table)
+        parent_samples, parent_aliquots = find_current_parent_items(data_ids, table)
         if parent_aliquots:
             # Determine if all spots of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, sub_upb_analysis_ids = find_sub_items([aliquot_id], 'Aliquots')
+                sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
                 if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
                     # If all spots of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
@@ -1718,7 +1756,7 @@ def delete_data(table: str, data_ids: list):
         if childless_aliquots:
             # Determine if all spots of these samples are being deleted
             for sample_id in parent_samples:
-                sub_spot_ids, sub_upb_analysis_ids = find_sub_items([sample_id], 'Samples')
+                sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
                     # If all spots of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
@@ -1726,11 +1764,11 @@ def delete_data(table: str, data_ids: list):
     elif table == 'UPbAnalyses':
         upb_analysis_ids = data_ids
         logger_setup.get_logger().info(f"Deleting {len(upb_analysis_ids)} UPb analyses")
-        parent_samples, parent_aliquots, parent_spots = find_parent_items(data_ids, table)
+        parent_samples, parent_aliquots, parent_spots = find_current_parent_items(data_ids, table)
         if parent_spots:
             # Determine if all UPb analyses of these spots are being deleted
             for spot_id in parent_spots:
-                sub_upb_analysis_ids = find_sub_items([spot_id], 'Spots')
+                sub_upb_analysis_ids = find_current_sub_items([spot_id], 'Spots')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the spot are being deleted, add the spot to the list
                     if spot_id not in childless_spots:
@@ -1738,7 +1776,7 @@ def delete_data(table: str, data_ids: list):
         if childless_spots:
             # Determine if all UPb analyses of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, sub_upb_analysis_ids = find_sub_items([aliquot_id], 'Aliquots')
+                sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
@@ -1746,7 +1784,7 @@ def delete_data(table: str, data_ids: list):
         if childless_aliquots:
             # Determine if all UPb analyses of these samples are being deleted
             for sample_id in parent_samples:
-                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_sub_items([sample_id], 'Samples')
+                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
@@ -1839,7 +1877,7 @@ def delete_question(table, delete_ids):
     if table == 'Samples':
         sample_names = [get_name_from_id(table, sample_id) for sample_id in delete_ids]
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
-        aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(delete_ids, table)
+        aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
                     f'\nSamples: {", ".join(sample_names)}' \
                     f'\nAssociated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
@@ -1852,14 +1890,14 @@ def delete_question(table, delete_ids):
             child_aliquot_ids = (aliquot_id, child_aliquot_ids)
 
         # Aliquots have a special case where they are related to Spots and UPbAnalyses
-        spot_ids, upb_analysis_ids = find_sub_items(delete_ids, table)
+        spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
                     f'\nAliquots: {", ".join(aliquot_names)}' \
                     f'\nAssociated with {len(child_aliquot_ids)} child aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
     elif table == 'Spots':
         spot_names = [get_name_from_id(table, spot_id) for spot_id in delete_ids]
         # Spots have a special case where they are related to UPbAnalyses
-        upb_analysis_ids = find_sub_items(delete_ids, table)
+        upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
                     f'\nSpots: {", ".join(spot_names)}' \
                     f'\nAssociated with {len(upb_analysis_ids)} U-Pb analyses'
@@ -2027,155 +2065,194 @@ def find_upb_from_samples(sample_ids):
         # There was an error creating the table
         return
 
-def find_sub_items(data_ids: list, table: str):
+def find_sub_items(data_ids: list, table: str) -> tuple:
+    """
+    Find all sub items of a list of samples, aliquots, or spots. This is intended to find sub items for Samples, Aliquots,
+    and Spots, and return the IDs of the sub items. For commited data only.
+    :param data_ids: List of data IDs to find sub items for
+    :param table: Table to search for sub items, can be 'Samples', 'Aliquots', or 'Spots'
+    :return: tuple of lists of sub item IDs
+    """
     # Find all the sub items of a list of samples, aliquots, or spots
     logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
+    if not data_ids:
+        logger_setup.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
+        return None, None, None
+    show_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
+    if len(data_ids) > 1:
+        where = f'IN {tuple(data_ids)}'
+    else:
+        where = f'= {data_ids[0]}'
     aliquot_ids = []
     spot_ids = []
     upb_analysis_ids = []
     if table == 'Samples':
-        for sample_id in data_ids:
-            aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Aliquots WHERE SampleID={sample_id}')
-            if aliquot_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding nested data")
-                logger_setup.get_logger().debug(f'Error getting AliquotID for SampleID {sample_id}')
-                return None, None, None
-            for a_row in range(aliquot_table.rowCount()):
-                aliquot_id = aliquot_table.data(aliquot_table.index(a_row, 0))
-                aliquot_ids.append(aliquot_id)
-                spot_table = SQLiteTableModel(f'SELECT SpotID FROM Spots WHERE AliquotID={aliquot_id}')
-                if spot_table.last_error:
-                    logger_setup.get_logger().critical(f"Error finding nested data")
-                    logger_setup.get_logger().debug(f'Error getting SpotID for AliquotID {aliquot_id}')
-                    return None, None, None
-                for s_row in range(spot_table.rowCount()):
-                    spot_id = spot_table.data(spot_table.index(s_row, 0))
-                    spot_ids.append(spot_id)
-                    UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
-                    if UPb_analysis_table.last_error:
-                        logger_setup.get_logger().critical(f"Error finding nested data")
-                        logger_setup.get_logger().debug(f'Error getting UPbAnalysisID for SpotID {spot_id}')
-                        return None, None, None
-                    for row in range(UPb_analysis_table.rowCount()):
-                        upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
-                        upb_analysis_ids.append(upb_data_id)
+        sql_query = f"""SELECT Aliquots.AliquotID, Spots.SpotID, UPbAnalyses.UPbAnalysisID FROM Aliquots
+                        {SQLUtils.aliquot_spot_join}
+                        {SQLUtils.spot_upb_analysis_join}
+                        WHERE SampleID {where}"""
+        aliquot_ids, spot_ids, upb_analysis_ids = columns_as_list(sql_query, [0, 1, 2])
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return aliquot_ids, spot_ids, upb_analysis_ids
     elif table == 'Aliquots':
-        for aliquot_id in data_ids:
-            spot_table = SQLiteTableModel(f'SELECT SpotID FROM Spots WHERE AliquotID={aliquot_id}')
-            if spot_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding nested data")
-                logger_setup.get_logger().debug(f'Error getting SpotID for AliquotID {aliquot_id}')
-                return None, None
-            for s_row in range(spot_table.rowCount()):
-                spot_id = spot_table.data(spot_table.index(s_row, 0))
-                spot_ids.append(spot_id)
-                UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
-                if UPb_analysis_table.last_error:
-                    logger_setup.get_logger().critical(f"Error finding nested data")
-                    logger_setup.get_logger().debug(f'Error getting UPbAnalysisID for SpotID {spot_id}')
-                    return None, None
-                for row in range(UPb_analysis_table.rowCount()):
-                    upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
-                    upb_analysis_ids.append(upb_data_id)
+        sql_query = f"""SELECT Spots.SpotID, UPbAnalyses.UPbAnalysisID FROM Spots
+                        {SQLUtils.spot_upb_analysis_join}
+                        WHERE AliquotID {where}"""
+        spot_ids, upb_analysis_ids = columns_as_list(sql_query, [0, 1])
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return spot_ids, upb_analysis_ids
     elif table == 'Spots':
-        for spot_id in data_ids:
-            UPb_analysis_table = SQLiteTableModel(f'SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID={spot_id}')
-            if UPb_analysis_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding nested data")
-                logger_setup.get_logger().debug(f'Error getting UPbAnalysisID for SpotID {spot_id}')
-                return None
-            for row in range(UPb_analysis_table.rowCount()):
-                upb_data_id = UPb_analysis_table.data(UPb_analysis_table.index(row, 0))
-                upb_analysis_ids.append(upb_data_id)
+        sql_query = f"""SELECT UPbAnalyses.UPbAnalysisID FROM UPbAnalyses
+                        WHERE SpotID {where}"""
+        upb_analysis_ids = columns_as_list(sql_query, [0])[0]
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return upb_analysis_ids
+    else:
+        logger_setup.get_logger().critical(f"Table {table} in not supported for finding sub items")
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
+        return None, None, None
 
 
-def find_parent_items(data_ids: list, table: str):
+def find_parent_items(data_ids: list, table: str) -> tuple:
     """
     Find parent items for a list of data IDs in a given table. This is intended to find parent items for Aliquots, Spots,
-    and UPbAnalyses.
+    and UPbAnalyses. For commited data only.
     :param data_ids: List of data IDs to find parent items for
     :param table: Table to search for parent items
     :return: Tuple of lists of parent sample IDs, aliquot IDs, and spot IDs
     """
     logger_setup.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
+    if not data_ids:
+        logger_setup.get_logger().warning(f"No data IDs provided for finding parent items in {table}")
+        return None, None, None
+    show_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+    if len(data_ids) > 1:
+        where = f'IN {tuple(data_ids)}'
+    else:
+        where = f'= {data_ids[0]}'
     sample_ids = []
     aliquot_ids = []
     spot_ids = []
     if table == 'UPbAnalyses':
-        # Find parent Spot IDs
-        for upb_analysis_id in data_ids:
-            spot_table = SQLiteTableModel(f'SELECT SpotID FROM UPbAnalyses WHERE UPbAnalysisID={upb_analysis_id}')
-            if spot_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding parent items")
-                logger_setup.get_logger().debug(f'Error getting SpotID for UPbAnalysisID {upb_analysis_id}')
-                return None
-            for row in range(spot_table.rowCount()):
-                spot_id = spot_table.data(spot_table.index(row, 0))
-                if spot_id not in spot_ids:
-                    spot_ids.append(spot_id)
-        # Find parent Aliquot IDs
-        for spot_id in spot_ids:
-            aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Spots WHERE SpotID={spot_id}')
-            if aliquot_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding parent items")
-                logger_setup.get_logger().debug(f'Error getting AliquotID for SpotID {spot_id}')
-                return None
-            for row in range(aliquot_table.rowCount()):
-                aliquot_id = aliquot_table.data(aliquot_table.index(row, 0))
-                if aliquot_id not in aliquot_ids:
-                    aliquot_ids.append(aliquot_id)
-        # Find parent Sample IDs
-        for aliquot_id in aliquot_ids:
-            sample_table = SQLiteTableModel(f'SELECT SampleID FROM Aliquots WHERE AliquotID={aliquot_id}')
-            if sample_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding parent items")
-                logger_setup.get_logger().debug(f'Error getting SampleID for AliquotID {aliquot_id}')
-                return None
-            for row in range(sample_table.rowCount()):
-                sample_id = sample_table.data(sample_table.index(row, 0))
-                if sample_id not in sample_ids:
-                    sample_ids.append(sample_id)
+        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, UPbAnalyses.SpotID FROM UPbAnalyses 
+                        {SQLUtils.upb_spot_join}
+                        {SQLUtils.spot_aliquot_join}
+                        WHERE UPbAnalysisID {where}"""
+        sample_ids, aliquot_ids, spot_ids = columns_as_list(sql_query, [0, 1, 2])
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return sample_ids, aliquot_ids, spot_ids
     elif table == 'Spots':
-        # Find parent Aliquot IDs
-        for spot_id in data_ids:
-            aliquot_table = SQLiteTableModel(f'SELECT AliquotID FROM Spots WHERE SpotID={spot_id}')
-            if aliquot_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding parent items")
-                logger_setup.get_logger().debug(f'Error getting AliquotID for SpotID {spot_id}')
-                return None
-            for row in range(aliquot_table.rowCount()):
-                aliquot_id = aliquot_table.data(aliquot_table.index(row, 0))
-                if aliquot_id not in aliquot_ids:
-                    aliquot_ids.append(aliquot_id)
-        # Find parent Sample IDs
-        for aliquot_id in aliquot_ids:
-            sample_table = SQLiteTableModel(f'SELECT SampleID FROM Aliquots WHERE AliquotID={aliquot_id}')
-            if sample_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding parent items")
-                logger_setup.get_logger().debug(f'Error getting SampleID for AliquotID {aliquot_id}')
-                return None
-            for row in range(sample_table.rowCount()):
-                sample_id = sample_table.data(sample_table.index(row, 0))
-                if sample_id not in sample_ids:
-                    sample_ids.append(sample_id)
+        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID FROM Spots
+                        {SQLUtils.spot_aliquot_join}
+                         WHERE SpotID {where}"""
+        sample_ids, aliquot_ids = columns_as_list(sql_query, [0, 1])
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return sample_ids, aliquot_ids
     elif table == 'Aliquots':
-        # Find parent Sample IDs
-        for aliquot_id in data_ids:
-            sample_table = SQLiteTableModel(f'SELECT SampleID FROM Aliquots WHERE AliquotID={aliquot_id}')
-            if sample_table.last_error:
-                logger_setup.get_logger().critical(f"Error finding parent items")
-                logger_setup.get_logger().debug(f'Error getting SampleID for AliquotID {aliquot_id}')
-                return None
-            for row in range(sample_table.rowCount()):
-                sample_id = sample_table.data(sample_table.index(row, 0))
-                if sample_id not in sample_ids:
-                    sample_ids.append(sample_id)
-    return sample_ids
+        sql_query = f"""SELECT SampleID FROM Aliquots
+                        WHERE AliquotID {where}"""
+        sample_ids = columns_as_list(sql_query, [0])[0]
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+        return sample_ids
+    else:
+        logger_setup.get_logger().critical(f"Table {table} in not supported for finding parent items")
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+        return None, None, None
+
+
+def find_current_sub_items(data_ids: list, table: str):
+    """
+    Find all sub items of a list of samples, aliquots, or spots. This is intended to find sub items for Samples, Aliquots,
+    and Spots, and return the IDs of the sub items. For uncommited data only with a significant efficiency cost.
+    :param data_ids: List of data IDs to find sub items for
+    :param table: Table to search for sub items, can be 'Samples', 'Aliquots', or 'Spots'
+    :return: tuple of lists of sub item IDs
+    """
+    # Find all the sub items of a list of samples, aliquots, or spots
+    logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
+    if not data_ids:
+        logger_setup.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
+        return None, None, None
+    show_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
+    if len(data_ids) > 1:
+        where = f'IN {tuple(data_ids)}'
+    else:
+        where = f'= {data_ids[0]}'
+    aliquot_ids = []
+    spot_ids = []
+    upb_analysis_ids = []
+    if table == 'Samples':
+        sql_query = f"""SELECT Aliquots.AliquotID, Spots.SpotID, UPbAnalyses.UPbAnalysisID FROM Aliquots
+                        {SQLUtils.aliquot_spot_join}
+                        {SQLUtils.spot_upb_analysis_join}
+                        WHERE SampleID {where}"""
+        aliquot_ids, spot_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2])
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
+        return aliquot_ids, spot_ids, upb_analysis_ids
+    elif table == 'Aliquots':
+        sql_query = f"""SELECT Spots.SpotID, UPbAnalyses.UPbAnalysisID FROM Spots
+                        {SQLUtils.spot_upb_analysis_join}
+                        WHERE AliquotID {where}"""
+        spot_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1])
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
+        return spot_ids, upb_analysis_ids
+    elif table == 'Spots':
+        sql_query = f"""SELECT UPbAnalyses.UPbAnalysisID FROM UPbAnalyses
+                        WHERE SpotID {where}"""
+        upb_analysis_ids = columns_as_list_current(sql_query, [0])[0]
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
+        return upb_analysis_ids
+    else:
+        logger_setup.get_logger().critical(f"Table {table} in not supported for finding sub items")
+        close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
+        return None, None, None
+
+
+def find_current_parent_items(data_ids: list, table: str):
+    """
+    Find parent items for a list of data IDs in a given table. This is intended to find parent items for Aliquots, Spots,
+    and UPbAnalyses. For uncommited data only with a significant efficiency cost.
+    :param data_ids: List of data IDs to find parent items for
+    :param table: Table to search for parent items
+    :return: Tuple of lists of parent sample IDs, aliquot IDs, and spot IDs
+    """
+    logger_setup.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
+    if not data_ids:
+        logger_setup.get_logger().warning(f"No data IDs provided for finding parent items in {table}")
+        return None, None, None
+    show_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+    if len(data_ids) > 1:
+        where = f'IN {tuple(data_ids)}'
+    else:
+        where = f'= {data_ids[0]}'
+    sample_ids = []
+    aliquot_ids = []
+    spot_ids = []
+    if table == 'UPbAnalyses':
+        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, UPbAnalyses.SpotID FROM UPbAnalyses 
+                        {SQLUtils.upb_spot_join}
+                        {SQLUtils.spot_aliquot_join}
+                        WHERE UPbAnalysisID {where}"""
+        sample_ids, aliquot_ids, spot_ids = columns_as_list_current(sql_query, [0, 1, 2])
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+        return sample_ids, aliquot_ids, spot_ids
+    elif table == 'Spots':
+        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID FROM Spots
+                        {SQLUtils.spot_aliquot_join}
+                         WHERE SpotID {where}"""
+        sample_ids, aliquot_ids = columns_as_list_current(sql_query, [0, 1])
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+        return sample_ids, aliquot_ids
+    elif table == 'Aliquots':
+        sql_query = f"""SELECT SampleID FROM Aliquots
+                        WHERE AliquotID {where}"""
+        sample_ids = columns_as_list_current(sql_query, [0])[0]
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+        return sample_ids
+    else:
+        logger_setup.get_logger().critical(f"Table {table} in not supported for finding parent items")
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+        return None, None, None
 
 
 

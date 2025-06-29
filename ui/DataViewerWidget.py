@@ -21,7 +21,7 @@ from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (
     SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel, WordWrapDelegate, get_name_column,
-    ReadableProxyModel, get_id_from_name, get_record_index, column_as_list, get_view_from_table)
+    ReadableProxyModel, get_id_from_name, get_record_index, columns_as_list, get_view_from_table, find_sub_items)
 from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import SettingsManager
@@ -34,10 +34,26 @@ from ui.EditTreeView import EditTreeView
 
 
 class DataViewerWidget(QWidget):
-    def __init__(self, query_builder, ids_to_show: set, table_type):
+    """
+    A widget for displaying filtered data from a database.
+    """
+    def __init__(self, parent_class, ids_to_show: set, table_type):
+        """
+        Initializes the DataViewerWidget.
+        :param query_builder: parent class that builds the SQL queries in the Filter tab.
+        :param ids_to_show: list of filtered IDs of given type.
+        :param table_type: Type of IDs and table to display, e.g. Samples, Aliquots, Spots, or UPbAnalyses.
+        """
         start_time = time.time()
         super().__init__(parent=None)
-        self.query_builder = query_builder
+        from ui.Filters import QueryBuilder
+        from ui.ExportWidget import ExportWidget
+        if isinstance(parent_class, QueryBuilder):
+            self.query_builder = parent_class
+            self.filtered_sample_ids = None
+        elif isinstance(parent_class, ExportWidget):
+            self.query_builder = None
+            self.filtered_sample_ids = ids_to_show
 
         self.loading_manager = LoadingDialogManager.get_instance()
 
@@ -140,7 +156,7 @@ class DataViewerWidget(QWidget):
     @property
     def sql_data_ids_to_show(self) -> str:
         if not self.data_ids_to_show:
-            return '()'
+            return 'IN ()'
         elif len(self.data_ids_to_show) == 1:
             return f'= {str(list(self.data_ids_to_show)[0])}'
         else:
@@ -157,7 +173,28 @@ class DataViewerWidget(QWidget):
 
     def data_table_switcher(self):
         new_table = self.dbTable_comboBox.currentText()
-        filtered_ids = self.query_builder.get_filtered_ids(new_table)
+        if self.query_builder:
+            filtered_ids = self.query_builder.get_filtered_ids(new_table)
+        else:
+            if new_table == 'Samples':
+                filtered_ids = self.filtered_sample_ids
+            else:
+                aliquot_ids, spot_ids, upb_analysis_ids = find_sub_items(data_ids=list(self.filtered_sample_ids), table='Samples')
+                if new_table == 'Aliquots':
+                    if aliquot_ids:
+                        filtered_ids = set(aliquot_ids)
+                    else:
+                        filtered_ids = None
+                elif new_table == 'Spots':
+                    if spot_ids:
+                        filtered_ids = set(spot_ids)
+                    else:
+                        filtered_ids = None
+                elif new_table == 'UPbAnalyses':
+                    if upb_analysis_ids:
+                        filtered_ids = set(upb_analysis_ids)
+                    else:
+                        filtered_ids = None
         self.goto_line_edit.setCompleter(None)
         self.goto_line_edit_2.setCompleter(None)
         if filtered_ids is None:
@@ -169,7 +206,7 @@ class DataViewerWidget(QWidget):
             if len(set(filtered_ids)) > 1000:
                 if self.data_table_model:
                     # Only prompt if the model is already set to prevent unnecessary prompts
-                    if not self.view_many_results(len(set(filtered_ids))):
+                    if not self.view_many_results(len(set(filtered_ids)), new_table):
                         return
             self.setWindowTitle(f'Filtered {self.data_table} View')
             self.data_table = new_table
@@ -194,16 +231,20 @@ class DataViewerWidget(QWidget):
         self.goto_line_edit_2.setCompleter(None)
         self.display_table_with_data_filter()
 
-    def view_many_results(self, number: int) -> bool:
+    def view_many_results(self, number: int, table: str) -> bool:
         """
         Prompts the user if they want to view many results. If they do, it returns True, otherwise False.
-        :param number: number of filtered ids
+        :param number: Number of filtered ids.
+        :param table: Name of the table to display.
         :return: bool
         """
         msg = QMessageBox(self)
         msg.setIcon(QMessageBox.Icon.Question)
         msg.setWindowTitle('Many results')
-        msg.setText(f'Would you like to view {number} {self.data_table}? This may take a while to load.')
+        if table == 'Aliquots':
+            msg.setText(f'Would you like to view {number} {table}? Paging is not available for trees, so this will take a while to load.')
+        else:
+            msg.setText(f'Would you like to view {number} {table}? This may take a while to load.')
         msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         msg.setDefaultButton(QMessageBox.StandardButton.Yes)
         reply = msg.exec()
@@ -297,14 +338,14 @@ class DataViewerWidget(QWidget):
             # Get the sample IDs for these aliquots, then apply a filter to show only the aliquot IDs in data_ids_to_show
             # Otherwise, the tree structure is not maintained
             show_cols = settings.value('aliquot_view_columns')
-            sample_ids = column_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', 'SampleID')
+            sample_ids = columns_as_list(f'SELECT SampleID FROM Aliquots WHERE AliquotID {self.sql_data_ids_to_show}', ['SampleID'])[0]
             if not sample_ids:
                 logger_setup.get_logger().critical(f'Error displaying Aliquots')
                 logger_setup.get_logger().debug(f'No SampleIDs found for Aliquots: {self.sql_data_ids_to_show}')
                 return
             elif len(sample_ids) > 1:
                 if len(sample_ids) > 1000:
-                    if not self.view_many_results(len(sample_ids)):
+                    if not self.view_many_results(len(sample_ids), 'Samples'):
                         return
                 where_samples = f'WHERE SampleID IN ({", ".join([str(i) for i in sample_ids])})'
             else:
@@ -751,7 +792,7 @@ class DataViewerWidget(QWidget):
             return
         sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {ids}'
 
-        all_names = column_as_list(sql_query, name_header)
+        all_names = columns_as_list(sql_query, [name_header])[0]
         if not all_names:
             logger_setup.get_logger().debug(f'No names found for {name_header}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
@@ -916,6 +957,10 @@ class DataViewerWidget(QWidget):
         """
         Get the total number of records in the Samples table
         """
+        if len(self.data_ids_to_show) == 0:
+            logger_setup.get_logger().info(f'No records to show for the table type: {self.data_table}')
+            return 0
+
         query = QSqlQuery()
 
         sql_query = f"SELECT COUNT(*) FROM {self.data_table} WHERE {get_headers(self.data_table)[0]} {self.sql_data_ids_to_show}"
@@ -939,6 +984,10 @@ class DataViewerWidget(QWidget):
         """
         Get the total number of records in the Samples table
         """
+        if len(self.data_filtered_ids_to_show) == 0:
+            logger_setup.get_logger().info(f'No records to show for the table type: {self.data_filtered_table}')
+            return 0
+
         query = QSqlQuery()
         sql_query = f"SELECT COUNT(*) FROM '{self.data_filtered_table}' WHERE {get_headers(self.data_filtered_table)[0]} {self.sql_data_filtered_ids_to_show}"
 
