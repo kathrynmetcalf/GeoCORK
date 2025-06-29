@@ -743,6 +743,9 @@ def Puetz_importer():
                     if key not in sub_major_unit_names:
                         if key not in major_unit_names:
                             major_unit_names.append(key)
+                            # Add the major unit as a new line in the shifted_unit_df
+                            new_row = pd.Series([key, np.nan, np.nan, np.nan, np.nan], index=shifted_unit_df.columns)
+                            shifted_unit_df = shifted_unit_df._append(new_row, ignore_index=True)
     # Remove nan float values from each list
     major_unit_names = [name for name in major_unit_names if pd.notnull(name)]
     sub_major_unit_names = [name for name in sub_major_unit_names if pd.notnull(name)]

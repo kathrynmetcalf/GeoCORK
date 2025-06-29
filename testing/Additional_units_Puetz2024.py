@@ -484,5 +484,5 @@ additional_unit_tags_dict = {
     'Ouachita Basin':
         ['J1: Allred, I.J. & Blum, M.D., 2022', 'J2: Allred, I.J. & Blum, M.D., 2022', 'J3',
          'J4: Allred, I.J. & Blum, M.D., 2022', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12', 'J1B'],
-    'Indian Himalayas': ['18-NG-2', '16CMP7', '16IMP8'],
+    'Indian Himalaya': ['18-NG-2', '16CMP7', '16IMP8'],
 }
