@@ -69,7 +69,7 @@ Data are stored in a .db file. GeoCORK can import from .xlsx files and export to
 - Rejected/Accepted
 - Rejection Reasons
 - Contexts
-Counts per Second
+#### Counts per Second
 - <sup>204</sup>Pb
 - <sup>206</sup>Pb
 - <sup>207</sup>Pb
@@ -78,11 +78,11 @@ Counts per Second
 - <sup>235</sup>U
 - <sup>238</sup>U
 - <sup>232</sup>Th
-Concentrations
+#### Concentrations
 - U
 - Th
 - U/Th or Th/U
-Ratios with errors
+#### Ratios with errors
 - <sup>206</sup>Pb/<sup>207</sup>Pb or <sup>207</sup>Pb/<sup>206</sup>Pb
 - <sup>207</sup>Pb/<sup>235</sup>U or <sup>235</sup>U/<sup>207</sup>Pb
 - <sup>206</sup>Pb/<sup>238</sup>U or <sup>238</sup>U/<sup>206</sup>Pb
@@ -93,7 +93,7 @@ Ratios with errors
 - <sup>207</sup>Pb/<sup>204</sup>Pb or <sup>204</sup>Pb/<sup>207</sup>Pb
 - <sup>208</sup>Pb/<sup>204</sup>Pb or <sup>204</sup>Pb/<sup>208</sup>Pb
 - Error Correlation / Rho
-Ages with errors
+#### Ages with errors
 - <sup>207</sup>Pb/<sup>206</sup>Pb
 - <sup>207</sup>Pb/<sup>235</sup>U
 - <sup>206</sup>Pb/<sup>238</sup>U
