@@ -9,8 +9,8 @@ from testing.Additional_units_Puetz2024 import additional_unit_tags_dict
 def strip_strings(x):
     """
     Remove excess white space from strings. Returns the data unchanged if not a string.
-    :param x: value from a DataFrame
-    :return: stripped value if string, unchanged if another data type
+    :param x: Value from a DataFrame.
+    :return: Stripped value if string, unchanged if another data type.
     """
     if isinstance(x, str):
         return x.strip()
@@ -18,9 +18,9 @@ def strip_strings(x):
 
 def shift_left(row):
     """
-    Shift the values in a row to the left, filling empty spaces with NaN
-    :param row: data frame row
-    :return: shifted row
+    Shift the values in a row to the left, filling empty spaces with NaN.
+    :param row: Data frame row.
+    :return: Shifted row.
     """
     non_null = [value for value in row if pd.notnull(value)]
     shifted_row = non_null + [np.nan] * (len(row) - len(non_null))
@@ -30,9 +30,9 @@ def edit_duplicate_sample_name(sample_df, reference_dict_df, reference_sql_df):
     """
     Edit the sample names in the sample_df to remove ambiguity for duplicate sample names. This will be used for
     linking other fields to samples, aliquots, spots, and UPb analyses.
-    :param sample_df: DataFrame with sample names and Ref-Sample Key
-    :param reference_dict_df: reference dictionary data frame with columns ReferenceNumber and ReferenceID
-    :param reference_sql_df: reference sql data frame, the Reference table in the sql database
+    :param sample_df: DataFrame with sample names and Ref-Sample Key.
+    :param reference_dict_df: Reference dictionary data frame with columns ReferenceNumber and ReferenceID.
+    :param reference_sql_df: Reference sql data frame, the Reference table in the sql database.
     """
 
     # Identify duplicate sample name and Ref-Sample Key pairs, case insensitive
@@ -57,9 +57,9 @@ def edit_duplicate_sample_name(sample_df, reference_dict_df, reference_sql_df):
     def edit_name(row):
         """
         If it is a duplicate, edit the sample name based on the Ref-Sample Key column to return a sample name in the format
-        sample_name: Authors_Year
-        :param row: data frame row
-        :return: edited, non-ambiguous sample name
+        sample_name: Authors_Year.
+        :param row: Data frame row.
+        :return: Edited, non-ambiguous sample name.
         """
         ref_sample_key = row['Ref-Sample Key']
         sample_name = row['Sample_ID']
@@ -168,6 +168,40 @@ def edit_duplicate_recalculated_name(upb_analysis_df):
 
     return upb_analysis_df
 
+def get_static_columns(table_name, db) -> list:
+    """
+    Retrieve the static columns from a table in the database.
+    :param table_name: Name of the table to retrieve static columns from.
+    :param db: Path to the SQLite database file.
+    :return: List of static column names in the specified table.
+    """
+    conn = sqlite3.connect(db)
+    # Get columns in "References" that are not generated or stored in the database
+    cursor = conn.cursor()
+    cursor.execute(f'PRAGMA table_xinfo("{table_name}")')
+    static_columns = [column[1] for column in cursor.fetchall() if column[6] == 0]
+    conn.close()
+    return static_columns
+
+def duplicate_names_nocase(names: list) -> tuple[list, set]:
+    """
+    Check for duplicate names in a list, ignoring case.
+    :param names: List of names to check for duplicates.
+    :return: List of duplicate names and set of distinct names.
+    """
+    duplicates = []
+    distinct_names = set()
+    distinct_lower_names = set()
+    for name in names:
+        if not isinstance(name, str):
+            print(f"Invalid name format: {name}, expected string.")
+            return [], set()
+        if name.lower() in distinct_lower_names:
+            duplicates.append(name)
+        else:
+            distinct_lower_names.add(name.lower())
+            distinct_names.add(name)
+    return duplicates, distinct_names
 
 def Puetz_importer():
     """
@@ -182,9 +216,9 @@ def Puetz_importer():
     # db = '/Users/kametcalf/Documents/Research/GeoChron_non_git/Puetz_et_al_2024_3.db'
     ref_sample_dict = {}
     sample_analysis_tags_dict = {}
-    data_files = ['/Users/kametcalf/Downloads/DB1_2019_edited.xlsx',
-                  '/Users/kametcalf/Downloads/DB2_2021_edited.xlsx',
-                  '/Users/kametcalf/Downloads/DB3_2023_edited.xlsx']
+    data_files = ['/Users/kametcalf/Documents/Research/GeoChron_non_git/DB1_2019_edited.xlsx',
+                  '/Users/kametcalf/Documents/Research/GeoChron_non_git/DB2_2021_edited.xlsx',
+                  '/Users/kametcalf/Documents/Research/GeoChron_non_git/DB3_2023_edited.xlsx']
     db = '/Users/kametcalf/Documents/Research/GeoChron_non_git/Puetz_et_al_2024_all.db'
 
     # --------------------
@@ -237,7 +271,9 @@ def Puetz_importer():
     reference_df = reference_df.map(strip_strings)
     print(f'Loaded References in {time.time() - start_time} seconds')
 
-    reference_sql_df = pd.DataFrame(columns=table_properties['"References"'])
+    static_columns = get_static_columns('References', db)
+
+    reference_sql_df = pd.DataFrame(columns=static_columns)
     reference_sql_df['Authors'] = reference_df['Lead_Author']
     reference_sql_df['Year'] = reference_df['Year']
     reference_sql_df['Title'] = reference_df['Title']
@@ -260,7 +296,7 @@ def Puetz_importer():
     # add the reference_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        reference_sql_df.to_sql('References', conn, if_exists='replace', index=False)
+        reference_sql_df.to_sql('References', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -298,7 +334,10 @@ def Puetz_importer():
 
     print('Checking for sample duplicates')
     # Identify duplicate sample names
-    sample_sql_df = pd.DataFrame(columns=table_properties['Samples'])
+
+    static_columns = get_static_columns('Samples', db)
+
+    sample_sql_df = pd.DataFrame(columns=static_columns)
 
     sample_df = edit_duplicate_sample_name(sample_df, reference_dict_df, reference_sql_df)
     try:
@@ -315,7 +354,10 @@ def Puetz_importer():
 
 
     print('Importing GPS')
-    gps_sql_df = pd.DataFrame(columns=table_properties['GPSLocations'])
+
+    static_columns = get_static_columns('GPSLocations', db)
+
+    gps_sql_df = pd.DataFrame(columns=static_columns)
 
     # Check for duplicate GPS coordinate pairs
     gps_sql_df['GPSLatDeg'] = sample_df['Latitude']
@@ -336,7 +378,7 @@ def Puetz_importer():
     # Add the gps_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        gps_sql_df.to_sql('GPSLocations', conn, if_exists='replace', index=False)
+        gps_sql_df.to_sql('GPSLocations', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -349,7 +391,10 @@ def Puetz_importer():
 
     # Column name, height/depth, and height/depth unit are all in the same cell, so need to parse
     # For each Column, the name is the whole thing or comes before ' at '
-    column_sql_df = pd.DataFrame(columns=table_properties['Columns'])
+
+    static_columns = get_static_columns('Columns', db)
+
+    column_sql_df = pd.DataFrame(columns=static_columns)
     column_dict = {}
     columns = sample_df['Column']
     column_names = set()
@@ -423,7 +468,7 @@ def Puetz_importer():
     # Add the column_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        column_sql_df.to_sql('Columns', conn, if_exists='replace', index=False)
+        column_sql_df.to_sql('Columns', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -446,7 +491,9 @@ def Puetz_importer():
 
     print('Importing sample ages')
 
-    sample_ages_sql_df = pd.DataFrame(columns=table_properties['SampleAges'])
+    static_columns = get_static_columns('SampleAges', db)
+
+    sample_ages_sql_df = pd.DataFrame(columns=static_columns)
 
     # Look for unique sample ages
     sample_ages_sql_df['OldestDirectAge'] = sample_df['Max. Stratigraphic Age (Ma)']
@@ -466,7 +513,9 @@ def Puetz_importer():
                                          'Est. Stratigraphic Age (Ma)'],
                                 right_on=['OldestDirectAge', 'YoungestDirectAge', 'DirectAge'], how='left')
 
-    samples_sample_ages_sql_df = pd.DataFrame(columns=table_properties['Samples_SampleAges'])
+    static_columns = get_static_columns('Samples_SampleAges', db)
+
+    samples_sample_ages_sql_df = pd.DataFrame(columns=static_columns)
     samples_sample_ages_sql_df['SampleID'] = pd.Series(merged_age_df['SampleID'], dtype=pd.Int64Dtype())
     samples_sample_ages_sql_df['SampleAgeID'] = pd.Series(merged_age_df['SampleAgeID'], dtype=pd.Int64Dtype())
     samples_sample_ages_sql_df['Samples_SampleAgesCreated'] = pd.to_datetime('now')
@@ -478,7 +527,7 @@ def Puetz_importer():
     # Add the sample_ages_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        sample_ages_sql_df.to_sql('SampleAges', conn, if_exists='replace', index=False)
+        sample_ages_sql_df.to_sql('SampleAges', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -500,8 +549,8 @@ def Puetz_importer():
     sample_sql_df['SampleModified'] = pd.to_datetime('now')
     try:
         conn = sqlite3.connect(db)
-        sample_sql_df.to_sql('Samples', conn, if_exists='replace', index=False)
-        samples_sample_ages_sql_df.to_sql('Samples_SampleAges', conn, if_exists='replace', index=False)
+        sample_sql_df.to_sql('Samples', conn, if_exists='append', index=False)
+        samples_sample_ages_sql_df.to_sql('Samples_SampleAges', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -511,7 +560,10 @@ def Puetz_importer():
 
 
     print('Importing regions')
-    region_sql_df = pd.DataFrame(columns=table_properties['Regions'])
+
+    static_columns = get_static_columns('Regions', db)
+
+    region_sql_df = pd.DataFrame(columns=static_columns)
 
     # Find any instances where a region name is in multiple columns
     duplicates_df = sample_df.map(lambda x: x.lower() if isinstance(x, str) else x)
@@ -537,21 +589,15 @@ def Puetz_importer():
     # append 'Continent', 'Large Region', and 'Country/Small Region' into one 'RegionName' column
     continent_names = list(shifted_region_df['Continent'].unique())
     large_region_names = list(shifted_region_df['Large Region'].unique())
-    country_names = list(sample_df['Country/Small Region'].unique())
-    locality_names = list(sample_df['Locality'].unique())
+    country_names = list(shifted_region_df['Country/Small Region'].unique())
+    locality_names = list(shifted_region_df['Locality'].unique())
     # Remove nan float values from each list
     continent_names = [region for region in continent_names if pd.notnull(region)]
     large_region_names = [region for region in large_region_names if pd.notnull(region)]
     country_names = [region for region in country_names if pd.notnull(region)]
     locality_names = [region for region in locality_names if pd.notnull(region)]
     region_names = continent_names + large_region_names + country_names + locality_names
-    duplicates = []
-    distinct_names = set()
-    for region_name in region_names:
-        if region_name in distinct_names:
-            duplicates.append(region_name)
-        else:
-            distinct_names.add(region_name)
+    duplicates, distinct_region_names = duplicate_names_nocase(region_names)
     if len(list(duplicates)) > 0:
         # If there is only one duplicate of nan, continue
         if len(list(duplicates)) == 1 and pd.isna(list(duplicates)[0]):
@@ -662,7 +708,7 @@ def Puetz_importer():
     # Add the region_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        region_sql_df.to_sql('Regions', conn, if_exists='replace', index=False)
+        region_sql_df.to_sql('Regions', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -671,7 +717,10 @@ def Puetz_importer():
     print(f'Imported {region_sql_df.shape[0]} regions')
 
     # Create the Samples_Regions table
-    sample_region_sql_df = pd.DataFrame(columns=table_properties['Samples_Regions'])
+
+    static_columns = get_static_columns('Samples_Regions', db)
+
+    sample_region_sql_df = pd.DataFrame(columns=static_columns)
 
     merged_continent_df = merged_sample_id_df.merge(region_sql_df, left_on=['Continent'], right_on=['RegionName'], how='left')
     merged_large_region_df = merged_sample_id_df.merge(region_sql_df, left_on=['Large Region'], right_on=['RegionName'], how='left')
@@ -694,7 +743,7 @@ def Puetz_importer():
     # Add the sample_region_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        sample_region_sql_df.to_sql('Samples_Regions', conn, if_exists='replace', index=False)
+        sample_region_sql_df.to_sql('Samples_Regions', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -704,7 +753,10 @@ def Puetz_importer():
 
 
     print('Importing units')
-    unit_sql_df = pd.DataFrame(columns=table_properties['Units'])
+
+    static_columns = get_static_columns('Units', db)
+
+    unit_sql_df = pd.DataFrame(columns=static_columns)
 
     # Check for duplicate unit names
     duplicates_df = sample_df.map(lambda x: x.lower() if isinstance(x, str) else x)
@@ -754,13 +806,7 @@ def Puetz_importer():
     sub_minor_unit_names = [name for name in sub_minor_unit_names if pd.notnull(name)]
 
     unit_names = major_unit_names + sub_major_unit_names + intermediate_unit_names + minor_unit_names + sub_minor_unit_names
-    duplicates = []
-    distinct_names = set()
-    for unit_name in unit_names:
-        if unit_name in distinct_names:
-            duplicates.append(unit_name)
-        else:
-            distinct_names.add(unit_name)
+    duplicates, distinct_unit_names = duplicate_names_nocase(unit_names)
     if len(list(duplicates)) > 0:
         # If there is only one duplicate of nan, continue
         if len(list(duplicates)) == 1 and pd.isna(list(duplicates)[0]):
@@ -898,7 +944,7 @@ def Puetz_importer():
     # Add the unit_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        unit_sql_df.to_sql('Units', conn, if_exists='replace', index=False)
+        unit_sql_df.to_sql('Units', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -906,7 +952,10 @@ def Puetz_importer():
     print(f'Imported {unit_sql_df.shape[0]} units')
 
     # Create the Samples_Units table
-    sample_unit_sql_df = pd.DataFrame(columns=table_properties['Samples_Units'])
+
+    static_columns = get_static_columns('Samples_Units', db)
+
+    sample_unit_sql_df = pd.DataFrame(columns=static_columns)
 
     merged_major_unit_df = merged_sample_id_df.merge(unit_sql_df,
                              left_on=['Major Geographic-Geologic Description'], right_on=['UnitName'], how='left')
@@ -971,7 +1020,7 @@ def Puetz_importer():
     # Add the sample_unit_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        sample_unit_sql_df.to_sql('Samples_Units', conn, if_exists='replace', index=False)
+        sample_unit_sql_df.to_sql('Samples_Units', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -982,7 +1031,9 @@ def Puetz_importer():
 
     print('Importing rock types')
 
-    rock_type_sql_df = pd.DataFrame(columns=table_properties['RockTypes'])
+    static_columns = get_static_columns('RockTypes', db)
+
+    rock_type_sql_df = pd.DataFrame(columns=static_columns)
     # Check for duplicate rock type names
     duplicates_df = sample_df.map(lambda x: x.lower() if isinstance(x, str) else x)
     duplicates = set()
@@ -1015,13 +1066,7 @@ def Puetz_importer():
     class3_names = [name for name in class3_names if pd.notnull(name)]
     class4_names = [name for name in class4_names if pd.notnull(name)]
     rock_type_names = class1_names + class2_names + class3_names + class4_names
-    duplicates = []
-    distinct_names = set()
-    for rock_type_name in rock_type_names:
-        if rock_type_name in distinct_names:
-            duplicates.append(rock_type_name)
-        else:
-            distinct_names.add(rock_type_name)
+    duplicates, distinct_rock_type_names = duplicate_names_nocase(rock_type_names)
     if len(list(duplicates)) > 0:
         # If there is only one duplicate of nan, continue
         if len(list(duplicates)) == 1 and pd.isna(list(duplicates)[0]):
@@ -1140,7 +1185,7 @@ def Puetz_importer():
     # Add the rock_type_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        rock_type_sql_df.to_sql('RockTypes', conn, if_exists='replace', index=False)
+        rock_type_sql_df.to_sql('RockTypes', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1150,7 +1195,10 @@ def Puetz_importer():
 
 
     # Create the Samples_RockTypes table
-    sample_rock_type_sql_df = pd.DataFrame(columns=table_properties['Samples_RockTypes'])
+
+    static_columns = get_static_columns('Samples_RockTypes', db)
+
+    sample_rock_type_sql_df = pd.DataFrame(columns=static_columns)
     merged_class1_df = merged_sample_id_df.merge(rock_type_sql_df, left_on=['Class-1 Rock Type'], right_on=['RockTypeName'], how='left')
     merged_class2_df = merged_sample_id_df.merge(rock_type_sql_df, left_on=['Class-2 Rock Type'], right_on=['RockTypeName'], how='left')
     merged_class3_df = merged_sample_id_df.merge(rock_type_sql_df, left_on=['Class-3 Rock Type'], right_on=['RockTypeName'], how='left')
@@ -1176,7 +1224,7 @@ def Puetz_importer():
     # Add the sample_rock_type_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        sample_rock_type_sql_df.to_sql('Samples_RockTypes', conn, if_exists='replace', index=False)
+        sample_rock_type_sql_df.to_sql('Samples_RockTypes', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1188,7 +1236,10 @@ def Puetz_importer():
     print('Creating aliquots')
 
     # Create the Aliquots table
-    aliquot_sql_df = pd.DataFrame(columns=table_properties['Aliquots'])
+
+    static_columns = get_static_columns('Aliquots', db)
+
+    aliquot_sql_df = pd.DataFrame(columns=static_columns)
 
     # No aliquots on the database, so just repeat the sample names
     aliquot_sql_df['AliquotName'] = sample_sql_df['SampleName']
@@ -1203,7 +1254,7 @@ def Puetz_importer():
     # Add the aliquot_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        aliquot_sql_df.to_sql('Aliquots', conn, if_exists='replace', index=False)
+        aliquot_sql_df.to_sql('Aliquots', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1217,7 +1268,10 @@ def Puetz_importer():
     # These are mostly in the Samples sheet as well.
 
     # Create the Spot Composition table
-    spot_composition_sql_df = pd.DataFrame(columns=table_properties['SpotCompositions'])
+
+    static_columns = get_static_columns('SpotCompositions', db)
+
+    spot_composition_sql_df = pd.DataFrame(columns=static_columns)
     spot_composition_sql_df['SpotCompositionName'] = sample_df['Mineral']
     spot_composition_sql_df.dropna(axis=0, how='all', inplace=True)
     spot_composition_sql_df.drop_duplicates(inplace=True)
@@ -1229,7 +1283,7 @@ def Puetz_importer():
     # Add the spot_composition_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        spot_composition_sql_df.to_sql('SpotCompositions', conn, if_exists='replace', index=False)
+        spot_composition_sql_df.to_sql('SpotCompositions', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1241,7 +1295,10 @@ def Puetz_importer():
     print('Importing U-Pb analysis methods')
 
     # Create the UPbAnalysisMethods table
-    analysis_method_sql_df = pd.DataFrame(columns=table_properties['UPbAnalysisMethods'])
+
+    static_columns = get_static_columns('UPbAnalysisMethods', db)
+
+    analysis_method_sql_df = pd.DataFrame(columns=static_columns)
     analysis_method_sql_df['UPbAnalysisMethodName'] = sample_df['Mass Spectrometer']
     analysis_method_sql_df.dropna(axis=0, how='all', inplace=True)
     analysis_method_sql_df.drop_duplicates(inplace=True)
@@ -1253,7 +1310,7 @@ def Puetz_importer():
     # Add the analysis_method_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        analysis_method_sql_df.to_sql('UPbAnalysisMethods', conn, if_exists='replace', index=False)
+        analysis_method_sql_df.to_sql('UPbAnalysisMethods', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1265,12 +1322,30 @@ def Puetz_importer():
     print('Importing lab facilities')
 
     # Create the LabFacilities table
-    lab_facility_sql_df = pd.DataFrame(columns=table_properties['LabFacilities'])
+
+    static_columns = get_static_columns('LabFacilities', db)
+
+    lab_facility_sql_df = pd.DataFrame(columns=static_columns)
+
     lab_facility_sql_df['LabFacilityName'] = sample_df['Spectrometer Location']
     lab_facility_sql_df['LabFacilityDescription'] = sample_df['Institution']
     lab_facility_sql_df.dropna(axis=0, how='all', inplace=True)
     lab_facility_sql_df.drop_duplicates(inplace=True)
     lab_facility_sql_df.reset_index(drop=True, inplace=True)
+
+    # Check for duplicate lab facility names. Do not use unique names, as some labs may have the same name but different institutions.
+    lab_facility_names = lab_facility_sql_df['LabFacilityName']
+    duplicates, distinct_lab_facility_names = duplicate_names_nocase(lab_facility_names)
+    if len(list(duplicates)) > 0:
+        # If there is only one duplicate of nan, continue
+        if len(list(duplicates)) == 1 and pd.isna(list(duplicates)[0]):
+            pass
+        else:
+            print('Duplicate lab facility names found:')
+            print(list(duplicates))
+            print('Please check the lab facility names in the sample sheet.')
+            return
+
     lab_facility_sql_df['LabFacilityID'] = pd.Series(list(range(1, lab_facility_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     lab_facility_sql_df['LabFacilityCreated'] = pd.to_datetime('now')
     lab_facility_sql_df['LabFacilityModified'] = pd.to_datetime('now')
@@ -1278,7 +1353,7 @@ def Puetz_importer():
     # Add the lab_facility_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        lab_facility_sql_df.to_sql('LabFacilities', conn, if_exists='replace', index=False)
+        lab_facility_sql_df.to_sql('LabFacilities', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1290,7 +1365,22 @@ def Puetz_importer():
     print('Importing instruments')
 
     # Create the Instruments table
-    instrument_sql_df = pd.DataFrame(columns=table_properties['Instruments'])
+
+    static_columns = get_static_columns('Instruments', db)
+
+    instrument_names = sample_df['Spectrometer Model'].unique()
+    duplicates, distinct_instrument_names = duplicate_names_nocase(instrument_names)
+    if len(list(duplicates)) > 0:
+        # If there is only one duplicate of nan, continue
+        if len(list(duplicates)) == 1 and pd.isna(list(duplicates)[0]):
+            pass
+        else:
+            print('Duplicate instrument names found:')
+            print(list(duplicates))
+            print('Please check the instrument names in the sample sheet.')
+            return
+
+    instrument_sql_df = pd.DataFrame(columns=static_columns)
     instrument_sql_df['InstrumentName'] = sample_df['Spectrometer Model']
     instrument_sql_df.dropna(axis=0, how='all', inplace=True)
     instrument_sql_df.drop_duplicates(inplace=True)
@@ -1302,7 +1392,7 @@ def Puetz_importer():
     # Add the instrument_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        instrument_sql_df.to_sql('Instruments', conn, if_exists='replace', index=False)
+        instrument_sql_df.to_sql('Instruments', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1312,7 +1402,10 @@ def Puetz_importer():
 
     print(f'Importing UPb analysis contexts')
     # Create the UPbAnalysisContexts table
-    upb_analysis_context_sql_df = pd.DataFrame(columns=table_properties['UPbAnalysisContexts'])
+
+    static_columns = get_static_columns('UPbAnalysisContexts', db)
+
+    upb_analysis_context_sql_df = pd.DataFrame(columns=static_columns)
     # Create a parent "ConcordanceClasses" context and children from "Concordance class 1" to "Concordance class 7"
     # Create a parent "Recalculated" context and children "238U/235U=137.818" and "non-iterative age model"
     # Create metamorphic and non-metamorphic contexts
@@ -1346,7 +1439,7 @@ def Puetz_importer():
     # Add the upb_analysis_context_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        upb_analysis_context_sql_df.to_sql('UPbAnalysisContexts', conn, if_exists='replace', index=False)
+        upb_analysis_context_sql_df.to_sql('UPbAnalysisContexts', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1466,8 +1559,13 @@ def Puetz_importer():
 
     print('Checking for grain duplicates')
     # Identify duplicate grain names
-    upb_analysis_sql_df = pd.DataFrame(columns=table_properties['UPbAnalyses'])
-    spot_sql_df = pd.DataFrame(columns=table_properties['Spots'])
+
+    static_columns = get_static_columns('UPbAnalyses', db)
+    upb_analysis_sql_df = pd.DataFrame(columns=static_columns)
+
+    static_columns = get_static_columns('Spots', db)
+    spot_sql_df = pd.DataFrame(columns=static_columns)
+
     upb_analysis_df = edit_duplicate_grain_name(upb_analysis_df)
     try:
         if upb_analysis_df.empty:
@@ -1499,7 +1597,7 @@ def Puetz_importer():
     # Add the spot_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        spot_sql_df.to_sql('Spots', conn, if_exists='replace', index=False)
+        spot_sql_df.to_sql('Spots', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1511,7 +1609,10 @@ def Puetz_importer():
     print(f'Importing spot contexts')
 
     # Create the SpotContext table
-    spot_context_sql_df = pd.DataFrame(columns=table_properties['SpotContexts'])
+
+    static_columns = get_static_columns('SpotContexts', db)
+
+    spot_context_sql_df = pd.DataFrame(columns=static_columns)
     upb_analysis_df['Spot'] = upb_analysis_df['Spot'].str.lower()
     spot_context_names = upb_analysis_df['Spot'].unique()
     spot_context_sql_df['SpotContextName'] = spot_context_names
@@ -1527,7 +1628,7 @@ def Puetz_importer():
     # Add the spot_context_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        spot_context_sql_df.to_sql('SpotContexts', conn, if_exists='replace', index=False)
+        spot_context_sql_df.to_sql('SpotContexts', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1553,7 +1654,10 @@ def Puetz_importer():
         return
 
     # Create the Spots_SpotContexts table
-    spots_spot_contexts_sql_df = pd.DataFrame(columns=table_properties['Spots_SpotContexts'])
+
+    static_columns = get_static_columns('Spots_SpotContexts', db)
+
+    spots_spot_contexts_sql_df = pd.DataFrame(columns=static_columns)
     merged_spot_context_df = upb_analysis_df.merge(spot_context_sql_df, left_on=['Spot'], right_on=['SpotContextName'], how='left')
     spots_spot_contexts_sql_df['SpotID'] = pd.Series(merged_spot_context_df['SpotID'], dtype=pd.Int64Dtype())
     spots_spot_contexts_sql_df['SpotContextID'] = pd.Series(merged_spot_context_df['SpotContextID'], dtype=pd.Int64Dtype())
@@ -1566,7 +1670,7 @@ def Puetz_importer():
     # Add the spots_spot_contexts_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        spots_spot_contexts_sql_df.to_sql('Spots_SpotContexts', conn, if_exists='replace', index=False)
+        spots_spot_contexts_sql_df.to_sql('Spots_SpotContexts', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1577,7 +1681,10 @@ def Puetz_importer():
 
     print(f'Connecting UPb analyses and contexts')
     # Create the UPbAnalyses_UPbAnalysisContexts table
-    upb_analyses_upb_analysis_contexts_sql_df = pd.DataFrame(columns=table_properties['UPbAnalyses_UPbAnalysisContexts'])
+
+    static_columns = get_static_columns('UPbAnalyses_UPbAnalysisContexts', db)
+
+    upb_analyses_upb_analysis_contexts_sql_df = pd.DataFrame(columns=static_columns)
     # All analyses get both recalculated tags
     upb_analysis_ids = list(range(1, upb_analysis_df.shape[0] + 1))
     upb_ids =  upb_analysis_ids * 6
@@ -1606,7 +1713,7 @@ def Puetz_importer():
     # Add the upb_analyses_upb_analysis_contexts_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        upb_analyses_upb_analysis_contexts_sql_df.to_sql('UPbAnalyses_UPbAnalysisContexts', conn, if_exists='replace', index=False)
+        upb_analyses_upb_analysis_contexts_sql_df.to_sql('UPbAnalyses_UPbAnalysisContexts', conn, if_exists='append', index=False)
         conn.close()
     except sqlite3.Error as e:
         print(f"SQLite error: {e}")
@@ -1662,7 +1769,7 @@ def Puetz_importer():
     # Add the upb_analysis_sql_df to the database
     try:
         conn = sqlite3.connect(db)
-        upb_analysis_sql_df.to_sql('UPbAnalyses', conn, if_exists='replace', index=False)
+        upb_analysis_sql_df.to_sql('UPbAnalyses', conn, if_exists='append', index=False)
         conn.commit()
         conn.close()
     except sqlite3.Error as e:
