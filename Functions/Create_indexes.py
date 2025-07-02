@@ -187,19 +187,23 @@ CREATE_UPBANALYSIS_METHOD_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_UPbAnalysisMethods_UPbAnalysisMethodID ON UPbAnalysisMethods(UPbAnalysisMethodID)'''
 
 
-def create_indexes() -> bool:
+def create_indexes(database=None) -> bool:
     """
-    Connect to the database and execute the sql strings defined above to create the database tables
-    Only creates tables that do not already exist - does not overwrite existing tables
-    If the Ages table is empty, it will fill it from the Geologic timescale xml file
-    Populates the units, formats, and conversion tables
-    Uses the default database connection
+    Connect to the database and execute the sql strings defined above to create the database tables.
+    Only creates tables that do not already exist - does not overwrite existing tables.
+    If the Ages table is empty, it will fill it from the Geologic timescale xml file.
+    Populates the units, formats, and conversion tables.
+    Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to create tables in, if None uses the default connection
     :return: True on success, False on failure
     :rtype: bool
     """
     start_time = time.time()
     logger_setup.get_logger().info('Creating database indexes')
-    query = QtSql.QSqlQuery()
+    if database is None:
+        query = QtSql.QSqlQuery()
+    else:
+        query = QtSql.QSqlQuery(database)
 
     # Create unit and format tables
     if not query.exec(CREATE_AGE_UNITS_INDEX):
@@ -591,19 +595,23 @@ def create_indexes() -> bool:
     return True
 
 
-def drop_all_indexes() -> bool:
+def drop_all_indexes(database=None) -> bool:
     """
-        Connect to the database and execute the sql strings defined above to create the database tables
-        Only creates tables that do not already exist - does not overwrite existing tables
-        If the Ages table is empty, it will fill it from the Geologic timescale xml file
-        Populates the units, formats, and conversion tables
-        Uses the default database connection
+        Connect to the database and execute the sql strings defined above to create the database tables.
+        Only creates tables that do not already exist - does not overwrite existing tables.
+        If the Ages table is empty, it will fill it from the Geologic timescale xml file.
+        Populates the units, formats, and conversion tables.
+        Uses the default database connection if no database is provided.
+        :param database: QSqlDatabase instance to drop indexes in, if None uses the default connection
         :return: True on success, False on failure
         :rtype: bool
         """
     start_time = time.time()
     logger_setup.get_logger().info('Dropping all database indexes')
-    query = QtSql.QSqlQuery()
+    if database is None:
+        query = QtSql.QSqlQuery()
+    else:
+        query = QtSql.QSqlQuery(database)
 
     # Fetch all index names from sqlite_master
     if not query.exec("SELECT name FROM sqlite_master WHERE type='index'"):

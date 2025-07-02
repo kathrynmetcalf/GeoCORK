@@ -975,16 +975,21 @@ CREATE_UPBANALYSIS_METHOD_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisMetho
 '''Commands to create tables and populate default tables'''
 
 
-def create_tables() -> bool:
+def create_tables(database=None) -> bool:
     """
-    Connect to the database and execute the sql strings defined above to create the database tables
-    Only creates tables that do not already exist - does not overwrite existing tables
-    If the Ages table is empty, it will fill it from the Geologic timescale xml file
-    Populates the units, formats, and conversion tables
-    Uses the default database connection
+    Connect to the database and execute the sql strings defined above to create the database tables.
+    Only creates tables that do not already exist - does not overwrite existing tables.
+    If the Ages table is empty, it will fill it from the Geologic timescale xml file.
+    Populates the units, formats, and conversion tables.
+    Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to create tables in, if None uses the default connection
+    :return: True for success, False for failure
     """
     logger_setup.get_logger().info('Creating database tables')
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
 
     # Create the tables
     if not query.exec(CREATE_ABOUT_TABLE):
@@ -1298,7 +1303,7 @@ def create_tables() -> bool:
 
     logger_setup.get_logger().info('Successfully created all database tables')
     # Populate the tables
-    if not populate_tables():
+    if not populate_tables(database):
         logger_setup.get_logger().critical(f'Error populating tables')
         return False
 
@@ -1306,10 +1311,18 @@ def create_tables() -> bool:
     return True
 
 
-def populate_tables() -> bool:
+def populate_tables(database=None) -> bool:
+    """
+    Populate the default values in the static database tables. Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
     # Populate the age units table during initiation
     logger_setup.get_logger().info('Populating tables')
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     sql = 'SELECT * FROM AgeUnits'
     if not query.exec(sql):
         logger_setup.get_logger().critical(f'Error getting AgeUnits')
@@ -1319,9 +1332,9 @@ def populate_tables() -> bool:
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != SQLUtils.age_units:  # if there is no output, the table is empty
-        if not populate_age_units():  # populate it
+        if not populate_age_units(database):  # populate it
             return False
-    if not populate_age_conversions():
+    if not populate_age_conversions(database):
         return False
 
     # Populate the concordance format table during initiation
@@ -1334,9 +1347,9 @@ def populate_tables() -> bool:
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.concordance_formats):  # if there is no output, the table is empty
-        if not populate_concordance_formats():  # populate it
+        if not populate_concordance_formats(database):  # populate it
             return False
-    if not populate_concordance_conversions():
+    if not populate_concordance_conversions(database):
         return False
 
     # Populate the direction unit table during initiation
@@ -1349,7 +1362,7 @@ def populate_tables() -> bool:
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.direction_units):  # if there is no output, the table is empty
-        if not populate_direction_units():  # populate it
+        if not populate_direction_units(database):  # populate it
             return False
 
     # Populate the distance unit table during initiation
@@ -1362,9 +1375,9 @@ def populate_tables() -> bool:
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.distance_units):  # if there is no output, the table is empty
-        if not populate_distance_units():  # populate it
+        if not populate_distance_units(database):  # populate it
             return False
-    if not populate_distance_conversions():
+    if not populate_distance_conversions(database):
         return False
 
     # Populate the error format table during initiation
@@ -1377,9 +1390,9 @@ def populate_tables() -> bool:
     out = []
     while query.next(): out.append(query.value(1))
     if not out or len(out) != len(SQLUtils.error_formats):  # if there is no output, the table is empty
-        if not populate_error_formats():
+        if not populate_error_formats(database):
             return False
-    if not populate_error_conversions():
+    if not populate_error_conversions(database):
         return False
 
     # Populate the gps format table during initiation
@@ -1392,14 +1405,14 @@ def populate_tables() -> bool:
     out = []
     while query.next(): out.append(query.value(2))
     if not out or len(out) != len(SQLUtils.gps_formats):  # if there is no output, the table is empty
-        populate_gps_formats()
+        populate_gps_formats(database)
     sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
         logger_setup.get_logger().critical(f'Error resetting GPSFormatConversions')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
-    if not populate_gps_conversions():
+    if not populate_gps_conversions(database):
         return False
 
     # Populate the age table during initiation
@@ -1408,7 +1421,7 @@ def populate_tables() -> bool:
         out = []
         while query.next(): out.append(query.value(3))
         if not out:  # if there is no output, the table is empty
-            if not populate_ages():  # populate it
+            if not populate_ages(database):  # populate it
                 return False
     else:
         logger_setup.get_logger().critical(f'Error selecting all rows from AgeUnits')
@@ -1419,12 +1432,17 @@ def populate_tables() -> bool:
     return True
 
 
-def populate_age_units():
+def populate_age_units(database=None) -> bool:
     """
-    Connect to the database and add the default age units
+    Connect to the database and add the default age units. Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
     """
 
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     # Begin by deleting all rows in the table to allow for a reset if things get changed
     age_units = SQLUtils.age_units
     for unit in age_units:
@@ -1439,10 +1457,21 @@ def populate_age_units():
     return True
 
 
-def populate_age_conversions():
-    query = QtS.QSqlQuery()
+def populate_age_conversions(database=None) -> bool:
+    """
+    Connect to the database and add the default age unit conversions. Uses the default database connection if no database
+    is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+        age_conversion_model = QtS.QSqlTableModel()
+    else:
+        query = QtS.QSqlQuery(database)
+        database: QtS.QSqlDatabase
+        age_conversion_model = QtS.QSqlTableModel(db=database)
     age_units = SQLUtils.age_units
-    age_conversion_model = QtS.QSqlTableModel()
     age_conversion_model.setTable('AgeUnitConversions')
     age_conversion_model.select()
     for unit1 in range(len(age_units)):
@@ -1493,12 +1522,18 @@ def populate_age_conversions():
     return True
 
 
-def populate_concordance_formats():
+def populate_concordance_formats(database=None) -> bool:
     """
-        Connect to the database and add the default concordance formats
-        """
+    Connect to the database and add the default concordance formats. Uses the default database connection if no database
+    is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
 
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     concordance_formats = SQLUtils.concordance_formats
     for concordance_format in concordance_formats:
         sql = f'''INSERT INTO ConcordanceFormats(ConcordanceFormatName, ConcordanceFormatAbbreviation, ConcordanceFormatDescription)
@@ -1512,10 +1547,20 @@ def populate_concordance_formats():
     return True
 
 
-def populate_concordance_conversions():
-    query = QtS.QSqlQuery()
+def populate_concordance_conversions(database=None) -> bool:
+    """
+    Connect to the database and add the default concordance format conversions. Uses the default database connection if no
+    database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+        concordance_conversion_model = QtS.QSqlTableModel()
+    else:
+        query = QtS.QSqlQuery(database)
+        concordance_conversion_model = QtS.QSqlTableModel(db=database)
     concordance_formats = SQLUtils.concordance_formats
-    concordance_conversion_model = QtS.QSqlTableModel()
     concordance_conversion_model.setTable('ConcordanceFormatConversions')
     concordance_conversion_model.select()
     for format1 in range(len(concordance_formats)):
@@ -1596,8 +1641,16 @@ def populate_concordance_conversions():
     return True
 
 
-def populate_direction_units():
-    query = QtS.QSqlQuery()
+def populate_direction_units(database=None) -> bool:
+    """
+    Connect to the database and add the default direction units. Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     # Begin by deleting all rows in the table to allow for a reset if things get changed
     direction_units = SQLUtils.direction_units
     for unit in direction_units:
@@ -1612,12 +1665,17 @@ def populate_direction_units():
     return True
 
 
-def populate_distance_units():
+def populate_distance_units(database=None) -> bool:
     """
-        Connect to the database and add the default distance units
-        """
+    Connect to the database and add the default distance units. Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
 
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     # International standard foot is 0.3048 meters exactly
     distance_units = SQLUtils.distance_units
     for unit in distance_units:
@@ -1632,10 +1690,20 @@ def populate_distance_units():
     return True
 
 
-def populate_distance_conversions():
-    query = QtS.QSqlQuery()
+def populate_distance_conversions(database=None) -> bool:
+    """
+    Connect to the database and add the default distance unit conversions. Uses the default database connection if no database
+    is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+        distance_conversion_model = QtS.QSqlTableModel()
+    else:
+        query = QtS.QSqlQuery(database)
+        distance_conversion_model = QtS.QSqlTableModel(db=database)
     distance_units = SQLUtils.distance_units
-    distance_conversion_model = QtS.QSqlTableModel()
     distance_conversion_model.setTable('DistanceUnitConversions')
     distance_conversion_model.select()
     m_per_ft = 0.3048
@@ -1698,12 +1766,17 @@ def populate_distance_conversions():
     return True
 
 
-def populate_error_formats():
+def populate_error_formats(database=None) -> bool:
     """
-    Connect to the database and add the default error formats
+    Connect to the database and add the default error formats. Uses the default database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
     """
 
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     error_formats = SQLUtils.error_formats
     for error_format in error_formats:
         sql = f'''INSERT INTO ErrorFormats(ErrorFormatName, ErrorFormatAbbreviation, ErrorFormatDescription)
@@ -1717,10 +1790,20 @@ def populate_error_formats():
     return True
 
 
-def populate_error_conversions():
-    query = QtS.QSqlQuery()
+def populate_error_conversions(database=None) -> bool:
+    """
+    Connect to the database and add the default error format conversions. Uses the default database connection if no database
+    is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
+    """
+    if database is None:
+        query = QtS.QSqlQuery()
+        error_conversion_model = QtS.QSqlTableModel()
+    else:
+        query = QtS.QSqlQuery(database)
+        error_conversion_model = QtS.QSqlTableModel(db=database)
     error_formats = SQLUtils.error_formats
-    error_conversion_model = QtS.QSqlTableModel()
     error_conversion_model.setTable('ErrorFormatConversions')
     error_conversion_model.select()
     for format1 in range(len(error_formats)):
@@ -1786,13 +1869,18 @@ def populate_error_conversions():
     return True
 
 
-def populate_gps_formats():
+def populate_gps_formats(database=None) -> bool:
     """
-    Populate the GPSFormats table with the default formats
-    Add text for code to run later for conversions
+    Populate the GPSFormats table with the default formats. Add text for code to run later for conversions. Uses the default
+    database connection if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
     """
 
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     gps_formats = SQLUtils.gps_formats
     for gps_format in gps_formats:
         sql = f'''INSERT INTO GPSFormats(GPSFormatName, GPSFormatAbbreviation, GPSFormatDescription)
@@ -1806,17 +1894,24 @@ def populate_gps_formats():
     return True
 
 
-def populate_gps_conversions():
+def populate_gps_conversions(database=None) -> bool:
     """
-    Populate the GPSFormatConversions table with the conversions between GPS formats
-    @return:
+    Populate the GPSFormatConversions table with the conversions between GPS formats. Uses the default database connection
+    if no database is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
     """
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+        gps_format_model = QtS.QSqlTableModel()
+        gps_conversion_model = QtS.QSqlTableModel()
+    else:
+        query = QtS.QSqlQuery(database)
+        gps_format_model = QtS.QSqlTableModel(db=database)
+        gps_conversion_model = QtS.QSqlTableModel(db=database)
     gps_formats = SQLUtils.gps_formats
-    gps_format_model = QtS.QSqlTableModel()
     gps_format_model.setTable('GPSFormats')
     gps_format_model.select()
-    gps_conversion_model = QtS.QSqlTableModel()
     gps_conversion_model.setTable('GPSFormatConversions')
     gps_conversion_model.select()
     for format1 in range(len(gps_formats)):
@@ -2083,14 +2178,18 @@ def populate_gps_conversions():
     return True
 
 
-def populate_ages():
+def populate_ages(database=None) -> bool:
     """
-    Connect to the database and add the Geologic timescale tree structure with names and ages
-    GSA Geologic Time Scale v. 5.0 as a xml file
-    Overwrites any previous changes to this table
+    Connect to the database and add the Geologic timescale tree structure with names and ages. GSA Geologic Time Scale
+    v. 5.0 as a xml file. Overwrites any previous changes to this table. Uses the default database if none is provided.
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
+    :return: True for success, False for failure
     """
 
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     xml_file = "./Reference/GeologicTime_Ages.xml"
     tree = ET.parse(xml_file)
     root = tree.getroot()
@@ -2101,7 +2200,7 @@ def populate_ages():
     age_row = 0
     for eon in root.findall('Eon'):
         age_item = ('', eon_row, f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
-        if not add_age(age_item):
+        if not add_age(age_item, database):
             return False
         for era in eon.findall('Era'):
             eon_name = eon.get("name")
@@ -2110,7 +2209,7 @@ def populate_ages():
                 while query.next(): out.append(query.value(0))
                 eon_id = out[0]
                 age_item = (eon_id, era_row, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
-                if not add_age(age_item):
+                if not add_age(age_item, database):
                     return False
                 for period in era.findall('Period'):
                     era_name = era.get("name")
@@ -2121,7 +2220,7 @@ def populate_ages():
                         age_item = (
                             era_id, period_row, f'{period.get("name")}', f'{period.get("oldest")}',
                             f'{period.get("youngest")}')
-                        if not add_age(age_item):
+                        if not add_age(age_item, database):
                             return False
                         for epoch in period.findall('Epoch'):
                             period_name = period.get("name")
@@ -2131,7 +2230,7 @@ def populate_ages():
                                 period_id = out[0]
                                 age_item = (period_id, epoch_row, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
                                             f'{epoch.get("youngest")}')
-                                if not add_age(age_item):
+                                if not add_age(age_item, database):
                                     return False
                                 for age in epoch.findall('Age'):
                                     epoch_name = epoch.get("name")
@@ -2144,7 +2243,7 @@ def populate_ages():
                                         epoch_id = out[0]
                                         age_item = (epoch_id, age_row, f'{age.get("name")}', f'{age.get("oldest")}',
                                                     f'{age.get("youngest")}')
-                                        if not add_age(age_item):
+                                        if not add_age(age_item, database):
                                             return False
                                     age_row += 1
                                 epoch_row += 1
@@ -2159,14 +2258,17 @@ def populate_ages():
     return True
 
 
-def add_age(age: tuple) -> bool:
+def add_age(age: tuple, database=None) -> bool:
     """
-    Called by populate_ages
-    Adds each age item to the table with its parent ID
+    Adds each age item to the table with its parent ID. Called by populate_ages. Uses the default database if none is provided.
     :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma)
+    :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
     :return: True if successful, False if error
     """
-    query = QtS.QSqlQuery()
+    if database is None:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     if age[0]:
         # if there is a parent
         sql = f'''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge)
