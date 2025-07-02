@@ -67,12 +67,13 @@ def turn_off_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
     return False
 
 
-def update_database() -> bool:
+def update_database(database=None) -> bool:
     """
     Run this on startup and when settings are changed.
     The database has generated columns that set display values based on units and formats in settings. These need to be
     updated if the settings are changed. This function will drop and recreate the generated columns.
-    Uses the default connection established with the database file in GeoCORKMain.py
+    Uses the default connection established with the database file in GeoCORKMain.py if no database is provided.
+    :param database: QSqlDatabase instance to use, if None the default database is used
     :return: True for success, False for failure
     :rtype: bool
     """
@@ -81,7 +82,10 @@ def update_database() -> bool:
     loading_manager.show_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info("Updating database")
     # Check if the database exists and all tables are present
-    db = QSqlDatabase.database()
+    if database is None:
+        db = QSqlDatabase.database()
+    else:
+        db = database
     if not db.commit():
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error committing database")
@@ -101,14 +105,14 @@ def update_database() -> bool:
 
     from Functions import Create_database as Create_db, Create_indexes
     from Functions import Alter_database as Alter_db
-    if not Create_db.create_tables():
+    if not Create_db.create_tables(db):
         logger_setup.get_logger().critical(f"Error creating database tables")
         return False
-    if not Create_indexes.create_indexes():
+    if not Create_indexes.create_indexes(db):
         logger_setup.get_logger().critical(f"Error creating database indexes")
         return False
     # Drop and regenerate the generated columns
-    if not Alter_db.settings_reset():
+    if not Alter_db.settings_reset(db):
         logger_setup.get_logger().critical(f"Error resetting settings")
         return False
     end_time = time.time()
