@@ -108,7 +108,6 @@ class GeoCORK(QtW.QMainWindow):
             return
 
         SettingsManager().set_db_file(self.db_name)
-        db_settings = SettingsManager().db_settings
         self.savepoint_manager = Savepoint_manager.SavepointManager().get_instance()
         self.msg = QtW.QMessageBox(self)
 

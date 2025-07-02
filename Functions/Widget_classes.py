@@ -1426,7 +1426,7 @@ def get_record_index(table: str, record_id: int, ids_to_show: list = None) -> in
         return -1
     if not ids_to_show:
         ids_to_show = []
-    if record_id not in ids_to_show:
+    if record_id not in ids_to_show and len(ids_to_show) > 0:
         record_name = get_name_from_id(table, record_id)
         logger_setup.get_logger().error(f'Record {record_name} not available in this view')
         logger_setup.get_logger().debug(f'Record ID {record_id} in the list of IDs to show: {ids_to_show}')

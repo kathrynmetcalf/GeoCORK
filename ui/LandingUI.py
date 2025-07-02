@@ -67,9 +67,7 @@ class LandingPage(QWidget):
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.listWidget.customContextMenuRequested.connect(self.recents_context_menu)
 
-        # pixmap = QPixmap(os.path.join(base_path, './geocork.png'))
-        pixmap = QPixmap(os.path.join(base_path, 'Logo_draft.png'))
-        # pixmap = QPixmap(os.path.join(base_path, './Logo_draft.png'))
+        pixmap = QPixmap(os.path.join(base_path, 'GeoCORK_Logo.png'))
         scaled_pixmap = pixmap.scaled(500, 100, Qt.AspectRatioMode.KeepAspectRatio,
                                       Qt.TransformationMode.SmoothTransformation)
         self.label.setPixmap(scaled_pixmap)
