@@ -1497,11 +1497,23 @@ class ExportWidget(QWidget):
             QSqlDatabase().removeDatabase('target_connection')
             os.remove("temp.db")
 
+        # If file already exists, delete it and create a new one
+        if os.path.exists(fileName):
+            try:
+                os.remove(fileName)
+            except OSError as e:
+                logger_setup.get_logger().critical(f'Could not clear existing database file: {e}')
+                return
+
         tgt_db = QSqlDatabase().addDatabase('QSQLITE', 'target_connection')
         tgt_db.setDatabaseName(fileName)
         tgt_db.open()
         if not tgt_db.isOpen() or not turn_off_foreign_keys(tgt_db):
             logger_setup.get_logger().critical('Could not open target database')
+            return
+        # Ensure the database is created and static tables are set up
+        if not update_database(tgt_db):
+            logger_setup.get_logger().critical('Could not create target database')
             return
 
         # src_db is the current default database in use

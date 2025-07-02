@@ -242,14 +242,14 @@
         <item>
          <widget class="QComboBox" name="dbTable_comboBox_2">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="minimumSize">
            <size>
-            <width>200</width>
+            <width>0</width>
             <height>25</height>
            </size>
           </property>
@@ -264,14 +264,14 @@
         <item>
          <widget class="QPushButton" name="edit_pushButton_2">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="minimumSize">
            <size>
-            <width>150</width>
+            <width>0</width>
             <height>25</height>
            </size>
           </property>
@@ -532,14 +532,14 @@
         <item>
          <widget class="QComboBox" name="dbTable_comboBox">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="minimumSize">
            <size>
-            <width>200</width>
+            <width>0</width>
             <height>25</height>
            </size>
           </property>
@@ -566,14 +566,14 @@
         <item>
          <widget class="QPushButton" name="edit_pushButton">
           <property name="sizePolicy">
-           <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
             <horstretch>0</horstretch>
             <verstretch>0</verstretch>
            </sizepolicy>
           </property>
           <property name="minimumSize">
            <size>
-            <width>150</width>
+            <width>0</width>
             <height>25</height>
            </size>
           </property>

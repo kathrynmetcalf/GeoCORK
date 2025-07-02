@@ -1,9 +1,12 @@
+import sqlite3
 from typing import List, Dict, Any, Set, Optional, Tuple
 
 import PyQt6.QtWidgets as QtW
+import PyQt6.QtCore as QtC
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 
 from Functions import SQLUtils
+from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import show_loading_dialog, close_loading_dialog
 import logger_setup
@@ -27,7 +30,14 @@ def open_sqlite_db(db_path: str, connection_name: str) -> QSqlDatabase:
     return db
 
 
-def copy_table(table_name, conn_source, conn_target):
+def copy_table(table_name: str, conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
+    """
+    Copy a table from the source database to the target database.
+    :param table_name: Name of the table to copy.
+    :param conn_source: Source database.
+    :param conn_target: Target database.
+    :return: True if the table was copied successfully, False if the operation was canceled or an error occurred.
+    """
     cols_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
     insert_cols_info = [c[1] for c in cols_info]
 
@@ -36,7 +46,9 @@ def copy_table(table_name, conn_source, conn_target):
         conn_source
     )
     if results:
-        insert_rows(conn_target, table_name, results, insert_cols_info)
+        if not insert_rows(conn_target, table_name, results, insert_cols_info):
+            return False
+    return True
 
 def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Optional[Tuple] = None) -> List[tuple]:
     """
@@ -48,31 +60,53 @@ def fetchall(query_str: str, database: QSqlDatabase=QSqlDatabase(), params: Opti
     :return: list of tuples containing the rows returned by the query
     """
     result_rows = []
+    queries = []
+    query_size = 30000  # Max number of variables in the query. Adjust this size as needed
     query = QSqlQuery(database)
-    query.prepare(query_str)
-    if params:
-        for i, val in enumerate(params):
-            query.bindValue(i, val)
-    if not query.exec():
-        logger_setup.get_logger().critical(f'Error fetching total records')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-        return result_rows
+    if not query.prepare(query_str):
+        if "too many SQL variables" in query.lastError().text():
+            logger_setup.get_logger().info("Too many SQL variables in query, splitting into smaller chunks")
+            # Split the query into smaller chunks
+            for i in range(0, len(params), query_size):
+                query_params = params[i:i + query_size]
+                # Assumes that the query is of the form "SELECT ... FROM ... WHERE ... IN (?, ?, ...)"
+                query_str_split = f"{query_str.split(' IN ')[0]} IN ({",".join(["?"] * len(query_params))})"
+                queries.append((query_str_split, query_params))
+        else:
+            logger_setup.get_logger().critical(f'Error fetching total records')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return result_rows
+    else:
+        queries.append((query_str, params))
+    for query_str, params in queries:
+        if not query.prepare(query_str):
+            logger_setup.get_logger().critical(f'Error fetching total records')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return []
+        if params:
+            for i, val in enumerate(params):
+                query.bindValue(i, val)
+        if not query.exec():
+            logger_setup.get_logger().critical(f'Error fetching total records')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+            return []
 
-    while query.next():
-        # build a tuple of the columns
-        row = tuple(query.value(col) for col in range(query.record().count()))
-        result_rows.append(row)
-
+        while query.next():
+            # build a tuple of the columns
+            row = tuple(query.value(col) for col in range(query.record().count()))
+            result_rows.append(row)
     return result_rows
 
 def execute_sql(query_str: str, database: QSqlDatabase) -> bool:
     """
     Helper function to execute a single SQL query on a given database connection.
-    :param query_str:
-    :param database:
-    :return:
+    :param query_str: SQL query to execute
+    :param database: QSqlDatabase instance to execute the query on
+    :return: True if the query was executed successfully, False if an error occurred.
     """
     query = QSqlQuery(database)
     if not query.exec(query_str):
@@ -85,23 +119,41 @@ def execute_sql(query_str: str, database: QSqlDatabase) -> bool:
 def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], insert_cols: list[str]):
     """
     Inserts multiple rows into the given table. Equivalent to 'executemany'.
-    :param QSqlDatabase database:
-    :param str table_name:
-    :param list[tuple] rows:
-    :param insert_cols:
-    :return:
+    :param QSqlDatabase database: QSqlDatabase instance to insert rows into.
+    :param str table_name: Name of the table to insert rows into.
+    :param list[tuple] rows: List of rows to insert, each row is a tuple of values.
+    :param insert_cols: List of column names to insert into, must match the number of values in each row.
+    :return: True if all rows were inserted successfully, False if the operation was canceled or an error occurred.
     """
     if not rows:
-        return
+        logger_setup.get_logger().info(f'No rows to insert into {table_name}')
+        return True
 
     insert_cols = [f"[{item}]" for item in insert_cols]
-
     table_name = table_name.replace('_old', '')
     insert_stmt = f"INSERT INTO '{table_name}' ({','.join(insert_cols)}) VALUES ({", ".join(["?"] * len(insert_cols))})"
 
     query = QSqlQuery(database)
+    loading_dialog = LoadingDialogManager.get_instance()
+    if loading_dialog.dialog:
+        # Keep the progress dialog on top of the loading dialog
+        progress_parent = loading_dialog.dialog
+    else:
+        progress_parent = None
+
     logger_setup.get_logger().debug(f'SQL query: {insert_stmt}')
+    progress_dialog = QtW.QProgressDialog(f'Inserting {len(rows)} {table_name}...', 'Cancel', 0, len(rows), progress_parent)
+    progress_dialog.setWindowModality(QtC.Qt.WindowModality.WindowModal)
+    exported_count = 0
     for row in rows:
+        exported_count += 1
+        progress_dialog.setValue(exported_count)
+        progress_dialog.setLabelText(f'Inserting {exported_count}/{len(rows)} {table_name}...')
+        # Let the event loop process the dialog's updates
+        QtW.QApplication.processEvents()
+        if progress_dialog.wasCanceled():
+            logger_setup.get_logger().info('User cancelled the export operation')
+            return False
         query.prepare(insert_stmt)
         for i, val in enumerate(row):
             if val == '':
@@ -112,19 +164,20 @@ def insert_rows(database: QSqlDatabase, table_name: str, rows: list[tuple], inse
             if "UNIQUE constraint failed: " in query.lastError().text():
                 logger_setup.get_logger().info(f'Record already in database, skipping: {query.lastError().text()}')
             else:
-                logger_setup.get_logger().critical(f'Error fetching total records')
+                logger_setup.get_logger().critical(f'Error adding {table_name}')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                 logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                return
+                return False
+    return True
 
-def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
+def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
     """
     Copy all user-defined table schemas from the source DB to the target DB.
     Ignores 'sqlite_' internal tables or views.
-    :param conn_source:
-    :param conn_target:
-    :return:
+    :param conn_source: Source database.
+    :param conn_target: Target database.
+    :return: True if the schema was copied successfully, False if an error occurred.
     """
     # Read all tables + their CREATE statements from the source
     show_loading_dialog('Copying database schema', 'Copying empty tables to target database...')
@@ -139,6 +192,7 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
                 logger_setup.get_logger().critical(f'Error creating table {table_name}')
                 logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {create_sql}')
+                return False
 
     # Copy Indexes (regular and unique)
     index_rows = fetchall(
@@ -152,28 +206,31 @@ def copy_schema(conn_source: QSqlDatabase, conn_target: QSqlDatabase):
                 logger_setup.get_logger().critical(f'Error creating index {index_name}')
                 logger_setup.get_logger().debug(f'Error: {conn_target.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {create_index_sql}')
+                return False
     close_loading_dialog('Copying database schema', 'Copying empty tables to target database...')
+    return True
 
-
-def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> None:
+def copy_static_tables(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
     """
     Helper function to copy over the static tables that are always present in the database.
-    :param QSqlDatabase conn_source:
-    :param QSqlDatabase conn_target:
+    :param QSqlDatabase conn_source: Source database.
+    :param QSqlDatabase conn_target: Target database.
+    :return: True if the static tables were copied successfully, False if an error occurred.
     """
     show_loading_dialog('Copying static tables', 'Copying static tables to target database...')
     for table in SQLUtils.static_tables:
         logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
-        copy_table(table, conn_source, conn_target)
+        if not copy_table(table, conn_source, conn_target):
+            return False
     close_loading_dialog('Copying static tables', 'Copying static tables to target database...')
-
+    return True
 
 def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> bool:
     """
     Export the metadata tables from the source database to the target database.
     :param QSqlDatabase conn_source: Source database connection
     :param QSqlDatabase conn_target: Target database connection
-    :return: True if the export was successful, False if cancelled or no tables selected.
+    :return: True if the export was successful, False if canceled or no tables selected.
     """
 
     logger_setup.get_logger().info("Copying metadata tables")
@@ -183,9 +240,10 @@ def metadata_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase) -> b
     # Copy metadata tables
     editable_tables = SQLUtils.user_viewable_tables
     for table in editable_tables:
-        if table not in ['Columns', 'Samples']:
+        if table not in ['Columns', 'Samples', '"References"']:
             logger_setup.get_logger().info(f"Copying table {table} from source to target connection")
-            copy_table(table, conn_source, conn_target)
+            if not copy_table(table, conn_source, conn_target):
+                return False
 
     turn_on_foreign_keys(conn_target)
 
@@ -201,9 +259,9 @@ def find_bridge_tables(table: str, database: QSqlDatabase=QSqlDatabase()) -> Lis
     Dynamically discover many-to-many 'bridge' tables in a dataabase that reference the
     given table and exactly one other table (2 foreign keys total). If no database is provided
     the default database will be used.
-    :param QSqlDatabase database: database connection to search
-    :param str table:
-    :return:
+    :param QSqlDatabase database: Database connection to search
+    :param str table: Name of the table to find bridges for.
+    :return: List of dictionaries with bridge table information.
     """
     # All tables
     table_rows = fetchall(
@@ -245,11 +303,17 @@ def subset_many_to_many_bridges(
     export_ids: Set[int],
     bridges_info: List[Dict[str, Any]],
     edit_table_name="Samples"
-):
+) -> bool:
     """
     For each discovered bridge table referencing edit table (e.g. Samples) and another table,
     copy only the rows referencing the given export_ids, then copy the
     associated rows from the 'other' table.
+    :param conn_source: Source database.
+    :param conn_target: Target database.
+    :param export_ids: Set of IDs from the edit table to export.
+    :param bridges_info: List of dictionaries with bridge table info.
+    :param edit_table_name: Name of the table being edited (default is "Samples").
+    :return: True if all rows were copied successfully, False if an error occurred.
     """
     for bridge_info in bridges_info:
         bridge_table = bridge_info["bridge_table"]
@@ -296,10 +360,6 @@ def subset_many_to_many_bridges(
         if not bridge_rows:
             continue
 
-        # Insert bridging rows into subset DB
-
-        insert_rows(conn_target, bridge_table, bridge_rows, insert_cols_bridge)
-
         # 2) Gather 'other' IDs from these bridging rows
         col_names_bridge = [c[1] for c in col_info_bridge]
         other_idx = col_names_bridge.index(other_fk_col)
@@ -328,7 +388,14 @@ def subset_many_to_many_bridges(
         if not other_rows:
             continue
 
-        insert_rows(conn_target, other_table_name, other_rows, insert_cols_other)
+        if not insert_rows(conn_target, other_table_name, other_rows, insert_cols_other):
+            return False
+
+        #4) Insert bridging rows into subset DB
+
+        if not insert_rows(conn_target, bridge_table, bridge_rows, insert_cols_bridge):
+            return False
+    return True
 
 ###############################################################################
 # 3. KNOWN ONE-TO-MANY CHAIN: Samples -> Aliquots -> Spots -> UPbAnalyses
@@ -339,15 +406,19 @@ def subset_one_to_many_chain(
     conn_source: QSqlDatabase,
     conn_target: QSqlDatabase,
     sample_ids: Set[int]
-):
+) -> bool:
     """
     Hardcoded logic for the known chain:
-      Samples -> Aliquots -> Spots -> UPbAnalyses
+      Samples -> Aliquots -> Spots -> UPbAnalyses.
     Then from each UPbAnalyses row, gather foreign keys to:
-      References, Instruments, LabFacilities, UPbAnalysisMethod
+      References, Instruments, LabFacilities, UPbAnalysisMethod.
+    :param conn_source: Source database.
+    :param conn_target: Target database.
+    :param sample_ids: Set of SampleIDs to export.
+    :return: True if all rows were copied successfully, False if an error occurred.
     """
     if not sample_ids:
-        return
+        return True
 
     # -------------------------------------------------------------------------
     # A) Aliquots referencing Samples
@@ -363,7 +434,8 @@ def subset_one_to_many_chain(
     )
 
     if aliq_rows:
-        insert_rows(conn_target, 'Aliquots', aliq_rows, insert_cols_info_aliq)
+        if not insert_rows(conn_target, 'Aliquots', aliq_rows, insert_cols_info_aliq):
+            return False
 
     # Collect AliquotIDs
     aliquot_id_idx = insert_cols_info_aliq.index("AliquotID") if "AliquotID" in insert_cols_info_aliq else None
@@ -387,7 +459,8 @@ def subset_one_to_many_chain(
             tuple(aliquot_ids)
         )
         if spot_rows:
-            insert_rows(conn_target, "Spots", spot_rows, insert_cols_info_spots)
+            if not insert_rows(conn_target, "Spots", spot_rows, insert_cols_info_spots):
+                return False
 
         # Collect SpotIDs
         spot_id_idx = insert_cols_info_spots.index("SpotID") if "SpotID" in insert_cols_info_spots else None
@@ -408,7 +481,8 @@ def subset_one_to_many_chain(
             tuple(spot_ids)
         )
         if UPbAnalyses_rows:
-            insert_rows(conn_target, "UPbAnalyses", UPbAnalyses_rows, insert_cols_info_upb)
+            if not insert_rows(conn_target, "UPbAnalyses", UPbAnalyses_rows, insert_cols_info_upb):
+                return False
 
             # Try to locate these columns
 
@@ -442,7 +516,8 @@ def subset_one_to_many_chain(
                     tuple(pk_values)
                 )
                 if results:
-                    insert_rows(conn_target, table_name, results, insert_cols_info)
+                    if not insert_rows(conn_target, table_name, results, insert_cols_info):
+                        return False
 
             fetch_and_insert("References", "ReferenceID", reference_ids)
             fetch_and_insert("Instruments", "InstrumentID", instrument_ids)
@@ -479,7 +554,9 @@ def subset_one_to_many_chain(
         )
 
         if gps_rows:
-            insert_rows(conn_target, 'GPSLocations', gps_rows, insert_cols_info_gps)
+            if not insert_rows(conn_target, 'GPSLocations', gps_rows, insert_cols_info_gps):
+                return False
+    return True
 
 ###############################################################################
 # 4. DETECTING 'TREE' TABLES (HIERARCHIES)
@@ -491,6 +568,8 @@ def find_tree_tables(conn: QSqlDatabase) -> List[Dict[str, Any]]:
       - having a column that starts with 'Parent'
       OR
       - referencing themselves (self-reference) in foreign_key_list.
+    :param conn: QSqlDatabase connection to search.
+    :return: List of dictionaries with table names, parent columns, and self-referencing foreign keys.
     """
     table_rows = fetchall(
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
@@ -526,18 +605,26 @@ def subset_tree_table_downstream(
     parent_col: str,
     child_col: str,
     root_ids: Set[int]
-):
+) -> bool:
     """
     Recursively gather all rows from 'table_name' that descend from 'root_ids'
     via parent_col -> child_col chain, then insert them in conn_target.
     Prevents looping upward (only moves downward).
+    :param conn_source: Source database.
+    :param conn_target: Target database.
+    :param table_name: Name of the table to traverse.
+    :param parent_col: Name of the column that references the parent ID.
+    :param child_col: Name of the ID column in the table.
+    :param root_ids: Set of root IDs to start traversal from.
+    :return: True if all rows were copied successfully, False if an error occurred.
     """
     col_info = fetchall(f"PRAGMA table_info('{table_name}')", conn_source)
     col_names = [c[1] for c in col_info]
 
     if parent_col not in col_names or child_col not in col_names:
         # Can't do traversal
-        return
+        logger_setup.get_logger().warning(f"Table {table_name} does not have expected columns: {parent_col}, {child_col}")
+        return False
 
     to_visit = list(root_ids)
     visited = set()
@@ -555,13 +642,15 @@ def subset_tree_table_downstream(
             (current_id,)
         )
         if rows:
-            insert_rows(conn_target, table_name, rows, col_names)
+            if not insert_rows(conn_target, table_name, rows, col_names):
+                return False
 
             # Gather child IDs
             child_idx = col_names.index(child_col)
             new_child_ids = [r[child_idx] for r in rows if r[child_idx] is not None]
 
             to_visit.extend(new_child_ids)
+    return True
 
 ###############################################################################
 # 5. MASTER FUNCTION: subset_database
@@ -587,10 +676,14 @@ def subset_sample_ages_m2m(
       5) Gathers AgeConstraintIDs -> fetches AgeConstraints -> inserts them.
       6) Finds bridging rows in SampleAges_AgeInterpretations for those SampleAgeIDs -> inserts them.
       7) Gathers AgeInterpretationIDs -> fetches AgeInterpretations -> inserts them.
+    :param conn_source: Source database.
+    :param conn_target: Target database.
+    :param sample_ids: Set of SampleIDs to export.
+    :return: True if all rows were copied successfully, False if an error occurred.
     """
 
     if not sample_ids:
-        return
+        return True
 
     logger_setup.get_logger().info(f"Subsetting SampleAges M2M relationships for sample_ids={sample_ids}")
 
@@ -614,10 +707,11 @@ def subset_sample_ages_m2m(
         tuple(sample_ids)
     )
     if samples_sampleages_rows:
-        insert_rows(conn_target, "Samples_SampleAges", samples_sampleages_rows, insert_cols_samples_sampleages)
+        if not insert_rows(conn_target, "Samples_SampleAges", samples_sampleages_rows, insert_cols_samples_sampleages):
+            return False
     else:
         # No bridging rows => nothing further to do
-        return
+        return True
 
     # Gather SampleAgeIDs
     col_names_samples_sampleages = [c[1] for c in col_info_samples_sampleages]
@@ -626,7 +720,7 @@ def subset_sample_ages_m2m(
     except ValueError:
         # The bridging table doesn't have the expected column name
         logger_setup.get_logger().warning("Samples_SampleAges table doesn't have 'SampleAgeID' column!")
-        return
+        return False
 
     sampleAge_ids = {
         row[sampleAgeID_idx]
@@ -634,7 +728,7 @@ def subset_sample_ages_m2m(
         if row[sampleAgeID_idx] is not None
     }
     if not sampleAge_ids:
-        return
+        return True  # No sampleage IDs => nothing further to do
 
     # -------------------------------------------------------------------------
     # (2) & (3) SampleAges
@@ -653,9 +747,10 @@ def subset_sample_ages_m2m(
         tuple(sampleAge_ids)
     )
     if sampleages_rows:
-        insert_rows(conn_target, "SampleAges", sampleages_rows, insert_cols_sampleages)
+        if not insert_rows(conn_target, "SampleAges", sampleages_rows, insert_cols_sampleages):
+            return False
     else:
-        return  # No sampleage rows => no further bridging references
+        return True  # No sampleage rows => no further bridging references
 
     # -------------------------------------------------------------------------
     # (4) & (5) SampleAges_AgeConstraints -> AgeConstraints
@@ -674,7 +769,8 @@ def subset_sample_ages_m2m(
         tuple(sampleAge_ids)
     )
     if sa_ageconstraints_rows:
-        insert_rows(conn_target, "SampleAges_AgeConstraints", sa_ageconstraints_rows, insert_cols_sa_ageconstraints)
+        if not insert_rows(conn_target, "SampleAges_AgeConstraints", sa_ageconstraints_rows, insert_cols_sa_ageconstraints):
+            return False
 
         # Gather AgeConstraintIDs
         col_names_sa_ageconstraints = [c[1] for c in col_info_sa_ageconstraints]
@@ -706,7 +802,8 @@ def subset_sample_ages_m2m(
                     tuple(ageConstraint_ids)
                 )
                 if ageconstraints_rows:
-                    insert_rows(conn_target, "AgeConstraints", ageconstraints_rows, insert_cols_ageconstraints)
+                    if not insert_rows(conn_target, "AgeConstraints", ageconstraints_rows, insert_cols_ageconstraints):
+                        return False
 
     # -------------------------------------------------------------------------
     # (6) & (7) SampleAges_AgeInterpretations -> AgeInterpretations
@@ -725,12 +822,9 @@ def subset_sample_ages_m2m(
         tuple(sampleAge_ids)
     )
     if sa_ageinterpretations_rows:
-        insert_rows(
-            conn_target,
-            "SampleAges_AgeInterpretations",
-            sa_ageinterpretations_rows,
-            insert_cols_sa_ageinterpretations
-        )
+        if not insert_rows(conn_target, "SampleAges_AgeInterpretations", sa_ageinterpretations_rows,
+            insert_cols_sa_ageinterpretations):
+            return False
 
         # Gather AgeInterpretationIDs
         col_names_sa_ageinterpretations = [c[1] for c in col_info_sa_ageinterpretations]
@@ -762,7 +856,9 @@ def subset_sample_ages_m2m(
                     tuple(ageInterpretation_ids)
                 )
                 if ageinterpretations_rows:
-                    insert_rows(conn_target, "AgeInterpretations", ageinterpretations_rows, insert_cols_ageinterpretations)
+                    if not insert_rows(conn_target, "AgeInterpretations", ageinterpretations_rows, insert_cols_ageinterpretations):
+                        return False
+    return True
 
 def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to_export: list[int] | None, export_table: str = None) -> bool:
     """
@@ -780,117 +876,120 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
     :param ids_to_export: List of IDs to export, typically SampleIDs.
     :param export_table: The table to export IDs from, default is 'Samples' but could also be 'Aliquots', 'Spots',
     or 'UPbAnalyses'
+    :return: True if the export was successful, False if canceled or error.
     """
-
+    show_loading_dialog('Exporting', 'Gathering sample data...')
     if not export_table:
         export_table = 'Samples'
 
-    # 1) Copy schema
-    copy_schema(conn_source, conn_target)
-
-    copy_static_tables(conn_source, conn_target)
-
-    # 2) If no IDs to export, just copy the metadata tables. Otherwise, proceed with the export based on IDs.
+    # 1) If no IDs to export, just copy the metadata tables. Otherwise, proceed with the export based on IDs.
     if not ids_to_export:
+        close_loading_dialog('Exporting', 'Gathering sample data...')
         return metadata_database(conn_source, conn_target)
-
 
     col_info_export_table = fetchall(f"PRAGMA table_info('{export_table}')", conn_source)
     if not col_info_export_table:
+        close_loading_dialog('Exporting', 'Gathering sample data...')
         logger_setup.get_logger().error(f"Table '{export_table}' does not exist in the source database.")
         return False
     export_id_header = col_info_export_table[0][1]  # Assuming first column is the ID column
-    progress_dialog = QtW.QProgressDialog(
-        f"Exporting {len(ids_to_export)} {export_table}...", "Cancel", 0, len(ids_to_export)
-    )
-    exported_count = 0
-    for export_id in ids_to_export:
-        progress_dialog.setValue(exported_count + 1)
-        # Let the event loop process the dialog's updates
-        QtW.QApplication.processEvents()
-        # If the user clicked "Cancel", we can break out
-        if progress_dialog.wasCanceled():
-            return False
-        # 3) Retrieve the requested Sample row from source
-        row = fetchall(
-            f"SELECT {','.join([item[1] for item in col_info_export_table])} FROM {export_table} WHERE {export_id_header} = ?",
+    export_ids = set(ids_to_export)
+    placeholder = ",".join(["?"] * len(export_ids))
+
+    rows = fetchall(
+            f"""
+            SELECT {','.join([item[1] for item in col_info_export_table])} FROM {export_table}
+            WHERE {export_id_header} IN ({placeholder})
+            """,
             conn_source,
-            (export_id,)
+            tuple(export_ids)
         )
-        if not row:
-            conn_source.close()
-            conn_target.close()
-            return False
+    if not rows:
+        conn_source.close()
+        conn_target.close()
+        close_loading_dialog('Exporting', 'Gathering sample data...')
+        return False
 
-        # Insert the sample row
-        insert_cols_info_export_table = [c[1] for c in col_info_export_table]
-        insert_rows(conn_target, f"{export_table}", row, insert_cols_info_export_table)
-        export_ids = {export_id}
+    # Insert the sample rows
+    insert_cols_info_export_table = [c[1] for c in col_info_export_table]
+    if not insert_rows(conn_target, f"{export_table}", rows, insert_cols_info_export_table):
+        close_loading_dialog('Exporting', 'Gathering sample data...')
+        return False
+    close_loading_dialog('Exporting', 'Gathering sample data...')
 
-        # 4) Dynamically find bridging (many-to-many) tables referencing Samples
-        bridges_info = find_bridge_tables(f"{export_table}", conn_source)
+    # 3) Dynamically find bridging (many-to-many) tables referencing Samples - Move up
+    show_loading_dialog('Exporting', 'Finding and importing related data...')
+    bridges_info = find_bridge_tables(f"{export_table}", conn_source)
 
-        # 5) Subset those bridging tables + their 'other' table references
-        if bridges_info:
-            logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing '{export_table}'.")
-            if export_table == 'Samples':
-                subset_many_to_many_bridges(
-                    conn_source,
-                    conn_target,
-                    export_ids=export_ids,
-                    bridges_info=bridges_info,
-                    edit_table_name=f"{export_table}"
-                )
+    # 4) Subset those bridging tables + their 'other' table references
+    if bridges_info:
+        logger_setup.get_logger().info(f"Many-to-many bridge tables found referencing '{export_table}'.")
+        if export_table == 'Samples':
+            if not subset_many_to_many_bridges(
+                conn_source,
+                conn_target,
+                export_ids=export_ids,
+                bridges_info=bridges_info,
+                edit_table_name=f"{export_table}"
+            ):
+                close_loading_dialog('Exporting', 'Finding and importing related data...')
+                return False
 
-        # 6) Known one-to-many chain
-        subset_one_to_many_chain(conn_source, conn_target, export_ids)
+    # 5) Known one-to-many chain
+    if not subset_one_to_many_chain(conn_source, conn_target, export_ids):
+        close_loading_dialog('Exporting', 'Finding and importing related data...')
+        return False
 
-        subset_sample_ages_m2m(conn_source, conn_target, export_ids)
+    if not subset_sample_ages_m2m(conn_source, conn_target, export_ids):
+        close_loading_dialog('Exporting', 'Finding and importing related data...')
+        return False
 
-        # 7) Handle any 'tree' tables
-        tree_tables = find_tree_tables(conn_source)
-        # Example usage (schema-dependent). If you had a table "Hierarchy" with columns
-        # "HierarchyID" and "ParentHierarchyID", you could do:
+    # 6) Handle any 'tree' tables
+    tree_tables = find_tree_tables(conn_source)
+    # Example usage (schema-dependent). If you had a table "Hierarchy" with columns
+    # "HierarchyID" and "ParentHierarchyID", you could do:
 
-        for tinfo in tree_tables:
-            tbl_name = tinfo["table_name"]
-            tbl_name = tbl_name.replace("_old", " ")
-            parent_cols = tinfo["parent_cols"]
-            # Suppose we want "ParentID" and "TreeID"
-            # (In practice, adapt to your actual child column name)
-            # We'll do a naive check:
-            col_info = fetchall(f"PRAGMA table_info('{tbl_name}')", conn_source)
-            col_names = [c[1] for c in col_info]
+    for tinfo in tree_tables:
+        tbl_name = tinfo["table_name"]
+        tbl_name = tbl_name.replace("_old", " ")
+        parent_cols = tinfo["parent_cols"]
+        # Suppose we want "ParentID" and "TreeID"
+        # (In practice, adapt to your actual child column name)
+        # We'll do a naive check:
+        col_info = fetchall(f"PRAGMA table_info('{tbl_name}')", conn_source)
+        col_names = [c[1] for c in col_info]
 
-            if f"Parent{tbl_name[0:-1]}ID" in col_names and f"{tbl_name[0:-1]}ID" in col_names:
-                # Let's assume we have some "root_ids" for "TreeID" from somewhere.
-                # Or, if you want to subset all from a known root, you might have:
-                root_ids = set()  # fill in if you have a known starting ID(s)
+        if f"Parent{tbl_name[0:-1]}ID" in col_names and f"{tbl_name[0:-1]}ID" in col_names:
+            # Let's assume we have some "root_ids" for "TreeID" from somewhere.
+            # Or, if you want to subset all from a known root, you might have:
+            root_ids = set()  # fill in if you have a known starting ID(s)
 
-                # If you want to start from all rows that are linked to your sample_id,
-                # you'd need additional logic to discover that. For now, demonstration:
-                # If your tree table also has a 'SampleID' column, you can do:
-                #   SELECT TreeID FROM tbl_name WHERE SampleID = sample_id
-                #   as a root set. Then descend.
+            # If you want to start from all rows that are linked to your sample_id,
+            # you'd need additional logic to discover that. For now, demonstration:
+            # If your tree table also has a 'SampleID' column, you can do:
+            #   SELECT TreeID FROM tbl_name WHERE SampleID = sample_id
+            #   as a root set. Then descend.
 
-                # Gather potential "root" items that belong to sample_id
-                rows = fetchall(f"SELECT {f'Parent{tbl_name[0:-1]}ID'} FROM {tbl_name}", conn_target)
-                root_ids = {r[0] for r in rows}
+            # Gather potential "root" items that belong to sample_id
+            rows = fetchall(f"SELECT {f'Parent{tbl_name[0:-1]}ID'} FROM {tbl_name}", conn_target)
+            root_ids = {r[0] for r in rows}
 
-                if root_ids:
-                    # Subset the entire downstream from those root IDs
-                    subset_tree_table_downstream(
-                        conn_source=conn_source,
-                        conn_target=conn_target,
-                        table_name=tbl_name,
-                        child_col=f'Parent{tbl_name[0:-1]}ID',
-                        parent_col=f'{tbl_name[0:-1]}ID',
-                        root_ids=root_ids
-                    )
-        exported_count += 1
+            if root_ids:
+                # Subset the entire downstream from those root IDs
+                if not subset_tree_table_downstream(
+                    conn_source=conn_source,
+                    conn_target=conn_target,
+                    table_name=tbl_name,
+                    child_col=f'Parent{tbl_name[0:-1]}ID',
+                    parent_col=f'{tbl_name[0:-1]}ID',
+                    root_ids=root_ids
+                ):
+                    close_loading_dialog('Exporting', 'Finding and importing related data...')
+                    return False
     QSqlDatabase.removeDatabase(conn_source.connectionName())
     QSqlDatabase.removeDatabase(conn_target.connectionName())
 
+    close_loading_dialog('Exporting', 'Finding and importing related data...')
     return True
 
 
