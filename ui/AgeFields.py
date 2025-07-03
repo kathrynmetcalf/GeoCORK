@@ -434,7 +434,7 @@ class AgeFields(QtW.QWidget):
             if 'Calculated' in header:
                 pass
             elif 'ErrorFormatID' in header:
-                if not text:
+                if text is None or text == '':
                     self.direct_age_error_format_comboBox.setCurrentText(settings.value('age_error_format_abbreviation'))
                 else:
                     # text is the ID, so we need to get the index in the model
@@ -445,33 +445,33 @@ class AgeFields(QtW.QWidget):
                             break
                     self.direct_age_error_format_comboBox.setCurrentIndex(combo_index)
             elif 'DirectAgeError' in header and 'ID' not in header:
-                if not text:
+                if text is None or text == '':
                     self.direct_age_error_lineEdit.setText(self.direct_age_error_lineEdit.placeholderText())
                 else:
                     self.direct_age_error_lineEdit.setText(f'{text}')
             elif 'AgeUnitID' in header:
-                    if not text:
-                        self.direct_age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
-                    else:
-                        # text is the ID, so we need to get the index in the model
-                        combo_index = self.direct_age_unit_comboBox.currentIndex()
-                        for row in range(self.direct_age_unit_comboBox.model().rowCount()):
-                            if self.direct_age_unit_comboBox.model().index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
-                                combo_index = row
-                                break
-                        self.direct_age_unit_comboBox.setCurrentIndex(combo_index)
+                if text is None or text == '':
+                    self.direct_age_unit_comboBox.setCurrentText(settings.value('age_unit_abbreviation'))
+                else:
+                    # text is the ID, so we need to get the index in the model
+                    combo_index = self.direct_age_unit_comboBox.currentIndex()
+                    for row in range(self.direct_age_unit_comboBox.model().rowCount()):
+                        if self.direct_age_unit_comboBox.model().index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole) == text:
+                            combo_index = row
+                            break
+                    self.direct_age_unit_comboBox.setCurrentIndex(combo_index)
             elif 'OldestDirectAge' in header:
                 if not text:
                     self.oldest_direct_lineEdit.setText(self.oldest_direct_lineEdit.placeholderText())
                 else:
                     self.oldest_direct_lineEdit.setText(f'{text}')
             elif 'YoungestDirectAge' in header:
-                if not text:
+                if text is None or text == '':
                     self.youngest_direct_lineEdit.setText(self.youngest_direct_lineEdit.placeholderText())
                 else:
                     self.youngest_direct_lineEdit.setText(f'{text}')
             elif 'DirectAge' in header and 'Error' not in header and 'ID' not in header:
-                if not text:
+                if text is None or text == '':
                     self.direct_age_lineEdit.setText(self.direct_age_lineEdit.placeholderText())
                 else:
                     self.direct_age_lineEdit.setText(f'{text}')
@@ -479,7 +479,7 @@ class AgeFields(QtW.QWidget):
                 # self.oldest_rel_comboBox.programmatic_text_change = True
                 oldest_rel_tree_model, indexes = find_tree_model(self.oldest_rel_comboBox.model(), None)
                 oldest_rel_tree_model: CheckableTreeModel
-                if not text:
+                if text is None or text == '':
                     self.oldest_rel_comboBox.setCurrentText(self.oldest_rel_comboBox.placeholderText())
                     oldest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [], [])
                 else:
@@ -495,7 +495,7 @@ class AgeFields(QtW.QWidget):
                 # self.youngest_rel_comboBox.programmatic_text_change = True
                 youngest_rel_tree_model, indexes = find_tree_model(self.youngest_rel_comboBox.model(), None)
                 youngest_rel_tree_model: CheckableTreeModel
-                if not text:
+                if text is None or text == '':
                     self.youngest_rel_comboBox.setCurrentText(self.youngest_rel_comboBox.placeholderText())
                     youngest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [], [])
                 else:
@@ -507,7 +507,7 @@ class AgeFields(QtW.QWidget):
                         youngest_rel_tree_model.check_checkable_tree(QtC.QModelIndex(), [int(id)], [])
                 # self.youngest_rel_comboBox.programmatic_text_change = False
             elif 'SampleAgeDescription' in header:
-                if not text:
+                if text is None or text == '':
                     self.age_description_lineEdit.setText(self.age_description_lineEdit.placeholderText())
                 else:
                     self.age_description_lineEdit.setText(f'{text}')

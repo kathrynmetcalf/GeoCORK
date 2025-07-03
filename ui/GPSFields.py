@@ -245,22 +245,22 @@ class GPSFields(QtW.QWidget):
                 else:
                     self.gps_location_ids = ""
             elif 'LatDeg' in header:
-                if not text:
+                if text is None or text == '':
                     self.lat_deg_lineEdit.setText('')
                 else:
                     self.lat_deg_lineEdit.setText(f"{text}")
             elif 'LatMin' in header:
-                if not text:
+                if text is None or text == '':
                     self.lat_min_lineEdit.setText('')
                 else:
                     self.lat_min_lineEdit.setText(f"{text}")
             elif 'LatSec' in header:
-                if not text:
+                if text is None or text == '':
                     self.lat_sec_lineEdit.setText('')
                 else:
                     self.lat_sec_lineEdit.setText(f"{text}")
             elif 'LatDir' in header:
-                if not text:
+                if text is None or text == '':
                     set_comboBox_text(self.lat_comboBox, '')
                 else:
                     if isinstance(text, int):
@@ -268,22 +268,22 @@ class GPSFields(QtW.QWidget):
                     else:
                         self.lat_comboBox.setCurrentText(text)
             elif 'LonDeg' in header:
-                if not text:
+                if text is None or text == '':
                     self.lon_deg_lineEdit.setText('')
                 else:
                     self.lon_deg_lineEdit.setText(f"{text}")
             elif 'LonMin' in header:
-                if not text:
+                if text is None or text == '':
                     self.lon_min_lineEdit.setText('')
                 else:
                     self.lon_min_lineEdit.setText(f"{text}")
             elif 'LonSec' in header:
-                if not text:
+                if text is None or text == '':
                     self.lon_sec_lineEdit.setText('')
                 else:
                     self.lon_sec_lineEdit.setText(f"{text}")
             elif 'LonDir' in header:
-                if not text:
+                if text is None or text == '':
                     set_comboBox_text(self.lon_comboBox, '')
                 else:
                     if isinstance(text, int):
@@ -292,27 +292,27 @@ class GPSFields(QtW.QWidget):
                     else:
                         self.lon_comboBox.setCurrentText(text)
             elif 'UTMZone' in header:
-                if not text:
+                if text is None or text == '':
                     self.utm_zone_lineEdit.setText('')
                 else:
                     self.utm_zone_lineEdit.setText(f"{text}")
             elif 'UTMN' in header:
-                if not text:
+                if text is None or text == '':
                     self.utm_n_lineEdit.setText('')
                 else:
                     self.utm_n_lineEdit.setText(f"{text}")
             elif 'UTME' in header:
-                if not text:
+                if text is None or text == '':
                     self.utm_e_lineEdit.setText('')
                 else:
                     self.utm_e_lineEdit.setText(f"{text}")
             elif 'ElevError' in header and 'Calculated' not in header:
-                if not text:
+                if text is None or text == '':
                     self.elevation_error_lineEdit.setText('')
                 else:
                     self.elevation_error_lineEdit.setText(f"{text}")
             elif 'ElevUnit' in header:
-                if not text:
+                if text is None or text == '':
                     set_comboBox_text(self.elevation_unit_comboBox, settings.value('elevation_unit_abbreviation'))
                 else:
                     if isinstance(text, int):
@@ -320,12 +320,12 @@ class GPSFields(QtW.QWidget):
                     else:
                         self.elevation_unit_comboBox.setCurrentText(text)
             elif 'Elev' in header and 'Calculated' not in header:
-                if not text:
+                if text is None or text == '':
                     self.elevation_lineEdit.setText('')
                 else:
                     self.elevation_lineEdit.setText(f"{text}")
             elif 'GPSFormat' in header:
-                if not text:
+                if text is None or text == '':
                     if self.gps_format_comboBox.currentIndex() == -1:
                         # If nothing has been selected yet, set it to the default
                         set_comboBox_text(self.gps_format_comboBox, settings.value('gps_format_abbreviation'))

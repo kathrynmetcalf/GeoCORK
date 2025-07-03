@@ -444,5 +444,91 @@
         "18": {
             "field": "BestAgeError"
         }
+    },
+    "Metcalf and Kapp 2025": {
+        "20": {
+            "field": "Reference Display"
+        },
+        "21": {
+            "field": "ReferenceID"
+        },
+        "22": {
+            "field": "Instrument Name"
+        },
+        "23": {
+            "field": "InstrumentID"
+        },
+        "24": {
+            "field": "Lab Facility Name"
+        },
+        "25": {
+            "field": "LabFacilityID"
+        },
+        "26": {
+            "field": "UPb Analysis Method Name"
+        },
+        "27": {
+            "field": "UPbAnalysisMethodID"
+        },
+        "0": {
+            "field": "Spot Name"
+        },
+        "1": {
+            "field": "Uppm"
+        },
+        "2": {
+            "field": "206Pb/204Pb"
+        },
+        "3": {
+            "field": "U/Th"
+        },
+        "4": {
+            "field": "206Pb/207Pb"
+        },
+        "5": {
+            "field": "206Pb/207PbError"
+        },
+        "6": {
+            "field": "207Pb/235U"
+        },
+        "7": {
+            "field": "207Pb/235UError"
+        },
+        "8": {
+            "field": "206Pb/238U"
+        },
+        "9": {
+            "field": "206Pb/238UError"
+        },
+        "10": {
+            "field": "ErrorCorr/Rho"
+        },
+        "11": {
+            "field": "206Pb/238UAge"
+        },
+        "12": {
+            "field": "206Pb/238UAgeError"
+        },
+        "13": {
+            "field": "207Pb/235UAge"
+        },
+        "14": {
+            "field": "207Pb/235UAgeError"
+        },
+        "15": {
+            "field": "207Pb/206PbAge"
+        },
+        "16": {
+            "field": "207Pb/206PbAgeError"
+        },
+        "17": {
+            "field": "BestAge"
+        },
+        "18": {
+            "field": "BestAgeError"
+        },
+        "19": {
+            "field": "Concordance"
+        }
     }
 }

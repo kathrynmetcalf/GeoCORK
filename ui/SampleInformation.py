@@ -323,17 +323,17 @@ class SampleInformation(QtW.QDialog):
                 # If values are different, add '-'
                 text = "-"
             if 'SampleName' in header:
-                if not text:
+                if text is None or text == '':
                     self.sample_name_lineEdit.setText(self.sample_name_lineEdit.placeholderText())
                 else:
                     self.sample_name_lineEdit.setText(f"{text}")
             elif 'IGSN' in header:
-                if not text:
+                if text is None or text == '':
                     self.sample_igsn_lineEdit.setText(self.sample_igsn_lineEdit.placeholderText())
                 else:
                     self.sample_igsn_lineEdit.setText(f"{text}")
             elif 'ColumnID' in header:
-                if not text:
+                if text is None or text == '':
                     set_comboBox_text(self.column_name_comboBox, self.column_name_comboBox.placeholderText())
                 elif text == "-":
                     set_comboBox_text(self.column_name_comboBox, text)
@@ -349,17 +349,17 @@ class SampleInformation(QtW.QDialog):
                     text = query.value(0)
                     set_comboBox_text(self.column_name_comboBox, text)
             elif 'HeightDepthError' in header and 'Calculated' not in header:
-                if not text:
+                if text is None or text == '':
                     self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
                 else:
                     self.height_depth_error_lineEdit.setText(f"{text}")
             elif 'HeightDepth' in header:
-                if not text:
+                if text is None or text == '':
                     self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
                 else:
                     self.height_depth_lineEdit.setText(f"{text}")
             elif 'HeightDepthUnit' in header:
-                if not text:
+                if text is None or text == '':
                     set_comboBox_text(self.height_depth_unit_comboBox, settings.value('heightdepth_unit_abbreviation'))
                 elif text == "-":
                     set_comboBox_text(self.height_depth_unit_comboBox, text)
@@ -375,12 +375,12 @@ class SampleInformation(QtW.QDialog):
                     text = query.value(0)
                     set_comboBox_text(self.height_depth_unit_comboBox, text)
             elif 'HeightDepth' in header and 'Calculated' not in header:
-                if not text:
+                if text is None or text == '':
                     self.height_depth_lineEdit.setText(self.height_depth_lineEdit.placeholderText())
                 else:
                     self.height_depth_lineEdit.setText(f"{text}")
             elif 'SampleDescription' in header:
-                if not text:
+                if text is None or text == '':
                     self.sample_description_textEdit.setText(self.sample_description_textEdit.placeholderText())
                 else:
                     self.sample_description_textEdit.setText(f"{text}")
@@ -543,7 +543,7 @@ class SampleInformation(QtW.QDialog):
         if isinstance(combo, CheckableTreeCombobox):
             model.blockSignals(False)
             combo.treeView.expand_all_checked()
-        if not text:
+        if text is None or text == '':
             text = combo.placeholderText()
         combo.setCurrentText(text)
         end_populate_checks_time = time.time()
