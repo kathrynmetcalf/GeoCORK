@@ -1169,7 +1169,6 @@ class ImportWizardDialog(QWidget):
             header = self.right_table.horizontalHeaderItem(test_idx)
             if header and header.text().startswith(selected_field):
                 QMessageBox.warning(self, "Duplicate Column", f"Column '{selected_field}' already exists.")
-                # todo this duplicate is not working
                 return
 
         if column_index is None:
@@ -1555,7 +1554,6 @@ class ImportWizardDialog(QWidget):
             field (str): The field name (e.g., 'Reference', 'Instrument').
             model (checkable model): The model to retrieve checks from.
         """
-        # todo analysis method not checking
         try:
             table = model.tableName()
             name_column = get_name_column(get_view_from_table(table))
@@ -1826,7 +1824,6 @@ class ImportWizardDialog(QWidget):
         Update the left table's Sample ID and Spot ID columns whenever the delimiter value changes.
         """
         # Find the right table column mapped to "Spot ID"
-        # todo this is breaking when sample name and spot name are both set
 
         if self.delimiter_checkbox.isChecked():
             spot_id_column = None

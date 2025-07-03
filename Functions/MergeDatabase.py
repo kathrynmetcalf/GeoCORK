@@ -377,7 +377,6 @@ def merge_database(source_db_path: str, incoming_db_path: str) -> bool:
                     # while loop to constantly try new values to insert into the table in case
                     # there are duplicate entries, such as source db and incoming db RockTypeName = "Sandstone"
                     # the incoming db RockTypeName would change to append '(1)' creating "Sandstone (1).
-                    # todo: Change to increment rather than append, so '(1)(1)' would becoming '(2)'
                     while True:
                         try:
                             source_conn.execute(insert_sql, to_insert)

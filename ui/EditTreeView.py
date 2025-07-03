@@ -1182,8 +1182,9 @@ class EditTreeView(QtW.QDialog):
                                 update_cols[key].append(header)
                                 update_col_values[key].append(id)
                                 if key != self.table:
-                                    #todo: figure out how to get the correct IDs for the where clause
-                                    pass
+                                    logger_setup.get_logger().critical(f'Unexpected table {key} for header {header}')
+                                    logger_setup.get_logger().debug(f'This scenario has not been tested yet')
+                                    return False
                                 header_found = True
                                 continue
                 if not header_found:

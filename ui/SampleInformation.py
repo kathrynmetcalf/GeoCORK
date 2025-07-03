@@ -744,7 +744,6 @@ class SampleInformation(QtW.QDialog):
         release_savepoint('before_update')
 
     def add_popup(self, combo: QtW.QComboBox, action: QtG.QAction | None = None):
-        # todo: Still looping sometimes, even though signals are blocked
         combo.blockSignals(True)
         logger_setup.get_logger().info(f"Add popup called")
         model = combo.model()

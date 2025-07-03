@@ -380,7 +380,6 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
                 return f'Oldest direct age is younger than youngest direct age', old_column
     return None, None
 
-# todo: implement check_update_age_range
 def check_update_age_range(all_records: list, old_column: str, young_column: str):
     from Functions.Widget_classes import SQLiteTableModel, get_headers
     if not all_records or not old_column or not young_column:
