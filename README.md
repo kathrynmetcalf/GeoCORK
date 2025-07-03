@@ -6,7 +6,7 @@
 GeoCORK is a desktop application for managing U-Pb geochronology data which are stored in a local relational database. Data can be imported from .xlsx files in various formats and exported for use in analysis tools and data sharing. For more information on using GeoCORK, refer to Metcalf and Burges, 2025. For more information on GeoCORK development, refer to Burges and Metcalf, 2025.
 
 ## Download
-Find the latest release [here]().
+Find the latest release [here](https://github.com/kathrynmetcalf/GeoCORK/releases).
 
 ## Example Files
 Two example databases and supporting files can be found at (zenodo link).
@@ -108,7 +108,7 @@ Metcalf K., and Burges J., 2025, GeoCORK: ....., doi:....
 The accompanying published articles are:
 
 ## Contributing
-Set up a github account and fork the source code over to get started. If you are interested in contributing to GeoCORK releases, contact [Kate Metcalf](kametcalf@fullerton.edu).
+Set up a github account and fork the source code over to get started. If you are interested in contributing to GeoCORK releases, contact [Kate Metcalf](mailto:kametcalf@fullerton.edu).
 
 Part 1
 Part 2
