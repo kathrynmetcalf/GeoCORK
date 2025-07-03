@@ -254,7 +254,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
                            [ratio_error_format_id], database=database):
         rollback_savepoint('before_populate')
         return False
-    if not generate_reference_column('References', 'ReferenceID', database=database):
+    if not generate_reference_column('References', settings.value('default_reference_format'), database=database):
         rollback_savepoint('before_populate')
         return False
     if not generate_age_display_column('SampleAges', database=database):

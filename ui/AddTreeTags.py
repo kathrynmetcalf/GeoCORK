@@ -192,7 +192,7 @@ class AddTreeTags(QtW.QDialog):
         search_expression = QtC.QRegularExpression(self.newName_lineEdit.text())
         self.tree_proxy_model.setFilterRegularExpression(search_expression)
 
-    def add_tree_tag(self):
+    def add_tree_tag(self) -> bool:
         """
         Adds a new tag to the tree view. If the add_item is 'child', it adds a child item to the selected parent item.
         If the add_item is 'parent', it adds a new parent item to the tree view. The name and description are taken from
@@ -203,7 +203,7 @@ class AddTreeTags(QtW.QDialog):
         the item was added successfully, or False if there was an error. It also updates the tree model and clears the
         newName_lineEdit and newDescription_lineEdit fields after adding the item. The function also updates the
         settings with the expanded state of the tree view and the parent ID of the newly-added item.
-        :return:
+        :return: True if the item was added successfully, False otherwise.
         """
         show_loading_dialog('Adding item', f'Adding {self.newName_lineEdit.text()} to {self.table}...')
         save_expanded_state(self.table, self.tags_treeView)
@@ -275,6 +275,7 @@ class AddTreeTags(QtW.QDialog):
         """
         if self.tree_proxy_model.sourceModel() == self.tree_model:
             self.tree_model.deleteLater()
+        self.source_model.select()
         self.tree_model = TreeModel(self.source_model)
         self.tree_model.dataEdited.connect(self.update_proxy)
         self.tree_proxy_model.setSourceModel(self.tree_model)
@@ -285,7 +286,7 @@ class AddTreeTags(QtW.QDialog):
         Displays a confirmation dialog asking the user if they want to discard all changes made in the dialog.
         :return:
         """
-        self.discard_pushButton.blockSignals(True)
+        self.cancel_pushButton.blockSignals(True)
         if self.updated:
             msg_box = QtW.QMessageBox()
             msg_box.setIcon(QtW.QMessageBox.Icon.Question)
@@ -296,7 +297,7 @@ class AddTreeTags(QtW.QDialog):
             if response == QtW.QMessageBox.StandardButton.Yes:
                 self.rollback()
             else:
-                self.discard_pushButton.blockSignals(False)
+                self.cancel_pushButton.blockSignals(False)
         else:
             logger_setup.get_logger().info(f'No changes made to {self.table}, closing dialog')
             self.rollback()

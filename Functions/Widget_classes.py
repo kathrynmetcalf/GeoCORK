@@ -2523,6 +2523,8 @@ class TreeModel(QtC.QAbstractProxyModel):
             record = self.source_model.record(row)
             item_id = record.value(0)  # Assuming the first column is the ID
             parent_id = record.value(1)  # Assuming the second column is the Parent ID
+            if not parent_id:
+                parent_id = None
 
             self.item_data[item_id] = record
             if parent_id not in self.parent_to_children:
