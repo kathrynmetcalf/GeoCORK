@@ -21,7 +21,8 @@ from Functions import SQLUtils
 from Functions.Database_views import ViewQuery
 from Functions.Widget_classes import (
     SQLiteTableModel, TreeSortFilterProxyModel, save_expanded_state, TreeModel, WordWrapDelegate, get_name_column,
-    ReadableProxyModel, get_id_from_name, get_record_index, columns_as_list, get_view_from_table, find_sub_items)
+    ReadableProxyModel, get_id_from_name, get_record_index, columns_as_list, get_view_from_table, find_sub_items,
+    show_loading_dialog, close_loading_dialog)
 from Functions.Widget_classes import get_headers
 from ui.SampleInformation import SampleInformation
 from Functions.Settings_manager import SettingsManager
@@ -288,7 +289,9 @@ class DataViewerWidget(QWidget):
                           'limit': f'LIMIT {self.rows_per_page_1} OFFSET {offset}'}
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
-            self.data_table_model = SQLiteTableModel(table_query)
+            show_loading_dialog('Loading', f'Loading related data for {table}...')
+            self.data_table_model = SQLiteTableModel(table_query, view_query=view_query)
+            close_loading_dialog('Loading', f'Loading related data for {table}...')
             if self.data_table_model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying {self.data_table}')
                 return
@@ -354,7 +357,9 @@ class DataViewerWidget(QWidget):
                           'order_col': 'SampleName'}
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
-            model = SQLiteTableModel(table_query)
+            show_loading_dialog('Loading', f'Loading related data for {table}...')
+            model = SQLiteTableModel(table_query, view_query=view_query)
+            close_loading_dialog('Loading', f'Loading related data for {table}...')
             if model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying Aliquots')
                 logger_setup.get_logger().debug(f'Error: {model.last_error}')
@@ -385,9 +390,11 @@ class DataViewerWidget(QWidget):
 
         # Select all rows by default
         if self.data_table == 'Aliquots':
+            self.dbTable_treeView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
             self.dbTable_treeView.selectionModel().selectionChanged.connect(self.on_select_changed)
             self.dbTable_treeView.selectAll()
         else:
+            self.dbTable_tableView.setSelectionMode(QtW.QAbstractItemView.SelectionMode.ExtendedSelection)
             self.dbTable_tableView.selectionModel().selectionChanged.connect(self.on_select_changed)
             self.dbTable_tableView.selectAll()
 
@@ -612,7 +619,11 @@ class DataViewerWidget(QWidget):
                                         ORDER BY {get_headers(self.data_filtered_table)[get_name_column(self.data_filtered_table)]} 
                                         LIMIT {self.rows_per_page_2} OFFSET {offset}"""
 
-            self.data_filtered_table_model = SQLiteTableModel(sql_query)
+            try:
+                self.data_filtered_table_model = SQLiteTableModel(sql_query, view_query=view_query)
+            except NameError:
+                # There is no view_query, so just use the table query
+                self.data_filtered_table_model = SQLiteTableModel(sql_query)
             if self.data_filtered_table_model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying filtered table')
                 logger_setup.get_logger().debug(f'Error: {self.data_filtered_table_model.last_error}')
@@ -790,7 +801,12 @@ class DataViewerWidget(QWidget):
         else:
             logger_setup.get_logger().info('Unknown lineedit for completer')
             return
-        sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {ids}'
+        if table == 'UPbAnalyses':
+            sql_query = f'''SELECT DISTINCT {name_header} FROM "{table}" 
+                            JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID
+                            WHERE {get_headers(table)[0]} {ids}'''
+        else:
+            sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {ids}'
 
         all_names = columns_as_list(sql_query, [name_header])[0]
         if not all_names:

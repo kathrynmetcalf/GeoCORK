@@ -17,6 +17,7 @@ class ViewQuery:
         self.show_columns = []
         self.limit = ''
         self.where = ''
+        self.where_ids = []
         self.group_col = ''
         self.order_col = ''
         self.limited_hierarchy = ''
@@ -24,6 +25,8 @@ class ViewQuery:
         self.order_by = ''
         self.query_where = ''
         self.query_limit = ''
+        self.create_temp_id = ''
+        self.create_temp_paged = ''
         self.update_query(table, edit_view, **kwargs)
 
     def update_query(self, table: str, edit_view: bool = False, **kwargs):
@@ -57,8 +60,11 @@ class ViewQuery:
         self.show_columns: list = settings.value('sample_view_columns')
         self.limit: str = ''
         self.where: str = ''
+        self.where_ids: list = []
         self.group_col: str = 'SampleID'
         self.order_col: str = 'SampleName'
+        self.create_temp_id = ''
+        self.create_temp_paged = ''
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
@@ -919,15 +925,37 @@ class ViewQuery:
         table_abbreviation_dict.pop(self.table)
 
         if self.where != '':
+            try:
+                # Assumes the where clause is of the form "WHERE item_ID IN (1, 2, 3)"
+                where_ids = self.where.split('IN (')[1].split(')')[0].split(', ')
+                self.where_ids = [int(id.strip()) for id in where_ids]
+            except (IndexError, ValueError):
+                # Could not parse where clause, so no IDs to use
+                self.where_ids = []
             # Check if any table headers are in the where clause
             if any(header in self.where for header in headers):
-                hierarchy_where = self.where
+                if self.where_ids:
+                    self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({headers[0]} INTEGER PRIMARY KEY)"
+                    hierarchy_where = f"WHERE {headers[0]} IN (SELECT {headers[0]} FROM TempIDs)"
+                else:
+                    hierarchy_where = self.where
                 self.query_where = ''
                 if self.order_col != '' and self.limit != '':
                     if self.order_col in headers:
                         # Everything applies to the same table, so put them all in the hierarchy query
-                        hierarchy_order_by = f'ORDER BY {self.order_col}'
-                        hierarchy_limit = self.limit
+                        if self.where_ids:
+                            self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
+                                                            SELECT TempIDs.{headers[0]} FROM TempIDs
+                                                            JOIN {self.table} ON {self.table}.{headers[0]} = TempIDs.{headers[0]}
+                                                            ORDER BY {self.order_col} {self.limit}
+                                                            """
+                        else:
+                            self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
+                                                            SELECT {headers[0]} FROM {self.table}
+                                                            ORDER BY {self.order_col} {self.limit}
+                                                            """
+                        hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
+                        hierarchy_limit = ''
                         self.query_limit = ''
                     else:
                         # Ordering by a different table than the where clause, so apply the ordering and limit in the main query
@@ -937,14 +965,30 @@ class ViewQuery:
                         # order gets applied in the main query regardless
                 elif self.limit != '':
                     # Everything not blank applies to the same table, so put them all in the hierarchy query
+                    if self.where_ids:
+                        self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
+                                                        SELECT TempIDs.{headers[0]} FROM TempIDs
+                                                        JOIN {self.table} ON {self.table}.{headers[0]} = TempIDs.{headers[0]}
+                                                        {self.limit}
+                                                        """
+                    else:
+                        self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
+                                                        SELECT {headers[0]} FROM {self.table}
+                                                        {self.limit}
+                                                        """
+                    hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
                     hierarchy_order_by = ''
-                    hierarchy_limit = self.limit
+                    hierarchy_limit = ''
                     self.query_limit = ''
             else:
                 for key in table_abbreviation_dict.keys():
                     if any(header in self.where for header in get_headers(key)):
                         where_table = key
-                        hierarchy_where = self.where
+                        if self.where_ids:
+                            self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({get_headers(key)[0]} INTEGER PRIMARY KEY)"
+                            hierarchy_where = f"WHERE {get_headers(key)[0]} IN (SELECT {get_headers(key)[0]} FROM TempIDs)"
+                        else:
+                            hierarchy_where = self.where
                         self.query_where = ''
                         # Limit applies to a different table than the where clause, so wait to apply it in the main query
                         hierarchy_limit = ''
@@ -960,8 +1004,13 @@ class ViewQuery:
         elif self.order_col != '' and self.limit != '':
             if self.order_col in headers:
                 # Everything applies to the same table, so put them all in the hierarchy query
-                hierarchy_order_by = f'ORDER BY {self.order_col}'
-                hierarchy_limit = self.limit
+                self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
+                                                SELECT {headers[0]} FROM {self.table}
+                                                ORDER BY {self.order_col} {self.limit}
+                                            """
+                hierarchy_order_by = ''
+                hierarchy_limit = ''
+                hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
                 self.query_limit = ''
             else:
                 # Ordering by a different table than the where clause, so apply the ordering and limit in the main query
@@ -971,7 +1020,11 @@ class ViewQuery:
                 # order gets applied in the main query regardless
         elif self.limit != '':
             # Only limit, so apply in the hierarchy
-            hierarchy_limit = self.limit
+            self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
+                                        SELECT {headers[0]} FROM {self.table}
+                                        {self.limit}"""
+            hierarchy_limit = ''
+            hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
             self.query_limit = ''
         if where_table == 'Samples':
             self.limited_hierarchy = f'''

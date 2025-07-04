@@ -1,23 +1,22 @@
 import os
 import sys
 import time
-from operator import index, itemgetter
 
 from PyQt6 import QtWidgets as QtW
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from PyQt6.QtCore import QPoint, QSize, QSortFilterProxyModel
-from PyQt6.QtWidgets import QMessageBox
 from PyQt6.uic import loadUi
 import Functions.Text_manipulations as TxM
 import logger_setup
 from Functions.Widget_classes import (
-    TreeModel, CheckableTreeCombobox, CheckableTreeModel, ReadableProxyModel, SQLiteTableModel, CheckableComboBox,
+    TreeModel, CheckableTreeCombobox, CheckableTreeModel, SQLiteTableModel, CheckableComboBox,
     CheckableSqlTableModel, CheckableSqlQueryModel, get_headers, get_name_column, set_table, populate_many_combo_checks,
-    populate_model_checks, WordWrapDelegate, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
+    populate_model_checks, get_columns, get_readable_header, find_current_sub_items, get_id_from_name,
     add_tree_popup, save_expanded_state, restore_expanded_state, get_selected_tree_ids, TreeContextMenu,
-    expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current, TreeSortFilterProxyModel, delete_data
+    expand_collapse, get_name_from_id, get_view_from_table, columns_as_list_current, TreeSortFilterProxyModel,
+    delete_data, show_loading_dialog, close_loading_dialog
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -294,7 +293,10 @@ class EditTreeView(QtW.QDialog):
                       'group_col': f'{self.show_cols[0]}', 'order_col': f'{self.name_header}'}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        self.model = SQLiteTableModel(table_query)
+        show_loading_dialog('Loading', f'Loading related data for {self.table}...')
+        self.model = SQLiteTableModel(table_query, view_query=view_query)
+        self.model.set_table(self.table)
+        close_loading_dialog('Loading', f'Loading related data for {self.table}...')
         if self.model.last_error:
             logger_setup.get_logger().critical(f'Error displaying {self.table} table')
             logger_setup.get_logger().debug(f'Error: {self.model.last_error}')

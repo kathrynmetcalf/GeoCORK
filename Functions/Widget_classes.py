@@ -69,7 +69,7 @@ class SQLiteTableModel(QAbstractTableModel):
     with abnormally long query execution time. Only committed data is displayed, uncommitted changes are not visible to
     this connection, so the model must be updated manually while savepoints or other transactions are active.
     """
-    def __init__(self, query: str = '', database=None):
+    def __init__(self, query: str = '', database=None, view_query: ViewQuery = None):
         from Functions.Settings_manager import SettingsManager
         settings = SettingsManager().settings
         db_settings = SettingsManager().db_settings
@@ -81,21 +81,29 @@ class SQLiteTableModel(QAbstractTableModel):
         self.last_error = None
         self.query_text = query
         self.database = database if database is not None else settings.value('db_file', type=str)
+        self.view_query = view_query
+        self.limit: str = ''
+        self.where: str = ''
+        self.group_col: str = ''
+        self.order_col: str = ''
+
         self.table = None
         self.table_name_col = None
 
         self.load_data(self.query_text, self.database)
 
-    def setQuery(self, new_query: str):
+    def setQuery(self, new_query: str, view_query: ViewQuery = None):
         """
         Updates the model with a new query.
         :param new_query: New query string to apply.
+        :param view_query: ViewQuery object to apply, if any. Contains additional query information if necessary
         """
         set_time = time.time()
+        self.view_query = view_query
         self.load_data(new_query, self.database)
         logger_setup.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
 
-    def update_database(self, new_database: str):
+    def update_database(self, new_database: str, view_query: ViewQuery = None):
         """
         Updates the model with a new database.
         :param new_database: New database filename string to apply.
@@ -125,6 +133,22 @@ class SQLiteTableModel(QAbstractTableModel):
                 logger_setup.get_logger().info('Populating model with query')
                 logger_setup.get_logger().debug(f'SQL query: {query}')
                 start_time = time.time()
+                if self.view_query:
+                    # If a ViewQuery is provided, see if there are any temporary tables to create
+                    where_ids = self.view_query.where_ids
+                    create_temp_id = self.view_query.create_temp_id
+                    create_temp_paged = self.view_query.create_temp_paged
+                    if create_temp_id and where_ids:
+                        cursor.execute(create_temp_id)
+                        id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
+                        cursor.execute(f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}')
+                    if create_temp_paged:
+                        cursor.execute(create_temp_paged)
+                elif 'TempIds' in query or 'TempPaged' in query:
+                    # If the query contains temporary tables, without a ViewQuery, we do not have enough information.
+                    logger_setup.get_logger().critical(f'Error loading data from query')
+                    logger_setup.get_logger().debug(f'Query includes temporary tables, but no ViewQuery provided.')
+                    logger_setup.get_logger().debug(f'SQL query: {query}')
                 cursor.execute(query)
                 self._data = cursor.fetchall()
                 self._headers = [desc[0] for desc in cursor.description]
@@ -1038,7 +1062,7 @@ class SampleAgeTableModel(CheckableSqlQueryModel):
 def get_database_tables() -> list:
     """
     Returns a list of all tables in the database.
-    :return: list of table names
+    :return: List of table names
     """
     query = QtS.QSqlQuery()
     if not query.exec('SELECT name FROM sqlite_master WHERE type="table"'):
@@ -1272,14 +1296,15 @@ def columns_as_list_current(query: str, cols: list) -> list | None:
         column_lists.append(column_list)
     return column_lists
 
-def columns_as_list(query: str, cols: list) -> list | None:
+def columns_as_list(query: str, cols: list, view_query: ViewQuery=None) -> list | None:
     """
     Returns lists of items in given columns. This method reflects only committed changes.
     :param cols: List of column indexes as integers or SQL table column headers
     :param query: SQL query of data for table
+    :param view_query: ViewQuery object to use for the query, if applicable
     :return: lists of items in each row for given columns
     """
-    model = SQLiteTableModel(query)
+    model = SQLiteTableModel(query, view_query=view_query)
     if model.last_error:
         return None
     columns = []
@@ -1617,17 +1642,20 @@ def return_rounded(value: str | float | int):
         if value == '':
             return value
         elif '.' in value:
-            if float(value): # value is float, not text
+            try:
+                float(value) # value is float, not text
                 if value.split('.')[1] != '0':
                     rounded_value = f'{float(value):.{decimal_places}f}'
                 else: # value is an integer
                     rounded_value = int(float(value))
-            else:
+            except ValueError:
                 rounded_value = value
-        elif int(value):  # value is integer, not text
-            rounded_value = int(value)
         else:
-            rounded_value = value
+            try:
+                int(value)  # value is integer, not text
+                rounded_value = int(value)
+            except ValueError:
+                rounded_value = value
     elif isinstance(value, float):
         if value - int(value) != 0:
             rounded_value = f'{value:.{decimal_places}f}'
@@ -1640,8 +1668,8 @@ def return_rounded(value: str | float | int):
 def return_number(value: str | float | int):
     """
     Convert a string to a number, if possible. If not, return it as is.
-    :param value: string, float, or integer to convert to the best number format
-    :return: value as a number or the original string if it was not a number
+    :param value: String, float, or integer to convert to the best number format
+    :return: Value as a number or the original string if it was not a number
     """
     if isinstance(value, str):
         if value == '':
@@ -1660,7 +1688,10 @@ def return_number(value: str | float | int):
         except ValueError:
             return_value = value
         return return_value
-    if isinstance(value, int):
+    elif isinstance(value, int):
+        return value
+    else:
+        logger_setup.get_logger().info(f"Invalid value type: {type(value)}. Expected str, float, or int.")
         return value
 
 
@@ -1924,7 +1955,10 @@ def delete_question(table, delete_ids):
             # List the associations with their names for up to three table associations
             association_text = '\nAssociated with: '
             for associated_table, ids in associations.items():
-                if len(ids) == 0:
+                if not ids:
+                    logger_setup.get_logger().info(f'Unable to find IDs for {associated_table} associations')
+                    return False
+                elif len(ids) == 0:
                     continue
                 # append the association text with the number of IDs and the names of the IDs
                 elif len(ids) < 11:
@@ -2055,7 +2089,9 @@ def find_upb_from_samples(sample_ids):
     query_args = {'where': where, 'show_columns': ['UPbAnalysisID']}
     view_query = ViewQuery('UPbAnalyses', False, **query_args)
     table_query = view_query.table_query
-    upb_analysis_table = SQLiteTableModel(table_query)
+    show_loading_dialog('Loading', 'Gathering related data for UPb Analyses...')
+    upb_analysis_table = SQLiteTableModel(table_query, view_query=view_query)
+    close_loading_dialog('Loading', 'Gathering related data for UPb Analyses...')
     if not upb_analysis_table.last_error:
         for row in range(upb_analysis_table.rowCount()):
             upb_data_id = upb_analysis_table.data(upb_analysis_table.index(row, 0))
@@ -2483,6 +2519,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             self.base_query = f"{query_object.lastQuery()}".split("ORDER")[0]
         elif isinstance(source_model, SQLiteTableModel):
             self.base_query = source_model.query_text.split("ORDER")[0]
+            view_query = source_model.view_query
         if len(self.base_query) > 0:
             if ' WHERE ' in self.base_query:
                 self.base_query_sql = f"{self.base_query} AND "
@@ -2494,7 +2531,10 @@ class TreeModel(QtC.QAbstractProxyModel):
                 # If the source model is already a SQLiteTableModel with the same query, use it
                 self.source_model = source_model
             else:
-                self.source_model = SQLiteTableModel(query=self.base_query)
+                try:
+                    self.source_model = SQLiteTableModel(query=self.base_query, view_query=view_query)
+                except NameError:
+                    self.source_model = SQLiteTableModel(query=self.base_query)
                 if self.source_model.last_error:
                     logger_setup.get_logger().critical(f'Error displaying the selected table')
                     return
@@ -3450,6 +3490,7 @@ class CheckableTreeModel(TreeModel):
             self.base_query = f"{query_object.lastQuery()}".split("ORDER")[0]
         elif isinstance(source_model, SQLiteTableModel):
             self.base_query = source_model.query_text.split("ORDER")[0]
+            view_query = source_model.view_query
         if len(self.base_query) > 0:
             if ' WHERE ' in self.base_query:
                 self.base_query_sql = f"{self.base_query} AND "
@@ -3461,7 +3502,10 @@ class CheckableTreeModel(TreeModel):
                 # If the source model is already a SQLiteTableModel with the same query, do not reset it
                 self.source_model = source_model
             else:
-                self.source_model = SQLiteTableModel(query=self.base_query)
+                try:
+                    self.source_model = SQLiteTableModel(query=self.base_query, view_query=view_query)
+                except NameError:
+                    self.source_model = SQLiteTableModel(query=self.base_query)
                 if self.source_model.last_error:
                     logger_setup.get_logger().critical(f'Error displaying the selected table')
                     return
@@ -6020,8 +6064,10 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         view_query = ViewQuery(table, edit_view=False, **query_args)
         table_query = view_query.table_query
         model = DisplayRoundedQueryModel()
+        show_loading_dialog('Loading', f'Loading related data for {table}...')
         model.setQuery(table_query)
         model.set_table(table)
+        close_loading_dialog('Loading', f'Loading related data for {table}...')
     else:
         model = DisplayRoundedModel()
         set_table(model, table)
@@ -6122,11 +6168,13 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
             query_args = {'show_columns': show_columns, 'where': where}
             view_query = ViewQuery(item_table, edit_view, **query_args)
             model_query = view_query.table_query
+            show_loading_dialog('Loading', f'Loading related data for {item_table}...')
         elif item_table == 'References':
             model_query = f'SELECT {table_id_header}, {item_id_header} FROM "References" WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}'
         else:
             model_query = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
         query_model.setQuery(model_query)
+        close_loading_dialog('Loading', f'Loading related data for {item_table}...')
         if query_model.lastError().isValid():
             logger_setup.get_logger().critical(f'Error getting checks for {model.tableName()}')
             logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')

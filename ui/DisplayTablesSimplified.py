@@ -18,7 +18,7 @@ settings = SettingsManager().settings
 from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, TreeModel,
-    ReadableProxyModel, get_view_from_table
+    ReadableProxyModel, get_view_from_table, show_loading_dialog, close_loading_dialog
 )
 from Functions.Database_views import ViewQuery
 
@@ -129,9 +129,15 @@ class DisplayTablesSimplified(QtW.QWidget):
                 query_args = {'show_columns': show_columns}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
+                show_loading_dialog('Loading', f'Loading related data for {self.table}...')
             else:
                 table_query = f'SELECT * FROM {table}'
-            self.model = SQLiteTableModel(table_query, self.db_file)
+            try:
+                self.model = SQLiteTableModel(table_query, database=self.db_file, view_query=view_query)
+            except NameError:
+                # There is no view_query, so just use the table query and database file
+                self.model = SQLiteTableModel(table_query, database=self.db_file)
+            close_loading_dialog('Loading', f'Loading related data for {self.table}...')
             if self.model.last_error:
                 logger_setup.get_logger().critical(f'Error loading {self.table}')
                 return
@@ -158,9 +164,15 @@ class DisplayTablesSimplified(QtW.QWidget):
                 query_args = {'show_columns': show_columns}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
+                show_loading_dialog('Loading', f'Loading related data for {self.table}...')
             else:
                 table_query = f'SELECT * FROM {table}'
-            self.model = SQLiteTableModel(table_query, database=self.db_file)
+            try:
+                self.model = SQLiteTableModel(table_query, database=self.db_file, view_query=view_query)
+            except NameError:
+                # There is no view_query, so just use the table query and database file
+                self.model = SQLiteTableModel(table_query, database=self.db_file)
+            close_loading_dialog('Loading', f'Loading related data for {self.table}...')
             if self.model.last_error:
                 logger_setup.get_logger().critical(f'Error loading {self.table}')
                 return

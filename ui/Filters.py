@@ -61,18 +61,20 @@ def process_json_to_sql(json_string, scope):
             replace_table = SQLUtils.as_table_dict[as_table]
             if replace_table in where_tables:
                 where_clause = where_clause.replace(replace_table, as_table)
+    if not where_clause.startswith('GROUP BY') and where_clause.strip():
+        where_clause = 'WHERE ' + where_clause
 
     if scope == 'Samples':
-        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
+        sql += f"SELECT * FROM Samples {join} {where_clause};"
     elif scope == 'Aliquots':
         join = SQLUtils.get_join_from_table(join, ['Aliquots'])
-        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
+        sql += f"SELECT * FROM Samples {join} {where_clause};"
     elif scope == 'Spots':
         join = SQLUtils.get_join_from_table(join, ['Spots'])
-        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
+        sql += f"SELECT * FROM Samples {join} {where_clause};"
     elif scope == 'UPbAnalyses':
         join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
-        sql += f"SELECT * FROM Samples {join} WHERE {where_clause};"
+        sql += f"SELECT * FROM Samples {join} {where_clause};"
     else:
         logger_setup.get_logger().critical(f"Unknown scope: {scope}")
     logger_setup.get_logger().debug(f"SQL generated successfully: {sql}")
@@ -315,8 +317,8 @@ def _collapse_same_field_basic(conds: List[str], expected_count: int) -> str:
     *outermost* SELECT when this helper is used.  In GeoCORK the root SELECT is
     *always* ``Samples`` so we can inline it directly here for simplicity.
     """
-    values_block = " OR ".join(conds)  # conds already like "col = 4"
-    return f"(({values_block}) GROUP BY Samples.SampleID HAVING COUNT(DISTINCT {get_headers(conds[0].split('.')[0])[0]}) >= {expected_count})"
+    values_block = " AND ".join(conds)  # conds already like "col = 4"
+    return f"GROUP BY Samples.SampleID HAVING ({values_block})"
 
 
 
@@ -1273,6 +1275,9 @@ class QueryBuilder(QWidget):
         # final code to determine the scope of query based on type, also ensures the selected type's table is found
         # in the join code
         where = where_clause.replace('Items', 'Samples').replace('ItemID', 'SampleID')
+        # If the where clause is not empty and does not start with 'GROUP BY', then add a WHERE clause
+        if not where.startswith('WHERE') and not where.startswith('GROUP BY') and where.strip():
+            where = 'WHERE ' + where
 
         if type == 'Samples':
             # where = where_clause.replace('Items', 'Samples').replace('ItemID', 'SampleID')
@@ -1280,7 +1285,7 @@ class QueryBuilder(QWidget):
             SELECT DISTINCT Samples.SampleID
             FROM Samples
             {join}
-            WHERE {where}
+            {where}
             """
         elif type == 'Aliquots':
             # where = where_clause.replace('Items', 'Aliquots').replace('ItemID', 'AliquotID')
@@ -1293,7 +1298,7 @@ class QueryBuilder(QWidget):
                 SELECT Aliquots.AliquotID, Aliquots.ParentAliquotID
                 FROM Samples
                 {join}
-                WHERE {where}
+                {where}
 
                 UNION ALL
 
@@ -1327,7 +1332,7 @@ class QueryBuilder(QWidget):
             sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (
                 SELECT Spots.SpotID, {selects}
                 FROM Samples {join}
-                WHERE {where})
+                {where})
                 WHERE SpotID IS NOT NULL;"""
         elif type == 'UPbAnalyses':
             # where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
@@ -1335,7 +1340,7 @@ class QueryBuilder(QWidget):
             sql_query = full_sql + f"""SELECT DISTINCT UPbAnalysisID FROM (
                 SELECT UPbAnalyses.UPbAnalysisID, {selects}
                 FROM Samples {join}
-                WHERE {where})
+                {where})
                 WHERE UPbAnalysisID IS NOT NULL;"""
 
         else:

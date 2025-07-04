@@ -23,7 +23,7 @@ from Functions.Widget_classes import (
     WordWrapDelegate, get_columns, get_table_from_view, find_current_sub_items, get_total_records, get_record_index,
     get_id_from_name, add_tree_popup, save_expanded_state, restore_expanded_state, get_readable_header,
     get_name_from_id, find_tree_model, get_view_from_table, TreeSortFilterProxyModel, populate_tree_model_checks,
-    columns_as_list
+    columns_as_list, show_loading_dialog, close_loading_dialog
 )
 from Functions import SQLUtils
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint, SavepointManager
@@ -323,7 +323,9 @@ class EditView(QtW.QDialog):
         query_args = {'show_columns': self.show_cols, 'limit': self.limit, 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
-        self.model = SQLiteTableModel(table_query)
+        show_loading_dialog('Loading', f'Loading related data for {self.table}...')
+        self.model = SQLiteTableModel(table_query, view_query=view_query)
+        close_loading_dialog('Loading', f'Loading related data for {self.table}...')
         if self.model.last_error is not None:
             logger_setup.get_logger().critical(f'Error displaying {self.table}.')
             return

@@ -240,6 +240,7 @@ class DisplayTables(QtW.QWidget):
                               'group_col': f'{id_header}', 'order_col': f'{self.name_header}'}
                 view_query = ViewQuery(self.table, False, **query_args)
                 table_query = view_query.table_query
+                show_loading_dialog('Loading', f'Loading related data for {self.table}...')
             else:
                 self.show_cols = '*'
                 self.name_header = get_headers(self.table)[self.name_column]
@@ -251,7 +252,12 @@ class DisplayTables(QtW.QWidget):
             else:
                 self.edit_samples_pushButton.hide()
             # logger_setup.get_logger().debug(f'SQL query: {table_query}')
-            self.model = SQLiteTableModel(table_query)
+            try:
+                self.model = SQLiteTableModel(table_query, view_query=view_query)
+            except NameError:
+                # There is no view_query, so just use the table query
+                self.model = SQLiteTableModel(table_query)
+            close_loading_dialog('Loading', f'Loading related data for {self.table}...')
             if self.model.last_error is not None:
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
                 self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')

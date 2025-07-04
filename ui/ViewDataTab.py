@@ -15,7 +15,8 @@ from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import (SQLiteTableModel, WordWrapDelegate, ReadableProxyModel, TreeModel,
                                       TreeContextMenu, expand_collapse, get_name_column, get_headers,
-                                      get_view_from_table, TreeSortFilterProxyModel, get_readable_header)
+                                      get_view_from_table, TreeSortFilterProxyModel, get_readable_header,
+                                      show_loading_dialog, close_loading_dialog)
 from ui.EditTreeView import EditTreeView
 from ui.EditView import EditView
 
@@ -143,7 +144,9 @@ class ViewDataTab(QtW.QWidget):
         if table is not None:
             view_query = ViewQuery(table, False, **query_args)
             table_query = view_query.table_query
-            self.model = SQLiteTableModel(table_query)
+            show_loading_dialog('Loading', f'Loading related data for {table}...')
+            self.model = SQLiteTableModel(table_query, view_query=view_query)
+            close_loading_dialog('Loading', f'Loading related data for {table}...')
             if self.model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying table')
                 return
