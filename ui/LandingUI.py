@@ -212,7 +212,7 @@ class LandingPage(QWidget):
             connection = sqlite3.connect(database_path, timeout=1)  # Set timeout to 1 second
             cursor = connection.cursor()
             cursor.execute("PRAGMA foreign_keys=ON")  # Simple query to test access
-            cursor.execute("DROP VIEW IF EXISTS ReferenceView")  # Try write access, will be regenerated later
+            cursor.execute("DELETE FROM GPSFormatConversions")  # Try write access, will be regenerated later
             connection.close()
         except Exception as e:
             # Handle the specific database lock error

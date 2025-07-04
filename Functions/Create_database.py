@@ -1304,7 +1304,6 @@ def create_tables(database=None) -> bool:
     logger_setup.get_logger().info('Successfully created all database tables')
     # Populate the tables
     if not populate_tables(database):
-        logger_setup.get_logger().critical(f'Error populating tables')
         return False
 
     logger_setup.get_logger().info('Successfully populated all database tables')
@@ -1408,10 +1407,14 @@ def populate_tables(database=None) -> bool:
         populate_gps_formats(database)
     sql = 'DELETE FROM GPSFormatConversions'
     if not query.exec(sql):
-        logger_setup.get_logger().critical(f'Error resetting GPSFormatConversions')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        return False
+        if 'database is locked' in query.lastError().text():
+            logger_setup.get_logger().critical(f'The database is currently locked. Make sure it is not in use elsewhere.')
+            return False
+        else:
+            logger_setup.get_logger().critical(f'Error resetting GPSFormatConversions')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return False
     if not populate_gps_conversions(database):
         return False
 

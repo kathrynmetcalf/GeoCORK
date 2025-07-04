@@ -41,7 +41,14 @@ class LoadingDialogManager:
             # logger_setup.get_logger().info(f'Updating dialog with title: {title} and message: {message}')
             self.dialog.setWindowTitle(self.titles[-1])
             self.messageLabel.setText(self.messages[-1])
-            self.update_dialog()
+            self.dialog.adjustSize()
+            # update_timer = QtC.QTimer()
+            # update_timer.setSingleShot(True)
+            # update_timer.setInterval(1000)
+            # update_timer.timeout.connect(self.update_dialog)
+            # update_timer.start(0)
+            QtW.QApplication.processEvents()
+            QtW.QApplication.processEvents()
 
     def begin(self):
         if len(self.messages) == 0:
@@ -53,11 +60,12 @@ class LoadingDialogManager:
         self.dialog.setWindowTitle(self.titles[-1])
         self.dialog.setMinimumSize(QSize(250, 75))
         self.layout = QtW.QHBoxLayout(self.dialog)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(0)
+        self.layout.setContentsMargins(5, 5, 5, 5)
+        self.layout.setSpacing(5)
 
         self.messageLabel = QLabel(self.messages[-1], parent=self.dialog)
         self.messageLabel.setObjectName('messageLabel')
+        self.messageLabel.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.layout.addWidget(self.messageLabel, alignment=Qt.AlignmentFlag.AlignCenter)
 
         self.dialog.setWindowFlags(QtC.Qt.WindowType.WindowStaysOnTopHint)
@@ -79,7 +87,7 @@ class LoadingDialogManager:
                 self.messages.remove(message)
                 self.titles.remove(title)
         if self.dialog is not None:
-            if len(self.messages) <= 1:
+            if len(self.messages) == 0:
                 # logger_setup.get_logger().info('Closing loading dialog')
                 # self.timer.stop()
                 self.dialog.close()
@@ -89,7 +97,14 @@ class LoadingDialogManager:
                 # Update the dialog with the next title and message
                 self.dialog.setWindowTitle(self.titles[-1])
                 self.messageLabel.setText(self.messages[-1])
-                self.update_dialog()
+                self.dialog.adjustSize()
+                # update_timer = QtC.QTimer()
+                # update_timer.setSingleShot(True)
+                # update_timer.setInterval(1000)
+                # update_timer.timeout.connect(self.update_dialog)
+                # update_timer.start(0)
+                QtW.QApplication.processEvents()
+                QtW.QApplication.processEvents()
         else:
             return
 
