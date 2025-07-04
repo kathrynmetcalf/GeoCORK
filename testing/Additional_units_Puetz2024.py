@@ -1,3 +1,9 @@
+"""
+This module contains a dictionary that maps additional unit tags to their respective geological units. These reflect
+all instances where a conflict between nesting led to the association with two or more unit tags. See Puetz_DB_edits.pdf
+for more information.
+"""
+
 additional_unit_tags_dict = {
     'Northern Sierra Nevada':
         ['ACamp', 'Blsand', 'Blpebble1', 'Blpebble2', 'Chalkbluff', 'N.Col', 'N.Col.pC', 'O.Flat', 'Wallens'],
@@ -286,7 +292,7 @@ additional_unit_tags_dict = {
     'Indo-Myanmar Ranges':
         ['2017-N109-2', '2017-N110-2', '2017-N99-2', '2017-N100-2', '2017-N101-2', '2017-N102-2', '2017-N103-2',
          '2017-N104-2', '2017-N105-2', '2017-N106-2', '2017-N107-2', '2017-N108-2'],
-    'Indian Himalaya': ['15N386', '16MIZ5', '16MIZ6', '18-NG-1'],
+    'Indian Himalaya': ['15N386', '16MIZ5', '16MIZ6', '18-NG-1', '18-NG-2', '16CMP7', '16IMP8'],
     'Southern Kalahari dunes': ['SA19-705', 'SA19-708'],
     'Southern Kalahari Dry river bed': ['SA19-706', 'SA19-707'],
     'Lower Vaal & Orange Valley dunes': ['SA19-709', 'SA19-710'],
@@ -483,6 +489,5 @@ additional_unit_tags_dict = {
     'Ouachita Orogenic Belt': ['JFB-1', 'JFM-1', 'JFT-1', 'JV-1'],
     'Ouachita Basin':
         ['J1: Allred, I.J. & Blum, M.D., 2022', 'J2: Allred, I.J. & Blum, M.D., 2022', 'J3',
-         'J4: Allred, I.J. & Blum, M.D., 2022', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12', 'J1B'],
-    'Indian Himalaya': ['18-NG-2', '16CMP7', '16IMP8'],
+         'J4: Allred, I.J. & Blum, M.D., 2022', 'J5', 'J6', 'J7', 'J8', 'J9', 'J10', 'J11', 'J12', 'J1B']
 }
