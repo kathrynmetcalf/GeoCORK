@@ -914,6 +914,7 @@ class ViewQuery:
         table_abbreviation_dict = SQLUtils.limited_table_abbreviations.copy()
 
         where_table = self.table
+        where_header = ''
         hierarchy_where = ''
         hierarchy_order_by = ''
         hierarchy_limit = ''
@@ -940,18 +941,24 @@ class ViewQuery:
             # Check if any table headers are in the where clause
             if any(header in self.where for header in headers):
                 if self.where_ids:
-                    self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({headers[0]} INTEGER PRIMARY KEY)"
-                    hierarchy_where = f"WHERE {headers[0]} IN (SELECT {headers[0]} FROM TempIDs)"
+                    # Find which header is in the where clause
+                    for header in headers:
+                        if header in self.where:
+                            where_header = header
+                            self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({where_header} INTEGER PRIMARY KEY)"
+                            hierarchy_where = f"WHERE {where_header} IN (SELECT {where_header} FROM TempIDs)"
+                            break
                 else:
                     hierarchy_where = self.where
+                    where_header = headers[0]
                 self.query_where = ''
                 if self.order_col != '' and self.limit != '':
                     if self.order_col in headers:
                         # Everything applies to the same table, so put them all in the hierarchy query
                         if self.where_ids:
                             self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
-                                                            SELECT TempIDs.{headers[0]} FROM TempIDs
-                                                            JOIN {self.table} ON {self.table}.{headers[0]} = TempIDs.{headers[0]}
+                                                            SELECT TempIDs.{where_header} FROM TempIDs
+                                                            JOIN {self.table} ON {self.table}.{where_header} = TempIDs.{where_header}
                                                             ORDER BY {self.order_col} {self.limit}
                                                             """
                         else:
@@ -972,16 +979,16 @@ class ViewQuery:
                     # Everything not blank applies to the same table, so put them all in the hierarchy query
                     if self.where_ids:
                         self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
-                                                        SELECT TempIDs.{headers[0]} FROM TempIDs
-                                                        JOIN {self.table} ON {self.table}.{headers[0]} = TempIDs.{headers[0]}
+                                                        SELECT TempIDs.{where_header} FROM TempIDs
+                                                        JOIN {self.table} ON {self.table}.{where_header} = TempIDs.{where_header}
                                                         {self.limit}
                                                         """
                     else:
                         self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
-                                                        SELECT {headers[0]} FROM {self.table}
+                                                        SELECT {where_header} FROM {self.table}
                                                         {self.limit}
                                                         """
-                    hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
+                    hierarchy_where = f"WHERE {where_header} IN (SELECT TempPaged.{where_header} FROM TempPaged)"
                     hierarchy_order_by = ''
                     hierarchy_limit = ''
                     self.query_limit = ''
@@ -989,9 +996,14 @@ class ViewQuery:
                 for key in table_abbreviation_dict.keys():
                     if any(header in self.where for header in get_headers(key)):
                         where_table = key
+                        # Find which header is in the where clause
+                        for header in get_headers(key):
+                            if header in self.where:
+                                where_header = header
+                                break
                         if self.where_ids:
-                            self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({get_headers(key)[0]} INTEGER PRIMARY KEY)"
-                            hierarchy_where = f"WHERE {get_headers(key)[0]} IN (SELECT {get_headers(key)[0]} FROM TempIDs)"
+                            self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({where_header} INTEGER PRIMARY KEY)"
+                            hierarchy_where = f"WHERE {where_header} IN (SELECT {where_header} FROM TempIDs)"
                         else:
                             hierarchy_where = self.where
                         self.query_where = ''
