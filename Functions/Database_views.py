@@ -930,8 +930,13 @@ class ViewQuery:
                 where_ids = self.where.split('IN (')[1].split(')')[0].split(', ')
                 self.where_ids = [int(id.strip()) for id in where_ids]
             except (IndexError, ValueError):
-                # Could not parse where clause, so no IDs to use
-                self.where_ids = []
+                try:
+                    # Assumes the where clause is of the form "WHERE item_ID = 1"
+                    where_id = self.where.split('=')[1].strip()
+                    self.where_ids = [int(where_id)]
+                except (IndexError, ValueError):
+                    # Could not parse where clause, so no IDs to use
+                    self.where_ids = []
             # Check if any table headers are in the where clause
             if any(header in self.where for header in headers):
                 if self.where_ids:
