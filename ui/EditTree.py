@@ -214,7 +214,7 @@ class EditTree(QtW.QDialog):
             tree_index = self.tree_proxy_model.mapToSource(view_index)
             if tree_index.column() == 0 and tree_index not in tree_indexes:
                 tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
-        item_ids = get_selected_tree_ids(self.tree_model, tree_indexes)[0]
+        item_ids = get_selected_tree_ids(tree_indexes)[0]
         if not item_ids:
             return
 

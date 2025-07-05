@@ -730,7 +730,7 @@ class DataViewerWidget(QWidget):
                     if not ids:
                         logger_setup.get_logger().critical(f'No AliquotIDs found for the selected sample')
                         return
-                    dlg_args = {'parent_id': sample_id, 'parent_type': 'Sample', 'table_item_ids': ids}
+                    dlg_args = {'parent_ids': sample_id, 'parent_type': 'Sample', 'table_item_ids': ids}
                 else:
                     logger_setup.get_logger().info(f'User cancelled aliquot selection')
                     return

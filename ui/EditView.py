@@ -856,7 +856,7 @@ class EditView(QtW.QDialog):
             #         if self.dropdown_table == 'Aliquot':
             #             self.combo = CheckableTreeCombobox()
             #             combo_model = CheckableSqlQueryModel()
-            #             combo_model.setQuery(f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}')
+            #             combo_model.setQuery(f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_ids}')
             #             self.tree_model = CheckableTreeModel()
             #             self.tree_model.setSourceModel(combo_model)
             #             self.combo.setModel(self.tree_model)
@@ -865,7 +865,7 @@ class EditView(QtW.QDialog):
             #             self.combo_model = CheckableSqlQueryModel()
             #             self.combo_model.setQuery(f'''SELECT * FROM Spots
             #                 {SQLUtils.spot_aliquot_join}
-            #                 WHERE SampleID = {self.parent_id}''')
+            #                 WHERE SampleID = {self.parent_ids}''')
             #             self.combo_proxy = ReadableProxyModel()
             #             self.combo_proxy.setSourceModel(self.combo_model)
             #             self.combo.setModel(self.combo_proxy)
@@ -873,7 +873,7 @@ class EditView(QtW.QDialog):
             #         if self.dropdown_table == 'Spots':
             #             self.combo = CheckableComboBox()
             #             self.combo_model = CheckableSqlQueryModel()
-            #             self.combo_model.setQuery(f'SELECT * FROM Spots WHERE AliquotID = {self.parent_id}')
+            #             self.combo_model.setQuery(f'SELECT * FROM Spots WHERE AliquotID = {self.parent_ids}')
             #             self.combo_proxy = ReadableProxyModel()
             #             self.combo_proxy.setSourceModel(self.combo_model)
             #             self.combo.setModel(self.combo_proxy)

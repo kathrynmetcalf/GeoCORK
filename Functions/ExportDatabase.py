@@ -986,6 +986,21 @@ def subset_database(conn_source: QSqlDatabase, conn_target: QSqlDatabase, ids_to
                 ):
                     close_loading_dialog('Exporting', 'Finding and importing related data...')
                     return False
+
+    # 7) Copy FilterGroups table
+    col_info_filter_groups = fetchall("PRAGMA table_info('FilterGroups')", conn_source)
+    insert_cols_info_filter_groups = [c[1] for c in col_info_filter_groups]
+    if insert_cols_info_filter_groups:
+        filter_group_rows = fetchall(
+            f"SELECT {','.join([f'[{col}]' for col in insert_cols_info_filter_groups])} FROM FilterGroups",
+            conn_source
+        )
+        if filter_group_rows:
+            if not insert_rows(conn_target, "FilterGroups", filter_group_rows, insert_cols_info_filter_groups):
+                close_loading_dialog('Exporting', 'Finding and importing related data...')
+                return False
+
+    # 8) Close connections
     QSqlDatabase.removeDatabase(conn_source.connectionName())
     QSqlDatabase.removeDatabase(conn_target.connectionName())
 

@@ -997,21 +997,24 @@ class EditTreeView(QtW.QDialog):
         save_expanded_state(self.table, self.edit_treeView)
         tree_indexes = []
         for tree_index in self.edit_treeView.selectedIndexes():
-            if tree_index.column() == 0 and tree_index not in tree_indexes:
-                tree_indexes.append(tree_index)
-        item_ids = get_selected_tree_ids(self.tree_model, tree_indexes)[0]
+            index = tree_index.siblingAtColumn(0)
+            if index not in tree_indexes:
+                tree_indexes.append(index)
+        item_ids = get_selected_tree_ids(tree_indexes)[0]
         if not item_ids:
             return
 
         # Look for any children of the selected items
         def get_children(item_id):
             delete_children = []
-            children = self.tree_model.find_children(item_id)
-            if children:
-                for child in children:
-                    if child not in delete_children:
-                        delete_children.append(child)
-                        delete_children.extend(get_children(child))
+            # Get all children of the item_id
+            if item_id in self.tree_model.parent_to_children.keys():
+                children = self.tree_model.parent_to_children[item_id]
+                if children:
+                    for child in children:
+                        if child not in delete_children:
+                            delete_children.append(child)
+                            delete_children.extend(get_children(child))
             return delete_children
 
         all_children = []

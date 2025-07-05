@@ -90,30 +90,37 @@ def update_database(database=None) -> bool:
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error committing database")
             logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
+            loading_manager.close_loading_dialog('Loading', 'Updating database...')
             return False
     if not db.close():
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error closing database")
             logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
+            loading_manager.close_loading_dialog('Loading', 'Updating database...')
             return False
     if not db.open():
         logger_setup.get_logger().critical(f"Error opening database")
         logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
+        loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
     if not turn_on_foreign_keys():
+        loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
 
     from Functions import Create_database as Create_db, Create_indexes
     from Functions import Alter_database as Alter_db
     if not Create_db.create_tables(db):
         logger_setup.get_logger().critical(f"Error creating database tables")
+        loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
     if not Create_indexes.create_indexes(db):
         logger_setup.get_logger().critical(f"Error creating database indexes")
+        loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
     # Drop and regenerate the generated columns
     if not Alter_db.settings_reset(db):
         logger_setup.get_logger().critical(f"Error resetting settings")
+        loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
     end_time = time.time()
     loading_manager.close_loading_dialog('Loading', 'Updating database...')

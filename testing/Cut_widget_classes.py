@@ -479,7 +479,7 @@
 #     query = (f'SELECT * FROM AliquotView WHERE AliquotID IN ( '
 #                     f'WITH RECURSIVE ParentTree AS '
 #                     f'(SELECT * FROM AliquotView '
-#                     f'WHERE SampleID = {self.parent_id} '
+#                     f'WHERE SampleID = {self.parent_ids} '
 #                     f'UNION ALL '
 #                     f'SELECT AliquotView.* FROM AliquotView '
 #                     f'INNER JOIN ParentTree ON AliquotView.AliquotID = ParentTree.ParentAliquotID) '

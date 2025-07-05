@@ -297,21 +297,21 @@ class GeoCORK(QtW.QMainWindow):
         # if self.tabWidget.tabText(index) not in self.tabWidget.permanent_tabs:
         #     self.tabWidget.widget(index).display_table()
 
-    def open_tab(self, parent_id: list[int], parent_type: str, child_type: str):
+    def open_tab(self, parent_ids: list[int], parent_type: str, child_type: str):
         """
         Opens a tab with the given parent ID and parent type
-        :param parent_id: The ID of the parent
+        :param parent_ids: The list of parent IDs
         :param parent_type: The type of the parent
         :param child_type: The type of the child
         :return:
         """
         logger_setup.get_logger().info(
-            f'Opening tab with parent ID {parent_id} and parent type {parent_type} and child type {child_type}')
+            f'Opening tab with parent ID {parent_ids} and parent type {parent_type} and child type {child_type}')
         start_open_tab_time = time.time()
-        if not parent_id:
+        if not parent_ids:
             return
         self.tabWidget: PartiallyCloseableTabWidget
-        for p_id in parent_id:
+        for p_id in parent_ids:
             if parent_type == 'Sample':
                 parent_name = get_name_from_id('Samples', p_id)
             elif parent_type == 'Aliquot':

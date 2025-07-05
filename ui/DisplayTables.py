@@ -460,7 +460,7 @@ class DisplayTables(QtW.QWidget):
                         parent_ids.append(str(parent_id))
 
                 # index = self.dbTable_tableView.indexAt(pos)
-                # parent_id = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
+                # parent_ids = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
                 if action == view_aliquot_action:
                     self.main_window.open_tab(parent_ids, 'Sample', 'Aliquot')
                 elif action == view_spot_action:

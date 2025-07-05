@@ -197,8 +197,8 @@ class AddTreeTags(QtW.QDialog):
         Adds a new tag to the tree view. If the add_item is 'child', it adds a child item to the selected parent item.
         If the add_item is 'parent', it adds a new parent item to the tree view. The name and description are taken from
         the newName_lineEdit and newDescription_lineEdit fields. If the name already exists, a warning label is shown
-        and the function returns without adding the item. If the parent_id is 'Null', it adds the item to the top level
-        of the tree view. If the parent_id is not 'Null', it adds the item to the specified parent item. If the add_item
+        and the function returns without adding the item. If the parent_ids is 'Null', it adds the item to the top level
+        of the tree view. If the parent_ids is not 'Null', it adds the item to the specified parent item. If the add_item
         is 'parent', it updates the parent of all new child IDs to the newly-added item. The function returns True if
         the item was added successfully, or False if there was an error. It also updates the tree model and clears the
         newName_lineEdit and newDescription_lineEdit fields after adding the item. The function also updates the

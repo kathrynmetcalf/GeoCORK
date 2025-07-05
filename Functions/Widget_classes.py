@@ -1989,9 +1989,9 @@ def delete_question(table, delete_ids):
 def find_child_ids(table, parent_id, child_ids=None):
     """
     Find all child IDs of a given parent ID in a table. This is used to find all child aliquots of a given aliquot ID.
-    :param table: database table to search for child IDs
+    :param table: Database table to search for child IDs
     :param parent_id: ID of the parent record to find children for
-    :param child_ids: list of child IDs so far, used for recursion
+    :param child_ids: List of child IDs so far, used for recursion
     :return:
     """
     # Find all child aliquots of the given aliquot_id
@@ -2202,7 +2202,7 @@ def find_current_sub_items(data_ids: list, table: str):
     and Spots, and return the IDs of the sub items. For uncommited data only with a significant efficiency cost.
     :param data_ids: List of data IDs to find sub items for
     :param table: Table to search for sub items, can be 'Samples', 'Aliquots', or 'Spots'
-    :return: tuple of lists of sub item IDs
+    :return: Tuple of lists of sub item IDs
     """
     # Find all the sub items of a list of samples, aliquots, or spots
     logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
@@ -3804,25 +3804,26 @@ class TreeSortFilterProxyModel(ReadableProxyModel):
 #    Tree Methods
 # ---------------------------
 
-def get_selected_tree_ids(selected_model: TreeModel, indexes: list[QtC.QModelIndex]):
+def get_selected_tree_ids(indexes: list[QtC.QModelIndex]):
     """
     Return the item IDs, parent IDs, and parent rows for the selected items in a tree model. This method iterates through
     the provided indexes, which are expected to be from a tree model, and retrieves the item ID, parent ID, and parent row
     for each selected item. It returns three lists: item IDs, parent IDs, and parent rows.
-    :param selected_model: TreeModel from which to retrieve the selected items
-    :param indexes: list of QModelIndex objects representing the selected items in the tree model
-    :return: tuple containing three lists: item_ids, parent_ids, and parent_rows
+    :param indexes: List of QModelIndex objects representing the selected items in the tree model
+    :return: Tuple containing three lists: item_ids, parent_ids, and parent_rows
     """
     item_ids = []
     parent_ids = []
     parent_rows = []
     for index in indexes:
-        if index.column() == 0:
-            item_id = selected_model.data(index.siblingAtColumn(1), QtC.Qt.ItemDataRole.DisplayRole)
-            parent_id = selected_model.data(index.siblingAtColumn(2), QtC.Qt.ItemDataRole.DisplayRole)
-            parent_row = selected_model.data(index.siblingAtColumn(3), QtC.Qt.ItemDataRole.DisplayRole)
+        item_id = index.siblingAtColumn(1).data(QtC.Qt.ItemDataRole.DisplayRole)
+        parent_id = index.siblingAtColumn(2).data(QtC.Qt.ItemDataRole.DisplayRole)
+        parent_row = index.siblingAtColumn(3).data(QtC.Qt.ItemDataRole.DisplayRole)
+        if item_id not in item_ids:
             item_ids.append(item_id)
+        if parent_id not in parent_ids:
             parent_ids.append(parent_id)
+        if parent_row not in parent_rows:
             parent_rows.append(parent_row)
     return item_ids, parent_ids, parent_rows
 
@@ -5572,7 +5573,7 @@ class TreeContextMenu(QtW.QMenu):
         if not self.model:
             logger_setup.get_logger().info(f'No checkable tree model found in {self.tree_view.objectName()}')
             return
-        item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.model, self.indexes)
+        item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.indexes)
         if len(item_ids) == 1:  # only one item selected
             self.add_single_tree_actions(delete_active, add_active, edit_active)
         else:
@@ -5875,19 +5876,19 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
     if not tree_model:
         logger_setup.get_logger().info(f'No tree model found in {tree_view.objectName()}')
         return dlg_args
-    item_ids, parent_ids, parent_rows = get_selected_tree_ids(tree_model, tree_indexes)
+    item_ids, parent_ids, parent_rows = get_selected_tree_ids(tree_indexes)
     if action:
         if action.text() == 'Insert above':
             row = parent_rows[0]
             parent_id = parent_ids[0]
-            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
+            dlg_args = {'parent_ids' : parent_id, 'parent_row': row}
         elif action.text() == 'Insert below':
             row = parent_rows[0] + 1
             parent_id = parent_ids[0]
-            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
+            dlg_args = {'parent_ids' : parent_id, 'parent_row': row}
         elif action.text() == 'Add child':
             parent_id = item_ids[0]
-            dlg_args = {'parent_id' : parent_id}
+            dlg_args = {'parent_ids' : parent_id}
         elif action.text() == 'Add parent':
             dlg_args = {'add_item': 'parent', 'item_ids': item_ids, 'old_parent_ids': parent_ids, 'old_parent_rows': parent_rows}
         elif action.text() == 'Add to end' or action.text() == 'Add':

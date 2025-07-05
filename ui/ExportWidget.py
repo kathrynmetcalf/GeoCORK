@@ -1464,7 +1464,7 @@ class ExportWidget(QWidget):
          current index. This method is called when the export_puhsbutton is clicked."""
         show_loading_dialog('Export', 'Exporting data...')
         if self.exportformat_comboBox.currentText() == 'Database':
-            self.export_to_datbase()
+            self.export_to_database()
         else:
             if self.fileformat_comboBox.currentText() == 'Excel (.xlsx)':
                 self.export_to_excel()
@@ -1473,7 +1473,7 @@ class ExportWidget(QWidget):
         close_loading_dialog('Export', 'Exporting data...')
 
 
-    def export_to_datbase(self):
+    def export_to_database(self):
         """Exports the selected samples, either by selection or filter, to a new database file containing all related
         data to the samples, including but not limited to, Samples, Aliquots, Spots, UPbAnalyses, RockTypes,
         Units, and References... This will only include data that is absolutly related, no unneccessary data will be
