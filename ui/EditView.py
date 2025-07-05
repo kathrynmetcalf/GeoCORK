@@ -333,7 +333,7 @@ class EditView(QtW.QDialog):
             query_args = {'show_columns': [self.show_cols[0]], 'where': self.where}
             view_query = ViewQuery(self.table, True, **query_args)
             table_query = view_query.table_query
-            self.table_item_ids = columns_as_list(table_query, [0])[0]
+            self.table_item_ids = columns_as_list(table_query, [0], view_query)[0]
         self.model.set_table(self.table)
         self.display_table()
 
@@ -389,6 +389,31 @@ class EditView(QtW.QDialog):
         query_args = {'show_columns': [self.name_header], 'where': self.where}
         view_query = ViewQuery(self.table, True, **query_args)
         table_query = view_query.table_query
+        where_ids = view_query.where_ids
+        create_temp_id = view_query.create_temp_id
+        create_temp_paged = view_query.create_temp_paged
+        if create_temp_id and where_ids:
+            if not query.exec(create_temp_id):
+                logger_setup.get_logger().critical(f'Error setting up completer')
+                logger_setup.get_logger().debug(f'Error creating temporary IDs for completer')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
+                return
+            id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
+            if not query.exec(
+                f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}'):
+                logger_setup.get_logger().critical(f'Error setting up completer')
+                logger_setup.get_logger().debug(f'Error inserting IDs into temporary IDs for completer')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
+                return
+        if create_temp_paged:
+            if not query.exec(create_temp_paged):
+                logger_setup.get_logger().critical(f'Error setting up completer')
+                logger_setup.get_logger().debug(f'Error creating temporary paged IDs for completer')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_temp_paged}')
+                return
         logger_setup.get_logger().debug(f'SQL command: {table_query}')
         query.setForwardOnly(True)
         if not query.exec(table_query):
@@ -403,6 +428,13 @@ class EditView(QtW.QDialog):
         self.name_completer.setCompletionMode(QtW.QCompleter.CompletionMode.PopupCompletion)
 
         self.goto_line_edit.setCompleter(self.name_completer)
+
+        if not query.exec(f'DROP TABLE IF EXISTS TempPaged'):
+            logger_setup.get_logger().critical(f'Error dropping temporary paged table for completer')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        if not query.exec(f'DROP TABLE IF EXISTS TempIDs'):
+            logger_setup.get_logger().critical(f'Error dropping temporary ID table for completer')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
 
     def go_to_record(self):
         """
