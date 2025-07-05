@@ -4911,6 +4911,9 @@ class CheckableTreeView(QtW.QTreeView):
             logger_setup.get_logger().info(f'No checkable tree model found in {self.objectName()}')
             return
         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
+        if isinstance(self.model(), QSortFilterProxyModel):
+            checked_indices = [self.model().mapFromSource(index) for index in checked_indices]
+            partially_checked_indices = [self.model().mapFromSource(index) for index in partially_checked_indices]
 
         def expand_parents(item_index: QtC.QModelIndex):
             """
@@ -5261,6 +5264,7 @@ class CheckableTreeCombobox(TreeCombobox):
         self.checkable = True
         self.single_click = False
         self.closedOnLineEditClick = False
+        self.clicked = False
         self.edited = False
         self.treeView = CheckableTreeView()
         # show the empty root item in the combo box
@@ -5413,6 +5417,19 @@ class CheckableTreeCombobox(TreeCombobox):
             elif 'Clear all checks' in action.text():
                 self.clear_all_checks()
 
+    def showPopup(self):
+        """
+        Show the popup for the checkable tree combo box. This method is called to display the dropdown list of items in
+        the checkable tree combo box. If the model is a tree model and the user is not typing, it expands the parents of
+        checked items to show the hierarchy of checked items.
+        :return:
+        """
+        super().showPopup()
+        if not self.clicked:
+            # If the user has not clicked on an item yet, expand all checked items. After the first click, the
+            # user's expanded state is saved and restored when the popup is shown again.
+            self.treeView.expand_all_checked()
+
     def hidePopup(self):
         """
         Hide the popup for the checkable tree combo box. This method is called to hide the dropdown view in the combo box
@@ -5433,6 +5450,14 @@ class CheckableTreeCombobox(TreeCombobox):
                     # The click was an expand/collapse action and should not close the popup
                     return
             super().hidePopup()
+            model, indexes = find_tree_model(self.model(), None)
+            if model and not self.typing and self.clicked:
+                # Only save the expanded state if the user clicked on an item, the model is a tree model, and the user is not typing
+                save_expanded_state(model.table, self.treeView)
+            self.popup_shown = False
+            self.clicked = False
+            self.stop_typing()
+            self.closing.emit()
             self.update_line_edit()
 
     def eventFilter(self, obj, event):
@@ -5451,6 +5476,7 @@ class CheckableTreeCombobox(TreeCombobox):
                 index = self.treeView.indexAt(event.pos())
                 if not index.isValid():
                     super().eventFilter(obj, event)
+                self.clicked = True
                 # Define the rectangle for the item and the expand/collapse button
                 item_rect = self.treeView.visualRect(index)
                 option = QtW.QStyleOptionViewItem()

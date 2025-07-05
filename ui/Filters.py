@@ -224,22 +224,35 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         operator_sql = "<"
     elif operator_raw == "is greater than":
         operator_sql = ">"
-    elif operator_raw == "is between":
+    elif operator_raw == "is between" or operator_raw == "is not between":
         # Range operator – return a list of two conditions
-        if datatype == "date":
-            operator_sql = [f">= '{value.split(',')[0]}'", f"<= '{value.split(',')[1]}'"]
-        elif datatype == "number":
-            operator_sql = [f">= {value.split(',')[0]}", f"<= {value.split(',')[1]}"]
-        else:
-            raise ValueError(f"Unsupported datatype for range operator: {datatype}")
-    elif operator_raw == "is not between":
-        # Range operator – return a list of two conditions
-        if datatype == "date":
-            operator_sql = [f"< '{value.split(',')[0]}'", f"> '{value.split(',')[1]}'"]
-        elif datatype == "number":
-            operator_sql = [f"< {value.split(',')[0]}", f"> {value.split(',')[1]}"]
-        else:
-            raise ValueError(f"Unsupported datatype for range operator: {datatype}")
+        try:
+            if value.split(',')[0] >= value.split(',')[1]:
+                value_lower = value.split(',')[1]
+                value_upper = value.split(',')[0]
+            else:
+                value_lower = value.split(',')[0]
+                value_upper = value.split(',')[1]
+        except IndexError:
+            logger_setup.get_logger().error(f"Range operator requires two values, got: {value}")
+            raise ValueError(f"Range operator requires two values, got: {value}")
+        if operator_raw == "is between":
+            if datatype == "date":
+                operator_sql = [f"<= '{value_upper}'", f">= '{value_lower}'"]
+            elif datatype == "number":
+                operator_sql = [f"<= {value_upper}", f">= {value_lower}"]
+            else:
+                logger_setup.get_logger().error(f"Range must be numeric or date, got: {datatype}")
+                raise ValueError(f"Unsupported datatype for range operator: {datatype}")
+        elif operator_raw == "is not between":
+            # Range operator – return a list of two conditions
+            if datatype == "date":
+                operator_sql = [f"< '{value_upper}'", f"> '{value_lower}'"]
+            elif datatype == "number":
+                operator_sql = [f"< {value_upper}", f"> {value_lower}"]
+            else:
+                logger_setup.get_logger().error(f"Range must be numeric or date, got: {datatype}")
+                raise ValueError(f"Unsupported datatype for range operator: {datatype}")
     else:
         # … expand as required …
         operator_sql = "="
@@ -251,7 +264,11 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
 
         # Build *WHERE* on the tree table (equal, like, etc.)
         if isinstance(operator_sql, list):
-            raise NotImplementedError("Range operators on tree tables not yet supported")
+            if len(operator_sql) == 2:
+                operator_sql = f"{table}.{meta['name_column']} {operator_sql[0]} AND {table}.{meta['name_column']} {operator_sql[1]}"
+            else:
+                logger_setup.get_logger().error(f"Range not specified correctly: {value}")
+                raise ValueError(f"Range operator requires two values, got: {value}")
         elif "NULL" in operator_sql or "LIKE" in operator_sql:
             where = f"{table}.{meta['name_column']} {operator_sql.replace('NOT ','')}"
         elif '!=' in operator_sql:
@@ -291,8 +308,11 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         return exists_sql, [cte_sql], field_key
 
     if isinstance(operator_sql, list):
-        # range – not covered in this stub
-        raise NotImplementedError("List operators not implemented in stub")
+        if len(operator_sql) == 2:
+            cond_sql = f"{field_key} {operator_sql[0]} AND {field_key} {operator_sql[1]}"
+        else:
+            logger_setup.get_logger().error(f"Range not specified correctly: {value}")
+            raise ValueError(f"Range operator requires two values, got: {value}")
     elif "NULL" in operator_sql or "LIKE" in operator_sql:
         cond_sql = f"{field_key} {operator_sql}"
     else:
@@ -443,6 +463,9 @@ class InsertFilterGroupDialog(QDialog):
         the existing one
         """
         name = self.name_input.text()
+        if not name:
+            self.warning_label.setText('Please enter a filter name')
+
         description = self.description_input.toPlainText()
 
         query = QSqlQuery()
