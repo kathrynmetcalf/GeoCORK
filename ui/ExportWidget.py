@@ -125,6 +125,11 @@ class ExportWidget(QWidget):
         self.groupedfilter_model = CheckableSqlTableModel()
         self.groupedfilter_proxy = ReadableProxyModel()
 
+        self.use_converted_label: QLabel
+        # Make the existing label text bold
+        text = self.use_converted_label.text()
+        self.use_converted_label.setText(f"<b>{text}</b>")
+
         # Connect buttons to methods
         self.add_workbook_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, {}))
         self.remove_workbook_button.clicked.connect(self.remove_current_worksheet_tab)
