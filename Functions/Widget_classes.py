@@ -1583,16 +1583,28 @@ def display_age(string: str):
         return ', '.join(age_elements)
 
 def display_gps(string: str):
-    if '"' in string:
+    lat_dir = ''
+    lon_dir = ''
+    if '"' in string or '\'\'' in string:
         # DMS format, (lat_deg°lat_min'lat_sec" lat_dir, lon_deg°lon_min'lon_sec" lon_dir) or (lat_deg°lat_min'lat_sec", lon_deg°lon_min'lon_sec")
+        if '"' in string:
+            second_delimiter = '"'
+        elif '\'\'' in string:
+            second_delimiter = '\'\''
         lat_string = string.split(', ')[0]
         lon_string = string.split(', ')[1]
-        lat_sec = lat_string.split('°')[1].split('\'')[1].split('"')[0]
-        lon_sec = lon_string.split('°')[1].split('\'')[1].split('"')[0]
+        lat_sec = lat_string.split('°')[1].split(second_delimiter)[0].split('\'')[1]
+        lon_sec = lon_string.split('°')[1].split(second_delimiter)[0].split('\'')[1]
         rounded_lat_sec = return_rounded(lat_sec)
         rounded_lon_sec = return_rounded(lon_sec)
-        string = string.replace(lat_sec, f'{rounded_lat_sec}')
-        string = string.replace(lon_sec, f'{rounded_lon_sec}')
+        string = string.replace(f'{lat_sec}{second_delimiter}', f'{rounded_lat_sec}{second_delimiter}')
+        string = string.replace(f'{lon_sec}{second_delimiter}', f'{rounded_lon_sec}{second_delimiter}')
+        if not lat_dir and not lon_dir:
+            try:
+                lat_dir = lat_string.split(f'{second_delimiter} ')[1]
+                lon_dir = lon_string.split(f'{second_delimiter} ')[1]
+            except IndexError:
+                pass
     if "'" in string:
         # DM format, (lat_deg°lat_min' lat_dir, lon_deg°lon_min' lon_dir) or (lat_deg°lat_min', lon_deg°lon_min')
         lat_string = string.split(', ')[0]
@@ -1601,16 +1613,46 @@ def display_gps(string: str):
         lon_min = lon_string.split('°')[1].split('\'')[0]
         rounded_lat_min = return_rounded(lat_min)
         rounded_lon_min = return_rounded(lon_min)
-        string = string.replace(lat_min, f'{rounded_lat_min}')
-        string = string.replace(lon_min, f'{rounded_lon_min}')
+        string = string.replace(f'{lat_min}\'', f'{rounded_lat_min}\'')
+        string = string.replace(f'{lon_min}\'', f'{rounded_lon_min}\'')
+        if not lat_dir and not lon_dir:
+            try:
+                lat_dir = lat_string.split('\' ')[1]
+                lon_dir = lon_string.split('\' ')[1]
+            except IndexError:
+                pass
     if '°' in string:
         # D format, (lat_deg° lat_dir, lon_deg° lon_dir)
         lat_deg = string.split('°')[0]
         lon_deg = string.split(', ')[1].split('°')[0]
         rounded_lat_deg = return_rounded(lat_deg)
         rounded_lon_deg = return_rounded(lon_deg)
-        string = string.replace(lat_deg, f'{rounded_lat_deg}')
-        string = string.replace(lon_deg, f'{rounded_lon_deg}')
+        string = string.replace(f'{lat_deg}°', f'{rounded_lat_deg}°')
+        string = string.replace(f'{lon_deg}°', f'{rounded_lon_deg}°')
+        if not lat_dir and not lon_dir:
+            try:
+                lat_dir = string.split('° ')[1].split(', ')[0]
+                lon_dir = string.split('° ')[2]
+            except IndexError:
+                lat_dir = ''
+                lon_dir = ''
+        try:
+            lat_dir_id = int(lat_dir)
+            query = QtS.QSqlQuery()
+            if query.exec(f'SELECT DirectionUnitAbbreviation FROM DirectionUnits WHERE DirectionUnitID={lat_dir_id}'):
+                query.next()
+                lat_dir_abbreviation = query.value(0)
+                lat_string = string.split(', ')[0][:-1] + lat_dir_abbreviation
+                string = string.replace(string.split(', ')[0], lat_string)
+            lon_dir_id = int(lon_dir)
+            if query.exec(f'SELECT DirectionUnitAbbreviation FROM DirectionUnits WHERE DirectionUnitID={lon_dir_id}'):
+                query.next()
+                lon_dir_abbreviation = query.value(0)
+                lon_string = string.split(', ')[1][:-1] + lon_dir_abbreviation
+                string = string.replace(string.split(', ')[1], lon_string)
+        except:
+            # If there is no direction or it is not an ID, there is nothing to do
+            pass
     elif ',' in string:
         # UTM format, (UTMZone, UTMEasting, UTMNorthing)
         utm_easting = string.split(',')[1]

@@ -666,22 +666,15 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                self.loading_manager.close_loading_dialog('Loading', f'Loading...')
                 self.loading_manager.show_loading_dialog('Loading', f'Opening GPS editor...')
                 dlg = GPSDialog(self.table, item_ids, self)
                 dlg.exec()
                 if dlg.gps_fields.updated:
                     self.updated = True
                     logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
-                    query = QtS.QSqlQuery()
-                    if not query.exec(f'SELECT {', '.join(self.gps_headers)} FROM {self.table} WHERE {self.table_headers[0]} = {item_ids[0]}'):
-                        logger_setup.get_logger().critical(f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
+                    if not self.update_model_data(header, self.gps_headers, item_ids, row):
+                        logger_setup.get_logger().critical(f'Error updating model data for {get_readable_header(header)}')
                         return
-                    if query.next():
-                        for header in self.gps_headers:
-                            col = self.show_cols.index(header)
-                            self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
-                            logger_setup.get_logger().info(f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
             else:
                 self.edit_tableView.setFocus()
         elif 'SampleAge' in header and 'AgeSignature' not in header:
@@ -689,20 +682,15 @@ class EditView(QtW.QDialog):
                 item_ids = []
                 row = model_index.row()
                 item_ids.append(self.model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole))
-                self.loading_manager.close_loading_dialog('Loading', f'Loading...')
                 self.loading_manager.show_loading_dialog('Loading', f'Opening sample age editor...')
                 dlg = AgeDialog(self.table, item_ids, self)
                 dlg.exec()
                 if dlg.age_fields.updated:
                     self.updated = True
                     logger_setup.get_logger().info(f'Repopulating {get_readable_header(header)} for {item_ids[0]}')
-                    query = QtS.QSqlQuery()
-                    if not query.exec(f'SELECT {header} FROM {self.table} WHERE {self.table_headers[0]} = {item_ids[0]}'):
-                        logger_setup.get_logger().critical(f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
+                    if not self.update_model_data(header, self.age_headers, item_ids, row):
+                        logger_setup.get_logger().critical(f'Error updating model data for {get_readable_header(header)}')
                         return
-                    if query.next():
-                        col = self.show_cols.index(header)
-                        self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
             else:
                 self.edit_tableView.setFocus()
         else:
@@ -751,6 +739,75 @@ class EditView(QtW.QDialog):
                     return
                 self.create_dropdown()
         self.loading_manager.close_loading_dialog('Loading', f'Loading...')
+
+    def update_model_data(self, header: str, show_columns: list, item_ids: list, row: int) -> bool:
+        """
+        Updates the model data for the GPS or Age dialog after editing.
+        :param header: The header of the column being updated
+        :param show_columns: Related columns to show in the model
+        :param item_ids: List of item IDs to update
+        :param row: The row in the model to update
+        :return: True if the model was updated successfully, False otherwise
+        """
+        query = QtS.QSqlQuery()
+        query_args = {'show_columns': show_columns, 'where': f' WHERE {self.table_headers[0]} = {item_ids[0]}'}
+        view_query = ViewQuery(self.table, True, **query_args)
+        table_query = view_query.table_query
+        where_ids = view_query.where_ids
+        create_temp_id = view_query.create_temp_id
+        create_temp_paged = view_query.create_temp_paged
+        if ('TempIds' in table_query and not create_temp_id) or ('TempPaged' in table_query and not create_temp_paged):
+            # If the query contains temporary tables but not the create statements for the temp tables
+            logger_setup.get_logger().debug(f'Query includes temporary tables, but no query to create them')
+            logger_setup.get_logger().debug(
+                f'SQL query: {table_query}\nCreate TempIDs: {create_temp_id}\nCreate TempPaged: {create_temp_paged}')
+            return False
+        if create_temp_id and where_ids:
+            # Make sure any existing temp table is dropped before creating a new one
+            if not query.exec('DROP TABLE IF EXISTS TempIDs'):
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempIDs')
+                return False
+            if not query.exec(create_temp_id):
+                logger_setup.get_logger().debug(f'Error creating TempIDs table: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
+                return False
+            id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
+            if not query.exec(
+                    f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}'):
+                logger_setup.get_logger().debug(f'Error inserting IDs into TempIDs table: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_temp_id}')
+                return False
+        if create_temp_paged:
+            # Make sure any existing temp table is dropped before creating a new one
+            if not query.exec('DROP TABLE IF EXISTS TempPaged'):
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempPaged')
+                return False
+            if not query.exec(create_temp_paged):
+                logger_setup.get_logger().debug(f'Error creating TempPaged table: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {create_temp_paged}')
+                return False
+        if not query.exec(table_query):
+            logger_setup.get_logger().debug(
+                f'Failed to get {get_readable_header(header)} for {item_ids[0]}: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {table_query}')
+            return False
+        if query.next():
+            for header in self.gps_headers:
+                col = self.show_cols.index(header)
+                self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
+                logger_setup.get_logger().info(
+                    f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
+        if not query.exec('DROP TABLE IF EXISTS TempPaged'):
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempPaged')
+            return False
+        if not query.exec('DROP TABLE IF EXISTS TempIDs'):
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempIDs')
+            return False
+        return True
 
     def create_lineedit(self):
         logger_setup.get_logger().info('Displaying line edit')

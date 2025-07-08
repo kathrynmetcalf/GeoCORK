@@ -282,11 +282,11 @@ CREATE_GPS_LOCATIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSLocations(
                     GPSLocationConverted TEXT,
                     GPSLocationDisplay AS (CASE
                         WHEN GPSFormatID = 1 THEN GPSLatDeg || "°, " ||  GPSLonDeg || "° "
-                        WHEN GPSFormatID = 2 THEN GPSLatDeg || "° " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonDirectionID
-                        WHEN GPSFormatID = 3 THEN GPSLatDeg || "° " || GPSLatMin || "', " || GPSLonDeg || "° " || GPSLonMin || "'"
-                        WHEN GPSFormatID = 4 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonDirectionID
-                        WHEN GPSFormatID = 5 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'', " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "''"
-                        WHEN GPSFormatID = 6 THEN GPSLatDeg || "° " || GPSLatMin || "' " || GPSLatSec || "'' " || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonMin || "' " || GPSLonSec || "'' " || GPSLonDirectionID
+                        WHEN GPSFormatID = 2 THEN GPSLatDeg || "°" || GPSLatDirectionID || ", " || GPSLonDeg || "° " || GPSLonDirectionID
+                        WHEN GPSFormatID = 3 THEN GPSLatDeg || "°" || GPSLatMin || "', " || GPSLonDeg || "° " || GPSLonMin || "'"
+                        WHEN GPSFormatID = 4 THEN GPSLatDeg || "°" || GPSLatMin || "' " || GPSLatDirectionID || ", " || GPSLonDeg || "°" || GPSLonMin || "' " || GPSLonDirectionID
+                        WHEN GPSFormatID = 5 THEN GPSLatDeg || "°" || GPSLatMin || "'" || GPSLatSec || """, " || GPSLonDeg || "°" || GPSLonMin || "'" || GPSLonSec || """"
+                        WHEN GPSFormatID = 6 THEN GPSLatDeg || "°" || GPSLatMin || "'" || GPSLatSec || """ " || GPSLatDirectionID || ", " || GPSLonDeg || "°" || GPSLonMin || "'" || GPSLonSec || """ " || GPSLonDirectionID
                         WHEN GPSFormatID = 7 THEN GPSUTMZone || ", " || GPSUTME || "m E, " || GPSUTMN || "m N"
                         END) STORED,
                     GPSLatDeg REAL,

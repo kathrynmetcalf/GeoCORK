@@ -555,9 +555,13 @@ class GPSFields(QtW.QWidget):
         if gps_format_id in ('-', '', 'Null') and gps_values != self.initial_values:
             logger_setup.get_logger().error(f"Must set a single GPS format to update location data")
         elif '-' not in gps_values:
-            self.update_single_gps(gps_columns, gps_values, self.item_ids)
+            if not self.update_single_gps(gps_columns, gps_values, self.item_ids):
+                close_loading_dialog('Updating', 'Updating GPS...')
+                return
         else:
-            self.update_multiple_gps(gps_columns, gps_values)
+            if not self.update_multiple_gps(gps_columns, gps_values):
+                close_loading_dialog('Updating', 'Updating GPS...')
+                return
         self.lost_group_box.reset_edited()
         self.lost_group_box = None
         close_loading_dialog('Updating', 'Updating GPS...')
