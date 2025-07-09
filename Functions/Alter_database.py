@@ -493,19 +493,22 @@ def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
         logger_setup.get_logger().info(f'Constructing query for {column}')
         young_column = young_column_setting.replace('"', '')
         old_column = old_column_setting.replace('"', '')
+        young_age = young_column
         if 'Error' in column:
             young_column = f'{young_column.replace('"', '')}Error'
             old_column = f'{old_column.replace('"', '')}Error'
+            young_age = f'{young_column.replace("Error", "")}'
         if 'Calculated' in column:
             young_column = f'Calculated{young_column.replace('"', '')}'
             old_column = f'Calculated{old_column.replace('"', '')}'
+            young_age = f'Calculated{young_column.replace("Error", "")}'
         sql_alter = f'''ALTER TABLE UPbAnalyses ADD COLUMN "{column}Filled" REAL AS 
                         (CASE WHEN "{column}" IS NULL THEN
                             (CASE 
                                 WHEN "{young_column}" IS NULL AND "{old_column}" IS NULL THEN NULL
                                 WHEN "{young_column}" IS NULL THEN "{old_column}"
                                 WHEN "{old_column}" IS NULL THEN "{young_column}"
-                                WHEN "{young_column}" < "{best_age_cutoff}" THEN "{young_column}"
+                                WHEN "{young_age}" < "{best_age_cutoff}" THEN "{young_column}"
                                 ELSE "{old_column}"
                             END)
                             ELSE "{column}"
