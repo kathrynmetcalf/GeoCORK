@@ -182,7 +182,7 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     heightdepth_unit_id = settings.value('heightdepth_unit_id')  # default to m
     spotsize_unit_id = settings.value('spotsize_unit_id')  # default to um
     age_error_format_id = settings.value('age_error_format_id')  # default to 1 sigma abs
-    ratio_error_format_id = settings.value('ratio_error_format_id')  # default to 1 sigma abs
+    ratio_error_format_id = settings.value('ratio_error_format_id')  # default to 1 sigma %
     concordance_format_id = settings.value('concordance_format_id')  # default conc ratio
 
     # Affected list format: [[table1, [unit/type ID headers], column1, column2, ...], [table2, [unit/type ID headers], column1, column2, ...], ...]
@@ -370,23 +370,53 @@ def generate_columns(affected_column_names: list[str], table: str, table_id_head
     else:
         query = QtS.QSqlQuery(db=database)
     for column in affected_column_names:
+        inverse_column = None
         if '/' in column:
             calc_column_name = f'"Calculated{column}"'
             column = f'"{column}"'
+            if 'Error' in column:
+                inverse_column = column.replace('"', '')
+                inverse_column = f'"{inverse_column.split("/")[1].split("Error")[0]}/{inverse_column.split("/")[0]}Error"'
         else:
             calc_column_name = f'Calculated{column}'
         sql_alter = f'ALTER TABLE {table} ADD COLUMN {calc_column_name} REAL AS (CASE'
-        sql_alter += f' WHEN {table_id_header}={selected_id} THEN {column}'
+        sql_alter += f' WHEN {table_id_header}={selected_id} AND {column} IS NOT NULL THEN {column}'
         for conversion in conversions:
             calculation = conversion[1].replace('x', column)
             if 'y' in calculation:
-                ratio_column = column.replace('Error', '')
+                ratio_column = f'{calc_column_name.replace('Error', '')}'
                 calculation = calculation.replace('y', ratio_column)
             if column in calculation:
                 calculation = f'({calculation})'
             else:
                 calculation = f'"{calculation}"'
-            sql_alter += f' WHEN {table_id_header}={conversion[0]} THEN {calculation}'
+            sql_alter += f' WHEN {table_id_header}={conversion[0]} AND {column} IS NOT NULL THEN {calculation}'
+        if inverse_column:
+            # If the inverse error is an absolute error, we need to calculate it
+            inverse_error_ratio = f'{inverse_column}/"Calculated{inverse_column.replace("Error", "").replace('"', '')}"'
+            inverse_error = f'(({inverse_error_ratio})*{calc_column_name.replace("Error", "")})'
+            if selected_id in (3,4):
+                # The ratio error is a percent, so the inverse error is the same percentage
+                sql_alter += f' WHEN {table_id_header}={selected_id} AND {column} IS NULL THEN {inverse_column}'
+            else:
+                # The inverse error is an absolute error, so we need to calculate it
+                sql_alter += f' WHEN {table_id_header}={selected_id} AND {column} IS NULL THEN {inverse_error}'
+            for conversion in conversions:
+                if conversion[0] in (3,4):
+                    # The ratio error is a percent, so the inverse error is the same percentage
+                    inverse_replace = inverse_column
+                else:
+                    # The inverse error is an absolute error, so we need to calculate it
+                    inverse_replace = inverse_error
+                calculation = conversion[1].replace('x', inverse_replace)
+                if 'y' in calculation:
+                    ratio_column = f'{calc_column_name.replace('Error', '')}'
+                    calculation = calculation.replace('y', ratio_column)
+                if inverse_replace in calculation:
+                    calculation = f'({calculation})'
+                else:
+                    calculation = f'"{calculation}"'
+                sql_alter += f' WHEN {table_id_header}={conversion[0]} AND {column} IS NULL THEN {calculation}'
         sql_alter += ' END) VIRTUAL'
 
         logger_setup.get_logger().info(f'Adding the calculated column {column}')
