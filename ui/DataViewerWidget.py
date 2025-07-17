@@ -736,7 +736,7 @@ class DataViewerWidget(QWidget):
                     return
                 dlg = EditTreeView(self, table, **dlg_args)
             else:
-                dlg_args = {'table_item_ids': ids}
+                dlg_args = {'set_table_item_ids': ids}
                 dlg = EditView(self, table, **dlg_args)
         elif table in SQLUtils.user_viewable_trees:
             save_expanded_state(table_name, dbTable_treeView)
