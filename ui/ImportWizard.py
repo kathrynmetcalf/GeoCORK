@@ -1,3 +1,4 @@
+import collections
 import json
 import os
 
@@ -2078,6 +2079,43 @@ class ImportWizardDialog(QWidget):
         self.left_table.blockSignals(False)
         self.left_table.resizeColumnsToContents()
 
+    def check_duplicates_in_left_table(self):
+        spots = []
+        duplicates = {}
+        for row in range(self.left_table.rowCount()):
+            sample = self.left_table.item(row, 0).data(Qt.ItemDataRole.DisplayRole)
+            aliquot = self.left_table.item(row, 1).data(Qt.ItemDataRole.DisplayRole)
+            spot = self.left_table.item(row, 2).data(Qt.ItemDataRole.DisplayRole)
+            if sample not in duplicates.keys():
+                duplicates[sample] = {}
+            if aliquot not in duplicates[sample].keys():
+                duplicates[sample][aliquot] = []
+            duplicates[sample][aliquot].append(spot)
+            spots.append(spot)
+        # check for duplicates in each list
+        spot_duplicates = set([spot for spot in spots if spots.count(spot) > 1])
+        if spot_duplicates:
+            msg = "Resolve duplicate names:\n"
+            msg += f"Spots: {', '.join(spot_duplicates)}\n"
+            QMessageBox.warning(self, "Duplicates Found", msg)
+            return False
+        else:
+            # Check for different samples with the same aliquot
+            aliquot_duplicates = []
+            distinct_aliquots = set()
+            for sample in duplicates.keys():
+                for aliquot in duplicates[sample].keys():
+                    if aliquot in distinct_aliquots:
+                        aliquot_duplicates.append(aliquot)
+                    else:
+                        distinct_aliquots.add(aliquot)
+            if aliquot_duplicates:
+                msg = "Resolve duplicate aliquots:\n"
+                msg += f"Aliquots: {', '.join(aliquot_duplicates)}\n"
+                QMessageBox.warning(self, "Duplicates Found", msg)
+                return False
+            return True
+
     def check_and_import(self) -> None:
         """
         Main method used when the import button is clicked. Used to first check the left table for empty values, prompt
@@ -2100,14 +2138,54 @@ class ImportWizardDialog(QWidget):
                                         "The empty cells have been filled with default values. Please review before clicking import again.")
         else:
             # Step 4: Look for any existing analyses associated with existing spots and ask user how to handle conflicts
-            if self.check_for_conflicts():
-                # Step 5: Proceed with import
-                self.import_to_db()
+            if self.check_duplicates_in_left_table():
+                if self.check_for_conflicts():
+                    # Step 5: Proceed with import
+                    self.import_to_db()
+
 
     def check_for_conflicts(self):
         """Checks values of SampleName, AliquotName, and SpotName in the left table for import against the database.
          Ensures no values are attempted to be inserted that could raise Unique Constraint Errors by the database.
-         If values are found the list of rows to be imported gets ammended with primary IDs from inside the datbase."""
+         If values are found, the list of rows to be imported gets amended with primary IDs from inside the database."""
+        # Find existing aliquot names belonging to other samples and existing spot names belonging to other aliquots
+        existing_aliquots = set()
+        existing_spots = set()
+        for row_idx in range(self.left_table.rowCount()):
+            sample_name = self.left_table.item(row_idx, 0).data(Qt.ItemDataRole.DisplayRole)
+            aliquot_name = self.left_table.item(row_idx, 1).data(Qt.ItemDataRole.DisplayRole)
+            spot_name = self.left_table.item(row_idx, 2).data(Qt.ItemDataRole.DisplayRole)
+            # If the aliquot name exists in the database, does it have the same sample name?
+            aliquot_id = self.find_matching_id('Aliquots', 'AliquotName', aliquot_name)
+            if aliquot_id:
+                query = QSqlQuery()
+                query.prepare('SELECT SampleName FROM Aliquots JOIN Samples ON Aliquots.SampleID = Samples.SampleID WHERE AliquotID=:aliquot_id')
+                query.bindValue(":aliquot_id", aliquot_id)
+                if query.exec():
+                    if query.next():
+                        existing_sample_name = query.value(0)
+                        if existing_sample_name != sample_name:
+                            existing_aliquots.add(aliquot_name)
+            spot_id = self.find_matching_id('Spots', 'SpotName', spot_name)
+            if spot_id:
+                query = QSqlQuery()
+                query.prepare('SELECT AliquotName FROM Spots JOIN Aliquots ON Spots.AliquotID = Aliquots.AliquotID WHERE SpotID=:spot_id')
+                query.bindValue(":spot_id", spot_id)
+                if query.exec():
+                    if query.next():
+                        existing_aliquot_name = query.value(0)
+                        if existing_aliquot_name != aliquot_name:
+                            existing_spots.add(spot_name)
+        if existing_aliquots or existing_spots:
+            msg = "The following existing Aliquot Names and Spot Names were found in the database with other parent Samples or Aliquots:\n"
+            if existing_aliquots:
+                msg += f"Aliquots: {', '.join(existing_aliquots)}\n"
+            if existing_spots:
+                msg += f"Spots: {', '.join(existing_spots)}\n"
+            msg += "Please resolve these conflicts before importing."
+            QMessageBox.warning(self, "Conflicts Found", msg)
+            return False
+        # Find existing U-Pb analyses associated with the spot, aliquot, sample
         upb_matches = []
         for row_idx in range(self.left_table.rowCount()):
             sample_name = self.left_table.item(row_idx, 0).data(Qt.ItemDataRole.DisplayRole)
