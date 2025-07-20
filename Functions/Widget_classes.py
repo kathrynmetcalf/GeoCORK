@@ -780,12 +780,15 @@ class CheckableSqlTableModel(DisplayRoundedModel):
             if value == QtC.Qt.CheckState.Checked:
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) not in self.checked_ids:
                     self.checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.partially_checked_ids:
+                    self.partially_checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             elif value == QtC.Qt.CheckState.PartiallyChecked:
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) not in self.partially_checked_ids:
                     self.partially_checked_ids.append(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
+                if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
+                    self.checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
             else:
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.checked_ids:
-
                     self.checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
                 if self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole) in self.partially_checked_ids:
                     self.partially_checked_ids.remove(self.index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole))
@@ -1951,9 +1954,12 @@ def delete_question(table, delete_ids):
         sample_names = [get_name_from_id(table, sample_id) for sample_id in delete_ids]
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
         aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
-        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
-                    f'\nSamples: {", ".join(sample_names)}' \
-                    f'\nAssociated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
+        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
+        if len(delete_ids) < 11:
+            msg_text += f'\nSamples: {", ".join(sample_names)}\n'
+        else:
+            msg_text += f'\nSamples: {", ".join(sample_names[:10])}...\n'
+        msg_text += f'\nAssociated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
     elif table == 'Aliquots':
         aliquot_names = [get_name_from_id(table, aliquot_id) for aliquot_id in delete_ids]
         # Look for children of Aliquots
@@ -1964,16 +1970,22 @@ def delete_question(table, delete_ids):
 
         # Aliquots have a special case where they are related to Spots and UPbAnalyses
         spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
-        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
-                    f'\nAliquots: {", ".join(aliquot_names)}' \
-                    f'\nAssociated with {len(child_aliquot_ids)} child aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
+        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
+        if len(delete_ids) < 11:
+            msg_text += f'\nAliquots: {", ".join(aliquot_names)}\n'
+        else:
+            msg_text += f'\nAliquots: {", ".join(aliquot_names[:10])}...\n'
+        msg_text += f'\nAssociated with {len(child_aliquot_ids)} child aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
     elif table == 'Spots':
         spot_names = [get_name_from_id(table, spot_id) for spot_id in delete_ids]
         # Spots have a special case where they are related to UPbAnalyses
         upb_analysis_ids = find_current_sub_items(delete_ids, table)
-        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
-                    f'\nSpots: {", ".join(spot_names)}' \
-                    f'\nAssociated with {len(upb_analysis_ids)} U-Pb analyses'
+        msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
+        if len(delete_ids) < 11:
+            msg_text += f'\nSpots: {", ".join(spot_names)}\n'
+        else:
+            msg_text += f'\nSpots: {", ".join(spot_names[:10])}...\n'
+        msg_text += f'\nAssociated with {len(upb_analysis_ids)} U-Pb analyses'
     else:
         if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
             # For user viewable trees, we need to check for child IDs
@@ -1983,13 +1995,19 @@ def delete_question(table, delete_ids):
                 child_ids = find_child_ids(table, parent_id, child_ids)
             all_delete_ids = set(delete_ids + child_ids)
             tree_item_names = [get_name_from_id(table, item_id) for item_id in all_delete_ids]
-            msg_text = f'Are you sure you want to delete these {len(all_delete_ids)} {table}?' \
-                        f'\n{table}: {", ".join(tree_item_names)}'
+            msg_text = f'Are you sure you want to delete these {len(all_delete_ids)} {table}?'
+            if len(tree_item_names) < 11:
+                msg_text += f'\n{table}: {", ".join(tree_item_names)}'
+            else:
+                msg_text += f'\n{table}: {", ".join(tree_item_names[:10])}...'
         else:
             item_names = [get_name_from_id(table, item_id) for item_id in delete_ids]
             all_delete_ids = set(delete_ids)
-            msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?' \
-                        f'\n{table}: {", ".join(item_names)}'
+            msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?'
+            if len(item_names) < 11:
+                msg_text += f'\n{table}: {", ".join(item_names)}'
+            else:
+                msg_text += f'\n{table}: {", ".join(item_names[:10])}...'
         associations = find_foreign_associations(table, list(all_delete_ids))
         if len(associations) == 0:
             association_text = ''
@@ -2303,9 +2321,6 @@ def find_current_parent_items(data_ids: list, table: str):
         where = f'IN {tuple(data_ids)}'
     else:
         where = f'= {data_ids[0]}'
-    sample_ids = []
-    aliquot_ids = []
-    spot_ids = []
     if table == 'UPbAnalyses':
         sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, UPbAnalyses.SpotID FROM UPbAnalyses 
                         {SQLUtils.upb_spot_join}
@@ -4814,7 +4829,8 @@ class CheckableComboBox(QtW.QComboBox):
                     index = self.model().index(source_index.row(), self.name_col)
                     if self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Checked:
                         self.model().setData(index, QtC.Qt.CheckState.Unchecked, QtC.Qt.ItemDataRole.CheckStateRole)
-                    elif self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) == QtC.Qt.CheckState.Unchecked:
+                    elif (self.model().data(index, QtC.Qt.ItemDataRole.CheckStateRole) in
+                          (QtC.Qt.CheckState.Unchecked, QtC.Qt.CheckState.PartiallyChecked)):
                         self.model().setData(index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
                     self.stop_typing()
                     self.update_line_edit()

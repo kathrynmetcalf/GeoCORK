@@ -519,7 +519,8 @@ def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
     young_column_setting = settings.value('young_fill_best_age')
     old_column_setting = settings.value('old_fill_best_age')
     best_age_cutoff = settings.value('best_age_cutoff')
-    for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+    # for column in ('BestAge', 'BestAgeError', 'CalculatedBestAge', 'CalculatedBestAgeError'):
+    for column in ('BestAge', 'BestAgeError'):
         logger_setup.get_logger().info(f'Constructing query for {column}')
         young_column = young_column_setting.replace('"', '')
         old_column = old_column_setting.replace('"', '')
@@ -528,10 +529,10 @@ def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
             young_column = f'{young_column.replace('"', '')}Error'
             old_column = f'{old_column.replace('"', '')}Error'
             young_age = f'{young_column.replace("Error", "")}'
-        if 'Calculated' in column:
-            young_column = f'Calculated{young_column.replace('"', '')}'
-            old_column = f'Calculated{old_column.replace('"', '')}'
-            young_age = f'Calculated{young_column.replace("Error", "")}'
+        # if 'Calculated' in column:
+        #     young_column = f'Calculated{young_column.replace('"', '')}'
+        #     old_column = f'Calculated{old_column.replace('"', '')}'
+        #     young_age = f'Calculated{young_column.replace("Error", "")}'
         sql_alter = f'''ALTER TABLE UPbAnalyses ADD COLUMN "{column}Filled" REAL AS 
                         (CASE WHEN "{column}" IS NULL THEN
                             (CASE 
@@ -554,6 +555,18 @@ def generate_best_age_fill_columns(database: QtS.QSqlDatabase = None) -> bool:
             rollback_savepoint('before_populate')
             return False
         logger_setup.get_logger().info(f'Successfully updated {column}')
+    age_unit_id = settings.value('age_unit_id')  # default to Ma
+    age_error_format_id = settings.value('age_error_format_id')  # default to 1 sigma abs
+    age_unit_affected = [['UPbAnalyses', 'AgeUnitID', 'BestAgeFilled']]
+    age_error_format_affected = [['UPbAnalyses', ['AgeErrorFormatID', 'AgeUnitID'], 'BestAgeErrorFilled']]
+    if not convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'],
+                           [age_unit_id], database=database):
+        rollback_savepoint('before_populate')
+        return False
+    if not convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
+                           ['ErrorFormat', 'AgeUnit'], [age_error_format_id, age_unit_id], database=database):
+        rollback_savepoint('before_populate')
+        return False
     return True
 
 def generate_gps_column(affected_column_names: list[str], table: str, table_id_header: str, selected_id: int,

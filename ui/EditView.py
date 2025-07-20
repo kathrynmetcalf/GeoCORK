@@ -181,7 +181,8 @@ class SetSelectedValues(QtW.QDialog):
             except AttributeError:
                 model = model.sourceModel()
         if selected_ids:
-            delete_data(table, selected_ids)
+            if not delete_data(table, selected_ids):
+                return
         else:
             return
 
@@ -337,6 +338,25 @@ class EditView(QtW.QDialog):
         self.model.set_table(self.table)
         self.display_table()
 
+    def reset_model_question(self):
+        """
+        Asks the user if they want to reset the model. Changes are saved but will not be visible until all windows are
+        committed.
+        """
+        self.msg.setWindowTitle('Reset Model')
+        self.msg.setText(f'Changes are saved but will not be visible until all windows are committed.\n')
+        self.msg.setInformativeText(f'Are you sure you want to reset the model for {self.table}?')
+        self.msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        self.msg.setIcon(QtW.QMessageBox.Icon.Question)
+        self.msg.setEscapeButton(QtW.QMessageBox.StandardButton.No)
+        self.msg.setWindowModality(QtC.Qt.WindowModality.ApplicationModal)
+        response = self.msg.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            return True
+        else:
+            return False
+
     def search(self):
         """
         Searches the table for the text in the search line edit using case-insensitive regex.
@@ -359,6 +379,11 @@ class EditView(QtW.QDialog):
         """
         Slot to change the number of rows displayed per page
         """
+        if self.updated:
+            # There are changes to the data, notify the user the model is being reloaded from the unedited database.
+            if not self.reset_model_question():
+                self.show_per_page_comboBox.setCurrentText(str(self.rows_per_page))
+                return
         self.rows_per_page = int(self.show_per_page_comboBox.currentText())
         self.current_page = 0
         self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
@@ -368,6 +393,8 @@ class EditView(QtW.QDialog):
         """
         Slot to move to the next page for the displayed table
         """
+        if not self.reset_model_question():
+            return
         if (self.current_page + 1) * self.rows_per_page < self.total_records:
             self.current_page += 1
             self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
@@ -377,6 +404,8 @@ class EditView(QtW.QDialog):
         """
         Slot to move to the previous page for the displayed table
         """
+        if not self.reset_model_question():
+            return
         if self.current_page > 0:
             self.current_page -= 1
             self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
@@ -456,6 +485,8 @@ class EditView(QtW.QDialog):
                 if self.current_page == new_page:
                     QMessageBox.information(self, 'Record Found', 'Record already displayed')
                 else:
+                    if not self.reset_model_question():
+                        return
                     self.current_page = new_page
                     self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
                     self.create_model()
@@ -557,7 +588,11 @@ class EditView(QtW.QDialog):
             if not delete_data(self.table, ids_to_delete):
                 return
             self.model.removeRows(ids_to_delete)
-            self.display_table()
+            self.set_table_item_ids = [item_id for item_id in self.table_item_ids if item_id not in ids_to_delete]
+            if self.reset_model_question():
+                self.create_model()
+            else:
+                self.display_table()
 
     def display_table(self):
         start_time = time.time()
@@ -1069,13 +1104,28 @@ class EditView(QtW.QDialog):
                 (self.table == 'Spots' and self.dropdown_table == 'Samples')):
             if self.update_analysis_chain(selected_ids, model_indexes):
                 # Update handled
-                pass
+                for model_index in model_indexes:
+                    if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
+                        logger_setup.get_logger().critical(f'Error updating view')
+                        logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                        self.destroy_dropdown()
+                        return
         elif 'GPS' in self.dropdown_table or 'Elevation' in self.dropdown_table:
             # GPS and Elevation are updated in the GPSDialog, updated handled when dialog closed
-            pass
+            for model_index in model_indexes:
+                if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                    self.destroy_dropdown()
+                    return
         elif 'SampleAge' in self.dropdown_table and 'AgeSignature' not in self.dropdown_table:
             # SampleAge is updated in the AgeDialog, updated handled when dialog closed
-            pass
+            for model_index in model_indexes:
+                if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                    self.destroy_dropdown()
+                    return
         elif self.dropdown_table == 'Rejected' and self.table == 'UPbAnalyses':
             # Only the UPb views have an editable Rejected column
             if combo.currentText() == 'Accepted':
@@ -1108,6 +1158,12 @@ class EditView(QtW.QDialog):
                 return
             release_savepoint('before_edit_rejected')
             updated = True
+            for model_index in model_indexes:
+                if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                    self.destroy_dropdown()
+                    return
         else:
             edit_table, edit_ids = self.determine_edit_table(selected_ids)
             combo_model = combo.model()
@@ -1183,12 +1239,35 @@ class EditView(QtW.QDialog):
                             return
                         updated = True
                         release_savepoint('before_edit_id')
-        for model_index in model_indexes:
-            if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
-                logger_setup.get_logger().critical(f'Error updating view')
-                logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
-                self.destroy_dropdown()
-                return
+            if (isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel) and not combo_model.partially_checked_ids) \
+                or (isinstance(combo_model, CheckableTreeModel) and combo_model.single_click):
+                for model_index in model_indexes:
+                    if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
+                        logger_setup.get_logger().critical(f'Error updating view')
+                        logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                        self.destroy_dropdown()
+                        return
+            elif isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel) and combo_model.partially_checked_ids:
+                checked_values = [get_name_from_id(combo_model.tableName(), id) for id in combo_model.checked_ids]
+                partially_checked_values = [get_name_from_id(combo_model.tableName(), id) for id in combo_model.partially_checked_ids]
+                for model_index in model_indexes:
+                    current_values = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole).split(';')
+                    new_values = [value for value in current_values if value in partially_checked_values or value in checked_values]
+                    new_values.extend(checked_values)
+                    new_values = '; '.join(set(new_values))
+                    self.model.setData(model_index, new_values, QtC.Qt.ItemDataRole.EditRole)
+            elif isinstance(combo_model, CheckableTreeModel) and not combo_model.single_click:
+                checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = combo_model.traverse_checkable_tree(QtC.QModelIndex())
+                checked_values = [get_name_from_id(combo_model.tableName(), id) for id in checked_ids]
+                partially_checked_values = [get_name_from_id(combo_model.tableName(), id) for id in
+                                            partially_checked_ids]
+                for model_index in model_indexes:
+                    current_values = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole).split(';')
+                    new_values = [value for value in current_values if
+                                  value in partially_checked_values or value in checked_values]
+                    new_values.extend(checked_values)
+                    new_values = '; '.join(set(new_values))
+                    self.model.setData(model_index, new_values, QtC.Qt.ItemDataRole.EditRole)
         if updated:
             self.updated = True
             for model_index in model_indexes:
@@ -1482,6 +1561,7 @@ class EditView(QtW.QDialog):
             elif isinstance(table_model, QtC.QSortFilterProxyModel):
                 table_model = table_model.sourceModel()
             checked_ids = table_model.checked_ids
+            partially_checked_ids = table_model.partially_checked_ids
         if len(checked_ids) > 1:
             logger_setup.get_logger().error('Multiple items selected, please select only one')
             return None
