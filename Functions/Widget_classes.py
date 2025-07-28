@@ -2266,17 +2266,22 @@ def find_current_sub_items(data_ids: list, table: str):
     """
     # Find all the sub items of a list of samples, aliquots, or spots
     logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
+    aliquot_ids = []
+    spot_ids = []
+    upb_analysis_ids = []
     if not data_ids:
         logger_setup.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
-        return None, None, None
+        if table == 'Spots':
+            return upb_analysis_ids
+        elif table == 'Aliquots':
+            return spot_ids, upb_analysis_ids
+        elif table == 'Samples':
+            return aliquot_ids, spot_ids, upb_analysis_ids
     show_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
     if len(data_ids) > 1:
         where = f'IN {tuple(data_ids)}'
     else:
         where = f'= {data_ids[0]}'
-    aliquot_ids = []
-    spot_ids = []
-    upb_analysis_ids = []
     if table == 'Samples':
         sql_query = f"""SELECT Aliquots.AliquotID, Spots.SpotID, UPbAnalyses.UPbAnalysisID FROM Aliquots
                         {SQLUtils.aliquot_spot_join}
