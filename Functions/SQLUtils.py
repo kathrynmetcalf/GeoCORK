@@ -614,8 +614,8 @@ tree_tables_schema = {
         'name_column': 'AgeSignatureName',
         'parent_column': 'ParentAgeSignatureID',
         'cte_name': 'RecursiveAgeSignatures',
-        'bridge_table': 'SampleAges_AgeSignature',
-        'bridge_from_column': 'SampleAgeID',
+        'bridge_table': 'Samples_AgeSignatures',
+        'bridge_from_column': 'SampleID',
         'bridge_to_column': 'AgeSignatureID',
     },
     'Ages.[AgeName]': {
