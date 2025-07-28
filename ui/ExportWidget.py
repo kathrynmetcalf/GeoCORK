@@ -7,7 +7,7 @@ import time
 import qtawesome
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QAbstractTableModel
-from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtGui import QDesktopServices, QShowEvent
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QTableView,
@@ -337,7 +337,7 @@ class ExportWidget(QWidget):
         if "AS 'Sample_ID'" in columns_str and current_worksheet_name == 'Samples':
             group_by = 'GROUP BY Sample_ID'
         else:
-            group_by = ''
+            group_by = 'GROUP BY UPbAnalyses.UPbAnalysisID'
         if len(self.checked_sample_names) > 2:
             if len(filtered_where_clause) > 0:
                 where_clause = f"WHERE Samples.SampleID IN {self.checked_sample_names} AND UPbAnalyses.UPbAnalysisID IN {filtered_upb_ids_sql}"
@@ -1132,7 +1132,7 @@ class ExportWidget(QWidget):
     def populate_stack(self):
         """
         Method to populate the stacked widget with the column attributes for each table. This is used to show the
-        available columns to export. Each page stack widget has checkboxes for all attibutes in a single table.
+        available columns to export. Each page stack widget has checkboxes for all attributes in a single table.
         """
 
         # Clear the existing widgets in the columnattributes_stack and all widgets inside
@@ -1379,6 +1379,7 @@ class ExportWidget(QWidget):
         """
         logger_setup.get_logger().info('Refresh Button Clicked')
         self.samples_model = CheckableSqlQueryModel()
+        self.samples_model.set_table('')
         self.samples_proxy = ReadableProxyModel()
 
         self.filter_model = CheckableSqlTableModel()
