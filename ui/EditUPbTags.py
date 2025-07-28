@@ -17,7 +17,7 @@ import Functions.SQLUtils as SQLUtils
 
 from Functions.Widget_classes import (
     set_table, FontDelegate, SQLiteTableModel, CheckableSqlQueryModel,
-    CheckableSqlTableModel, get_name_column, CheckableTreeModel, TreeModel,
+    CheckableSqlTableModel, get_name_column, CheckableTreeModel, TreeModel, populate_many_combo_checks,
     show_column, set_comboBox_text, find_upb_from_samples, populate_combo_box, add_tree_popup, CheckableTreeCombobox,
     CheckableComboBox, find_tree_model, populate_model_checks, populate_tree_model_checks, save_expanded_state,
     restore_expanded_state, get_name_from_id, get_id_from_name, get_view_from_table, TreeSortFilterProxyModel
@@ -189,33 +189,41 @@ class EditUPbTags(QtW.QDialog):
     def populate_upb_checks(self, combo: QtW.QComboBox):
         start_populate_upb_checks_time = time.time()
         text = ""
-        if isinstance(combo.model(), QSortFilterProxyModel):
-            model = combo.model().sourceModel()
-        else:
-            model = combo.model()
-        if isinstance(model, CheckableSqlTableModel | CheckableSqlQueryModel):
-            table = model.tableName()
-            # name_column = get_name_column(table)
-            if 'ratio_error' in combo.objectName():
-                table_id_header = 'RatioErrorFormatID'
-            elif 'age_error' in combo.objectName():
-                table_id_header = 'AgeErrorFormatID'
-            elif 'spot_size' in combo.objectName():
-                table_id_header = 'SpotSizeUnitID'
-            else:
-                table_id_header = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-            if not populate_model_checks(model, self.upb_analysis_ids, 'UPbAnalyses', table_id_header):
+        if combo.objectName() == "analysis_context_comboBox":
+            if not populate_many_combo_checks('UPbAnalyses_UPbAnalysisContexts', combo, self.upb_analysis_ids):
                 return
-            checked_ids = model.checked_ids
-            partially_checked_ids = model.partially_checked_ids
-        elif isinstance(model, CheckableTreeModel):
-            tree_model, indexes = find_tree_model(model, None)
+            tree_model, indexes = find_tree_model(combo.model(), None)
             table = tree_model.table
-            # model = tree_model.sourceModel()
-            # name_column = get_name_column(table)
-            if not populate_tree_model_checks(tree_model, self.upb_analysis_ids, 'UPbAnalyses'):
-                return
-            checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
+            checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(
+                QtC.QModelIndex())
+        else:
+            if isinstance(combo.model(), QSortFilterProxyModel):
+                model = combo.model().sourceModel()
+            else:
+                model = combo.model()
+            if isinstance(model, CheckableSqlTableModel | CheckableSqlQueryModel):
+                table = model.tableName()
+                # name_column = get_name_column(table)
+                if 'ratio_error' in combo.objectName():
+                    table_id_header = 'RatioErrorFormatID'
+                elif 'age_error' in combo.objectName():
+                    table_id_header = 'AgeErrorFormatID'
+                elif 'spot_size' in combo.objectName():
+                    table_id_header = 'SpotSizeUnitID'
+                else:
+                    table_id_header = model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if not populate_model_checks(model, self.upb_analysis_ids, 'UPbAnalyses', table_id_header):
+                    return
+                checked_ids = model.checked_ids
+                partially_checked_ids = model.partially_checked_ids
+            elif isinstance(model, CheckableTreeModel):
+                tree_model, indexes = find_tree_model(model, None)
+                table = tree_model.table
+                # model = tree_model.sourceModel()
+                # name_column = get_name_column(table)
+                if not populate_tree_model_checks(tree_model, self.upb_analysis_ids, 'UPbAnalyses'):
+                    return
+                checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = tree_model.traverse_checkable_tree(QtC.QModelIndex())
         if partially_checked_ids:
             text = "-"
         elif checked_ids:
