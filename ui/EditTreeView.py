@@ -566,7 +566,8 @@ class EditTreeView(QtW.QDialog):
                 tree_index = self.proxy_model.mapToSource(proxy_index)
                 tree_indexes.append(tree_index)
 
-            header = self.proxy_model.headerData(proxy_indexes[0].column(), QtC.Qt.Orientation.Horizontal,
+            source_index = self.proxy_model.mapToSource(proxy_indexes[0])
+            header = self.proxy_model.sourceModel().headerData(source_index.column(), QtC.Qt.Orientation.Horizontal,
                                                 QtC.Qt.ItemDataRole.DisplayRole)
             col = None
             table = None
