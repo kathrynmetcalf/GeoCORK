@@ -404,47 +404,47 @@ class GPSFields(QtW.QWidget):
         if gps_format_abbreviation == '-' or gps_format_abbreviation == '':
             lat_deg = return_number(self.lat_deg_lineEdit.text())
             if not lat_deg:
-                lat_deg = 'Null'
+                lat_deg = 'NULL'
             lat_min = return_number(self.lat_min_lineEdit.text())
             if not lat_min:
-                lat_min = 'Null'
+                lat_min = 'NULL'
             lat_sec = return_number(self.lat_sec_lineEdit.text())
             if not lat_sec:
-                lat_sec = 'Null'
+                lat_sec = 'NULL'
             lon_deg = return_number(self.lon_deg_lineEdit.text())
             if not lon_deg:
-                lon_deg = 'Null'
+                lon_deg = 'NULL'
             lon_min = return_number(self.lon_min_lineEdit.text())
             if not lon_min:
-                lon_min = 'Null'
+                lon_min = 'NULL'
             lon_sec = return_number(self.lon_sec_lineEdit.text())
             if not lon_sec:
-                lon_sec = 'Null'
+                lon_sec = 'NULL'
             lat_dir = self.lat_comboBox.currentText()
             lon_dir = self.lon_comboBox.currentText()
             if not lat_dir:
-                lat_dir = 'Null'
+                lat_dir = 'NULL'
             else:
                 self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
                 lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0),
                                                          QtC.Qt.ItemDataRole.DisplayRole)
             if not lon_dir:
-                lon_dir = 'Null'
+                lon_dir = 'NULL'
             else:
                 self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
                 lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0),
                                                          QtC.Qt.ItemDataRole.DisplayRole)
             utm_zone = return_number(self.utm_zone_lineEdit.text())
             if not utm_zone:
-                utm_zone = 'Null'
+                utm_zone = 'NULL'
             utm_n = return_number(self.utm_n_lineEdit.text())
             if not utm_n:
-                utm_n = 'Null'
+                utm_n = 'NULL'
             utm_e = return_number(self.utm_e_lineEdit.text())
             if not utm_e:
-                utm_e = 'Null'
+                utm_e = 'NULL'
             if gps_format_abbreviation == '':
-                gps_format_id = 'Null'
+                gps_format_id = 'NULL'
             elif gps_format_abbreviation == '-':
                 gps_format_id = '-'
         else:
@@ -455,78 +455,78 @@ class GPSFields(QtW.QWidget):
         if 'D' in gps_format_abbreviation:
             lat_deg = return_number(self.lat_deg_lineEdit.text())
             if not lat_deg:
-                lat_deg = 'Null'
+                lat_deg = 'NULL'
             lon_deg = return_number(self.lon_deg_lineEdit.text())
             if not lon_deg:
-                lon_deg = 'Null'
+                lon_deg = 'NULL'
             if 'M' in gps_format_abbreviation:
                 lat_min = return_number(self.lat_min_lineEdit.text())
                 if not lat_min:
-                    lat_min = 'Null'
+                    lat_min = 'NULL'
                 lon_min = return_number(self.lon_min_lineEdit.text())
                 if not lon_min:
-                    lon_min = 'Null'
+                    lon_min = 'NULL'
                 if 'S' in gps_format_abbreviation:
                     lat_sec = return_number(self.lat_sec_lineEdit.text())
                     if not lat_sec:
-                        lat_sec = 'Null'
+                        lat_sec = 'NULL'
                     lon_sec = return_number(self.lon_sec_lineEdit.text())
                     if not lon_sec:
-                        lon_sec = 'Null'
+                        lon_sec = 'NULL'
                 else:
-                    lat_sec = 'Null'
-                    lon_sec = 'Null'
+                    lat_sec = 'NULL'
+                    lon_sec = 'NULL'
             else:
-                lat_min = 'Null'
-                lon_min = 'Null'
-                lat_sec = 'Null'
-                lon_sec = 'Null'
+                lat_min = 'NULL'
+                lon_min = 'NULL'
+                lat_sec = 'NULL'
+                lon_sec = 'NULL'
             if '+/-' in gps_format_abbreviation:
-                lat_dir = 'Null'
-                lon_dir = 'Null'
+                lat_dir = 'NULL'
+                lon_dir = 'NULL'
             elif ' NSEW' in gps_format_abbreviation:
                 lat_dir = self.lat_comboBox.currentText()
                 lon_dir = self.lon_comboBox.currentText()
                 if not lat_dir:
-                    lat_dir = 'Null'
+                    lat_dir = 'NULL'
                 else:
                     self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lat_dir}'")
                     lat_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
                 if not lon_dir:
-                    lon_dir = 'Null'
+                    lon_dir = 'NULL'
                 else:
                     self.direction_unit_model.setFilter(f"DirectionUnitAbbreviation = '{lon_dir}'")
                     lon_dir = self.direction_unit_model.data(self.direction_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
-            utm_zone = 'Null'
-            utm_n = 'Null'
-            utm_e = 'Null'
+            utm_zone = 'NULL'
+            utm_n = 'NULL'
+            utm_e = 'NULL'
         elif gps_format_abbreviation == 'UTM':
-            lat_deg = 'Null'
-            lat_min = 'Null'
-            lat_sec = 'Null'
-            lat_dir = 'Null'
-            lon_deg = 'Null'
-            lon_min = 'Null'
-            lon_sec = 'Null'
-            lon_dir = 'Null'
+            lat_deg = 'NULL'
+            lat_min = 'NULL'
+            lat_sec = 'NULL'
+            lat_dir = 'NULL'
+            lon_deg = 'NULL'
+            lon_min = 'NULL'
+            lon_sec = 'NULL'
+            lon_dir = 'NULL'
             utm_zone = return_number(self.utm_zone_lineEdit.text())
             if not utm_zone:
-                utm_zone = 'Null'
+                utm_zone = 'NULL'
             utm_n = return_number(self.utm_n_lineEdit.text())
             if not utm_n:
-                utm_n = 'Null'
+                utm_n = 'NULL'
             utm_e = return_number(self.utm_e_lineEdit.text())
             if not utm_e:
-                utm_e = 'Null'
+                utm_e = 'NULL'
         elevation = return_number(self.elevation_lineEdit.text())
         if not elevation:
-            elevation = 'Null'
+            elevation = 'NULL'
         elevation_error = return_number(self.elevation_error_lineEdit.text())
         if not elevation_error:
-            elevation_error = 'Null'
+            elevation_error = 'NULL'
         elevation_unit = self.elevation_unit_comboBox.currentText()
         if not elevation_unit:
-            elevation_unit = 'Null'
+            elevation_unit = 'NULL'
         else:
             self.elevation_unit_model.setFilter(f"DistanceUnitAbbreviation = '{elevation_unit}'")
             elevation_unit = self.elevation_unit_model.data(self.elevation_unit_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)
@@ -552,7 +552,7 @@ class GPSFields(QtW.QWidget):
             return
         format_index = gps_columns.index('GPSFormatID')
         gps_format_id = gps_values[format_index]
-        if gps_format_id in ('-', '', 'Null') and gps_values != self.initial_values:
+        if gps_format_id in ('-', '', 'NULL') and gps_values != self.initial_values:
             logger_setup.get_logger().error(f"Must set a single GPS format to update location data")
         elif '-' not in gps_values:
             if not self.update_single_gps(gps_columns, gps_values, self.item_ids):
@@ -598,6 +598,14 @@ class GPSFields(QtW.QWidget):
         # Get the gps_columns not in update_columns
         unaffected_columns = [gps_columns[i] for i in range(len(gps_columns)) if gps_columns[i] not in update_columns]
         logger_setup.get_logger().info(f"Updating {len(ids_to_update)} GPS locations")
+        create_savepoint('before_update')
+        delete_gps = True
+        for value in gps_values[0:13]:
+            if value != 'NULL':
+                delete_gps = False
+                break
+        if delete_gps:
+            return self.delete_gps(list(set(ids_to_update.keys())), list(set(ids_to_update.values())))
         for gps_id in ids_to_update:
             item_ids = ids_to_update[gps_id]
             query.prepare(f'''SELECT {', '.join(unaffected_columns)} FROM GPSLocations WHERE GPSLocationID = {gps_id}''')
@@ -616,7 +624,7 @@ class GPSFields(QtW.QWidget):
                 if gps_columns[row] in unaffected_columns:
                     existing_value = existing_values[unaffected_columns.index(gps_columns[row])]
                     if existing_value is None or existing_value == '':
-                        existing_value = 'Null'
+                        existing_value = 'NULL'
                     gps_values[row] = existing_value
             if not self.update_single_gps(gps_columns, gps_values, item_ids):
                 return
@@ -632,9 +640,16 @@ class GPSFields(QtW.QWidget):
         gps_id = None
         format_index = gps_columns.index('GPSFormatID')
         gps_format_id = gps_values[format_index]
+        delete_gps = True
+        for value in gps_values[0:13]:
+            if value != 'NULL':
+                delete_gps = False
+                break
         create_savepoint('before_update')
         duplicate_id = self.check_existing_gps(gps_columns, gps_values)
         if duplicate_id:
+            if delete_gps:
+                return self.delete_gps([duplicate_id], item_ids)
             logger_setup.get_logger().info(f"GPS location already exists with ID {duplicate_id}. Updating.")
             gps_id = duplicate_id
         if len(item_ids) > 1:
@@ -649,6 +664,8 @@ class GPSFields(QtW.QWidget):
         qgps_columns = ', '.join(gps_columns)
         qgps_values = ', '.join(str(v) for v in gps_values)
         if len(gps_ids) > 0:
+            if delete_gps:
+                return self.delete_gps(gps_ids, item_ids)
             logger_setup.get_logger().info(f"Checking {len(gps_ids)} GPS locations associated with the {self.table}")
             for gps in gps_ids:
                 self.item_model.setQuery(f"SELECT {self.item_id_header} FROM {self.table} WHERE {self.table_gps_id_header} = {gps}")
@@ -662,6 +679,9 @@ class GPSFields(QtW.QWidget):
                     elif gps != gps_id:
                         gps_to_delete.append(gps)
         if not gps_id:
+            if delete_gps:
+                rollback_savepoint('before_update')
+                return False
             logger_setup.get_logger().info(f"Adding a new GPS location.")
             error, header = validate_insert('GPSLocations', gps_columns, gps_values, gps_format_id)
             if error:
@@ -689,9 +709,11 @@ class GPSFields(QtW.QWidget):
             for s in existing_values:
                 index = existing_values.index(s)
                 if not s:
-                    s = 'Null'
+                    s = 'NULL'
                     existing_values[index] = s
             if existing_values != gps_values:
+                if delete_gps:
+                    return self.delete_gps([gps_id], item_ids)
                 logger_setup.get_logger().info(f"GPS location {gps_id} has different values than the input. Updating.")
                 error, header = validate_update('GPSLocations', gps_columns, gps_values, f'GPSFormatID = {gps_format_id}')
                 if error:
@@ -741,7 +763,7 @@ class GPSFields(QtW.QWidget):
         query = QtS.QSqlQuery()
         conditions = []
         for i in range(len(gps_columns)):
-            if gps_values[i] != 'Null':
+            if gps_values[i] != 'NULL':
                 conditions.append(f"{gps_columns[i]} = :{gps_columns[i]}")
             else:
                 conditions.append(f"{gps_columns[i]} IS NULL")
@@ -749,7 +771,7 @@ class GPSFields(QtW.QWidget):
         sql_query = f"SELECT GPSLocationID FROM GPSLocations WHERE {sql_where}"
         query.prepare(sql_query)
         for i in range(len(gps_columns)):
-            if gps_values[i] != 'Null':
+            if gps_values[i] != 'NULL':
                 query.bindValue(f":{gps_columns[i]}", gps_values[i])
         if not query.exec():
             logger_setup.get_logger().critical('Error checking for duplicates', self)
@@ -763,6 +785,112 @@ class GPSFields(QtW.QWidget):
         else:
             logger_setup.get_logger().info(f"No existing GPSLocationID found with values {gps_values}")
             return None
+
+
+    def delete_gps(self, gps_ids: list, item_ids: list):
+        # Check if the gps id is associated with other database items
+        if len(gps_ids) == 0 or None in gps_ids:
+            logger_setup.get_logger().critical('No GPS IDs to update')
+            return False
+        if len(item_ids) == 0 or None in item_ids:
+            logger_setup.get_logger().critical(f'No {self.table} to update')
+            return False
+        logger_setup.get_logger().info(f"Checking if GPS location is associated with other entries in {self.table}")
+        if len(item_ids) > 1:
+            sql_where = f"NOT IN {tuple(item_ids)}"
+        else:
+            sql_where = f"IS NOT {item_ids[0]}"
+        other_items = False
+        for gps_id in gps_ids:
+            self.item_model.setQuery(
+                    f"SELECT {self.item_id_header} FROM {self.table} WHERE {self.table_gps_id_header} = {gps_id} AND {self.item_id_header} {sql_where}")
+            other_item_model = QtS.QSqlQueryModel()
+            other_item_model.setQuery(
+                    f"SELECT {self.other_table_id_header} FROM {self.other_table} WHERE {self.other_table_gps_id_header} = {gps_id}")
+            if self.item_model.rowCount() > 0 or other_item_model.rowCount() > 0:
+                other_items = True
+        if not other_items:
+            logger_setup.get_logger().info(
+                    f"GPS locations {gps_ids} are not associated with any other samples or columns")
+            msg = f"Are you sure you want to delete the GPS for the selected {self.table}?"
+            msg_box = QtW.QMessageBox()
+            msg_box.setText(msg)
+            msg_box.setWindowTitle('Delete GPS')
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                logger_setup.get_logger().info(f"Deleting GPS ID {gps_id}")
+                query = QtS.QSqlQuery()
+                if len(gps_ids) > 1:
+                    gps_where = f"IN {tuple(gps_ids)}"
+                else:
+                    gps_where = f"IS {gps_ids[0]}"
+                query.prepare(f"DELETE FROM GPSLocations WHERE GPSLocationID {gps_where}")
+                if not query.exec():
+                    logger_setup.get_logger().critical('Error deleting GPS ID', self)
+                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    rollback_savepoint('before_update')
+                    return False
+                else:
+                    logger_setup.get_logger().info('Deleted GPS ID', self)
+                    self.updated = True
+                    release_savepoint('before_update')
+                    return True
+            else:
+                logger_setup.get_logger().info(f"Canceled deletion of GPS")
+                rollback_savepoint('before_update')
+                return False
+        else:
+            logger_setup.get_logger().info(f"GPS locations {gps_ids} associated with other items in the database")
+            msg = f"The GPS is associated with other items in the database. Do you want to delete the GPS for all items or remove it from the selected items only?"
+            msg_box = QtW.QMessageBox()
+            msg_box.setText(msg)
+            msg_box.setWindowTitle('Delete GPS')
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            cancel_button = QtW.QPushButton('Cancel')
+            delete_all_button = QtW.QPushButton(f'Delete From All')
+            delete_selected_button = QtW.QPushButton(f'Delete From Selected Only')
+            msg_box.addButton(cancel_button, QtW.QMessageBox.ButtonRole.RejectRole)
+            msg_box.addButton(delete_all_button, QtW.QMessageBox.ButtonRole.AcceptRole)
+            msg_box.addButton(delete_selected_button, QtW.QMessageBox.ButtonRole.ActionRole)
+            msg_box.exec()
+            response = msg_box.clickedButton()
+            if response == QtW.QMessageBox.ButtonRole.RejectRole:
+                rollback_savepoint('before_update')
+                return False
+            elif response == QtW.QMessageBox.ButtonRole.AcceptRole:
+                logger_setup.get_logger().info(f"Deleting GPS ID {gps_id}")
+                query = QtS.QSqlQuery()
+                query.prepare(f"DELETE FROM GPSLocations WHERE GPSLocationID = {gps_id}")
+                if not query.exec():
+                    logger_setup.get_logger().critical('Error deleting GPS ID', self)
+                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    rollback_savepoint('before_update')
+                    return False
+                else:
+                    logger_setup.get_logger().info('Deleted GPS ID', self)
+                    self.updated = True
+                    release_savepoint('before_update')
+                    return True
+            elif response == QtW.QMessageBox.ButtonRole.ActionRole:
+                logger_setup.get_logger().info(f"Removing GPS ID {gps_id} from {len(item_ids)} {self.table}")
+                sql_where = sql_where.replace('NOT ','')
+                query = QtS.QSqlQuery()
+                query.prepare(f"UPDATE {self.table} SET ({self.table_gps_id_header}) VALUES (NULL) WHERE {sql_where}")
+                if not query.exec():
+                    logger_setup.get_logger().critical('Error removing GPS ID from selected items', self)
+                    logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+                    rollback_savepoint('before_update')
+                    return False
+                else:
+                    logger_setup.get_logger().info('Removed GPS ID', self)
+                    self.updated = True
+                    release_savepoint('before_update')
+                    return True
 
 
     def clear_fields(self):
