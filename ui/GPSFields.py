@@ -564,6 +564,7 @@ class GPSFields(QtW.QWidget):
                 return
         self.lost_group_box.reset_edited()
         self.lost_group_box = None
+        self.initial_values = gps_values
         close_loading_dialog('Updating', 'Updating GPS...')
 
     def update_multiple_gps(self, gps_columns, gps_values):
@@ -571,6 +572,7 @@ class GPSFields(QtW.QWidget):
         Update the selected samples with multiple GPS locations. Only certain GPS columns will be updated.
         :param gps_columns: list of column names
         :param gps_values:  list of values to insert
+        :return: True if the update was successful, False otherwise
         """
         # Do not edit those columns and do not look for duplicate
         update_columns = []
@@ -593,8 +595,8 @@ class GPSFields(QtW.QWidget):
                     ids_to_update[gps_id].append(item_id)
         query = QtS.QSqlQuery()
         if len(ids_to_update) == 0:
-            logger_setup.get_logger().info(f"No samples to update")
-            return
+            logger_setup.get_logger().info(f"No {self.table} to update")
+            return True
         # Get the gps_columns not in update_columns
         unaffected_columns = [gps_columns[i] for i in range(len(gps_columns)) if gps_columns[i] not in update_columns]
         logger_setup.get_logger().info(f"Updating {len(ids_to_update)} GPS locations")
@@ -652,32 +654,37 @@ class GPSFields(QtW.QWidget):
                 return self.delete_gps([duplicate_id], item_ids)
             logger_setup.get_logger().info(f"GPS location already exists with ID {duplicate_id}. Updating.")
             gps_id = duplicate_id
-        if len(item_ids) > 1:
-            self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} in {tuple(item_ids)}")
-        elif len(item_ids) == 1:
-            self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} = {item_ids[0]}")
-        gps_ids = []
-        for row in range(self.item_model.rowCount()):
-            id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
-            if id_value and isinstance(id_value, int) and id_value not in gps_ids:
-                gps_ids.append(self.item_model.index(row, 0).data())
-        qgps_columns = ', '.join(gps_columns)
-        qgps_values = ', '.join(str(v) for v in gps_values)
-        if len(gps_ids) > 0:
-            if delete_gps:
-                return self.delete_gps(gps_ids, item_ids)
-            logger_setup.get_logger().info(f"Checking {len(gps_ids)} GPS locations associated with the {self.table}")
-            for gps in gps_ids:
-                self.item_model.setQuery(f"SELECT {self.item_id_header} FROM {self.table} WHERE {self.table_gps_id_header} = {gps}")
-                other_item_model = QtS.QSqlQueryModel()
-                other_item_model.setQuery(f"SELECT {self.other_table_id_header} FROM {self.other_table} WHERE {self.other_table_gps_id_header} = {gps}")
-                if self.item_model.rowCount() == 0 and other_item_model.rowCount() == 0:
-                    logger_setup.get_logger().info(f"GPS location {gps} is not associated with any other samples or columns")
-                    if not gps_id:
-                        # Choose the first GPS location to update and delete the rest that will be unused
-                        gps_id = gps
-                    elif gps != gps_id:
-                        gps_to_delete.append(gps)
+        else:
+            if len(item_ids) > 1:
+                self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} in {tuple(item_ids)}")
+            elif len(item_ids) == 1:
+                self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} = {item_ids[0]}")
+            gps_ids = []
+            for row in range(self.item_model.rowCount()):
+                id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if id_value and isinstance(id_value, int) and id_value not in gps_ids:
+                    gps_ids.append(self.item_model.index(row, 0).data())
+            qgps_columns = ', '.join(gps_columns)
+            qgps_values = ', '.join(str(v) for v in gps_values)
+            if len(gps_ids) > 0:
+                if delete_gps:
+                    return self.delete_gps(gps_ids, item_ids)
+                logger_setup.get_logger().info(f"Checking {len(gps_ids)} GPS locations associated with the {self.table}")
+                if len(self.item_ids) > 1:
+                    item_where = f"IN {tuple(self.item_ids)}"
+                elif len(self.item_ids) == 1:
+                    item_where = f"{self.item_ids[0]}"
+                for gps in gps_ids:
+                    self.item_model.setQuery(f"SELECT {self.item_id_header} FROM {self.table} WHERE {self.table_gps_id_header} = {gps} AND {self.item_id_header} IS NOT {item_where}")
+                    other_item_model = QtS.QSqlQueryModel()
+                    other_item_model.setQuery(f"SELECT {self.other_table_id_header} FROM {self.other_table} WHERE {self.other_table_gps_id_header} = {gps}")
+                    if self.item_model.rowCount() == 0 and other_item_model.rowCount() == 0:
+                        logger_setup.get_logger().info(f"GPS location {gps} is not associated with any other samples or columns")
+                        if not gps_id:
+                            # Choose the first GPS location to update and delete the rest that will be unused
+                            gps_id = gps
+                        elif gps != gps_id:
+                            gps_to_delete.append(gps)
         if not gps_id:
             if delete_gps:
                 rollback_savepoint('before_update')
@@ -727,7 +734,7 @@ class GPSFields(QtW.QWidget):
                     logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
                     rollback_savepoint('before_update')
                     return False
-                update_modified_timestamp('GPSLocations', gps_id)
+                update_modified_timestamp('GPSLocations', [gps_id])
                 logger_setup.get_logger().info(f"Updated GPSLocationID {gps_id}")
         if len(gps_to_delete) > 0:
             if not delete_data('GPSLocations', gps_to_delete):

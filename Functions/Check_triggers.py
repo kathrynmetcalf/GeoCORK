@@ -149,7 +149,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
     Tables that need to be validated are in SQLUtils.trigger_tables
     :param table: the table to be updated
     :param columns: the columns to be updated
-    :param values: the string values to be entered into the database. Null values should be 'Null'
+    :param values: the string values to be entered into the database. Null values should be 'NULL'
     :param where: the text that would come after WHERE in a sql statement
     :return:
     """
@@ -161,7 +161,7 @@ def validate_update(table: str, columns: list, values: list, where: str):
     pairs = []
     for index in range(len(columns)):
         if isinstance(values[index], QtC.QVariant) and values[index].isNull():
-            pairs.append(([columns[index], 'Null']))
+            pairs.append(([columns[index], 'NULL']))
         else:
             pairs.append([columns[index], values[index]])
     table_model = QtS.QSqlTableModel()
@@ -176,13 +176,13 @@ def validate_update(table: str, columns: list, values: list, where: str):
             if columns[index] == column_name:
                 new_value = values[index]
                 if new_value == '' or new_value is None or (isinstance(new_value, QtC.QVariant) and new_value.isNull()):
-                    new_value = 'Null'
+                    new_value = 'NULL'
                 break
         old_values = []
         for row in range(table_model.rowCount()):
             old_value = table_model.data(table_model.index(row, col, QtC.QModelIndex()))
             if old_value == '' or old_value is None or (isinstance(old_value, QtC.QVariant) and old_value.isNull()):
-                old_value = 'Null'
+                old_value = 'NULL'
             old_values.append(old_value)
         all_records.append([column_name, new_value, old_values])
     if table == 'Columns':
@@ -291,11 +291,11 @@ def check_update_units(all_records: list, value_col: str, unit_id_col: str):
 
     if new_value != '' and new_unit_id != '':
         # Both the value and unit id are changing
-        if new_value != 'Null' and new_unit_id == 'Null':
+        if new_value != 'NULL' and new_unit_id == 'NULL':
             return f"missing unit", unit_id_col
     elif new_value != '':
         # Only the value is being set, so compare with the old unit id
-        if new_value != 'Null' and 'Null' in old_unit_ids:
+        if new_value != 'NULL' and 'NULL' in old_unit_ids:
             return f"missing unit", unit_id_col
     # A unit id missing a value is not problematic
     return None, None
@@ -312,9 +312,9 @@ def check_insert_pairs(pairs: list, column1: str, column2: str) -> None:
             new_column1 = pair[1]
         if pair[0] == column2:
             new_column2 = pair[1]
-    if new_column1 != 'Null' and new_column2 == 'Null':
+    if new_column1 != 'NULL' and new_column2 == 'NULL':
         return f'{column1} missing {column2}', column2
-    if new_column1 == 'Null' and new_column2 != 'Null':
+    if new_column1 == 'NULL' and new_column2 != 'NULL':
         return f'{column2} missing {column1}', column1
     return None, None
 
@@ -328,21 +328,21 @@ def check_update_pairs(all_records: list, column1, column2):
             old_column2s = record[2]
     if new_column1 != '' and new_column2 != '':
         # Both the columns are changing
-        if new_column1 != 'Null' and new_column2 == 'Null':
+        if new_column1 != 'NULL' and new_column2 == 'NULL':
             return f'{column1} missing {column2}', column2
-        if new_column1 == 'Null' and new_column2 != 'Null':
+        if new_column1 == 'NULL' and new_column2 != 'NULL':
             return f'{column2} missing {column1}', column1
     elif new_column1 != '':
         # Only column1 is being set, so compare with the old column2
-        if new_column1 != 'Null' and 'Null' in old_column2s:
+        if new_column1 != 'NULL' and 'NULL' in old_column2s:
             return f'{column1} missing {column2}', column2
-        if new_column1 == 'Null' and 'Null' not in old_column2s:
+        if new_column1 == 'NULL' and 'NULL' not in old_column2s:
             return f'{column2} missing {column1}', column1
     elif new_column2 != '':
         # Only column2 is being set, so compare with the old column1
-        if new_column2 != 'Null' and 'Null' in old_column1s:
+        if new_column2 != 'NULL' and 'NULL' in old_column1s:
             return f'{column2} missing {column1}', column1
-        if new_column2 == 'Null' and 'Null' not in old_column1s:
+        if new_column2 == 'NULL' and 'NULL' not in old_column1s:
             return f'{column1} missing {column2}', column2
     return None, None
 
@@ -361,7 +361,7 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
         if pair[0] == young_column:
             new_young = pair[1]
     if age_model:
-        if new_old != 'Null' and new_young != 'Null':
+        if new_old != 'NULL' and new_young != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
             if age_model.rowCount() == 0:
                 return f'{old_column} does not exist', old_column
@@ -375,7 +375,7 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
             if oldest_old < oldest_young and youngest_old < youngest_young:
                 return f'Oldest relative age is younger than youngest relative age', old_column
     else:
-        if new_old != 'Null' and new_young != 'Null':
+        if new_old != 'NULL' and new_young != 'NULL':
             if new_old < new_young:
                 return f'Oldest direct age is younger than youngest direct age', old_column
     return None, None
@@ -397,24 +397,24 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
             new_young = record[1]
             old_youngs = record[2]
     if age_model:
-        if new_old != 'Null':
+        if new_old != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
             if age_model.rowCount() == 0:
                 return f'{old_column} does not exist', old_column
             new_oldest_old = float(age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole))
             new_youngest_old = float(age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole))
-        if new_young != 'Null':
+        if new_young != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_young}')
             if age_model.rowCount() == 0:
                 return f'{young_column} does not exist', young_column
             new_oldest_young = float(age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole))
             new_youngest_young = float(age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole))
-        if new_old != 'Null' and new_young != 'Null':
+        if new_old != 'NULL' and new_young != 'NULL':
             if new_oldest_old < new_oldest_young and new_youngest_old < new_youngest_young:
                 return f'Oldest relative age is younger than youngest relative age', old_column
-        elif new_old != 'Null':
+        elif new_old != 'NULL':
             for old_young in old_youngs:
-                if old_young != 'Null':
+                if old_young != 'NULL':
                     age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {old_young}')
                     if age_model.rowCount() == 0:
                         return f'{young_column} does not exist', young_column
@@ -422,9 +422,9 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
                     youngest_young = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
                     if new_oldest_old < oldest_young and new_youngest_old < youngest_young:
                         return f'Oldest relative age is younger than youngest relative age', old_column
-        elif new_young != 'Null':
+        elif new_young != 'NULL':
             for old_old in old_olds:
-                if old_old != 'Null':
+                if old_old != 'NULL':
                     age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {old_old}')
                     if age_model.rowCount() == 0:
                         return f'{old_column} does not exist', old_column
@@ -433,17 +433,17 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
                     if oldest_old < new_oldest_young and youngest_old < new_youngest_young:
                         return f'Oldest relative age is younger than youngest relative age', old_column
     else:
-        if new_old != 'Null' and new_young != 'Null':
+        if new_old != 'NULL' and new_young != 'NULL':
             if new_old < new_young:
                 return f'Oldest direct age is younger than youngest direct age', old_column
-        elif new_old != 'Null':
+        elif new_old != 'NULL':
             for old_young in old_youngs:
-                if old_young != 'Null':
+                if old_young != 'NULL':
                     if new_old < old_young:
                         return f'Oldest direct age is younger than youngest direct age', old_column
-        elif new_young != 'Null':
+        elif new_young != 'NULL':
             for old_old in old_olds:
-                if old_old != 'Null':
+                if old_old != 'NULL':
                     if old_old < new_young:
                         return f'Oldest direct age is younger than youngest direct age', old_column
     return None, None
@@ -488,67 +488,67 @@ def check_gps_format_insert(pairs: list, format_id: int):
 
     if 'D' in gps_format_abbreviation:
         # DD, DDM, or DMS
-        if new_utmn != 'Null' or new_utme != 'Null' or new_utmzone != 'Null':
+        if new_utmn != 'NULL' or new_utme != 'NULL' or new_utmzone != 'NULL':
             return 'UTM coordinates given for degrees format. Coordinates should be entered in the format originally provided.', 'GPSUTMZone'
-        if new_latdeg != 'Null' and new_londeg == 'Null':
+        if new_latdeg != 'NULL' and new_londeg == 'NULL':
             return 'Missing degrees lon in degree format', 'GPSLonDeg'
-        if new_latdeg == 'Null' and new_londeg != 'Null':
+        if new_latdeg == 'NULL' and new_londeg != 'NULL':
             return 'Missing degrees lat in degree format', 'GPSLatDeg'
-        if new_latdeg != 'Null' and (float(new_latdeg) < -90 or float(new_latdeg) > 90):
+        if new_latdeg != 'NULL' and (float(new_latdeg) < -90 or float(new_latdeg) > 90):
             return 'Latitude must be between -90 and 90', 'GPSLatDeg'
-        if new_londeg != 'Null' and (float(new_londeg) < -180 or float(new_londeg) > 180):
+        if new_londeg != 'NULL' and (float(new_londeg) < -180 or float(new_londeg) > 180):
             return 'Longitude must be between -180 and 180', 'GPSLonDeg'
         if 'DD ' in gps_format_abbreviation:
             # DD
-            if new_latmin != 'Null' or new_latsec != 'Null':
+            if new_latmin != 'NULL' or new_latsec != 'NULL':
                 return 'Minutes and/or seconds given in DD format', 'GPSLatMin'
-            if new_lonmin != 'Null' or new_lonsec != 'Null':
+            if new_lonmin != 'NULL' or new_lonsec != 'NULL':
                 return 'Minutes and/or seconds given in DD format', 'GPSLonMin'
         elif 'DM' in gps_format_abbreviation:
             # DDM or DMS
-            if new_latmin != 'Null' and new_lonmin == 'Null':
+            if new_latmin != 'NULL' and new_lonmin == 'NULL':
                 return 'Missing minutes lon in degree format', 'GPSLonMin'
-            if new_latmin == 'Null' and new_lonmin != 'Null':
+            if new_latmin == 'NULL' and new_lonmin != 'NULL':
                 return 'Missing minutes lat in degree format', 'GPSLatMin'
-            if new_latdeg == 'Null' and new_latmin != 'Null':
+            if new_latdeg == 'NULL' and new_latmin != 'NULL':
                 return 'Minutes given without degrees in degree format', 'GPSLatDeg'
-            if new_londeg == 'Null' and new_lonmin != 'Null':
+            if new_londeg == 'NULL' and new_lonmin != 'NULL':
                 return 'Minutes given without degrees in degree format', 'GPSLonDeg'
-            if new_latmin != 'Null' and (float(new_latmin) < 0 or float(new_latmin) >= 60):
+            if new_latmin != 'NULL' and (float(new_latmin) < 0 or float(new_latmin) >= 60):
                 return 'Minutes must be between 0 and 59', 'GPSLatMin'
-            if new_lonmin != 'Null' and (float(new_lonmin) < 0 or float(new_lonmin) >= 60):
+            if new_lonmin != 'NULL' and (float(new_lonmin) < 0 or float(new_lonmin) >= 60):
                 return 'Minutes must be between 0 and 59', 'GPSLonMin'
             if 'DDM ' in gps_format_abbreviation:
-                if new_latsec != 'Null':
+                if new_latsec != 'NULL':
                     return 'Seconds given in DDM format', 'GPSLatSec'
-                if new_lonsec != 'Null':
+                if new_lonsec != 'NULL':
                     return 'Seconds given in DDM format', 'GPSLonSec'
             elif 'DMS' in gps_format_abbreviation:
-                if new_latsec != 'Null' and new_lonsec == 'Null':
+                if new_latsec != 'NULL' and new_lonsec == 'NULL':
                     return 'Missing seconds lon in DMS format', 'GPSLonSec'
-                if new_latsec == 'Null' and new_lonsec != 'Null':
+                if new_latsec == 'NULL' and new_lonsec != 'NULL':
                     return 'Missing seconds lat in DMS format', 'GPSLatSec'
-                if new_latmin == 'Null' and new_latsec != 'Null':
+                if new_latmin == 'NULL' and new_latsec != 'NULL':
                     return 'Seconds given without minutes in DMS format', 'GPSLatMin'
-                if new_lonmin == 'Null' and new_lonsec != 'Null':
+                if new_lonmin == 'NULL' and new_lonsec != 'NULL':
                     return 'Seconds given without minutes in DMS format', 'GPSLonMin'
-                if new_latsec != 'Null' and (float(new_latsec) < 0 or float(new_latsec) >= 60):
+                if new_latsec != 'NULL' and (float(new_latsec) < 0 or float(new_latsec) >= 60):
                     return 'Seconds must be between 0 and 59', 'GPSLatSec'
-                if new_lonsec != 'Null' and (float(new_lonsec) < 0 or float(new_lonsec) >= 60):
+                if new_lonsec != 'NULL' and (float(new_lonsec) < 0 or float(new_lonsec) >= 60):
                     return 'Seconds must be between 0 and 59', 'GPSLonSec'
         if '+/-' in gps_format_abbreviation:
-            if new_latdir != 'Null':
+            if new_latdir != 'NULL':
                 return 'Use signs instead of directions in +/- format', 'GPSLatDirectionID'
-            if new_londir != 'Null':
+            if new_londir != 'NULL':
                 return 'Use signs instead of directions in +/- format', 'GPSLonDirectionID'
         elif 'NSEW' in gps_format_abbreviation:
-            if new_latdir == 'Null' and new_londir != 'Null':
+            if new_latdir == 'NULL' and new_londir != 'NULL':
                 return 'Only one direction given in NSEW format', 'GPSLatDirectionID'
-            if new_latdir != 'Null' and new_londir == 'Null':
+            if new_latdir != 'NULL' and new_londir == 'NULL':
                 return 'Only one direction given in NSEW format', 'GPSLonDirectionID'
-            if new_latdir == 'Null' and new_latdeg != 'Null':
+            if new_latdir == 'NULL' and new_latdeg != 'NULL':
                 return 'Missing direction in NSEW format', 'GPSLatDirectionID'
-            if new_londir == 'Null' and new_londeg != 'Null':
+            if new_londir == 'NULL' and new_londeg != 'NULL':
                 return 'Missing direction in NSEW format', 'GPSLonDirectionID'
             if '-' in new_latdeg:
                 return 'Use only positive coordinates in NSEW format', 'GPSLatDeg'
@@ -559,23 +559,23 @@ def check_gps_format_insert(pairs: list, format_id: int):
             if new_londir in ('1','2'):
                 return 'Longitude direction must be E or W', 'GPSLonDirectionID'
     if 'UTM' in gps_format_abbreviation:
-        if new_latdeg != 'Null' or new_latmin != 'Null' or new_latsec != 'Null' or new_latdir != 'Null':
+        if new_latdeg != 'NULL' or new_latmin != 'NULL' or new_latsec != 'NULL' or new_latdir != 'NULL':
             return 'Degree coordinates given for UTM format. Coordinates should be entered in the format originally provided.', 'GPSLatDeg'
-        if new_londeg != 'Null' or new_lonmin != 'Null' or new_lonsec != 'Null' or new_londir != 'Null':
+        if new_londeg != 'NULL' or new_lonmin != 'NULL' or new_lonsec != 'NULL' or new_londir != 'NULL':
             return 'Degree coordinates given for UTM format. Coordinates should be entered in the format originally provided.', 'GPSLonDeg'
-        if new_utmn != 'Null' and new_utme == 'Null':
+        if new_utmn != 'NULL' and new_utme == 'NULL':
             return 'Missing easting in UTM format', 'GPSUTME'
-        if new_utme != 'Null' and new_utmn == 'Null':
+        if new_utme != 'NULL' and new_utmn == 'NULL':
             return 'Missing northing in UTM format', 'GPSUTMN'
-        if (new_utmn != 'Null' and new_utmzone == 'Null') or (new_utme != 'Null' and new_utmzone == 'Null'):
+        if (new_utmn != 'NULL' and new_utmzone == 'NULL') or (new_utme != 'NULL' and new_utmzone == 'NULL'):
             return 'Missing UTM zone in UTM format', 'GPSUTMZone'
-        if new_utmzone != 'Null' and new_utme == 'Null':
+        if new_utmzone != 'NULL' and new_utme == 'NULL':
             return 'Missing easting in UTM format', 'GPSUTME'
-        if new_utmzone != 'Null' and (new_utme == 'Null' or new_utmn == 'Null'):
+        if new_utmzone != 'NULL' and (new_utme == 'NULL' or new_utmn == 'NULL'):
             return 'UTM zone given without coordinates in UTM format', 'GPSUTMZone'
-    if new_elev != 'Null' and new_elev_unit == 'Null':
+    if new_elev != 'NULL' and new_elev_unit == 'NULL':
         return 'Elevation missing units', 'GPSElevUnitID'
-    if new_elev_error != 'Null' and new_elev == 'Null':
+    if new_elev_error != 'NULL' and new_elev == 'NULL':
         return 'Elevation error given without elevation', 'GPSElev'
     return None, None
 
@@ -589,117 +589,117 @@ def check_gps_format_update(all_records: list, new_format_id: int):
         if record[0] == 'GPSLatDeg':
             new_latdeg = record[1]
             old_latdegs = record[2]
-        if record[0] == 'GPSLatMin':
+        elif record[0] == 'GPSLatMin':
             new_latmin = record[1]
             old_latmins = record[2]
-        if record[0] == 'GPSLatSec':
+        elif record[0] == 'GPSLatSec':
             new_latsec = record[1]
             old_latsecs = record[2]
-        if record[0] == 'GPSLatDirectionID':
+        elif record[0] == 'GPSLatDirectionID':
             new_latdir = record[1]
             old_latdirs = record[2]
-        if record[0] == 'GPSLonDeg':
+        elif record[0] == 'GPSLonDeg':
             new_londeg = record[1]
             old_londegs = record[2]
-        if record[0] == 'GPSLonMin':
+        elif record[0] == 'GPSLonMin':
             new_lonmin = record[1]
             old_lonmins = record[2]
-        if record[0] == 'GPSLonSec':
+        elif record[0] == 'GPSLonSec':
             new_lonsec = record[1]
             old_lonsecs = record[2]
-        if record[0] == 'GPSLonDirectionID':
+        elif record[0] == 'GPSLonDirectionID':
             new_londir = record[1]
             old_londirs = record[2]
-        if record[0] == 'GPSUTMZone':
+        elif record[0] == 'GPSUTMZone':
             new_utmzone = record[1]
             old_utmzones = record[2]
-        if record[0] == 'GPSUTMN':
+        elif record[0] == 'GPSUTMN':
             new_utmn = record[1]
             old_utmns = record[2]
-        if record[0] == 'GPSUTME':
+        elif record[0] == 'GPSUTME':
             new_utme = record[1]
             old_utmes = record[2]
-        if record[0] == 'GPSElev':
+        elif record[0] == 'GPSElev':
             new_elev = record[1]
             old_elevs = record[2]
-        if record[0] == 'GPSElevError':
+        elif record[0] == 'GPSElevError':
             new_elev_error = record[1]
             old_elev_errors = record[2]
-        if record[0] == 'GPSElevUnitID':
+        elif record[0] == 'GPSElevUnitID':
             new_elev_unit = record[1]
             old_elev_units = record[2]
 
     if 'D' in gps_format_abbreviation:
         # DD, DDM, or DMS
-        if (new_utmn != 'Null' or (new_utmn == '' and 'Null' not in old_utmns)) or (new_utme != 'Null' or (new_utme == '' and 'Null' not in old_utmes) or (new_utmzone != 'Null' or (new_utmzone == '' and 'Null' not in old_utmzones))):
+        if (new_utmn != 'NULL' or (new_utmn == '' and 'NULL' not in old_utmns)) or (new_utme != 'NULL' or (new_utme == '' and 'NULL' not in old_utmes) or (new_utmzone != 'NULL' or (new_utmzone == '' and 'NULL' not in old_utmzones))):
             return 'UTM coordinates given for degrees format. Coordinates should be entered in the format originally provided.', 'GPSUTMZone'
-        if (new_latdeg != 'Null' and new_londeg == 'Null'):
+        if (new_latdeg != 'NULL' and new_londeg == 'NULL'):
             return 'Missing degrees lon in degree format', 'GPSLonDeg'
-        if (new_latdeg == 'Null' and new_londeg != 'Null'):
+        if (new_latdeg == 'NULL' and new_londeg != 'NULL'):
             return 'Missing degrees lat in degree format', 'GPSLatDeg'
-        if (new_latdeg == '' and 'Null' not in old_latdegs):
+        if (new_latdeg == '' and 'NULL' not in old_latdegs):
             return 'Missing degrees lat in degree format', 'GPSLatDeg'
-        if (new_londeg == '' and 'Null' not in old_londegs):
+        if (new_londeg == '' and 'NULL' not in old_londegs):
             return 'Missing degrees lon in degree format', 'GPSLonDeg'
         if 'DD ' in gps_format_abbreviation:
             # DD
-            if new_latmin != 'Null' or new_latsec != 'Null' or (new_latmin == '' and 'Null' not in old_latmins) or (new_latsec == '' and 'Null' not in old_latsecs):
+            if new_latmin != 'NULL' or new_latsec != 'NULL' or (new_latmin == '' and 'NULL' not in old_latmins) or (new_latsec == '' and 'NULL' not in old_latsecs):
                 return 'Minutes and/or seconds given in DD format', 'GPSLatMin'
-            if new_lonmin != 'Null' or new_lonsec != 'Null' or (new_lonmin == '' and 'Null' not in old_lonmins) or (new_lonsec == '' and 'Null' not in old_lonsecs):
+            if new_lonmin != 'NULL' or new_lonsec != 'NULL' or (new_lonmin == '' and 'NULL' not in old_lonmins) or (new_lonsec == '' and 'NULL' not in old_lonsecs):
                 return 'Minutes and/or seconds given in DD format', 'GPSLonMin'
         elif 'DM' in gps_format_abbreviation:
             # DDM or DMS
-            if (new_latmin != 'Null' and new_lonmin == 'Null') or (new_lonmin == '' and 'Null' not in old_lonmins):
+            if (new_latmin != 'NULL' and new_lonmin == 'NULL') or (new_lonmin == '' and 'NULL' not in old_lonmins):
                 return 'Missing minutes lon in degree format', 'GPSLonMin'
-            if (new_latmin == 'Null' and new_lonmin != 'Null') or (new_latmin == '' and 'Null' not in old_latmins):
+            if (new_latmin == 'NULL' and new_lonmin != 'NULL') or (new_latmin == '' and 'NULL' not in old_latmins):
                 return 'Missing minutes lat in degrees format', 'GPSLatMin'
-            if (new_latdeg == 'Null' and new_latmin != 'Null') or (new_latdeg == '' and 'Null' not in old_latdegs):
+            if (new_latdeg == 'NULL' and new_latmin != 'NULL') or (new_latdeg == '' and 'NULL' not in old_latdegs):
                 return 'Minutes given without degrees in degree format', 'GPSLatDeg'
-            if (new_londeg == 'Null' and new_lonmin != 'Null') or (new_londeg == '' and 'Null' not in old_londegs):
+            if (new_londeg == 'NULL' and new_lonmin != 'NULL') or (new_londeg == '' and 'NULL' not in old_londegs):
                 return 'Minutes given without degrees in degree format', 'GPSLonDeg'
         elif 'DDM ' in gps_format_abbreviation:
-            if new_latsec != 'Null' or (new_latsec == '' and 'Null' not in old_latsecs):
+            if new_latsec != 'NULL' or (new_latsec == '' and 'NULL' not in old_latsecs):
                 return 'Seconds given in DDM format', 'GPSLatSec'
-            if new_lonsec != 'Null' or (new_lonsec == '' and 'Null' not in old_lonsecs):
+            if new_lonsec != 'NULL' or (new_lonsec == '' and 'NULL' not in old_lonsecs):
                 return 'Seconds given in DDM format', 'GPSLonSec'
         elif 'DMS' in gps_format_abbreviation:
-            if (new_latsec == '' and 'Null' not in old_latsecs) or (new_latsec == 'Null' and new_lonsec != 'Null'):
+            if (new_latsec == '' and 'NULL' not in old_latsecs) or (new_latsec == 'NULL' and new_lonsec != 'NULL'):
                 return 'Missing seconds lat in DMS format', 'GPSLatSec'
-            if (new_latsec != 'Null' and new_lonsec == 'Null') or (new_lonsec == '' and 'Null' not in old_lonsecs):
+            if (new_latsec != 'NULL' and new_lonsec == 'NULL') or (new_lonsec == '' and 'NULL' not in old_lonsecs):
                 return 'Missing seconds lon in DMS format', 'GPSLonSec'
-            if (new_latmin == 'Null' and new_latsec != 'Null') or (new_latmin == '' and 'Null' not in old_latmins):
+            if (new_latmin == 'NULL' and new_latsec != 'NULL') or (new_latmin == '' and 'NULL' not in old_latmins):
                 return 'Seconds given without minutes in DMS format', 'GPSLatMin'
-            if (new_lonmin == 'Null' and new_lonsec != 'Null') or (new_lonmin == '' and 'Null' not in old_lonmins):
+            if (new_lonmin == 'NULL' and new_lonsec != 'NULL') or (new_lonmin == '' and 'NULL' not in old_lonmins):
                 return 'Seconds given without minutes in DMS format', 'GPSLonMin'
         if '+/-' in gps_format_abbreviation:
-            if new_latdir != 'Null' or (new_latdir == '' and 'Null' not in old_latdirs):
+            if new_latdir != 'NULL' or (new_latdir == '' and 'NULL' not in old_latdirs):
                 return 'Use signs instead of directions in +/- format', 'GPSLatDirectionID'
-            if new_londir != 'Null' or (new_londir == '' and 'Null' not in old_londirs):
+            if new_londir != 'NULL' or (new_londir == '' and 'NULL' not in old_londirs):
                 return 'Use signs instead of directions in +/- format', 'GPSLonDirectionID'
         elif 'NSEW' in gps_format_abbreviation:
-            if new_latdir == 'Null' and new_londir != 'Null':
+            if new_latdir == 'NULL' and new_londir != 'NULL':
                 return 'Only one direction given in NSEW format', 'GPSLatDirectionID'
-            if new_latdir != 'Null' and new_londir == 'Null':
+            if new_latdir != 'NULL' and new_londir == 'NULL':
                 return 'Only one direction given in NSEW format', 'GPSLonDirectionID'
-            if (new_latdir == '' and 'Null' not in old_latdirs) and (new_londir != '' and 'Null' in old_londirs):
+            if (new_latdir == '' and 'NULL' not in old_latdirs) and (new_londir != '' and 'NULL' in old_londirs):
                 return 'Only one direction given in NSEW format', 'GPSLatDirectionID'
-            if (new_londir == '' and 'Null' not in old_londirs) and (new_latdir != '' and 'Null' in old_latdirs):
+            if (new_londir == '' and 'NULL' not in old_londirs) and (new_latdir != '' and 'NULL' in old_latdirs):
                 return 'Only one direction given in NSEW format', 'GPSLonDirectionID'
-            if ((new_latdir == 'Null' and new_latdeg != 'Null') or
-                    (new_latdir == 'Null' and new_latdeg =='' and 'Null' not in old_latdegs) or
-                    (new_latdir == '' and 'Null' in old_latdirs and new_latdeg != 'Null')):
+            if ((new_latdir == 'NULL' and new_latdeg != 'NULL') or
+                    (new_latdir == 'NULL' and new_latdeg =='' and 'NULL' not in old_latdegs) or
+                    (new_latdir == '' and 'NULL' in old_latdirs and new_latdeg != 'NULL')):
                 return 'Missing direction in NSEW format', 'GPSLatDirectionID'
-            if ((new_londir == 'Null' and new_londeg != 'Null') or
-                    (new_londir == 'Null' and new_londeg == '' and 'Null' not in old_londegs) or
-                    (new_londir == '' and 'Null' in old_londirs and new_londeg != 'Null')):
+            if ((new_londir == 'NULL' and new_londeg != 'NULL') or
+                    (new_londir == 'NULL' and new_londeg == '' and 'NULL' not in old_londegs) or
+                    (new_londir == '' and 'NULL' in old_londirs and new_londeg != 'NULL')):
                 return 'Missing direction in NSEW format', 'GPSLonDirectionID'
-            if ((new_latdir != 'Null' and new_latdeg == 'Null') or
-                    (new_latdir != 'Null' and new_latdeg == '' and 'Null' in old_latdegs) or
-                    (new_latdir == '' and 'Null' not in old_latdirs and new_latdeg == 'Null')):
+            if ((new_latdir != 'NULL' and new_latdeg == 'NULL') or
+                    (new_latdir != 'NULL' and new_latdeg == '' and 'NULL' in old_latdegs) or
+                    (new_latdir == '' and 'NULL' not in old_latdirs and new_latdeg == 'NULL')):
                 return 'Direction given without coordinates in NSEW format', 'GPSLatDirectionID'
-            if ((new_londir != 'Null' and new_londeg == 'Null') or
-                    (new_londir != 'Null' and new_londeg == '' and 'Null' in old_londegs) or
-                    (new_londir == '' and 'Null' not in old_londirs and new_londeg == 'Null')):
+            if ((new_londir != 'NULL' and new_londeg == 'NULL') or
+                    (new_londir != 'NULL' and new_londeg == '' and 'NULL' in old_londegs) or
+                    (new_londir == '' and 'NULL' not in old_londirs and new_londeg == 'NULL')):
                 return 'Direction given without coordinates in NSEW format', 'GPSLonDirectionID'
             if '-' in new_latdeg or (new_latdeg == '' and '-' in old_latdegs):
                 return 'Use only positive coordinates in NSEW format', 'GPSLatDeg'
@@ -710,35 +710,35 @@ def check_gps_format_update(all_records: list, new_format_id: int):
             if new_londir in ('1','2'):
                 return 'Longitude direction must be E or W', 'GPSLonDirectionID'
     if 'UTM' in gps_format_abbreviation:
-        if ((new_latdeg != 'Null' or (new_latdeg == '' and 'Null' not in old_latdegs)) or
-                (new_latmin != 'Null' or (new_latmin == '' and 'Null' not in old_latmins)) or
-                (new_latsec != 'Null' or (new_latsec == '' and 'Null' not in old_latsecs)) or
-                (new_latdir != 'Null' or (new_latdir == '' and 'Null' not in old_latdirs))):
+        if ((new_latdeg != 'NULL' or (new_latdeg == '' and 'NULL' not in old_latdegs)) or
+                (new_latmin != 'NULL' or (new_latmin == '' and 'NULL' not in old_latmins)) or
+                (new_latsec != 'NULL' or (new_latsec == '' and 'NULL' not in old_latsecs)) or
+                (new_latdir != 'NULL' or (new_latdir == '' and 'NULL' not in old_latdirs))):
             return 'Degrees coordinates given for UTM format. Coordinates should be entered in the format originally provided.', 'GPSLatDeg'
-        if ((new_londeg == '' and 'Null' not in old_londegs) or
-                (new_lonmin != 'Null' or (new_lonmin == '' and 'Null' not in old_lonmins)) or
-                (new_lonsec != 'Null' or (new_lonsec == '' and 'Null' not in old_lonsecs)) or
-                (new_londir != 'Null' or (new_londir == '' and 'Null' not in old_londirs))):
+        if ((new_londeg == '' and 'NULL' not in old_londegs) or
+                (new_lonmin != 'NULL' or (new_lonmin == '' and 'NULL' not in old_lonmins)) or
+                (new_lonsec != 'NULL' or (new_lonsec == '' and 'NULL' not in old_lonsecs)) or
+                (new_londir != 'NULL' or (new_londir == '' and 'NULL' not in old_londirs))):
             return 'Degrees coordinates given for UTM format. Coordinates should be entered in the format originally provided.', 'GPSLonDeg'
-        if ((new_utmn != 'Null' and new_utme == 'Null') or
-                (new_utmn != 'Null' and new_utme == '' and 'Null' in old_utmes) or
-                (new_utmn == '' and 'Null' not in old_utmns and new_utme == 'Null')):
+        if ((new_utmn != 'NULL' and new_utme == 'NULL') or
+                (new_utmn != 'NULL' and new_utme == '' and 'NULL' in old_utmes) or
+                (new_utmn == '' and 'NULL' not in old_utmns and new_utme == 'NULL')):
             return 'Missing easting in UTM format', 'GPSUTME'
-        if ((new_utme != 'Null' and new_utmn == 'Null') or
-                (new_utme != 'Null' and new_utmn == '' and 'Null' in old_utmns) or
-                (new_utme == '' and 'Null' not in old_utmes and new_utmn == 'Null')):
+        if ((new_utme != 'NULL' and new_utmn == 'NULL') or
+                (new_utme != 'NULL' and new_utmn == '' and 'NULL' in old_utmns) or
+                (new_utme == '' and 'NULL' not in old_utmes and new_utmn == 'NULL')):
             return 'Missing northing in UTM format', 'GPSUTMN'
-        if ((new_utmn != 'Null' and new_utmzone == 'Null') or
-                (new_utme != 'Null' and new_utmzone == '' and 'Null' in old_utmzones) or
-                (new_utme == '' and 'Null' not in old_utmes and new_utmzone == 'Null')):
+        if ((new_utmn != 'NULL' and new_utmzone == 'NULL') or
+                (new_utme != 'NULL' and new_utmzone == '' and 'NULL' in old_utmzones) or
+                (new_utme == '' and 'NULL' not in old_utmes and new_utmzone == 'NULL')):
             return 'Missing UTM zone in UTM format', 'GPSUTMZone'
-        if ((new_utmzone != 'Null' and new_utme == 'Null') or
-                (new_utmzone != 'Null' and new_utme == '' and 'Null' in old_utmes) or
-                (new_utmzone == '' and 'Null' not in old_utmzones and new_utme == 'Null')):
+        if ((new_utmzone != 'NULL' and new_utme == 'NULL') or
+                (new_utmzone != 'NULL' and new_utme == '' and 'NULL' in old_utmes) or
+                (new_utmzone == '' and 'NULL' not in old_utmzones and new_utme == 'NULL')):
             return 'UTM zone given without coordinates in UTM format', 'GPSUTMZone'
-    if (new_elev != 'Null' and new_elev_unit == 'Null') or (new_elev != 'Null' and new_elev_unit == '' and 'Null' in old_elev_units) or (new_elev == '' and 'Null' not in old_elevs and new_elev_unit == 'Null'):
+    if (new_elev != 'NULL' and new_elev_unit == 'NULL') or (new_elev != 'NULL' and new_elev_unit == '' and 'NULL' in old_elev_units) or (new_elev == '' and 'NULL' not in old_elevs and new_elev_unit == 'NULL'):
         return 'Elevation missing units', 'GPSElevUnitID'
-    if (new_elev == 'Null' and new_elev_error != 'Null') or (new_elev == 'Null' and new_elev_error == '' and 'Null' not in old_elev_errors) or (new_elev == '' and 'Null' in old_elevs and new_elev_error != 'Null'):
+    if (new_elev == 'NULL' and new_elev_error != 'NULL') or (new_elev == 'NULL' and new_elev_error == '' and 'NULL' not in old_elev_errors) or (new_elev == '' and 'NULL' in old_elevs and new_elev_error != 'NULL'):
         return 'Elevation error missing elevation', 'GPSElev'
     return None, None
 
