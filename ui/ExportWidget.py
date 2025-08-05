@@ -900,16 +900,19 @@ class ExportWidget(QWidget):
         self.filters_label.setText("Select Additional Filters (optional):")
         self.filters_label.setToolTip(
             "Additional filters to filter the samples, multiple filters are combined with OR.")
+        self.samples_model.clear_checks()
+        self.filter_model.clear_checks()
+        self.groupedfilter_model.clear_checks()
 
         if self.selectionscope_comboBox.currentText() == 'Filter Groups':
             self.step_2_label.hide()
             self.samplesincluded_comboBox.hide()
             self.samplesincluded_comboBox: CheckableComboBox
-            self.samples_model.clear_checks()
             self.checked_sample_list = []
 
             self.filters_label.setText("Select Filters:")
             self.filters_label.setToolTip("")
+
             self.update_table_view()
         logger_setup.get_logger().info(f'Update Step 2 list took {time.time() - start_update_step_2_time:.2f} seconds')
 
@@ -1387,7 +1390,17 @@ class ExportWidget(QWidget):
 
         self.groupedfilter_model = CheckableSqlTableModel()
         self.groupedfilter_proxy = ReadableProxyModel()
+
+        self.save_checkbox_states()
         self.showEvent(None)
+
+        # Recheck items
+        self.samples_model.check_ids_from_list(self.checked_sample_list, QtCore.Qt.CheckState.Checked)
+        self.filter_model.check_ids_from_list(self.checked_filter_list, QtCore.Qt.CheckState.Checked)
+        self.groupedfilter_model.check_ids_from_list(self.checked_grouped_filter_list, QtCore.Qt.CheckState.Checked)
+
+        self.load_checkbox_states()
+        self.update_table_view()
 
     def showEvent(self, a0):
         """Overridden showEvent to repopulate the table models when the widget is shown. This occurs mainly when
