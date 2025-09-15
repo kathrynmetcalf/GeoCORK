@@ -1,3 +1,5 @@
+import os
+import sys
 import xml.etree.ElementTree as ET  # xml reader
 
 from PyQt6 import QtSql as QtS
@@ -2193,7 +2195,10 @@ def populate_ages(database=None) -> bool:
         query = QtS.QSqlQuery()
     else:
         query = QtS.QSqlQuery(database)
-    xml_file = "./Reference/GeologicTime_Ages.xml"
+
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    xml_file = os.path.join(base_path, "GeologicTime_Ages.xml")
+
     tree = ET.parse(xml_file)
     root = tree.getroot()
     eon_row = 0
