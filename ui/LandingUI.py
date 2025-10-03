@@ -318,6 +318,10 @@ class LandingPage(QWidget):
         webbrowser.open('https://github.com/kathrynmetcalf/GeoCORK')
 
     def showFileDialog(self):
+        if self.listWidget.currentItem() is not None:
+            self.clicked_file()
+            return
+
         self.db = None
 
         file_dialog = QFileDialog(self, 'Open Database File', str(Path.home()), 'Database Files(*.db)')
