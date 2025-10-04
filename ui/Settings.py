@@ -446,11 +446,16 @@ class SettingsDialog(QtW.QDialog):
             self.cutoff_age_lineEdit.setText(str(settings.value('best_age_cutoff')))
             upb_headers = get_headers('UPbAnalyses')
             for header in upb_headers:
-                if 'Age' in header and 'Calculated' not in header and 'Filled' not in header:
+                if ('Age' in header and
+                        'Calculated' not in header and
+                        'Filled' not in header and
+                        'Error' not in header and
+                        'ID' not in header and
+                        'BestAge' not in header):
                     self.young_age_fill_comboBox.addItem(header.replace('"', ''))
                     self.old_age_fill_comboBox.addItem(header.replace('"', ''))
-            self.young_age_fill_comboBox.setCurrentText(settings.value('young_fill_best_age'))
-            self.old_age_fill_comboBox.setCurrentText(settings.value('old_fill_best_age'))
+            self.young_age_fill_comboBox.setCurrentText(settings.value('young_fill_best_age').replace('"', ''))
+            self.old_age_fill_comboBox.setCurrentText(settings.value('old_fill_best_age').replace('"', ''))
         else:
             self.autofill_best_checkBox.setChecked(False)
             self.young_age_fill_comboBox.clear()

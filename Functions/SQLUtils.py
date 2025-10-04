@@ -1378,7 +1378,7 @@ upb_possible_user_input_fields = {
         'ErrorCorr/Rho'
 
     ],
-    'Age Ratios': [
+    'Ages': [
         '207Pb/206PbAge', '207Pb/206PbAgeError',
         '207Pb/235UAge', '207Pb/235UAgeError',
         '206Pb/238UAge', '206Pb/238UAgeError',
