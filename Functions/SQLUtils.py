@@ -530,7 +530,7 @@ many_editable = {
     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
     'Spots': {'SpotContextName': 'SpotContexts'},
     'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
-    'References': {}
+    'References': {'ReferenceDisplay'}
 }
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
 one_editable = {
