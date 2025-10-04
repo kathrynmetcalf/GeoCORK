@@ -5,7 +5,7 @@ import sys
 import time
 
 import qtawesome
-from PyQt6 import QtCore
+from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import Qt, QAbstractTableModel
 from PyQt6.QtGui import QDesktopServices, QShowEvent
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
@@ -1434,13 +1434,18 @@ class ExportWidget(QWidget):
         sample_name_query = f'SELECT SampleID, SampleName FROM Samples ORDER BY SampleName LIMIT 1000'
         self.samples_model.setQuery(sample_name_query)
         self.samples_proxy.setSourceModel(self.samples_model)
+
+        self.samplesincluded_comboBox: CheckableComboBox
+        self.samplesincluded_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
         self.samplesincluded_comboBox.setModel(self.samples_proxy)
+
         self.samples_model.check_ids_from_list(self.checked_sample_list)
 
         # self.samples_model.dataChanged.connect(self.update_table_view)
 
         self.filter_model = self.set_table(self.filter_model, 'FilterGroups')
         self.filter_proxy.setSourceModel(self.filter_model)
+        self.filterselection_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
         self.filterselection_comboBox.setModel(self.filter_proxy)
         self.filter_model.check_ids_from_list(self.checked_filter_list)
 
@@ -1448,6 +1453,7 @@ class ExportWidget(QWidget):
 
         self.groupedfilter_model = self.set_table(self.groupedfilter_model, 'FilterGroups')
         self.groupedfilter_proxy.setSourceModel(self.groupedfilter_model)
+        self.groupedfilter_comboBox.enable_context_menu(show_context_menu=True, only_select_deselect=True)
         self.groupedfilter_comboBox.setModel(self.groupedfilter_proxy)
         self.groupedfilter_model.check_ids_from_list(self.checked_grouped_filter_list)
 

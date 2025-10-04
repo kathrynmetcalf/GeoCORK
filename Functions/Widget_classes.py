@@ -4487,6 +4487,10 @@ class CheckableComboBox(QtW.QComboBox):
         self.table = ''
         self.popup_shown = False
 
+
+        self.only_select_deselect = False
+        """Used to only show select and deselect all for Sample, Aliquot, Spot, UPbAnalyses table. Used mainly for the exporter widget"""
+
         self.view().setFocusProxy(self.lineEdit())
         self.view().setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.lineEdit().setFocusPolicy(Qt.FocusPolicy.StrongFocus)
@@ -4639,7 +4643,7 @@ class CheckableComboBox(QtW.QComboBox):
         self.lineEdit().setText(text)
         self.showPopup()
 
-    def enable_context_menu(self, show_context_menu: bool):
+    def enable_context_menu(self, show_context_menu: bool, only_select_deselect=False):
         """
         Enable or disable the context menu for the combo box. If show_context_menu is True and the model is modifiable,
         it sets the context menu policy to CustomContextMenu and connects the customContextMenuRequested signal to
@@ -4648,6 +4652,7 @@ class CheckableComboBox(QtW.QComboBox):
         :return:
         """
         self.context_menu = show_context_menu
+        self.only_select_deselect = only_select_deselect
         if self.context_menu and self.model_modifiable:
             self.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
             # self.customContextMenuRequested.connect(self.contextMenuEvent)
@@ -4668,12 +4673,19 @@ class CheckableComboBox(QtW.QComboBox):
             table = 'References'
         else:
             table = self.table
-        if self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses') and self.model().rowCount() !=0:
-            edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
-            add_action = None
-            clear_all_action = menu.addAction("Clear All Checks")
-            select_all_action = menu.addAction("Check All")
-            delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
+        if self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'FilterGroups') and self.model().rowCount() !=0:
+            if self.only_select_deselect:
+                edit_action = None
+                add_action = None
+                clear_all_action = menu.addAction("Clear All Checks")
+                select_all_action = menu.addAction("Check All")
+                delete_action = None
+            else:
+                edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
+                add_action = None
+                clear_all_action = menu.addAction("Clear All Checks")
+                select_all_action = menu.addAction("Check All")
+                delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
         elif self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses'):
             edit_action = None
             add_action = None
