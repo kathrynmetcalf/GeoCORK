@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QCheckBox,
-    QProgressDialog, QListWidget, QListView, QDialogButtonBox
+    QProgressDialog, QListWidget, QListView, QDialogButtonBox, QTabWidget
 )
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
@@ -63,26 +63,52 @@ class ColumnMapDialog(QDialog):
         self._is_updating = False
 
         form_layout = QFormLayout()
+        tab_widget = QTabWidget()
+        form_layout.addRow(tab_widget)
 
-        # Create a combo box for each dictionary entry
-        for field_label, possible_values in SQLUtils.upb_possible_user_input_fields.items():
-            # combo = QComboBox()
-            combo = SearchableComboBox()
-            # We'll prepend a 'None' option. You could also use an empty string, etc.
-            combo.addItem("None")
-            combo.addItems(possible_values)
-            # Now keep the user from adding items from the completer
-            combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        # Add a new tab for each category of fields
+        field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
+                              SQLUtils.gps_possible_user_input_fields,
+                              SQLUtils.column_possible_user_input_fields,
+                              SQLUtils.aliquot_grain_spot_possible_user_input_fields,
+                              SQLUtils.reference_possible_user_input_fields,
+                              SQLUtils.upb_possible_user_input_fields]
 
-            # Connect signal so that if this combo changes,
-            # we reset all others back to 'None'.
-            combo.selection_changed.connect(self.on_combo_changed)
+        tab_names = ["Sample Info", "GPS Info", "Column Info", "Aliquot/Grain/Spot Info", "Reference", "U-Pb Data"]
+        for tab_name, field_dict in zip(tab_names, field_dictionaries):
+            tab = QWidget()
+            tab_layout = QFormLayout()
+            tab.setLayout(tab_layout)
+            tab_widget.addTab(tab, tab_name)
 
-            # if current_field is not None and current_field in possible_values:
-            #     combo.setCurrentText(current_field)
+            for field_label, possible_values in field_dict.items():
+                combo = SearchableComboBox()
+                combo.addItem("None")
+                combo.addItems(possible_values)
+                combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+                combo.selection_changed.connect(self.on_combo_changed)
+                tab_layout.addRow(field_label + ":", combo)
+                self.combos.append(combo)
 
-            form_layout.addRow(field_label + ":", combo)
-            self.combos.append(combo)
+        # # Create a combo box for each dictionary entry
+        # for field_label, possible_values in SQLUtils.upb_possible_user_input_fields.items():
+        #     # combo = QComboBox()
+        #     combo = SearchableComboBox()
+        #     # We'll prepend a 'None' option. You could also use an empty string, etc.
+        #     combo.addItem("None")
+        #     combo.addItems(possible_values)
+        #     # Now keep the user from adding items from the completer
+        #     combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        #
+        #     # Connect signal so that if this combo changes,
+        #     # we reset all others back to 'None'.
+        #     combo.selection_changed.connect(self.on_combo_changed)
+        #
+        #     # if current_field is not None and current_field in possible_values:
+        #     #     combo.setCurrentText(current_field)
+        #
+        #     form_layout.addRow(field_label + ":", combo)
+        #     self.combos.append(combo)
 
         if current_field is not None and current_field != "None":
             self.on_combo_changed()
@@ -306,6 +332,7 @@ class ImportWizardDialog(QWidget):
         self.label_file = QLabel("No file selected.")
         top_layout.addWidget(self.label_file)
 
+        # todo: Adjust to a tab widget like the exporter to be able to map multiple sheets
         self.sheet_instructions = QLabel("Select sheet with U-Pb data:")
         self.sheet_instructions.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         top_layout.addWidget(self.sheet_instructions)
@@ -320,6 +347,7 @@ class ImportWizardDialog(QWidget):
         combo_box_layout = QHBoxLayout()
         combo_box_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
+        # todo: remove delimiter functionality if not needed
         # Delimiter label + line edit
         delimiter_label = QLabel("Delimiter:")
         delimiter_label.setFixedWidth(50)
@@ -327,11 +355,6 @@ class ImportWizardDialog(QWidget):
         self.delimiter_edit.setPlaceholderText("e.g., -, etc.")
         self.delimiter_edit.setFixedSize(QSize(100, 25))
         self.delimiter_edit.textChanged.connect(self.update_left_table_on_delimiter_change)  # Connect signal
-
-        combo_box_layout.addWidget(delimiter_label)
-        combo_box_layout.addWidget(self.delimiter_edit)
-
-        combo_box_layout.addStretch(1)
 
         combo_box_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables.   "), 1,
                                    Qt.AlignmentFlag.AlignLeft)
@@ -369,63 +392,96 @@ class ImportWizardDialog(QWidget):
 
         main_layout.addLayout(combo_box_layout)
 
-        formats_layout = QHBoxLayout()
-        formats_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
+        formats_layout1 = QHBoxLayout()
+        formats_layout2 = QHBoxLayout()
+        formats_layout1.setAlignment(Qt.AlignmentFlag.AlignRight)
+        formats_layout2.setAlignment(Qt.AlignmentFlag.AlignRight)
+
+        formats_layout1.addWidget(delimiter_label)
+        formats_layout1.addWidget(self.delimiter_edit)
+
+        formats_layout1.addStretch(1)
 
         self.delimiter_checkbox = QCheckBox('Enable Delimiter?')
         self.delimiter_checkbox.checkStateChanged.connect(self.update_left_table_on_delimiter_change)
-        formats_layout.addWidget(self.delimiter_checkbox, Qt.AlignmentFlag.AlignLeft)
+        formats_layout2.addWidget(self.delimiter_checkbox, Qt.AlignmentFlag.AlignLeft)
 
-        formats_layout.addStretch(4)
+        formats_layout1.addStretch(4)
+        formats_layout2.addStretch(4)
 
         self.btn_add_column = QPushButton("Add Column")
         self.btn_add_column.setFixedWidth(150)
         self.btn_add_column.clicked.connect(lambda: self.add_column(None, False))
-        formats_layout.addWidget(self.btn_add_column)
+        formats_layout1.addWidget(self.btn_add_column)
 
         self.get_valid_unit_formats()
 
-        self.ratio_error_combobox = QComboBox()
-        # self.ratio_error_combobox.setFixedWidth(100)
-        for display_text, backend_id in self.error_formats:
-            self.ratio_error_combobox.addItem(display_text, backend_id)
-        formats_layout.addWidget(QLabel("Ratio Error"))
-        formats_layout.addWidget(self.ratio_error_combobox)
-        self.ratio_error_combobox.setCurrentText(settings.value('ratio_error_format_abbreviation'))
+        self.elevation_unit_combobox = QComboBox()
+        # self.elevation_unit_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.distance_units:
+            self.elevation_unit_combobox.addItem(display_text, backend_id)
+        formats_layout1.addWidget(QLabel("Elevation Unit"))
+        formats_layout1.addWidget(self.elevation_unit_combobox)
+        self.elevation_unit_combobox.setCurrentText(settings.value('elevation_unit_abbreviation'))
 
-        self.age_error_combobox = QComboBox()
-        # self.age_error_combobox.setFixedWidth(100)
+        self.heightdepth_unit_combobox = QComboBox()
+        # self.heightdepth_unit_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.distance_units:
+            self.heightdepth_unit_combobox.addItem(display_text, backend_id)
+        formats_layout1.addWidget(QLabel("Height/Depth Unit"))
+        formats_layout1.addWidget(self.heightdepth_unit_combobox)
+        self.heightdepth_unit_combobox.setCurrentText(settings.value('heightdepth_unit_abbreviation'))
+
+        self.sample_age_error_combobox = QComboBox()
+        # self.sample_age_error_combobox.setFixedWidth(100)
         for display_text, backend_id in self.error_formats:
-            self.age_error_combobox.addItem(display_text, backend_id)
-        formats_layout.addWidget(QLabel("Age Error"))
-        formats_layout.addWidget(self.age_error_combobox)
-        self.age_error_combobox.setCurrentText(settings.value('age_error_format_abbreviation'))
+            self.sample_age_error_combobox.addItem(display_text, backend_id)
+        formats_layout1.addWidget(QLabel("Sample Age Error"))
+        formats_layout1.addWidget(self.sample_age_error_combobox)
+        self.sample_age_error_combobox.setCurrentText(settings.value('age_error_format_abbreviation'))
 
         self.age_unit_combobox = QComboBox()
         # self.age_unit_combobox.setFixedWidth(100)
         for display_text, backend_id in self.age_formats:
             self.age_unit_combobox.addItem(display_text, backend_id)
-        formats_layout.addWidget(QLabel("Age Unit"))
-        formats_layout.addWidget(self.age_unit_combobox)
+        formats_layout2.addWidget(QLabel("Age Unit"))
+        formats_layout2.addWidget(self.age_unit_combobox)
         self.age_unit_combobox.setCurrentText(settings.value('age_unit_abbreviation'))
+
+        self.upb_age_error_combobox = QComboBox()
+        # self.upb_age_error_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.error_formats:
+            self.upb_age_error_combobox.addItem(display_text, backend_id)
+        formats_layout2.addWidget(QLabel("U-Pb Age Error"))
+        formats_layout2.addWidget(self.upb_age_error_combobox)
+        self.upb_age_error_combobox.setCurrentText(settings.value('age_error_format_abbreviation'))
+
+        self.ratio_error_combobox = QComboBox()
+        # self.ratio_error_combobox.setFixedWidth(100)
+        for display_text, backend_id in self.error_formats:
+            self.ratio_error_combobox.addItem(display_text, backend_id)
+        formats_layout2.addWidget(QLabel("Ratio Error"))
+        formats_layout2.addWidget(self.ratio_error_combobox)
+        self.ratio_error_combobox.setCurrentText(settings.value('ratio_error_format_abbreviation'))
 
         self.spot_size_unit_combobox = QComboBox()
         # self.spot_size_combobox.setFixedWidth(100)
         for display_text, backend_id in self.distance_units:
             self.spot_size_unit_combobox.addItem(display_text, backend_id)
-        formats_layout.addWidget(QLabel("Spot Size Unit"))
-        formats_layout.addWidget(self.spot_size_unit_combobox)
+        formats_layout2.addWidget(QLabel("Spot Size Unit"))
+        formats_layout2.addWidget(self.spot_size_unit_combobox)
         self.spot_size_unit_combobox.setCurrentText(settings.value('spotsize_unit_abbreviation'))
 
-        self.conc_error_combobox = QComboBox()
-        # self.conc_error_combobox.setFixedWidth(150)
+        self.conc_format_combobox = QComboBox()
+        # self.conc_format_combobox.setFixedWidth(150)
         for display_text, backend_id in self.concordance_formats:
-            self.conc_error_combobox.addItem(display_text, backend_id)
-        formats_layout.addWidget(QLabel("Concordance Error"))
-        formats_layout.addWidget(self.conc_error_combobox)
-        self.conc_error_combobox.setCurrentText(settings.value('concordance_format_abbreviation'))
+            self.conc_format_combobox.addItem(display_text, backend_id)
+        formats_layout2.addWidget(QLabel("Concordance Format"))
+        formats_layout2.addWidget(self.conc_format_combobox)
+        self.conc_format_combobox.setCurrentText(settings.value('concordance_format_abbreviation'))
 
-        main_layout.addLayout(formats_layout)
+        main_layout.addLayout(formats_layout1)
+        main_layout.addLayout(formats_layout2)
 
         # Splitter for left (pinned) vs right (main) tables
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -606,10 +662,10 @@ class ImportWizardDialog(QWidget):
         self.combo_lab_facility_comboBox.setEnabled(False)
         self.combo_upb_analysis_method_comboBox.setEnabled(False)
         self.ratio_error_combobox.setEnabled(False)
-        self.age_error_combobox.setEnabled(False)
+        self.upb_age_error_combobox.setEnabled(False)
         self.age_unit_combobox.setEnabled(False)
         self.spot_size_unit_combobox.setEnabled(False)
-        self.conc_error_combobox.setEnabled(False)
+        self.conc_format_combobox.setEnabled(False)
 
     def activate_widgets(self):
         """
@@ -627,10 +683,10 @@ class ImportWizardDialog(QWidget):
         self.combo_lab_facility_comboBox.setEnabled(True)
         self.combo_upb_analysis_method_comboBox.setEnabled(True)
         self.ratio_error_combobox.setEnabled(True)
-        self.age_error_combobox.setEnabled(True)
+        self.upb_age_error_combobox.setEnabled(True)
         self.age_unit_combobox.setEnabled(True)
         self.spot_size_unit_combobox.setEnabled(True)
-        self.conc_error_combobox.setEnabled(True)
+        self.conc_format_combobox.setEnabled(True)
 
     def on_cell_clicked(self, row, column):
         header_name = self.right_table.horizontalHeaderItem(column).text()
@@ -2263,9 +2319,9 @@ class ImportWizardDialog(QWidget):
 
                 record['RatioErrorFormatID'] = self.ratio_error_combobox.itemData(
                     self.ratio_error_combobox.currentIndex())
-                record['AgeErrorFormatID'] = self.age_error_combobox.itemData(self.age_error_combobox.currentIndex())
-                record['ConcordanceFormatID'] = self.conc_error_combobox.itemData(
-                    self.conc_error_combobox.currentIndex())
+                record['AgeErrorFormatID'] = self.upb_age_error_combobox.itemData(self.upb_age_error_combobox.currentIndex())
+                record['ConcordanceFormatID'] = self.conc_format_combobox.itemData(
+                    self.conc_format_combobox.currentIndex())
                 record['AgeUnitID'] = self.age_unit_combobox.itemData(self.age_unit_combobox.currentIndex())
                 record['SpotSizeUnitID'] = self.spot_size_unit_combobox.itemData(
                     self.spot_size_unit_combobox.currentIndex())

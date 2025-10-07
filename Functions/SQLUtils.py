@@ -1339,17 +1339,120 @@ upb_possible_database_input_fields = [
 No Calculated values should be in this list
 Used to create the insert statement with SQL"""
 
-upb_possible_user_input_fields = {
-    'Base Info': [
+sample_possible_user_input_fields = {
+    'Sample Info': [
         'Sample Name',
+        'Sample IGSN',
+        'Sample Description',
+        'Sample Context',
+        'Sampling Method',
+        'Region',
+        'Setting',
+        'Rock Type',
+        'Unit'
+    ],
+    'Sample age': [
+        'Direct Age',
+        'Direct Age Error',
+        'Direct Age Error Format',
+        'Direct Age Unit',
+        'Oldest Direct Age',
+        'Youngest Direct Age',
+        'Oldest Relative Age',
+        'Youngest Relative Age',
+        'Age Description',
+        'Age Constraint',
+        'Age Interpretation',
+        'Age Signature'
+    ]
+}
+
+gps_possible_user_input_fields = {
+    'Sample GPS': [
+        'Sample Latitude degrees',
+        'Sample Latitude minutes',
+        'Sample Latitude seconds',
+        'Sample Latitude direction',
+        'Sample Longitude degrees',
+        'Sample Longitude minutes',
+        'Sample Longitude seconds',
+        'Sample Longitude direction',
+        'Sample Easting',
+        'Sample Northing',
+        'Sample Zone',
+        'Sample Elevation',
+        'Sample Elevation Error',
+        'Sample Elevation Unit'
+    ],
+    'Column GPS': [
+        'Column Latitude degrees',
+        'Column Latitude minutes',
+        'Column Latitude seconds',
+        'Column Latitude direction',
+        'Column Longitude degrees',
+        'Column Longitude minutes',
+        'Column Longitude seconds',
+        'Column Longitude direction',
+        'Column Easting',
+        'Column Northing',
+        'Column Zone',
+        'Column Elevation',
+        'Column Elevation Error',
+        'Column Elevation Unit'
+    ]
+}
+
+column_possible_user_input_fields = {
+    'Column Info': [
+        'Column Name',
+        'Column Description',
+        'Column Total Height/Depth',
+        'Column Total Height/Depth Unit',
+        'Column GPS',
+        'Sample Height/Depth',
+        'Sample Height/Depth Error',
+        'Sample Height/Depth Unit'
+    ]
+}
+
+aliquot_grain_spot_possible_user_input_fields = {
+    'Aliquot Info': [
         'Aliquot Name',
+        'Aliquot Description',
+        'Aliquot Context'
+    ],
+    'Grain Info': [
+        'Grain Name',
+        'Grain Description',
+        'Grain Composition'
+    ],
+    'Spot Info': [
         'Spot Name',
-        'Reference Display',
+        'Spot Description',
+        'Spot Composition',
+        'Spot Context',
+        'Spot Size',
+        'Spot Size Unit'
+    ]
+}
+
+reference_possible_user_input_fields = {
+    'Reference': [
+        'Authors',
+        'Year',
+        'Title',
+        'Source',
+        'DOI',
+        'Reference Description'
+    ]
+}
+
+upb_possible_user_input_fields = {
+    'U-Pb Base Info': [
         'Lab Facility Name',
         'Instrument Name',
         'UPb Analysis Method Name',
-        'Rejection Reason',
-        'Spot Size'
+        'Rejection Reason'
     ],
     'Ratios': [
         'U/Th', 'Th/U',

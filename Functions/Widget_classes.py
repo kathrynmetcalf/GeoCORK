@@ -156,7 +156,7 @@ class SQLiteTableModel(QAbstractTableModel):
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f"Error opening database and executing query")
+            logger_setup.get_logger().critical(f"Error executing query")
             logger_setup.get_logger().debug(f"Error: {e}")
             logger_setup.get_logger().debug(f"SQL query: {query}")
             self.last_error = e
