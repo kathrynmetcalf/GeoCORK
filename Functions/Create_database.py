@@ -253,6 +253,50 @@ CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormatConver
                         ON DELETE CASCADE
                     )'''
 
+CREATE_GRAINS_TABLE = '''CREATE TABLE IF NOT EXISTS Grains(
+                    GrainID INTEGER PRIMARY KEY,
+                    GrainName TEXT NOT NULL CHECK (GrainName <> ''),
+                    GrainDescription TEXT,
+                    GrainCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainName COLLATE NOCASE)
+)'''
+
+CREATE_GRAIN_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GrainContexts(
+                    GrainContextID INTEGER PRIMARY KEY,
+                    ParentGrainContextID INTEGER,
+                    GrainContextParentRow INTEGER,
+                    GrainContextName TEXT NOT NULL CHECK (GrainContextName <> ''),
+                    GrainContextDescription TEXT,
+                    GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainContextName COLLATE NOCASE),
+                    UNIQUE (ParentGrainContextID, GrainContextParentRow)
+)'''
+
+CREATE_GRAINS_GRAINCONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS Grains_GrainContexts(
+                    GrainID INTEGER NOT NULL,
+                    GrainContextID INTEGER NOT NULL,
+                    Grains_GrainContextCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    Grains_GrainContextModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainID, GrainContextID),
+                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(GrainContextID) REFERENCES GrainContexts(GrainContextID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE
+                    )'''
+
+CREATE_GRAIN_COMPOSITION_TABLE = '''CREATE TABLE IF NOT EXISTS GrainCompositions(
+                    GrainCompositionID INTEGER PRIMARY KEY,
+                    GrainCompositionName TEXT NOT NULL CHECK (GrainCompositionName <> ''),
+                    GrainCompositionDescription TEXT,
+                    GrainCompositionCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    GrainCompositionModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (GrainCompositionName COLLATE NOCASE)
+)'''
+
 CREATE_GPS_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS GPSFormatConversions(
                     FromGPSFormatID INTEGER NOT NULL CHECK(FromGPSFormatID <> ''),
                     ToGPSFormatID INTEGER NOT NULL CHECK(ToGPSFormatID <> ''),
@@ -673,6 +717,7 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                     SpotID INTEGER PRIMARY KEY,
                     SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
                     AliquotID INTEGER NOT NULL,
+                    GrainID INTEGER,
                     SpotCompositionID INTEGER,
                     SpotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     SpotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -681,6 +726,9 @@ CREATE_SPOTS_TABLE = '''CREATE TABLE IF NOT EXISTS Spots(
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
                     FOREIGN KEY(SpotCompositionID) REFERENCES SpotCompositions(SpotCompositionID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
                         ON UPDATE CASCADE
                         ON DELETE SET NULL
                     )'''
@@ -1108,6 +1156,18 @@ def create_tables(database=None) -> bool:
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
 
+    # Create grain tag tables
+    if not query.exec(CREATE_GRAIN_COMPOSITION_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GrainCompositions table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+    if not query.exec(CREATE_GRAIN_CONTEXTS_TABLE):
+        logger_setup.get_logger().critical(f'Error creating GrainContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+
     # Create aliquot tag tables
     if not query.exec(CREATE_ALIQUOT_CONTEXT_TABLE):
         logger_setup.get_logger().critical(f'Error creating AliquotContexts table')
@@ -1223,6 +1283,11 @@ def create_tables(database=None) -> bool:
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False
+    if not query.exec(CREATE_GRAINS_TABLE):
+        logger_setup.get_logger().critical(f'Error creating Grains table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
     if not query.exec(CREATE_UPBANALYSES_TABLE):
         logger_setup.get_logger().critical(f'Error creating UPbAnalyses table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -1281,6 +1346,13 @@ def create_tables(database=None) -> bool:
     # Create many-to-many spot tables
     if not query.exec(CREATE_SPOTS_SPOTCONTEXT_TABLE):
         logger_setup.get_logger().critical(f'Error creating Spots_SpotContexts table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
+
+    # Create many-to-many grain tables
+    if not query.exec(CREATE_GRAINS_GRAINCONTEXT_TABLE):
+        logger_setup.get_logger().critical(f'Error creating Grains_GrainContexts table')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
         return False

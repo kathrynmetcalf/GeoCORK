@@ -81,6 +81,16 @@ qspot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContextName), ",", "; ") AS 
 qspot_created = 'SpotCreated AS SpotCreated'
 qspot_modified = 'SpotModified AS SpotModified'
 
+# Grain view columns
+qgrain_count = 'COUNT(DISTINCT Grains.GrainID) AS GrainCount'
+qgrain_name = 'GrainName AS GrainName'
+qgrains = 'REPLACE(GROUP_CONCAT(DISTINCT GrainName), ",", "; ") AS GrainName'
+qgrain_composition = 'GrainCompositionName AS GrainCompositionName'
+qgrain_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT GrainCompositionName), ",", "; ") AS GrainCompositionName'
+qgrain_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT GrainContextName), ",", "; ") AS GrainContextName'
+qgrain_created = 'GrainCreated AS GrainCreated'
+qgrain_modified = 'GrainModified AS GrainModified'
+
 # UPb view columns
 # qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalyses"'  # accepted/total
 qupb_count = 'DistinctUPbAnalyses.AcceptedTotalUPbAnalyses AS "Accepted/TotalUPbAnalyses"'
@@ -566,18 +576,19 @@ not_null = {
     'Columns': ['ColumnName'],
     'Aliquots': ['AliquotName', 'SampleName'],
     'Spots': ['SpotName', 'AliquotName', 'SampleName'],
+    'Grains':['GrainName'],
     'UPbAnalyses': ['SpotName', 'AliquotName', 'SampleName']
 }
 "Tables that are the basis for view and their columns that cannot be null"
 
 user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
-                        'Columns', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
+                        'Columns', 'GrainContexts', 'GrainCompositions', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
                         'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'SpotCompositions',
                         'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable tables and trees used throughout GeoCORK."""
 
 user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Aliquots',
-                       'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
+                       'GrainContexts', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
                        'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable trees used throughout GeoCORK. If a table is included in this list it is assumed to be in the correct format"""
 
