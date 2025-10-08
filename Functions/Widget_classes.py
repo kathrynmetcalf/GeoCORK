@@ -638,13 +638,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
                     elif role == Qt.ItemDataRole.ToolTipRole:
                         return "Valid DOI format, double click to open in browser"
                 else:
-                    if role == Qt.ItemDataRole.ForegroundRole:
-                        return QBrush(QColor("red"))
-                    elif role == Qt.ItemDataRole.FontRole:
-                        font = QFont()
-                        font.setStrikeOut(True)
-                        return font
-                    elif role == Qt.ItemDataRole.ToolTipRole:
+                    if role == Qt.ItemDataRole.ToolTipRole:
                         return "Invalid DOI format, consider using '10.XXXX/XXXXXX'"
 
         # Default return for all other roles
@@ -949,7 +943,10 @@ class CheckableSqlQueryModel(DisplayRoundedQueryModel):
             index = self.index(row, get_name_column(get_view_from_table(self.tableName())))
             if record_id in id_list:
                 self.setData(index, state, QtC.Qt.ItemDataRole.CheckStateRole)
-        self.checked_ids = id_list
+        if state == QtC.Qt.CheckState.Checked or state == QtC.Qt.CheckState.PartiallyChecked:
+            self.checked_ids = id_list
+        elif state == QtC.Qt.CheckState.Unchecked:
+            self.checked_ids = list(set(self.checked_ids) - set(id_list))
 
     def return_checked_ids(self):
         """Returns a list of checked_ids and a list of partially_checked_ids"""
@@ -4612,6 +4609,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.proxy_model = QtC.QSortFilterProxyModel()
             self.proxy_model.setSourceModel(model)
         self.proxy_model.setFilterCaseSensitivity(QtC.Qt.CaseSensitivity.CaseInsensitive)
+        model.dataChanged.connect(self.update_line_edit)
         self.table = model.tableName()
         super().setModel(self.proxy_model)
 
