@@ -6,7 +6,7 @@ import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel
-from PyQt6.QtGui import QBrush, QColor, QFont, QAction
+from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
@@ -340,7 +340,7 @@ class ImportWizardDialog(QWidget):
         self.combo_sheets = QComboBox()
         self.combo_sheets.setFixedWidth(150)
         top_layout.addWidget(self.combo_sheets)
-        self.combo_sheets.currentIndexChanged.connect(self.load_sheet)
+        self.combo_sheets.currentIndexChanged.connect(self.update_upb_sheet)
 
         main_layout.addLayout(top_layout)
 
@@ -487,6 +487,7 @@ class ImportWizardDialog(QWidget):
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
         # Left pinned table: 3 columns for Sample Name, Aliquot Name, Spot Name
+        self.left_tables = {}
         self.left_table = QTableWidget()
         self.left_table.setColumnCount(3)
         self.left_table.setHorizontalHeaderLabels(["Sample Name", "Aliquot Name", "Spot Name"])
@@ -494,9 +495,10 @@ class ImportWizardDialog(QWidget):
         self.left_table.customContextMenuRequested.connect(self.show_left_table_context_menu)
 
         # Right table for the actual Excel data
+        self.right_tables = {}
+        self.workbook_tabs = QTabWidget()
         self.right_table = QTableWidget()
-        self.right_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.right_table.customContextMenuRequested.connect(self.show_right_table_context_menu)
+        self.workbook_tabs.addTab(self.right_table, "No data loaded")
 
         # Enable the context menu for the checkable combo boxes and connect the signals
         self.combo_reference_comboBox.enable_context_menu(True)
@@ -512,20 +514,12 @@ class ImportWizardDialog(QWidget):
         self.combo_upb_analysis_method_comboBox.edit_triggered.connect(self.edit_combo_box)
         self.combo_upb_analysis_method_comboBox.add_triggered.connect(self.add_combo_box)
 
-        # Connect the header double-click signal to the handler
-        header = self.right_table.horizontalHeader()
-        header.sectionDoubleClicked.connect(self.handle_header_double_clicked)
+        self.workbook_tabs.currentChanged.connect(self.on_tab_changed)
 
-        # Scroll synchronization (vertical)
-        self.left_table.verticalScrollBar().valueChanged.connect(
-            self.right_table.verticalScrollBar().setValue
-        )
-        self.right_table.verticalScrollBar().valueChanged.connect(
-            self.left_table.verticalScrollBar().setValue
-        )
+
 
         splitter.addWidget(self.left_table)
-        splitter.addWidget(self.right_table)
+        splitter.addWidget(self.workbook_tabs)
         splitter.setStretchFactor(0, 1)  # left narrower
         splitter.setStretchFactor(1, 3)  # right expands
 
@@ -555,14 +549,20 @@ class ImportWizardDialog(QWidget):
 
         # DataFrame for the right table
         self.df = None
+        # Dictionary of dataframes for each sheet
+        self.dfs = {}
         # Mappings for right table columns
         self.column_mappings = {}
         # Rejected rows
-        self.rejected_rows = set()
+        self.rejected_rows = {}
+        # Disabled rows
+        self.disabled_rows = {}
 
         # openpyxl workbook
         self.wb = None
         self.current_sheet_name = None
+        # Name of sheet with U-Pb data
+        self.upb_sheet_name = None
 
         # Icons for accepted/rejected
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
@@ -573,20 +573,7 @@ class ImportWizardDialog(QWidget):
 
         # Flash fill connections
         self.left_table.cellChanged.connect(self.handle_cell_change)
-        self.right_table.cellChanged.connect(self.handle_cell_change)
 
-        self.right_table.cellDoubleClicked.connect(self.on_cell_clicked)
-
-        self.right_table.verticalHeader().sectionDoubleClicked.connect(self.handle_vertical_header_double_click)
-
-        # todo fix these context menus and methods to allow for multi-column set values
-
-        self.right_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.right_table.horizontalHeader().customContextMenuRequested.connect(self.show_right_header_context_menu)
-
-        self.right_table.verticalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.right_table.verticalHeader().customContextMenuRequested.connect(
-            self.show_right_table_vertical_header_context_menu)
 
         self.left_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
         self.left_table.horizontalHeader().customContextMenuRequested.connect(self.show_left_header_context_menu)
@@ -1079,7 +1066,7 @@ class ImportWizardDialog(QWidget):
             logical_index (int): The row index corresponding to the double-clicked header.
         """
         item = self.right_table.item(logical_index, 0)
-        if logical_index in self.rejected_rows:
+        if logical_index in self.rejected_rows[self.current_sheet_name]:
             self.mark_selected_rows_rejected([item], False)
         else:
             self.mark_selected_rows_rejected([item], True)
@@ -1313,6 +1300,7 @@ class ImportWizardDialog(QWidget):
         """
         menu = QMenu(self)
         remove_action = menu.addAction("Remove Selected Rows")
+        disable_action = menu.addAction("Disable Selected Rows")
         reject_action = menu.addAction("Mark Selected Rows as Rejected")
         accept_action = menu.addAction("Mark Selected Rows as Accepted")
         set_value_action = menu.addAction("Set Selected Cells to Value...")
@@ -1321,6 +1309,8 @@ class ImportWizardDialog(QWidget):
         action = menu.exec(self.right_table.mapToGlobal(pos))
         if action == remove_action:
             self.remove_selected_rows()
+        elif action == disable_action:
+            self.disable_selected_rows(self.right_table.selectedItems())
         elif action == reject_action:
             self.mark_selected_rows_rejected(self.right_table.selectedItems(), True)
         elif action == accept_action:
@@ -1347,6 +1337,7 @@ class ImportWizardDialog(QWidget):
 
         menu = QMenu(self)
         remove_action = menu.addAction("Remove Selected Rows")
+        disable_action = menu.addAction("Disable Selected Rows")
         reject_action = menu.addAction("Mark Selected Rows as Rejected")
         accept_action = menu.addAction("Mark Selected Rows as Accepted")
 
@@ -1354,6 +1345,8 @@ class ImportWizardDialog(QWidget):
         items = self.right_table.selectedItems()
         if action == remove_action:
             self.remove_selected_rows()
+        elif action == disable_action:
+            self.disable_selected_rows(items)
         elif action == reject_action:
             self.mark_selected_rows_rejected(items, True)
         elif action == accept_action:
@@ -1430,60 +1423,168 @@ class ImportWizardDialog(QWidget):
         dlg = QFileDialog(self)
         path, _ = dlg.getOpenFileName(self, "Select Excel File", "", "Excel Files (*.xlsx *.xls)")
         if path:
+            logger_setup.get_logger().debug("Selected Excel File: " + path)
             self.selected_file_path = path
             self.label_file.setText(f"Selected File: {os.path.basename(path)}")
             try:
+                logger_setup.get_logger().debug("Loading sheets from Excel file")
                 self.loading_manager.show_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
                 self.wb = load_workbook(path, data_only=True, rich_text=True)
                 self.combo_sheets.clear()
                 self.combo_sheets.addItems(self.wb.sheetnames)
+                combo_sheets = QComboBox()
+                combo_sheets.clear()
+                combo_sheets.addItems(self.wb.sheetnames)
+                self.workbook_tabs.clear()
+
+                # Ask the user which sheet contains U-Pb data if multiple sheets exist
+                if len(self.wb.sheetnames) > 1:
+                    sheet_dialog = QDialog(self)
+                    sheet_dialog.setWindowTitle("Select U-Pb sheet")
+                    sheet_layout = QVBoxLayout()
+                    sheet_label = QLabel("Multiple sheets found. Please select the sheet containing U-Pb data:")
+                    sheet_layout.addWidget(sheet_label)
+                    sheet_layout.addWidget(combo_sheets)
+                    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+                    button_box.accepted.connect(sheet_dialog.accept)
+                    button_box.rejected.connect(sheet_dialog.reject)
+                    sheet_layout.addWidget(button_box)
+                    sheet_dialog.setLayout(sheet_layout)
+                    if sheet_dialog.exec() == QDialog.DialogCode.Rejected:
+                        self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
+                        return
+                    selected_sheet = combo_sheets.currentText()
+                    if selected_sheet:
+                        self.combo_sheets.setCurrentText(selected_sheet)
+                for sheet in self.wb.worksheets:
+                    logger_setup.get_logger().debug(f"Loading sheet: {sheet.title}")
+                    # Add a new tab for each sheet
+                    sheet.title = sheet.title.strip()
+                    self.right_table = QTableWidget()
+                    self.right_tables[sheet.title] = self.right_table
+                    self.workbook_tabs.addTab(self.right_table, sheet.title)
+                    self.current_sheet_name = sheet.title
+                    df = pd.read_excel(self.selected_file_path, header=None, sheet_name=sheet.title,
+                                                engine="openpyxl")
+                    self.dfs[sheet.title] = df
+                    rejected_rows = set()
+                    disabled_rows = set()
+                    self.rejected_rows[sheet.title] = rejected_rows
+                    self.disabled_rows[sheet.title] = disabled_rows
+
+                    # Display data on the right table
+                    self.display_right_table_with_styles(sheet.title)
+
+                    self.right_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                    self.right_table.customContextMenuRequested.connect(self.show_right_table_context_menu)
+                    self.right_table.cellChanged.connect(self.handle_cell_change)
+
+                    self.right_table.cellDoubleClicked.connect(self.on_cell_clicked)
+
+                    self.right_table.verticalHeader().sectionDoubleClicked.connect(
+                        self.handle_vertical_header_double_click)
+
+                    # todo fix these context menus and methods to allow for multi-column set values
+
+                    self.right_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                    self.right_table.horizontalHeader().customContextMenuRequested.connect(
+                        self.show_right_header_context_menu)
+
+                    self.right_table.verticalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+                    self.right_table.verticalHeader().customContextMenuRequested.connect(
+                        self.show_right_table_vertical_header_context_menu)
+
+                    # Connect the header double-click signal to the handler
+                    header = self.right_table.horizontalHeader()
+                    header.sectionDoubleClicked.connect(self.handle_header_double_clicked)
+
+                    if sheet.title == self.combo_sheets.currentText():
+                        # This is the U-Pb sheet, so sync it with the left table
+                        # Scroll synchronization (vertical)
+                        self.left_table.verticalScrollBar().valueChanged.connect(
+                            self.right_table.verticalScrollBar().setValue
+                        )
+                        self.right_table.verticalScrollBar().valueChanged.connect(
+                            self.left_table.verticalScrollBar().setValue
+                        )
+
+                self.combo_sheets.addItems(self.wb.sheetnames)
+                self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex())
                 # self.load_sheet(bypass=True)
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to read Excel file:\n{e}")
+                logger_setup.get_logger().critical("Error", f"Failed to read Excel file:\n{e}")
                 return
         self.activate_widgets()
         self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
 
-    def load_sheet(self, bypass=False):
+    def update_upb_sheet(self):
+        """
+        Update the name of the sheet with U-Pb data.
+        """
+        self.upb_sheet_name = self.combo_sheets.currentText()
 
-        if bypass:
-            if QMessageBox.question(self, "Confirmation", "Loading this sheet will clear all existing data. Continue?",
-                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                    QMessageBox.StandardButton.Yes) == QMessageBox.StandardButton.No:
-                return
+    def update_current_right_table(self):
+        """
+        Update the current right table widget.
+        """
+        self.current_sheet_name = self.workbook_tabs.tabText(self.workbook_tabs.currentIndex())
+        self.right_table = self.right_tables[self.current_sheet_name]
 
-        if not hasattr(self, 'selected_file_path') or not self.selected_file_path:
-            QMessageBox.warning(self, "No File", "Please select an Excel file first.")
+    def on_tab_changed(self, index):
+        """
+        Handle tab changes in the workbook tabs.
+        """
+        if not self.workbook_tabs.tabText(index):
+            # No valid tab selected
             return
-        sheet_name = self.combo_sheets.currentText()
-        if not sheet_name:
-            QMessageBox.warning(self, "No Sheet", "Please select a sheet.")
-            return
-        self.loading_manager.show_loading_dialog('Loading', f'Loading {sheet_name}...')
-        try:
-            self.df = pd.read_excel(self.selected_file_path, header=None, sheet_name=sheet_name, engine="openpyxl")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to parse sheet with pandas:\n{e}")
-            return
+        self.update_current_right_table()
+        if self.current_sheet_name == self.upb_sheet_name:
+            self.left_table.show()
+            self.sync_left_table_rows()
+        else:
+            self.left_table.hide()
 
-        # Remove initial blank rows
-        while not self.df.empty and self.df.iloc[0].isna().all():
-            self.df = self.df.iloc[1:].reset_index(drop=True)
-
-        # Reset mapping & rejections
-        self.column_mappings.clear()
-        self.rejected_rows.clear()
-
-        # Display data on the right table
-        self.display_right_table_with_styles(sheet_name)
-
-        # Build the left table rows
-        self.sync_left_table_rows()
-
-        # Auto-guess column names
-        # self.auto_guess_column_names()
-
-        self.loading_manager.close_loading_dialog("Loading", f"Loading {sheet_name}...")
+    # def load_sheet(self, bypass=False):
+    #
+    #     if bypass:
+    #         if QMessageBox.question(self, "Confirmation", "Loading this sheet will clear all existing data. Continue?",
+    #                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+    #                                 QMessageBox.StandardButton.Yes) == QMessageBox.StandardButton.No:
+    #             return
+    #
+    #     if not hasattr(self, 'selected_file_path') or not self.selected_file_path:
+    #         QMessageBox.warning(self, "No File", "Please select an Excel file first.")
+    #         return
+    #     sheet_name = self.combo_sheets.currentText()
+    #     if not sheet_name:
+    #         QMessageBox.warning(self, "No Sheet", "Please select a sheet.")
+    #         return
+    #     self.loading_manager.show_loading_dialog('Loading', f'Loading {sheet_name}...')
+    #     try:
+    #         self.df = pd.read_excel(self.selected_file_path, header=None, sheet_name=sheet_name, engine="openpyxl")
+    #     except Exception as e:
+    #         QMessageBox.critical(self, "Error", f"Failed to parse sheet with pandas:\n{e}")
+    #         return
+    #
+    #     # Remove initial blank rows
+    #     while not self.df.empty and self.df.iloc[0].isna().all():
+    #         self.df = self.df.iloc[1:].reset_index(drop=True)
+    #
+    #     # Reset mapping & rejections
+    #     self.column_mappings.clear()
+    #     self.rejected_rows.clear()
+    #     self.disabled_rows.clear()
+    #
+    #     # Display data on the right table
+    #     self.display_right_table_with_styles(sheet_name)
+    #
+    #     # Build the left table rows
+    #     self.sync_left_table_rows()
+    #
+    #     # Auto-guess column names
+    #     # self.auto_guess_column_names()
+    #
+    #     self.loading_manager.close_loading_dialog("Loading", f"Loading {sheet_name}...")
 
     def display_right_table_with_styles(self, sheet_name):
         """
@@ -1491,18 +1592,20 @@ class ImportWizardDialog(QWidget):
         + add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument (editable).
         """
         self.loading_manager.show_loading_dialog('Loading', f'Displaying {sheet_name}...')
+        logger_setup.get_logger().debug(f"Displaying sheet: {sheet_name}")
         sheet = self.wb[sheet_name]
+        df = self.dfs[sheet_name]
         self.right_table.clear()
         self.right_table.setRowCount(0)
         self.right_table.setColumnCount(0)
 
-        rows, cols = self.df.shape
+        rows, cols = df.shape
         self.right_table.setRowCount(rows)
         self.right_table.setColumnCount(cols)
 
         # Set column headers for the loaded data columns
         for c in range(cols):
-            col_name = str(self.df.columns[c])
+            col_name = str(df.columns[c])
             hdr_item = QTableWidgetItem(col_name)
             self.right_table.setHorizontalHeaderItem(c, hdr_item)
 
@@ -1513,7 +1616,7 @@ class ImportWizardDialog(QWidget):
             row_rejected = False
             for c in range(cols):
                 cell = sheet.cell(row=r + 1, column=c + 1)
-                value = self.df.iat[r, c]
+                value = df.iat[r, c]
                 # replace with NULL if blank or empty AND strips values of trailing/leading spaces, tabs, carat returns
                 disp_val = "NULL" if pd.isna(value) or value == "" else str(value).strip()
 
@@ -1549,13 +1652,22 @@ class ImportWizardDialog(QWidget):
                 self.right_table.setItem(r, c, item)
 
             if row_rejected:
-                self.rejected_rows.add(r)
+                rejected_rows = self.rejected_rows[self.current_sheet_name]
+                rejected_rows.add(r)
+                self.rejected_rows[self.current_sheet_name] = rejected_rows
 
         self.left_table.blockSignals(False)
         self.right_table.blockSignals(False)
         # Setup vertical header icons
+        rejected_rows = self.rejected_rows[self.current_sheet_name]
+        disabled_rows = self.disabled_rows[self.current_sheet_name]
         for r in range(rows):
-            self.update_row_icon(r, (r in self.rejected_rows))
+            if r in rejected_rows:
+                self.update_row_icon(r, "rejected")
+            elif r in disabled_rows:
+                self.update_row_icon(r, "disabled")
+            else:
+                self.update_row_icon(r, "accepted")
 
         self.right_table.resizeColumnsToContents()
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {sheet_name}...')
@@ -1566,7 +1678,9 @@ class ImportWizardDialog(QWidget):
         and add editable cells for Sample ID, Aliquot ID, Spot ID.
         """
         self.left_table.blockSignals(True)
-        row_count = self.right_table.rowCount()
+        upb_sheet = self.combo_sheets.currentText()
+        right_table = self.right_tables[upb_sheet]
+        row_count = right_table.rowCount()
         self.left_table.setRowCount(row_count)
         for r in range(row_count):
             for c in range(3):
@@ -1724,13 +1838,32 @@ class ImportWizardDialog(QWidget):
     def get_column_name(self, column_index):
         return self.right_table.horizontalHeaderItem(column_index)
 
-    def update_row_icon(self, row_idx, rejected):
+    def update_row_icon(self, row_idx, state: str):
         header_item = QTableWidgetItem()
         header_item.setText(str(row_idx + 1))
-        if rejected:
+        # get the default style text color
+        text_color = self.style().standardPalette().color(QPalette.ColorRole.Text)
+        if state == "rejected":
             header_item.setIcon(self.rejected_icon)
+            # If the row is gray, un-gray it
+            for c in range(self.right_table.columnCount()):
+                item = self.right_table.item(row_idx, c)
+                if item:
+                    item.setForeground(QBrush(text_color))  # Default text color
+        elif state == "disabled":
+            header_item.setIcon(None)
+            # Gray out the row
+            for c in range(self.right_table.columnCount()):
+                item = self.right_table.item(row_idx, c)
+                if item:
+                    item.setForeground(QBrush(QColor("#A0A0A0")))  # Gray text
         else:
             header_item.setIcon(self.accepted_icon)
+            # If the row is gray, un-gray it
+            for c in range(self.right_table.columnCount()):
+                item = self.right_table.item(row_idx, c)
+                if item:
+                    item.setForeground(QBrush(text_color))  # Default text color
         self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
     # Existing logic for removing rows, marking them rejected, etc.
@@ -1744,20 +1877,21 @@ class ImportWizardDialog(QWidget):
             selected_rows = {row}
 
         sr = sorted(selected_rows, reverse=True)
-        if self.df is not None and len(self.df) > 0:
-            self.df.drop(self.df.index[sr], inplace=True)
-            self.df.reset_index(drop=True, inplace=True)
-
+        df = self.dfs[self.current_sheet_name]
+        if df is not None and len(df) > 0:
+            df.drop(df.index[sr], inplace=True)
+            df.reset_index(drop=True, inplace=True)
         for r in sr:
             self.right_table.removeRow(r)
             self.left_table.removeRow(r)
+            rejected_rows = self.rejected_rows[self.current_sheet_name]
             new_rejected = set()
-            for rejected_row in self.rejected_rows:
+            for rejected_row in rejected_rows:
                 if rejected_row < r:
                     new_rejected.add(rejected_row)
                 elif rejected_row > r:
                     new_rejected.add(rejected_row - 1)
-            self.rejected_rows = new_rejected
+            self.rejected_rows[self.current_sheet_name] = new_rejected
         self.update_vertical_headers()
 
     def remove_selected_columns(self):
@@ -1794,27 +1928,51 @@ class ImportWizardDialog(QWidget):
         Update the vertical headers to ensure they match the current row indices.
         """
         row_count = self.right_table.rowCount()
+        rejected_rows = self.rejected_rows[self.current_sheet_name]
+        disabled_rows = self.disabled_rows[self.current_sheet_name]
         for row_idx in range(row_count):
             header_item = QTableWidgetItem(str(row_idx + 1))  # Update row numbers
             # Check if the row is rejected and set the appropriate icon
-            if row_idx in self.rejected_rows:
+            if row_idx in rejected_rows:
                 header_item.setIcon(self.rejected_icon)
+            elif row_idx in disabled_rows:
+                header_item.setIcon(None)
             else:
                 header_item.setIcon(self.accepted_icon)
             self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
-    def mark_selected_rows_rejected(self, rows: list[QTableWidgetItem], rejected: bool):
+    def disable_selected_rows(self, rows: list[QTableWidgetItem]):
+        selected_rows = {i.row() for i in rows}
+        if not selected_rows:
+            return
+        disabled_rows = self.disabled_rows[self.current_sheet_name]
+        rejected_rows = self.rejected_rows[self.current_sheet_name]
+        for r in selected_rows:
+            disabled_rows.add(r)
+            if r in rejected_rows:
+                rejected_rows.discard(r)
+            self.update_row_icon(r, "disabled")
+        self.disabled_rows[self.current_sheet_name] = disabled_rows
+        self.rejected_rows[self.current_sheet_name] = rejected_rows
 
+    def mark_selected_rows_rejected(self, rows: list[QTableWidgetItem], rejected: bool):
         selected_rows = {i.row() for i in rows}
         if not selected_rows:
             return
 
+        rejected_rows = self.rejected_rows[self.current_sheet_name]
+        disabled_rows = self.disabled_rows[self.current_sheet_name]
         for r in selected_rows:
             if rejected:
-                self.rejected_rows.add(r)
+                rejected_rows.add(r)
+                if r in disabled_rows:
+                    disabled_rows.discard(r)  # Black text
+                self.update_row_icon(r, "rejected")
             else:
-                self.rejected_rows.discard(r)
-            self.update_row_icon(r, rejected)
+                rejected_rows.discard(r)
+                self.update_row_icon(r, "accepted")
+        self.rejected_rows[self.current_sheet_name] = rejected_rows
+        self.disabled_rows[self.current_sheet_name] = disabled_rows
 
     # ---------------------------
     #     Header Double Click
