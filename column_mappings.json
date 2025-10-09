@@ -530,5 +530,101 @@
         "19": {
             "field": "Concordance"
         }
+    },
+    "Sharman DB": {
+        "Sheets": {
+            "Sources": {
+                "1": {
+                    "field": "Authors"
+                },
+                "3": {
+                    "field": "Source"
+                },
+                "4": {
+                    "field": "Title"
+                },
+                "5": {
+                    "field": "Year"
+                },
+                "8": {
+                    "field": "DOI"
+                },
+                "9": {
+                    "field": "Reference Description"
+                }
+            },
+            "Samples": {
+                "4": {
+                    "field": "Rock Type"
+                },
+                "5": {
+                    "field": "Rock Type"
+                },
+                "0": {
+                    "field": "Sample Name"
+                },
+                "1": {
+                    "field": "Unit"
+                },
+                "2": {
+                    "field": "Setting"
+                },
+                "3": {
+                    "field": "Region"
+                },
+                "6": {
+                    "field": "Rock Type"
+                },
+                "9": {
+                    "field": "Youngest Direct Age"
+                },
+                "10": {
+                    "field": "Oldest Direct Age"
+                },
+                "11": {
+                    "field": "Age Constraint"
+                },
+                "12": {
+                    "field": "Setting"
+                },
+                "13": {
+                    "field": "Sample Latitude degrees"
+                },
+                "14": {
+                    "field": "Sample Longitude degrees"
+                },
+                "16": {
+                    "field": "Sample Description"
+                },
+                "7": {
+                    "field": "Oldest Relative Age"
+                }
+            },
+            "U_Th_Pb": {
+                "2": {
+                    "field": "Sample Name"
+                },
+                "3": {
+                    "field": "Grain Name"
+                },
+                "4": {
+                    "field": "Spot Name"
+                }
+            }
+        },
+        "Units/Formats": {
+            "Reference": "",
+            "Instrument": "",
+            "Lab Facility": "",
+            "UPb Analysis Method": "",
+            "Elevation Unit": "m",
+            "Height/Depth Unit": "m",
+            "Sample Age Error": "1\u03c3 abs",
+            "Age Unit": "Ma",
+            "U-Pb Age Error": "1\u03c3 abs",
+            "Ratio Error": "1\u03c3 abs",
+            "Spot Size Unit": "\u00b5m",
+            "Concordance Format": "Dis%"
+        }
     }
 }

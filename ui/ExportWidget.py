@@ -24,9 +24,8 @@ from Functions import ExportDatabase, Settings_manager
 from Functions import SQLUtils
 from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_keys
 from Functions.Widget_classes import CheckableSqlTableModel, ReadableProxyModel, SQLiteTableModel, find_parent_items, \
-    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel, columns_as_list
+    show_loading_dialog, close_loading_dialog, CheckableSqlQueryModel, columns_as_list, PartiallyCloseableTabWidget
 from Functions.Settings_manager import SettingsManager
-from Widget_classes import PartiallyCloseableTabWidget
 
 settings = SettingsManager().settings
 from Functions.Widget_classes import CheckableComboBox
@@ -147,7 +146,6 @@ class ExportWidget(QWidget):
         self.edit_columnnames_pushButton.clicked.connect(self.open_columnname_mapping_dialog)
 
         self.active_filter_sample_checkBox.checkStateChanged.connect(self.update_table_view)
-        self.active_filter_groupsample_checkBox.checkStateChanged.connect(self.update_table_view)
 
         self.populate_stack()
 

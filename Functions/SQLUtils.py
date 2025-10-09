@@ -1455,6 +1455,7 @@ reference_possible_user_input_fields = {
         'Source',
         'DOI',
         'Reference Description'
+        'Reference Display'
     ]
 }
 

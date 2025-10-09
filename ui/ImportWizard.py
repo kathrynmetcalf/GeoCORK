@@ -6,7 +6,7 @@ import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel
-from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette
+from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
@@ -87,6 +87,7 @@ class ColumnMapDialog(QDialog):
                 combo.addItems(possible_values)
                 combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
                 combo.selection_changed.connect(self.on_combo_changed)
+                combo.currentIndexChanged.connect(self.on_combo_changed)
                 tab_layout.addRow(field_label + ":", combo)
                 self.combos.append(combo)
 
@@ -483,6 +484,20 @@ class ImportWizardDialog(QWidget):
         main_layout.addLayout(formats_layout1)
         main_layout.addLayout(formats_layout2)
 
+        self.combos = {"Reference": self.combo_reference_comboBox,
+                       "Instrument": self.combo_instrument_comboBox,
+                       "Lab Facility": self.combo_lab_facility_comboBox,
+                       "UPb Analysis Method": self.combo_upb_analysis_method_comboBox,
+                       "Elevation Unit": self.elevation_unit_combobox,
+                       "Height/Depth Unit": self.heightdepth_unit_combobox,
+                       "Sample Age Error": self.sample_age_error_combobox,
+                       "Age Unit": self.age_unit_combobox,
+                       "U-Pb Age Error": self.upb_age_error_combobox,
+                       "Ratio Error": self.ratio_error_combobox,
+                       "Spot Size Unit": self.spot_size_unit_combobox,
+                       "Concordance Format": self.conc_format_combobox
+                       }
+
         # Splitter for left (pinned) vs right (main) tables
         splitter = QSplitter(Qt.Orientation.Horizontal)
 
@@ -498,7 +513,7 @@ class ImportWizardDialog(QWidget):
         self.right_tables = {}
         self.workbook_tabs = QTabWidget()
         self.right_table = QTableWidget()
-        self.workbook_tabs.addTab(self.right_table, "No data loaded")
+        self.workbook_tabs.addTab(self.right_table, None)
 
         # Enable the context menu for the checkable combo boxes and connect the signals
         self.combo_reference_comboBox.enable_context_menu(True)
@@ -535,13 +550,14 @@ class ImportWizardDialog(QWidget):
         self.btn_load_mapping.clicked.connect(self.load_mapping)
         bottom_layout.addWidget(self.btn_load_mapping)
 
-        self.validate_button = QPushButton("Validate Sample Names")
+        self.validate_button = QPushButton("Validate Import Data")
         self.validate_button.clicked.connect(self.validate_ids)
         bottom_layout.addWidget(self.validate_button)
 
         self.btn_import = QPushButton("Import to Database")
         self.btn_import.clicked.connect(self.check_and_import)
         bottom_layout.addWidget(self.btn_import)
+        self.btn_import.setEnabled(False)
 
         main_layout.addLayout(bottom_layout)
 
@@ -551,6 +567,8 @@ class ImportWizardDialog(QWidget):
         self.df = None
         # Dictionary of dataframes for each sheet
         self.dfs = {}
+        # Mappings for each sheet
+        self.sheet_mappings = {}
         # Mappings for right table columns
         self.column_mappings = {}
         # Rejected rows
@@ -792,7 +810,7 @@ class ImportWizardDialog(QWidget):
 
     def validate_ids(self):
         """
-        Validate Sample Name, Aliquot Name, and Spot Name in the left_table against the database.
+        Validate Sample Name, Aliquot Name, (Grain Name) and Spot Name in the left_table against the database.
         Flag rows that have matching entries in the database.
         """
 
@@ -896,6 +914,7 @@ class ImportWizardDialog(QWidget):
             self.left_table.blockSignals(False)
 
         QMessageBox.information(self, "Validation Complete", "Validation of IDs is complete.")
+        self.btn_import.setEnabled(True)
 
     def edit_combo_box(self, pos):
         """
@@ -1231,7 +1250,9 @@ class ImportWizardDialog(QWidget):
         self.right_table.setHorizontalHeaderItem(column_index, header_item)
 
         # Add the new column to the column mappings
-        self.column_mappings[column_index] = (selected_field)
+        self.column_mappings[column_index] = selected_field
+        # Update the mappings for the current sheet
+        self.sheet_mappings[self.current_sheet_name] = self.column_mappings
 
         self.right_table.blockSignals(True)
         # Initialize the column cells with empty values
@@ -1263,7 +1284,9 @@ class ImportWizardDialog(QWidget):
 
             # Add the new column to the column mappings
             # Add the new column to the column mappings
-            self.column_mappings[column_index] = (field)
+            self.column_mappings[column_index] = field
+            # Update the mappings for the current sheet
+            self.sheet_mappings[self.current_sheet_name] = self.column_mappings
 
             self.right_table.blockSignals(True)
             # Initialize the column cells with empty values
@@ -1460,6 +1483,8 @@ class ImportWizardDialog(QWidget):
                     logger_setup.get_logger().debug(f"Loading sheet: {sheet.title}")
                     # Add a new tab for each sheet
                     sheet.title = sheet.title.strip()
+                    column_mappings = {}
+                    self.sheet_mappings[sheet.title] = column_mappings
                     self.right_table = QTableWidget()
                     self.right_tables[sheet.title] = self.right_table
                     self.workbook_tabs.addTab(self.right_table, sheet.title)
@@ -1500,6 +1525,8 @@ class ImportWizardDialog(QWidget):
 
                     if sheet.title == self.combo_sheets.currentText():
                         # This is the U-Pb sheet, so sync it with the left table
+                        # Make sure the left table has the same number of rows
+                        self.left_table.setRowCount(self.right_table.rowCount())
                         # Scroll synchronization (vertical)
                         self.left_table.verticalScrollBar().valueChanged.connect(
                             self.right_table.verticalScrollBar().setValue
@@ -1529,6 +1556,7 @@ class ImportWizardDialog(QWidget):
         """
         self.current_sheet_name = self.workbook_tabs.tabText(self.workbook_tabs.currentIndex())
         self.right_table = self.right_tables[self.current_sheet_name]
+        self.column_mappings = self.sheet_mappings[self.current_sheet_name]
 
     def on_tab_changed(self, index):
         """
@@ -1851,7 +1879,7 @@ class ImportWizardDialog(QWidget):
                 if item:
                     item.setForeground(QBrush(text_color))  # Default text color
         elif state == "disabled":
-            header_item.setIcon(None)
+            header_item.setIcon(QIcon())
             # Gray out the row
             for c in range(self.right_table.columnCount()):
                 item = self.right_table.item(row_idx, c)
@@ -1919,6 +1947,8 @@ class ImportWizardDialog(QWidget):
                 (idx - 1 if idx > col else idx): value
                 for idx, value in self.column_mappings.items()
             }
+            # Update the mappings for the current sheet
+            self.sheet_mappings[self.current_sheet_name] = self.column_mappings
 
         # Notify the user
         QMessageBox.information(self, "Columns Removed", "Selected columns have been successfully removed.")
@@ -1986,12 +2016,19 @@ class ImportWizardDialog(QWidget):
         if not item:
             return
         original_header_text = item.text()
-        curr_map = self.column_mappings.get(logical_index, ("None"))
+        curr_map = self.column_mappings.get(logical_index, "None")
         dialog = ColumnMapDialog(original_header_text, curr_map, self)
         if dialog.exec():
             new_field = dialog.get_selected_value()
             if new_field == "None" or not new_field:
                 if logical_index in self.column_mappings:
+                    if self.column_mappings[logical_index] == "Grain Name" and self.current_sheet_name == self.upb_sheet_name:
+                        # Remove the Grain Name column from the left table if it exists
+                        left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
+                                        range(self.left_table.columnCount())]
+                        if "Grain Name" in left_headers:
+                            grain_col_index = left_headers.index("Grain Name")
+                            self.left_table.removeColumn(grain_col_index)
                     del self.column_mappings[logical_index]
                 item.setText(original_header_text)
                 item.setBackground(QBrush(Qt.GlobalColor.transparent))
@@ -2001,9 +2038,11 @@ class ImportWizardDialog(QWidget):
                 item.setBackground(QColor("#C0FFB8")  # Green
                                    )
 
-                # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
-                if new_field in ["Sample Name", "Aliquot Name", "Spot Name"]:
+                # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name, auto-populate left table
+                if new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name"] and self.current_sheet_name == self.upb_sheet_name:
                     self.update_left_table_on_header_change(new_field, logical_index)
+        # Update the mappings for the current sheet
+        self.sheet_mappings[self.current_sheet_name] = self.column_mappings
 
     def update_left_table_on_header_change(self, field, logical_index):
         if field == "Sample Name":
@@ -2030,7 +2069,34 @@ class ImportWizardDialog(QWidget):
                 self.left_table.setItem(r, 1, QTableWidgetItem(aliquot_id_value))  # Aliquot ID
                 self.left_table.blockSignals(False)
             self.left_table.resizeColumnsToContents()
+        elif field == "Grain Name":
+            left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
+                            range(self.left_table.columnCount())]
+            # Only show a grain name column if a Grain Name is mapped
+            if field == "Grain Name" and "Grain Name" not in left_headers:
+                # Insert a new column for Grain Name at index 2, give it the header "Grain Name"
+                self.left_table.insertColumn(2)
+                self.left_table.setHorizontalHeaderItem(2, QTableWidgetItem("Grain Name"))
+                # # Shift existing Spot Name column to index 3
+                # if "Spot Name" in left_headers:
+                #     spot_col_index = left_headers.index("Spot Name")
+                #     if spot_col_index != 3:
+                #         self.left_table.insertColumn(3)
+                #         for r in range(self.left_table.rowCount()):
+                #             item = self.left_table.takeItem(r, spot_col_index)
+                #             self.left_table.setItem(r, 3, item)
+                self.left_table.resizeColumnsToContents()
+            for r in range(self.right_table.rowCount()):
+                cell_item = self.right_table.item(r, logical_index)
+                if not cell_item:
+                    continue
+                grain_id_value = cell_item.text().strip()
 
+                # Update the left table
+                self.left_table.blockSignals(True)
+                self.left_table.setItem(r, 2, QTableWidgetItem(grain_id_value))  # Grain ID
+                self.left_table.blockSignals(False)
+            self.left_table.resizeColumnsToContents()
         elif field == "Spot Name":
             self.auto_split_sample_spot(logical_index)
 
@@ -2097,17 +2163,27 @@ class ImportWizardDialog(QWidget):
 
             # Update the left table
             self.left_table.blockSignals(True)
-            if self.left_table.item(r, 0).text() == "":
+            if not self.left_table.item(r, 0) or self.left_table.item(r, 0).text() == "":
                 self.left_table.setItem(r, 0, QTableWidgetItem(sample_id))  # Sample ID
             else:
                 # data already exists in this column, skip it and prefer user entered data.
                 pass
-            self.left_table.setItem(r, 2, QTableWidgetItem(spot_id))  # Spot ID
+            left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
+                            range(self.left_table.columnCount())]
+            if "Grain Name" in left_headers:
+                spot_idx = 3
+            else:
+                spot_idx = 2
+            self.left_table.setItem(r, spot_idx, QTableWidgetItem(spot_id))  # Spot ID
             self.left_table.blockSignals(False)
         self.left_table.resizeColumnsToContents()
 
     def save_mapping(self):
-        if not self.column_mappings:
+        n_mappings = 0
+        for sheet in self.sheet_mappings.keys():
+            column_mappings = self.sheet_mappings[sheet]
+            n_mappings += len(column_mappings)
+        if n_mappings == 0:
             QMessageBox.warning(self, "No Mapping", "No columns have been mapped yet.")
             return
 
@@ -2152,8 +2228,14 @@ class ImportWizardDialog(QWidget):
                     return
 
         if ok and name:
-            jmap = {str(k): {"field": v} for k, v in self.column_mappings.items()}
-            configs[name] = jmap
+            sheets = {}
+            for sheet, column_mappings in self.sheet_mappings.items():
+                if column_mappings:
+                    sheets[sheet] = {str(k): {"field": v} for k, v in column_mappings.items()}
+            combos = {}
+            for key, combo in self.combos.items():
+                combos[key] = combo.currentText()
+            configs[name] = {"Sheets": sheets, "Units/Formats": combos}
             with open(CONFIG_FILE, 'w') as f:
                 json.dump(configs, f, indent=4)
             QMessageBox.information(self, "Saved", f"Mapping '{name}' saved successfully.")
@@ -2189,25 +2271,46 @@ class ImportWizardDialog(QWidget):
         if dlg.exec() == QDialog.DialogCode.Accepted:
             name = dlg.selected_name
             loaded = configs[name]
+            self.sheet_mappings.clear()
             self.column_mappings.clear()
-            for k_str, v in loaded.items():
-                idx = int(k_str)
-                self.column_mappings[idx] = (v["field"])
+            for sheet in self.wb.sheetnames:
+                self.sheet_mappings[sheet] = {}
+            if "Sheets" and "Units/Formats" in loaded.keys():
+                loaded_sheets = loaded["Sheets"]
+                loaded_combos = loaded["Units/Formats"]
+                for key, combo in self.combos.items():
+                    if key in loaded_combos:
+                        val = loaded_combos[key]
+                        idx = combo.findText(val)
+                        if idx != -1:
+                            combo.setCurrentIndex(idx)
+                for sheet, mappings in loaded_sheets.items():
+                    if sheet in self.sheet_mappings:
+                        self.sheet_mappings[sheet] = {int(k): v["field"] for k, v in mappings.items()}
+            else:
+                # GeoCORK v.1.0.0 format, apply to the upb sheet only
+                for k_str, v in loaded.items():
+                    idx = int(k_str)
+                    self.column_mappings[idx] = (v["field"])
+                    self.sheet_mappings[self.upb_sheet_name] = self.column_mappings
 
-            total_cols = self.right_table.columnCount()
-            for col_idx in range(total_cols):
-                hdr_item = self.right_table.horizontalHeaderItem(col_idx)
-                if not hdr_item:
-                    continue
-                if col_idx in self.column_mappings:
-                    f_name = self.column_mappings[col_idx]
-                    hdr_item.setText(f"{f_name}")
-                    hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
-                    # If it’s Sample Name / Aliquot Name / Spot Name, auto-populate left table
-                    if f_name in ["Sample Name", "Aliquot Name", "Spot Name"]:
-                        self.update_left_table_on_header_change(f_name, col_idx)
-                else:
-                    hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
+            for sheet in self.sheet_mappings.keys():
+                right_table = self.right_tables[sheet]
+                total_cols = right_table.columnCount()
+                column_mappings = self.sheet_mappings[sheet]
+                for col_idx in range(total_cols):
+                    hdr_item = right_table.horizontalHeaderItem(col_idx)
+                    if not hdr_item:
+                        continue
+                    if col_idx in column_mappings:
+                        f_name = column_mappings[col_idx]
+                        hdr_item.setText(f"{f_name}")
+                        hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
+                        # If it’s Sample Name / Aliquot Name / Spot Name / Grain Name, auto-populate left table
+                        if f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name"] and sheet == self.upb_sheet_name:
+                            self.update_left_table_on_header_change(f_name, col_idx)
+                    else:
+                        hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
             self.update_mapping_list(name, configs)
             QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
 
