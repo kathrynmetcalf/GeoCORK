@@ -11,7 +11,7 @@ from PyQt6.QtGui import QPixmap, QAction
 from PyQt6.QtSql import QSqlDatabase
 # from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
-    QListWidget, QListWidgetItem, QMainWindow, QApplication
+    QListWidget, QListWidgetItem, QMainWindow, QApplication, QHBoxLayout
 from PyQt6.uic import loadUi
 
 import logger_setup
@@ -45,15 +45,8 @@ class LandingPage(QWidget):
 
         self.loadWindowState()
 
-        self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
-
-        for path in self.list_recents:
-            self.listWidget.addItem(shrink_home(path))
-
         self.newdatabase_button.clicked.connect(self.new_database_dialog)
-
         self.opendatabase_button.clicked.connect(self.showFileDialog)
-
         self.mergedatabase_button.clicked.connect(self.show_merge_db)
 
         self.github_button: QPushButton
@@ -62,10 +55,20 @@ class LandingPage(QWidget):
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
 
-        self.listWidget: QListWidget
-        self.listWidget.itemDoubleClicked.connect(self.clicked_file)
+        self.listWidget = UnselectableListWidget()
+        self.listWidget.setObjectName("listWidget")
+        self.listWidget.setMinimumSize(QtCore.QSize(400, 500))
+        self.listWidget.setMaximumSize(QtCore.QSize(400, 1000))
+        self.listWidget.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.listWidget.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.listWidget.customContextMenuRequested.connect(self.recents_context_menu)
+        self.horizontalLayout_2.insertWidget(0, self.listWidget)
+        self.listWidget.itemDoubleClicked.connect(self.clicked_file)
+
+        self.list_recents = settings.value("ui/LandingPage/recentlist", defaultValue=[], type=list)
+
+        for path in self.list_recents:
+            self.listWidget.addItem(shrink_home(path))
 
         pixmap = QPixmap(os.path.join(base_path, 'GeoCORK_Logo.png'))
         scaled_pixmap = pixmap.scaled(500, 100, Qt.AspectRatioMode.KeepAspectRatio,
@@ -404,3 +407,27 @@ class LandingPage(QWidget):
 
     def clear_selection(self):
         self.listWidget.setCurrentItem(None)
+
+class UnselectableListWidget(QListWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.previous_item = None
+
+    def mousePressEvent(self, event):
+        item = self.itemAt(event.pos())
+        if item is not None:
+            if item is self.currentItem():
+                self.selectionModel().clearSelection()
+                self.setCurrentIndex(QtCore.QModelIndex())
+                self.clearSelection()
+                event.accept()
+                return
+            else:
+                self.previous_item = item
+                super().mousePressEvent(event)
+                return
+
+        self.selectionModel().clearSelection()
+        self.setCurrentIndex(QtCore.QModelIndex())
+        self.clearSelection()
+        event.accept()
