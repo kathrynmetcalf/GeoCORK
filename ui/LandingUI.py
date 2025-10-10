@@ -6,7 +6,7 @@ from pathlib import Path
 
 import qtawesome
 from PyQt6 import QtCore, QtWidgets, QtSql
-from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize
+from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize, QTimer
 from PyQt6.QtGui import QPixmap, QAction
 from PyQt6.QtSql import QSqlDatabase
 # from PyQt6.QtSql import QSqlDatabase
@@ -88,6 +88,8 @@ class LandingPage(QWidget):
             self.db = None
             self.open_geo_cork()
 
+        QTimer.singleShot(1, self.clear_selection)
+
     def closeEvent(self, a0):
         self.saveWindowState()
         logger_setup.get_logger().info("Closing Landing Page...")
@@ -131,13 +133,19 @@ class LandingPage(QWidget):
                 self.db.open()
                 if not self.db.isOpen():
                     logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
+                    self.loading_manager.close_loading_dialog("Opening",
+                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     return
                 if not turn_on_foreign_keys():
+                    self.loading_manager.close_loading_dialog("Opening",
+                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     return
                 Savepoint_manager.SavepointManager()
             if not skip_update:
                 if not update_database():
                     logger_setup.get_logger().critical('Error updating and displaying database')
+                    self.loading_manager.close_loading_dialog("Opening",
+                         f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
                     return
             self.hide()
             geo_cork = GeoCORK(self)
@@ -158,6 +166,7 @@ class LandingPage(QWidget):
         # Repopulate the QListWidget with new items
         for path in self.list_recents:
             self.listWidget.addItem(shrink_home(path))
+        self.listWidget.setCurrentItem(None)
 
     def restore_backup(self, db_file, backup_file):
         self.selected_files = db_file
@@ -336,6 +345,7 @@ class LandingPage(QWidget):
                 self.listWidget.clear()
                 for path in self.list_recents:
                     self.listWidget.addItem(shrink_home(path))
+                self.listWidget.setCurrentItem(None)
             self.hide()
             settings.setValue('db_file', self.selected_files)
             self.open_geo_cork()
@@ -391,3 +401,6 @@ class LandingPage(QWidget):
     def loadWindowState(self):
         self.move(settings.value("ui/LandingPage/pos", defaultValue=QPoint(410, 241), type=QPoint))
         self.resize(settings.value("ui/LandingPage/size", defaultValue=QSize(750, 701), type=QSize))
+
+    def clear_selection(self):
+        self.listWidget.setCurrentItem(None)

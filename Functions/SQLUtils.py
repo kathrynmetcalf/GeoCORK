@@ -1,6 +1,7 @@
 # ID columns
 qsample_id = 'Samples.SampleID AS SampleID'
 qaliquot_id = 'Aliquots.AliquotID AS AliquotID'
+qgrain_id = 'Grains.GrainID AS GrainID'
 qspot_id = 'Spots.SpotID AS SpotID'
 qupb_id = 'UPbAnalyses.UPbAnalysisID AS UPbAnalysisID'
 qcolumn_id = 'Columns.ColumnID AS ColumnID'
@@ -68,6 +69,7 @@ qaliquot_spot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositionName)
 qaliquot_references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) AS UPb Reference'
 qaliquot_upb_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
 qaliquot_labs = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilityName), ",", "; ") AS LabFacilityName'
+qaliquot_description = 'AliquotDescription AS AliquotDescription'
 qaliquot_created = 'AliquotCreated AS AliquotCreated'
 qaliquot_modified = 'AliquotModified AS AliquotModified'
 
@@ -78,6 +80,7 @@ qspots = 'REPLACE(GROUP_CONCAT(DISTINCT SpotName), ",", "; ") AS SpotName'
 qspot_composition = 'SpotCompositionName AS SpotCompositionName'
 qspot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositionName), ",", "; ") AS SpotCompositionName'
 qspot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContextName), ",", "; ") AS SpotContextName'
+qspot_description = 'SpotDescription AS SpotDescription'
 qspot_created = 'SpotCreated AS SpotCreated'
 qspot_modified = 'SpotModified AS SpotModified'
 
@@ -88,11 +91,14 @@ qgrains = 'REPLACE(GROUP_CONCAT(DISTINCT GrainName), ",", "; ") AS GrainName'
 qgrain_composition = 'GrainCompositionName AS GrainCompositionName'
 qgrain_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT GrainCompositionName), ",", "; ") AS GrainCompositionName'
 qgrain_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT GrainContextName), ",", "; ") AS GrainContextName'
+qgrain_description = 'GrainDescription AS GrainDescription'
 qgrain_created = 'GrainCreated AS GrainCreated'
 qgrain_modified = 'GrainModified AS GrainModified'
 
 # UPb view columns
 # qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalyses"'  # accepted/total
+qupb_analyses = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.AnalysisName), ",", "; ") AS UPbAnalyses'
+qupb_analysis_name = 'UPbAnalysisName AS UPbAnalysisName'
 qupb_count = 'DistinctUPbAnalyses.AcceptedTotalUPbAnalyses AS "Accepted/TotalUPbAnalyses"'
 qupb_count_sample_subquery = f'''
 DistinctUPbAnalyses AS 
@@ -249,7 +255,6 @@ qupb_created = 'UPbAnalysisCreated AS UPbAnalysisCreated'
 qupb_modified = 'UPbAnalysisModified AS UPbAnalysisModified'
 
 # Reference view columns
-qreference_id = 'ReferenceID AS ReferenceID'
 qreference_display = 'ReferenceDisplay AS ReferenceDisplay'
 qauthors = 'Authors AS Authors'
 qyear = 'Year AS Year'
@@ -319,11 +324,19 @@ aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts ON Aliquots.Aliquot
 # Aliquot-spot Join
 aliquot_spot_join = 'LEFT JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID'
 
+# GrainJoins
+grain_context_join = '''LEFT JOIN Grains_GrainContexts ON Grains.GrainID = Grains_GrainContexts.GrainID
+                                LEFT JOIN GrainContexts ON Grains_GrainContexts.GrainContextID = GrainContexts.GrainContextID'''
+grain_composition_join = '''LEFT JOIN Grains_GrainCompositions ON Grains.GrainID = Grains_GrainCompositions.GrainID
+                                LEFT JOIN GrainCompositions ON Grains_GrainCompositions.GrainCompositionID = GrainCompositions.GrainCompositionID'''
+grain_spot_join = 'LEFT JOIN Spots ON Grains.SpotID = Spots.SpotID'
+
 # SpotJoins
 spot_aliquot_join = 'LEFT JOIN Aliquots ON Spots.AliquotID = Aliquots.AliquotID'
 spot_composition_join = '''LEFT JOIN SpotCompositions ON Spots.SpotCompositionID = SpotCompositions.SpotCompositionID'''
 spot_context_join = '''LEFT JOIN Spots_SpotContexts ON Spots.SpotID = Spots_SpotContexts.SpotID
                                 LEFT JOIN SpotContexts ON Spots_SpotContexts.SpotContextID = SpotContexts.SpotContextID'''
+spot_grain_join = 'LEFT JOIN Grains ON Spots.SpotID = Grains.SpotID'
 spot_upb_analysis_join = 'LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID'
 
 # UPbJoins
@@ -446,6 +459,14 @@ limited_aliquot_tags = f'''
             WHERE a_ac.AliquotID in (SELECT AliquotID FROM LimitedAliquots)
         )
     '''
+limited_grain_tags = f'''
+        LimitedGrains_GrainContexts AS (
+            SELECT g_gc.GrainID, gc.*
+            FROM GrainContexts gc
+            JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
+            WHERE g_gc.GrainID in (SELECT GrainID FROM LimitedGrains)
+        )
+    '''
 limited_spot_tags = f'''
         LimitedSpots_SpotContexts AS (
             SELECT s_sc.SpotID, sc.*
@@ -489,6 +510,10 @@ limited_aliquot_tags_join = f'''
     LEFT JOIN LimitedAliquots_AliquotContexts laac ON la.AliquotID = laac.AliquotID
 '''
 
+limited_grain_tags_join = f'''
+    LEFT JOIN LimitedGrains_GrainContexts lggc ON lg.GrainID = lggc.GrainID
+'''
+
 limited_spot_tags_join = f'''
     LEFT JOIN LimitedSpots_SpotContexts lspsc ON lsp.SpotID = lspsc.SpotID
 '''
@@ -515,6 +540,7 @@ limited_table_abbreviations = {
     'Settings': 'lss',
     'Units': 'lsu',
     'AliquotContexts': 'laac',
+    'GrainContexts': 'lggc',
     'SpotContexts': 'lssc',
     'UPbAnalysisContexts': 'luac',
     'RejectionReasons': 'lurr'
@@ -525,7 +551,8 @@ limited_table_abbreviations = {
 sample_view_columns = [qsample_id, qigsn, qsample_name, qgps, qsample_elev, qcolumn_gps, qcolumn_data, qsample_age,
                        qage_range, qsample_age_constraint, qsample_age_interpretation,
                        qsample_age_references, qsample_description, qage_signature, qregions, qrock_types,
-                       qsample_context, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts,
+                       qsample_context, qsampling_methods, qsettings, qunits, qaliquots, qaliquot_contexts, qgrains,
+                       qgrain_compositions, qgrain_contexts,
                        qspots, qspot_compositions, qspot_contexts, qupb_references, qupb_lab_facilities,
                        qupb_instruments,
                        qupb_analysis_methods, qupb_ratio_error_formats, qupb_age_error_formats, qupb_age_units,
@@ -538,6 +565,7 @@ many_editable = {
                 'SettingName': 'Settings',
                 'UnitName': 'Units'},
     'Aliquots': {'AliquotContextName': 'AliquotContexts'},
+    'Grains': {'GrainContextName': 'GrainContexts'},
     'Spots': {'SpotContextName': 'SpotContexts'},
     'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
     'References': {'ReferenceDisplay'}
@@ -549,6 +577,7 @@ one_editable = {
                 'ColumnHeightDepthUnitAbbreviation': 'DistanceUnits', 'AliquotName': 'Aliquots'},
     'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits', 'ColumnBaseGPSDisplay': 'GPSLocations'},
     'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
+    'Grains': {'SpotName': 'Spots', 'GrainCompositionName': 'GrainCompositions'},
     'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
     'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
                     'UPbReference': 'References',
@@ -564,6 +593,7 @@ non_editable = {
     'Samples': ['SpotCount', 'Accepted/TotalUPbAnalyses', 'RejectionReasonName', 'SampleCreated', 'SampleModified'],
     'Columns': ['ColumnCreated', 'ColumnModified'],
     'Aliquots': ['AliquotCreated', 'AliquotModified'],
+    'Grains': ['GrainCreated', 'GrainModified'],
     'Spots': ['SpotCreated', 'SpotModified'],
     'UPbAnalyses': ['UPbAnalysisCreated', 'UPbAnalysisModified'],
     'References': ['ReferenceDisplay', 'ReferenceCreated', 'ReferenceModified']
@@ -577,7 +607,7 @@ not_null = {
     'Aliquots': ['AliquotName', 'SampleName'],
     'Spots': ['SpotName', 'AliquotName', 'SampleName'],
     'Grains':['GrainName'],
-    'UPbAnalyses': ['SpotName', 'AliquotName', 'SampleName']
+    'UPbAnalyses': ['UPbAnalysisName', 'SpotName', 'AliquotName', 'SampleName']
 }
 "Tables that are the basis for view and their columns that cannot be null"
 
@@ -595,7 +625,7 @@ user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 
 export_database_tables_viewable = sorted(user_viewable_tables + ['UPbAnalyses', 'Aliquots', 'Spots'])
 """List of all tables to be viewed in the ExporterWidget for exporting a database. Extra tables are included for sanity checking."""
 
-conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Spots', 'UPbAnalyses']
+conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Grains', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
 trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView','Spots',
@@ -643,6 +673,15 @@ tree_tables_schema = {
         'bridge_table': 'Aliquots_AliquotContexts',
         'bridge_from_column': 'AliquotID',
         'bridge_to_column': 'AliquotContextID',
+    },
+    'GrainContexts.[GrainContextName]': {
+        'id_column': 'GrainContextID',
+        'name_column': 'GrainContextName',
+        'parent_column': 'ParentGrainContextID',
+        'cte_name': 'RecursiveGrainContexts',
+        'bridge_table': 'Grains_GrainContexts',
+        'bridge_from_column': 'GrainID',
+        'bridge_to_column': 'GrainContextID',
     },
     'Regions.[RegionName]': {
         'id_column': 'RegionID',
@@ -765,6 +804,8 @@ foreign_key_tables = [
     'SampleAges_AgeInterpretations',
     'SampleAges_References',
     'Aliquots',
+    'Grains_GrainContexts',
+    'Grains',
     'Spots',
     'Samples_AgeSignatures',
     'Samples_Regions',
@@ -802,6 +843,8 @@ database_ordered_tables = ['AgeUnits',
                            'UPbAnalysisMethods',
                            'SpotCompositions',
                            'SpotContexts',
+                           'GrainCompositions',
+                           'GrainContexts',
                            'AliquotContexts',
                            'AgeConstraints',
                            'AgeInterpretations',
@@ -823,6 +866,7 @@ database_ordered_tables = ['AgeUnits',
                            'Units',
                            'Samples',
                            'Aliquots',
+                           'Grains',
                            'Spots',
                            'UPbAnalyses',
                            'Samples_AgeSignatures',
@@ -834,6 +878,7 @@ database_ordered_tables = ['AgeUnits',
                            'Samples_Settings',
                            'Samples_Units',
                            'Aliquots_AliquotContexts',
+                           'Grains_GrainContexts',
                            'Spots_SpotContexts',
                            'UPbAnalyses_RejectionReasons',
                            'UPbAnalyses_UPbAnalysisContexts',
@@ -842,8 +887,8 @@ database_ordered_tables = ['AgeUnits',
 """Used in MergeDatabase.py as the order of tables to merge first to last. Since the database is relational it must 
 be merged so the related data is merged last so updated primary keys can be properly generated"""
 
-views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView', 'UPbView',
-         'UPbEditView', 'ColumnView', 'ColumnEditView', 'ReferenceView']
+views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'GrainView', 'GrainEditView', 'SpotView',
+         'SpotEditView', 'UPbView', 'UPbEditView', 'ColumnView', 'ColumnEditView', 'ReferenceView']
 """List of all views in the database. These views pull information from other tables for a comprehensive view of data
 See Database_views.py for further"""
 
@@ -959,7 +1004,7 @@ table_attributes_dict = {
         "AliquotContextCreated", "AliquotContextModified"
     ],
     'Aliquots': [
-        "AliquotName", "AliquotCreated", "AliquotModified"
+        "AliquotName", "AliquotDescription", "AliquotCreated", "AliquotModified"
     ],
     'Columns': [
         "ColumnName", "ColumnDescription",
@@ -971,6 +1016,17 @@ table_attributes_dict = {
         "CalculatedZone", "CalculatedEasting", "CalculatedNorthing",
         "CalculatedLat", "CalculatedLon",
         "CalculatedGPSElev", "CalculatedGPSElevError"
+    ],
+    'GrainCompositions': [
+        "GrainCompositionName", "GrainCompositionDescription",
+        "GrainCompositionCreated", "GrainCompositionModified"
+    ],
+    'GrainContexts': [
+        "GrainContextName", "GrainContextDescription",
+        "GrainContextCreated", "GrainContextModified"
+    ],
+    'Grains': [
+        "GrainName", "GrainDescription", "GrainCreated", "GrainModified"
     ],
     'Instruments': [
         "InstrumentName", "InstrumentDescription",
@@ -1017,7 +1073,7 @@ table_attributes_dict = {
         "SettingCreated", "SettingModified"
     ],
     'Spots': [
-        "SpotName", "SpotCreated", "SpotModified"
+        "SpotName", "SpotDescription", "SpotCreated", "SpotModified"
     ],
     'SpotCompositions': [
         "SpotCompositionName", "SpotCompositionDescription",
@@ -1028,6 +1084,7 @@ table_attributes_dict = {
         "SpotContextCreated", "SpotContextModified"
     ],
     'UPbAnalyses': [
+        "UPbAnalysisName",
         "Pb204cps",
         "Pb206cps",
         "Pb207cps",
@@ -1126,6 +1183,7 @@ view_attributes_dict = {
         f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
         f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
         f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
+        f"{qgrain_count.split('AS ')[1]}", f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
         f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
         f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", f"{qupb_age_error_formats.split('AS ')[1]}",
@@ -1144,6 +1202,7 @@ view_attributes_dict = {
         f"{qage_signature.split('AS ')[1]}", f"{qregions.split('AS ')[1]}", f"{qrock_types.split('AS ')[1]}",
         f"{qsample_context.split('AS ')[1]}", f"{qsampling_methods.split('AS ')[1]}", f"{qsettings.split('AS ')[1]}",
         f"{qunits.split('AS ')[1]}", f"{qaliquots.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
+        f"{qgrain_count.split('AS ')[1]}", f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
         f"{qspot_count.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
         f"{qupb_count.split('AS ')[1]}", f"{qupb_lab_facilities.split('AS ')[1]}",
         f"{qupb_analysis_methods.split('AS ')[1]}", f"{qupb_ratio_error_formats.split('AS ')[1]}",
@@ -1164,7 +1223,8 @@ view_attributes_dict = {
     'AliquotView': [
         f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
         f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}",
-        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}",
+        f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}", f"{qgrain_count.split('AS ')[1]}",
+        f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}", f"{qspot_count.split('AS ')[1]}",
         f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}", f"{qupb_count.split('AS ')[1]}",
         f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
@@ -1178,19 +1238,34 @@ view_attributes_dict = {
         f"{qaliquot_id.split('AS ')[1]}", f"{qaliquot_parent_id.split('AS ')[1]}",
         f"{qaliquot_parent_row.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}",
         f"{qaliquot_sample.split('AS ')[1]}", f"{qaliquot_contexts.split('AS ')[1]}",
+        f"{qaliquot_description.split('AS ')[1]}",
         f"{qaliquot_created.split('AS ')[1]}", f"{qaliquot_modified.split('AS ')[1]}"
+    ],
+    'GrainView': [
+        f"{qgrain_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
+        f"{qspot_id.split('AS ')[1]}", f"{qgrain_name.split('AS ')[1]}", f"{qspots.split('AS ')[1]}",
+        f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
+        f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_description.split('AS ')[1]}",
+        f"{qgrain_created.split('AS ')[1]}", f"{qgrain_modified.split('AS ')[1]}"
+    ],
+    'GrainEditView': [
+        f"{qgrain_id.split('AS ')[1]}", f"{qgrain_name.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
+        f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_description.split('AS ')[1]}",
+        f"{qgrain_created.split('AS ')[1]}", f"{qgrain_modified.split('AS ')[1]}"
     ],
     'SpotView': [
         f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
-        f"{qspots.split('AS ')[1]}",
-        f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}", f"{qspot_compositions.split('AS ')[1]}",
-        f"{qspot_contexts.split('AS ')[1]}",
+        f"{qspots.split('AS ')[1]}", f"{qsample_name.split('AS ')[1]}", f"{qaliquot_name.split('AS ')[1]}",
+        f"{qgrain_name.split('AS ')[1]}", f"{qgrain_compositions.split('AS ')[1]}", f"{qgrain_contexts.split('AS ')[1]}",
+        f"{qspot_compositions.split('AS ')[1]}", f"{qspot_contexts.split('AS ')[1]}",
+        f"{qupb_analyses.split('AS ')[1]}",
         f"{qupb_lab_facilities.split('AS ')[1]}", f"{qupb_analysis_methods.split('AS ')[1]}",
         f"{qupb_ratio_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
         f"{qupb_age_error_formats.split('AS ')[1]}", f"{qconcordance_formats.split('AS ')[1]}",
         f"{qspot_sizes.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
         f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_contexts.split('AS ')[1]}",
-        f"{qupb_references.split('AS ')[1]}", f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
+        f"{qupb_references.split('AS ')[1]}", f"{qspot_description.split('AS ')[1]}",
+        f"{qspot_created.split('AS ')[1]}", f"{qspot_modified.split('AS ')[1]}"
     ],
     'SpotEditView': [
         f"{qspot_id.split('AS ')[1]}", f"{qsample_id.split('AS ')[1]}", f"{qaliquot_id.split('AS ')[1]}",
@@ -1291,6 +1366,8 @@ view_setting_dict = {
     'SampleEditView': 'sample_edit_columns',
     'AliquotView': 'aliquot_view_columns',
     'AliquotEditView': 'aliquot_edit_columns',
+    'GrainView': 'grain_view_columns',
+    'GrainEditView': 'grain_edit_columns',
     'SpotView': 'spot_view_columns',
     'SpotEditView': 'spot_edit_columns',
     'UPbView': 'upb_analysis_view_columns',
@@ -1301,7 +1378,7 @@ view_setting_dict = {
 }
 
 upb_possible_database_input_fields = [
-    'SpotID',
+    'SpotID', 'UPbAnalysisName',
     'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
     'Uppm', 'Thppm',
     'U/Th', 'Th/U',
@@ -1461,6 +1538,7 @@ reference_possible_user_input_fields = {
 
 upb_possible_user_input_fields = {
     'U-Pb Base Info': [
+        'UPb Analysis Name',
         'Lab Facility Name',
         'Instrument Name',
         'UPb Analysis Method Name',
@@ -1578,6 +1656,31 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
                     join += spot_upb_analysis_join + '\n'
                 if upb_labs_join not in join:
                     join += upb_labs_join + '\n'
+            case 'Grains':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_grain_join not in join:
+                    join += spot_grain_join + '\n'
+            case 'GrainCompositions':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_grain_join not in join:
+                    join += spot_grain_join + '\n'
+                if grain_composition_join not in join:
+                    join += grain_composition_join + '\n'
+            case 'GrainContexts':
+                if sample_aliquot_join not in join:
+                    join += sample_aliquot_join + '\n'
+                if aliquot_spot_join not in join:
+                    join += aliquot_spot_join + '\n'
+                if spot_grain_join not in join:
+                    join += spot_grain_join + '\n'
+                if grain_context_join not in join:
+                    join += grain_context_join + '\n'
             case 'GPSLocations':
                 if gps_sample_join not in join:
                     join += gps_sample_join + '\n'

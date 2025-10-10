@@ -29,7 +29,7 @@ settings_list = [
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
     'reference_view_freeze', 'checkable_combobox_height_scaler',
     'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
-    'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff'
+    'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -143,10 +143,10 @@ def default_settings():
     ])
 
     settings.setValue('default_upb_analysis_view_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
-        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"',
-        '"Pb208cps"',
-        '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
+        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'AliquotName', 'SampleName',
+        'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"',
+        '"Pb207cps"','"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
+        '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
         '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"',
         '"Calculated207Pb/206PbError"',
         '"Calculated207Pb/235U"', '"Calculated207Pb/235UError"', '"Calculated235U/207Pb"',
@@ -174,10 +174,10 @@ def default_settings():
     ])
 
     settings.setValue('default_upb_analysis_edit_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'UPbReference',
-        'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"', '"Pb207cps"',
-        '"Pb208cps"',
-        '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"', '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
+        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'AliquotName', 'SampleName',
+        'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
+        '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
+        '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
         '"206Pb/207Pb"', '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"',
         '"207Pb/235U"', '"207Pb/235UError"', '"235U/207Pb"', '"235U/207PbError"',
         '"206Pb/238U"', '"206Pb/238UError"', '"238U/206Pb"', '"238U/206PbError"',
@@ -211,6 +211,8 @@ def default_settings():
         'ReferenceID', 'ReferenceDisplay', 'Authors', 'Year', 'Title', 'Source', 'DOI', 'ReferenceDescription',
         'ReferenceCreated', 'ReferenceModified'
     ])
+
+    settings.setValue('default_geocork_version', 'v1.0.0')
 
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)
     settings.setValue('default_checkable_combobox_width_scaler', 1.0)

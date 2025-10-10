@@ -78,6 +78,18 @@ CREATE_GPS_FORMATS_INDEX = '''
 CREATE_GPS_LOCATIONS_INDEX = '''
                         CREATE INDEX IF NOT EXISTS idx_GPSLocations_GPSLocationID ON GPSLocations(GPSLocationID)'''
 
+CREATE_GRAINS_INDEX = '''
+                    CREATE INDEX IF NOT EXISTS idx_Grains_GrainID ON Grains(GrainID)'''
+
+CREATE_GRAIN_CONTEXTS_INDEX = '''
+                    CREATE INDEX IF NOT EXISTS idx_GrainContexts_GrainContextID ON GrainContexts(GrainContextID)'''
+
+CREATE_GRAIN_COMPOSITIONS_INDEX = '''
+                    CREATE INDEX IF NOT EXISTS idx_GrainCompositions_GrainCompositionID ON GrainCompositions(GrainCompositionID)'''
+
+CREATE_GRAINS_CONTEXTS_INDEX = '''
+                    CREATE INDEX IF NOT EXISTS idx_Grains_GrainContexts_GrainID ON Grains_GrainContexts(GrainID, GrainContextID)'''
+
 CREATE_FILTER_GROUPS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_FilterGroups_FilterGroupID ON FilterGroups(FilterGroupID)'''
 
