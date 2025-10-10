@@ -262,10 +262,14 @@ CREATE_ERROR_CONVERSIONS_TABLE = '''CREATE TABLE IF NOT EXISTS ErrorFormatConver
 CREATE_GRAINS_TABLE = '''CREATE TABLE IF NOT EXISTS Grains(
                     GrainID INTEGER PRIMARY KEY,
                     GrainName TEXT NOT NULL CHECK (GrainName <> ''),
+                    GrainCompositionID INTEGER,
                     GrainDescription TEXT,
                     GrainCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     GrainModified DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE (GrainName COLLATE NOCASE)
+                    UNIQUE (GrainName COLLATE NOCASE),
+                    FOREIGN KEY(GrainCompositionID) REFERENCES GrainCompositions(GrainCompositionID)
+                        ON UPDATE CASCADE 
+                        ON DELETE SET NULL
 )'''
 
 CREATE_GRAIN_CONTEXTS_TABLE = '''CREATE TABLE IF NOT EXISTS GrainContexts(
