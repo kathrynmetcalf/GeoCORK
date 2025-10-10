@@ -3,10 +3,15 @@
 <h2 align="center"> An improved workflow for geochronology data management</h2>
 
 ## Description
-GeoCORK is a desktop application for managing U-Pb geochronology data which are stored in a local relational database. Data can be imported from .xlsx files in various formats and exported for use in analysis tools and data sharing. For more information on using GeoCORK, refer to Metcalf and Burges, 2025. For more information on GeoCORK development, refer to Burges and Metcalf, 2025.
+GeoCORK is a desktop application for managing U-Pb geochronology data which are stored in a local relational database. Data can be imported from .xlsx files in various formats and exported for use in analysis tools and data sharing. For more information on using GeoCORK, refer to Metcalf and Burges (2025).
 
 ## Download
 Find the latest release [here](https://github.com/kathrynmetcalf/GeoCORK/releases).
+
+## Publications
+If you have used GeoCORK in your workflow, please cite the accompanying publication and zenodo data release. At the bottom of the page you can find BibTeX formats. 
+
+Metcalf, K., and Burges, J., 2025, kathrynmetcalf/GeoCORK: GeoCORK v1.1.0:, doi:10.5281/ZENODO.15833658.
 
 ## Example Files
 Two example databases and supporting files can be found at (zenodo link).
@@ -100,18 +105,25 @@ Data are stored in a .db file. GeoCORK can import from .xlsx files and export to
 - Best Age
 - Concordance
 
-## Publications
-If you have used GeoCORK in your research, please cite the permanent Zenodo doi:
-
-Metcalf K., and Burges J., 2025, GeoCORK: ....., doi:....
-
-The accompanying published articles are:
+## BibTeX Citation
+```
+@misc{metcalfKathrynmetcalfGeoCORKGeoCORK2025,
+	title = {kathrynmetcalf/{GeoCORK}: {GeoCORK} v1.0.0},
+	copyright = {GNU General Public License v3.0 only},
+	shorttitle = {kathrynmetcalf/{GeoCORK}},
+	url = {https://zenodo.org/doi/10.5281/zenodo.15833658},
+	abstract = {Initial release},
+	urldate = {2025-10-10},
+	publisher = {Zenodo},
+	author = {Metcalf, Kathryn and Burges, Jarrod},
+	month = jul,
+	year = {2025},
+	doi = {10.5281/ZENODO.15833658},
+}
+```
 
 ## Contributing
 Set up a github account and fork the source code over to get started. If you are interested in contributing to GeoCORK releases, contact [Kate Metcalf](mailto:kametcalf@fullerton.edu).
-
-Part 1
-Part 2
 
 ## License
 GeoCORK is licensed under [GNU GENERAL PUBLIC LICENSE Version 3](https://github.com/kathrynmetcalf/GeoCORK/blob/master/LICENSE)
