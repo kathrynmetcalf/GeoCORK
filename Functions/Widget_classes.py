@@ -1106,8 +1106,7 @@ def get_headers(table: str) -> list:
     if 'View' in table:
         show_columns = settings.value(SQLUtils.view_setting_dict[table])
         return show_columns
-    if table == '"References"':
-        table = 'References'
+    table = table.replace('"', '').strip()
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
         logger_setup.get_logger().critical(f"Failed to get headers for {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")

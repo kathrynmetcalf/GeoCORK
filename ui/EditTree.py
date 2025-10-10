@@ -75,7 +75,7 @@ class EditTree(QtW.QDialog):
         self.close_by_dialog = False
         self.search_lineEdit.returnPressed.connect(self.search)
         self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit)
+        self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.discard_question)
         self.tree_model.dataChanged.connect(self.set_updated)
 
@@ -221,6 +221,19 @@ class EditTree(QtW.QDialog):
         if delete_data(self.table, item_ids):
             self.updated = True
             self.update_proxy()
+
+    def commit_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to commit all changes to the database?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.commit()
+            self.updated = True
+        else:
+            pass
 
     def discard_question(self):
         """

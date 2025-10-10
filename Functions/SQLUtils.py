@@ -5,7 +5,8 @@ qgrain_id = 'Grains.GrainID AS GrainID'
 qspot_id = 'Spots.SpotID AS SpotID'
 qupb_id = 'UPbAnalyses.UPbAnalysisID AS UPbAnalysisID'
 qcolumn_id = 'Columns.ColumnID AS ColumnID'
-qreference_id = 'References.ReferenceID AS ReferenceID'
+qreference_id = '"References".ReferenceID AS ReferenceID'
+
 
 # Sample view columns
 qsample_name = 'Samples.SampleName AS SampleName'
@@ -568,7 +569,7 @@ many_editable = {
     'Grains': {'GrainContextName': 'GrainContexts'},
     'Spots': {'SpotContextName': 'SpotContexts'},
     'UPbAnalyses': {'RejectionReasonName': 'RejectionReasons', 'UPbAnalysisContextName': 'UPbAnalysisContexts'},
-    'References': {'ReferenceDisplay'}
+    'References': {'ReferenceDisplay': 'ReferenceDisplay'}
 }
 # One-to-many columns for each table key, key-value pairs for column in the view and table to edit that information, populate single selection dropdowns
 one_editable = {

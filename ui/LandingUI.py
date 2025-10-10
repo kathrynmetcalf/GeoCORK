@@ -249,6 +249,8 @@ class LandingPage(QWidget):
         msg_box.exec()
 
     def clicked_file(self):
+        if self.listWidget.currentItem() is None:
+            return
         display_path = self.listWidget.currentItem().text()
         full_path = expand_home(display_path)
         self.selected_files = full_path

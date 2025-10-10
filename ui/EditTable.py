@@ -65,7 +65,7 @@ class EditTable(QtW.QDialog):
         self.search_lineEdit.returnPressed.connect(self.search)
 
         self.add_pushButton.clicked.connect(self.add_popup)
-        self.commit_pushButton.clicked.connect(self.commit)
+        self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.rollback)
 
         self.goto_line_edit.returnPressed.connect(self.go_to_record)
@@ -272,7 +272,7 @@ class EditTable(QtW.QDialog):
         """
         current_model_index = self.table_proxy_model.mapToSource(self.edit_tableView.currentIndex())
         if (self.edit_tableView.currentIndex().isValid() and
-            not self.model.setData(current_model_index, QtC.Qt.ItemDataRole.EditRole)):
+            not self.model.setData(current_model_index, current_model_index.data(), QtC.Qt.ItemDataRole.EditRole)):
             # There is a valid index selected and submitting data failed
             logger_setup.get_logger().critical('Failed to save changes')
             return
@@ -290,6 +290,19 @@ class EditTable(QtW.QDialog):
             self.close()
             self.close_by_dialog = False
             self.accept()
+
+    def commit_question(self):
+        msg_box = QtW.QMessageBox()
+        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+        msg_box.setText('Are you sure you want to commit all changes to the database?')
+        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+        response = msg_box.exec()
+        if response == QtW.QMessageBox.StandardButton.Yes:
+            self.commit()
+            self.updated = True
+        else:
+            pass
 
     def discard_question(self):
         """
