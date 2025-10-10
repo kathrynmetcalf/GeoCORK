@@ -251,7 +251,7 @@ class GeoCORK(QtW.QMainWindow):
             self.thread.start()
 
         else:
-            logger_setup.get_logger().critical('Active Save Points exist cannot backup')
+            logger_setup.get_logger().critical('Uncommitted changes: cannot backup\nPlease commit or discard changes before creating a backup.')
             logger_setup.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
 
     def restore_backup(self):

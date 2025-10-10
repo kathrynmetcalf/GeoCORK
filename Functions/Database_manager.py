@@ -1,9 +1,18 @@
 import time
+import os
+from datetime import datetime
+from tzlocal import get_localzone
 
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
+from PyQt6.QtWidgets import QMessageBox, QFileDialog, QProgressDialog
+from PyQt6.QtCore import QStandardPaths
 
 import Functions.Database_views as DB_views
+from Functions.BackupDatabase import BackupThread
 from Functions.LoadingDialog_manager import LoadingDialogManager
+from Functions.Savepoint_manager import SavepointManager
+from Functions.Settings_manager import SettingsManager
+settings = SettingsManager().settings
 import logger_setup
 
 
@@ -107,8 +116,45 @@ def update_database(database=None) -> bool:
         loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
 
+    query = QSqlQuery(db=db)
+
     from Functions import Create_database as Create_db, Create_indexes
     from Functions import Alter_database as Alter_db
+
+    # Update database schema
+    if not query.exec('SELECT Version FROM About WHERE AboutID = 1'):
+        db_version = None
+    else:
+        if not query.next():
+            logger_setup.get_logger().critical('Error retrieving database version')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            return False
+        else:
+            db_version = query.value(0)
+            logger_setup.get_logger().info(f'Database version: {db_version}')
+    # if db_version != settings.value('geocork_version'):
+    if not turn_off_foreign_keys():
+        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        return False
+    if not Create_db.update_schema(db_version, database=db):
+        logger_setup.get_logger().debug(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}")
+        dialog = QMessageBox()
+        dialog.setIcon(QMessageBox.Icon.Critical)
+        dialog.setText(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}\nWould you like to try to open the database anyway?")
+        dialog.setWindowTitle("Error updating database")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        ret = dialog.exec()
+        if ret != QMessageBox.StandardButton.Yes:
+            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            return False
+        logger_setup.get_logger().info('Trying to open the database anyway')
+
+    if not turn_on_foreign_keys():
+        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        return False
+
     if not Create_db.create_tables(db):
         logger_setup.get_logger().critical(f"Error creating database tables")
         loading_manager.close_loading_dialog('Loading', 'Updating database...')

@@ -1,11 +1,17 @@
 import os
 import sys
 import xml.etree.ElementTree as ET  # xml reader
+import sqlite3
 
 from PyQt6 import QtSql as QtS
+from PyQt6 import QtWidgets as QtW
 
 import Functions.SQLUtils as SQLUtils
 import logger_setup
+from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
+from Functions.Settings_manager import SettingsManager
+from collections import Counter
+settings = SettingsManager().settings
 
 '''
 Commands to create the database
@@ -761,6 +767,7 @@ CREATE_UNITS_TABLE = '''CREATE TABLE IF NOT EXISTS Units(
 
 CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     UPbAnalysisID INTEGER PRIMARY KEY,
+                    UPbAnalysisName TEXT NOT NULL CHECK (UPbAnalysisName <> ''),
                     SpotID INTEGER NOT NULL,
                     ReferenceID INTEGER,
                     LabFacilityID INTEGER,
@@ -936,6 +943,7 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                     Rejected INTEGER,
                     UPbAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisName COLLATE NOCASE),
                     FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
                         ON UPDATE CASCADE
                         ON DELETE CASCADE,
@@ -1054,14 +1062,20 @@ def create_tables(database=None) -> bool:
         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
     else:
         if not query.next():  # No rows found
-            # insert fully blank row into about
+            # insert blank row into about
             if not query.exec(
-                    "INSERT INTO About VALUES (1, 'Name','Authors','','','v1.0.0','','CreatedBy',NULL,NULL)"):
-                logger_setup.get_logger().critical(f"Failed to insert default values into About table")
+                    f"INSERT INTO About VALUES (1, 'Name','Authors','','', '{settings.value('default_geocork_version')}','','CreatedBy',NULL,NULL)"):
+                logger_setup.get_logger().debug(f"Failed to insert default values into About table")
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
             else:
                 logger_setup.get_logger().info('About table empty, populated with default values')
+        else:
+            logger_setup.get_logger().info('About table already populated, updating version info')
+            if not query.exec(f"UPDATE About SET Version = '{settings.value('default_geocork_version')}' WHERE AboutID = 1"):
+                logger_setup.get_logger().debug(f"Failed to update version in About table")
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
 
     # Create unit and formats tables
     if not query.exec(CREATE_AGE_UNITS_TABLE):
@@ -1383,6 +1397,209 @@ def create_tables(database=None) -> bool:
     logger_setup.get_logger().info('Successfully populated all database tables')
     return True
 
+
+def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
+    """
+    Function to update the database schema to the latest version.
+    :param version: Current version of the database schema. If None, defaults to 0.
+    :param database: QSqlDatabase instance to use, if None the default database is used.
+    :return: True for success, False for failure
+    :rtype: bool
+    """
+    if database is None:
+        database = QtS.QSqlDatabase()
+    query = QtS.QSqlQuery(database)
+    if version is None:
+        version = 0
+    if version == settings.value('default_geocork_version'):
+        logger_setup.get_logger().info('Database schema is up to date')
+        return True
+    # else:
+    #     dialog = QtW.QMessageBox()
+    #     dialog.setIcon(QtW.QMessageBox.Icon.Information)
+    #     dialog.setWindowTitle('Database Schema Update')
+    #     dialog.setText(f'Database schema version {version} is not compatible with this version of GeoCork ({settings.value("default_geocork_version")}).\n\n'
+    #                    f'Click OK to back up the database and update the schema to the latest version or cancel to abort.\n\n')
+    #     dialog.setStandardButtons(QtW.QMessageBox.StandardButton.Ok | QtW.QMessageBox.StandardButton.Cancel)
+    #     dialog.setDefaultButton(QtW.QMessageBox.StandardButton.Ok)
+    #     ret = dialog.exec()
+    #     if ret != QtW.QMessageBox.StandardButton.Ok:
+    #         logger_setup.get_logger().warning('User aborted database schema update')
+    #         return False
+    #     # Create a backup of the database before updating the schema
+    #
+
+    if version == 'v1.0.0' or version == '1.0.0':
+        # Update from version 1.0.0 to 1.1.0
+        logger_setup.get_logger().info('Updating database schema from version v1.0.0 to v1.1.0')
+        # Grain tables added automatically in Create_database.py
+        # Empty GrainID column will be added to the Spots table next
+        # Add UPbAnalysisName column to UPbAnalyses table and populate with SpotName
+
+        # Create a dictionary of SpotID and SpotName from the Spots table
+        spot_dict = {}
+        update_names = []
+        if not query.exec(f'SELECT SpotID, SpotName FROM Spots'):
+            logger_setup.get_logger().debug(f'Error retrieving SpotID and SpotName from Spots table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            return False
+        while query.next():
+            # Find any spots beginning with 'km001' case sensitive and add 16 in front of the name
+            if query.value(1).startswith('km001'):
+                spot_dict[query.value(0)] = '16' + query.value(1)
+                update_names.append(query.value(0))
+            else:
+                spot_dict[query.value(0)] = query.value(1)
+
+        for spot_id in update_names:
+            if not query.exec(f'UPDATE Spots SET SpotName="{spot_dict[spot_id]}" WHERE SpotID={spot_id}'):
+                logger_setup.get_logger().debug(f'Error updating SpotName in Spots table')
+                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                return False
+
+        # Add a new column to the UPbAnalyses table and populate it with the spot name corresponding to the SpotID already in the table
+        create_savepoint('before_schema_update')
+        if not query.exec(f'ALTER TABLE UPbAnalyses ADD COLUMN UPbAnalysisName TEXT'):
+            logger_setup.get_logger().debug(f'Error adding UPbAnalysisName column to UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            return False
+        upb_spots = {}
+        if not query.exec(f'SELECT UPbAnalysisID, SpotID FROM UPbAnalyses'):
+            logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and SpotID from UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            return False
+        while query.next():
+            upb_spots[query.value(0)] = query.value(1)
+
+        key_errors = 0
+        missing_spots = 0
+        added_spots = 0
+        deleted_upb = []
+        for upb_analysis_id, spot_id in upb_spots.items():
+            try:
+                spot_name = spot_dict[spot_id]
+            except KeyError:
+                key_errors += 1
+                spot_name = None
+            if spot_name:
+                if not query.exec(f'UPDATE UPbAnalyses SET UPbAnalysisName="{spot_name}" WHERE UPbAnalysisID={upb_analysis_id}'):
+                    logger_setup.get_logger().debug(f'Error updating UPbAnalysisName in UPbAnalyses table')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    rollback_savepoint('before_schema_update')
+                    return False
+                added_spots += 1
+                upb_spots[upb_analysis_id] = spot_name
+                # print(f'Updated UPbAnalysisID {upb_analysis_id} with UPbAnalysisName {spot_name}')
+            else:
+                # Delete orphaned UPbAnalysis with no matching SpotID
+                if not query.exec(f'DELETE FROM UPbAnalyses WHERE UPbAnalysisID={upb_analysis_id}'):
+                    logger_setup.get_logger().debug(f'Error deleting orphaned UPbAnalysisID {upb_analysis_id} from UPbAnalyses table')
+                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    rollback_savepoint('before_schema_update')
+                    return False
+                logger_setup.get_logger().info(f'Deleted orphaned UPbAnalysisID {upb_analysis_id} with missing SpotID {spot_id}')
+                missing_spots += 1
+                deleted_upb.append(upb_analysis_id)
+        logger_setup.get_logger().info(f'Successfully added UPbAnalysisName column to UPbAnalyses table')
+        # Remove deleted analyses from the dictionary
+        for deleted in deleted_upb:
+            upb_spots.pop(deleted)
+
+        if not query.exec(f'PRAGMA table_xinfo("UPbAnalyses")'):
+            logger_setup.get_logger().debug(f"Failed to get columns for UPbAnalyses table")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('before_schema_update')
+            return False
+        columns = []
+        while query.next():
+            columns.append(query.value(1))
+        if 'UPbAnalysisName' not in columns:
+            logger_setup.get_logger().debug(f"Failed to add UPbAnalysisName column to UPbAnalyses table")
+            rollback_savepoint('before_schema_update')
+            return False
+
+        # Create new UPbAnalyses table with new create statement
+        create_sql = CREATE_UPBANALYSES_TABLE
+        column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS UPbAnalyses')[1]
+        if not query.exec(f'CREATE TABLE IF NOT EXISTS UPbAnalyses_new{column_creation}'):
+            logger_setup.get_logger().debug(f"Failed to create new UPbAnalyses table")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('before_schema_update')
+            return False
+
+        # Copy data from old UPbAnalyses table to new UPbAnalyses table
+        from Functions.Alter_database import get_columns
+        query, virtual, stored, columns = get_columns('UPbAnalyses_new', database)
+        column_str = ', '.join(columns)
+        insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses'
+        logger_setup.get_logger().info(f'Inserting into new table: UPbAnalyses_new')
+        if not query.exec(insert_new_table):
+            logger_setup.get_logger().debug(f'Error inserting values into UPbAnalyses_new table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            return False
+        # for upb_analysis in range(len(upb_spots)):
+        #     insert_new_table = f'INSERT INTO UPbAnalyses_new SELECT {column_str} FROM UPbAnalyses WHERE UPbAnalysisID={list(upb_spots.keys())[upb_analysis]}'
+        #     logger_setup.get_logger().info(f'Inserting {list(upb_spots.keys())[upb_analysis]} into new table: UPbAnalyses_new')
+        #     if not query.exec(insert_new_table):
+        #         logger_setup.get_logger().critical(f'Error inserting UPbAnalyses_new table')
+        #         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        #         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        #         rollback_savepoint('before_schema_update')
+        #         return False
+        logger_setup.get_logger().info(f'Successfully inserted into new table: UPbAnalyses_new')
+        release_savepoint('before_schema_update')
+
+        # Close and reopen the database to avoid "database table is locked" errors
+        if not database.commit():
+            if 'no transaction is active' not in database.lastError().text():
+                logger_setup.get_logger().critical(f"Error committing database")
+                logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                return False
+        if not database.close():
+            if 'no transaction is active' not in database.lastError().text():
+                logger_setup.get_logger().critical(f"Error closing database")
+                logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                return False
+        if not database.open():
+            logger_setup.get_logger().critical(f"Error opening database")
+            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            return False
+
+        # Drop the original table
+        drop_original_table = f'DROP TABLE IF EXISTS "UPbAnalyses"'
+        logger_setup.get_logger().info(f'Dropping original table: UPbAnalyses')
+        if not query.exec(drop_original_table):
+            logger_setup.get_logger().critical(f'Error dropping original UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            # rollback_savepoint('before_schema_update')
+            return False
+        logger_setup.get_logger().info(f'Successfully dropped original table: UPbAnalyses')
+
+        # Rename the new table to the original table name
+        alter_table_qry = f'ALTER TABLE UPbAnalyses_new RENAME TO "UPbAnalyses"'
+        logger_setup.get_logger().info(f'Altering table rename: UPbAnalyses_new to UPbAnalyses')
+        if not query.exec(alter_table_qry):
+            logger_setup.get_logger().critical(f'Error renaming UPbAnalyses table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            # rollback_savepoint('before_schema_update')
+            return False
+        logger_setup.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
+    release_savepoint('before_schema_update')
+    return True
 
 def populate_tables(database=None) -> bool:
     """
