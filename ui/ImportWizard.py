@@ -12,7 +12,7 @@ from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
     QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QCheckBox,
-    QProgressDialog, QListWidget, QListView, QDialogButtonBox, QTabWidget
+    QProgressDialog, QListWidget, QListView, QDialogButtonBox, QTabWidget, QSpacerItem, QSizePolicy
 )
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
@@ -356,23 +356,23 @@ class ImportWizardDialog(QWidget):
         # does this need to be single click
         self.combo_reference_comboBox = CheckableComboBox()
         self.combo_reference = CheckableSqlQueryModel()
-        self.combo_reference.setToolTip('Applies the selected reference to all rows')
+        self.combo_reference_comboBox.setToolTip('Applies the selected reference to all rows')
 
         # ComboBox for setting Instrument
         self.combo_instrument_comboBox = CheckableComboBox()
         self.combo_instrument = CheckableSqlTableModel()
-        self.combo_reference.setToolTip('Applies the selected instrument to all rows')
+        self.combo_instrument_comboBox.setToolTip('Applies the selected instrument to all rows')
 
         # ComboBox for setting LabFacility
         self.combo_lab_facility_comboBox = CheckableComboBox()
         self.combo_lab_facility = CheckableSqlTableModel()
-        self.combo_reference.setToolTip('Applies the selected lab facility to all rows')
+        self.combo_lab_facility_comboBox.setToolTip('Applies the selected lab facility to all rows')
 
         # ComboBox for setting UPbAnalysisMethod
         self.combo_upb_analysis_method_comboBox = CheckableTreeCombobox()
         self.upb_analysis_method = QSqlTableModel()
         self.combo_upb_analysis_method = CheckableTreeModel()
-        self.combo_reference.setToolTip('Applies the selected U-Pb analysis method to all rows')
+        self.combo_upb_analysis_method_comboBox.setToolTip('Applies the selected U-Pb analysis method to all rows')
 
         self.populate_comboBoxes()
 
@@ -476,7 +476,7 @@ class ImportWizardDialog(QWidget):
         formats_layout2.addWidget(QLabel("Spot Size Unit"))
         formats_layout2.addWidget(self.spot_size_unit_combobox)
         self.spot_size_unit_combobox.setCurrentText(settings.value('spotsize_unit_abbreviation'))
-        self.combo_reference.setToolTip('Applies the selected spot size unit to all rows')
+        self.spot_size_unit_combobox.setToolTip('Applies the selected spot size unit to all rows')
 
         self.conc_format_combobox = QComboBox()
         # self.conc_format_combobox.setFixedWidth(150)
@@ -485,7 +485,7 @@ class ImportWizardDialog(QWidget):
         formats_layout2.addWidget(QLabel("Concordance Format"))
         formats_layout2.addWidget(self.conc_format_combobox)
         self.conc_format_combobox.setCurrentText(settings.value('concordance_format_abbreviation'))
-        self.combo_reference.setToolTip('Applies the selected concordance format to all rows')
+        self.conc_format_combobox.setToolTip('Applies the selected concordance format to all rows')
 
         main_layout.addLayout(formats_layout1)
         main_layout.addLayout(formats_layout2)
