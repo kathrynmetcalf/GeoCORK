@@ -10,7 +10,7 @@ from ui.LandingUI import LandingPage
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from ui.Settings import reset_to_default_settings, populate_app_defaults, check_missing_settings, default_settings
-signal.signal(signal.SIGINT, signal.SIG_DFL)
+# signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 
 if __name__ == "__main__":

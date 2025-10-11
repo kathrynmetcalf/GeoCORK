@@ -370,6 +370,12 @@ limited_aliquot_hierarchy_join = f'''
                         JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
                         '''
+limited_grain_hierarchy_join = f'''
+                        JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
+                        JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
+                        JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
+                        JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
+                        '''
 limited_spot_hierarchy_join = f'''
                         JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
@@ -882,7 +888,7 @@ database_ordered_tables = ['AgeUnits',
 """Used in MergeDatabase.py as the order of tables to merge first to last. Since the database is relational it must 
 be merged so the related data is merged last so updated primary keys can be properly generated"""
 
-views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'GrainView', 'GrainEditView', 'SpotView',
+views = ['SampleView', 'SampleEditView', 'AliquotView', 'AliquotEditView', 'SpotView',
          'SpotEditView', 'UPbView', 'UPbEditView', 'ColumnView', 'ColumnEditView', 'ReferenceView']
 """List of all views in the database. These views pull information from other tables for a comprehensive view of data
 See Database_views.py for further"""

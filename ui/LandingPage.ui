@@ -41,7 +41,7 @@
       </size>
      </property>
      <property name="text">
-      <string>GeoChronology Database</string>
+      <string>GeoCORK</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignCenter</set>
@@ -79,6 +79,9 @@
            <height>25</height>
           </size>
          </property>
+         <property name="toolTip">
+          <string>Creates a new database at the selected location</string>
+         </property>
          <property name="text">
           <string>New</string>
          </property>
@@ -98,6 +101,9 @@
            <height>25</height>
           </size>
          </property>
+         <property name="toolTip">
+          <string>Opens and existing database</string>
+         </property>
          <property name="text">
           <string>Open</string>
          </property>
@@ -116,6 +122,9 @@
            <width>16777215</width>
            <height>25</height>
           </size>
+         </property>
+         <property name="toolTip">
+          <string>Opens a dialog to merge two databases into a single one</string>
          </property>
          <property name="text">
           <string>Merge Database</string>
@@ -142,13 +151,6 @@
    <item>
     <layout class="QHBoxLayout" name="horizontalLayout_4">
      <item>
-      <widget class="QLabel" name="label_2">
-       <property name="text">
-        <string>Metcalf, K., and Burges, J., 2025, kametcalf/GeoCORK: v1.0.0, zenodo perm doi.</string>
-       </property>
-      </widget>
-     </item>
-     <item>
       <widget class="QPushButton" name="github_button">
        <property name="minimumSize">
         <size>
@@ -161,6 +163,9 @@
          <width>35</width>
          <height>35</height>
         </size>
+       </property>
+       <property name="toolTip">
+        <string>Double-click to open GitHub project</string>
        </property>
        <property name="styleSheet">
         <string notr="true">border: none</string>

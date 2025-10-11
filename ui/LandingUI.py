@@ -6,12 +6,12 @@ from pathlib import Path
 
 import qtawesome
 from PyQt6 import QtCore, QtWidgets, QtSql
-from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize, QTimer
-from PyQt6.QtGui import QPixmap, QAction
+from PyQt6.QtCore import QEventLoop, Qt, QPoint, QSize, QTimer, QUrl
+from PyQt6.QtGui import QPixmap, QAction, QDesktopServices
 from PyQt6.QtSql import QSqlDatabase
 # from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QFileDialog, QPushButton, QMessageBox, QWidget, \
-    QListWidget, QListWidgetItem, QMainWindow, QApplication, QHBoxLayout
+    QListWidget, QListWidgetItem, QMainWindow, QApplication, QHBoxLayout, QLabel
 from PyQt6.uic import loadUi
 
 import logger_setup
@@ -54,6 +54,11 @@ class LandingPage(QWidget):
         self.github_button.setIconSize(QSize(35,35))
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
+
+        self.citation = LinkLabel(text = 'Metcalf, K., & Burges, J. (2025). kathrynmetcalf/GeoCORK: GeoCORK v1.1.0 (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.15833658',
+                                  url = 'https://doi.org/10.5281/zenodo.15833658')
+        self.citation.setObjectName("citation")
+        self.horizontalLayout_4.insertWidget(0, self.citation)
 
         self.listWidget = UnselectableListWidget()
         self.listWidget.setObjectName("listWidget")
@@ -331,6 +336,7 @@ class LandingPage(QWidget):
     def open_github(self):
         webbrowser.open('https://github.com/kathrynmetcalf/GeoCORK')
 
+
     def showFileDialog(self):
         if self.listWidget.currentItem() is not None:
             self.clicked_file()
@@ -433,3 +439,18 @@ class UnselectableListWidget(QListWidget):
         self.setCurrentIndex(QtCore.QModelIndex())
         self.clearSelection()
         event.accept()
+
+
+class LinkLabel(QLabel):
+    def __init__(self, text, url, parent=None):
+        super().__init__(text, parent)
+        self.url = url
+        self.setTextInteractionFlags(Qt.TextInteractionFlag.TextBrowserInteraction)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(f"Double-click to open doi")
+        self.setWordWrap(True)
+
+    def mouseDoubleClickEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            QDesktopServices.openUrl(QUrl(self.url))
+        super().mouseDoubleClickEvent(event)

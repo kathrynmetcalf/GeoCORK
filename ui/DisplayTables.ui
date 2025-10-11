@@ -46,13 +46,16 @@
         <property name="focusPolicy">
          <enum>Qt::StrongFocus</enum>
         </property>
+        <property name="toolTip">
+         <string>Switch between various tables in the database</string>
+        </property>
         <property name="layoutDirection">
          <enum>Qt::LeftToRight</enum>
         </property>
         <property name="currentText">
          <string/>
         </property>
-        <property name="placeholderText" stdset="0">
+        <property name="placeholderText">
          <string/>
         </property>
        </widget>
@@ -80,6 +83,9 @@
         <property name="focusPolicy">
          <enum>Qt::StrongFocus</enum>
         </property>
+        <property name="toolTip">
+         <string>Opens an edit dialog to modify the given table only</string>
+        </property>
         <property name="text">
          <string>Edit Table</string>
         </property>
@@ -98,6 +104,9 @@
           <width>100</width>
           <height>25</height>
          </size>
+        </property>
+        <property name="toolTip">
+         <string>Opens a sample edit dialog to modify all sample metadata</string>
         </property>
         <property name="text">
          <string>Edit Selected</string>

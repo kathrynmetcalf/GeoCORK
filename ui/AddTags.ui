@@ -51,6 +51,9 @@
            <height>25</height>
           </size>
          </property>
+         <property name="toolTip">
+          <string>The name must be unique across all tags in the same table</string>
+         </property>
          <property name="placeholderText">
           <string>e.g. abc123</string>
          </property>
@@ -86,6 +89,9 @@
            <width>201</width>
            <height>25</height>
           </size>
+         </property>
+         <property name="toolTip">
+          <string>Optional description for the tag to be added</string>
          </property>
          <property name="placeholderText">
           <string>e.g. abc123</string>
@@ -153,6 +159,9 @@
        <property name="focusPolicy">
         <enum>Qt::StrongFocus</enum>
        </property>
+       <property name="toolTip">
+        <string>Cancels the adding tags dialog</string>
+       </property>
        <property name="text">
         <string>Cancel</string>
        </property>
@@ -183,6 +192,9 @@
        </property>
        <property name="focusPolicy">
         <enum>Qt::StrongFocus</enum>
+       </property>
+       <property name="toolTip">
+        <string>Adds the tag with a unique name and description</string>
        </property>
        <property name="text">
         <string>Ok</string>
@@ -252,6 +264,9 @@
          <width>16777215</width>
          <height>25</height>
         </size>
+       </property>
+       <property name="toolTip">
+        <string>Completes the adding tags process</string>
        </property>
        <property name="text">
         <string>Finish</string>

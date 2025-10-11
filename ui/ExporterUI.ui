@@ -29,6 +29,9 @@
          <bold>false</bold>
         </font>
        </property>
+       <property name="statusTip">
+        <string>Change desired Age, Error, or Unit preferences in settings before export</string>
+       </property>
        <property name="text">
         <string>All columns selected will use converted values from settings:</string>
        </property>
@@ -67,6 +70,9 @@
            <width>300</width>
            <height>35</height>
           </size>
+         </property>
+         <property name="statusTip">
+          <string>Switch between custom and pre-defined formats</string>
          </property>
          <item>
           <property name="text">
@@ -415,6 +421,9 @@
        </item>
        <item row="9" column="0">
         <widget class="QCheckBox" name="active_filter_sample_checkBox">
+         <property name="statusTip">
+          <string>Sets the sample selection combobox to reflect only samples found from the active filters from the filter tab</string>
+         </property>
          <property name="text">
           <string>Include Active Filter In Samples</string>
          </property>
@@ -435,6 +444,9 @@
          <width>500</width>
          <height>30</height>
         </size>
+       </property>
+       <property name="statusTip">
+        <string>Select columns to add to the exported tabs on the right. For non-database exports these are required.</string>
        </property>
        <property name="text">
         <string>Step 4 Select Columns To Output (optionally required):  </string>
@@ -508,6 +520,9 @@
          <height>25</height>
         </size>
        </property>
+       <property name="statusTip">
+        <string>Edits the selected columns order in the currently selected worksheet.</string>
+       </property>
        <property name="text">
         <string>Edit Column Order</string>
        </property>
@@ -526,6 +541,9 @@
          <width>550</width>
          <height>25</height>
         </size>
+       </property>
+       <property name="statusTip">
+        <string>Exports the given worksheets or database, does not modify data in the database</string>
        </property>
        <property name="text">
         <string>Export</string>
@@ -578,6 +596,9 @@
            <height>25</height>
           </size>
          </property>
+         <property name="statusTip">
+          <string>Adds a worksheet to the exporter</string>
+         </property>
          <property name="text">
           <string>Add Worksheet</string>
          </property>
@@ -597,6 +618,9 @@
            <height>25</height>
           </size>
          </property>
+         <property name="statusTip">
+          <string>Deletes the currently viewed worksheet from the exporter</string>
+         </property>
          <property name="text">
           <string>Delete Worksheet</string>
          </property>
@@ -615,6 +639,9 @@
            <width>16777215</width>
            <height>25</height>
           </size>
+         </property>
+         <property name="statusTip">
+          <string>Edits the column names to be exported. Column names seen below are what will be exported, not what they are called in the database.</string>
          </property>
          <property name="text">
           <string>Edit Column Names</string>
