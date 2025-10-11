@@ -1526,7 +1526,7 @@ reference_possible_user_input_fields = {
         'Title',
         'Source',
         'DOI',
-        'Reference Description'
+        'Reference Description',
         'Reference Display'
     ]
 }

@@ -551,6 +551,9 @@
                 },
                 "9": {
                     "field": "Reference Description"
+                },
+                "0": {
+                    "field": "Reference Display"
                 }
             },
             "Samples": {
@@ -601,6 +604,24 @@
                 }
             },
             "U_Th_Pb": {
+                "15": {
+                    "field": "206Pb/238U"
+                },
+                "16": {
+                    "field": "206Pb/238UError"
+                },
+                "17": {
+                    "field": "208Pb/232Th"
+                },
+                "18": {
+                    "field": "208Pb/232ThError"
+                },
+                "19": {
+                    "field": "ErrorCorr/Rho"
+                },
+                "1": {
+                    "field": "Reference Display"
+                },
                 "2": {
                     "field": "Sample Name"
                 },
@@ -608,7 +629,79 @@
                     "field": "Grain Name"
                 },
                 "4": {
-                    "field": "Spot Name"
+                    "field": "UPb Analysis Name"
+                },
+                "5": {
+                    "field": "Lab Facility Name"
+                },
+                "6": {
+                    "field": "UPb Analysis Method Name"
+                },
+                "7": {
+                    "field": "Spot Composition"
+                },
+                "8": {
+                    "field": "Grain Composition"
+                },
+                "9": {
+                    "field": "Uppm"
+                },
+                "10": {
+                    "field": "Th/U"
+                },
+                "11": {
+                    "field": "207Pb/206Pb"
+                },
+                "12": {
+                    "field": "207Pb/206PbError"
+                },
+                "13": {
+                    "field": "207Pb/235U"
+                },
+                "14": {
+                    "field": "207Pb/235UError"
+                },
+                "20": {
+                    "field": "207Pb/235UAge"
+                },
+                "21": {
+                    "field": "207Pb/235UAgeError"
+                },
+                "22": {
+                    "field": "206Pb/238UAge"
+                },
+                "23": {
+                    "field": "206Pb/238UAgeError"
+                },
+                "24": {
+                    "field": "207Pb/206PbAge"
+                },
+                "25": {
+                    "field": "207Pb/206PbAgeError"
+                },
+                "26": {
+                    "field": "208Pb/232ThAge"
+                },
+                "27": {
+                    "field": "208Pb/232ThAgeError"
+                },
+                "28": {
+                    "field": "BestAge"
+                },
+                "29": {
+                    "field": "BestAgeError"
+                },
+                "30": {
+                    "field": "Concordance"
+                },
+                "31": {
+                    "field": "Spot Context"
+                },
+                "33": {
+                    "field": "Aliquot Context"
+                },
+                "34": {
+                    "field": "Spot Description"
                 }
             }
         },
@@ -625,6 +718,250 @@
             "Ratio Error": "1\u03c3 abs",
             "Spot Size Unit": "\u00b5m",
             "Concordance Format": "Dis%"
+        },
+        "OriginalMappings": {
+            "Authors": {
+                "3": 3
+            },
+            "Sources": {
+                "9": 9
+            },
+            "Source_author": {
+                "1": 1
+            },
+            "Samples": {
+                "16": 16
+            },
+            "Source_sample": {
+                "1": 1
+            },
+            "U_Th_Pb": {
+                "34": 34
+            },
+            "Lu_Hf": {
+                "23": 23
+            }
+        }
+    },
+    "Sharman DB_modified": {
+        "Sheets": {
+            "Sources": {
+                "1": {
+                    "field": "Authors"
+                },
+                "3": {
+                    "field": "Source"
+                },
+                "4": {
+                    "field": "Title"
+                },
+                "5": {
+                    "field": "Year"
+                },
+                "8": {
+                    "field": "DOI"
+                },
+                "9": {
+                    "field": "Reference Description"
+                },
+                "0": {
+                    "field": "Reference Display"
+                }
+            },
+            "Samples": {
+                "4": {
+                    "field": "Rock Type"
+                },
+                "5": {
+                    "field": "Rock Type"
+                },
+                "0": {
+                    "field": "Sample Name"
+                },
+                "1": {
+                    "field": "Unit"
+                },
+                "2": {
+                    "field": "Setting"
+                },
+                "3": {
+                    "field": "Region"
+                },
+                "6": {
+                    "field": "Rock Type"
+                },
+                "9": {
+                    "field": "Youngest Direct Age"
+                },
+                "10": {
+                    "field": "Oldest Direct Age"
+                },
+                "11": {
+                    "field": "Age Constraint"
+                },
+                "12": {
+                    "field": "Setting"
+                },
+                "13": {
+                    "field": "Sample Latitude degrees"
+                },
+                "14": {
+                    "field": "Sample Longitude degrees"
+                },
+                "16": {
+                    "field": "Sample Description"
+                },
+                "7": {
+                    "field": "Oldest Relative Age"
+                }
+            },
+            "U_Th_Pb": {
+                "15": {
+                    "field": "207Pb/206PbError"
+                },
+                "16": {
+                    "field": "207Pb/235U"
+                },
+                "17": {
+                    "field": "207Pb/235UError"
+                },
+                "18": {
+                    "field": "206Pb/238U"
+                },
+                "19": {
+                    "field": "206Pb/238UError"
+                },
+                "1": {
+                    "field": "Reference Display"
+                },
+                "2": {
+                    "field": "Sample Name"
+                },
+                "3": {
+                    "field": "Aliquot Name"
+                },
+                "4": {
+                    "field": "Grain Name"
+                },
+                "5": {
+                    "field": "Spot Name"
+                },
+                "6": {
+                    "field": "UPb Analysis Name"
+                },
+                "7": {
+                    "field": "Lab Facility Name"
+                },
+                "8": {
+                    "field": "UPb Analysis Method Name"
+                },
+                "9": {
+                    "field": "Grain Composition"
+                },
+                "10": {
+                    "field": "Spot Composition"
+                },
+                "11": {
+                    "field": "Uppm"
+                },
+                "12": {
+                    "field": "206Pb/204Pb"
+                },
+                "13": {
+                    "field": "Th/U"
+                },
+                "14": {
+                    "field": "207Pb/206Pb"
+                },
+                "20": {
+                    "field": "208Pb/232Th"
+                },
+                "21": {
+                    "field": "208Pb/232ThError"
+                },
+                "22": {
+                    "field": "ErrorCorr/Rho"
+                },
+                "23": {
+                    "field": "207Pb/235UAge"
+                },
+                "24": {
+                    "field": "207Pb/235UAgeError"
+                },
+                "25": {
+                    "field": "206Pb/238UAge"
+                },
+                "26": {
+                    "field": "206Pb/238UAgeError"
+                },
+                "27": {
+                    "field": "207Pb/206PbAge"
+                },
+                "28": {
+                    "field": "207Pb/206PbAgeError"
+                },
+                "29": {
+                    "field": "208Pb/232ThAge"
+                },
+                "30": {
+                    "field": "208Pb/232ThAgeError"
+                },
+                "31": {
+                    "field": "BestAge"
+                },
+                "33": {
+                    "field": "Concordance"
+                },
+                "34": {
+                    "field": "Spot Context"
+                },
+                "32": {
+                    "field": "BestAgeError"
+                },
+                "36": {
+                    "field": "Aliquot Context"
+                },
+                "37": {
+                    "field": "Spot Description"
+                }
+            }
+        },
+        "Units/Formats": {
+            "Reference": "",
+            "Instrument": "",
+            "Lab Facility": "",
+            "UPb Analysis Method": "",
+            "Elevation Unit": "m",
+            "Height/Depth Unit": "m",
+            "Sample Age Error": "1\u03c3 abs",
+            "Age Unit": "Ma",
+            "U-Pb Age Error": "1\u03c3 abs",
+            "Ratio Error": "1\u03c3 abs",
+            "Spot Size Unit": "\u00b5m",
+            "Concordance Format": "Dis%"
+        },
+        "OriginalMappings": {
+            "Authors": {
+                "3": 3
+            },
+            "Sources": {
+                "9": 9
+            },
+            "Source_author": {
+                "1": 1
+            },
+            "Samples": {
+                "16": 16
+            },
+            "Source_sample": {
+                "1": 1
+            },
+            "U_Th_Pb": {
+                "37": 37
+            },
+            "Lu_Hf": {
+                "23": 23
+            }
         }
     }
 }
