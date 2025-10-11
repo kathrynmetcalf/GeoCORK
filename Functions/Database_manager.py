@@ -118,6 +118,9 @@ def update_database(database=None) -> bool:
 
     query = QSqlQuery(db=db)
 
+    '''Backup database before any changes.
+    Restore the backup before returning if the update fails'''
+
     from Functions import Create_database as Create_db, Create_indexes
     from Functions import Alter_database as Alter_db
 
@@ -172,4 +175,7 @@ def update_database(database=None) -> bool:
     loading_manager.close_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")
     db.commit()
+
+    '''Delete backup made at the beginning of the update if it exists'''
+
     return True

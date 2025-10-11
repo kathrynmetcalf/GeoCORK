@@ -97,6 +97,9 @@ class ViewQuery:
                         SQLUtils.qunits,
                         SQLUtils.qaliquots,
                         SQLUtils.qaliquot_contexts,
+                        SQLUtils.qgrain_count,
+                        SQLUtils.qgrain_compositions,
+                        SQLUtils.qgrain_contexts,
                         SQLUtils.qspot_count,
                         SQLUtils.qspot_compositions,
                         SQLUtils.qspot_contexts,
@@ -160,6 +163,9 @@ class ViewQuery:
                        {SQLUtils.gps_column_join}
                        {SQLUtils.gps_column_left_joins}
                        {SQLUtils.spot_composition_join}
+                       {SQLUtils.spot_grain_join}
+                       {SQLUtils.grain_composition_join}
+                       {SQLUtils.grain_context_join}
                        {SQLUtils.upb_distinct_join_sample}
                        {SQLUtils.upb_reference_join}
                        {SQLUtils.upb_labs_join}
@@ -222,6 +228,9 @@ class ViewQuery:
                         SQLUtils.qunits,
                         SQLUtils.qaliquots,
                         SQLUtils.qaliquot_contexts,
+                        SQLUtils.qgrain_count,
+                        SQLUtils.qgrain_compositions,
+                        SQLUtils.qgrain_contexts,
                         SQLUtils.qspot_count,
                         SQLUtils.qspot_compositions,
                         SQLUtils.qspot_contexts,
@@ -281,6 +290,9 @@ class ViewQuery:
                     {SQLUtils.gps_column_join}
                     {SQLUtils.gps_column_left_joins}
                     {SQLUtils.spot_composition_join}
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.grain_composition_join}
+                    {SQLUtils.grain_context_join}
                     {SQLUtils.upb_distinct_join_sample}
                     {SQLUtils.upb_reference_join}
                     {SQLUtils.upb_labs_join}
@@ -326,6 +338,9 @@ class ViewQuery:
                         SQLUtils.qsample_id,
                         SQLUtils.qaliquot_sample,
                         SQLUtils.qaliquot_contexts,
+                        SQLUtils.qgrain_count,
+                        SQLUtils.qgrain_compositions,
+                        SQLUtils.qgrain_contexts,
                         SQLUtils.qspot_count,
                         SQLUtils.qspot_compositions,
                         SQLUtils.qspot_contexts,
@@ -372,6 +387,9 @@ class ViewQuery:
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.spot_composition_join}
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.grain_composition_join}
+                    {SQLUtils.grain_context_join}
                     {SQLUtils.upb_distinct_join_aliquot}
                     {SQLUtils.upb_reference_join}
                     {SQLUtils.upb_labs_join}
@@ -446,6 +464,126 @@ class ViewQuery:
 
         self.table_query = aliquot_query
 
+    def create_grain_view_query(self):
+
+        self.show_columns: list = settings.value('grain_view_columns')
+        self.where: str = ''
+        self.group_col: str = 'GrainID'
+        self.order_col: str = 'GrainName'
+        for key, value in self.kwargs.items():
+            setattr(self, key, value)
+
+        self.get_group_oder_clauses()
+        self.limited_hierarchy_query()
+
+        query_column_list = [SQLUtils.qgrain_id,
+                             SQLUtils.qspot_id,
+                             SQLUtils.qaliquot_id,
+                             SQLUtils.qsample_id,
+                             SQLUtils.qgrain_name,
+                             SQLUtils.qgrain_description,
+                             SQLUtils.qspot_name,
+                             SQLUtils.qaliquot_name,
+                             SQLUtils.qsample_name,
+                             SQLUtils.qgrain_composition,
+                             SQLUtils.qgrain_contexts,
+                             SQLUtils.qspot_compositions,
+                             SQLUtils.qspot_contexts,
+                             SQLUtils.qupb_lab_facilities,
+                             SQLUtils.qupb_instruments,
+                             SQLUtils.qupb_analysis_methods,
+                             SQLUtils.qupb_ratio_error_formats,
+                             SQLUtils.qupb_age_units,
+                             SQLUtils.qupb_age_error_formats,
+                             SQLUtils.qconcordance_formats,
+                             SQLUtils.qspot_sizes,
+                             SQLUtils.qupb_contexts,
+                             SQLUtils.qupb_age_interpretations,
+                             SQLUtils.qupb_count,
+                             SQLUtils.qupb_rejection_reasons,
+                             SQLUtils.qupb_references,
+                             SQLUtils.qgrain_created,
+                             SQLUtils.qgrain_modified]
+
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
+        query_columns = ',\n '.join(query_columns)
+
+        grain_query = f'''
+                    SELECT
+                        {query_columns}
+                    FROM Grains
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.limited_spot_hierarchy_join}
+                    {SQLUtils.limited_spot_tags_join}
+                    {SQLUtils.limited_upb_tags_join}
+                    {SQLUtils.grain_composition_join}
+                    {SQLUtils.grain_context_join}
+                    {SQLUtils.spot_composition_join}
+                    {SQLUtils.upb_reference_join}
+                    {SQLUtils.upb_labs_join}
+                    {SQLUtils.upb_instruments_join}
+                    {SQLUtils.upb_method_join}
+                    {SQLUtils.upb_ratio_error_format_join}
+                    {SQLUtils.upb_age_error_format_join}
+                    {SQLUtils.upb_age_unit_join}
+                    {SQLUtils.upb_concordance_format_join}
+                    {SQLUtils.upb_context_join}
+                    {SQLUtils.upb_age_interpretation_join}
+                    {SQLUtils.upb_spot_size_unit_join}
+                    {self.query_where}
+                    {self.group_by}
+                    {self.order_by}
+                    {self.query_limit}
+                    '''
+        grain_query = grain_query.strip()
+        self.table_query = grain_query
+
+    def create_grain_edit_view_query(self):
+        self.show_columns: list = settings.value('grain_edit_columns')
+        self.where: str = ''
+        self.group_col: str = 'GrainID'
+        self.order_col: str = 'GrainName'
+        for key, value in self.kwargs.items():
+            setattr(self, key, value)
+
+        self.get_group_oder_clauses()
+        self.limited_hierarchy_query()
+
+        query_column_list = [SQLUtils.qgrain_id,
+                        SQLUtils.qgrain_name,
+                        SQLUtils.qgrain_description,
+                        SQLUtils.qgrain_composition,
+                        SQLUtils.qgrain_contexts,
+                        SQLUtils.qgrain_created,
+                        SQLUtils.qgrain_modified]
+
+        query_columns = []
+        for column in self.show_columns:
+            for col in query_column_list:
+                if col.split(' AS ')[1] in column:
+                    if col not in query_columns:
+                        query_columns.append(col)
+                        break
+        query_columns = ',\n '.join(query_columns)
+
+        grain_query = f'''
+                    SELECT
+                        {query_columns}
+                    FROM Grains
+                    {self.query_where}
+                    {self.group_by}
+                    {self.order_by}
+                    {self.query_limit}
+                    '''
+        grain_query = grain_query.strip()
+        self.table_query = grain_query
+
     def create_spot_view_query(self):
 
         self.show_columns: list = settings.value('spot_view_columns')
@@ -463,13 +601,26 @@ class ViewQuery:
                         SQLUtils.qaliquot_id,
                         SQLUtils.qsample_id,
                         SQLUtils.qspot_name,
+                        SQLUtils.qupb_analyses,
+                        SQLUtils.qgrain_name,
                         SQLUtils.qaliquot_name,
                         SQLUtils.qsample_name,
                         SQLUtils.qspot_composition,
                         SQLUtils.qspot_contexts,
-                        SQLUtils.qupb_rejection_reasons,
+                        SQLUtils.qgrain_contexts,
+                        SQLUtils.qgrain_composition,
+                        SQLUtils.qupb_lab_facilities,
+                        SQLUtils.qupb_instruments,
+                        SQLUtils.qupb_analysis_methods,
+                        SQLUtils.qupb_ratio_error_formats,
+                        SQLUtils.qupb_age_units,
+                        SQLUtils.qupb_age_error_formats,
+                        SQLUtils.qconcordance_formats,
+                        SQLUtils.qspot_size,
                         SQLUtils.qupb_contexts,
                         SQLUtils.qupb_age_interpretations,
+                        SQLUtils.qupb_count,
+                        SQLUtils.qupb_rejection_reasons,
                         SQLUtils.qupb_references,
                         SQLUtils.qspot_created,
                         SQLUtils.qspot_modified]
@@ -494,6 +645,9 @@ class ViewQuery:
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.spot_composition_join}
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.grain_composition_join}
+                    {SQLUtils.grain_context_join}
                     {SQLUtils.upb_reference_join}
                     {SQLUtils.upb_labs_join}
                     {SQLUtils.upb_instruments_join}
@@ -535,10 +689,14 @@ class ViewQuery:
                         SQLUtils.qaliquot_id,
                         SQLUtils.qsample_id,
                         SQLUtils.qspot_name,
+                        SQLUtils.qupb_analyses,
+                        SQLUtils.qgrain_name,
                         SQLUtils.qaliquot_name,
                         SQLUtils.qsample_name,
                         SQLUtils.qspot_composition,
                         SQLUtils.qspot_contexts,
+                        SQLUtils.qgrain_composition,
+                        SQLUtils.qgrain_contexts,
                         SQLUtils.qspot_created,
                         SQLUtils.qspot_modified]
 
@@ -560,6 +718,9 @@ class ViewQuery:
                     {SQLUtils.limited_spot_hierarchy_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.spot_composition_join}
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.grain_composition_join}
+                    {SQLUtils.grain_context_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
@@ -610,7 +771,9 @@ class ViewQuery:
                         SQLUtils.qspot_id,
                         SQLUtils.qaliquot_id,
                         SQLUtils.qsample_id,
+                        SQLUtils.qupb_analysis_name,
                         SQLUtils.qspot_name,
+                        SQLUtils.qgrain_name,
                         SQLUtils.qaliquot_name,
                         SQLUtils.qsample_name,
                         SQLUtils.qupb_references,
@@ -622,6 +785,10 @@ class ViewQuery:
                         SQLUtils.qupb_rejection_reasons,
                         SQLUtils.qupb_contexts,
                         SQLUtils.qupb_age_interpretations,
+                        SQLUtils.qspot_composition,
+                        SQLUtils.qspot_contexts,
+                        SQLUtils.qgrain_composition,
+                        SQLUtils.qgrain_contexts,
                         SQLUtils.qupb_created,
                         SQLUtils.qupb_modified]
 
@@ -637,12 +804,14 @@ class ViewQuery:
 
         upb_query = f'''
                     {self.limited_hierarchy},
-                    {SQLUtils.limited_upb_tags}
+                    {SQLUtils.limited_upb_tags},
+                    {SQLUtils.limited_spot_tags}
                     SELECT 
                         {query_columns}
                     FROM LimitedUPbAnalyses lu
                     {SQLUtils.limited_upb_hierarchy_join}
                     {SQLUtils.limited_upb_tags_join}
+                    {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.upb_reference_join}
                     {SQLUtils.upb_labs_join}
                     {SQLUtils.upb_instruments_join}
@@ -654,6 +823,12 @@ class ViewQuery:
                     {SQLUtils.upb_context_join}
                     {SQLUtils.upb_age_interpretation_join}
                     {SQLUtils.upb_spot_size_unit_join}
+                    {SQLUtils.upb_spot_join}
+                    {SQLUtils.spot_composition_join}
+                    {SQLUtils.spot_context_join}
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.grain_composition_join}
+                    {SQLUtils.grain_context_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
@@ -701,7 +876,9 @@ class ViewQuery:
                         SQLUtils.qspot_id,
                         SQLUtils.qaliquot_id,
                         SQLUtils.qsample_id,
+                        SQLUtils.qupb_analysis_name,
                         SQLUtils.qspot_name,
+                        SQLUtils.qgrain_name,
                         SQLUtils.qaliquot_name,
                         SQLUtils.qsample_name,
                         SQLUtils.qupb_references,
@@ -717,6 +894,10 @@ class ViewQuery:
                         SQLUtils.qupb_rejection_reasons,
                         SQLUtils.qupb_contexts,
                         SQLUtils.qupb_age_interpretations,
+                        SQLUtils.qspot_composition,
+                        SQLUtils.qspot_contexts,
+                        SQLUtils.qgrain_composition,
+                        SQLUtils.qgrain_contexts,
                         SQLUtils.qupb_created,
                         SQLUtils.qupb_modified]
         query_column_list = query_columns1 + upb_query_columns + query_columns2
@@ -731,12 +912,14 @@ class ViewQuery:
 
         upb_query = f'''
                     {self.limited_hierarchy},
-                    {SQLUtils.limited_upb_tags}
+                    {SQLUtils.limited_upb_tags},
+                    {SQLUtils.limited_spot_tags}
                     SELECT 
                         {query_columns}
                     FROM LimitedUPbAnalyses lu
                     {SQLUtils.limited_upb_hierarchy_join}
                     {SQLUtils.limited_upb_tags_join}
+                    {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.upb_reference_join}
                     {SQLUtils.upb_labs_join}
                     {SQLUtils.upb_instruments_join}
@@ -748,6 +931,12 @@ class ViewQuery:
                     {SQLUtils.upb_context_join}
                     {SQLUtils.upb_age_interpretation_join}
                     {SQLUtils.upb_spot_size_unit_join}
+                    {SQLUtils.upb_spot_join}
+                    {SQLUtils.spot_composition_join}
+                    {SQLUtils.spot_context_join}
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.grain_composition_join}
+                    {SQLUtils.grain_context_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
@@ -902,7 +1091,7 @@ class ViewQuery:
 
     def limited_hierarchy_query(self):
         """
-        Construct the query to limit the Samples, Aliquots, Spots, and UPbAnalyses joined in the main query. Begin with
+        Construct the query to limit the Samples, Aliquots, Grains, Spots, and UPbAnalyses joined in the main query. Begin with
         the table that the where clause applies to. Any ordering or limit that does not also apply to this table get
         set for application in the main query.
         Updates the limited hierarchy query clause, the where clause to use in the main query, and the limit clause to
@@ -1056,6 +1245,9 @@ class ViewQuery:
                 ),
                 LimitedUPbAnalyses AS (
                     SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
+                ),
+                LimitedGrains AS (
+                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
                 )
             '''
         elif where_table == 'Aliquots':
@@ -1071,6 +1263,9 @@ class ViewQuery:
                 ),
                 LimitedSamples AS (
                     SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
+                ),
+                LimitedGrains AS (
+                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
                 )
             '''
         elif where_table == 'Spots':
@@ -1086,6 +1281,9 @@ class ViewQuery:
                 ),
                 LimitedSamples AS (
                     SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
+                ),
+                LimitedGrains AS (
+                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
                 )
             '''
         elif where_table == 'UPbAnalyses':
@@ -1101,6 +1299,9 @@ class ViewQuery:
                 ),
                 LimitedSamples AS (
                     SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
+                ),
+                LimitedGrains AS (
+                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
                 )
             '''
         else:

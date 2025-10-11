@@ -34,7 +34,7 @@ if __name__ == "__main__":
     populate_app_defaults()
 
     # #Optional: reset settings
-    # settings.setValue('default_settings', 'true')
+    settings.setValue('default_settings', 'true')
 
     # makes it so if 'default_settings' is ANYTHING but False, then it will be set to True and
     # default_settings() will be called. Makes sure that the default settings are set even on first launch (eg None)

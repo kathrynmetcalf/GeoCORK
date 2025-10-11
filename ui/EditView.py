@@ -448,6 +448,7 @@ class EditView(QtW.QDialog):
         if not query.exec(table_query):
             logger_setup.get_logger().critical(f'Error creating the completer for input')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL command: {table_query}')
         values = set()
         while query.next():
             values.add(query.value(0))

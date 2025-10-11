@@ -1173,10 +1173,8 @@ def get_name_column(table: str) -> int | None:
                     'ColumnView', 'ColumnEditView']):
         return 1
     elif table == 'UPbAnalyses':
-        # Use UPbAnalysisID
-        return 0
-    elif table == 'UPbView' or table == 'UPbEditView':
-        # Use spot name
+        return 1
+    elif table in ['UPbView', 'UPbEditView', 'GrainView', 'GrainEditView']:
         return 4
     else:
         return None
@@ -1203,6 +1201,8 @@ def get_table_from_view(view: str):
         return 'Samples'
     elif 'Aliquot' in view:
         return 'Aliquots'
+    elif 'Grain' in view:
+        return 'Grains'
     elif 'Spot' in view:
         return 'Spots'
     elif 'UPb' in view:
@@ -1224,6 +1224,8 @@ def get_view_from_table(table: str):
         return 'SampleView'
     elif table == 'Aliquots':
         return 'AliquotView'
+    elif table == 'Grains':
+        return 'GrainView'
     elif table == 'Spots':
         return 'SpotView'
     elif table == 'UPbAnalyses':
@@ -1242,9 +1244,11 @@ def get_edit_view_from_table(table: str):
     :return: Name of SQL database view
     """
     if table == 'Samples':
-        return 'SampleView'
+        return 'SampleEditView'
     elif table == 'Aliquots':
         return 'AliquotEditView'
+    elif table == 'Grains':
+        return 'GrainEditView'
     elif table == 'Spots':
         return 'SpotEditView'
     elif table == 'UPbAnalyses':
