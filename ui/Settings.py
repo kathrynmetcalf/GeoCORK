@@ -24,12 +24,14 @@ settings_list = [
     'ratio_error_format_abbreviation', 'concordance_format_id', 'concordance_format_abbreviation', 'reference_format',
     'decimals_to_show', 'sample_view_columns', 'sample_view_freeze', 'sample_edit_columns', 'sample_edit_freeze',
     'aliquot_view_columns', 'aliquot_view_freeze', 'aliquot_edit_columns', 'aliquot_edit_freeze',
+    'grain_view_columns', 'grain_view_freeze', 'grain_edit_columns', 'grain_edit_freeze',
     'spot_view_columns', 'spot_view_freeze', 'spot_edit_columns', 'spot_edit_freeze',
     'upb_analysis_view_columns', 'upb_analysis_view_freeze', 'upb_analysis_edit_columns', 'upb_analysis_edit_freeze',
     'column_view_columns', 'column_view_freeze', 'column_edit_columns', 'column_edit_freeze', 'reference_view_columns',
     'reference_view_freeze', 'checkable_combobox_height_scaler',
     'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
-    'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version'
+    'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
+    'current_db_path'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -97,11 +99,11 @@ def default_settings():
         'SampleElevationCalculated', 'SampleAgeCalculated', 'SampleAgeConstraintName', 'SampleAgeInterpretationName',
         'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepthCalculated', 'SampleAgeSignatureName',
         'RegionName', 'RockTypeName', 'SampleContextName', 'SamplingMethodName', 'SettingName', 'UnitName',
-        'AliquotName', 'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
-        '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
-        'RejectionReasonName', 'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'UPbReference', 'SampleCreated',
-        'SampleModified'
+        'AliquotName', 'AliquotContextName', 'GrainCount', 'GrainCompositionName', 'GrainContextName', 'SpotCount',
+        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
+        'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
+        'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName', 'UPbAnalysisContextName',
+        'UPbAgeInterpretationName', 'UPbReference', 'SampleCreated', 'SampleModified'
     ])
 
     settings.setValue('default_sample_edit_columns', [
@@ -109,16 +111,18 @@ def default_settings():
         'SampleElevationUnitAbbreviation', 'SampleAgeCalculated', 'SampleAgeConstraintName',
         'SampleAgeInterpretationName', 'SampleAgeReferenceDisplay', 'ColumnName', 'ColumnHeightDepth',
         'ColumnHeightDepthUnitAbbreviation','SampleAgeSignatureName', 'RegionName', 'RockTypeName', 'SampleContextName',
-        'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName', 'AliquotContextName', 'SpotCount',
-        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"', 'LabFacilityName',
-        'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation',
-        'ConcordanceFormatAbbreviation', 'SpotSize', 'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference',
-        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'SampleCreated', 'SampleModified'
+        'SamplingMethodName', 'SettingName', 'UnitName', 'AliquotName', 'AliquotContextName', 'GrainCount',
+        'GrainCompositionName', 'GrainContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName',
+        '"Accepted/TotalUPbAnalyses"', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
+        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'SpotSize',
+        'SpotSizeUnitAbbreviation', 'RejectionReasonName', 'UPbReference', 'UPbAnalysisContextName',
+        'UPbAgeInterpretationName', 'SampleCreated', 'SampleModified'
     ])
 
     settings.setValue('default_aliquot_view_columns', [
         'AliquotID', 'ParentAliquotID', 'AliquotParentRow', 'AliquotName', 'SampleID', 'SampleName',
-        'AliquotContextName', 'SpotCount', 'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
+        'AliquotContextName', 'GrainCount', 'GrainCompositionName', 'GrainContextName', 'SpotCount',
+        'SpotCompositionName', 'SpotContextName', '"Accepted/TotalUPbAnalyses"',
         'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
         'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', 'RejectionReasonName',
         'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'UPbReference', 'AliquotCreated', 'AliquotModified'
@@ -129,23 +133,39 @@ def default_settings():
         'AliquotContextName', 'AliquotCreated', 'AliquotModified'
     ])
 
+    settings.setValue('default_grain_view_columns', [
+        'GrainID', 'SpotID', 'AliquotID', 'SampleID', 'GrainName', 'GrainDescription', 'SpotName', 'AliquotName',
+        'SampleName', 'GrainCompositionName', 'GrainContextName', 'SpotCompositionName', 'SpotContextName',
+        'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
+        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', '"Accepted/TotalUPbAnalyses"',
+        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
+        'GrainCreated', 'GrainModified',
+    ])
+
+    settings.setValue('default_grain_edit_columns', [
+        'GrainID', 'SpotID', 'AliquotID', 'SampleID', 'GrainName', 'AliquotName', 'SampleName', 'GrainCompositionName',
+        'GrainContextName', 'GrainDescription', 'GrainCreated', 'GrainModified'
+    ])
+
     settings.setValue('default_spot_view_columns', [
-        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'SpotCompositionName',
-        'SpotContextName', 'LabFacilityName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize',
-        'Rejected', 'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
+        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'UPbAnalysisNames', 'GrainName', 'AliquotName', 'SampleName',
+        'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName', 'LabFacilityName',
+        'InstrumentName', 'UPbAnalysisMethodName', 'RatioErrorFormatAbbreviation', 'AgeUnitAbbreviation',
+        'AgeErrorFormatAbbreviation', 'ConcordanceFormatAbbreviation', 'CalculatedSpotSize', '"Accepted/TotalUPbAnalyses"',
+        'UPbAnalysisContextName', 'UPbAgeInterpretationName', 'RejectionReasonName', 'UPbReference',
         'SpotCreated', 'SpotModified'
     ])
 
     settings.setValue('default_spot_edit_columns', [
-        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'AliquotName', 'SampleName', 'SpotCompositionName',
-        'SpotContextName', 'SpotCreated', 'SpotModified'
+        'SpotID', 'AliquotID', 'SampleID', 'SpotName', 'UPbAnalysisNames', 'GrainName', 'AliquotName', 'SampleName',
+        'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
+        'SpotCreated', 'SpotModified'
     ])
 
     settings.setValue('default_upb_analysis_view_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'AliquotName', 'SampleName',
-        'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName', '"Pb204cps"', '"Pb206cps"',
-        '"Pb207cps"','"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
+        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'GrainName', 'AliquotName',
+        'SampleName', 'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
+        '"Pb204cps"', '"Pb206cps"', '"Pb207cps"','"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
         '"Uppm"', '"Thppm"', '"CalculatedU/Th"', '"CalculatedTh/U"',
         '"Calculated206Pb/207Pb"', '"Calculated206Pb/207PbError"', '"Calculated207Pb/206Pb"',
         '"Calculated207Pb/206PbError"',
@@ -170,12 +190,13 @@ def default_settings():
         '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAgeFilled"',
         '"CalculatedBestAgeErrorFilled"',
         '"CalculatedSpotSize"', '"CalculatedConcordance"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
+        'UPbAgeInterpretationName', 'SpotComposition', 'SpotContext', 'GrainComposition', 'GrainContext',
+        'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
 
     settings.setValue('default_upb_analysis_edit_columns', [
-        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'AliquotName', 'SampleName',
-        'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
+        'UPbAnalysisID', 'SpotID', 'AliquotID', 'SampleID', 'UPbAnalysisName', 'SpotName', 'GrainName', 'AliquotName',
+        'SampleName', 'UPbReference', 'LabFacilityName', 'InstrumentName', 'UPbAnalysisMethodName',
         '"Pb204cps"', '"Pb206cps"', '"Pb207cps"', '"Pb208cps"', '"Pb*cps"', '"Th232cps"', '"U235cps"', '"U238cps"',
         '"Uppm"', '"Thppm"', '"U/Th"', '"Th/U"',
         '"206Pb/207Pb"', '"206Pb/207PbError"', '"207Pb/206Pb"', '"207Pb/206PbError"',
@@ -193,7 +214,8 @@ def default_settings():
         '"BestAge"', '"BestAgeError"', '"BestAgeFilled"', '"BestAgeErrorFilled"',
         'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"', 'ConcordanceFormatAbbreviation',
         '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'UPbAnalysisCreated', 'UPbAnalysisModified'
+        'UPbAgeInterpretationName', 'SpotComposition', 'SpotContext', 'GrainComposition', 'GrainContext',
+        'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
 
     settings.setValue('default_column_view_columns', [
@@ -212,7 +234,8 @@ def default_settings():
         'ReferenceCreated', 'ReferenceModified'
     ])
 
-    settings.setValue('default_geocork_version', 'v1.0.0')
+    settings.setValue('default_geocork_version', 'v1.1.0')
+    settings.setValue('db_file', '')
 
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)
     settings.setValue('default_checkable_combobox_width_scaler', 1.0)

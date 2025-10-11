@@ -127,6 +127,23 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
                 return False
             logger_setup.get_logger().info(f'Successfully inserted into new table: {table}_new')
 
+            release_savepoint('before_drop')
+
+            if not database.commit():
+                if 'no transaction is active' not in database.lastError().text():
+                    logger_setup.get_logger().critical(f"Error committing database")
+                    logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                    return False
+            if not database.close():
+                if 'no transaction is active' not in database.lastError().text():
+                    logger_setup.get_logger().critical(f"Error closing database")
+                    logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                    return False
+            if not database.open():
+                logger_setup.get_logger().critical(f"Error opening database")
+                logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                return False
+
             # Drop the original table
             drop_original_table = f'DROP TABLE "{table}"'
             logger_setup.get_logger().info(f'Dropping original table: {table}')

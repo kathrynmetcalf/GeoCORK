@@ -1437,8 +1437,70 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
         # Update from version 1.0.0 to 1.1.0
         logger_setup.get_logger().info('Updating database schema from version v1.0.0 to v1.1.0')
         # Grain tables added automatically in Create_database.py
-        # Empty GrainID column will be added to the Spots table next
+        # Add empty GrainID column to Spots table
         # Add UPbAnalysisName column to UPbAnalyses table and populate with SpotName
+
+        create_savepoint('before_schema_update')
+
+        create_sql = CREATE_SPOTS_TABLE
+        column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS Spots')[1]
+        if not query.exec(f'CREATE TABLE IF NOT EXISTS Spots_new{column_creation}'):
+            logger_setup.get_logger().debug(f"Failed to create new Spots table")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('before_schema_update')
+            return False
+
+        # Copy data from old Spots table to new Spots table
+        from Functions.Alter_database import get_columns
+        query, virtual, stored, columns = get_columns('Spots_new', database)
+        column_str = ', '.join(columns)
+        insert_new_table = f'INSERT INTO Spots_new SELECT {column_str} FROM Spots'
+        logger_setup.get_logger().info(f'Inserting into new table: Spots_new')
+        if not query.exec(insert_new_table):
+            logger_setup.get_logger().debug(f'Error inserting values into Spots_new table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            return False
+
+        # Close and reopen the database to avoid "database table is locked" errors
+        if not database.commit():
+            if 'no transaction is active' not in database.lastError().text():
+                logger_setup.get_logger().critical(f"Error committing database")
+                logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                return False
+        if not database.close():
+            if 'no transaction is active' not in database.lastError().text():
+                logger_setup.get_logger().critical(f"Error closing database")
+                logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                return False
+        if not database.open():
+            logger_setup.get_logger().critical(f"Error opening database")
+            logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+            return False
+
+        # Drop the original table
+        drop_original_table = f'DROP TABLE IF EXISTS "Spots"'
+        logger_setup.get_logger().info(f'Dropping original table: Spots')
+        if not query.exec(drop_original_table):
+            logger_setup.get_logger().critical(f'Error dropping original Spots table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            # rollback_savepoint('before_schema_update')
+            return False
+        logger_setup.get_logger().info(f'Successfully dropped original table: Spots')
+
+        # Rename the new table to the original table name
+        alter_table_qry = f'ALTER TABLE Spots_new RENAME TO "Spots"'
+        logger_setup.get_logger().info(f'Altering table rename: Spots_new to Spots')
+        if not query.exec(alter_table_qry):
+            logger_setup.get_logger().critical(f'Error renaming Spots table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            # rollback_savepoint('before_schema_update')
+            return False
+        logger_setup.get_logger().info(f'Successfully altered table rename: Spots_new to Spots')
 
         # Create a dictionary of SpotID and SpotName from the Spots table
         spot_dict = {}

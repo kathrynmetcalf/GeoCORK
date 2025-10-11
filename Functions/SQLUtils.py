@@ -74,10 +74,21 @@ qaliquot_description = 'AliquotDescription AS AliquotDescription'
 qaliquot_created = 'AliquotCreated AS AliquotCreated'
 qaliquot_modified = 'AliquotModified AS AliquotModified'
 
+# Grain view columns
+qgrain_count = 'COUNT(DISTINCT Grains.GrainID) AS GrainCount'
+qgrain_name = 'GrainName AS GrainName'
+qgrains = 'REPLACE(GROUP_CONCAT(DISTINCT GrainName), ",", "; ") AS GrainName'
+qgrain_composition = 'GrainCompositionName AS GrainCompositionName'
+qgrain_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT GrainCompositionName), ",", "; ") AS GrainCompositionName'
+qgrain_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT GrainContexts.GrainContextName), ",", "; ") AS GrainContextName'
+qgrain_description = 'GrainDescription AS GrainDescription'
+qgrain_created = 'GrainCreated AS GrainCreated'
+qgrain_modified = 'GrainModified AS GrainModified'
+
 # Spot view columns
 qspot_count = 'COUNT(DISTINCT Spots.SpotID) AS SpotCount'
-qspot_name = 'SpotName AS SpotName'
-qspots = 'REPLACE(GROUP_CONCAT(DISTINCT SpotName), ",", "; ") AS SpotName'
+qspot_name = 'Spots.SpotName AS SpotName'
+qspots = 'REPLACE(GROUP_CONCAT(DISTINCT Spots.SpotName), ",", "; ") AS SpotName'
 qspot_composition = 'SpotCompositionName AS SpotCompositionName'
 qspot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositionName), ",", "; ") AS SpotCompositionName'
 qspot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContextName), ",", "; ") AS SpotContextName'
@@ -85,20 +96,9 @@ qspot_description = 'SpotDescription AS SpotDescription'
 qspot_created = 'SpotCreated AS SpotCreated'
 qspot_modified = 'SpotModified AS SpotModified'
 
-# Grain view columns
-qgrain_count = 'COUNT(DISTINCT Grains.GrainID) AS GrainCount'
-qgrain_name = 'GrainName AS GrainName'
-qgrains = 'REPLACE(GROUP_CONCAT(DISTINCT GrainName), ",", "; ") AS GrainName'
-qgrain_composition = 'GrainCompositionName AS GrainCompositionName'
-qgrain_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT GrainCompositionName), ",", "; ") AS GrainCompositionName'
-qgrain_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT GrainContextName), ",", "; ") AS GrainContextName'
-qgrain_description = 'GrainDescription AS GrainDescription'
-qgrain_created = 'GrainCreated AS GrainCreated'
-qgrain_modified = 'GrainModified AS GrainModified'
-
 # UPb view columns
 # qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalyses"'  # accepted/total
-qupb_analyses = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.AnalysisName), ",", "; ") AS UPbAnalyses'
+qupb_analyses = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.UPbAnalysisName), ",", "; ") AS UPbAnalyses'
 qupb_analysis_name = 'UPbAnalysisName AS UPbAnalysisName'
 qupb_count = 'DistinctUPbAnalyses.AcceptedTotalUPbAnalyses AS "Accepted/TotalUPbAnalyses"'
 qupb_count_sample_subquery = f'''
@@ -328,16 +328,15 @@ aliquot_spot_join = 'LEFT JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID'
 # GrainJoins
 grain_context_join = '''LEFT JOIN Grains_GrainContexts ON Grains.GrainID = Grains_GrainContexts.GrainID
                                 LEFT JOIN GrainContexts ON Grains_GrainContexts.GrainContextID = GrainContexts.GrainContextID'''
-grain_composition_join = '''LEFT JOIN Grains_GrainCompositions ON Grains.GrainID = Grains_GrainCompositions.GrainID
-                                LEFT JOIN GrainCompositions ON Grains_GrainCompositions.GrainCompositionID = GrainCompositions.GrainCompositionID'''
-grain_spot_join = 'LEFT JOIN Spots ON Grains.SpotID = Spots.SpotID'
+grain_composition_join = '''LEFT JOIN GrainCompositions ON Grains.GrainCompositionID = GrainCompositions.GrainCompositionID'''
+grain_spot_join = 'LEFT JOIN Spots ON Grains.GrainID = Spots.GrainID'
 
 # SpotJoins
 spot_aliquot_join = 'LEFT JOIN Aliquots ON Spots.AliquotID = Aliquots.AliquotID'
 spot_composition_join = '''LEFT JOIN SpotCompositions ON Spots.SpotCompositionID = SpotCompositions.SpotCompositionID'''
 spot_context_join = '''LEFT JOIN Spots_SpotContexts ON Spots.SpotID = Spots_SpotContexts.SpotID
                                 LEFT JOIN SpotContexts ON Spots_SpotContexts.SpotContextID = SpotContexts.SpotContextID'''
-spot_grain_join = 'LEFT JOIN Grains ON Spots.SpotID = Grains.SpotID'
+spot_grain_join = 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID'
 spot_upb_analysis_join = 'LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID'
 
 # UPbJoins
@@ -460,20 +459,18 @@ limited_aliquot_tags = f'''
             WHERE a_ac.AliquotID in (SELECT AliquotID FROM LimitedAliquots)
         )
     '''
-limited_grain_tags = f'''
-        LimitedGrains_GrainContexts AS (
-            SELECT g_gc.GrainID, gc.*
-            FROM GrainContexts gc
-            JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
-            WHERE g_gc.GrainID in (SELECT GrainID FROM LimitedGrains)
-        )
-    '''
 limited_spot_tags = f'''
         LimitedSpots_SpotContexts AS (
             SELECT s_sc.SpotID, sc.*
             FROM SpotContexts sc
             JOIN Spots_SpotContexts s_sc ON sc.SpotContextID = s_sc.SpotContextID
             WHERE s_sc.SpotID in (SELECT SpotID FROM LimitedSpots)
+        ),
+        LimitedGrains_GrainContexts AS (
+            SELECT g_gc.GrainID, gc.*
+            FROM GrainContexts gc
+            JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
+            WHERE g_gc.GrainID in (SELECT GrainID FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots))
         )
     '''
 limited_upb_tags = f'''
@@ -511,12 +508,9 @@ limited_aliquot_tags_join = f'''
     LEFT JOIN LimitedAliquots_AliquotContexts laac ON la.AliquotID = laac.AliquotID
 '''
 
-limited_grain_tags_join = f'''
-    LEFT JOIN LimitedGrains_GrainContexts lggc ON lg.GrainID = lggc.GrainID
-'''
-
 limited_spot_tags_join = f'''
     LEFT JOIN LimitedSpots_SpotContexts lspsc ON lsp.SpotID = lspsc.SpotID
+    LEFT JOIN LimitedGrains_GrainContexts lggc ON lsp.GrainID = lggc.GrainID
 '''
 
 limited_upb_tags_join = f'''
@@ -542,7 +536,7 @@ limited_table_abbreviations = {
     'Units': 'lsu',
     'AliquotContexts': 'laac',
     'GrainContexts': 'lggc',
-    'SpotContexts': 'lssc',
+    'SpotContexts': 'lspsc',
     'UPbAnalysisContexts': 'luac',
     'RejectionReasons': 'lurr'
 }
