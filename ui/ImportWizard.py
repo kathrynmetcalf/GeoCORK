@@ -5,7 +5,7 @@ import os
 import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
-from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel
+from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -84,7 +84,7 @@ class ColumnMapDialog(QDialog):
             for field_label, possible_values in field_dict.items():
                 combo = SearchableComboBox()
                 combo.addItem("None")
-                combo.addItems(possible_values)
+                combo.addItems(possible_values.keys())
                 combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
                 combo.selection_changed.connect(self.on_combo_changed)
                 combo.currentIndexChanged.connect(self.on_combo_changed)
@@ -543,10 +543,10 @@ class ImportWizardDialog(QWidget):
         self.left_layout.addItem(self.left_top_spacer)
         self.left_layout.addWidget(self.left_table)
 
-        left_widget = QWidget()
-        left_widget.setLayout(self.left_layout)
+        self.left_widget = QWidget()
+        self.left_widget.setLayout(self.left_layout)
 
-        splitter.addWidget(left_widget)
+        splitter.addWidget(self.left_widget)
         splitter.addWidget(self.workbook_tabs)
         splitter.setStretchFactor(0, 1)  # left narrower
         splitter.setStretchFactor(1, 3)  # right expands
@@ -566,7 +566,7 @@ class ImportWizardDialog(QWidget):
         self.btn_load_mapping.setToolTip('Loads a previously saved mapping, overwriting the current column mappings, U-Pb metadata selections, and various units/formats.')
 
         self.validate_button = QPushButton("Validate Import Data")
-        self.validate_button.clicked.connect(self.validate_ids)
+        self.validate_button.clicked.connect(self.validate_data)
         bottom_layout.addWidget(self.validate_button)
         self.validate_button.setToolTip('Validates that all required fields are filled, mainly that Sample, Aliquot, and Spot are filled in. Grains are optional')
 
@@ -587,12 +587,18 @@ class ImportWizardDialog(QWidget):
         self.dfs = {}
         # Mappings for each sheet
         self.sheet_mappings = {}
-        # Mappings for right table columns
-        self.column_mappings = {}
+        # Map unknown values to static table values
+        self.static_mappings = {}
         # Rejected rows
         self.rejected_rows = {}
         # Disabled rows
         self.disabled_rows = {}
+        # Original columns, maps the original index to the current index
+        # Includes a key for each original column index, and a value of -1 if deleted, as well as a list of 'added' columns in their final index
+        self.original_columns = {}
+
+        # False if a mapping has not been loaded since opening the current file
+        self.mapping_loaded = False
 
         # openpyxl workbook
         self.wb = None
@@ -696,7 +702,7 @@ class ImportWizardDialog(QWidget):
         """
         self.btn_save_mapping.setEnabled(True)
         self.btn_load_mapping.setEnabled(True)
-        self.btn_import.setEnabled(True)
+        # self.btn_import.setEnabled(True)
         self.validate_button.setEnabled(True)
         self.btn_add_column.setEnabled(True)
         self.delimiter_edit.setEnabled(True)
@@ -826,16 +832,67 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().debug(f"Error: {error_type_format_query.lastError().text()}")
             logger_setup.get_logger().debug(f"SQL query: {error_type_format_query.lastQuery()}")
 
-    def validate_ids(self):
+    def validate_data(self):
         """
-        Validate Sample Name, Aliquot Name, (Grain Name) and Spot Name in the left_table against the database.
-        Flag rows that have matching entries in the database.
+        Validate the data mapped before import.
+        :return:
         """
+
+        logger_setup.get_logger().info("Validating data for import")
 
         row_count = self.left_table.rowCount()
         if row_count == 0:
-            QMessageBox.warning(self, "No Data", "There are no rows to import.")
-            return
+            dlg = QMessageBox.question(self, "No U-Pb Data",
+                                       "There is no U-Pb data selected." "Continue without U-Pb data?",
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            dlg.exec_()
+            if dlg.result() != QMessageBox.StandardButton.Yes:
+                return False
+            else:
+                upb_data = False
+        else:
+            upb_data = True
+
+        # todo: clear background for all cells first in case there are any left over from previous validation
+
+        if upb_data:
+            if not self.validate_ids():
+                self.btn_import.setDisabled(True)
+                return False
+            if not self.check_duplicates_in_left_table():
+                self.btn_import.setDisabled(True)
+                return False
+            if not self.check_for_conflicts():
+                self.btn_import.setDisabled(True)
+                return False
+
+        if not self.check_unmapped_aliquots_spots_analyses():
+            self.btn_import.setDisabled(True)
+            return False
+        if not self.check_unmapped_references():
+            self.btn_import.setDisabled(True)
+            return False
+        if not self.check_unmapped_samples_columns():
+            self.btn_import.setDisabled(True)
+            return False
+        if not self.check_static_table_fields():
+            self.btn_import.setDisabled(True)
+            return False
+
+        QMessageBox.information(self, "Initial Validation Complete", f"Initial data validation is complete.\n\n"
+                                                                     "Make sure units and formats are defined for all necessary fields and that GPS data are separated into columns")
+        logger_setup.get_logger().info("Data validation complete")
+        self.btn_import.setDisabled(False)
+        return True
+
+
+    def validate_ids(self):
+        """
+        Validate UPb Analysis Name, Sample Name, Aliquot Name, (Grain Name) and Spot Name in the left_table against the database.
+        Flag rows that have matching entries in the database.
+        """
+
+        logger_setup.get_logger().info("Validating IDs in the left table")
 
         # Step 1: Check for empty cells in the left table
         empty_cells = self.check_empty_cells_in_left_table()
@@ -851,88 +908,14 @@ class ImportWizardDialog(QWidget):
                 # Optional: Give user a chance to review and adjust the values
                 QMessageBox.information(self, "Review",
                                         "The empty cells have been filled with default values. Please review before clicking import again.")
-                return
+                logger_setup.get_logger().info("Empty cells have been filled with default values")
+                return False
             else:
-                return
+                logger_setup.get_logger().info("Empty cells, but opted not to use default values")
+                return False
+        logger_setup.get_logger().info("Validation of IDs complete")
+        return True
 
-        # Prepare SQL queries for validation
-        # find values where SampleName in the database matches listed value
-        sample_query = QSqlQuery()
-        sample_query.prepare("SELECT SampleID FROM Samples WHERE SampleName = :sample_name COLLATE NOCASE")
-
-        # find values where AliquotName and SampleID match in the database.
-        aliquot_query = QSqlQuery()
-        aliquot_query.prepare(
-            "SELECT AliquotID FROM Aliquots WHERE AliquotName = :aliquot_name COLLATE NOCASE AND SampleID = :sample_id")
-
-        # find values where SpotName and AliquotID match in the database.
-        spot_query = QSqlQuery()
-        spot_query.prepare(
-            "SELECT SpotID FROM Spots WHERE SpotName = :spot_name COLLATE NOCASE AND AliquotID = :aliquot_id COLLATE NOCASE")
-
-        # Iterate through rows in the left_table
-        for row in range(self.left_table.rowCount()):
-            sample_name = self.left_table.item(row, 0).text() if self.left_table.item(row, 0) else None
-            aliquot_name = self.left_table.item(row, 1).text() if self.left_table.item(row, 1) else None
-            spot_name = self.left_table.item(row, 2).text() if self.left_table.item(row, 2) else None
-
-            # Check Sample Name
-            sample_match = False
-            if sample_name:
-                sample_query.bindValue(":sample_name", sample_name)
-                sample_match = sample_query.exec() and sample_query.next()
-                sample_id = sample_query.value(0) if sample_match else None
-
-            # Check Aliquot Name
-            aliquot_match = False
-            if aliquot_name:
-                aliquot_query.bindValue(":aliquot_name", aliquot_name)
-                aliquot_query.bindValue(":sample_id", sample_id)
-                aliquot_match = aliquot_query.exec() and aliquot_query.next()
-                aliquot_id = aliquot_query.value(0) if aliquot_match else None
-
-            # Check Spot Name
-            spot_match = False
-            if spot_name:
-                spot_query.bindValue(":spot_name", spot_name)
-                spot_query.bindValue(":aliquot_id", aliquot_id)
-                spot_match = spot_query.exec() and spot_query.next()
-                spot_id = spot_query.value(0) if spot_match else None
-
-            self.left_table.blockSignals(True)
-            # Highlight the row if any match is found
-            # Highlight matching cells
-            if sample_match:
-                item = self.left_table.item(row, 0)
-                if item:
-                    item.setBackground(QColor('#FFDEB8'))  # Light orange
-            else:
-                item = self.left_table.item(row, 0)
-                if item:
-                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
-
-            if aliquot_match:
-                item = self.left_table.item(row, 1)
-                if item:
-                    item.setBackground(QColor('#FFDEB8'))  # Light orange
-            else:
-                item = self.left_table.item(row, 1)
-                if item:
-                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
-
-            if spot_match:
-                item = self.left_table.item(row, 2)
-                if item:
-                    item.setBackground(QColor('#FFDEB8'))  # Light orange
-            else:
-                item = self.left_table.item(row, 2)
-                if item:
-                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
-
-            self.left_table.blockSignals(False)
-
-        QMessageBox.information(self, "Validation Complete", "Validation of IDs is complete.")
-        self.btn_import.setEnabled(True)
 
     def edit_combo_box(self, pos):
         """
@@ -1267,10 +1250,32 @@ class ImportWizardDialog(QWidget):
         header_item.setBackground(QBrush(QColor("#C0FFB8")))  # Green background for new column
         self.right_table.setHorizontalHeaderItem(column_index, header_item)
 
-        # Add the new column to the column mappings
-        self.column_mappings[column_index] = selected_field
         # Update the mappings for the current sheet
-        self.sheet_mappings[self.current_sheet_name] = self.column_mappings
+        # Shift existing mappings to the right, starting with the largest index
+        ordered_columns = sorted(self.sheet_mappings[self.current_sheet_name].keys(), reverse=True)
+        for column in ordered_columns:
+            field = self.sheet_mappings[self.current_sheet_name][column]
+            if column >= column_index:
+                # Shift the mapping right by one
+                self.sheet_mappings[self.current_sheet_name][column + 1] = field
+        self.sheet_mappings[self.current_sheet_name][column_index] = selected_field
+        # Update the original columns mapping
+        for index, column in self.original_columns[self.current_sheet_name].items():
+            if index == 'added':
+                continue
+            if column >= column_index:
+                self.original_columns[self.current_sheet_name][index] = column + 1
+        if 'added' not in self.original_columns[self.current_sheet_name].keys():
+            self.original_columns[self.current_sheet_name]['added'] = []
+        # For any existing added columns, shift them right as well
+        new_added = []
+        for index in self.original_columns[self.current_sheet_name]['added']:
+            if index >= column_index:
+                index += 1
+            new_added.append(index)
+        self.original_columns[self.current_sheet_name]['added'] = new_added
+        # Add the new column index to the list of added columns
+        self.original_columns[self.current_sheet_name]['added'].append(column_index)
 
         self.right_table.blockSignals(True)
         # Initialize the column cells with empty values
@@ -1300,11 +1305,9 @@ class ImportWizardDialog(QWidget):
             header_item = QTableWidgetItem(header_text)
             self.right_table.setHorizontalHeaderItem(column_index, header_item)
 
-            # Add the new column to the column mappings
-            # Add the new column to the column mappings
-            self.column_mappings[column_index] = field
             # Update the mappings for the current sheet
-            self.sheet_mappings[self.current_sheet_name] = self.column_mappings
+            self.sheet_mappings[self.current_sheet_name][column_index] = field
+            self.original_columns[self.current_sheet_name]['added'].append(column_index)
 
             self.right_table.blockSignals(True)
             # Initialize the column cells with empty values
@@ -1501,8 +1504,8 @@ class ImportWizardDialog(QWidget):
                     logger_setup.get_logger().debug(f"Loading sheet: {sheet.title}")
                     # Add a new tab for each sheet
                     sheet.title = sheet.title.strip()
-                    column_mappings = {}
-                    self.sheet_mappings[sheet.title] = column_mappings
+                    self.sheet_mappings[sheet.title] = {}
+                    self.static_mappings[sheet.title] = {}
                     self.right_table = QTableWidget()
                     self.right_tables[sheet.title] = self.right_table
                     self.workbook_tabs.addTab(self.right_table, sheet.title)
@@ -1517,6 +1520,11 @@ class ImportWizardDialog(QWidget):
 
                     # Display data on the right table
                     self.display_right_table_with_styles(sheet.title)
+
+                    # Record the original mapping of column indexes
+                    for col in range(self.right_table.columnCount()):
+                        self.original_columns[self.current_sheet_name] = {}
+                        self.original_columns[self.current_sheet_name][col] = col
 
                     self.right_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
                     self.right_table.customContextMenuRequested.connect(self.show_right_table_context_menu)
@@ -1560,7 +1568,16 @@ class ImportWizardDialog(QWidget):
                 logger_setup.get_logger().critical("Error", f"Failed to read Excel file:\n{e}")
                 return
         self.activate_widgets()
+        self.resize_tables()
+        self.mapping_loaded = False
         self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
+
+    def resize_tables(self):
+        """
+        Resize the tables to fit their contents and match the top positions.
+        """
+        tab_bar_height = self.workbook_tabs.tabBar().size().height()
+        self.left_top_spacer.changeSize(0, tab_bar_height, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
     def update_upb_sheet(self):
         """
@@ -1574,7 +1591,6 @@ class ImportWizardDialog(QWidget):
         """
         self.current_sheet_name = self.workbook_tabs.tabText(self.workbook_tabs.currentIndex())
         self.right_table = self.right_tables[self.current_sheet_name]
-        self.column_mappings = self.sheet_mappings[self.current_sheet_name]
 
     def on_tab_changed(self, index):
         """
@@ -1585,10 +1601,10 @@ class ImportWizardDialog(QWidget):
             return
         self.update_current_right_table()
         if self.current_sheet_name == self.upb_sheet_name:
-            self.left_table.show()
+            self.left_widget.show()
             self.sync_left_table_rows()
         else:
-            self.left_table.hide()
+            self.left_widget.hide()
 
     # def load_sheet(self, bypass=False):
     #
@@ -1617,7 +1633,6 @@ class ImportWizardDialog(QWidget):
     #         self.df = self.df.iloc[1:].reset_index(drop=True)
     #
     #     # Reset mapping & rejections
-    #     self.column_mappings.clear()
     #     self.rejected_rows.clear()
     #     self.disabled_rows.clear()
     #
@@ -1896,6 +1911,12 @@ class ImportWizardDialog(QWidget):
                 item = self.right_table.item(row_idx, c)
                 if item:
                     item.setForeground(QBrush(text_color))  # Default text color
+            # If the tab is the upb tab, un-gray the left table row too
+            if self.current_sheet_name == self.upb_sheet_name:
+                for c in range(self.left_table.columnCount()):
+                    item = self.left_table.item(row_idx, c)
+                    if item:
+                        item.setForeground(QBrush(text_color))  # Default text color
         elif state == "disabled":
             header_item.setIcon(QIcon())
             # Gray out the row
@@ -1903,6 +1924,11 @@ class ImportWizardDialog(QWidget):
                 item = self.right_table.item(row_idx, c)
                 if item:
                     item.setForeground(QBrush(QColor("#A0A0A0")))  # Gray text
+            if self.current_sheet_name == self.upb_sheet_name:
+                for c in range(self.left_table.columnCount()):
+                    item = self.left_table.item(row_idx, c)
+                    if item:
+                        item.setForeground(QBrush(QColor("#A0A0A0")))  # Gray text
         else:
             header_item.setIcon(self.accepted_icon)
             # If the row is gray, un-gray it
@@ -1910,6 +1936,11 @@ class ImportWizardDialog(QWidget):
                 item = self.right_table.item(row_idx, c)
                 if item:
                     item.setForeground(QBrush(text_color))  # Default text color
+            if self.current_sheet_name == self.upb_sheet_name:
+                for c in range(self.left_table.columnCount()):
+                    item = self.left_table.item(row_idx, c)
+                    if item:
+                        item.setForeground(QBrush(text_color))  # Default text color
         self.right_table.setVerticalHeaderItem(row_idx, header_item)
 
     # Existing logic for removing rows, marking them rejected, etc.
@@ -1950,24 +1981,46 @@ class ImportWizardDialog(QWidget):
             return
 
         # Sort selected columns in descending order to remove from the rightmost column
-        sc = sorted(selected_columns, reverse=True)
+        sorted_columns = sorted(selected_columns, reverse=True)
 
-        for col in sc:
+        adjusted_mappings = {}
+        # Preserve mappings for columns to the left of the minimum selected column
+        for index in self.sheet_mappings[self.current_sheet_name].keys():
+            if index < min(sorted_columns):
+                adjusted_mappings[index] = self.sheet_mappings[self.current_sheet_name][index]
+
+        for column_index in sorted_columns:
             # Remove the column from the right table
-            self.right_table.removeColumn(col)
+            self.right_table.removeColumn(column_index)
 
             # Update column mappings to reflect the removed column
-            if col in self.column_mappings:
-                del self.column_mappings[col]
+            if column_index in self.sheet_mappings[self.current_sheet_name]:
+                field = self.sheet_mappings[self.current_sheet_name][column_index]
+                shift = sum(1 for deleted_index in sorted_columns if deleted_index < column_index)
+                adjusted_mappings[column_index-shift] = field
+            # Check if this is one of the added columns
+            if column_index in self.original_columns[self.current_sheet_name]['added']:
+                # If so, remove it from the added list
+                self.original_columns[self.current_sheet_name]['added'].remove(column_index)
+            else:
+                # It's an original column, so find the key with this current index and change it to -1
+                for key, value in self.original_columns[self.current_sheet_name].items():
+                    if value == column_index:
+                        self.original_columns[self.current_sheet_name][key] = -1
+                        break
+                # Adjust the indices of original columns after removal
+                for index, column in self.original_columns.items():
+                    shift = sum(1 for deleted_index in sorted_columns if deleted_index < column)
+                    self.original_columns[index] = column - shift
+                # Adjust the indices in the 'added' list
+                new_added = []
+                for index in self.original_columns[self.current_sheet_name]['added']:
+                    shift = sum(1 for deleted_index in sorted_columns if deleted_index < index)
+                    new_added.append(index - shift)
+                self.original_columns[self.current_sheet_name]['added'] = new_added
 
-            # Shift column mappings for columns after the removed one
-            self.column_mappings = {
-                (idx - 1 if idx > col else idx): value
-                for idx, value in self.column_mappings.items()
-            }
-            # Update the mappings for the current sheet
-            self.sheet_mappings[self.current_sheet_name] = self.column_mappings
 
+        self.sheet_mappings[self.current_sheet_name] = adjusted_mappings
         # Notify the user
         QMessageBox.information(self, "Columns Removed", "Selected columns have been successfully removed.")
 
@@ -2033,58 +2086,75 @@ class ImportWizardDialog(QWidget):
         item = self.right_table.horizontalHeaderItem(logical_index)
         if not item:
             return
-        original_header_text = item.text()
-        curr_map = self.column_mappings.get(logical_index, "None")
+        original_header_text = str(logical_index)
+        curr_map = self.sheet_mappings[self.current_sheet_name].get(logical_index, "None")
         dialog = ColumnMapDialog(original_header_text, curr_map, self)
         if dialog.exec():
             new_field = dialog.get_selected_value()
             if new_field == "None" or not new_field:
-                if logical_index in self.column_mappings:
-                    if self.column_mappings[logical_index] == "Grain Name" and self.current_sheet_name == self.upb_sheet_name:
+                if logical_index in self.sheet_mappings[self.current_sheet_name]:
+                    if self.sheet_mappings[self.current_sheet_name][logical_index] == "Grain Name" and self.current_sheet_name == self.upb_sheet_name:
                         # Remove the Grain Name column from the left table if it exists
                         left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
                                         range(self.left_table.columnCount())]
                         if "Grain Name" in left_headers:
                             grain_col_index = left_headers.index("Grain Name")
                             self.left_table.removeColumn(grain_col_index)
-                    del self.column_mappings[logical_index]
+                    del self.sheet_mappings[self.current_sheet_name][logical_index]
+                # Reset the text and background color
                 item.setText(original_header_text)
                 item.setBackground(QBrush(Qt.GlobalColor.transparent))
             else:
-                self.column_mappings[logical_index] = (new_field)
+                self.sheet_mappings[self.current_sheet_name][logical_index] = (new_field)
                 item.setText(f"{new_field}")
                 item.setBackground(QColor("#C0FFB8")  # Green
                                    )
 
-                # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name, auto-populate left table
-                if new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name"] and self.current_sheet_name == self.upb_sheet_name:
+                # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name / UPb Analysis Name, auto-populate left table
+                if (new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
+                        self.current_sheet_name == self.upb_sheet_name):
                     self.update_left_table_on_header_change(new_field, logical_index)
-        # Update the mappings for the current sheet
-        self.sheet_mappings[self.current_sheet_name] = self.column_mappings
 
     def update_left_table_on_header_change(self, field, logical_index):
+        sample_col = None
+        aliquot_col = None
+        spot_col = None
+        grain_col = None
+        upb_analysis_col = None
+        for column in range(self.left_table.columnCount()):
+            if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
+                sample_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Aliquot Name":
+                aliquot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Spot Name":
+                spot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
+                grain_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
+                upb_analysis_col = column
+
         if field == "Sample Name":
-            for r in range(self.right_table.rowCount()):
-                cell_item = self.right_table.item(r, logical_index)
+            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
+                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
                 if not cell_item:
                     continue
                 sample_id_value = cell_item.text().strip()
 
                 # Update the left table
                 self.left_table.blockSignals(True)
-                self.left_table.setItem(r, 0, QTableWidgetItem(sample_id_value))  # Sample ID
+                self.left_table.setItem(r, sample_col, QTableWidgetItem(sample_id_value))  # Sample ID
                 self.left_table.blockSignals(False)
             self.left_table.resizeColumnsToContents()
         elif field == "Aliquot Name":
-            for r in range(self.right_table.rowCount()):
-                cell_item = self.right_table.item(r, logical_index)
+            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
+                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
                 if not cell_item:
                     continue
                 aliquot_id_value = cell_item.text().strip()
 
                 # Update the left table
                 self.left_table.blockSignals(True)
-                self.left_table.setItem(r, 1, QTableWidgetItem(aliquot_id_value))  # Aliquot ID
+                self.left_table.setItem(r, aliquot_col, QTableWidgetItem(aliquot_id_value))  # Aliquot ID
                 self.left_table.blockSignals(False)
             self.left_table.resizeColumnsToContents()
         elif field == "Grain Name":
@@ -2095,17 +2165,11 @@ class ImportWizardDialog(QWidget):
                 # Insert a new column for Grain Name at index 2, give it the header "Grain Name"
                 self.left_table.insertColumn(2)
                 self.left_table.setHorizontalHeaderItem(2, QTableWidgetItem("Grain Name"))
-                # # Shift existing Spot Name column to index 3
-                # if "Spot Name" in left_headers:
-                #     spot_col_index = left_headers.index("Spot Name")
-                #     if spot_col_index != 3:
-                #         self.left_table.insertColumn(3)
-                #         for r in range(self.left_table.rowCount()):
-                #             item = self.left_table.takeItem(r, spot_col_index)
-                #             self.left_table.setItem(r, 3, item)
                 self.left_table.resizeColumnsToContents()
-            for r in range(self.right_table.rowCount()):
-                cell_item = self.right_table.item(r, logical_index)
+                spot_col = 3  # Spot ID is now at index 3
+                upb_analysis_col = 4  # UPb Analysis Name is now at index 4
+            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
+                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
                 if not cell_item:
                     continue
                 grain_id_value = cell_item.text().strip()
@@ -2116,7 +2180,35 @@ class ImportWizardDialog(QWidget):
                 self.left_table.blockSignals(False)
             self.left_table.resizeColumnsToContents()
         elif field == "Spot Name":
-            self.auto_split_sample_spot(logical_index)
+            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
+                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
+                if not cell_item:
+                    continue
+                spot_id_value = cell_item.text().strip()
+
+                # Update the left table
+                self.left_table.blockSignals(True)
+                self.left_table.setItem(r, spot_col, QTableWidgetItem(spot_id_value))  # Spot ID
+                self.left_table.blockSignals(False)
+        elif field == "UPb Analysis Name":
+            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
+                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
+                if not cell_item:
+                    continue
+                upb_analysis_value = cell_item.text().strip()
+
+                # Update the left table
+                self.left_table.blockSignals(True)
+                self.left_table.setItem(r, upb_analysis_col, QTableWidgetItem(upb_analysis_value))  # UPb Analysis Name
+                self.left_table.blockSignals(False)
+            self.left_table.resizeColumnsToContents()
+
+    def update_left_table_background(self, item, color_hex):
+        """
+        Update the background color of a specific cell in the left table.
+        """
+        if item:
+            item.setBackground(QBrush(QColor(color_hex)))
 
     def update_left_table_on_delimiter_change(self):
         """
@@ -2126,7 +2218,7 @@ class ImportWizardDialog(QWidget):
 
         if self.delimiter_checkbox.isChecked():
             spot_id_column = None
-            for col_idx, (field_name) in self.column_mappings.items():
+            for col_idx, (field_name) in self.sheet_mappings[self.current_sheet_name].items():
                 if field_name == "Spot Name":
                     spot_id_column = col_idx
                     break
@@ -2135,7 +2227,7 @@ class ImportWizardDialog(QWidget):
                 self.auto_split_sample_spot(spot_id_column)
         else:
             spot_id_column = None
-            for col_idx, (field_name) in self.column_mappings.items():
+            for col_idx, (field_name) in self.sheet_mappings[self.current_sheet_name].items():
                 if field_name == "Spot Name":
                     spot_id_column = col_idx
                     break
@@ -2253,12 +2345,40 @@ class ImportWizardDialog(QWidget):
             combos = {}
             for key, combo in self.combos.items():
                 combos[key] = combo.currentText()
-            configs[name] = {"Sheets": sheets, "Units/Formats": combos}
+            configs[name] = {"Sheets": sheets, "Units/Formats": combos, "OriginalMappings": self.original_columns}
             with open(CONFIG_FILE, 'w') as f:
                 json.dump(configs, f, indent=4)
             QMessageBox.information(self, "Saved", f"Mapping '{name}' saved successfully.")
+            self.load_mapping(name)
 
-    def load_mapping(self):
+    def load_mapping(self, name: str=''):
+
+        # Check if columns have been added or removed between loading the file and loading the first mapping
+        if not self.mapping_loaded:
+            # This is the first time loading a mapping
+            new_original_columns = []
+            for sheet in self.wb.sheetnames:
+                if (not any(index != column for index, column in self.original_columns[sheet].items()) and
+                        'added' not in self.original_columns[sheet].keys()):
+                    # This should only be true if no changes have been made to the original columns
+                    new_original_columns.append(False)
+
+            if len(new_original_columns) != len(self.wb.sheetnames):
+                # Changes have been made to the original columns, so we cannot apply the loaded mapping of the original columns
+                dlg = QMessageBox()
+                dlg.setIcon(QMessageBox.Icon.Warning)
+                dlg.setWindowTitle("Columns Modified")
+                dlg.setText(f"Column additions/removals have been detected since loading the file.\n\n"
+                            f"The saved mapping may not map correctly.\n"
+                            "Do you want to continue loading the mapping?"
+                            )
+                continue_button = dlg.addButton("Continue", QMessageBox.ButtonRole.YesRole)
+                cancel_button = dlg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+                dlg.setDefaultButton('Cancel')
+                dlg.exec()
+                if dlg.clickedButton() != continue_button:
+                    return
+
         if not os.path.exists(CONFIG_FILE):
             QMessageBox.warning(self, "No Config", "No configuration file found.")
             return
@@ -2285,52 +2405,95 @@ class ImportWizardDialog(QWidget):
         #         items_sorted.append(name)
         #
         # name, ok = QInputDialog.getItem(self, "Load Mapping", "Select a mapping to load:", items_sorted, 0, False)
-        dlg = LoadMappingDialog(self)
-        if dlg.exec() == QDialog.DialogCode.Accepted:
-            name = dlg.selected_name
-            loaded = configs[name]
-            self.sheet_mappings.clear()
-            self.column_mappings.clear()
-            for sheet in self.wb.sheetnames:
-                self.sheet_mappings[sheet] = {}
-            if "Sheets" and "Units/Formats" in loaded.keys():
-                loaded_sheets = loaded["Sheets"]
-                loaded_combos = loaded["Units/Formats"]
-                for key, combo in self.combos.items():
-                    if key in loaded_combos:
-                        val = loaded_combos[key]
-                        idx = combo.findText(val)
-                        if idx != -1:
-                            combo.setCurrentIndex(idx)
-                for sheet, mappings in loaded_sheets.items():
-                    if sheet in self.sheet_mappings:
-                        self.sheet_mappings[sheet] = {int(k): v["field"] for k, v in mappings.items()}
-            else:
-                # GeoCORK v.1.0.0 format, apply to the upb sheet only
-                for k_str, v in loaded.items():
-                    idx = int(k_str)
-                    self.column_mappings[idx] = (v["field"])
-                    self.sheet_mappings[self.upb_sheet_name] = self.column_mappings
+        if not name:
+            dlg = LoadMappingDialog(self)
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                name = dlg.selected_name
+        loaded = configs[name]
+        self.sheet_mappings.clear()
+        for sheet in self.wb.sheetnames:
+            self.sheet_mappings[sheet] = {}
 
-            for sheet in self.sheet_mappings.keys():
-                right_table = self.right_tables[sheet]
-                total_cols = right_table.columnCount()
-                column_mappings = self.sheet_mappings[sheet]
-                for col_idx in range(total_cols):
-                    hdr_item = right_table.horizontalHeaderItem(col_idx)
-                    if not hdr_item:
-                        continue
-                    if col_idx in column_mappings:
-                        f_name = column_mappings[col_idx]
-                        hdr_item.setText(f"{f_name}")
-                        hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
-                        # If it’s Sample Name / Aliquot Name / Spot Name / Grain Name, auto-populate left table
-                        if f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name"] and sheet == self.upb_sheet_name:
-                            self.update_left_table_on_header_change(f_name, col_idx)
-                    else:
-                        hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
-            self.update_mapping_list(name, configs)
-            QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
+
+        ## For the future, account for added and deleted columns when saving mappings
+        # if "OriginalMappings" in loaded.keys():
+        #     loaded_original = loaded["OriginalMappings"]
+        #
+        #
+        #     if len(new_original_columns) == len(self.wb.sheetnames):
+        #         # No changes have been made to the original columns, so we can safely apply the loaded mapping of the original columns
+        #         logger_setup.get_logger().info("Original Mappings loaded.")
+        #         # Ask they user if they want to automatically insert and remove columns or use the existing columns
+        #         dlg = QMessageBox()
+        #         dlg.setIcon(QMessageBox.Icon.Question)
+        #         dlg.setWindowTitle("Add/Remove Columns")
+        #         dlg.setText(f"The loaded mapping used a table with added/removed columns.\n\nWould you like to automatically add/remove columns to match the mapping or use existing columns?")
+        #         add_remove_button = dlg.addButton("Add/Remove", QMessageBox.ButtonRole.YesRole)
+        #         keep_existing_button = dlg.addButton("Keep Existing", QMessageBox.ButtonRole.NoRole)
+        #         cancel_button = dlg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
+        #         dlg.setDefaultButton('Keep Existing')
+        #         dlg.exec()
+        #         if dlg.clickedButton() == add_remove_button:
+        #             # Add/remove columns to match the original mapping
+        #             for sheet in self.wb.sheetnames:
+        #                 original = self.original_columns[sheet]
+        #                 # First remove any deleted indexes
+        #                 cols_to_remove = [idx for key, idx in original.items() if key != 'added' and idx == -1]
+        #                 for col in sorted(cols_to_remove, reverse=True):
+        #                     self.right_tables[sheet].removeColumn(col)
+        #                 # Now insert any added indexes
+        #                 cols_to_add = sorted(original['added'])
+        #                 for col in cols_to_add:
+        #                     self.right_tables[sheet].insertColumn(col)
+        #             logger_setup.get_logger().info("Added/removed columns successfully.")
+        #         elif dlg.clickedButton() == keep_existing_button:
+        #             pass
+        #         else:
+        #             return
+
+
+        if "Sheets" and "Units/Formats" in loaded.keys():
+            loaded_sheets = loaded["Sheets"]
+            loaded_combos = loaded["Units/Formats"]
+            for sheet, mappings in loaded_sheets.items():
+                if sheet in self.sheet_mappings:
+                    self.sheet_mappings[sheet] = {int(k): v["field"] for k, v in mappings.items()}
+            for key, combo in self.combos.items():
+                if key in loaded_combos:
+                    val = loaded_combos[key]
+                    idx = combo.findText(val)
+                    if idx != -1:
+                        combo.setCurrentIndex(idx)
+                        # Trigger the change event for any combos with this signal
+                        try: combo.closing.emit()
+                        except Exception as e:
+                            continue
+        else:
+            # GeoCORK v1.0.0 format, apply to the upb sheet only
+            for k_str, v in loaded.items():
+                idx = int(k_str)
+                self.sheet_mappings[self.upb_sheet_name][idx] = (v["field"])
+
+        for sheet in self.sheet_mappings.keys():
+            right_table = self.right_tables[sheet]
+            total_cols = right_table.columnCount()
+            column_mappings = self.sheet_mappings[sheet]
+            for col_idx in range(total_cols):
+                hdr_item = right_table.horizontalHeaderItem(col_idx)
+                if not hdr_item:
+                    continue
+                if col_idx in column_mappings:
+                    f_name = column_mappings[col_idx]
+                    hdr_item.setText(f"{f_name}")
+                    hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
+                    # If it’s Sample Name / Aliquot Name / Spot Name / Grain Name, auto-populate left table
+                    if f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
+                        self.update_left_table_on_header_change(f_name, col_idx)
+                else:
+                    hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
+        self.update_mapping_list(name, configs)
+        QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
+        self.mapping_loaded = True
 
         self.right_table.resizeColumnsToContents()
 
@@ -2351,11 +2514,19 @@ class ImportWizardDialog(QWidget):
         settings.setValue("recent_mappings", recent_mappings)
 
     def check_empty_cells_in_left_table(self):
+        """
+        Check for empty cells in the left table, excluding the "Grain Name" column which is optional.
+        :return:
+        List of tuples (row, col) for empty cells.
+        """
+        logger_setup.get_logger().info("Checking empty cells in left table")
         empty_cells = []
         for row in range(self.left_table.rowCount()):
-            for col in range(3):  # Columns for Sample ID, Aliquot ID, Spot ID
+            if row in self.disabled_rows[self.upb_sheet_name]:
+                continue
+            for col in range(self.left_table.columnCount()):
                 cell = self.left_table.item(row, col)
-                if cell is None or cell.text().strip() == "":
+                if (cell is None or cell.text().strip() in ["", 'NULL']) and self.left_table.horizontalHeaderItem(col).text() != "Grain Name":
                     empty_cells.append((row, col))
         return empty_cells
 
@@ -2409,32 +2580,90 @@ class ImportWizardDialog(QWidget):
                     self.left_table.setItem(row, col, QTableWidgetItem(f"{aliquot_id}-{spot_counter}"))
 
             # Highlight the updated cell
-            self.left_table.item(row, col).setBackground(QColor("#D4B8FF"))  # Light purple
+            item = self.left_table.item(row, col)
+            self.update_left_table_background(item, "#D4B8FF") # Light purple
 
         self.left_table.blockSignals(False)
         self.left_table.resizeColumnsToContents()
 
     def check_duplicates_in_left_table(self):
-        spots = []
+        """
+        Check for duplicates in the left table for Sample Name, Aliquot Name, Spot Name, Grain Name, and UPb Analysis Name.
+        First, check within the data to be imported, then check against the values in the database.
+        :return:
+        """
+
+        # Look for duplicates within the left table
+        logger_setup.get_logger().info("Checking for duplicates in left table")
+        upb_analyses = []
         duplicates = {}
+        grain_duplicates = {}
+        sample_col = None
+        aliquot_col = None
+        spot_col = None
+        grain_col = None
+        upb_analysis_col = None
+        for column in range(self.left_table.columnCount()):
+            if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
+                sample_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Aliquot Name":
+                aliquot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Spot Name":
+                spot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
+                grain_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
+                upb_analysis_col = column
         for row in range(self.left_table.rowCount()):
-            sample = self.left_table.item(row, 0).data(Qt.ItemDataRole.DisplayRole)
-            aliquot = self.left_table.item(row, 1).data(Qt.ItemDataRole.DisplayRole)
-            spot = self.left_table.item(row, 2).data(Qt.ItemDataRole.DisplayRole)
+            if row in self.disabled_rows[self.upb_sheet_name]:
+                continue
+            sample = self.left_table.item(row, sample_col).data(Qt.ItemDataRole.DisplayRole)
+            aliquot = self.left_table.item(row, aliquot_col).data(Qt.ItemDataRole.DisplayRole)
+            grain = self.left_table.item(row, grain_col).data(Qt.ItemDataRole.DisplayRole)
+            if grain in ['NULL', '']:
+                grain = None
+            spot = self.left_table.item(row, spot_col).data(Qt.ItemDataRole.DisplayRole)
+            upb_analysis = self.left_table.item(row, upb_analysis_col).data(Qt.ItemDataRole.DisplayRole)
             if sample not in duplicates.keys():
                 duplicates[sample] = {}
             if aliquot not in duplicates[sample].keys():
-                duplicates[sample][aliquot] = []
-            duplicates[sample][aliquot].append(spot)
-            spots.append(spot)
+                duplicates[sample][aliquot] = {}
+            if spot not in duplicates[sample][aliquot].keys():
+                duplicates[sample][aliquot][spot] = []
+            if spot not in grain_duplicates.keys():
+                grain_duplicates[spot] = []
+            duplicates[sample][aliquot][spot].append(upb_analysis)
+            if grain:
+                grain_duplicates[spot].append(grain)
+            upb_analyses.append(upb_analysis)
         # check for duplicates in each list
-        spot_duplicates = set([spot for spot in spots if spots.count(spot) > 1])
-        if spot_duplicates:
-            msg = "Resolve duplicate names:\n"
-            msg += f"Spots: {', '.join(spot_duplicates)}\n"
-            QMessageBox.warning(self, "Duplicates Found", msg)
-            return False
-        else:
+        # Check for duplicate UPb Analysis Names
+        upb_analysis_duplicates = list(set(
+            [upb_analysis for upb_analysis in upb_analyses if upb_analyses.count(upb_analysis) > 1]))
+        # Check for duplicate Spot Names with different Aliquot Names
+        spot_duplicates = []
+        grain_duplicates = []
+        aliquot_duplicates = []
+        sample_duplicates = []
+        distinct_spots = set()
+        distinct_aliquots = set()
+        for sample in duplicates.keys():
+            for aliquot in duplicates[sample].keys():
+                for spot in duplicates[sample][aliquot].keys():
+                    # Check for duplicate Spot Names with different Aliquot Names
+                    if spot in distinct_spots:
+                        spot_duplicates.append(spot)
+                    else:
+                        distinct_spots.add(spot)
+                    # Check for different grains with the same spot
+                    if grain_duplicates:
+                        if len(grain_duplicates[spot]) > 1:
+                            grain_duplicates.append(spot)
+                # Check for duplicate Aliquot Names with different Sample Names
+                if aliquot in distinct_aliquots:
+                    aliquot_duplicates.append(aliquot)
+                else:
+                    distinct_aliquots.add(aliquot)
             # Check for different samples with the same aliquot
             aliquot_duplicates = []
             distinct_aliquots = set()
@@ -2444,39 +2673,415 @@ class ImportWizardDialog(QWidget):
                         aliquot_duplicates.append(aliquot)
                     else:
                         distinct_aliquots.add(aliquot)
-            if aliquot_duplicates:
-                msg = "Resolve duplicate aliquots:\n"
-                msg += f"Aliquots: {', '.join(aliquot_duplicates)}\n"
-                QMessageBox.warning(self, "Duplicates Found", msg)
-                return False
+
+        if upb_analysis_duplicates or spot_duplicates or grain_duplicates or aliquot_duplicates or sample_duplicates:
+            logger_setup.get_logger().info("Duplicates found in left table")
+            # Highlight the duplicate cells
+            self.left_table.blockSignals(True)
+            for row in self.left_table.rowCount():
+                sample_item = self.left_table.item(row, sample_col).data(Qt.ItemDataRole.DisplayRole)
+                if sample_item in duplicates[sample_item].keys():
+                    self.update_left_table_background(sample_item, '#FFB8B8')  # Light red
+                else:
+                    sample_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+                aliquot_item = self.left_table.item(row, aliquot_col).data(Qt.ItemDataRole.DisplayRole)
+                if aliquot_item in duplicates[sample_item].keys():
+                    self.update_left_table_background(aliquot_item, '#FFB8B8')  # Light red
+                else:
+                    aliquot_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+                spot_item = self.left_table.item(row, spot_col).data(Qt.ItemDataRole.DisplayRole)
+                if spot_item in duplicates[sample_item][aliquot_item].keys():
+                    self.update_left_table_background(spot_item, '#FFB8B8')  # Light red
+                else:
+                    spot_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+                if grain_col:
+                    grain_item = self.left_table.item(row, grain_col).data(Qt.ItemDataRole.DisplayRole)
+                    if grain_item in grain_duplicates:
+                        self.update_left_table_background(grain_item, '#FFB8B8')  # Light red
+                    else:
+                        grain_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+                upb_analysis_item = self.left_table.item(row, upb_analysis_col).data(Qt.ItemDataRole.DisplayRole)
+                if upb_analysis_item in upb_analysis_duplicates:
+                    self.update_left_table_background(upb_analysis_item, '#FFB8B8')  # Light red
+                else:
+                    upb_analysis_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
+                        f'Red cells in the left table are duplicates with different parent items\n\n'
+                        'Resolve these red conflicts before importing').exec()
+            # Set the current tab to the UPb tab
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.upb_sheet_name))
+            return False
+
+        # Now that there are no duplicates in the import data, look for duplicates in the database
+        logger_setup.get_logger().info("Checking for duplicates against database")
+        # Prepare SQL queries for validation with existing database values
+        # Find Samples where SampleName in the database matches import SampleName
+        sample_query = QSqlQuery()
+        sample_query.prepare("SELECT SampleID FROM Samples WHERE SampleName = :sample_name COLLATE NOCASE")
+
+        # Find Aliquots and Samples where AliquotName matches in the database.
+        aliquot_query = QSqlQuery()
+        aliquot_query.prepare(
+            "SELECT AliquotID, SampleID FROM Aliquots WHERE AliquotName = :aliquot_name COLLATE NOCASE")
+
+        # Find Spots and Aliquots where SpotName matches in the database.
+        spot_query = QSqlQuery()
+        spot_query.prepare(
+            "SELECT SpotID, AliquotID FROM Spots WHERE SpotName = :spot_name COLLATE NOCASE")
+
+        # Find Grains and Spots where GrainName matches in the database.
+        grain_query = QSqlQuery()
+        grain_query.prepare(
+            f"SELECT GrainID, SpotID FROM Spots JOIN Grains ON Spots.GrainID = Grains.GrainID\n"
+            f"WHERE GrainName = :grain_name COLLATE NOCASE")
+
+        # Find UPb Analyses and Spots where UPbAnalysisName matches in the database.
+        upb_analysis_query = QSqlQuery()
+        upb_analysis_query.prepare(
+            "SELECT UPbAnalysisID, SpotID FROM UPbAnalyses WHERE UPbAnalysisName = :upb_analysis_name COLLATE NOCASE")
+
+        distinct_samples = []
+        aliquots_different_sample = []
+        spots_different_aliquots = []
+        grains_different_spots = []
+        upb_analyses_different_spots = []
+        conflicts = False
+
+        for row in range(self.left_table.rowCount()):
+            if row in self.disabled_rows[self.upb_sheet_name]:
+                continue
+            sample_name = self.left_table.item(row, sample_col).text()
+            aliquot_name = self.left_table.item(row, aliquot_col).text()
+            spot_name = self.left_table.item(row, spot_col).text()
+            grain_name = self.left_table.item(row, grain_col).text() if grain_col else None
+            upb_analysis_name = self.left_table.item(row, upb_analysis_col).text()
+
+            self.left_table.blockSignals(True)
+            # Highlight the row if any match is found
+            # Highlight matching cells
+
+            # Check Sample Name
+            if sample_name in distinct_samples:
+                sample_match = True
+            else:
+                sample_match = False
+                sample_query.bindValue(":sample_name", sample_name)
+                sample_match = sample_query.exec() and sample_query.next()
+                sample_id = sample_query.value(0) if sample_match else None
+                if sample_match:
+                    distinct_samples.append(sample_name)
+
+            if sample_match:
+                item = self.left_table.item(row, sample_col)
+                if item:
+                    item.setBackground(QColor('#B8FFEC'))  # Light teal
+            else:
+                item = self.left_table.item(row, sample_col)
+                if item:
+                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            # Check if any has already been identified as a conflict
+            if aliquot_name in aliquots_different_sample:
+                aliquot_match = True
+            else:
+                # Check Aliquot Name
+                aliquot_match = False
+                aliquot_query.bindValue(":aliquot_name", aliquot_name)
+                aliquot_match = aliquot_query.exec() and aliquot_query.next()
+                aliquot_id = aliquot_query.value(0) if aliquot_match else None
+                aliquot_sample_id = aliquot_query.value(1) if aliquot_match else None
+                # If the SampleID from the Aliquot does not match the SampleID from the Sample, the aliquot exists but for a different sample
+                if aliquot_id:
+                    if aliquot_sample_id and aliquot_sample_id != sample_id:
+                        aliquots_different_sample.append(aliquot_name)
+
+            if aliquot_match:
+                item = self.left_table.item(row, aliquot_col)
+                if item:
+                    if aliquot_name in aliquots_different_sample:
+                        item.setBackground(QColor('#FFB8B8'))  # Light red
+                        conflicts = True
+                    else:
+                        item.setBackground(QColor('#B8FFEC'))  # Light teal
+            else:
+                item = self.left_table.item(row, aliquot_col)
+                if item:
+                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            # Check Spot Name
+            if spot_name in spots_different_aliquots:
+                spot_match = True
+            else:
+                spot_match = False
+                spot_query.bindValue(":spot_name", spot_name)
+                spot_query.bindValue(":aliquot_id", aliquot_id)
+                spot_match = spot_query.exec() and spot_query.next()
+                spot_id = spot_query.value(0) if spot_match else None
+                spot_aliquot_id = spot_query.value(1) if spot_match else None
+                # If the AliquotID from the Spot does not match the AliquotID from the Aliquot, the spot exists but for a different aliquot
+                if spot_id:
+                    if spot_aliquot_id and spot_aliquot_id != aliquot_id:
+                        spots_different_aliquots.append(spot_name)
+
+            if spot_match:
+                item = self.left_table.item(row, spot_col)
+                if item:
+                    if spot_name in spots_different_aliquots:
+                        item.setBackground(QColor('#FFB8B8'))  # Light red
+                        conflicts = True
+                    else:
+                        item.setBackground(QColor('#B8FFEC'))  # Light teal
+            else:
+                item = self.left_table.item(row, spot_col)
+                if item:
+                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            # Check Grain Name
+            if grain_name:
+                if grain_name in grains_different_spots:
+                    grain_match = True
+                else:
+                    grain_match = False
+                    grain_query.bindValue(":grain_name", grain_name)
+                    grain_query.bindValue(":spot_id", spot_id)
+                    grain_match = grain_query.exec() and grain_query.next()
+                    grain_id = grain_query.value(0) if grain_match else None
+                    grain_spot_id = grain_query.value(1) if grain_match else None
+                    # If the SpotID from the Grain does not match the SpotID from the Spot, the grain exists but for a different spot
+                    if grain_id:
+                        if grain_spot_id and grain_spot_id != spot_id:
+                            grains_different_spots.append(grain_spot_id)
+
+                if grain_match:
+                    item = self.left_table.item(row, grain_col)
+                    if item:
+                        if grain_name in grains_different_spots:
+                            item.setBackground(QColor('#FFB8B8'))  # Light red
+                            conflicts = True
+                        else:
+                            item.setBackground(QColor('#B8FFEC'))  # Light teal
+                else:
+                    item = self.left_table.item(row, grain_col)
+                    if item:
+                        item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            # Check UPb Analysis Name
+            if upb_analysis_name in upb_analyses_different_spots:
+                upb_analysis_match = True
+            else:
+                upb_analysis_match = False
+                upb_analysis_query.bindValue(":upb_analysis_name", upb_analysis_name)
+                upb_analysis_query.bindValue(":spot_id", spot_id)
+                upb_analysis_match = upb_analysis_query.exec() and upb_analysis_query.next()
+                upb_analysis_id = upb_analysis_query.value(0) if upb_analysis_match else None
+                upb_analysis_spot_id = upb_analysis_query.value(1) if upb_analysis_match else None
+                # If the SpotID from the UPb Analysis does not match the SpotID from the Spot, the UPb Analysis exists but for a different spot
+                if upb_analysis_id:
+                    if upb_analysis_spot_id and upb_analysis_spot_id != spot_id:
+                        upb_analyses_different_spots.append(upb_analysis_name)
+
+            if upb_analysis_match:
+                item = self.left_table.item(row, upb_analysis_col)
+                if item:
+                    if upb_analysis_name in upb_analyses_different_spots:
+                        item.setBackground(QColor('#FFB8B8'))  # Light red
+                        conflicts = True
+                    else:
+                        item.setBackground(QColor('#B8FFEC'))  # Light teal
+            else:
+                item = self.left_table.item(row, upb_analysis_col)
+                if item:
+                    item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
+
+            self.left_table.blockSignals(False)
+
+        if conflicts:
+            logger_setup.get_logger().info("Conflict with left table values and database detected")
+            QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
+                        'Teal cells in the left table match existing entries in the database.\n'
+                        f'Red cells in the left table already exist with a different parent item\n\n'
+                        'Resolve these red conflicts before importing')
+            # Set the current tab to the UPb tab
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.upb_sheet_name))
+            return False
+        else:
+            logger_setup.get_logger().info("No conflicts between the left table and the database detected")
+            QMessageBox(QMessageBox.Icon.Information, f'No conflicts detected', f'No conflicts detected.\n\n'
+                                                                                'Teal cells in the left table match existing entries in the database.')
+        return True
+
+    def check_duplicates_gps(self):
+        """
+        Checks for same Sample Name or Column Name with different GPS coordinates.
+        :return:
+        """
+
+        def check_item_gps(item_gps_dictionary: str , item_import_header: str, item_db_header: str, item: str, items: str):
+            logger_setup.get_logger().info(f"Checking for duplicate {items} with different GPS coordinates")
+
+            for sheet, column_mappings in self.sheet_mappings.items():
+                gps_columns = [list(column_mappings.keys())[list(column_mappings.values()).index(field)]
+                               for field in SQLUtils.gps_possible_user_input_fields[item_gps_dictionary].keys()
+                               if field in column_mappings.values()]
+                db_gps_column_headers = get_headers('GPSLocations')
+                gps_columns_db_equivalent = []
+                for column in gps_columns:
+                    field_name = column_mappings[column]
+                    if field_name in SQLUtils.gps_possible_user_input_fields[item_gps_dictionary].keys():
+                        gps_columns_db_equivalent.append(SQLUtils.gps_possible_user_input_fields[item_gps_dictionary][field_name][1])
+
+                if item_import_header in column_mappings.values() and any(SQLUtils.gps_possible_user_input_fields[item_gps_dictionary].keys()):
+                    item_col = list(column_mappings.keys())[list(column_mappings.values()).index(item_import_header)]
+                    # Look for duplicate names in the column
+                    duplicate_items = {}
+                    item_names = {}
+                    for row in range(self.right_tables[sheet].rowCount()):
+                        if row in self.disabled_rows[sheet]:
+                            continue
+                        item_name = self.right_tables[sheet].item(row, item_col).text()
+                        if item_name not in item_names.keys():
+                            item_names[item_name] = []
+                            item_names[item_name].append(row)
+                        else:
+                            duplicate_items[item_name] = [row]
+
+                    different_item_gps = False
+                    if duplicate_items:
+                        # Now check the GPS coordinates for each duplicate item
+                        for item_name, gps_values1 in duplicate_items.items():
+                            for row in item_names[item_name]:
+                                gps_values2 = [self.right_tables[sheet].item(row, col).text() for col in gps_columns]
+                                if set(gps_values1) != set(gps_values2):
+                                    different_item_gps = True
+                                    for col in gps_columns:
+                                        self.right_tables[sheet].item(row, col).setBackground(QColor('#FFB8B8'))  # Light red
+                    if different_item_gps:
+                        QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
+                                    f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header}.\n\n'
+                                    'Resolve these red conflicts before importing')
+                        logger_setup.get_logger().info(f"{items} with conflicting GPS coordinates detected in the right table")
+                        # Set the current tab to the sheet with the conflict
+                        self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(sheet))
+                        return False
+                    logger_setup.get_logger().info(f"No {items} with conflicting GPS coordinates detected in the right table")
+
+                    # Now check if these items are in the database with different GPS coordinates
+                    logger_setup.get_logger().info(f"Checking for duplicate {items} with different GPS coordinates in the database")
+                    query = QSqlQuery()
+                    item_query = f"SELECT {item}GPSLocationID FROM {items} WHERE {item_db_header} = :item_name COLLATE NOCASE"
+                    gps_query = f"SELECT * FROM GPSLocations WHERE GPSLocationID = :gps_id"
+                    for item_name, row in item_names:
+                        query.prepare(item_query)
+                        query.bindValue(":item_name", item_name)
+                        if not query.exec(item_query):
+                            logger_setup.get_logger().error("Error checking for duplicates in the database")
+                            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {item_query}")
+                            return False
+                        if query.next():
+                            gps_id =query.value(0)
+                            query.prepare(gps_query)
+                            query.bindValue(":gps_id", gps_id)
+                            if not query.exec(gps_query):
+                                logger_setup.get_logger().error("Error checking for duplicates in the database")
+                                logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+                                logger_setup.get_logger().debug(f"SQL query: {gps_query}")
+                                return False
+                            if query.next():
+                                db_gps_values = [query.value(i) for i in range(1, query.record().count()) if query.record().fieldName(i) in get_headers('GPSLocations')]
+                                gps_values_import = [self.right_tables[sheet].item(row, col).text() for col in gps_columns]
+                                for header in db_gps_column_headers:
+                                    if header in gps_columns_db_equivalent:
+                                        import_idx = gps_columns_db_equivalent.index(header)
+                                        db_value = db_gps_values[db_gps_column_headers.index(header)-1]
+                                        import_value = gps_values_import[import_idx]
+                                        if str(db_value) != str(import_value):
+                                            different_item_gps = True
+                                            for col in gps_columns:
+                                                self.right_tables[sheet].item(row, col).setBackground(QColor('#FFB8B8'))  # Light red
+                    if different_item_gps:
+                        QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
+                                    f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header} with existing database entries.\n\n'
+                                    'Resolve these red conflicts before importing')
+                        logger_setup.get_logger().info(f"{items} with conflicting GPS coordinates detected in the right table with existing database entries")
+                        # Set the current tab to the sheet with the conflict
+                        self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(sheet))
+                        return False
+
+                logger_setup.get_logger().info("Checking for duplicate Columns with different GPS coordinates")
+                if 'Column Name' in column_mappings.values() and any(SQLUtils.gps_possible_user_input_fields['Column GPS'].keys()):
+                    column_col = list(column_mappings.keys())[list(column_mappings.values()).index('Column Name')]
+                    # Look for duplicate Column Names in the column
+                    duplicate_columns = {}
+                    column_names = {}
+                    for row in range(self.right_tables[sheet].rowCount()):
+                        if row in self.disabled_rows[sheet]:
+                            continue
+                        column_name = self.right_tables[sheet].item(row, column_col).text()
+                        if column_name not in column_names.keys():
+                            column_names[column_name] = []
+                            column_names[column_name].append(row)
+                        else:
+                            duplicate_columns[column_name] = [row]
+
+                    different_column_gps = False
+                    if duplicate_columns:
+                        # Now check the GPS coordinates for each duplicate column
+                        gps_columns = [list(column_mappings.keys())[list(column_mappings.values()).index(field)]
+                                       for field in SQLUtils.gps_possible_user_input_fields['Column GPS'].keys()
+                                       if field in column_mappings.values()]
+                        for column_name, gps_values1 in duplicate_columns.items():
+                            for row in column_names[column_name]:
+                                gps_values2 = [self.right_tables[sheet].item(row, col).text() for col in gps_columns]
+                                if set(gps_values1) != set(gps_values2):
+                                    different_column_gps = True
+                                    for col in gps_columns:
+                                        self.right_tables[sheet].item(row, col).setBackground(QColor('#FFB8B8'))  # Light red
+                    if different_column_gps:
+                        QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
+                                    'Red cells in the right table indicate GPS coordinate conflicts for the same Column Name.\n\n'
+                                    'Resolve these red conflicts before importing')
+                        logger_setup.get_logger().info("Columns with conflicting GPS coordinates detected in the right table")
+                        # Set the current tab to the sheet with the conflict
+                        self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(sheet))
+                        return False
+                logger_setup.get_logger().info("No Columns with conflicting GPS coordinates detected in the right table")
             return True
 
+        if not check_item_gps(item_gps_dictionary='Sample GPS', item_import_header='Sample Name', item_db_header='SampleName', item='Sample', items='Samples'):
+            return False
+        if not check_item_gps(item_gps_dictionary='Column GPS', item_import_header='Column Name', item_db_header='ColumnName', item='Column', items='Columns'):
+            return False
+        return True
+
+
     def check_and_import(self) -> None:
-        """
-        Main method used when the import button is clicked. Used to first check the left table for empty values, prompt
-        the user for default values, checks then for conflicts in the database. If all checks are passed then the list
-        of rows to be imported is inserted into the database.
-        """
-        # Step 1: Check for empty cells in the left table
-        empty_cells = self.check_empty_cells_in_left_table()
+            """
+            Main method used when the import button is clicked. Used to first check the left table for empty values, prompt
+            the user for default values, checks then for conflicts in the database. If all checks are passed then the list
+            of rows to be imported is inserted into the database.
+            """
+            # Step 1: Check for empty cells in the left table
+            empty_cells = self.check_empty_cells_in_left_table()
 
-        if empty_cells:
-            # Step 2: Show dialog to ask if the user wants to use default values
-            use_defaults = self.ask_to_use_default_values(empty_cells)
+            if empty_cells:
+                # Step 2: Show dialog to ask if the user wants to use default values
+                use_defaults = self.ask_to_use_default_values(empty_cells)
 
-            if use_defaults:
-                # Step 3: Fill empty cells with default values
-                self.fill_empty_cells_with_defaults(empty_cells)
+                if use_defaults:
+                    # Step 3: Fill empty cells with default values
+                    self.fill_empty_cells_with_defaults(empty_cells)
 
-                # Optional: Give user a chance to review and adjust the values
-                QMessageBox.information(self, "Review",
-                                        "The empty cells have been filled with default values. Please review before clicking import again.")
-        else:
-            # Step 4: Look for any existing analyses associated with existing spots and ask user how to handle conflicts
-            if self.check_duplicates_in_left_table():
-                if self.check_for_conflicts():
-                    # Step 5: Proceed with import
-                    self.import_to_db()
+                    # Optional: Give user a chance to review and adjust the values
+                    QMessageBox.information(self, "Review",
+                                            "The empty cells have been filled with default values. Please review before clicking import again.")
+            else:
+                # Step 4: Look for any existing analyses associated with existing spots and ask user how to handle conflicts
+                if self.check_duplicates_in_left_table():
+                    if self.check_for_conflicts():
+                        # Step 5: Proceed with import
+                        self.import_to_db()
 
 
     def check_for_conflicts(self):
@@ -2484,12 +3089,38 @@ class ImportWizardDialog(QWidget):
          Ensures no values are attempted to be inserted that could raise Unique Constraint Errors by the database.
          If values are found, the list of rows to be imported gets amended with primary IDs from inside the database."""
         # Find existing aliquot names belonging to other samples and existing spot names belonging to other aliquots
+
+        sample_col = None
+        aliquot_col = None
+        spot_col = None
+        grain_col = None
+        upb_analysis_col = None
+        for column in range(self.left_table.columnCount()):
+            if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
+                sample_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Aliquot Name":
+                aliquot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Spot Name":
+                spot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
+                grain_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
+                upb_analysis_col = column
+
         existing_aliquots = set()
         existing_spots = set()
+        existing_upb_analyses = set()
+        existing_grains = set()
         for row_idx in range(self.left_table.rowCount()):
-            sample_name = self.left_table.item(row_idx, 0).data(Qt.ItemDataRole.DisplayRole)
-            aliquot_name = self.left_table.item(row_idx, 1).data(Qt.ItemDataRole.DisplayRole)
-            spot_name = self.left_table.item(row_idx, 2).data(Qt.ItemDataRole.DisplayRole)
+            if row_idx in self.disabled_rows[self.upb_sheet_name]:
+                continue
+            sample_name = self.left_table.item(row_idx, sample_col).data(Qt.ItemDataRole.DisplayRole)
+            aliquot_name = self.left_table.item(row_idx, aliquot_col).data(Qt.ItemDataRole.DisplayRole)
+            spot_name = self.left_table.item(row_idx, spot_col).data(Qt.ItemDataRole.DisplayRole)
+            grain_name = self.left_table.item(row_idx, grain_col).data(Qt.ItemDataRole.DisplayRole)
+            if not grain_name or grain_name in ['NULL', '']:
+                grain_name = None
+            upb_analysis_name = self.left_table.item(row_idx, upb_analysis_col).data(Qt.ItemDataRole.DisplayRole)
             # If the aliquot name exists in the database, does it have the same sample name?
             aliquot_id = self.find_matching_id('Aliquots', 'AliquotName', aliquot_name)
             if aliquot_id:
@@ -2501,6 +3132,7 @@ class ImportWizardDialog(QWidget):
                         existing_sample_name = query.value(0)
                         if existing_sample_name != sample_name:
                             existing_aliquots.add(aliquot_name)
+                            self.left_table.item(row_idx, aliquot_col).setBackground(QColor('#FFB8B8'))  # Light red
             spot_id = self.find_matching_id('Spots', 'SpotName', spot_name)
             if spot_id:
                 query = QSqlQuery()
@@ -2511,35 +3143,38 @@ class ImportWizardDialog(QWidget):
                         existing_aliquot_name = query.value(0)
                         if existing_aliquot_name != aliquot_name:
                             existing_spots.add(spot_name)
-        if existing_aliquots or existing_spots:
-            msg = "The following existing Aliquot Names and Spot Names were found in the database with other parent Samples or Aliquots:\n"
-            if existing_aliquots:
-                msg += f"Aliquots: {', '.join(existing_aliquots)}\n"
-            if existing_spots:
-                msg += f"Spots: {', '.join(existing_spots)}\n"
+                            self.left_table.item(row_idx, spot_col).setBackground(QColor('#FFB8B8'))  # Light red
+            if grain_name:
+                grain_id = self.find_matching_id('Grains', 'GrainName', grain_name)
+                if grain_id:
+                    query = QSqlQuery()
+                    query.prepare('SELECT SpotName FROM Grains JOIN Spots ON Grains.SpotID = Spots.SpotID WHERE GrainID=:grain_id')
+                    query.bindValue(":grain_id", grain_id)
+                    if query.exec():
+                        if query.next():
+                            existing_spot_name = query.value(0)
+                            if existing_spot_name != spot_name:
+                                existing_grains.add(grain_name)
+                                self.left_table.item(row_idx, grain_col).setBackground(QColor('#FFB8B8'))  # Light red
+            upb_analysis_id = self.find_matching_id('UPbAnalyses', 'UPbAnalysisName', upb_analysis_name)
+            if upb_analysis_id:
+                query = QSqlQuery()
+                query.prepare('SELECT SpotName FROM UPbAnalyses JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID WHERE UPbAnalysisID=:upb_analysis_id')
+                query.bindValue(":upb_analysis_id", upb_analysis_id)
+                if query.exec():
+                    if query.next():
+                        existing_spot_name = query.value(0)
+                        if existing_spot_name != spot_name:
+                            existing_upb_analyses.add(upb_analysis_name)
+                            self.left_table.item(row_idx, upb_analysis_col).setBackground(QColor('#FFB8B8'))  # Light red
+        if existing_aliquots or existing_spots or existing_grains or existing_upb_analyses:
+            msg = f"Some items were found in the database with other parent data:\n"
             msg += "Please resolve these conflicts before importing."
             QMessageBox.warning(self, "Conflicts Found", msg)
             return False
-        # Find existing U-Pb analyses associated with the spot, aliquot, sample
-        upb_matches = []
-        for row_idx in range(self.left_table.rowCount()):
-            sample_name = self.left_table.item(row_idx, 0).data(Qt.ItemDataRole.DisplayRole)
-            existing_sample = self.find_matching_id('Samples', 'SampleName', sample_name)
-            if existing_sample:
-                aliquot_name = self.left_table.item(row_idx, 1).data(Qt.ItemDataRole.DisplayRole)
-                existing_aliquot = self.find_matching_id('Aliquots', 'AliquotName', aliquot_name)
-                if existing_aliquot:
-                    spot_name = self.left_table.item(row_idx, 2).data(Qt.ItemDataRole.DisplayRole)
-                    existing_spot = self.find_matching_id('Spots', 'SpotName', spot_name)
-                    if existing_spot:
-                        query = QSqlQuery()
-                        query.prepare('SELECT * FROM UPbAnalyses WHERE SpotID=:spot_id')
-                        query.bindValue(":spot_id", existing_spot)
-                        if query.exec():
-                            if query.next():
-                                upb_matches.append((sample_name, aliquot_name, spot_name))
-        if upb_matches:
-            msg = f"{len(upb_matches)}/{self.left_table.rowCount()} existing UPb analyses found for spots being imported."
+
+        if existing_upb_analyses:
+            msg = f"{len(existing_upb_analyses)}/{self.left_table.rowCount()} existing UPb analyses found for spots being imported."
             msg_box = QMessageBox()
             msg_box.setWindowTitle("Existing Values")
             msg_box.setText(msg)
@@ -2560,27 +3195,281 @@ class ImportWizardDialog(QWidget):
                 return True
         return True
 
+    def check_unmapped_references(self):
+        """
+        Checks if any columns are mapped to 'Reference Display' and if so, ensures that at least one other Reference field
+        is also mapped in the same sheet(s).
+        :return:
+        """
+        # Look for any columns mapped to 'Reference Display' and check if there are other columns mapped to other Reference fields
+        reference_display_mapped = False
+        for sheet, column_mapping in self.sheet_mappings.items():
+            if "Reference Display" in column_mapping.values():
+                reference_display_mapped = True
+                break
+        if reference_display_mapped:
+            reference_field_mapped = False
+            reference_fields = list(SQLUtils.reference_possible_user_input_fields['Reference'].keys())
+            # Include the ID field for any columns populated from the combo box
+            reference_fields.append('ReferenceID')
+            # Remove Reference Display from the list
+            reference_fields.remove('Reference Display')
+            # Check if any other Reference fields are mapped in the same sheet as Reference Display
+            for sheet, column_mapping in self.sheet_mappings.items():
+                if any(field in column_mapping.values() for field in reference_fields):
+                    if "Reference Display" in column_mapping.values():
+                        reference_field_mapped = True
+                        break
+            if not reference_field_mapped:
+                QMessageBox.warning(self, "Reference Mapping Error",
+                                    f"Reference Display is mapped but no columns are mapped to other Reference fields in the same sheet(s).\n\n"
+                                    "At least one other Reference field must be mapped (e.g., Authors, Year, Title, etc.) in the same sheet as Reference Display.")
+                return False
+        return True
+
+    def check_unmapped_samples_columns(self):
+        # Check if any Sample Info, Sample Age, or Sample GPS fields are mapped without 'Sample Name' in the same sheet
+        sample_mapped = True
+        sample_info = list(SQLUtils.sample_possible_user_input_fields['Sample Info'].keys())
+        sample_info.remove('Sample Name')
+        sample_age_info = list(SQLUtils.sample_possible_user_input_fields['Sample Age'].keys())
+        sample_gps_info = list(SQLUtils.gps_possible_user_input_fields['Sample GPS'].keys())
+        all_sample_info = []
+        all_sample_info.extend(sample_info)
+        all_sample_info.extend(sample_age_info)
+        all_sample_info.extend(sample_gps_info)
+        for sheet, column_mapping in self.sheet_mappings.items():
+            if any(field in column_mapping.values() for field in all_sample_info):
+                if "Sample Name" not in column_mapping.values():
+                    sample_mapped = False
+                    break
+        if not sample_mapped:
+            QMessageBox.warning(self, "Sample Mapping Error",
+                                f"One or more columns mapped to Sample Info, Sample Age, or Sample GPS fields, but no columns are mapped to 'Sample Name' in the same sheet(s).\n\n"
+                                "At least one column must be mapped to 'Sample Name' in the same sheet(s) as any Sample Info, Sample Age, or Sample GPS fields.")
+            return False
+
+        # Check if any Column GPS or Column Info fields are mapped without 'Column Name' in the same sheet
+        column_mapped = True
+        column_info = list(SQLUtils.column_possible_user_input_fields['Column Info'].keys())
+        column_info.remove('Column Name')
+        column_gps_info = list(SQLUtils.gps_possible_user_input_fields['Column GPS'].keys())
+        all_column_info = []
+        all_column_info.extend(column_info)
+        all_column_info.extend(column_gps_info)
+        for sheet, column_mapping in self.sheet_mappings.items():
+            if any(field in column_mapping.values() for field in all_column_info):
+                if "Column Name" not in column_mapping.values():
+                    column_mapped = False
+                    break
+        if not column_mapped:
+            QMessageBox.warning(self, "Column Mapping Error",
+                                f"One or more columns mapped to Column Info or Column GPS fields, but no columns are mapped to 'Column Name' in the same sheet(s).\n\n"
+                                "At least one column must be mapped to 'Column Name' in the same sheet(s) as any Column Info or Column GPS fields.")
+            return False
+        return True
+
+    def check_unmapped_aliquots_spots_analyses(self):
+        # Check if any Aliquot Info fields are mapped without 'Aliquot Name' in the same sheet
+        aliquot_mapped = True
+        aliquot_info = list(SQLUtils.aliquot_grain_spot_possible_user_input_fields['Aliquot Info'].keys())
+        aliquot_info.remove('Aliquot Name')
+        for sheet, column_mapping in self.sheet_mappings.items():
+            if any(field in column_mapping.values() for field in aliquot_info):
+                if "Aliquot Name" not in column_mapping.values():
+                    aliquot_mapped = False
+                    break
+        if not aliquot_mapped:
+            QMessageBox.warning(self, "Aliquot Mapping Error",
+                                f"One or more columns mapped to Aliquot Info fields, but no columns are mapped to 'Aliquot Name' in the same sheet(s).\n\n"
+                                "At least one column must be mapped to 'Aliquot Name' in the same sheet(s) as any Aliquot Info fields.")
+            return False
+
+        # Check if any Spot Info fields are mapped without 'Spot Name' in the same sheet
+        spot_mapped = True
+        spot_info = list(SQLUtils.aliquot_grain_spot_possible_user_input_fields['Spot Info'].keys())
+        spot_info.remove('Spot Name')
+        for sheet, column_mapping in self.sheet_mappings.items():
+            if any(field in column_mapping.values() for field in spot_info):
+                if "Spot Name" not in column_mapping.values():
+                    spot_mapped = False
+                    break
+        if not spot_mapped:
+            QMessageBox.warning(self, "Spot Mapping Error",
+                                f"One or more columns mapped to Spot Info fields, but no columns are mapped to 'Spot Name' in the same sheet(s).\n\n"
+                                "At least one column must be mapped to 'Spot Name' in the same sheet(s) as any Spot Info fields.")
+            return False
+
+        # Check if any Grain Info fields are mapped without 'Grain Name' in the same sheet
+        grain_mapped = True
+        grain_info = list(SQLUtils.aliquot_grain_spot_possible_user_input_fields['Grain Info'].keys())
+        grain_info.remove('Grain Name')
+        for sheet, column_mapping in self.sheet_mappings.items():
+            if any(field in column_mapping.values() for field in grain_info):
+                if "Grain Name" not in column_mapping.values():
+                    grain_mapped = False
+                    break
+        if not grain_mapped:
+            QMessageBox.warning(self, "Grain Mapping Error",
+                                f"One or more columns mapped to Grain Info fields, but no columns are mapped to 'Grain Name' in the same sheet(s).\n\n"
+                                "At least one column must be mapped to 'Grain Name' in the same sheet(s) as any Grain Info fields.")
+            return False
+
+        # Check if any UPb Analysis Info fields are mapped without 'UPb Analysis Name' in the same sheet
+        upb_analysis_mapped = True
+        upb_base_info = list(SQLUtils.upb_possible_user_input_fields['U-Pb Base Info'].keys())
+        upb_base_info.remove('UPb Analysis Name')
+        upb_ratio_info = list(SQLUtils.upb_possible_user_input_fields['Ratios'].keys())
+        upb_age_info = list(SQLUtils.upb_possible_user_input_fields['Ages'].keys())
+        upb_count_info = list(SQLUtils.upb_possible_user_input_fields['Isotope Counts'].keys())
+        all_upb_info = []
+        all_upb_info.extend(upb_base_info)
+        all_upb_info.extend(upb_ratio_info)
+        all_upb_info.extend(upb_age_info)
+        all_upb_info.extend(upb_count_info)
+        for sheet, column_mapping in self.sheet_mappings.items():
+            if any(field in column_mapping.values() for field in all_upb_info):
+                if "UPb Analysis Name" not in column_mapping.values():
+                    upb_analysis_mapped = False
+                    break
+        if not upb_analysis_mapped:
+            QMessageBox.warning(self, "U-Pb Analysis Mapping Error",
+                                f"One or more columns mapped to U-Pb Analysis Info fields, but no columns are mapped to 'UPb Analysis Name' in the same sheet(s).\n\n"
+                                "At least one column must be mapped to 'UPb Analysis Name' in the same sheet(s) as any U-Pb Analysis Info fields.")
+            return False
+        return True
+
+    def check_static_table_fields(self):
+        """
+        Checks if any static fields in the left table are mapped and if so, tries to match to one of the existing values.
+        If not match can be found, the user is asked to select the correct value from a dropdown.
+        :return:
+        """
+
+        static_fields = {'Direct Age Error Format': 'ErrorFormats', 'Direct Age Unit': 'AgeUnits',
+                         'Oldest Relative Age': 'Ages', 'Youngest Relative Age': 'Ages',
+                         'Sample Latitude direction': 'DirectionUnits', 'Sample Longitude direction': 'DirectionUnits',
+                         'Sample Elevation Unit': 'DistanceUnits', 'Column Latitude direction': 'DirectionUnits',
+                         'Column Longitude direction': 'DirectionUnits', 'Column Elevation Unit': 'DistanceUnits',
+                         'Column Total Height/Depth Unit': 'DistanceUnits', 'Sample Height/Depth Unit': 'DistanceUnits',
+                         'Spot Size Unit': 'DistanceUnits', 'Ratio Error Format': 'ErrorFormats',
+                         'Concordance Format': 'ConcordanceFormats', 'Age Error Format': 'ErrorFormats', 'Age Unit': 'AgeUnits'}
+
+        query = QSqlQuery()
+        ambiguous_static_values = {}
+
+        for sheet, column_mappings in self.sheet_mappings.items():
+            ambiguous_static_values[sheet] = {}
+            for column, field in column_mappings.items():
+                if field in static_fields.keys():
+                    static_table = static_fields[field]
+                    # Get the unique values in this column
+                    static_name_header = get_headers(static_table)[get_name_column(static_table)]
+                    query.prepare(f"SELECT {static_name_header} FROM {static_table}")
+                    if not query.exec():
+                        logger_setup.get_logger().critical(f'Could not load values from database')
+                        logger_setup.get_logger().debug(f'Failed to query the {static_table} values')
+                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                    static_values = []
+                    while query.next():
+                        static_values.append(query.value(0))
+                    unique_values = set()
+                    for row in range(self.right_tables[sheet].rowCount()):
+                        if row not in self.disabled_rows[sheet]:
+                            value = self.right_tables[sheet].item(row, column).text().strip()
+                            if value:
+                                unique_values.add(value)
+                    if unique_values:
+                        # Try to match each unique value to an existing value in the database
+                        if column not in self.static_mappings[sheet].keys():
+                            self.static_mappings[sheet][column] = {}
+                        if column not in ambiguous_static_values[sheet].keys():
+                            ambiguous_static_values[sheet][column] = {}
+                        for value in unique_values:
+                            if value not in self.static_mappings[sheet][column].keys():
+                                if value in static_values:
+                                    self.static_mappings[sheet][column][value] = value
+                                else:
+                                    # Put together a list of ambiguous fields to ask the user about at the end
+                                    ambiguous_static_values[sheet][column][value] = static_values
+
+        if ambiguous_static_values:
+            for sheet, columns in ambiguous_static_values.items():
+                for column, values in columns.items():
+                    if not values:
+                        continue
+                    else:
+                        for value, static_values in values.items():
+                            dialog = QInputDialog()
+                            dialog.setWindowTitle('Choose database values')
+                            dialog.setLabelText(f'The field {self.sheet_mappings[sheet][column]} has fixed values.\n'
+                                                f'Select the best match for "{value}" from the dropdown below or cancel to skip:')
+                            dialog.setComboBoxItems(static_values)
+                            if dialog.exec() == QDialog.DialogCode.Accepted:
+                                selected_value = dialog.textValue()
+                                if selected_value:
+                                    self.static_mappings[sheet][column][value] = selected_value
+                                else:
+                                    self.static_mappings[sheet][column][value] = None
+                            else:
+                                self.static_mappings[sheet][column][value] = None
+
+        return True
 
     def import_to_db(self):
         """
         Main method to import values in the QTableWidgets into the SQLite Database. Assumes using QSqlDatabase() default
         connection.
         """
-        row_count = self.right_table.rowCount()
-        if row_count == 0:
-            QMessageBox.warning(self, "No Data", "There are no rows to import.")
+
+        # First run the validation checks again
+        if not self.validate_data():
             return
+
+        row_count = self.left_table.rowCount()
+        if row_count == 0:
+            dlg = QMessageBox.question(self, "No U-Pb Data",
+                                       "There is no U-Pb data selected." "Continue without U-Pb data?",
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+            dlg.exec_()
+            if dlg.result() != QMessageBox.StandardButton.Yes:
+                return
+            else:
+                upb_data = False
         else:
-            # Create a modal progress dialog
-            progress_dialog = QProgressDialog(
-                "Importing data...", "Cancel", 0, row_count, self
-            )
+            upb_data = True
 
+        if upb_data:
+            self.import_upb_to_db()
+
+        if not update_database():
+            logger_setup.get_logger().critical('Error updating and displaying database')
+            self.close()
+        self.data_imported.emit(self.sample_ids)
+        self.close()
+
+    def import_upb_to_db(self):
+        """
+        Main method to import U-Pb values in the QTableWidget into the SQLite Database. Assumes using QSqlDatabase() default
+        connection.
+        :return:
+        """
+
+        row_count = self.right_tables[self.upb_sheet_name].rowCount()
+        import_count = row_count - len(self.disabled_rows[self.upb_sheet_name])
+
+        # Create a modal progress dialog
+        progress_dialog = QProgressDialog(
+            "Importing data...", "Cancel", 0, import_count, self
+        )
         create_savepoint('before_upb_import')
-
         inserted_count = 0
         try:
             for row_idx in range(row_count):
+                # Skip disabled rows
+                if row_idx in self.disabled_rows[self.upb_sheet_name]:
+                    continue
                 progress_dialog.setValue(row_idx + 1)
                 # Let the event loop process the dialog's updates
                 QApplication.processEvents()
@@ -2590,6 +3479,7 @@ class ImportWizardDialog(QWidget):
                     return
 
                 # Build a record dict with every key initialized to None
+                all_possible_input_fields = []
                 record = {field: None for field in SQLUtils.upb_possible_database_input_fields}
                 if row_idx in self.rejected_rows:
                     record['Rejected'] = True
@@ -2598,21 +3488,43 @@ class ImportWizardDialog(QWidget):
 
                 record['RatioErrorFormatID'] = self.ratio_error_combobox.itemData(
                     self.ratio_error_combobox.currentIndex())
-                record['AgeErrorFormatID'] = self.upb_age_error_combobox.itemData(self.upb_age_error_combobox.currentIndex())
+                record['AgeErrorFormatID'] = self.upb_age_error_combobox.itemData(
+                    self.upb_age_error_combobox.currentIndex())
                 record['ConcordanceFormatID'] = self.conc_format_combobox.itemData(
                     self.conc_format_combobox.currentIndex())
                 record['AgeUnitID'] = self.age_unit_combobox.itemData(self.age_unit_combobox.currentIndex())
                 record['SpotSizeUnitID'] = self.spot_size_unit_combobox.itemData(
                     self.spot_size_unit_combobox.currentIndex())
 
+                sample_col = None
+                aliquot_col = None
+                spot_col = None
+                grain_col = None
+                upb_analysis_col = None
+                for column in range(self.left_table.columnCount()):
+                    if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
+                        sample_col = column
+                    elif self.left_table.horizontalHeaderItem(column).text() == "Aliquot Name":
+                        aliquot_col = column
+                    elif self.left_table.horizontalHeaderItem(column).text() == "Spot Name":
+                        spot_col = column
+                    elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
+                        grain_col = column
+                    elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
+                        upb_analysis_col = column
+
                 # Populate the left-table items (sample_id, aliquot_id, spot_id)
-                sample_id_item = self.left_table.item(row_idx, 0)
-                aliquot_id_item = self.left_table.item(row_idx, 1)
-                spot_id_item = self.left_table.item(row_idx, 2)
+                sample_id_item = self.left_table.item(row_idx, sample_col)
+                aliquot_id_item = self.left_table.item(row_idx, aliquot_col)
+                spot_id_item = self.left_table.item(row_idx, spot_col)
+                grain_id_item = self.left_table.item(row_idx, grain_col)
+                upb_analysis_item = self.left_table.item(row_idx, upb_analysis_col)
 
                 record["Sample Name"] = sample_id_item.text().strip() if sample_id_item else None
                 record["Aliquot Name"] = aliquot_id_item.text().strip() if aliquot_id_item else None
                 record["Spot Name"] = spot_id_item.text().strip() if spot_id_item else None
+                record["Grain Name"] = grain_id_item.text().strip() if grain_id_item else None
+                record["UPb Analysis Name"] = upb_analysis_item.text().strip() if upb_analysis_item else None
 
                 # Find matching SampleID or create new
                 if record["Sample Name"]:
@@ -2651,12 +3563,13 @@ class ImportWizardDialog(QWidget):
                         # no matching samplename in database, will create new one.
                         # Check if the sample has other aliquots to determine the parent row
                         query = QSqlQuery()
-                        query.exec(f'SELECT AliquotID, AliquotParentRow FROM Aliquots WHERE SampleID = {record["SampleID"]}')
+                        query.exec(
+                            f'SELECT AliquotID, AliquotParentRow FROM Aliquots WHERE SampleID = {record["SampleID"]}')
                         existing_rows = []
                         while query.next():
                             existing_rows.append(query.value(1))
                         if existing_rows:
-                            record["AliquotParentRow"] = max(existing_rows)+1
+                            record["AliquotParentRow"] = max(existing_rows) + 1
                         else:
                             record["AliquotParentRow"] = 0
                         create_aliquot = QSqlQuery()
@@ -2708,110 +3621,111 @@ class ImportWizardDialog(QWidget):
                     logger_setup.get_logger().debug(f'Error: {spot_query.lastError().text()}')
                     logger_setup.get_logger().debug(f'SQL query: {spot_query.executedQuery()}')
 
-                # by this point a valid Sample, Aliquot, and Spot should be created.
-                # Check if the spot already has a UPbAnalysis, if so, skip or overwrite
-                upb_match = False
+                # Find matching UPbAnalysisID or create new
                 upb_query = QSqlQuery()
-                upb_query.prepare('SELECT UPbAnalysisID FROM UPbAnalyses WHERE SpotID=:spot_id')
+                upb_query.prepare('SELECT UPbAnalysisID FROM UPbAnalyses WHERE UPbAnalysisName=:name AND SpotID=:spot_id')
+                upb_query.bindValue(":name", record["UPb Analysis Name"])
                 upb_query.bindValue(":spot_id", record["SpotID"])
+
                 if upb_query.exec():
                     if upb_query.next():
-                        upb_match = True
+                        record["UPbAnalysisID"] = upb_query.value(0)
 
-                if upb_match and self.conflict_mode == 'skip':
-                    continue
-                elif upb_match and self.conflict_mode == 'overwrite':
-                    # delete existing UPbAnalysis
-                    delete_query = QSqlQuery()
-                    delete_query.prepare('DELETE FROM UPbAnalyses WHERE SpotID=:spot_id')
-                    delete_query.bindValue(":spot_id", record["SpotID"])
-                    if not delete_query.exec():
-                        logger_setup.get_logger().warning("Failed to overwrite existing UPbAnalysis")
-                        logger_setup.get_logger().debug(f"Error: {delete_query.lastError().text()}")
-                        logger_setup.get_logger().debug(f"SQL query: {delete_query.executedQuery()}")
-
-                field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
-
-                placeholders = ', '.join(
-                    [f':{field.replace('/', '').replace('*', '').replace(' ', '_')}' for field in
-                     SQLUtils.upb_possible_database_input_fields])
-                insert_sql = f"""
-                                            INSERT INTO UPbAnalyses (
-                                                {field_names}
-                                            )
-                                            VALUES (
-                                                {placeholders}
-                                            )
-                                        """
-
-                # print(insert_sql)
-
-                # Process the main columns from the mapping.
-                # In your code, you might reduce main_cols by 4 if these appended columns
-                # are always the last 4 columns. Adjust logic as needed.
-                main_cols = self.right_table.columnCount()
-                for col_idx in range(main_cols):
-                    if col_idx not in self.column_mappings:
+                    if self.conflict_mode == 'skip':
                         continue
+                    elif self.conflict_mode == 'overwrite':
+                        # delete existing UPbAnalysis
+                        delete_query = QSqlQuery()
+                        delete_query.prepare('DELETE FROM UPbAnalyses WHERE UPbAnalysisName=:name AND SpotID=:spot_id')
+                        delete_query.bindValue(":name", record["UPb Analysis Name"])
+                        delete_query.bindValue(":spot_id", record["SpotID"])
+                        if not delete_query.exec():
+                            logger_setup.get_logger().warning("Failed to overwrite existing UPbAnalysis")
+                            logger_setup.get_logger().debug(f"Error: {delete_query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {delete_query.executedQuery()}")
 
-                    field_name = self.column_mappings[col_idx]
-                    if field_name == "None" or field_name in ('Sample Name', 'Aliquot Name', 'Spot Name'):
-                        continue
+                    field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
 
-                    cell_item = self.right_table.item(row_idx, col_idx)
-                    if not cell_item:
-                        continue
+                    placeholders = ', '.join(
+                        [f':{field.replace('/', '').replace('*', '').replace(' ', '_')}' for field in
+                         SQLUtils.upb_possible_database_input_fields])
+                    insert_sql = f"""
+                                                        INSERT INTO UPbAnalyses (
+                                                            {field_names}
+                                                        )
+                                                        VALUES (
+                                                            {placeholders}
+                                                        )
+                                                    """
 
-                    cell_text = cell_item.text().strip()
-                    if cell_text.upper() == "NULL":
-                        record[field_name] = None
-                    else:
-                        # Check if the field is a foreign key, add the value if not already in the database, and get the ID
-                        if field_name in ('Reference Display', 'Lab Facility Name', 'Instrument Name',
-                                          'UPb Analysis Method Name'):
-                            item_name = cell_text
-                            if field_name == 'Reference Display':
-                                table = 'References'
-                            elif field_name == 'Lab Facility Name':
-                                table = 'LabFacilities'
-                            elif field_name == 'Instrument Name':
-                                table = 'Instruments'
-                            elif field_name == 'UPb Analysis Method Name':
-                                table = 'UPbAnalysisMethods'
-                            item_id = get_id_from_name(table, item_name)
-                            if item_id:
-                                id_header = get_headers(table)[0]
-                                record[f'{id_header}'] = item_id
-                            elif table not in SQLUtils.static_tables:
-                                # table is editable, so we can add new items
-                                # no matching ID in database, will create new one.
-                                create_item = QSqlQuery()
-                                if not create_item.prepare(
-                                        f'INSERT INTO {table} ({field_name.replace(' ', '')}) VALUES (:name)'):
-                                    logger_setup.get_logger().error(f'Failed to prepare data for {field_name}')
-                                    logger_setup.get_logger().debug(f'Error: {create_item.lastError().text()}')
-                                    logger_setup.get_logger().debug(f'SQL query: {create_item.executedQuery()}')
-                                create_item.bindValue(":name", item_name)
-                                if not create_item.exec():
-                                    logger_setup.get_logger().error(f'Failed to add {field_name}: {item_name}')
-                                    logger_setup.get_logger().debug(f'Error: {create_item.lastError().text()}')
-                                    logger_setup.get_logger().debug(f'SQL query: {create_item.executedQuery()}')
-                                else:
-                                    item_id = create_item.lastInsertId()
+                    # print(insert_sql)
+
+                    # Process the main columns from the mapping.
+                    # In your code, you might reduce main_cols by 4 if these appended columns
+                    # are always the last 4 columns. Adjust logic as needed.
+                    main_cols = self.right_table.columnCount()
+                    for col_idx in range(main_cols):
+                        if col_idx not in self.sheet_mappings[self.current_sheet_name]:
+                            continue
+
+                        field_name = self.sheet_mappings[self.current_sheet_name][col_idx]
+                        if field_name == "None" or field_name in ('Sample Name', 'Aliquot Name', 'Grain Name', 'Spot Name', 'UPb Analysis Name'):
+                            continue
+
+                        cell_item = self.right_table.item(row_idx, col_idx)
+                        if not cell_item:
+                            continue
+
+                        cell_text = cell_item.text().strip()
+                        if cell_text.upper() == "NULL":
+                            record[field_name] = None
+                        else:
+                            # Check if the field is a foreign key, add the value if not already in the database, and get the ID
+                            if field_name in ('Reference Display', 'Lab Facility Name', 'Instrument Name',
+                                              'UPb Analysis Method Name'):
+                                item_name = cell_text
+                                if field_name == 'Reference Display':
+                                    table = 'References'
+                                elif field_name == 'Lab Facility Name':
+                                    table = 'LabFacilities'
+                                elif field_name == 'Instrument Name':
+                                    table = 'Instruments'
+                                elif field_name == 'UPb Analysis Method Name':
+                                    table = 'UPbAnalysisMethods'
+                                item_id = get_id_from_name(table, item_name)
+                                if item_id:
                                     id_header = get_headers(table)[0]
                                     record[f'{id_header}'] = item_id
-                        elif field_name in ('ReferenceID', 'LabFacilityID', 'InstrumentID', 'UPbAnalysisMethodID'):
-                            # Check if cell_text is an integer
-                            if isinstance(cell_item, int):
+                                elif table not in SQLUtils.static_tables:
+                                    # table is editable, so we can add new items
+                                    # no matching ID in database, will create new one.
+                                    create_item = QSqlQuery()
+                                    if not create_item.prepare(
+                                            f'INSERT INTO {table} ({field_name.replace(' ', '')}) VALUES (:name)'):
+                                        logger_setup.get_logger().error(f'Failed to prepare data for {field_name}')
+                                        logger_setup.get_logger().debug(f'Error: {create_item.lastError().text()}')
+                                        logger_setup.get_logger().debug(f'SQL query: {create_item.executedQuery()}')
+                                    create_item.bindValue(":name", item_name)
+                                    if not create_item.exec():
+                                        logger_setup.get_logger().error(f'Failed to add {field_name}: {item_name}')
+                                        logger_setup.get_logger().debug(f'Error: {create_item.lastError().text()}')
+                                        logger_setup.get_logger().debug(f'SQL query: {create_item.executedQuery()}')
+                                    else:
+                                        item_id = create_item.lastInsertId()
+                                        id_header = get_headers(table)[0]
+                                        record[f'{id_header}'] = item_id
+                            elif field_name in ('ReferenceID', 'LabFacilityID', 'InstrumentID', 'UPbAnalysisMethodID'):
+                                # Check if cell_text is an integer
+                                if isinstance(cell_item, int):
+                                    record[field_name] = cell_text
+                                elif isinstance(cell_item, str):
+                                    try:
+                                        record[field_name] = int(cell_text)
+                                    except ValueError:
+                                        # Has been or will be handled when the name field is processed, skip for now
+                                        pass
+                            else:
                                 record[field_name] = cell_text
-                            elif isinstance(cell_item, str):
-                                try:
-                                    record[field_name] = int(cell_text)
-                                except ValueError:
-                                    # Has been or will be handled when the name field is processed, skip for now
-                                    pass
-                        else:
-                            record[field_name] = cell_text
 
                 # Finally insert the row
                 insert_query = QSqlQuery()
@@ -2884,11 +3798,6 @@ class ImportWizardDialog(QWidget):
         QSqlDatabase().commit()
         release_savepoint('before_upb_import')
         QMessageBox.information(self, "Success", f"Imported {inserted_count} rows into the database.")
-        if not update_database():
-            logger_setup.get_logger().critical('Error updating and displaying database')
-            self.close()
-        self.data_imported.emit(self.sample_ids)
-        self.close()
 
     def find_matching_id(self, table, field_name, value) -> int :
         """

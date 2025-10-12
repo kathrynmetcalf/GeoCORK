@@ -1378,8 +1378,239 @@ view_setting_dict = {
     'ReferenceView': 'reference_view_columns',
 }
 
-upb_possible_database_input_fields = [
-    'SpotID', 'UPbAnalysisName',
+sample_possible_user_input_fields = {
+    'Sample Info': {
+        'Sample Name': ['Samples', 'SampleName'],
+        'Sample IGSN': ['Samples', 'SampleIGSN'],
+        'Sample Description': ['Samples', 'SampleDescription'],
+        'Sample Context': ['SampleContexts', 'SampleContextName'],
+        'Sampling Method': ['SamplingMethods', 'SamplingMethodName'],
+        'Region': ['Regions', 'RegionName'],
+        'Setting': ['Settings', 'SettingName'],
+        'Rock Type': ['RockTypes', 'RockTypeName'],
+        'Unit': ['Units', 'UnitName']
+    },
+    'Sample Age': {
+        'Direct Age': ['SampleAges', 'DirectAge'],
+        'Direct Age Error': ['SampleAges', 'DirectAgeError'],
+        'Direct Age Error Format': ['SampleAges', 'DirectAgeErrorFormatID'],
+        'Direct Age Unit': ['SampleAges', 'DirectAgeUnitID'],
+        'Oldest Direct Age': ['SampleAges', 'OldestDirectAge'],
+        'Youngest Direct Age': ['SampleAges', 'YoungestDirectAge'],
+        'Oldest Relative Age': ['SampleAges', 'OldestAgeID'],
+        'Youngest Relative Age': ['SampleAges', 'YoungestAgeID'],
+        'Age Description': ['SampleAges', 'SampleAgeDescription'],
+        'Age Constraint': ['AgeConstraints', 'AgeConstraintName'],
+        'Age Interpretation': ['AgeInterpretations', 'AgeInterpretationName'],
+        'Age Signature': ['AgeSignatures', 'AgeSignatureName'],
+    }
+}
+
+gps_possible_user_input_fields = {
+    'Sample GPS': {
+        'Sample Latitude degrees': ['GPSLocations', 'GPSLatDeg'],
+        'Sample Latitude minutes': ['GPSLocations', 'GPSLatMin'],
+        'Sample Latitude seconds': ['GPSLocations', 'GPSLatSec'],
+        'Sample Latitude direction': ['GPSLocations', 'GPSLatDirectionID'],
+        'Sample Longitude degrees': ['GPSLocations', 'GPSLonDeg'],
+        'Sample Longitude minutes': ['GPSLocations', 'GPSLonMin'],
+        'Sample Longitude seconds': ['GPSLocations', 'GPSLonSec'],
+        'Sample Longitude direction': ['GPSLocations', 'GPSLonDirectionID'],
+        'Sample Easting': ['GPSLocations', 'GPSUTME'],
+        'Sample Northing': ['GPSLocations', 'GPSUTMN'],
+        'Sample Zone': ['GPSLocations', 'GPSUTMZone'],
+        'Sample Elevation': ['GPSLocations', 'GPSElev'],
+        'Sample Elevation Error': ['GPSLocations', 'GPSElevError'],
+        'Sample Elevation Unit': ['GPSLocations', 'GPSElevUnitID']
+    },
+    'Column GPS': {
+        'Column Latitude degrees': ['GPSLocations', 'GPSLatDeg'],
+        'Column Latitude minutes': ['GPSLocations', 'GPSLatMin'],
+        'Column Latitude seconds': ['GPSLocations', 'GPSLatSec'],
+        'Column Latitude direction': ['GPSLocations', 'GPSLatDirectionID'],
+        'Column Longitude degrees': ['GPSLocations', 'GPSLonDeg'],
+        'Column Longitude minutes': ['GPSLocations', 'GPSLonMin'],
+        'Column Longitude seconds': ['GPSLocations', 'GPSLonSec'],
+        'Column Longitude direction': ['GPSLocations', 'GPSLonDirectionID'],
+        'Column Easting': ['GPSLocations', 'GPSUTME'],
+        'Column Northing': ['GPSLocations', 'GPSUTMN'],
+        'Column Zone': ['GPSLocations', 'GPSUTMZone'],
+        'Column Elevation': ['GPSLocations', 'GPSElev'],
+        'Column Elevation Error': ['GPSLocations', 'GPSElevError'],
+        'Column Elevation Unit': ['GPSLocations', 'GPSElevUnitID']
+    }
+}
+
+column_possible_user_input_fields = {
+    'Column Info': {
+        'Column Name': ['Columns', 'ColumnName'],
+        'Column Description': ['Columns', 'ColumnDescription'],
+        'Column Total Height/Depth': ['Columns', 'ColumnTotalHeightDepth'],
+        'Column Total Height/Depth Unit': ['Columns', 'ColumnTotalHeightDepthUnitID'],
+        'Sample Height/Depth': ['Samples', 'HeightDepth'],
+        'Sample Height/Depth Error': ['Samples', 'HeightDepthError'],
+        'Sample Height/Depth Unit': ['Samples', 'HeightDepthUnitID']
+    }
+}
+
+aliquot_grain_spot_possible_user_input_fields = {
+    'Aliquot Info': {
+        'Aliquot Name': ['Aliquots', 'AliquotName'],
+        'Aliquot Description': ['Aliquots', 'AliquotDescription'],
+        'Aliquot Context': ['AliquotContexts', 'AliquotContextName']
+    },
+    'Grain Info': {
+        'Grain Name': ['Grains', 'GrainName'],
+        'Grain Description': ['Grains', 'GrainDescription'],
+        'Grain Composition': ['GrainCompositions', 'GrainCompositionName'],
+        'Grain Context': ['GrainContexts', 'GrainContextName']
+    },
+    'Spot Info': {
+        'Spot Name': ['Spots', 'SpotName'],
+        'Spot Description': ['Spots', 'SpotDescription'],
+        'Spot Composition': ['SpotCompositions', 'SpotCompositionName'],
+        'Spot Context': ['SpotContexts', 'SpotContextName'],
+        'Spot Size': ['UPbAnalyses', 'SpotSize'],
+        'Spot Size Unit': ['UPbAnalyses', 'SpotSizeUnitID']
+    }
+}
+
+reference_possible_user_input_fields = {
+    'Reference': {
+        'Authors': ['References', 'Authors'],
+        'Year': ['References', 'Year'],
+        'Title': ['References', 'Title'],
+        'Source': ['References', 'Source'],
+        'DOI': ['References', 'DOI'],
+        'Reference Description': ['References', 'ReferenceDescription'],
+        'Reference Display': ['References', 'ReferenceDisplay']
+    }
+}
+
+upb_possible_user_input_fields = {
+    'U-Pb Base Info': {
+        'UPb Analysis Name': ['UPbAnalyses', 'UPbAnalysisName'],
+        'Lab Facility Name': ['LabFacilities', 'LabFacilityName'],
+        'Instrument Name': ['Instruments', 'InstrumentName'],
+        'UPb Analysis Method Name': ['UPbAnalysisMethods', 'UPbAnalysisMethodName'],
+        'Rejection Reason': ['UPbRejectionReasons', 'UPbRejectionReasonName'],
+    },
+    'Ratios': {
+        'U/Th': ['UPbAnalyses', 'U/Th'],
+        'Th/U': ['UPbAnalyses', 'Th/U'],
+        '206Pb/204Pb': ['UPbAnalyses', '206Pb/204Pb'],
+        '206Pb/204Pb Error': ['UPbAnalyses', '206Pb/204PbError'],
+        '204Pb/206Pb': ['UPbAnalyses', '204Pb/206Pb'],
+        '204Pb/206Pb Error': ['UPbAnalyses', '204Pb/206PbError'],
+        '207Pb/204Pb': ['UPbAnalyses', '207Pb/204Pb'],
+        '207Pb/204Pb Error': ['UPbAnalyses', '207Pb/204PbError'],
+        '204Pb/207Pb': ['UPbAnalyses', '204Pb/207Pb'],
+        '204Pb/207Pb Error': ['UPbAnalyses', '204Pb/207PbError'],
+        '208Pb/204Pb': ['UPbAnalyses', '208Pb/204Pb'],
+        '208Pb/204Pb Error': ['UPbAnalyses', '208Pb/204PbError'],
+        '204Pb/208Pb': ['UPbAnalyses', '204Pb/208Pb'],
+        '204Pb/208Pb Error': ['UPbAnalyses', '204Pb/208PbError'],
+        '206Pb/207Pb': ['UPbAnalyses', '206Pb/207Pb'],
+        '206Pb/207Pb Error': ['UPbAnalyses', '206Pb/207PbError'],
+        '207Pb/206Pb': ['UPbAnalyses', '207Pb/206Pb'],
+        '207Pb/206Pb Error': ['UPbAnalyses', '207Pb/206PbError'],
+        '204Pb/238U': ['UPbAnalyses', '204Pb/238U'],
+        '204Pb/238U Error': ['UPbAnalyses', '204Pb/238UError'],
+        '238U/204Pb': ['UPbAnalyses', '238U/204Pb'],
+        '238U/204Pb Error': ['UPbAnalyses', '238U/204PbError'],
+        '206Pb/238U': ['UPbAnalyses', '206Pb/238U'],
+        '206Pb/238U Error': ['UPbAnalyses', '206Pb/238UError'],
+        '238U/206Pb': ['UPbAnalyses', '238U/206Pb'],
+        '238U/206Pb Error': ['UPbAnalyses', '238U/206PbError'],
+        '207Pb/235U': ['UPbAnalyses', '207Pb/235U'],
+        '207Pb/235U Error': ['UPbAnalyses', '207Pb/235UError'],
+        '235U/207Pb': ['UPbAnalyses', '235U/207Pb'],
+        '235U/207Pb Error': ['UPbAnalyses', '235U/207PbError'],
+        '208Pb/232Th': ['UPbAnalyses', '208Pb/232Th'],
+        '208Pb/232Th Error': ['UPbAnalyses', '208Pb/232ThError'],
+        '232Th/208Pb': ['UPbAnalyses', '232Th/208Pb'],
+        '232Th/208Pb Error': ['UPbAnalyses', '232Th/208PbError'],
+        '238U/232Th': ['UPbAnalyses', '238U/232Th'],
+        '238U/232Th Error': ['UPbAnalyses', '238U/232ThError'],
+        '232Th/238U': ['UPbAnalyses', '232Th/238U'],
+        '232Th/238U Error': ['UPbAnalyses', '232Th/238UError'],
+        'ErrorCorr/Rho': ['UPbAnalyses', 'ErrorCorr/Rho']
+    },
+    'Ages': {
+        '207Pb/206PbAge': ['UPbAnalyses', '207Pb/206PbAge'],
+        '207Pb/206PbAge Error': ['UPbAnalyses', '207Pb/206PbAgeError'],
+        '207Pb/235UAge': ['UPbAnalyses', '207Pb/235UAge'],
+        '207Pb/235UAge Error': ['UPbAnalyses', '207Pb/235UAgeError'],
+        '206Pb/238UAge': ['UPbAnalyses', '206Pb/238UAge'],
+        '206Pb/238UAge Error': ['UPbAnalyses', '206Pb/238UAgeError'],
+        '208Pb/232ThAge': ['UPbAnalyses', '208Pb/232ThAge'],
+        '208Pb/232ThAge Error': ['UPbAnalyses', '208Pb/232ThAgeError'],
+        'Best Age': ['UPbAnalyses', 'BestAge'],
+        'Best Age Error': ['UPbAnalyses', 'BestAgeError'],
+        'Concordance': ['UPbAnalyses', 'Concordance']
+    },
+    'Isotope Counts': {
+        'Pb204cps': ['UPbAnalyses', 'Pb204cps'],
+        'Pb206cps': ['UPbAnalyses', 'Pb206cps'],
+        'Pb207cps': ['UPbAnalyses', 'Pb207cps'],
+        'Pb208cps': ['UPbAnalyses', 'Pb208cps'],
+        'Pb*cps': ['UPbAnalyses', 'Pb*cps'],
+        'Th232cps': ['UPbAnalyses', 'Th232cps'],
+        'U235cps': ['UPbAnalyses', 'U235cps'],
+        'U238cps': ['UPbAnalyses', 'U238cps'],
+        'Uppm': ['UPbAnalyses', 'Uppm'],
+        'Thppm': ['UPbAnalyses', 'Thppm']
+    },
+}
+"""Dictionaries of User-readable columns/info able to be imported into the database with list of their associated table 
+    and column name. ImporterCategroy: {UserReadableColumnName: [TableName, ColumnName]}"""
+
+combo_box_possible_input_fields = {
+    'Reference': ['References', 'ReferenceID', 'ReferenceDisplay'],
+    'Intrument': ['Instruments', 'InstrumentID', 'InstrumentName'],
+    'Lab Facility': ['LabFacilities', 'LabFacilityID', 'LabFacilityName'],
+    'UPb Analysis Method': ['UPbAnalysisMethods', 'UPbAnalysisMethodID', 'UPbAnalysisMethodName'],
+    'Elevation Unit': ['GPSLocations', 'GPSElevUnitID'],
+    'Height/Depth Unit': {
+        'Samples': ['Samples', 'HeightDepthUnitID'],
+        'Columns': ['Columns', 'ColumnTotalHeightDepthUnitID']
+    },
+    'Sample Age Error': ['SampleAges', 'DirectAgeErrorFormatID'],
+    'Age Unit': {
+        'Samples': ['SampleAges', 'DirectAgeUnitID'],
+        'UPbAnalyses': ['UPbAnalyses', 'AgeUnitID']
+    },
+    'U-Pb Age Error': ['UPbAnalyses', 'AgeErrorFormatID'],
+    'Ratio Error': ['UPbAnalyses', 'RatioErrorFormatID'],
+    'Spot Size Unit': ['UPbAnalyses', 'SpotSizeUnitID'],
+    'Concordance Format': ['UPbAnalyses', 'ConcordanceFormatID']
+}
+"""Dictionaries of User-readable columns/info able to be imported from combo boxes with list of their associated table"""
+
+possible_database_input_fields = [
+    'SampleID', 'SampleName', 'SampleIGSN', 'SampleDescription',
+    'HeightDepth', 'HeightDepthError', 'HeightDepthUnitID',
+    'SampleContextName', 'SamplingMethodName',
+    'RegionName', 'SettingName', 'RockTypeName', 'UnitName',
+
+    'DirectAge', 'DirectAgeError', 'DirectAgeErrorFormatID', 'DirectAgeUnitID',
+    'OldestDirectAge', 'YoungestDirectAge', 'OldestAgeID', 'YoungestAgeID',
+    'SampleAgeDescription', 'AgeConstraintName', 'AgeInterpretationName', 'AgeSignatureName',
+
+    'GPSLatDeg', 'GPSLatMin', 'GPSLatSec', 'GPSLatDirectionID', 'GPSLonDeg', 'GPSLonMin', 'GPSLonSec',
+    'GPSLonDirectionID', 'GPSUTME', 'GPSUTMN', 'GPSUTMZone', 'GPSElev', 'GPSElevError', 'GPSElevUnitID',
+
+    'ColumnID', 'ColumnName', 'ColumnTotalHeightDepth', 'ColumnTotalHeightDepthUnitID', 'ColumnDescription',
+
+    'ReferenceID', 'Authors', 'Year', 'Title', 'Source', 'DOI', 'ReferenceDescription',
+
+    'AlqiuotID', 'AliquotName', 'AliquotDescription', 'AliquotContextName',
+
+    'GrainID', 'GrainName', 'GrainDescription', 'GrainCompositionName', 'GrainContextName',
+
+    'SpotID', 'SpotName', 'SpotDescription', 'SpotCompositionName', 'SpotContextName',
+
+    'UPbAnalysisName',
     'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
     'Uppm', 'Thppm',
     'U/Th', 'Th/U',
@@ -1415,177 +1646,20 @@ upb_possible_database_input_fields = [
 
     'AgeErrorFormatID',
     'AgeUnitID',
-    'Concordance', 'ConcordanceFormatID',
+    'AgeInterpretationID',
+    'Concordance', 'ConcordanceFormatID', 'ConcordanceFormatName',
     'SpotSize', 'SpotSizeUnitID',
     'Rejected',
+    'RejectionReasonName',
 
-    'ReferenceID',
-    'LabFacilityID',
-    'InstrumentID',
-    'UPbAnalysisMethodID'
+    'LabFacilityID', 'LabFacilityName',
+    'InstrumentID', 'InstrumentName',
+    'UPbAnalysisMethodID', 'UPbAnalysisMethodName',
 ]
 """List of valid columns to be entered through the importer.
 No Calculated values should be in this list
 Used to create the insert statement with SQL"""
 
-sample_possible_user_input_fields = {
-    'Sample Info': [
-        'Sample Name',
-        'Sample IGSN',
-        'Sample Description',
-        'Sample Context',
-        'Sampling Method',
-        'Region',
-        'Setting',
-        'Rock Type',
-        'Unit'
-    ],
-    'Sample age': [
-        'Direct Age',
-        'Direct Age Error',
-        'Direct Age Error Format',
-        'Direct Age Unit',
-        'Oldest Direct Age',
-        'Youngest Direct Age',
-        'Oldest Relative Age',
-        'Youngest Relative Age',
-        'Age Description',
-        'Age Constraint',
-        'Age Interpretation',
-        'Age Signature'
-    ]
-}
-
-gps_possible_user_input_fields = {
-    'Sample GPS': [
-        'Sample Latitude degrees',
-        'Sample Latitude minutes',
-        'Sample Latitude seconds',
-        'Sample Latitude direction',
-        'Sample Longitude degrees',
-        'Sample Longitude minutes',
-        'Sample Longitude seconds',
-        'Sample Longitude direction',
-        'Sample Easting',
-        'Sample Northing',
-        'Sample Zone',
-        'Sample Elevation',
-        'Sample Elevation Error',
-        'Sample Elevation Unit'
-    ],
-    'Column GPS': [
-        'Column Latitude degrees',
-        'Column Latitude minutes',
-        'Column Latitude seconds',
-        'Column Latitude direction',
-        'Column Longitude degrees',
-        'Column Longitude minutes',
-        'Column Longitude seconds',
-        'Column Longitude direction',
-        'Column Easting',
-        'Column Northing',
-        'Column Zone',
-        'Column Elevation',
-        'Column Elevation Error',
-        'Column Elevation Unit'
-    ]
-}
-
-column_possible_user_input_fields = {
-    'Column Info': [
-        'Column Name',
-        'Column Description',
-        'Column Total Height/Depth',
-        'Column Total Height/Depth Unit',
-        'Column GPS',
-        'Sample Height/Depth',
-        'Sample Height/Depth Error',
-        'Sample Height/Depth Unit'
-    ]
-}
-
-aliquot_grain_spot_possible_user_input_fields = {
-    'Aliquot Info': [
-        'Aliquot Name',
-        'Aliquot Description',
-        'Aliquot Context'
-    ],
-    'Grain Info': [
-        'Grain Name',
-        'Grain Description',
-        'Grain Composition'
-    ],
-    'Spot Info': [
-        'Spot Name',
-        'Spot Description',
-        'Spot Composition',
-        'Spot Context',
-        'Spot Size',
-        'Spot Size Unit'
-    ]
-}
-
-reference_possible_user_input_fields = {
-    'Reference': [
-        'Authors',
-        'Year',
-        'Title',
-        'Source',
-        'DOI',
-        'Reference Description',
-        'Reference Display'
-    ]
-}
-
-upb_possible_user_input_fields = {
-    'U-Pb Base Info': [
-        'UPb Analysis Name',
-        'Lab Facility Name',
-        'Instrument Name',
-        'UPb Analysis Method Name',
-        'Rejection Reason'
-    ],
-    'Ratios': [
-        'U/Th', 'Th/U',
-
-        '206Pb/204Pb', '206Pb/204PbError',
-        '204Pb/206Pb', '204Pb/206PbError',
-        '207Pb/204Pb', '207Pb/204PbError',
-        '204Pb/207Pb', '204Pb/207PbError',
-        '208Pb/204Pb', '208Pb/204PbError',
-        '204Pb/208Pb', '204Pb/208PbError',
-        '206Pb/207Pb', '206Pb/207PbError',
-        '207Pb/206Pb', '207Pb/206PbError',
-
-        '204Pb/238U', '204Pb/238UError',
-        '238U/204Pb', '238U/204PbError',
-        '206Pb/238U', '206Pb/238UError',
-        '238U/206Pb', '238U/206PbError',
-        '207Pb/235U', '207Pb/235UError',
-        '235U/207Pb', '235U/207PbError',
-        '208Pb/232Th', '208Pb/232ThError',
-        '232Th/208Pb', '232Th/208PbError',
-
-        '238U/232Th', '238U/232ThError',
-        '232Th/238U', '232Th/238UError',
-
-        'ErrorCorr/Rho'
-
-    ],
-    'Ages': [
-        '207Pb/206PbAge', '207Pb/206PbAgeError',
-        '207Pb/235UAge', '207Pb/235UAgeError',
-        '206Pb/238UAge', '206Pb/238UAgeError',
-        '208Pb/232ThAge', '208Pb/232ThAgeError',
-        'BestAge', 'BestAgeError',
-        'Concordance'
-    ],
-    'Isotope Counts': [
-        'Pb204cps', 'Pb206cps', 'Pb207cps', 'Pb208cps', 'Pb*cps', 'Th232cps', 'U235cps', 'U238cps',
-        'Uppm', 'Thppm'
-    ]
-}
-"""List of User-readable columns/info able to be imported into the database"""
 
 
 def get_join_from_table(join: str, tables: list[str]) -> str:

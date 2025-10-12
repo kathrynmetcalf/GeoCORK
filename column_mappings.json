@@ -749,23 +749,23 @@
                 "1": {
                     "field": "Authors"
                 },
-                "3": {
+                "4": {
                     "field": "Source"
                 },
-                "4": {
+                "5": {
                     "field": "Title"
                 },
-                "5": {
-                    "field": "Year"
-                },
-                "8": {
-                    "field": "DOI"
-                },
                 "9": {
-                    "field": "Reference Description"
+                    "field": "DOI"
                 },
                 "0": {
                     "field": "Reference Display"
+                },
+                "6": {
+                    "field": "Year"
+                },
+                "10": {
+                    "field": "Reference Description"
                 }
             },
             "Samples": {
@@ -945,7 +945,7 @@
                 "3": 3
             },
             "Sources": {
-                "9": 9
+                "10": 10
             },
             "Source_author": {
                 "1": 1
