@@ -1491,8 +1491,11 @@ upb_possible_user_input_fields = {
     'U-Pb Base Info': {
         'UPb Analysis Name': ['UPbAnalyses', 'UPbAnalysisName'],
         'Lab Facility Name': ['LabFacilities', 'LabFacilityName'],
+        'Lab Facility Description': ['LabFacilities', 'LabFacilityDescription'],
         'Instrument Name': ['Instruments', 'InstrumentName'],
+        'Instrument Description': ['Instruments', 'InstrumentDescription'],
         'UPb Analysis Method Name': ['UPbAnalysisMethods', 'UPbAnalysisMethodName'],
+        'UPb Analysis Method Description': ['UPbAnalysisMethods', 'UPbAnalysisMethodDescription'],
         'Rejection Reason': ['UPbRejectionReasons', 'UPbRejectionReasonName'],
     },
     'Ratios': {
@@ -1652,9 +1655,9 @@ possible_database_input_fields = [
     'Rejected',
     'RejectionReasonName',
 
-    'LabFacilityID', 'LabFacilityName',
-    'InstrumentID', 'InstrumentName',
-    'UPbAnalysisMethodID', 'UPbAnalysisMethodName',
+    'LabFacilityID', 'LabFacilityName', 'LabFacilityDescription',
+    'InstrumentID', 'InstrumentName', 'InstrumentDescription',
+    'UPbAnalysisMethodID', 'UPbAnalysisMethodName', 'UPbAnalysisMethodDescription',
 ]
 """List of valid columns to be entered through the importer.
 No Calculated values should be in this list

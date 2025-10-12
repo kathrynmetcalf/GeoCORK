@@ -64,10 +64,10 @@ class SetSelectedValues(QtW.QDialog):
         button_layout = QtW.QHBoxLayout()
         button_layout.addWidget(self.cancel_button)
         button_layout.addWidget(self.commit_button)
-        main_layout = QtW.QVBoxLayout()
-        main_layout.addWidget(self.widget)
-        main_layout.addLayout(button_layout)
-        self.setLayout(main_layout)
+        self.main_layout = QtW.QVBoxLayout()
+        self.main_layout.addWidget(self.widget)
+        self.main_layout.addLayout(button_layout)
+        self.setLayout(self.main_layout)
         self.adjustSize()
         if isinstance(self.widget, CheckableComboBox):
             self.widget.add_triggered.connect(self.add_popup)
@@ -604,9 +604,6 @@ class EditView(QtW.QDialog):
         self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.model)
         if self.table == 'UPbAnalyses':
-            # Use spot name column in the view
-            self.name_column = 4
-        else:
             self.name_column = get_name_column(get_view_from_table(self.table))
         proxy_name_column = None
         if self.name_column is not None:
@@ -1241,7 +1238,7 @@ class EditView(QtW.QDialog):
                         updated = True
                         release_savepoint('before_edit_id')
             if (isinstance(combo_model, CheckableSqlTableModel | CheckableSqlQueryModel) and not combo_model.partially_checked_ids) \
-                or (isinstance(combo_model, CheckableTreeModel) and combo_model.single_click):
+                or (isinstance(combo_model, CheckableTreeModel) and combo.single_click):
                 for model_index in model_indexes:
                     if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
                         logger_setup.get_logger().critical(f'Error updating view')
@@ -1257,7 +1254,7 @@ class EditView(QtW.QDialog):
                     new_values.extend(checked_values)
                     new_values = '; '.join(set(new_values))
                     self.model.setData(model_index, new_values, QtC.Qt.ItemDataRole.EditRole)
-            elif isinstance(combo_model, CheckableTreeModel) and not combo_model.single_click:
+            elif isinstance(combo_model, CheckableTreeModel) and not combo.single_click:
                 checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = combo_model.traverse_checkable_tree(QtC.QModelIndex())
                 checked_values = [get_name_from_id(combo_model.tableName(), id) for id in checked_ids]
                 partially_checked_values = [get_name_from_id(combo_model.tableName(), id) for id in

@@ -3062,26 +3062,12 @@ class ImportWizardDialog(QWidget):
             the user for default values, checks then for conflicts in the database. If all checks are passed then the list
             of rows to be imported is inserted into the database.
             """
-            # Step 1: Check for empty cells in the left table
-            empty_cells = self.check_empty_cells_in_left_table()
+            # First run the validation checks again
+            if not self.validate_data():
+                return
 
-            if empty_cells:
-                # Step 2: Show dialog to ask if the user wants to use default values
-                use_defaults = self.ask_to_use_default_values(empty_cells)
-
-                if use_defaults:
-                    # Step 3: Fill empty cells with default values
-                    self.fill_empty_cells_with_defaults(empty_cells)
-
-                    # Optional: Give user a chance to review and adjust the values
-                    QMessageBox.information(self, "Review",
-                                            "The empty cells have been filled with default values. Please review before clicking import again.")
-            else:
-                # Step 4: Look for any existing analyses associated with existing spots and ask user how to handle conflicts
-                if self.check_duplicates_in_left_table():
-                    if self.check_for_conflicts():
-                        # Step 5: Proceed with import
-                        self.import_to_db()
+            # Proceed with import
+            self.import_to_db()
 
 
     def check_for_conflicts(self):
@@ -3392,22 +3378,33 @@ class ImportWizardDialog(QWidget):
                                     self.static_mappings[sheet][column][value] = value
                                 else:
                                     # Put together a list of ambiguous fields to ask the user about at the end
-                                    ambiguous_static_values[sheet][column][value] = static_values
+                                    ambiguous_static_values[sheet][column][value] = static_table
 
         if ambiguous_static_values:
+            from ui.EditView import SetSelectedValues
+            from Functions.Widget_classes import (CheckableTreeCombobox, CheckableComboBox, populate_combo_box)
             for sheet, columns in ambiguous_static_values.items():
                 for column, values in columns.items():
                     if not values:
                         continue
                     else:
-                        for value, static_values in values.items():
-                            dialog = QInputDialog()
-                            dialog.setWindowTitle('Choose database values')
-                            dialog.setLabelText(f'The field {self.sheet_mappings[sheet][column]} has fixed values.\n'
-                                                f'Select the best match for "{value}" from the dropdown below or cancel to skip:')
-                            dialog.setComboBoxItems(static_values)
-                            if dialog.exec() == QDialog.DialogCode.Accepted:
-                                selected_value = dialog.textValue()
+                        for value, static_table in values.items():
+                            if static_table in SQLUtils.user_viewable_trees:
+                                combo = CheckableTreeCombobox()
+                            else:
+                                combo = CheckableComboBox()
+                            combo.model_modifiable = False
+                            combo.enable_context_menu(False)
+                            combo.set_single_click(True)
+                            populate_combo_box(combo, **{'table': static_table})
+                            dlg = SetSelectedValues(self, combo)
+                            dlg.setWindowTitle(f'Select value for "{value}"')
+                            dlg.main_layout.insertWidget(0, QLabel(f'{static_table} are fixed in the database.\n'
+                                                             f'Select the best match for "{value}":'))
+                            if dlg.exec() == QDialog.DialogCode.Accepted:
+                                combo = dlg.widget
+                                combo: CheckableTreeCombobox | CheckableComboBox
+                                selected_value = combo.currentText()
                                 if selected_value:
                                     self.static_mappings[sheet][column][value] = selected_value
                                 else:
@@ -3423,10 +3420,6 @@ class ImportWizardDialog(QWidget):
         connection.
         """
 
-        # First run the validation checks again
-        if not self.validate_data():
-            return
-
         row_count = self.left_table.rowCount()
         if row_count == 0:
             dlg = QMessageBox.question(self, "No U-Pb Data",
@@ -3439,6 +3432,33 @@ class ImportWizardDialog(QWidget):
                 upb_data = False
         else:
             upb_data = True
+
+        static_tables = []
+        tag_imports = []
+        for table in SQLUtils.database_ordered_tables:
+            if table == "Samples":
+                # only include tables before Samples for now
+                break
+            elif (table != "Units" and "Units" in table) or "Formats" in table or table == "Ages":
+                # All tables that end in units are static, but not the table "Units"
+                static_tables.append(table)
+            elif "Conversions" in table:
+                # skip all tables that end in formats or conversions
+                continue
+
+        # todo: implement database imports and mapping
+
+        # We don't need to import the static table values, but we need to map the ids
+        static_ids = {}
+
+
+        # As tags are imported, build a library of tag name to tag ID
+        tag_ids = {}
+        for tag in tag_imports:
+            for sheet, column_mappings in self.sheet_mappings.items():
+                for column, field in column_mappings.items():
+                    # retrieve the table the field represents
+                    pass
 
         if upb_data:
             self.import_upb_to_db()
@@ -3455,6 +3475,8 @@ class ImportWizardDialog(QWidget):
         connection.
         :return:
         """
+
+        from Functions.Alter_database import get_columns
 
         row_count = self.right_tables[self.upb_sheet_name].rowCount()
         import_count = row_count - len(self.disabled_rows[self.upb_sheet_name])
@@ -3480,7 +3502,7 @@ class ImportWizardDialog(QWidget):
 
                 # Build a record dict with every key initialized to None
                 all_possible_input_fields = []
-                record = {field: None for field in SQLUtils.upb_possible_database_input_fields}
+                record = {field: None for field in SQLUtils.possible_database_input_fields}
                 if row_idx in self.rejected_rows:
                     record['Rejected'] = True
                 else:
@@ -3563,8 +3585,12 @@ class ImportWizardDialog(QWidget):
                         # no matching samplename in database, will create new one.
                         # Check if the sample has other aliquots to determine the parent row
                         query = QSqlQuery()
-                        query.exec(
-                            f'SELECT AliquotID, AliquotParentRow FROM Aliquots WHERE SampleID = {record["SampleID"]}')
+                        if not query.exec(
+                            f'SELECT AliquotID, AliquotParentRow FROM Aliquots WHERE SampleID = {record["SampleID"]}'):
+                            logger_setup.get_logger().error(f'Error retrieving existing data')
+                            logger_setup.get_logger().debug(f'Failed to query existing aliquots for sample ID {record["SampleID"]}')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
                         existing_rows = []
                         while query.next():
                             existing_rows.append(query.value(1))
@@ -3627,10 +3653,16 @@ class ImportWizardDialog(QWidget):
                 upb_query.bindValue(":name", record["UPb Analysis Name"])
                 upb_query.bindValue(":spot_id", record["SpotID"])
 
-                if upb_query.exec():
-                    if upb_query.next():
-                        record["UPbAnalysisID"] = upb_query.value(0)
+                if not upb_query.exec():
+                    logger_setup.get_logger().error(f"Error searching for existing UPbAnalysis")
+                    logger_setup.get_logger().debug(f"Error: {upb_query.lastError().text()}")
+                    logger_setup.get_logger().debug(f"SQL query: {upb_query.executedQuery()}")
+                if upb_query.next():
+                    record["UPbAnalysisID"] = upb_query.value(0)
+                else:
+                    record["UPbAnalysisID"] = None
 
+                if record["UPbAnalysisID"]:
                     if self.conflict_mode == 'skip':
                         continue
                     elif self.conflict_mode == 'overwrite':
@@ -3643,21 +3675,29 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().warning("Failed to overwrite existing UPbAnalysis")
                             logger_setup.get_logger().debug(f"Error: {delete_query.lastError().text()}")
                             logger_setup.get_logger().debug(f"SQL query: {delete_query.executedQuery()}")
+                        record["UPbAnalysisID"] = None
 
-                    field_names = ", ".join([f'[{field}]' for field in SQLUtils.upb_possible_database_input_fields])
+                if not record["UPbAnalysisID"]:
+                    query, virtual, stored, columns = get_columns("UPbAnalyses")
+                    upb_possible_database_input_fields = []
+                    for header in columns:
+                        if 'Created' in header or 'Modified' in header:
+                            continue
+                        else:
+                            upb_possible_database_input_fields.append(header)
+                    field_names = ", ".join([f'[{field}]' for field in upb_possible_database_input_fields])
 
                     placeholders = ', '.join(
                         [f':{field.replace('/', '').replace('*', '').replace(' ', '_')}' for field in
-                         SQLUtils.upb_possible_database_input_fields])
+                         upb_possible_database_input_fields])
                     insert_sql = f"""
-                                                        INSERT INTO UPbAnalyses (
-                                                            {field_names}
-                                                        )
-                                                        VALUES (
-                                                            {placeholders}
-                                                        )
-                                                    """
-
+                                    INSERT INTO UPbAnalyses (
+                                        {field_names}
+                                    )
+                                    VALUES (
+                                        {placeholders}
+                                    )
+                                """
                     # print(insert_sql)
 
                     # Process the main columns from the mapping.
