@@ -377,16 +377,16 @@ class ImportWizardDialog(QWidget):
 
         self.populate_comboBoxes()
 
-        combo_box_layout.addWidget(QLabel("Reference"))
+        combo_box_layout.addWidget(QLabel("Reference:"))
         combo_box_layout.addWidget(self.combo_reference_comboBox)
 
-        combo_box_layout.addWidget(QLabel("Instrument"))
+        combo_box_layout.addWidget(QLabel("Instrument:"))
         combo_box_layout.addWidget(self.combo_instrument_comboBox)
 
-        combo_box_layout.addWidget(QLabel("Lab Facility"))
+        combo_box_layout.addWidget(QLabel("Lab Facility:"))
         combo_box_layout.addWidget(self.combo_lab_facility_comboBox)
 
-        combo_box_layout.addWidget(QLabel("UPb Analysis Method"))
+        combo_box_layout.addWidget(QLabel("UPb Analysis Method:"))
         combo_box_layout.addWidget(self.combo_upb_analysis_method_comboBox)
 
         main_layout.addLayout(combo_box_layout)
@@ -409,18 +409,13 @@ class ImportWizardDialog(QWidget):
         formats_layout1.addStretch(4)
         formats_layout2.addStretch(4)
 
-        self.btn_add_column = QPushButton("Add Column")
-        self.btn_add_column.setFixedWidth(150)
-        self.btn_add_column.clicked.connect(lambda: self.add_column(None, False))
-        formats_layout1.addWidget(self.btn_add_column)
-
         self.get_valid_unit_formats()
 
         self.elevation_unit_combobox = QComboBox()
         # self.elevation_unit_combobox.setFixedWidth(100)
         for display_text, backend_id in self.distance_units:
             self.elevation_unit_combobox.addItem(display_text, backend_id)
-        formats_layout1.addWidget(QLabel("Elevation Unit"))
+        formats_layout1.addWidget(QLabel("Elevation Unit:"))
         formats_layout1.addWidget(self.elevation_unit_combobox)
         self.elevation_unit_combobox.setCurrentText(settings.value('elevation_unit_abbreviation'))
         self.elevation_unit_combobox.setToolTip('Applies the selected elevation unit to all rows')
@@ -429,7 +424,7 @@ class ImportWizardDialog(QWidget):
         # self.heightdepth_unit_combobox.setFixedWidth(100)
         for display_text, backend_id in self.distance_units:
             self.heightdepth_unit_combobox.addItem(display_text, backend_id)
-        formats_layout1.addWidget(QLabel("Height/Depth Unit"))
+        formats_layout1.addWidget(QLabel("Height/Depth Unit:"))
         formats_layout1.addWidget(self.heightdepth_unit_combobox)
         self.heightdepth_unit_combobox.setCurrentText(settings.value('heightdepth_unit_abbreviation'))
         self.heightdepth_unit_combobox.setToolTip('Applies the selected height/depth unit to all rows')
@@ -438,16 +433,21 @@ class ImportWizardDialog(QWidget):
         # self.sample_age_error_combobox.setFixedWidth(100)
         for display_text, backend_id in self.error_formats:
             self.sample_age_error_combobox.addItem(display_text, backend_id)
-        formats_layout1.addWidget(QLabel("Sample Age Error"))
+        formats_layout1.addWidget(QLabel("Sample Age Error:"))
         formats_layout1.addWidget(self.sample_age_error_combobox)
         self.sample_age_error_combobox.setCurrentText(settings.value('age_error_format_abbreviation'))
         self.sample_age_error_combobox.setToolTip('Applies the selected sample age error format to all rows')
+
+        self.btn_add_column = QPushButton("Add Column")
+        self.btn_add_column.setFixedWidth(150)
+        self.btn_add_column.clicked.connect(lambda: self.add_column(None, False))
+        formats_layout2.addWidget(self.btn_add_column)
 
         self.age_unit_combobox = QComboBox()
         # self.age_unit_combobox.setFixedWidth(100)
         for display_text, backend_id in self.age_formats:
             self.age_unit_combobox.addItem(display_text, backend_id)
-        formats_layout2.addWidget(QLabel("Age Unit"))
+        formats_layout2.addWidget(QLabel("Age Unit:"))
         formats_layout2.addWidget(self.age_unit_combobox)
         self.age_unit_combobox.setCurrentText(settings.value('age_unit_abbreviation'))
         self.age_unit_combobox.setToolTip('Applies the selected age unit to all rows')
@@ -456,7 +456,7 @@ class ImportWizardDialog(QWidget):
         # self.upb_age_error_combobox.setFixedWidth(100)
         for display_text, backend_id in self.error_formats:
             self.upb_age_error_combobox.addItem(display_text, backend_id)
-        formats_layout2.addWidget(QLabel("U-Pb Age Error"))
+        formats_layout2.addWidget(QLabel("U-Pb Age Error:"))
         formats_layout2.addWidget(self.upb_age_error_combobox)
         self.upb_age_error_combobox.setCurrentText(settings.value('age_error_format_abbreviation'))
         self.upb_age_error_combobox.setToolTip('Applies the selected U-Pb age error format to all rows')
@@ -565,6 +565,16 @@ class ImportWizardDialog(QWidget):
         self.btn_load_mapping.clicked.connect(self.load_mapping)
         bottom_layout.addWidget(self.btn_load_mapping)
         self.btn_load_mapping.setToolTip('Loads a previously saved mapping, overwriting the current column mappings, U-Pb metadata selections, and various units/formats.')
+
+        self.conflict_combo = QComboBox()
+        self.conflict_combo.addItems(["skip", "add to", "overwrite"])
+        self.conflict_combo.currentIndexChanged.connect(self.update_conflict_mode)
+        self.conflict_label = QLabel("On import conflict:")
+        self.conflict_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.conflict_label.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Preferred)
+        bottom_layout.addWidget(self.conflict_label)
+        bottom_layout.addWidget(self.conflict_combo)
+        self.conflict_combo.setToolTip('Determines how to handle importing items that already exist in the database. "Skip" will not import the item. "Add to" will add any new data to the existing item. "Overwrite" will replace the existing item with the imported data.')
 
         self.validate_button = QPushButton("Validate Import Data")
         self.validate_button.clicked.connect(self.validate_data)
@@ -682,6 +692,7 @@ class ImportWizardDialog(QWidget):
         """
         self.btn_save_mapping.setEnabled(False)
         self.btn_load_mapping.setEnabled(False)
+        self.conflict_combo.setEnabled(False)
         self.btn_import.setEnabled(False)
         self.validate_button.setEnabled(False)
         self.btn_add_column.setEnabled(False)
@@ -703,6 +714,7 @@ class ImportWizardDialog(QWidget):
         """
         self.btn_save_mapping.setEnabled(True)
         self.btn_load_mapping.setEnabled(True)
+        self.conflict_combo.setEnabled(True)
         # self.btn_import.setEnabled(True)
         self.validate_button.setEnabled(True)
         self.btn_add_column.setEnabled(True)
@@ -762,6 +774,9 @@ class ImportWizardDialog(QWidget):
         popup.setLayout(layout)
 
         popup.exec()
+
+    def update_conflict_mode(self):
+        self.conflict_mode = self.conflict_combo.currentText()
 
     def create_table_item(self, row, column, name, id, header_name, table_name):
         """Creates a QTableWidgetItem with stored data."""
@@ -1484,6 +1499,17 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().debug("Selected Excel File: " + path)
             self.selected_file_path = path
             self.label_file.setText(f"Selected File: {os.path.basename(path)}")
+            file_size_bytes = os.path.getsize(path)
+            file_size_mb = file_size_bytes / (1024 * 1024)
+            if file_size_mb > 5:
+                reply = QMessageBox.question(self, "Large File Warning",
+                                             f"The selected file is {file_size_mb:.2f} MB.\n\n"
+                                             "Loading large files may take a while and could cause the application to become unresponsive.\n\n"
+                                             "Do you want to continue?",
+                                             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                             QMessageBox.StandardButton.No)
+                if reply == QMessageBox.StandardButton.No:
+                    return
             try:
                 logger_setup.get_logger().debug("Loading sheets from Excel file")
                 self.loading_manager.show_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
@@ -1515,9 +1541,18 @@ class ImportWizardDialog(QWidget):
                     if selected_sheet:
                         self.combo_sheets.setCurrentText(selected_sheet)
                 for sheet in self.wb.worksheets:
-                    logger_setup.get_logger().debug(f"Loading sheet: {sheet.title}")
-                    # Add a new tab for each sheet
+                    row_count = sheet.max_row
+                    col_count = sheet.max_column
                     sheet.title = sheet.title.strip()
+                    if row_count > 10000:
+                        QMessageBox(QMessageBox.Icon.Warning, "Large Sheet Warning", f"Sheet {sheet.title} has {row_count} rows\n\n" 
+                                    f"Loading the data will take a while and may cause the application to become unresponsive.\n\n"
+                                    f"Do you want to continue?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                        if QMessageBox.StandardButton.No:
+                            continue
+                    logger_setup.get_logger().debug(f"Loading sheet: {sheet.title}")
+                    self.loading_manager.show_loading_dialog(f"Loading {sheet.title}", f"Loading sheet {sheet.title} with {row_count} rows...")
+                    # Add a new tab for each sheet
                     self.sheet_mappings[sheet.title] = {}
                     self.static_mappings[sheet.title] = {}
                     self.right_table = QTableWidget()
@@ -1574,6 +1609,9 @@ class ImportWizardDialog(QWidget):
                         self.right_table.verticalScrollBar().valueChanged.connect(
                             self.left_table.verticalScrollBar().setValue
                         )
+
+                    self.loading_manager.close_loading_dialog(f"Loading {sheet.title}",
+                                                             f"Loading sheet {sheet.title} with {row_count} rows...")
 
                 self.combo_sheets.addItems(self.wb.sheetnames)
                 self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex())
@@ -1666,7 +1704,7 @@ class ImportWizardDialog(QWidget):
         Display the right table with openpyxl-based formatting
         + add 4 extra columns for Lab Facilities, Source, Analysis Method, Instrument (editable).
         """
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {sheet_name}...')
+        # self.loading_manager.show_loading_dialog('Loading', f'Displaying {sheet_name}...')
         logger_setup.get_logger().debug(f"Displaying sheet: {sheet_name}")
         sheet = self.wb[sheet_name]
         df = self.dfs[sheet_name]
@@ -1745,7 +1783,7 @@ class ImportWizardDialog(QWidget):
                 self.update_row_icon(r, "accepted")
 
         self.right_table.resizeColumnsToContents()
-        self.loading_manager.close_loading_dialog('Loading', f'Displaying {sheet_name}...')
+        # self.loading_manager.close_loading_dialog('Loading', f'Displaying {sheet_name}...')
 
     def sync_left_table_rows(self):
         """
