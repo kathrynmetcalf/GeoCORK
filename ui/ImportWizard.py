@@ -29,7 +29,8 @@ settings = SettingsManager().settings
 from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
     CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers,
-    CheckableSqlQueryModel, SQLiteTableModel, CompleterInputDialog, get_table_from_view, get_view_from_table)
+    CheckableSqlQueryModel, SQLiteTableModel, CompleterInputDialog, get_table_from_view, get_view_from_table,
+    search_dictionary)
 from Functions.Database_views import ViewQuery
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -837,6 +838,7 @@ class ImportWizardDialog(QWidget):
         Validate the data mapped before import.
         :return:
         """
+        sender = self.sender()
 
         logger_setup.get_logger().info("Validating data for import")
 
@@ -853,7 +855,18 @@ class ImportWizardDialog(QWidget):
         else:
             upb_data = True
 
-        # todo: clear background for all cells first in case there are any left over from previous validation
+        # Set all cells to transparent background
+        for r in range(self.left_table.rowCount()):
+            for c in range(self.left_table.columnCount()):
+                item = self.left_table.item(r, c)
+                if item:
+                    item.setBackground(Qt.GlobalColor.transparent)
+        for sheet in self.sheet_mappings.keys():
+            for r in range(self.right_tables[sheet].rowCount()):
+                for c in range(self.right_tables[sheet].columnCount()):
+                    item = self.right_tables[sheet].item(r, c)
+                    if item:
+                        item.setBackground(Qt.GlobalColor.transparent)
 
         if upb_data:
             if not self.validate_ids():
@@ -879,8 +892,9 @@ class ImportWizardDialog(QWidget):
             self.btn_import.setDisabled(True)
             return False
 
-        QMessageBox.information(self, "Initial Validation Complete", f"Initial data validation is complete.\n\n"
-                                                                     "Make sure units and formats are defined for all necessary fields and that GPS data are separated into columns")
+        if sender == self.validate_button:
+            QMessageBox.information(self, "Initial Validation Complete", f"Initial data validation is complete.\n\n"
+                                                                         "Make sure units and formats are defined for all necessary fields and that GPS data are separated into columns")
         logger_setup.get_logger().info("Data validation complete")
         self.btn_import.setDisabled(False)
         return True
@@ -3351,15 +3365,16 @@ class ImportWizardDialog(QWidget):
                     static_table = static_fields[field]
                     # Get the unique values in this column
                     static_name_header = get_headers(static_table)[get_name_column(static_table)]
-                    query.prepare(f"SELECT {static_name_header} FROM {static_table}")
+                    id_header = get_headers(static_table)[0]
+                    query.prepare(f"SELECT {id_header}, {static_name_header} FROM {static_table}")
                     if not query.exec():
                         logger_setup.get_logger().critical(f'Could not load values from database')
                         logger_setup.get_logger().debug(f'Failed to query the {static_table} values')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    static_values = []
+                    static_values = {}
                     while query.next():
-                        static_values.append(query.value(0))
+                        static_values[query.value(1)] = query.value(0)
                     unique_values = set()
                     for row in range(self.right_tables[sheet].rowCount()):
                         if row not in self.disabled_rows[sheet]:
@@ -3374,8 +3389,9 @@ class ImportWizardDialog(QWidget):
                             ambiguous_static_values[sheet][column] = {}
                         for value in unique_values:
                             if value not in self.static_mappings[sheet][column].keys():
-                                if value in static_values:
-                                    self.static_mappings[sheet][column][value] = value
+                                if value in static_values.keys():
+                                    value_id = static_values[value]
+                                    self.static_mappings[sheet][column][value] = value_id
                                 else:
                                     # Put together a list of ambiguous fields to ask the user about at the end
                                     ambiguous_static_values[sheet][column][value] = static_table
@@ -3393,20 +3409,22 @@ class ImportWizardDialog(QWidget):
                                 combo = CheckableTreeCombobox()
                             else:
                                 combo = CheckableComboBox()
+                            field = self.sheet_mappings[sheet][column]
                             combo.model_modifiable = False
                             combo.enable_context_menu(False)
                             combo.set_single_click(True)
                             populate_combo_box(combo, **{'table': static_table})
                             dlg = SetSelectedValues(self, combo)
                             dlg.setWindowTitle(f'Select value for "{value}"')
-                            dlg.main_layout.insertWidget(0, QLabel(f'{static_table} are fixed in the database.\n'
-                                                             f'Select the best match for "{value}":'))
+                            dlg.main_layout.insertWidget(0, QLabel(f'{static_table} are fixed in the database.\n\n'
+                                                             f'Select the best match for {field} "{value}":'))
                             if dlg.exec() == QDialog.DialogCode.Accepted:
                                 combo = dlg.widget
                                 combo: CheckableTreeCombobox | CheckableComboBox
                                 selected_value = combo.currentText()
+                                selected_id = get_id_from_name(static_table, selected_value)
                                 if selected_value:
-                                    self.static_mappings[sheet][column][value] = selected_value
+                                    self.static_mappings[sheet][column][value] = selected_id
                                 else:
                                     self.static_mappings[sheet][column][value] = None
                             else:
@@ -3433,11 +3451,18 @@ class ImportWizardDialog(QWidget):
         else:
             upb_data = True
 
+        field_dictionaries = [SQLUtils.sample_possible_user_input_fields,
+                              SQLUtils.gps_possible_user_input_fields,
+                              SQLUtils.column_possible_user_input_fields,
+                              SQLUtils.aliquot_grain_spot_possible_user_input_fields,
+                              SQLUtils.reference_possible_user_input_fields,
+                              SQLUtils.upb_possible_user_input_fields]
+
         static_tables = []
-        tag_imports = []
+        tag_tables = []
         for table in SQLUtils.database_ordered_tables:
-            if table == "Samples":
-                # only include tables before Samples for now
+            if table == "GPSLocations":
+                # only include tables before GPSLocations for now
                 break
             elif (table != "Units" and "Units" in table) or "Formats" in table or table == "Ages":
                 # All tables that end in units are static, but not the table "Units"
@@ -3445,20 +3470,211 @@ class ImportWizardDialog(QWidget):
             elif "Conversions" in table:
                 # skip all tables that end in formats or conversions
                 continue
+            else:
+                tag_tables.append(table)
 
         # todo: implement database imports and mapping
 
-        # We don't need to import the static table values, but we need to map the ids
-        static_ids = {}
+        # We don't need to import the static table values, and their IDs are already mapped in self.static_mappings.
 
+        create_savepoint('before_import_tags')
 
         # As tags are imported, build a library of tag name to tag ID
         tag_ids = {}
-        for tag in tag_imports:
+        for table in tag_tables:
+            tag_ids[table] = {}
             for sheet, column_mappings in self.sheet_mappings.items():
-                for column, field in column_mappings.items():
-                    # retrieve the table the field represents
-                    pass
+                if column_mappings:
+                    for column, field in column_mappings.items():
+                        # retrieve the table the field represents
+                        for field_dict in field_dictionaries:
+                            for category, fields in field_dict.items():
+                                if field in fields.keys():
+                                    if table in fields[field]:
+                                        tag_header = fields[field][1]
+                                        if sheet not in tag_ids[table].keys():
+                                            tag_ids[table][sheet] = {}
+                                        if column not in tag_ids[table][sheet].keys():
+                                            tag_ids[table][sheet][column] = {}
+                                        tag_ids[table][sheet][column][tag_header] = {}
+                    if sheet in tag_ids[table].keys():
+                        # We have at least one column mapped to this table in this sheet, so import the tags
+                        for row in range(self.right_tables[sheet].rowCount()):
+                            if row in self.disabled_rows[sheet]:
+                                continue
+                            import_row = {}
+                            name_header = get_headers(table)[get_name_column(table)]
+                            if table != 'References' and not search_dictionary(tag_ids[table][sheet], name_header):
+                                # We need the name header to identify tags, if it's not mapped, raise an error and prompt the user to map it
+                                logger_setup.get_logger().error(f"Cannot import tags into {table} without mapping the {name_header} field in sheet {sheet}")
+                                logger_setup.get_logger().debug(f"Mapped headers for table {table} in sheet {sheet}: {tag_ids[table][sheet].values()}")
+                                rollback_savepoint('before_import_tags')
+                                return False
+                            for column, header in tag_ids[table][sheet].items():
+                                import_row[list(header.keys())[0]] = self.right_tables[sheet].item(row, column).text().strip()
+                            if import_row:
+                                # Check if this tag already exists in the database
+                                tag_id = None
+                                headers_to_ignore = []
+                                query = QSqlQuery()
+                                if table != 'References':
+                                    # For all other tables, we can match on the name field only
+                                    if import_row[name_header] in ['', None, 'NULL']:
+                                        if len(import_row.keys()) == 1:
+                                            # The name is blank, but this is the only column, so skip this row
+                                            continue
+                                        else:
+                                            # The name is blank, but there are other columns, so the name is required
+                                            logger_setup.get_logger().error(f"Cannot import info into {table} without a value for the {name_header} field in sheet {sheet}")
+                                            # Change the background color of the cell to red
+                                            self.right_tables[sheet].item(row, column).setBackground(QColor('#FFB8B8'))  # Light red
+                                            rollback_savepoint('before_import_tags')
+                                            return False
+                                    existing_query = f'SELECT * FROM "{table}" WHERE {name_header} = :{name_header} COLLATE NOCASE'
+                                    query.prepare(existing_query)
+                                    query.bindValue(f":{name_header}", import_row[name_header])
+                                else:
+                                    # For References, we need to match on all fields except the ID field
+                                    if 'ReferenceDisplay' in import_row.keys():
+                                        headers_to_ignore.append('ReferenceDisplay')
+                                    existing_query = f'SELECT * FROM "{table}" WHERE '
+                                    for header in import_row.keys():
+                                        if (header not in [get_headers(table)[0], 'ReferenceDisplay'] and
+                                                header not in headers_to_ignore):  # Skip the ID field
+                                            existing_query += f"{header} = :{header} COLLATE NOCASE AND "
+                                    existing_query = existing_query[:-5]  # Remove the last " AND "
+                                    query.prepare(existing_query)
+                                    for header, value in import_row.items():
+                                        if header != get_headers(table)[0]:  # Skip the ID field
+                                            query.bindValue(f":{header}", value)
+                                if not query.exec():
+                                    logger_setup.get_logger().critical(f'Could not search for existing tags in database')
+                                    logger_setup.get_logger().debug(f'Failed to query the {table} values')
+                                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                    rollback_savepoint('before_import_tags')
+                                    return False
+                                if query.next():
+                                    # combine all column values into a dictionary
+                                    existing_values = {}
+                                    for col_idx in range(query.record().count()):
+                                        col_name = query.record().fieldName(col_idx)
+                                        existing_values[col_name] = query.value(col_idx)
+                                    tag_id = query.value(0)
+                                if tag_id and table != 'References':
+                                    # Tag already exists, check if we need to update information
+                                    existing_values_query = f'SELECT * FROM "{table}" WHERE {get_headers(table)[0]} = {tag_id}'
+                                    query.prepare(existing_values_query)
+                                    if not query.exec():
+                                        logger_setup.get_logger().critical(f'Could not search for existing tags in database')
+                                        logger_setup.get_logger().debug(f'Failed to query the {table} values')
+                                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                        rollback_savepoint('before_import_tags')
+                                        return False
+                                    if query.next():
+                                        # combine all column values into a dictionary
+                                        existing_values = {}
+                                        for col_idx in range(query.record().count()):
+                                            col_name = query.record().fieldName(col_idx)
+                                            existing_values[col_name] = query.value(col_idx)
+                                        # Check if any values are different
+                                        for header in import_row.keys():
+                                            if (header in existing_values.keys() and
+                                                    header not in [get_headers(table)[0], 'ReferenceDisplay'] and
+                                                    header not in headers_to_ignore):  # Skip the ID field
+                                                # Check if the existing value is blank
+                                                existing_value = existing_values[header]
+                                                if import_row[header] in [None, '', 'NULL']:
+                                                    headers_to_ignore.append(header)
+                                                elif str(existing_value).strip() == str(import_row[header]).strip():
+                                                    if header != name_header:
+                                                        headers_to_ignore.append(header)
+                                    if len(import_row.keys()) > (len(headers_to_ignore) + 1):
+                                        # Some values are different, update the tag
+                                        update_query = f'UPDATE "{table}" SET '
+                                        for header in import_row.keys():
+                                            if (header not in [get_headers(table)[0], 'ReferenceDisplay'] and
+                                                    header not in headers_to_ignore):  # Skip the ID field:
+                                                update_query += f"{header} = :{header}, "
+                                        update_query = update_query[:-2]  # Remove the last ", "
+                                        update_query += f" WHERE {get_headers(table)[0]} = {tag_id}"
+                                        query.prepare(update_query)
+                                        for header, value in import_row.items():
+                                            query.bindValue(f":{header}", value)
+                                        if not query.exec():
+                                            logger_setup.get_logger().critical(f'Could not update existing tag in database')
+                                            logger_setup.get_logger().debug(f'Failed to update values in {table}')
+                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                            rollback_savepoint('before_import_tags')
+                                            return False
+                                elif tag_id and table == 'References':
+                                    continue
+                                else:
+                                    # Insert the new tag
+                                    if table in SQLUtils.user_viewable_trees:
+                                        # Add all tree tags to the root level for now
+                                        children_query = f'SELECT {get_headers(table)[2]} FROM "{table}" WHERE {get_headers(table)[1]} IS NULL ORDER BY {get_headers(table)[2]} DESC LIMIT 1'
+                                        query.prepare(children_query)
+                                        if not query.exec():
+                                            logger_setup.get_logger().critical(f'Could not search for existing tags in database')
+                                            logger_setup.get_logger().debug(f'Failed to get the maximum parent row for root in {table}')
+                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                            rollback_savepoint('before_import_tags')
+                                            return False
+                                        if query.next():
+                                            parent_row = query.value(0) + 1
+                                        else:
+                                            parent_row = 0
+                                    insert_query = f'INSERT INTO "{table}" ('
+                                    for header in import_row.keys():
+                                        if (header not in [get_headers(table)[0], 'ReferenceDisplay'] and
+                                                    header not in headers_to_ignore):  # Skip the ID field):
+                                            insert_query += f"{header}, "
+                                    if table in SQLUtils.user_viewable_trees:
+                                        insert_query += f"{get_headers(table)[1]}, {get_headers(table)[2]}, "
+                                    insert_query = insert_query[:-2]  # Remove the last ", "
+                                    insert_query += ") VALUES ("
+                                    for header in import_row.keys():
+                                        if (header not in [get_headers(table)[0], 'ReferenceDisplay'] and
+                                                header not in headers_to_ignore):  # Skip the ID field):
+                                            insert_query += f":{header}, "
+                                    if table in SQLUtils.user_viewable_trees:
+                                        insert_query += ":parent_id, :parent_row, "
+                                    insert_query = insert_query[:-2]  # Remove the last ", "
+                                    insert_query += ")"
+                                    query.prepare(insert_query)
+                                    for header, value in import_row.items():
+                                        if header != 'ReferenceDisplay':
+                                            query.bindValue(f":{header}", value)
+                                    if table in SQLUtils.user_viewable_trees:
+                                        query.bindValue(":parent_id", None)
+                                        query.bindValue(":parent_row", parent_row)
+                                    if not query.exec():
+                                        logger_setup.get_logger().critical(f'Could not insert new tag into database')
+                                        logger_setup.get_logger().debug(f'Failed to insert values into {table}')
+                                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                        rollback_savepoint('before_import_tags')
+                                        return False
+                                    tag_id = query.lastInsertId()
+                                if tag_id:
+                                    if table == 'References':
+                                        # For References, we may have multiple identical entries in the same sheet,
+                                        # so we need to store the tag ID for every row
+                                        for column, header in tag_ids[table][sheet].items():
+                                            header_name = list(header.keys())[0]
+                                            if row not in tag_ids[table][sheet][column][header_name].keys():
+                                                tag_ids[table][sheet][column][header_name][row] = tag_id
+                                    else:
+                                        # For other tables, we only need to store the tag ID once per unique name
+                                        for column, header in tag_ids[table][sheet].items():
+                                            header_name = list(header.keys())[0]
+                                            item_name = import_row[name_header]
+                                            if item_name.upper() not in (key.upper() for key in tag_ids[table][sheet][column][header_name].keys()):
+                                                tag_ids[table][sheet][column][header_name][item_name] = tag_id
 
         if upb_data:
             self.import_upb_to_db()
