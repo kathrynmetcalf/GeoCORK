@@ -144,9 +144,9 @@ def validate_insert(table: str, columns: list, values: list, GPSFormatID: int | 
 
 def validate_update(table: str, columns: list, values: list, where: str):
     """
-    Check that the values being updated in the database are valid
-    The corresponding columns and values should be in the same index in their respective lists
-    Tables that need to be validated are in SQLUtils.trigger_tables
+    Check that the values being updated in the database are valid.
+    The corresponding columns and values should be in the same index in their respective lists.
+    Tables that need to be validated are in SQLUtils.trigger_tables.
     :param table: the table to be updated
     :param columns: the columns to be updated
     :param values: the string values to be entered into the database. Null values should be 'NULL'
@@ -459,31 +459,31 @@ def check_gps_format_insert(pairs: list, format_id: int):
     for pair in pairs:
         if pair[0] == 'GPSLatDeg':
             new_latdeg = f'{pair[1]}'
-        if pair[0] == 'GPSLatMin':
+        elif pair[0] == 'GPSLatMin':
             new_latmin = f'{pair[1]}'
-        if pair[0] == 'GPSLatSec':
+        elif pair[0] == 'GPSLatSec':
             new_latsec = f'{pair[1]}'
-        if pair[0] == 'GPSLatDirectionID':
+        elif pair[0] == 'GPSLatDirectionID':
             new_latdir = f'{pair[1]}'
-        if pair[0] == 'GPSLonDeg':
+        elif pair[0] == 'GPSLonDeg':
             new_londeg = f'{pair[1]}'
-        if pair[0] == 'GPSLonMin':
+        elif pair[0] == 'GPSLonMin':
             new_lonmin = f'{pair[1]}'
-        if pair[0] == 'GPSLonSec':
+        elif pair[0] == 'GPSLonSec':
             new_lonsec = f'{pair[1]}'
-        if pair[0] == 'GPSLonDirectionID':
+        elif pair[0] == 'GPSLonDirectionID':
             new_londir = f'{pair[1]}'
-        if pair[0] == 'GPSUTMZone':
+        elif pair[0] == 'GPSUTMZone':
             new_utmzone = f'{pair[1]}'
-        if pair[0] == 'GPSUTMN':
+        elif pair[0] == 'GPSUTMN':
             new_utmn = f'{pair[1]}'
-        if pair[0] == 'GPSUTME':
+        elif pair[0] == 'GPSUTME':
             new_utme = f'{pair[1]}'
-        if pair[0] == 'GPSElev':
+        elif pair[0] == 'GPSElev':
             new_elev = f'{pair[1]}'
-        if pair[0] == 'GPSElevError':
+        elif pair[0] == 'GPSElevError':
             new_elev_error = f'{pair[1]}'
-        if pair[0] == 'GPSElevUnitID':
+        elif pair[0] == 'GPSElevUnitID':
             new_elev_unit = f'{pair[1]}'
 
     if 'D' in gps_format_abbreviation:
