@@ -9,7 +9,7 @@ from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_ke
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
-from Functions.Widget_classes import set_table
+from Functions.Widget_classes import set_table, get_columns
 # the below imports are required for GPS conversions, pycharm detects no usage do not remove
 # below comments are for pycharm to ignore issues
 # noinspection PyUnresolvedReferences
@@ -36,41 +36,6 @@ def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
             return False
     else:
         return False
-
-def get_columns(table: str, database: QtS.QSqlDatabase = None) -> tuple[QtS.QSqlQuery, list[str], list[str], list[str]]:
-    """
-    Return table columns by type for virtual, stored, and regular columns. Considers everything after the modified
-    column to be a virtual column and any column before modified with a header containing 'Display' or 'Calculated'
-    to be a stored column.
-    :param table: Name of the SQL database table.
-    :param database: QSqlDatabase instance to use, if None the default database is used.
-    :return: A tuple containing the QSqlQuery object, a list of virtual columns, a list of stored columns, and a list of regular columns.
-    """
-    if database is None:
-        query = QtS.QSqlQuery()
-    else:
-        query = QtS.QSqlQuery(db=database)
-    if not query.exec(f'PRAGMA table_xinfo("{table}")'):
-        logger_setup.get_logger().critical(f"Failed to get columns for {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        return query, [], [], []
-    virtual = []
-    stored = []
-    columns = []
-    modified_column = False
-    while query.next():
-        if not modified_column:
-            if 'Modified' in query.value(1):
-                modified_column = True
-                columns.append(f'"{query.value(1)}"')
-            elif 'Calculated' in query.value(1) or 'Display' in query.value(1):
-                stored.append(f'"{query.value(1)}"')
-            else:
-                columns.append(f'"{query.value(1)}"')
-        else:
-            virtual.append(f'"{query.value(1)}"')
-    return query, virtual, stored, columns
 
 def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = None, database: QtS.QSqlDatabase = None) -> bool:
     """

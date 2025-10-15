@@ -1117,18 +1117,22 @@ def get_headers(table: str) -> list:
         headers.append(query.value(1))
     return headers
 
-def get_columns(table: str):
+def get_columns(table: str, database: QSqlDatabase=None):
     """
     Return table columns by type for virtual, stored, and regular columns. Considers everything after the modified
     column to be a virtual column and any column before modified with a header containing 'Display' or 'Calculated'
     to be a stored column.
     :param table: Name of the SQL database table
+    :param database: QSqlDatabase connection to use. If None, uses the default connection.
     :return query: Query used to collect columns
     :return virtual: list of virtual column names
     :return stored: list of stored column names
     :return columns: list of regular column names
     """
-    query = QtS.QSqlQuery()
+    if not database:
+        query = QtS.QSqlQuery()
+    else:
+        query = QtS.QSqlQuery(database)
     if not query.exec(f'PRAGMA table_xinfo("{table}")'):
         logger_setup.get_logger().critical(f"Failed to get columns for {table}")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
