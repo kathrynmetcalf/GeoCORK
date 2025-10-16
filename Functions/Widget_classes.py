@@ -1174,7 +1174,8 @@ def get_name_column(table: str) -> int | None:
         return 16
     elif (table in SQLUtils.user_viewable_tables or
           table in ['SampleView', 'SampleEditView', 'Spots', 'GPSLocations', 'FilterGroups', 'ReferenceView',
-                    'ColumnView', 'ColumnEditView']):
+                    'ColumnView', 'ColumnEditView', 'Grains', 'GrainView', 'GrainEditView', 'UPbAnalyses', 'UPbView',
+                    'UPbEditView']):
         return 1
     elif table == 'UPbAnalyses':
         return 1
@@ -1380,6 +1381,7 @@ def get_id_from_name(table: str, name: str) -> int:
     """
     query = QtS.QSqlQuery()
     headers = get_headers(table)
+    logger_setup.get_logger().info(f'Getting ID for {name} in {table}')
     if table in ['"References"', 'References']:
         # Need to use the ViewQuery to access the generated display column
         show_cols = settings.value('reference_view_columns')
@@ -1396,7 +1398,7 @@ def get_id_from_name(table: str, name: str) -> int:
                         WHERE SpotName=:name COLLATE NOCASE'''
     else:
         sql_query = f'SELECT {headers[0]} FROM "{table}" WHERE {headers[get_name_column(table)]}=:name COLLATE NOCASE'
-    logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+    # logger_setup.get_logger().debug(f'SQL command: {sql_query}')
     if not query.prepare(sql_query):
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
         logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")

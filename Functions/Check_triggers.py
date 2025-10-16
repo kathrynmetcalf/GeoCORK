@@ -307,11 +307,18 @@ def check_insert_pairs(pairs: list, column1: str, column2: str) -> None:
     :param str column1: column value 1 to check
     :param str column2: column value 2 to check
     """
+    new_column1 = None
+    new_column2 = None
     for pair in pairs:
+        if '"' in column1 and '"' not in pair[0]:
+            pair[0] = f'"{pair[0]}"'
+            pair[1] = f'"{pair[1]}"'
         if pair[0] == column1:
             new_column1 = pair[1]
         if pair[0] == column2:
             new_column2 = pair[1]
+        if new_column1 is not None and new_column2 is not None:
+            break
     if new_column1 != 'NULL' and new_column2 == 'NULL':
         return f'{column1} missing {column2}', column2
     if new_column1 == 'NULL' and new_column2 != 'NULL':
@@ -319,13 +326,19 @@ def check_insert_pairs(pairs: list, column1: str, column2: str) -> None:
     return None, None
 
 def check_update_pairs(all_records: list, column1, column2):
+    new_column1 = None
+    new_column2 = None
+    old_column1s = []
+    old_column2s = []
     for record in all_records:
         if record[0] == column1:
-            new_column1 = record[1]
+            new_column1 = str(record[1])
             old_column1s = record[2]
         if record[0] == column2:
-            new_column2 = record[1]
+            new_column2 = str(record[1])
             old_column2s = record[2]
+        if new_column1 is not None and new_column2 is not None:
+            break
     if new_column1 != '' and new_column2 != '':
         # Both the columns are changing
         if new_column1 != 'NULL' and new_column2 == 'NULL':
