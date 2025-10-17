@@ -145,22 +145,23 @@ class EditTable(QtW.QDialog):
             clear_action = None
         delete_action = menu.addAction('Delete row')
         action = menu.exec(self.edit_tableView.viewport().mapToGlobal(pos))
-        if action == clear_action:
-            self.model.setData(indexes[0], '', QtC.Qt.ItemDataRole.EditRole)
-        elif action == delete_action:
-            # get all the ids in the selected indexes
-            delete_ids = []
-            for index in self.edit_tableView.selectedIndexes():
-                if index.column() == 0:
-                    id = self.table_proxy_model.data(index, QtC.Qt.ItemDataRole.DisplayRole)
-                else:
-                    id = self.table_proxy_model.data(index.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole)
-                if id not in delete_ids:
-                    delete_ids.append(id)
-            if delete_data(self.table, delete_ids):
-                self.updated = True
-                self.create_model()
-                self.display_table()
+        if action:
+            if action == clear_action:
+                self.model.setData(indexes[0], '', QtC.Qt.ItemDataRole.EditRole)
+            elif action == delete_action:
+                # get all the ids in the selected indexes
+                delete_ids = []
+                for index in self.edit_tableView.selectedIndexes():
+                    if index.column() == 0:
+                        id = self.table_proxy_model.data(index, QtC.Qt.ItemDataRole.DisplayRole)
+                    else:
+                        id = self.table_proxy_model.data(index.siblingAtColumn(0), QtC.Qt.ItemDataRole.DisplayRole)
+                    if id not in delete_ids:
+                        delete_ids.append(id)
+                if delete_data(self.table, delete_ids):
+                    self.updated = True
+                    self.create_model()
+                    self.display_table()
 
     def display_table(self):
         """

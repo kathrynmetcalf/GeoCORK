@@ -171,8 +171,9 @@ class AddTreeTags(QtW.QDialog):
         # Only allow expanding and collapsing, no delete, add, or edit
         menu.set_view(self.tags_treeView, False, False, False)
         action = menu.exec(self.tags_treeView.viewport().mapToGlobal(pos))
-        if action and ('Expand' in action.text() or 'Collapse' in action.text()):
-            expand_collapse(self.tags_treeView, action)
+        if action:
+            if action and ('Expand' in action.text() or 'Collapse' in action.text()):
+                expand_collapse(self.tags_treeView, action)
 
     def clear_warning(self):
         """

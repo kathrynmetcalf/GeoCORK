@@ -4712,6 +4712,8 @@ class CheckableComboBox(QtW.QComboBox):
             select_all_action = None
             delete_action = None
         action = menu.exec(self.mapToGlobal(event.pos()))
+        if not action:
+            return
         if action == edit_action:
             self.edit_triggered.emit(self)
         elif action == add_action:

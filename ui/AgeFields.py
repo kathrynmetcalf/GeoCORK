@@ -243,8 +243,9 @@ class AgeFields(QtW.QWidget):
             menu = QtW.QMenu(self)
             delete_action = menu.addAction('Delete age')
             action = menu.exec(self.mapToGlobal(position))
-            if action == delete_action:
-                self.delete_age()
+            if action:
+                if action == delete_action:
+                    self.delete_age()
 
     def eventFilter(self, obj, event):
         if event.type() == QtC.QEvent.Type.ApplicationDeactivate:

@@ -553,9 +553,10 @@ class SampleInformation(QtW.QDialog):
 
     def show_context_menu(self, pos: QtC.QPoint):
         combo = self.sender()
+        while not isinstance(combo, QtW.QComboBox):
+            combo = combo.parent()
         logger_setup.get_logger().info("Showing context menu")
         menu = QtW.QMenu()
-        selected_indexes = combo.view().selectedIndexes()
         if isinstance(combo, CheckableComboBox) and not combo.single_click:
             select_action = menu.addAction("Select all")
             unselect_action = menu.addAction("Unselect all")
@@ -569,11 +570,14 @@ class SampleInformation(QtW.QDialog):
             unselect_action = None
             delete_action = None
         action = menu.exec(combo.view().mapToGlobal(pos))
+        if not action:
+            return
         if action == select_action:
             self.check_all_samples()
         elif action == unselect_action:
             self.uncheck_all_samples()
         elif action == delete_action:
+            selected_indexes = combo.view().selectionModel().selectedIndexes()
             selected_ids = []
             for index in selected_indexes:
                 id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
