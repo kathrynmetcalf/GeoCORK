@@ -204,9 +204,8 @@ class GeoCORK(QtW.QMainWindow):
                 logger_setup.get_logger().critical('Error updating and displaying database')
                 self.close()
             self.update_window_title()
-            # If the active tab is a data table, refresh it
-            if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':
-                self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
+            # Refresh the active tab
+            self.refresh()
         else:
             return
 
@@ -218,8 +217,20 @@ class GeoCORK(QtW.QMainWindow):
         """
 
         import_wizard = ui.ImportWizard.ImportWizardDialog(None)
-        import_wizard.data_imported.connect(self.edit_sample_information)
+        import_wizard.data_imported.connect(self.refresh)
         import_wizard.show()
+
+    def refresh(self):
+        """
+        Refreshes the current tab if it is a data table, view data tab, or export tab
+        :return:
+        """
+        if self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Data Tables':
+            self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
+        elif ' : ' in self.tabWidget.tabText(self.tabWidget.currentIndex()):
+            self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
+        elif self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Export':
+            self.tabWidget.widget(self.tabWidget.currentIndex()).refresh_button()
 
     def switch_to_export_tab(self):
         self.tabWidget.setCurrentIndex(2)

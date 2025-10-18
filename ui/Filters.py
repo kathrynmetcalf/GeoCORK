@@ -456,6 +456,7 @@ class InsertFilterGroupDialog(QDialog):
                 f'Error in populating existing Filters')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
 
     def insert_data(self):
         """
@@ -479,6 +480,7 @@ class InsertFilterGroupDialog(QDialog):
                 f'Error in checking for existing Filters')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {check_query}')
+            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
             return
 
         if query.next():
@@ -509,6 +511,7 @@ class InsertFilterGroupDialog(QDialog):
                     f'Error could not add filter')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL command: {check_query}')
+                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
             else:
                 logger_setup.get_logger().info(f'Filter {name} added')
                 self.accept()
@@ -533,6 +536,7 @@ class InsertFilterGroupDialog(QDialog):
                 f'Error could not update filter')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {update_query}')
+            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
         else:
             logger_setup.get_logger().info(f'Filter {name} updated')
             self.accept()
@@ -1094,6 +1098,7 @@ class QueryBuilder(QWidget):
                     f'Could not delete filter')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
             else:
                 logger_setup.get_logger().info(f'Filter {item.text()} deleted')
 
@@ -1133,6 +1138,7 @@ class QueryBuilder(QWidget):
                 f'Error in populating existing Filters')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
 
     def view_samples(self):
         """
