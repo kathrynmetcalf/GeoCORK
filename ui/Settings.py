@@ -556,6 +556,7 @@ class SettingsDialog(QtW.QDialog):
 
         self.populate_fields()
         self.loading_manager.close_loading_dialog('Updating', 'Updating settings...')
+        logger_setup.get_logger().info('Updated settings successfully')
         self.updated = True
 
     def update_settings_close(self):
