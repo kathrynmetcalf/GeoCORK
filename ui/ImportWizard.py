@@ -1,16 +1,17 @@
 import collections
 import json
 import os
+import time
 
 import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
-from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant
+from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant, QModelIndex, QAbstractTableModel
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel,
-    QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout,
+    QApplication, QWidget, QVBoxLayout, QPushButton, QFileDialog, QLabel, QTableView,
+    QComboBox, QTableWidget, QTableWidgetItem, QMessageBox, QHBoxLayout, QComboBox,
     QLineEdit, QInputDialog, QMenu, QDialog, QFormLayout, QSplitter, QAbstractItemView, QCheckBox,
     QProgressDialog, QListWidget, QListView, QDialogButtonBox, QTabWidget, QSpacerItem, QSizePolicy
 )
@@ -31,7 +32,7 @@ from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
     CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_headers,
     CheckableSqlQueryModel, SQLiteTableModel, CompleterInputDialog, get_table_from_view, get_view_from_table,
-    search_dictionary)
+    search_dictionary, ImportSheetModel, loading_manager)
 from Functions.Database_views import ViewQuery
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -327,6 +328,12 @@ class ImportWizardDialog(QWidget):
         self.label_file = QLabel("No file selected.")
         top_layout.addWidget(self.label_file)
 
+        self.identify_rejected = QCheckBox()
+        self.identify_rejected.setText("Auto identify rejected analyses")
+        self.identify_rejected.setToolTip(
+            'If checked, will automatically identify rows with red or strikethrough text as rejected')
+        top_layout.addWidget(self.identify_rejected)
+
         self.sheet_instructions = QLabel("Select sheet with U-Pb data:")
         self.sheet_instructions.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         top_layout.addWidget(self.sheet_instructions)
@@ -335,6 +342,7 @@ class ImportWizardDialog(QWidget):
         self.combo_sheets.setFixedWidth(150)
         top_layout.addWidget(self.combo_sheets)
         self.combo_sheets.currentIndexChanged.connect(self.update_upb_sheet)
+
 
         main_layout.addLayout(top_layout)
 
@@ -599,10 +607,6 @@ class ImportWizardDialog(QWidget):
         self.sheet_mappings = {}
         # Map unknown values to static table values
         self.static_mappings = {}
-        # Rejected rows
-        self.rejected_rows = {}
-        # Disabled rows
-        self.disabled_rows = {}
         # Original columns, maps the original index to the current index
         # Includes a key for each original column index, and a value of -1 if deleted, as well as a list of 'added' columns in their final index
         self.original_columns = {}
@@ -635,8 +639,8 @@ class ImportWizardDialog(QWidget):
         # Currently loaded mapping name
         self.current_mapping = None
 
-        # openpyxl workbook
-        self.wb = None
+        # sheets from the openpyxl workbook
+        self.sheets = {}
         self.current_sheet_name = None
         # Name of sheet with U-Pb data
         self.upb_sheet_name = None
@@ -754,8 +758,10 @@ class ImportWizardDialog(QWidget):
         self.spot_size_unit_combobox.setEnabled(True)
         self.conc_format_combobox.setEnabled(True)
 
-    def on_cell_clicked(self, row, column):
-        header_name = self.right_table.horizontalHeaderItem(column).text()
+    def on_cell_clicked(self, index: QModelIndex):
+        row = index.row()
+        column = index.column()
+        header_name = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
 
         table_name_map = {
             "Reference Display": '"References"',
@@ -815,9 +821,10 @@ class ImportWizardDialog(QWidget):
             "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name")
         }
         # item = QTableWidgetItem(name)
-
-        self.right_table.setItem(row, field_to_column[header_name], QTableWidgetItem(name))
-        self.right_table.setItem(row, field_to_column[header_name] + 1, QTableWidgetItem(str(id)))
+        index = self.right_table.model().index(row, field_to_column[header_name])
+        self.right_table.model().setData(index, QTableWidgetItem(name))
+        index = self.right_table.model().index(row, field_to_column[header_name] + 1)
+        self.right_table.model().setData(index, QTableWidgetItem(str(id)))
 
     def get_valid_unit_formats(self):
         age_unit_query = QSqlQuery()
@@ -901,11 +908,12 @@ class ImportWizardDialog(QWidget):
                 if item:
                     item.setBackground(Qt.GlobalColor.transparent)
         for sheet in self.sheet_mappings.keys():
-            for r in range(self.right_tables[sheet].rowCount()):
-                for c in range(self.right_tables[sheet].columnCount()):
-                    item = self.right_tables[sheet].item(r, c)
-                    if item:
-                        item.setBackground(Qt.GlobalColor.transparent)
+            self.right_table = self.right_tables[sheet]
+            self.right_table.model().clear_all_background_colors()
+
+        if not self.check_static_table_fields():
+            self.btn_import.setDisabled(True)
+            return False
 
         if upb_data:
             if not self.validate_ids():
@@ -925,9 +933,6 @@ class ImportWizardDialog(QWidget):
             self.btn_import.setDisabled(True)
             return False
         if not self.check_unmapped_samples_columns():
-            self.btn_import.setDisabled(True)
-            return False
-        if not self.check_static_table_fields():
             self.btn_import.setDisabled(True)
             return False
 
@@ -951,17 +956,19 @@ class ImportWizardDialog(QWidget):
         empty_cells = self.check_empty_cells_in_left_table()
 
         if empty_cells:
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
+
             # Step 2: Show dialog to ask if the user wants to use default values
             use_defaults = self.ask_to_use_default_values(empty_cells)
 
             if use_defaults:
                 # Step 3: Fill empty cells with default values
-                self.fill_empty_cells_with_defaults(empty_cells)
+                if self.fill_empty_cells_with_defaults(empty_cells):
 
-                # Optional: Give user a chance to review and adjust the values
-                QMessageBox.information(self, "Review",
-                                        "The empty cells have been filled with default values. Please review before clicking import again.")
-                logger_setup.get_logger().info("Empty cells have been filled with default values")
+                    # Optional: Give user a chance to review and adjust the values
+                    QMessageBox.information(self, "Review",
+                                            "Purple cells in the left UPb table have been filled with default values. Please review before clicking import again.")
+                    logger_setup.get_logger().info("Empty cells have been filled with default values")
                 return False
             else:
                 logger_setup.get_logger().info("Empty cells, but opted not to use default values")
@@ -1099,7 +1106,7 @@ class ImportWizardDialog(QWidget):
             elif action == insert_after_action:
                 self.add_column(column_index, before=False)
 
-    def set_column_to_value(self, column, table: QTableWidget):
+    def set_column_to_value(self, column, table: QTableView | QTableWidget):
         """
         Set all cells in the specified column to a user-provided value.
         Args:
@@ -1112,27 +1119,39 @@ class ImportWizardDialog(QWidget):
 
         # Update all rows in the column
         table.blockSignals(True)
-        for row in range(table.rowCount()):
-            item = table.item(row, column)
-            if item is None:
-                item = QTableWidgetItem()
-                table.setItem(row, column, item)
-            item.setText(value)
+        if isinstance(table, QTableWidget):
+            for row in range(table.rowCount()):
+                item = table.item(row, column)
+                if item is None:
+                    item = QTableWidgetItem()
+                    table.setItem(row, column, item)
+                item.setText(value)
+        elif isinstance(table, QTableView):
+            for row in range(table.model().rowCount()):
+                index = table.model().index(row, column)
+                data = table.model().data(index, Qt.ItemDataRole.DisplayRole)
+                if data in ['NULL', None, '']:
+                    table.model().setData(index, value)
         table.blockSignals(False)
 
-    def set_column_to_blank(self, column, table: QTableWidget):
+    def set_column_to_blank(self, column, table: QTableWidget | QTableView):
         """
         Set all cells in the specified column to blank.
         Args:
             column (int): The column index to update.
         """
         # Update all rows in the column
-        for row in range(table.rowCount()):
-            item = table.item(row, column)
-            if item is None:
-                item = QTableWidgetItem()
-                table.setItem(row, column, item)
-            item.setText("")
+        if isinstance(table, QTableWidget):
+            for row in range(table.model().rowCount()):
+                item = table.item(row, column)
+                if item is None:
+                    item = QTableWidgetItem()
+                    table.setItem(row, column, item)
+                item.setText("")
+        elif isinstance(table, QTableView):
+            for row in range(table.model().rowCount()):
+                index = table.model().index(row, column)
+                table.model().setData(index, "")
 
     def handle_vertical_header_double_click(self, logical_index):
         """
@@ -1140,11 +1159,12 @@ class ImportWizardDialog(QWidget):
         Args:
             logical_index (int): The row index corresponding to the double-clicked header.
         """
-        item = self.right_table.item(logical_index, 0)
-        if logical_index in self.rejected_rows[self.current_sheet_name]:
-            self.mark_selected_rows_rejected([item], False)
+        status = self.right_table.model().return_row_status(logical_index)
+        if logical_index and status == 'rejected':
+            self.mark_selected_rows_rejected([logical_index], False)
         else:
-            self.mark_selected_rows_rejected([item], True)
+            self.mark_selected_rows_rejected([logical_index], True)
+        self.update_left_table_row_status()
 
     # ---------------------------
     #    Context Menu Methods
@@ -1158,11 +1178,9 @@ class ImportWizardDialog(QWidget):
     #         column (int): Column index of the clicked cell.
     #     """
     #     # Determine the clicked column's header
-    #     header_item = self.right_table.horizontalHeaderItem(column)
-    #     if not header_item:
+    #     column_name = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+    #     if not column_name:
     #         return
-    #
-    #     column_name = header_item.text()
     #
     #     # Map column names to database tables
     #     column_to_table = {
@@ -1212,7 +1230,7 @@ class ImportWizardDialog(QWidget):
     # def set_cell_combobox(self, model, row, column_index):
     #     name_col = WC.name_column(model.tableName())
     #
-    #     field = self.right_table.horizontalHeaderItem(column_index).text().strip()
+    #     field = str(self.right_table.model().headerData(column_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)).strip()
     #
     #     for temp_row in range(model.rowCount()):
     #         name_index = model.index(temp_row, name_col)
@@ -1248,17 +1266,20 @@ class ImportWizardDialog(QWidget):
     #         id_column = None
     #
     #     name_column = field_to_column.get(field)
-    #
-    #     item = self.right_table.item(row, id_column)
+    #     index = self.right_table.model().index(row, id_column)
+    #     item = self.right_table.model().data(index)
     #     if item is None:
     #         item = QTableWidgetItem()
-    #         self.right_table.setItem(row, id_column, item)
+    #         index = self.right_table.model().index(row, id_column)
+    #         self.right_table.model().setData(index, item)
     #     item.setText(str(checked_item_id))
     #
-    #     item = self.right_table.item(row, name_column)
+    #     index = self.right_table.model().index(row, name_column)
+    #     item = self.right_table.model().data(index)
     #     if item is None:
     #         item = QTableWidgetItem()
-    #         self.right_table.setItem(row, name_column, item)
+    #         index = self.right_table.model().index(row, name_column)
+    #         self.right_table.model().setData(index, item)
     #     item.setText(str(checked_item_name))
     #     self.right_table.blockSignals(False)
 
@@ -1269,6 +1290,11 @@ class ImportWizardDialog(QWidget):
         :param before:
         """
         # Open the Column Map Dialog to let the user select a column name and data type
+
+        if self.sender() in [self.combo_reference_comboBox, self.combo_instrument_comboBox,
+                             self.combo_lab_facility_comboBox, self.combo_upb_analysis_method_comboBox]:
+            # Set the current sheet to the U-Pb data sheet
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
 
         if field is None:
             dialog = ColumnMapDialog("New Column", "None", self)
@@ -1284,26 +1310,26 @@ class ImportWizardDialog(QWidget):
             QMessageBox.warning(self, "Invalid Selection", "Please select a valid column field.")
             return
 
-        for test_idx in range(self.right_table.columnCount()):
-            header = self.right_table.horizontalHeaderItem(test_idx)
-            if header and header.text().startswith(selected_field):
+        for test_idx in range(self.right_table.model().columnCount()):
+            header = self.right_table.model().headerData(test_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+            if header and header.startswith(selected_field):
                 QMessageBox.warning(self, "Duplicate Column", f"Column '{selected_field}' already exists.")
                 return
 
+        self.loading_manager.show_loading_dialog('Adding Column', f'Adding column {selected_field}...')
         if column_index is None:
             # Insert the new column at the end of the table
-            column_index = self.right_table.columnCount()
+            column_index = self.right_table.model().columnCount()
         else:
             if not before:
                 column_index += 1
 
-        self.right_table.insertColumn(column_index)
+        self.right_table.model().insertColumn(column_index)
 
         # Set the column header
         header_text = f"{selected_field}"
-        header_item = QTableWidgetItem(header_text)
-        header_item.setBackground(QBrush(QColor("#C0FFB8")))  # Green background for new column
-        self.right_table.setHorizontalHeaderItem(column_index, header_item)
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text, Qt.ItemDataRole.EditRole)
+        self.right_table.model().setHeaderData(column_index, Qt.Orientation.Vertical, QColor("#C0FFB8"), Qt.ItemDataRole.BackgroundRole)  # Green background for new column
 
         # Update the mappings for the current sheet
         # Shift existing mappings to the right, starting with the largest index
@@ -1332,9 +1358,6 @@ class ImportWizardDialog(QWidget):
         # Add the new column index to the list of added columns
         self.original_columns[self.current_sheet_name]['added'].append(column_index)
 
-        self.right_table.blockSignals(True)
-        # Initialize the column cells with empty values
-
         if selected_field == "Reference Display":
             field = "ReferenceID"
         elif selected_field == "Instrument Name":
@@ -1344,33 +1367,25 @@ class ImportWizardDialog(QWidget):
         elif selected_field == "UPb Analysis Method Name":
             field = "UPbAnalysisMethodID"
 
-        for row in range(self.right_table.rowCount()):
-            self.right_table.setItem(row, column_index, QTableWidgetItem(""))
-        self.right_table.blockSignals(False)
-
         # add additional ID column if column is References, Instruments, Analysis Methods, or Lab Facilities
         if selected_field in ["Reference Display", "Instrument Name", "Lab Facility Name", "UPb Analysis Method Name"]:
             # ADD ID Column to the tablewidget
             # Insert the new column at the end of the table
-            column_index = self.right_table.columnCount()
-            self.right_table.insertColumn(column_index)
+            column_index = self.right_table.model().columnCount()
+            self.right_table.model().insertColumn(column_index)
 
             # Set the column header
             header_text = f"{field}"
-            header_item = QTableWidgetItem(header_text)
-            self.right_table.setHorizontalHeaderItem(column_index, header_item)
+            self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, header_text, Qt.ItemDataRole.EditRole)
 
             # Update the mappings for the current sheet
             self.sheet_mappings[self.current_sheet_name][column_index] = field
             self.original_columns[self.current_sheet_name]['added'].append(column_index)
 
-            self.right_table.blockSignals(True)
-            # Initialize the column cells with empty values
-            for row in range(self.right_table.rowCount()):
-                self.right_table.setItem(row, column_index, QTableWidgetItem(""))
-            self.right_table.blockSignals(False)
             self.right_table.hideColumn(column_index)
-            self.right_table.resizeColumnsToContents()
+            # self.right_table.resizeColumnsToContents()
+
+        self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {selected_field}...')
 
         # Notify the user only when method is initated from the user
         if field is None:
@@ -1408,21 +1423,28 @@ class ImportWizardDialog(QWidget):
 
         action = menu.exec(self.right_table.mapToGlobal(pos))
         if action:
+            selected_rows = []
+            selected_columns = []
+            for index in self.right_table.model().selectedIndexes():
+                if index.row() not in selected_rows:
+                    selected_rows.append(index.row())
+                if index.column() not in selected_columns:
+                    selected_columns.append(index.column())
             if action == remove_action:
-                self.remove_selected_rows()
+                self.remove_selected_rows(selected_rows)
             elif action == disable_action:
-                self.disable_selected_rows(self.right_table.selectedItems())
+                self.disable_selected_rows(selected_rows)
             elif action == reject_action:
-                self.mark_selected_rows_rejected(self.right_table.selectedItems(), True)
+                self.mark_selected_rows_rejected(selected_rows, True)
             elif action == accept_action:
-                self.mark_selected_rows_rejected(self.right_table.selectedItems(), False)
+                self.mark_selected_rows_rejected(selected_rows, False)
             elif action == set_value_action:
                 new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
                 if ok:
-                    for item in self.right_table.selectedItems():
-                        item.setText(new_value)
+                    for index in self.right_table.model().selectedIndexes():
+                        self.right_table.model().setData(index, new_value)
             elif action == remove_column:
-                self.remove_selected_columns()
+                self.remove_selected_columns(selected_columns)
 
         self.repaint()
 
@@ -1443,16 +1465,19 @@ class ImportWizardDialog(QWidget):
         accept_action = menu.addAction("Mark Selected Rows as Accepted")
 
         action = menu.exec(self.right_table.mapToGlobal(pos))
-        items = self.right_table.selectedItems()
         if action:
+            selected_rows = []
+            for index in self.right_table.selectedIndexes():
+                if index.row() not in selected_rows:
+                    selected_rows.append(index.row())
             if action == remove_action:
-                self.remove_selected_rows()
+                self.remove_selected_rows(selected_rows)
             elif action == disable_action:
-                self.disable_selected_rows(items)
+                self.disable_selected_rows(selected_rows)
             elif action == reject_action:
-                self.mark_selected_rows_rejected(items, True)
+                self.mark_selected_rows_rejected(selected_rows, True)
             elif action == accept_action:
-                self.mark_selected_rows_rejected(items, False)
+                self.mark_selected_rows_rejected(selected_rows, False)
 
         self.repaint()
 
@@ -1462,39 +1487,61 @@ class ImportWizardDialog(QWidget):
 
     def handle_cell_change(self, row, column):
         """
-        Handle cell value changes. Ask the user if they want to flash fill downward.
+        Handle cell value changes in the left table. Ask the user if they want to flash fill downward.
         """
 
         if self.sender() == self.left_table:
             target_table = self.left_table
+            # Get the current value of the cell
+            current_value = target_table.item(row, column).text().strip()
+            if target_table.item(row + 1, column) is None:
+                return
+
+            next_value = target_table.item(row + 1, column).text().strip()
+            # If the value is empty or invalid, ignore
+            if (not current_value or
+                    next_value == current_value or
+                    len(next_value) > 0 or
+                    len(target_table.selectionModel().selectedIndexes()) > 1):
+                return
+
+            ## Check if the user wants to flash fill - disabled for now
+            # reply = QMessageBox.question(
+            #     self, "Flash Fill Downward",
+            #     "Do you want to auto-fill downward with this value for blank cells?",
+            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            # )
+            #
+            # if reply == QMessageBox.StandardButton.Yes:
+            #     self.flash_fill_downward(target_table, row, column, current_value)
         elif self.sender() == self.right_table:
             target_table = self.right_table
+            # Get the current value of the cell
+            index = target_table.model().index(row, column)
+            current_value = str(target_table.model().data(index, Qt.ItemDataRole.DisplayRole)).strip()
+            index_below = target_table.model().index(row + 1, column)
+            next_value = target_table.item(row + 1, column).text().strip()
+            # If the value is empty or invalid, ignore
+            if (not current_value or
+                    next_value == current_value or
+                    len(next_value) > 0 or
+                    len(target_table.selectionModel().selectedIndexes()) > 1):
+                return
+
+            ## Check if the user wants to flash fill - disabled for now
+            # reply = QMessageBox.question(
+            #     self, "Flash Fill Downward",
+            #     "Do you want to auto-fill downward with this value for blank cells?",
+            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            # )
+            #
+            # if reply == QMessageBox.StandardButton.Yes:
+            #     self.flash_fill_downward(target_table, row, column, current_value)
         else:
             return
 
-        # Get the current value of the cell
-        current_value = target_table.item(row, column).text().strip()
-        if target_table.item(row + 1, column) is None:
-            return
-
-        next_value = target_table.item(row + 1, column).text().strip()
-        # If the value is empty or invalid, ignore
-        if (not current_value or
-                next_value == current_value or
-                len(next_value) > 0 or
-                len(target_table.selectionModel().selectedIndexes()) > 1):
-            return
-
-        ## Check if the user wants to flash fill - disabled for now
-        # reply = QMessageBox.question(
-        #     self, "Flash Fill Downward",
-        #     "Do you want to auto-fill downward with this value for blank cells?",
-        #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        # )
-        #
-        # if reply == QMessageBox.StandardButton.Yes:
-        #     self.flash_fill_downward(target_table, row, column, current_value)
 
     def flash_fill_downward(self, target_table, start_row, column, value):
         """
@@ -1540,18 +1587,28 @@ class ImportWizardDialog(QWidget):
                 if reply == QMessageBox.StandardButton.No:
                     return
             try:
-                logger_setup.get_logger().debug("Loading sheets from Excel file")
+                logger_setup.get_logger().debug(f"Loading sheets from Excel file {os.path.basename(path)}")
                 self.loading_manager.show_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
-                self.wb = load_workbook(path, data_only=True, rich_text=True)
+                load_workbook_start = time.time()
+                wb = load_workbook(path, data_only=True, rich_text=True)
+                # wb = load_workbook(path, data_only=True, keep_vba=False, read_only=True, rich_text=True, keep_links=False)
+                logger_setup.get_logger().info(f"Excel file {os.path.basename(path)} loaded in {(time.time() - load_workbook_start):.2f} seconds")
                 self.combo_sheets.clear()
-                self.combo_sheets.addItems(self.wb.sheetnames)
+                self.sheet_mappings.clear()
+                self.static_mappings.clear()
+                self.item_ids.clear()
+                self.right_tables.clear()
+                self.combo_sheets.addItems(wb.sheetnames)
                 combo_sheets = QComboBox()
                 combo_sheets.clear()
-                combo_sheets.addItems(self.wb.sheetnames)
+                combo_sheets.addItems(wb.sheetnames)
                 self.workbook_tabs.clear()
+                for sheet in wb.worksheets:
+                    sheet_name = sheet.title.strip()
+                    self.sheets[sheet_name] = sheet
 
                 # Ask the user which sheet contains U-Pb data if multiple sheets exist
-                if len(self.wb.sheetnames) > 1:
+                if len(self.sheets.values()) > 1:
                     sheet_dialog = QDialog(self)
                     sheet_dialog.setWindowTitle("Select U-Pb sheet")
                     sheet_layout = QVBoxLayout()
@@ -1569,46 +1626,43 @@ class ImportWizardDialog(QWidget):
                     selected_sheet = combo_sheets.currentText()
                     if selected_sheet:
                         self.combo_sheets.setCurrentText(selected_sheet)
-                for sheet in self.wb.worksheets:
+                for sheet in self.sheets.values():
                     row_count = sheet.max_row
-                    col_count = sheet.max_column
                     sheet.title = sheet.title.strip()
                     if row_count > 10000:
-                        QMessageBox(QMessageBox.Icon.Warning, "Large Sheet Warning", f"Sheet {sheet.title} has {row_count} rows\n\n" 
-                                    f"Loading the data will take a while and may cause the application to become unresponsive.\n\n"
-                                    f"Do you want to continue?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-                        if QMessageBox.StandardButton.No:
+                        msg_box = QMessageBox()
+                        msg_box.setIcon(QMessageBox.Icon.Warning)
+                        msg_box.setWindowTitle("Large Sheet Warning")
+                        msg_box.setText(f"Sheet {sheet.title} has {row_count} rows.\n\n"
+                                        f"Loading the data will take a while and may cause the application to become unresponsive.\n\n"
+                                        f"Do you want to continue?")
+                        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                        reply = msg_box.exec()
+                        if reply != QMessageBox.StandardButton.Yes:
                             continue
                     logger_setup.get_logger().debug(f"Loading sheet: {sheet.title}")
                     self.loading_manager.show_loading_dialog(f"Loading {sheet.title}", f"Loading sheet {sheet.title} with {row_count} rows...")
                     # Add a new tab for each sheet
                     self.sheet_mappings[sheet.title] = {}
                     self.static_mappings[sheet.title] = {}
-                    self.right_table = QTableWidget()
+                    self.right_table = QTableView()
                     self.right_tables[sheet.title] = self.right_table
                     self.workbook_tabs.addTab(self.right_table, sheet.title)
                     self.current_sheet_name = sheet.title
-                    df = pd.read_excel(self.selected_file_path, header=None, sheet_name=sheet.title,
-                                                engine="openpyxl")
-                    self.dfs[sheet.title] = df
-                    rejected_rows = set()
-                    disabled_rows = set()
-                    self.rejected_rows[sheet.title] = rejected_rows
-                    self.disabled_rows[sheet.title] = disabled_rows
 
                     # Display data on the right table
                     self.display_right_table_with_styles(sheet.title)
 
                     # Record the original mapping of column indexes
-                    for col in range(self.right_table.columnCount()):
+                    for col in range(self.right_table.model().columnCount()):
                         self.original_columns[self.current_sheet_name] = {}
                         self.original_columns[self.current_sheet_name][col] = col
 
                     self.right_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
                     self.right_table.customContextMenuRequested.connect(self.show_right_table_context_menu)
-                    self.right_table.cellChanged.connect(self.handle_cell_change)
+                    self.right_table.model().dataChanged.connect(self.handle_cell_change)
 
-                    self.right_table.cellDoubleClicked.connect(self.on_cell_clicked)
+                    self.right_table.doubleClicked.connect(self.on_cell_clicked)
 
                     self.right_table.verticalHeader().sectionDoubleClicked.connect(
                         self.handle_vertical_header_double_click)
@@ -1628,7 +1682,7 @@ class ImportWizardDialog(QWidget):
                     if sheet.title == self.combo_sheets.currentText():
                         # This is the U-Pb sheet, so sync it with the left table
                         # Make sure the left table has the same number of rows
-                        self.left_table.setRowCount(self.right_table.rowCount())
+                        self.left_table.setRowCount(self.right_table.model().rowCount())
                         # Scroll synchronization (vertical)
                         self.left_table.verticalScrollBar().valueChanged.connect(
                             self.right_table.verticalScrollBar().setValue
@@ -1641,7 +1695,7 @@ class ImportWizardDialog(QWidget):
                                                              f"Loading sheet {sheet.title} with {row_count} rows...")
 
                 self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex())
-                # self.load_sheet(bypass=True)
+                wb.close()
             except Exception as e:
                 logger_setup.get_logger().critical("Error", f"Failed to read Excel file:\n{e}")
                 return
@@ -1690,47 +1744,6 @@ class ImportWizardDialog(QWidget):
         else:
             self.left_widget.hide()
 
-    # def load_sheet(self, bypass=False):
-    #
-    #     if bypass:
-    #         if QMessageBox.question(self, "Confirmation", "Loading this sheet will clear all existing data. Continue?",
-    #                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-    #                                 QMessageBox.StandardButton.Yes) == QMessageBox.StandardButton.No:
-    #             return
-    #
-    #     if not hasattr(self, 'selected_file_path') or not self.selected_file_path:
-    #         QMessageBox.warning(self, "No File", "Please select an Excel file first.")
-    #         return
-    #     sheet_name = self.combo_sheets.currentText()
-    #     if not sheet_name:
-    #         QMessageBox.warning(self, "No Sheet", "Please select a sheet.")
-    #         return
-    #     self.loading_manager.show_loading_dialog('Loading', f'Loading {sheet_name}...')
-    #     try:
-    #         self.df = pd.read_excel(self.selected_file_path, header=None, sheet_name=sheet_name, engine="openpyxl")
-    #     except Exception as e:
-    #         QMessageBox.critical(self, "Error", f"Failed to parse sheet with pandas:\n{e}")
-    #         return
-    #
-    #     # Remove initial blank rows
-    #     while not self.df.empty and self.df.iloc[0].isna().all():
-    #         self.df = self.df.iloc[1:].reset_index(drop=True)
-    #
-    #     # Reset mapping & rejections
-    #     self.rejected_rows.clear()
-    #     self.disabled_rows.clear()
-    #
-    #     # Display data on the right table
-    #     self.display_right_table_with_styles(sheet_name)
-    #
-    #     # Build the left table rows
-    #     self.sync_left_table_rows()
-    #
-    #     # Auto-guess column names
-    #     # self.auto_guess_column_names()
-    #
-    #     self.loading_manager.close_loading_dialog("Loading", f"Loading {sheet_name}...")
-
     def display_right_table_with_styles(self, sheet_name):
         """
         Display the right table with openpyxl-based formatting
@@ -1738,84 +1751,16 @@ class ImportWizardDialog(QWidget):
         """
         # self.loading_manager.show_loading_dialog('Loading', f'Displaying {sheet_name}...')
         logger_setup.get_logger().debug(f"Displaying sheet: {sheet_name}")
-        sheet = self.wb[sheet_name]
-        df = self.dfs[sheet_name]
-        self.right_table.clear()
-        self.right_table.setRowCount(0)
-        self.right_table.setColumnCount(0)
+        display_start_time = time.time()
+        check_style = self.identify_rejected.isChecked()
 
-        rows, cols = df.shape
-        self.right_table.setRowCount(rows)
-        self.right_table.setColumnCount(cols)
-
-        # Set column headers for the loaded data columns
-        for c in range(cols):
-            col_name = str(df.columns[c])
-            hdr_item = QTableWidgetItem(col_name)
-            self.right_table.setHorizontalHeaderItem(c, hdr_item)
-
-        # Populate cells for the loaded data
-        self.left_table.blockSignals(True)
-        self.right_table.blockSignals(True)
-        for r in range(rows):
-            row_rejected = False
-            for c in range(cols):
-                cell = sheet.cell(row=r + 1, column=c + 1)
-                value = df.iat[r, c]
-                # replace with NULL if blank or empty AND strips values of trailing/leading spaces, tabs, carat returns
-                disp_val = "NULL" if pd.isna(value) or value == "" else str(value).strip()
-
-                item = QTableWidgetItem(disp_val)
-                font = cell.font
-                fill = cell.fill
-
-                # Foreground
-                # automatically detects if a given cell has a color assigned to it
-                if font.color and hasattr(font.color, "rgb") and isinstance(font.color.rgb, str):
-                    hex_col = "#" + font.color.rgb[-6:]
-                    item.setForeground(QBrush(QColor(hex_col)))
-                    # if the color is red or close to red set the row to rejected automatically
-                    if hex_col.lower() in ["#EB1800", "#FF00000"]:  # Red
-                        row_rejected = True
-
-                qfont = QFont()
-                qfont.setBold(font.bold if font.bold else False)
-                qfont.setItalic(font.italic if font.italic else False)
-                qfont.setStrikeOut(font.strike if font.strike else False)
-                item.setFont(qfont)
-
-                # if the row is strikethroughed auto set rejected
-                if font.strike:
-                    row_rejected = True
-
-                # Sets the background color
-                if isinstance(fill, PatternFill) and fill.fgColor and fill.fgColor.rgb:
-                    bg_hex = "#" + fill.fgColor.rgb[-6:]
-                    if fill.fill_type and fill.fill_type != "none":
-                        item.setBackground(QBrush(QColor(bg_hex)))
-
-                self.right_table.setItem(r, c, item)
-
-            if row_rejected:
-                rejected_rows = self.rejected_rows[self.current_sheet_name]
-                rejected_rows.add(r)
-                self.rejected_rows[self.current_sheet_name] = rejected_rows
-
-        self.left_table.blockSignals(False)
-        self.right_table.blockSignals(False)
-        # Setup vertical header icons
-        rejected_rows = self.rejected_rows[self.current_sheet_name]
-        disabled_rows = self.disabled_rows[self.current_sheet_name]
-        for r in range(rows):
-            if r in rejected_rows:
-                self.update_row_icon(r, "rejected")
-            elif r in disabled_rows:
-                self.update_row_icon(r, "disabled")
-            else:
-                self.update_row_icon(r, "accepted")
+        dataframe_model = ImportSheetModel(self.sheets[sheet_name], check_style)
+        print(f'Rows: {dataframe_model.rowCount()}, Columns: {dataframe_model.columnCount()}')
+        self.right_table.setModel(dataframe_model)
 
         self.right_table.resizeColumnsToContents()
-        # self.loading_manager.close_loading_dialog('Loading', f'Displaying {sheet_name}...')
+        self.loading_manager.close_loading_dialog('Loading', f'Displaying {sheet_name}...')
+        logger_setup.get_logger().info(f"Displayed sheet '{sheet_name}' in {(time.time() - display_start_time):.2f} seconds")
 
     def sync_left_table_rows(self):
         """
@@ -1824,7 +1769,8 @@ class ImportWizardDialog(QWidget):
         """
         self.left_table.blockSignals(True)
         right_table = self.right_tables[self.upb_sheet_name]
-        row_count = right_table.rowCount()
+        row_count = right_table.model().rowCount()
+        # row_count = right_table.model().rowCount()
         self.left_table.setRowCount(row_count)
         for r in range(row_count):
             for c in range(3):
@@ -1834,34 +1780,6 @@ class ImportWizardDialog(QWidget):
 
         self.left_table.resizeColumnsToContents()
 
-    # def auto_guess_column_names(self):
-    #     """
-    #     Use difflib to guess the best match from SQLUtils.upb_possible_input_fields for the right table columns
-    #     (excluding the 4 appended columns).
-    #     """
-    #     import difflib
-    #     cutoff = 0.5
-    #
-    #     total_cols = self.right_table.columnCount()
-    #     # Exclude appended columns for Lab, Source, Method, Instrument
-    #     # main_cols = total_cols - 4 if (total_cols > 4 and self.lab_col is not None) else total_cols
-    #     main_cols = total_cols
-    #     for col_idx in range(main_cols):
-    #         original_header = self.right_table.horizontalHeaderItem(col_idx).text()
-    #         best = difflib.get_close_matches(original_header, SQLUtils.upb_possible_user_input_fields, n=1, cutoff=cutoff)
-    #         if best:
-    #             field = best[0]
-    #             self.column_mappings[col_idx] = (field)
-    #             item = self.right_table.horizontalHeaderItem(col_idx)
-    #             item.setText(f"{field}")
-    #             item.setBackground(QBrush(QColor("#B8CFFF")))
-    #         else:
-    #             self.column_mappings[col_idx] = ("None")
-
-    # ---------------------------
-    #     Context Menu Logic
-    # ---------------------------
-
     def set_all_rows(self, field, model):
         """
         Set all rows in the specified column to the given value.
@@ -1869,6 +1787,7 @@ class ImportWizardDialog(QWidget):
             field (str): The field name (e.g., 'Reference', 'Instrument').
             model (checkable model): The model to retrieve checks from.
         """
+        self.loading_manager.show_loading_dialog('Adding Column', f'Adding column {field}...')
         try:
             table = model.tableName()
             name_column = get_name_column(get_view_from_table(table))
@@ -1890,6 +1809,7 @@ class ImportWizardDialog(QWidget):
                     source_checked_row = row
                     break
             if checked_item_name is None or checked_item_id is None:
+                self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {field}...')
                 return
             logger_setup.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
         else:
@@ -1901,6 +1821,7 @@ class ImportWizardDialog(QWidget):
                 checked_item_id = checked_items[0]
                 source_checked_row = checked_indices[0].row()
             else:
+                self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {field}...')
                 return
 
         field_to_column = {
@@ -1947,22 +1868,16 @@ class ImportWizardDialog(QWidget):
         name_column = field_to_column.get(field)
 
         self.right_table.blockSignals(True)
-        for row in range(self.right_table.rowCount()):
-            id_item = self.right_table.item(row, id_column)
-            if id_item is None:
-                self.right_table.setItem(row, id_column, QTableWidgetItem(str(checked_item_id)))
-            else:
-                id_item.setText(str(checked_item_id))
-
-        for row in range(self.right_table.rowCount()):
-            id_item = self.right_table.item(row, name_column)
-            if id_item is None:
-                self.right_table.setItem(row, name_column, QTableWidgetItem(str(checked_item_name)))
-            else:
-                id_item.setText(str(checked_item_name))
+        for row in range(self.right_table.model().rowCount()):
+            index = self.right_table.model().index(row, id_column)
+            self.right_table.model().setData(index, str(checked_item_id), Qt.ItemDataRole.EditRole)
+            index = self.right_table.model().index(row, name_column)
+            self.right_table.model().setData(index, str(checked_item_name), Qt.ItemDataRole.EditRole)
 
         self.right_table.blockSignals(False)
-        # self.right_table.hideColumn(id_column)
+        self.right_table.hideColumn(id_column)
+        # self.right_table.resizeColumnsToContents()
+        self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {field}...')
         QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name)}' for {field}.")
 
     def get_column_index(self, header_name):
@@ -1973,95 +1888,65 @@ class ImportWizardDialog(QWidget):
         Returns:
             int: The column index, or None if not found.
         """
-        for col in range(self.right_table.columnCount()):
-            header_item = self.right_table.horizontalHeaderItem(col)
-            if header_item and header_item.text().startswith(header_name):
+        for col in range(self.right_table.model().columnCount()):
+            header = self.right_table.model().headerData(col, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+            if header and header.startswith(header_name):
                 return col
         return None
 
     def get_column_name(self, column_index):
-        return self.right_table.horizontalHeaderItem(column_index)
+        return self.right_table.model().headerData(column_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
 
-    def update_row_icon(self, row_idx, state: str):
-        header_item = QTableWidgetItem()
-        header_item.setText(str(row_idx + 1))
-        # get the default style text color
-        text_color = self.style().standardPalette().color(QPalette.ColorRole.Text)
-        if state == "rejected":
-            header_item.setIcon(self.rejected_icon)
-            # If the row is gray, un-gray it
-            for c in range(self.right_table.columnCount()):
-                item = self.right_table.item(row_idx, c)
-                if item:
-                    item.setForeground(QBrush(text_color))  # Default text color
-            # If the tab is the upb tab, un-gray the left table row too
-            if self.current_sheet_name == self.upb_sheet_name:
-                for c in range(self.left_table.columnCount()):
-                    item = self.left_table.item(row_idx, c)
-                    if item:
-                        item.setForeground(QBrush(text_color))  # Default text color
-        elif state == "disabled":
-            header_item.setIcon(QIcon())
-            # Gray out the row
-            for c in range(self.right_table.columnCount()):
-                item = self.right_table.item(row_idx, c)
-                if item:
-                    item.setForeground(QBrush(QColor("#A0A0A0")))  # Gray text
-            if self.current_sheet_name == self.upb_sheet_name:
-                for c in range(self.left_table.columnCount()):
-                    item = self.left_table.item(row_idx, c)
-                    if item:
-                        item.setForeground(QBrush(QColor("#A0A0A0")))  # Gray text
-        else:
-            header_item.setIcon(self.accepted_icon)
-            # If the row is gray, un-gray it
-            for c in range(self.right_table.columnCount()):
-                item = self.right_table.item(row_idx, c)
-                if item:
-                    item.setForeground(QBrush(text_color))  # Default text color
-            if self.current_sheet_name == self.upb_sheet_name:
-                for c in range(self.left_table.columnCount()):
-                    item = self.left_table.item(row_idx, c)
-                    if item:
-                        item.setForeground(QBrush(text_color))  # Default text color
-        self.right_table.setVerticalHeaderItem(row_idx, header_item)
+    def update_left_table_row_status(self):
+        """
+        Update the left table row text appearance based on the right table row status.
+        """
+        if self.current_sheet_name == self.upb_sheet_name:
+            # get the default style text color
+            if not self.style().standardPalette():
+                text_color = QColor("#000000")  # Default to black
+            else:
+                text_color = self.style().standardPalette().color(QPalette.ColorRole.Text)
 
-    # Existing logic for removing rows, marking them rejected, etc.
+            for row in range(self.right_table.model().rowCount()):
+                status = self.right_table.model().return_row_status(row)
+                if status == 'disabled':
+                    color = QColor("#A0A0A0")  # Gray
+                else:
+                    color = text_color  # Default text color
+                for c in range(self.left_table.columnCount()):
+                    item = self.left_table.item(row, c)
+                    if item:
+                        item.setForeground(QBrush(color))  # Gray text
 
-    def remove_selected_rows(self, row=None):
-        if row is None:
-            selected_rows = {i.row() for i in self.right_table.selectedItems()}
+    def remove_selected_rows(self, rows=None):
+        if rows is None:
+            selected_rows = [index.row() for index in self.right_table.selectedIndexes()]
             if not selected_rows:
                 return
         else:
-            selected_rows = {row}
+            selected_rows = rows
 
         sr = sorted(selected_rows, reverse=True)
-        df = self.dfs[self.current_sheet_name]
-        if df is not None and len(df) > 0:
-            df.drop(df.index[sr], inplace=True)
-            df.reset_index(drop=True, inplace=True)
         for r in sr:
-            self.right_table.removeRow(r)
+            self.right_table.model().removeRow(r)
             self.left_table.removeRow(r)
-            rejected_rows = self.rejected_rows[self.current_sheet_name]
-            new_rejected = set()
-            for rejected_row in rejected_rows:
-                if rejected_row < r:
-                    new_rejected.add(rejected_row)
-                elif rejected_row > r:
-                    new_rejected.add(rejected_row - 1)
-            self.rejected_rows[self.current_sheet_name] = new_rejected
-        self.update_vertical_headers()
 
-    def remove_selected_columns(self):
+        # self.right_table.resizeColumnsToContents()
+        # if self.current_sheet_name == self.upb_sheet_name:
+        #     self.left_table.resizeColumnsToContents()
+
+    def remove_selected_columns(self, columns=None):
         """
         Remove selected columns from the right table, the column mappings,
         and associated data structures.
         """
-        selected_columns = {i.column() for i in self.right_table.selectedItems()}
-        if not selected_columns:
-            return
+        if columns is None:
+            selected_columns = [index.column() for index in self.right_table.selectedIndexes()]
+            if not selected_columns:
+                return
+        else:
+            selected_columns = columns
 
         # Sort selected columns in descending order to remove from the rightmost column
         sorted_columns = sorted(selected_columns, reverse=True)
@@ -2074,7 +1959,7 @@ class ImportWizardDialog(QWidget):
 
         for column_index in sorted_columns:
             # Remove the column from the right table
-            self.right_table.removeColumn(column_index)
+            self.right_table.model().removeColumn(column_index)
 
             # Update column mappings to reflect the removed column
             if column_index in self.sheet_mappings[self.current_sheet_name]:
@@ -2104,6 +1989,7 @@ class ImportWizardDialog(QWidget):
 
 
         self.sheet_mappings[self.current_sheet_name] = adjusted_mappings
+        self.right_table.resizeRowsToContents()
         # Notify the user
         QMessageBox.information(self, "Columns Removed", "Selected columns have been successfully removed.")
 
@@ -2111,52 +1997,40 @@ class ImportWizardDialog(QWidget):
         """
         Update the vertical headers to ensure they match the current row indices.
         """
-        row_count = self.right_table.rowCount()
-        rejected_rows = self.rejected_rows[self.current_sheet_name]
-        disabled_rows = self.disabled_rows[self.current_sheet_name]
+        row_count = self.right_table.model().rowCount()
         for row_idx in range(row_count):
-            header_item = QTableWidgetItem(str(row_idx + 1))  # Update row numbers
-            # Check if the row is rejected and set the appropriate icon
-            if row_idx in rejected_rows:
-                header_item.setIcon(self.rejected_icon)
-            elif row_idx in disabled_rows:
-                header_item.setIcon(None)
-            else:
-                header_item.setIcon(self.accepted_icon)
-            self.right_table.setVerticalHeaderItem(row_idx, header_item)
+            self.right_table.model().setHeaderData(row_idx, Qt.Orientation.Vertical, row_idx + 1)
+        self.repaint()
 
-    def disable_selected_rows(self, rows: list[QTableWidgetItem]):
-        selected_rows = {i.row() for i in rows}
-        if not selected_rows:
-            return
-        disabled_rows = self.disabled_rows[self.current_sheet_name]
-        rejected_rows = self.rejected_rows[self.current_sheet_name]
+    def disable_selected_rows(self, rows=None):
+        if rows is None:
+            selected_rows = [index.row() for index in self.right_table.selectedIndexes()]
+            if not selected_rows:
+                return
+        else:
+            selected_rows = rows
+
         for r in selected_rows:
-            disabled_rows.add(r)
-            if r in rejected_rows:
-                rejected_rows.discard(r)
-            self.update_row_icon(r, "disabled")
-        self.disabled_rows[self.current_sheet_name] = disabled_rows
-        self.rejected_rows[self.current_sheet_name] = rejected_rows
+            self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "disabled", Qt.ItemDataRole.DecorationRole)
+        if self.current_sheet_name == self.upb_sheet_name:
+            self.update_left_table_row_status()
 
-    def mark_selected_rows_rejected(self, rows: list[QTableWidgetItem], rejected: bool):
-        selected_rows = {i.row() for i in rows}
-        if not selected_rows:
+        self.repaint()
+
+    def mark_selected_rows_rejected(self, rows, rejected: bool):
+        if not rows:
             return
+        if rejected:
+            for r in rows:
+                self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "rejected", Qt.ItemDataRole.DecorationRole)
+        else:
+            for r in rows:
+                self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "accepted", Qt.ItemDataRole.DecorationRole)
+        if self.current_sheet_name == self.upb_sheet_name:
+            self.update_left_table_row_status()
 
-        rejected_rows = self.rejected_rows[self.current_sheet_name]
-        disabled_rows = self.disabled_rows[self.current_sheet_name]
-        for r in selected_rows:
-            if rejected:
-                rejected_rows.add(r)
-                if r in disabled_rows:
-                    disabled_rows.discard(r)  # Black text
-                self.update_row_icon(r, "rejected")
-            else:
-                rejected_rows.discard(r)
-                self.update_row_icon(r, "accepted")
-        self.rejected_rows[self.current_sheet_name] = rejected_rows
-        self.disabled_rows[self.current_sheet_name] = disabled_rows
+        self.repaint()
+
 
     # ---------------------------
     #     Header Double Click
@@ -2166,8 +2040,8 @@ class ImportWizardDialog(QWidget):
         """
         Double-click on a right table header => open mapping dialog.
         """
-        item = self.right_table.horizontalHeaderItem(logical_index)
-        if not item:
+        value = self.right_table.model().headerData(logical_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+        if not value:
             return
         original_header_text = str(logical_index)
         curr_map = self.sheet_mappings[self.current_sheet_name].get(logical_index, "None")
@@ -2185,13 +2059,12 @@ class ImportWizardDialog(QWidget):
                             self.left_table.removeColumn(grain_col_index)
                     del self.sheet_mappings[self.current_sheet_name][logical_index]
                 # Reset the text and background color
-                item.setText(original_header_text)
-                item.setBackground(QBrush(Qt.GlobalColor.transparent))
+                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, str(logical_index), Qt.ItemDataRole.EditRole)
+                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent, Qt.ItemDataRole.BackgroundRole)
             else:
                 self.sheet_mappings[self.current_sheet_name][logical_index] = (new_field)
-                item.setText(f"{new_field}")
-                item.setBackground(QColor("#C0FFB8")  # Green
-                                   )
+                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, f"{new_field}", Qt.ItemDataRole.EditRole)
+                self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, QColor("#C0FFB8"), Qt.ItemDataRole.BackgroundRole)
 
                 # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name / UPb Analysis Name, auto-populate left table
                 if (new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
@@ -2217,29 +2090,29 @@ class ImportWizardDialog(QWidget):
                 upb_analysis_col = column
 
         if field == "Sample Name":
-            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
-                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
-                if not cell_item:
+            for r in range(self.right_tables[self.upb_sheet_name].model().rowCount()):
+                index = self.right_tables[self.upb_sheet_name].model().index(r, logical_index)
+                cell_data = self.right_tables[self.upb_sheet_name].model().data(index)
+                if not cell_data:
                     continue
-                sample_id_value = cell_item.text().strip()
+                sample_id_value = str(cell_data).strip()
 
                 # Update the left table
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, sample_col, QTableWidgetItem(sample_id_value))  # Sample ID
                 self.left_table.blockSignals(False)
-            self.left_table.resizeColumnsToContents()
         elif field == "Aliquot Name":
-            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
-                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
-                if not cell_item:
+            for r in range(self.right_tables[self.upb_sheet_name].model().rowCount()):
+                index = self.right_tables[self.upb_sheet_name].model().index(r, logical_index)
+                cell_data = self.right_tables[self.upb_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole)
+                if not cell_data:
                     continue
-                aliquot_id_value = cell_item.text().strip()
+                aliquot_id_value = str(cell_data).strip()
 
                 # Update the left table
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, aliquot_col, QTableWidgetItem(aliquot_id_value))  # Aliquot ID
                 self.left_table.blockSignals(False)
-            self.left_table.resizeColumnsToContents()
         elif field == "Grain Name":
             left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
                             range(self.left_table.columnCount())]
@@ -2248,49 +2121,50 @@ class ImportWizardDialog(QWidget):
                 # Insert a new column for Grain Name at index 2, give it the header "Grain Name"
                 self.left_table.insertColumn(2)
                 self.left_table.setHorizontalHeaderItem(2, QTableWidgetItem("Grain Name"))
-                self.left_table.resizeColumnsToContents()
                 spot_col = 3  # Spot ID is now at index 3
                 upb_analysis_col = 4  # UPb Analysis Name is now at index 4
-            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
-                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
-                if not cell_item:
+            for r in range(self.right_tables[self.upb_sheet_name].model().rowCount()):
+                index = self.right_tables[self.upb_sheet_name].model().index(r, logical_index)
+                cell_data = self.right_tables[self.upb_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole)
+                if not cell_data:
                     continue
-                grain_id_value = cell_item.text().strip()
+                grain_id_value = str(cell_data).strip()
 
                 # Update the left table
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, 2, QTableWidgetItem(grain_id_value))  # Grain ID
                 self.left_table.blockSignals(False)
-            self.left_table.resizeColumnsToContents()
         elif field == "Spot Name":
-            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
-                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
-                if not cell_item:
+            for r in range(self.right_tables[self.upb_sheet_name].model().rowCount()):
+                index = self.right_tables[self.upb_sheet_name].model().index(r, logical_index)
+                cell_data = self.right_tables[self.upb_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole)
+                if not cell_data:
                     continue
-                spot_id_value = cell_item.text().strip()
+                spot_id_value = str(cell_data).strip()
 
                 # Update the left table
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, spot_col, QTableWidgetItem(spot_id_value))  # Spot ID
                 self.left_table.blockSignals(False)
         elif field == "UPb Analysis Name":
-            for r in range(self.right_tables[self.upb_sheet_name].rowCount()):
-                cell_item = self.right_tables[self.upb_sheet_name].item(r, logical_index)
-                if not cell_item:
+            for r in range(self.right_tables[self.upb_sheet_name].model().rowCount()):
+                index = self.right_tables[self.upb_sheet_name].model().index(r, logical_index)
+                cell_data = self.right_tables[self.upb_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole)
+                if not cell_data:
                     continue
-                upb_analysis_value = cell_item.text().strip()
+                upb_analysis_value = str(cell_data).strip()
 
                 # Update the left table
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, upb_analysis_col, QTableWidgetItem(upb_analysis_value))  # UPb Analysis Name
                 self.left_table.blockSignals(False)
-            self.left_table.resizeColumnsToContents()
+        self.left_table.resizeColumnsToContents()
 
     def update_left_table_background(self, item, color_hex):
         """
         Update the background color of a specific cell in the left table.
         """
-        if item:
+        if item and color_hex:
             item.setBackground(QBrush(QColor(color_hex)))
 
     def update_left_table_on_delimiter_change(self):
@@ -2316,20 +2190,21 @@ class ImportWizardDialog(QWidget):
                     break
 
             if spot_id_column is not None:
-                row_count = self.right_table.rowCount()
+                row_count = self.right_table.model().rowCount()
                 for r in range(row_count):
-                    cell_item = self.right_table.item(r, col_idx)
-                    if not cell_item:
+                    index = self.right_table.model().index(r, spot_id_column)
+                    cell_data = self.right_table.model().data(index)
+                    if not cell_data:
                         continue
 
-                    spot_id_value = cell_item.text().strip()
+                    spot_id_value = str(cell_data).strip()
 
                     # Update the left table
                     self.left_table.blockSignals(True)
                     self.left_table.setItem(r, 0, QTableWidgetItem(""))
                     self.left_table.setItem(r, 2, QTableWidgetItem(spot_id_value))  # Spot ID
                     self.left_table.blockSignals(False)
-        self.left_table.resizeColumnsToContents()
+        # self.left_table.resizeColumnsToContents()
 
     def auto_split_sample_spot(self, col_idx):
         """
@@ -2337,14 +2212,15 @@ class ImportWizardDialog(QWidget):
         using the delimiter, and populate the left table accordingly.
         """
         delimiter = self.delimiter_edit.text().strip()
-        row_count = self.right_table.rowCount()
+        row_count = self.right_table.model().rowCount()
 
         for r in range(row_count):
-            cell_item = self.right_table.item(r, col_idx)
-            if not cell_item:
+            index = self.right_table.model().index(r, col_idx)
+            cell_data = self.right_table.model().data(index)
+            if not cell_data:
                 continue
 
-            spot_id_value = cell_item.text().strip()
+            spot_id_value = str(cell_data).strip()
 
             if delimiter in spot_id_value and delimiter:
                 # Split based on the delimiter
@@ -2369,7 +2245,7 @@ class ImportWizardDialog(QWidget):
                 spot_idx = 2
             self.left_table.setItem(r, spot_idx, QTableWidgetItem(spot_id))  # Spot ID
             self.left_table.blockSignals(False)
-        self.left_table.resizeColumnsToContents()
+        # self.left_table.resizeColumnsToContents()
 
     def save_mapping(self):
         n_mappings = 0
@@ -2397,10 +2273,19 @@ class ImportWizardDialog(QWidget):
             name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
         else:
             items = list(configs.keys())
+            recent_mappings = settings.value("recent_mappings", [])
+            items_sorted = []
+            if recent_mappings:
+                for name in recent_mappings:
+                    if name in items:
+                        items_sorted.append(name)
+            for name in items:
+                if name not in items_sorted:
+                    items_sorted.append(name)
             if not items:
                 name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
             else:
-                dlg = CompleterInputDialog(self, "Save Mapping", "Enter or select a name for this mapping:", items,
+                dlg = CompleterInputDialog(self, "Save Mapping", "Enter or select a name for this mapping:", items_sorted,
                                            True)
                 if dlg.exec() == QDialog.DialogCode.Accepted:
                     name = dlg.get_input()
@@ -2440,13 +2325,13 @@ class ImportWizardDialog(QWidget):
         if not self.mapping_loaded:
             # This is the first time loading a mapping
             new_original_columns = []
-            for sheet in self.wb.sheetnames:
+            for sheet in self.sheets.keys():
                 if (not any(index != column for index, column in self.original_columns[sheet].items()) and
                         'added' not in self.original_columns[sheet].keys()):
                     # This should only be true if no changes have been made to the original columns
                     new_original_columns.append(False)
 
-            if len(new_original_columns) != len(self.wb.sheetnames):
+            if len(new_original_columns) != len(self.sheets.keys()):
                 # Changes have been made to the original columns, so we cannot apply the loaded mapping of the original columns
                 dlg = QMessageBox()
                 dlg.setIcon(QMessageBox.Icon.Warning)
@@ -2498,9 +2383,10 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().info("No mapping selected.")
             return
         logger_setup.get_logger().info(f"Loading Mapping {name}")
+        self.loading_manager.show_loading_dialog('Loading', f'Loading mapping: {name}...')
         loaded = configs[name]
         self.sheet_mappings.clear()
-        for sheet in self.wb.sheetnames:
+        for sheet in self.sheets.keys():
             self.sheet_mappings[sheet] = {}
 
 
@@ -2509,7 +2395,7 @@ class ImportWizardDialog(QWidget):
         #     loaded_original = loaded["OriginalMappings"]
         #
         #
-        #     if len(new_original_columns) == len(self.wb.sheetnames):
+        #     if len(new_original_columns) == len(self.sheets.values()):
         #         # No changes have been made to the original columns, so we can safely apply the loaded mapping of the original columns
         #         logger_setup.get_logger().info("Original Mappings loaded.")
         #         # Ask they user if they want to automatically insert and remove columns or use the existing columns
@@ -2524,16 +2410,16 @@ class ImportWizardDialog(QWidget):
         #         dlg.exec()
         #         if dlg.clickedButton() == add_remove_button:
         #             # Add/remove columns to match the original mapping
-        #             for sheet in self.wb.sheetnames:
+        #             for sheet in self.sheets.keys():
         #                 original = self.original_columns[sheet]
         #                 # First remove any deleted indexes
         #                 cols_to_remove = [idx for key, idx in original.items() if key != 'added' and idx == -1]
         #                 for col in sorted(cols_to_remove, reverse=True):
-        #                     self.right_tables[sheet].removeColumn(col)
+        #                     self.right_tables[sheet].model().removeColumn(col)
         #                 # Now insert any added indexes
         #                 cols_to_add = sorted(original['added'])
         #                 for col in cols_to_add:
-        #                     self.right_tables[sheet].insertColumn(col)
+        #                     self.right_tables[sheet].model().insertColumn(col)
         #             logger_setup.get_logger().info("Added/removed columns successfully.")
         #         elif dlg.clickedButton() == keep_existing_button:
         #             pass
@@ -2545,7 +2431,7 @@ class ImportWizardDialog(QWidget):
             loaded_sheets = loaded["Sheets"]
             loaded_combos = loaded["Units/Formats"]
             for sheet, mappings in loaded_sheets.items():
-                if sheet in self.sheet_mappings:
+                if sheet in self.sheet_mappings.keys():
                     self.sheet_mappings[sheet] = {int(k): v["field"] for k, v in mappings.items()}
             for key, combo in self.combos.items():
                 if key in loaded_combos:
@@ -2565,28 +2451,30 @@ class ImportWizardDialog(QWidget):
 
         for sheet in self.sheet_mappings.keys():
             right_table = self.right_tables[sheet]
-            total_cols = right_table.columnCount()
+            total_cols = right_table.model().columnCount()
             column_mappings = self.sheet_mappings[sheet]
             for col_idx in range(total_cols):
-                hdr_item = right_table.horizontalHeaderItem(col_idx)
-                if not hdr_item:
+                hdr_data = right_table.model().headerData(col_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+                if not hdr_data:
                     continue
                 if col_idx in column_mappings:
                     f_name = column_mappings[col_idx]
-                    hdr_item.setText(f"{f_name}")
-                    hdr_item.setBackground(QBrush(QColor("#B8CFFF")))
+                    right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, f"{f_name}", Qt.ItemDataRole.EditRole)
+                    right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, QColor("#B8CFFF"), Qt.ItemDataRole.BackgroundRole)
                     # If it’s Sample Name / Aliquot Name / Spot Name / Grain Name, auto-populate left table
                     if f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
                         self.update_left_table_on_header_change(f_name, col_idx)
                 else:
-                    hdr_item.setBackground(QBrush(Qt.GlobalColor.transparent))
+                    # Set text to column number and background to transparent
+                    right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, str(col_idx), Qt.ItemDataRole.EditRole)
+                    right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent, Qt.ItemDataRole.BackgroundRole)
         self.update_mapping_list(name, configs)
+        # self.right_table.resizeColumnsToContents()
+        self.loading_manager.close_loading_dialog('Loading', f'Loading mapping: {name}...')
         logger_setup.get_logger().info(f"Mapping {name} loaded successfully.")
         QMessageBox.information(self, "Loaded", f"Mapping '{name}' loaded successfully.")
         self.mapping_loaded = True
         self.current_mapping = name
-
-        self.right_table.resizeColumnsToContents()
 
     def edit_mapping(self, name):
         ok, new_name = QInputDialog.getText(self, "Edit Mapping", "Enter new name for this mapping:")
@@ -2612,8 +2500,9 @@ class ImportWizardDialog(QWidget):
         """
         logger_setup.get_logger().info("Checking empty cells in left table")
         empty_cells = []
+        disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
         for row in range(self.left_table.rowCount()):
-            if row in self.disabled_rows[self.upb_sheet_name]:
+            if row in disabled_rows:
                 continue
             for col in range(self.left_table.columnCount()):
                 cell = self.left_table.item(row, col)
@@ -2626,56 +2515,123 @@ class ImportWizardDialog(QWidget):
         Prompt the user to confirm whether to use autogenerated default values for empty cells.
         """
         missing_count = len(empty_cells)
-        msg = f"{missing_count} cells are empty. Would you like to use autogenerated default values?"
-        reply = QMessageBox.question(self, 'Missing Values', msg,
-                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                                     QMessageBox.StandardButton.Yes)
-
-        if reply == QMessageBox.StandardButton.Yes:
+        msg_box = QMessageBox()
+        msg_box.setIcon(QMessageBox.Icon.Question)
+        msg_box.setWindowTitle("Missing Values")
+        msg_box.setText(f"{missing_count} required cells in the left UPb table are empty. Would you like to use autogenerated default values?")
+        msg_box.setDetailedText(f"""
+        Sample names cannot be missing. 
+        Aliquot names will be set to their associated sample name if missing. 
+        If only one of Spot names or UPb analysis names is missing, the other will be set to the existing name.
+        If grain name is mapped but empty, it will be set to the spot name.
+        Spot names and UPb Analysis names will be set based on Grain names or Aliquot names with a counter if both are missing.""")
+        msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if msg_box.exec() == QMessageBox.StandardButton.Yes:
             return True
         else:
             return False
 
     def fill_empty_cells_with_defaults(self, empty_cells):
         """
-        Method to fill the left table with default values. SampleNames are set to "DefaultSample", AliquotNames are
-         set its associated SampleName, finally SpotNames are set to its associted AliquotName with a dash counter.
-        :param empty_cells:
+        Method to fill the left table with default values.
+        Sample names cannot be missing.
+        Aliquot names will be set to their associated sample name if missing.
+        If only one of Spot names or UPb analysis names is missing, the other will be set to the existing name.
+        If grain name is mapped but empty, it will be set to the spot name.
+        Spot names and UPb Analysis names will be set based on Grain names or Aliquot names with a counter if both are missing.
+        :param empty_cells: list of empty items
         """
         self.left_table.blockSignals(True)
 
+        sample_col = None
+        aliquot_col = None
+        grain_col = None
+        spot_col = None
+        upb_analysis_col = None
+        for column in range(self.left_table.columnCount()):
+            if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
+                sample_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Aliquot Name":
+                aliquot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Grain Name":
+                grain_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "Spot Name":
+                spot_col = column
+            elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
+                upb_analysis_col = column
+
         # Initialize variables for tracking SampleID and counter
-        current_aliquot_id = None
+        current_aliquot_name = None
+        current_grain_name = None
         spot_counter = 0
-        for row, col in empty_cells:
-            if col == 0:  # Sample Name
-                # If Sample ID is missing, set a default value
-                if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
-                    self.left_table.setItem(row, col, QTableWidgetItem("DefaultSample"))
+        empty_rows = set(cell[0] for cell in empty_cells)
+        for row in empty_rows:
+            sample_item = self.left_table.item(row, sample_col)
+            sample_name = sample_item.text().strip() if sample_item else ""
+            aliquot_item = self.left_table.item(row, aliquot_col)
+            aliquot_name = aliquot_item.text().strip() if aliquot_item else ""
+            if grain_col is not None:
+                grain_item = self.left_table.item(row, grain_col)
+            else:
+                grain_item = None
+            grain_name = grain_item.text().strip() if grain_item else ""
+            spot_item = self.left_table.item(row, spot_col)
+            spot_name = spot_item.text().strip() if spot_item else ""
+            upb_analysis_item = self.left_table.item(row, upb_analysis_col)
+            upb_analysis_name = upb_analysis_item.text().strip() if upb_analysis_item else ""
 
-            elif col == 1:  # Aliquot Name
+            if sample_name in ["", 'NULL', None]:
+                sample_item.setBackground(QColor("#FFB8B8"))
+                logger_setup.get_logger().info(f"Sample Name empty in row {row}.") # Light red
+                QMessageBox.warning(self, "No Sample Name", f"Please enter a Sample Name in row {row+1} (red) before proceeding.")
+                self.left_table.scrollToItem(sample_item)
+                return False
+            if aliquot_name in ["", 'NULL', None]:
                 # If Aliquot Name is missing, set equal to Sample Name value
-                if not self.left_table.item(row, col) or not self.left_table.item(row, col).text().strip():
-                    self.left_table.setItem(row, col,
-                                            QTableWidgetItem(self.left_table.item(row, col - 1).text().strip()))
-
-            elif col == 2:  # Spot ID
-                # If Aliquot Name exists, create Spot Name with the counter
-                aliquot_id_item = self.left_table.item(row, col - 1)
-                if aliquot_id_item and aliquot_id_item.text().strip():
-                    aliquot_id = aliquot_id_item.text().strip()
-                    if aliquot_id != current_aliquot_id:
-                        current_aliquot_id = aliquot_id
+                self.left_table.setItem(row, aliquot_col, QTableWidgetItem(sample_name))
+                self.update_left_table_background(self.left_table.item(row, aliquot_col), "#D4B8FF")  # Light purple
+            if spot_name in ["", 'NULL', None] and upb_analysis_name not in ["", 'NULL', None]:
+                # If the Spot Name is missing but the UPb Analysis Name exists, set equal to UPb Analysis Name
+                self.left_table.setItem(row, spot_col, QTableWidgetItem(upb_analysis_name))
+                self.update_left_table_background(self.left_table.item(row, spot_col), "#D4B8FF")
+            elif spot_name not in ["", 'NULL', None] and upb_analysis_name in ["", 'NULL', None]:
+                # If the UPb Analysis Name is missing but the Spot Name exists, set equal to Spot Name
+                self.left_table.setItem(row, upb_analysis_col, QTableWidgetItem(spot_name))
+                self.update_left_table_background(self.left_table.item(row, upb_analysis_col), "#D4B8FF")
+            elif grain_name not in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and upb_analysis_name in ["", 'NULL', None]:
+                # If the grain name exists but both spot name and upb analysis name are missing, set both to GrainName-counter
+                if grain_name != current_grain_name:
+                    current_grain_name = grain_name
+                    spot_counter = 0  # Reset counter for new Grain Name
+                spot_counter += 1
+                self.left_table.setItem(row, spot_col, QTableWidgetItem(f"{grain_name}-{spot_counter}"))
+                self.left_table.setItem(row, upb_analysis_col, QTableWidgetItem(f"{grain_name}-{spot_counter}"))
+                self.update_left_table_background(self.left_table.item(row, spot_col), "#D4B8FF")
+                self.update_left_table_background(self.left_table.item(row, upb_analysis_col), "#D4B8FF")
+            elif grain_item and grain_name in ["", 'NULL', None] and spot_name in ["", 'NULL', None] and upb_analysis_name in ["", 'NULL', None]:
+                # If the grain column is defined but grain name, spot name, and upb analysis name are missing, set all three to AliquotName-counter
+                aliquot_name_item = self.left_table.item(row, aliquot_col)
+                if aliquot_name_item and aliquot_name_item.text().strip() not in ["", 'NULL', None]:
+                    aliquot_name = aliquot_name_item.text().strip()
+                    if aliquot_name != current_aliquot_name:
+                        current_aliquot_name = aliquot_name
                         spot_counter = 0  # Reset counter for new Aliquot Name
                     spot_counter += 1
-                    self.left_table.setItem(row, col, QTableWidgetItem(f"{aliquot_id}-{spot_counter}"))
-
-            # Highlight the updated cell
-            item = self.left_table.item(row, col)
-            self.update_left_table_background(item, "#D4B8FF") # Light purple
+                    self.left_table.setItem(row, grain_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
+                    self.left_table.setItem(row, spot_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
+                    self.left_table.setItem(row, upb_analysis_col, QTableWidgetItem(f"{aliquot_name}-{spot_counter}"))
+                    self.update_left_table_background(self.left_table.item(row, grain_col), "#D4B8FF")
+                    self.update_left_table_background(self.left_table.item(row, spot_col), "#D4B8FF")
+                    self.update_left_table_background(self.left_table.item(row, upb_analysis_col), "#D4B8FF")
+            spot_name = self.left_table.item(row, spot_col).text()
+            if grain_item and self.left_table.item(row, grain_col).text() in ["", 'NULL', None] and spot_name not in ["", 'NULL', None]:
+                # If grain column is defined but Grain Name is still missing, set it equal to the spot name
+                self.left_table.setItem(row, grain_col, QTableWidgetItem(spot_name))
+                self.update_left_table_background(self.left_table.item(row, grain_col), "#D4B8FF")
 
         self.left_table.blockSignals(False)
-        self.left_table.resizeColumnsToContents()
+        # self.left_table.resizeColumnsToContents()
+        return True
 
     def check_duplicates_in_left_table(self):
         """
@@ -2694,6 +2650,8 @@ class ImportWizardDialog(QWidget):
         spot_col = None
         grain_col = None
         upb_analysis_col = None
+        disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
+
         for column in range(self.left_table.columnCount()):
             if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
                 sample_col = column
@@ -2706,15 +2664,19 @@ class ImportWizardDialog(QWidget):
             elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
                 upb_analysis_col = column
         for row in range(self.left_table.rowCount()):
-            if row in self.disabled_rows[self.upb_sheet_name]:
+            if row in disabled_rows:
                 continue
-            sample = self.left_table.item(row, sample_col).data(Qt.ItemDataRole.DisplayRole)
-            aliquot = self.left_table.item(row, aliquot_col).data(Qt.ItemDataRole.DisplayRole)
-            grain = self.left_table.item(row, grain_col).data(Qt.ItemDataRole.DisplayRole)
-            if grain in ['NULL', '']:
+            # todo: troubleshoot this returning the tab name
+            sample = self.left_table.item(row, sample_col).text().strip()
+            aliquot = self.left_table.item(row, aliquot_col).text().strip()
+            if grain_col:
+                grain = self.left_table.item(row, grain_col).text().strip()
+                if grain in ['NULL', '']:
+                    grain = None
+            else:
                 grain = None
-            spot = self.left_table.item(row, spot_col).data(Qt.ItemDataRole.DisplayRole)
-            upb_analysis = self.left_table.item(row, upb_analysis_col).data(Qt.ItemDataRole.DisplayRole)
+            spot = self.left_table.item(row, spot_col).text().strip()
+            upb_analysis = self.left_table.item(row, upb_analysis_col).text().strip()
             if sample not in duplicates.keys():
                 duplicates[sample] = {}
             if aliquot not in duplicates[sample].keys():
@@ -2769,30 +2731,36 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().info("Duplicates found in left table")
             # Highlight the duplicate cells
             self.left_table.blockSignals(True)
-            for row in self.left_table.rowCount():
-                sample_item = self.left_table.item(row, sample_col).data(Qt.ItemDataRole.DisplayRole)
-                if sample_item in duplicates[sample_item].keys():
+            for row in range(self.left_table.rowCount()):
+                # todo: troubleshoot this returning the tab name
+                sample_item = self.left_table.item(row, sample_col)
+                sample_name = sample_item.text().strip()
+                if sample_name in duplicates.keys():
                     self.update_left_table_background(sample_item, '#FFB8B8')  # Light red
                 else:
                     sample_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
-                aliquot_item = self.left_table.item(row, aliquot_col).data(Qt.ItemDataRole.DisplayRole)
-                if aliquot_item in duplicates[sample_item].keys():
+                aliquot_item = self.left_table.item(row, aliquot_col)
+                aliquot_name = aliquot_item.text().strip()
+                if aliquot_name in duplicates[sample_name].keys():
                     self.update_left_table_background(aliquot_item, '#FFB8B8')  # Light red
                 else:
                     aliquot_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
-                spot_item = self.left_table.item(row, spot_col).data(Qt.ItemDataRole.DisplayRole)
-                if spot_item in duplicates[sample_item][aliquot_item].keys():
+                spot_item = self.left_table.item(row, spot_col)
+                spot_name = spot_item.text().strip()
+                if spot_name in duplicates[sample_name][aliquot_name].keys():
                     self.update_left_table_background(spot_item, '#FFB8B8')  # Light red
                 else:
                     spot_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
                 if grain_col:
-                    grain_item = self.left_table.item(row, grain_col).data(Qt.ItemDataRole.DisplayRole)
-                    if grain_item in grain_duplicates:
+                    grain_item = self.left_table.item(row, grain_col)
+                    grain_name = grain_item.text().strip()
+                    if grain_name in grain_duplicates:
                         self.update_left_table_background(grain_item, '#FFB8B8')  # Light red
                     else:
                         grain_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
-                upb_analysis_item = self.left_table.item(row, upb_analysis_col).data(Qt.ItemDataRole.DisplayRole)
-                if upb_analysis_item in upb_analysis_duplicates:
+                upb_analysis_item = self.left_table.item(row, upb_analysis_col)
+                upb_analysis_name = upb_analysis_item.text().strip()
+                if upb_analysis_name in upb_analysis_duplicates:
                     self.update_left_table_background(upb_analysis_item, '#FFB8B8')  # Light red
                 else:
                     upb_analysis_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
@@ -2845,7 +2813,7 @@ class ImportWizardDialog(QWidget):
         conflicts = False
 
         for row in range(self.left_table.rowCount()):
-            if row in self.disabled_rows[self.upb_sheet_name]:
+            if row in disabled_rows:
                 continue
             sample_name = self.left_table.item(row, sample_col).text()
             aliquot_name = self.left_table.item(row, aliquot_col).text()
@@ -2871,8 +2839,7 @@ class ImportWizardDialog(QWidget):
             if sample_match:
                 item = self.left_table.item(row, sample_col)
                 if item:
-                    # todo: change to light yellow
-                    item.setBackground(QColor('#B8FFEC'))  # Light teal
+                    item.setBackground(QColor('#FFFAB8'))  # Light yellow
             else:
                 item = self.left_table.item(row, sample_col)
                 if item:
@@ -2900,7 +2867,7 @@ class ImportWizardDialog(QWidget):
                         item.setBackground(QColor('#FFB8B8'))  # Light red
                         conflicts = True
                     else:
-                        item.setBackground(QColor('#B8FFEC'))  # Light teal
+                        item.setBackground(QColor('#FFFAB8'))  # Light yellow
             else:
                 item = self.left_table.item(row, aliquot_col)
                 if item:
@@ -2928,7 +2895,7 @@ class ImportWizardDialog(QWidget):
                         item.setBackground(QColor('#FFB8B8'))  # Light red
                         conflicts = True
                     else:
-                        item.setBackground(QColor('#B8FFEC'))  # Light teal
+                        item.setBackground(QColor('#FFFAB8'))  # Light yellow
             else:
                 item = self.left_table.item(row, spot_col)
                 if item:
@@ -2957,7 +2924,7 @@ class ImportWizardDialog(QWidget):
                             item.setBackground(QColor('#FFB8B8'))  # Light red
                             conflicts = True
                         else:
-                            item.setBackground(QColor('#B8FFEC'))  # Light teal
+                            item.setBackground(QColor('#FFFAB8'))  # Light yellow
                 else:
                     item = self.left_table.item(row, grain_col)
                     if item:
@@ -2985,7 +2952,7 @@ class ImportWizardDialog(QWidget):
                         item.setBackground(QColor('#FFB8B8'))  # Light red
                         conflicts = True
                     else:
-                        item.setBackground(QColor('#B8FFEC'))  # Light teal
+                        item.setBackground(QColor('#FFFAB8'))  # Light yellow
             else:
                 item = self.left_table.item(row, upb_analysis_col)
                 if item:
@@ -2999,17 +2966,11 @@ class ImportWizardDialog(QWidget):
             message = QMessageBox()
             message.setIcon(QMessageBox.Icon.Warning)
             message.setWindowTitle('Conflicts Detected')
-            message.setText('Teal cells in the left table match existing entries in the database.\n'
+            message.setText('Yellow cells in the left table match existing entries in the database.\n'
                             'If these matches are not intended, rename with a unique name before importing.\n\n'
                             'Red cells in the left table already exist with a different parent item\n'
                             'Resolve red conflicts before importing')
             message.exec()
-            # QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
-            #             'Teal cells in the left table match existing entries in the database.\n'
-            #             'If these matches are not intended, rename with a unique name before importing.\n\n'
-            #             'Red cells in the left table already exist with a different parent item\n'
-            #             'Resolve red conflicts before importing')
-            # Set the current tab to the UPb tab
             return False
         elif any([sample_match, aliquot_match, spot_match, grain_match, upb_analysis_match]) and not self.import_clicked:
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
@@ -3017,13 +2978,9 @@ class ImportWizardDialog(QWidget):
             message = QMessageBox()
             message.setIcon(QMessageBox.Icon.Information)
             message.setWindowTitle('Potential Conflicts Detected')
-            message.setText('Teal cells in the left table match existing entries in the database.\n\n'
+            message.setText('Yellow cells in the left table match existing entries in the database.\n\n'
                             'If these matches are not intended, rename with a unique name before importing.')
             message.exec()
-            # QMessageBox(QMessageBox.Icon.Information, f'Potential conflicts Detected',
-            #             'Teal cells in the left table match existing entries in the database.\n\n'
-            #             'If these matches are not intended, rename with a unique name before importing.')
-            # Set the current tab to the UPb tab
         elif self.import_clicked:
             logger_setup.get_logger().info("Import clicked, no conflicts between the left table and the database detected")
         else:
@@ -3041,6 +2998,7 @@ class ImportWizardDialog(QWidget):
             logger_setup.get_logger().info(f"Checking for duplicate {items} with different GPS coordinates")
 
             for sheet, column_mappings in self.sheet_mappings.items():
+                disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
                 gps_columns = [list(column_mappings.keys())[list(column_mappings.values()).index(field)]
                                for field in SQLUtils.gps_possible_user_input_fields[item_gps_dictionary].keys()
                                if field in column_mappings.values()]
@@ -3056,10 +3014,11 @@ class ImportWizardDialog(QWidget):
                     # Look for duplicate names in the column
                     duplicate_items = {}
                     item_names = {}
-                    for row in range(self.right_tables[sheet].rowCount()):
-                        if row in self.disabled_rows[sheet]:
+                    for row in range(self.right_tables[sheet].model().rowCount()):
+                        if row in disabled_rows:
                             continue
-                        item_name = self.right_tables[sheet].item(row, item_col).text()
+                        index = self.right_tables[sheet].model().index(row, item_col)
+                        item_name = self.right_tables[sheet].model().data(index)
                         if item_name not in item_names.keys():
                             item_names[item_name] = []
                             item_names[item_name].append(row)
@@ -3071,11 +3030,12 @@ class ImportWizardDialog(QWidget):
                         # Now check the GPS coordinates for each duplicate item
                         for item_name, gps_values1 in duplicate_items.items():
                             for row in item_names[item_name]:
-                                gps_values2 = [self.right_tables[sheet].item(row, col).text() for col in gps_columns]
+                                gps_values2 = [self.right_tables[sheet].model().index(row, col).data() for col in gps_columns]
                                 if set(gps_values1) != set(gps_values2):
                                     different_item_gps = True
                                     for col in gps_columns:
-                                        self.right_tables[sheet].item(row, col).setBackground(QColor('#FFB8B8'))  # Light red
+                                        index = self.right_tables[sheet].model().index(row, col)
+                                        self.right_tables[sheet].model().setData(index, QColor('#FFB8B8'), Qt.ItemDataRole.ForegroundRole)  # Light red
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header}.\n\n'
@@ -3110,7 +3070,7 @@ class ImportWizardDialog(QWidget):
                                 return False
                             if query.next():
                                 db_gps_values = [query.value(i) for i in range(1, query.record().count()) if query.record().fieldName(i) in get_headers('GPSLocations')]
-                                gps_values_import = [self.right_tables[sheet].item(row, col).text() for col in gps_columns]
+                                gps_values_import = [self.right_tables[sheet].model().index(row, col).data() for col in gps_columns]
                                 for header in db_gps_column_headers:
                                     if header in gps_columns_db_equivalent:
                                         import_idx = gps_columns_db_equivalent.index(header)
@@ -3119,7 +3079,8 @@ class ImportWizardDialog(QWidget):
                                         if str(db_value) != str(import_value):
                                             different_item_gps = True
                                             for col in gps_columns:
-                                                self.right_tables[sheet].item(row, col).setBackground(QColor('#FFB8B8'))  # Light red
+                                                index = self.right_tables[sheet].model().index(row, col)
+                                                self.right_tables[sheet].setData(index, QColor('#FFB8B8'), Qt.ItemDataRole.ForegroundRole)  # Light red
                     if different_item_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     f'Red cells in the right table indicate GPS coordinate conflicts for the same {item_import_header} with existing database entries.\n\n'
@@ -3135,10 +3096,11 @@ class ImportWizardDialog(QWidget):
                     # Look for duplicate Column Names in the column
                     duplicate_columns = {}
                     column_names = {}
-                    for row in range(self.right_tables[sheet].rowCount()):
-                        if row in self.disabled_rows[sheet]:
+                    for row in range(self.right_tables[sheet].model().rowCount()):
+                        if row in disabled_rows:
                             continue
-                        column_name = self.right_tables[sheet].item(row, column_col).text()
+                        index = self.right_tables[sheet].model().index(row, column_col)
+                        column_name = self.right_tables[sheet].data(index)
                         if column_name not in column_names.keys():
                             column_names[column_name] = []
                             column_names[column_name].append(row)
@@ -3153,11 +3115,12 @@ class ImportWizardDialog(QWidget):
                                        if field in column_mappings.values()]
                         for column_name, gps_values1 in duplicate_columns.items():
                             for row in column_names[column_name]:
-                                gps_values2 = [self.right_tables[sheet].item(row, col).text() for col in gps_columns]
+                                gps_values2 = [self.right_tables[sheet].model().index(row, col).data() for col in gps_columns]
                                 if set(gps_values1) != set(gps_values2):
                                     different_column_gps = True
                                     for col in gps_columns:
-                                        self.right_tables[sheet].item(row, col).setBackground(QColor('#FFB8B8'))  # Light red
+                                        index = self.right_tables[sheet].model().index(row, col)
+                                        self.right_tables[sheet].setData(index, QColor('#FFB8B8'), Qt.ItemDataRole.ForegroundRole)  # Light red
                     if different_column_gps:
                         QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                                     'Red cells in the right table indicate GPS coordinate conflicts for the same Column Name.\n\n'
@@ -3202,6 +3165,7 @@ class ImportWizardDialog(QWidget):
         spot_col = None
         grain_col = None
         upb_analysis_col = None
+        disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
         for column in range(self.left_table.columnCount()):
             if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
                 sample_col = column
@@ -3219,15 +3183,15 @@ class ImportWizardDialog(QWidget):
         existing_upb_analyses = set()
         existing_grains = set()
         for row_idx in range(self.left_table.rowCount()):
-            if row_idx in self.disabled_rows[self.upb_sheet_name]:
+            if row_idx in disabled_rows:
                 continue
-            sample_name = self.left_table.item(row_idx, sample_col).data(Qt.ItemDataRole.DisplayRole)
-            aliquot_name = self.left_table.item(row_idx, aliquot_col).data(Qt.ItemDataRole.DisplayRole)
-            spot_name = self.left_table.item(row_idx, spot_col).data(Qt.ItemDataRole.DisplayRole)
-            grain_name = self.left_table.item(row_idx, grain_col).data(Qt.ItemDataRole.DisplayRole)
+            sample_name = self.left_table.item(row_idx, sample_col).text().strip()
+            aliquot_name = self.left_table.item(row_idx, aliquot_col).text().strip()
+            spot_name = self.left_table.item(row_idx, spot_col).text().strip()
+            grain_name = self.left_table.item(row_idx, grain_col).text().strip()
             if not grain_name or grain_name in ['NULL', '']:
                 grain_name = None
-            upb_analysis_name = self.left_table.item(row_idx, upb_analysis_col).data(Qt.ItemDataRole.DisplayRole)
+            upb_analysis_name = self.left_table.item(row_idx, upb_analysis_col).text().strip()
             # If the aliquot name exists in the database, does it have the same sample name?
             aliquot_id = self.find_matching_id('Aliquots', 'AliquotName', aliquot_name)
             if aliquot_id:
@@ -3464,7 +3428,7 @@ class ImportWizardDialog(QWidget):
                          'Sample Elevation Unit': 'DistanceUnits', 'Column Latitude direction': 'DirectionUnits',
                          'Column Longitude direction': 'DirectionUnits', 'Column Elevation Unit': 'DistanceUnits',
                          'Column Total Height/Depth Unit': 'DistanceUnits', 'Sample Height/Depth Unit': 'DistanceUnits',
-                         'Spot Size Unit': 'DistanceUnits', 'Ratio Error Format': 'ErrorFormats',
+                         'Spot Size Unit': 'DistanceUnits', 'Ratio Error Format': 'ErrorFormats', 'Rejected': 'UPbAnalyses',
                          'Concordance Format': 'ConcordanceFormats', 'Age Error Format': 'ErrorFormats', 'Age Unit': 'AgeUnits'}
 
         query = QSqlQuery()
@@ -3472,25 +3436,31 @@ class ImportWizardDialog(QWidget):
 
         for sheet, column_mappings in self.sheet_mappings.items():
             ambiguous_static_values[sheet] = {}
+            disabled_rows = self.right_tables[sheet].model().rows_for_status('disabled')
             for column, field in column_mappings.items():
                 if field in static_fields.keys():
                     static_table = static_fields[field]
-                    # Get the unique values in this column
-                    static_name_header = get_headers(static_table)[get_name_column(static_table)]
-                    id_header = get_headers(static_table)[0]
-                    query.prepare(f'SELECT "{id_header}", "{static_name_header}" FROM "{static_table}"')
-                    if not query.exec():
-                        logger_setup.get_logger().critical(f'Could not load values from database')
-                        logger_setup.get_logger().debug(f'Failed to query the {static_table} values')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    static_values = {}
-                    while query.next():
-                        static_values[query.value(1)] = query.value(0)
+                    if field == 'Rejected':
+                        static_values = {}
+                        static_values[0] = 'False'
+                        static_values[1] = 'True'
+                    else:
+                        # Get the unique values in this column
+                        static_name_header = get_headers(static_table)[get_name_column(static_table)]
+                        id_header = get_headers(static_table)[0]
+                        query.prepare(f'SELECT "{id_header}", "{static_name_header}" FROM "{static_table}"')
+                        if not query.exec():
+                            logger_setup.get_logger().critical(f'Could not load values from database')
+                            logger_setup.get_logger().debug(f'Failed to query the {static_table} values')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        static_values = {}
+                        while query.next():
+                            static_values[query.value(1)] = query.value(0)
                     unique_values = set()
-                    for row in range(self.right_tables[sheet].rowCount()):
-                        if row not in self.disabled_rows[sheet]:
-                            value = self.right_tables[sheet].item(row, column).text().strip()
+                    for row in range(self.right_tables[sheet].model().rowCount()):
+                        if row not in disabled_rows:
+                            value = self.right_tables[sheet].model().index(row, column).data().strip()
                             if value:
                                 unique_values.add(value)
                     if unique_values:
@@ -3517,30 +3487,54 @@ class ImportWizardDialog(QWidget):
                         continue
                     else:
                         for value, static_table in values.items():
-                            if static_table in SQLUtils.user_viewable_trees:
-                                combo = CheckableTreeCombobox()
-                            else:
-                                combo = CheckableComboBox()
                             field = self.sheet_mappings[sheet][column]
-                            combo.model_modifiable = False
-                            combo.enable_context_menu(False)
-                            combo.set_single_click(True)
-                            populate_combo_box(combo, **{'table': static_table})
+                            if field == 'Rejected':
+                                # Special case for Rejected field
+                                combo = QComboBox()
+                                combo.addItem('Accepted')
+                                combo.addItem('Rejected')
+                                dlg_text = f'Select the best match for {field} "{value}":'
+                            else:
+                                if static_table in SQLUtils.user_viewable_trees:
+                                    combo = CheckableTreeCombobox()
+                                else:
+                                    combo = CheckableComboBox()
+                                combo.model_modifiable = False
+                                combo.enable_context_menu(False)
+                                combo.set_single_click(True)
+                                populate_combo_box(combo, **{'table': static_table})
+                                dlg_text = f'{static_table} are fixed in the database.\n\nSelect the best match for {field} "{value}":'
                             dlg = SetSelectedValues(self, combo)
                             dlg.setWindowTitle(f'Select value for "{value}"')
-                            dlg.main_layout.insertWidget(0, QLabel(f'{static_table} are fixed in the database.\n\n'
-                                                             f'Select the best match for {field} "{value}":'))
+                            dlg.main_layout.insertWidget(0, QLabel(dlg_text))
                             if dlg.exec() == QDialog.DialogCode.Accepted:
                                 combo = dlg.widget
                                 combo: CheckableTreeCombobox | CheckableComboBox
                                 selected_value = combo.currentText()
-                                selected_id = get_id_from_name(static_table, selected_value)
+                                if field == 'Rejected':
+                                    # Special case for Rejected field (boolean)
+                                    if selected_value == 'Rejected':
+                                        selected_id = 1
+                                    else:
+                                        selected_id = 0
+                                else:
+                                    selected_id = get_id_from_name(static_table, selected_value)
                                 if selected_value:
                                     self.static_mappings[sheet][column][value] = selected_id
                                 else:
                                     self.static_mappings[sheet][column][value] = None
                             else:
-                                self.static_mappings[sheet][column][value] = None
+                                cancel_dlg = QMessageBox()
+                                cancel_dlg.setIcon(QMessageBox.Icon.Question)
+                                cancel_dlg.setWindowTitle('Cancel or Skip')
+                                cancel_dlg.setText('Do you want to cancel the validation or skip this value?')
+                                cancel_dlg.addButton('Cancel Validation', QMessageBox.ButtonRole.RejectRole)
+                                cancel_dlg.addButton('Skip Value', QMessageBox.ButtonRole.AcceptRole)
+                                cancel_dlg.setDefaultButton(QMessageBox.StandardButton.Cancel)
+                                if cancel_dlg.exec() == QDialog.DialogCode.Accepted:
+                                    self.static_mappings[sheet][column][value] = None
+                                else:
+                                    return False
 
         return True
 
@@ -3565,7 +3559,7 @@ class ImportWizardDialog(QWidget):
         # For each sheet, check the number of rows minus the disabled rows. Report the largest number of rows to be imported
         inserted_count = 0
         for sheet, table in self.sheet_mappings.items():
-            sheet_row_count = self.right_tables[sheet].rowCount() - len(self.disabled_rows[sheet])
+            sheet_row_count = self.right_tables[sheet].model().rowCount() - len(self.right_tables[sheet].model().rows_for_status('disabled'))
             if sheet_row_count > inserted_count:
                 inserted_count = sheet_row_count
 
@@ -3634,6 +3628,7 @@ class ImportWizardDialog(QWidget):
         spot_col = None
         grain_col = None
         upb_analysis_col = None
+        disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
         for column in range(self.left_table.columnCount()):
             if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
                 sample_col = column
@@ -3646,8 +3641,8 @@ class ImportWizardDialog(QWidget):
             elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
                 upb_analysis_col = column
 
-        row_count = self.right_tables[self.upb_sheet_name].rowCount()
-        import_count = row_count - len(self.disabled_rows[self.upb_sheet_name])
+        row_count = self.right_tables[self.upb_sheet_name].model().rowCount()
+        import_count = row_count - len(disabled_rows)
 
         # Create a modal progress dialog
         progress_dialog = QProgressDialog(
@@ -3658,7 +3653,7 @@ class ImportWizardDialog(QWidget):
         try:
             for row_idx in range(row_count):
                 # Skip disabled rows
-                if row_idx in self.disabled_rows[self.upb_sheet_name]:
+                if row_idx in disabled_rows:
                     continue
                 progress_dialog.setValue(row_idx + 1)
                 # Let the event loop process the dialog's updates
@@ -3723,7 +3718,8 @@ class ImportWizardDialog(QWidget):
                             rollback_savepoint('before_upb_import')
                             return False
                         create_sample.bindValue(":name", record["Sample Name"])
-                        if not create_sample.exec() and 'UNIQUE constraint failed' not in create_sample.lastError().text():
+                        if not create_sample.exec():
+                        # if not create_sample.exec() and 'UNIQUE constraint failed' not in create_sample.lastError().text():
                             logger_setup.get_logger().critical(f"Error importing Sample {record['Sample Name']}")
                             logger_setup.get_logger().debug(f"Failed to execute query to create sample")
                             logger_setup.get_logger().debug(f"Error: {create_sample.lastError().text()}")
@@ -3807,7 +3803,8 @@ class ImportWizardDialog(QWidget):
                         create_aliquot.bindValue(':name', record["Aliquot Name"])
                         create_aliquot.bindValue(':parent_row', record["AliquotParentRow"])
                         create_aliquot.bindValue(':sample_id', record["SampleID"])
-                        if not create_aliquot.exec() and 'UNIQUE constraint failed' not in create_aliquot.lastError().text():
+                        if not create_aliquot.exec():
+                        # if not create_aliquot.exec() and 'UNIQUE constraint failed' not in create_aliquot.lastError().text():
                             logger_setup.get_logger().critical(f"Error importing Aliquot {record['Aliquot Name']}")
                             logger_setup.get_logger().debug(f"Failed to create aliquot {record['Aliquot Name']}")
                             logger_setup.get_logger().debug(f"Error: {create_aliquot.lastError().text()}")
@@ -3870,7 +3867,8 @@ class ImportWizardDialog(QWidget):
                             return False
                         create_spot.bindValue(':name', record["Spot Name"])
                         create_spot.bindValue(':aliquot_id', record["AliquotID"])
-                        if not create_spot.exec() and 'UNIQUE constraint failed' not in create_spot.lastError().text():
+                        if not create_spot.exec():
+                        # if not create_spot.exec() and 'UNIQUE constraint failed' not in create_spot.lastError().text():
                             logger_setup.get_logger().critical(f"Error importing {record['Spot Name']}")
                             logger_setup.get_logger().debug(f"Failed to execute query to create spot")
                             logger_setup.get_logger().debug(f"Error: {create_spot.lastError().text()}")
@@ -3934,7 +3932,8 @@ class ImportWizardDialog(QWidget):
                             return False
                         insert_query.bindValue(':name', record["UPb Analysis Name"])
                         insert_query.bindValue(':spot_id', record["SpotID"])
-                        if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
+                        if not insert_query.exec():
+                        # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
                             logger_setup.get_logger().critical(f"Error importing UPb Analysis {record['UPb Analysis Name']}")
                             logger_setup.get_logger().debug(f"Failed to insert data for spot {record['Spot Name']}")
                             logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
@@ -4009,7 +4008,8 @@ class ImportWizardDialog(QWidget):
         self.item_ids = {}
         item_data = {}
         for table in item_tables:
-            organize_progress_dialog.setValue(organize_count+1)
+            organize_count += 1
+            organize_progress_dialog.setValue(organize_count)
             # Let the event loop process the dialog's updates
             QApplication.processEvents()
             # If the user clicked "Cancel", we can break out
@@ -4047,16 +4047,16 @@ class ImportWizardDialog(QWidget):
                                         if column not in self.item_ids[table][sheet].keys():
                                             self.item_ids[table][sheet][column] = {}
                                         self.item_ids[table][sheet][column][item_header] = {}
-            organize_count += 1
 
         import_progress_dialog = QProgressDialog(
-            "Importing data...", "Cancel", 0, len(item_tables), self
+            "Importing data...", "Cancel", 0, len(self.item_ids.keys()), self
         )
         create_savepoint('before_import_items')
         import_table_count = 0
 
         for table in self.item_ids.keys():
-            import_progress_dialog.setValue(import_table_count+1)
+            import_table_count += 1
+            import_progress_dialog.setValue(import_table_count)
             # Let the event loop process the dialog's updates
             QApplication.processEvents()
             # If the user clicked "Cancel", we can break out
@@ -4096,6 +4096,8 @@ class ImportWizardDialog(QWidget):
                 name_header = None
             for sheet in self.item_ids[table].keys():
                 name_columns = []
+                disabled_rows = self.right_tables[sheet].model().rows_for_status('disabled')
+                rejected_rows = self.right_tables[sheet].model().rows_for_status('rejected')
                 if name_header:
                     for column, item_header in self.item_ids[table][sheet].items():
                         item_header = list(item_header.keys())[0]
@@ -4129,11 +4131,11 @@ class ImportWizardDialog(QWidget):
                 table_name_columns[sheet] = name_columns
                 if name_header not in item_data[table].keys():
                     item_data[table][name_header] = {}
-                for row in range(self.right_tables[sheet].rowCount()):
-                    if row in self.disabled_rows[sheet]:
+                for row in range(self.right_tables[sheet].model().rowCount()):
+                    if row in disabled_rows:
                         continue
                     for name_column in name_columns:
-                        item_name = self.right_tables[sheet].item(row, name_column).text()
+                        item_name = self.right_tables[sheet].model().index(row, name_column).data()
                         if item_name in ['NULL', '', None]:
                             continue
                         if item_name not in item_data[table][name_header].keys():
@@ -4146,8 +4148,11 @@ class ImportWizardDialog(QWidget):
                                 if item_header == name_header:
                                     item = item_name
                                 else:
-                                    item_input = self.right_tables[sheet].item(row, column).text()
-                                    item = item_input
+                                    item_input = self.right_tables[sheet].model().index(row, column).data()
+                                    if item_header == 'Rejected':
+                                        item = self.static_mappings[sheet][column][item_input]
+                                    else:
+                                        item = item_input
                                 if item_header in foreign_keys.keys():
                                     # This column is a foreign key
                                     foreign_table = foreign_keys[item_header]['foreign_table']
@@ -4196,7 +4201,7 @@ class ImportWizardDialog(QWidget):
                                             column_data = self.item_ids[search_table][sheet][column][header][foreign_name_item]
                                             break
                                         elif header == foreign_name_header:
-                                            foreign_name_item = self.right_tables[sheet].item(row, column).text()
+                                            foreign_name_item = self.right_tables[sheet].model().index(row, column).data()
                                             if foreign_name_item in self.item_ids[foreign_table][sheet][column][header].keys():
                                                 column_data = self.item_ids[foreign_table][sheet][column][header][foreign_name_item]
                                                 break
@@ -4210,9 +4215,16 @@ class ImportWizardDialog(QWidget):
                                 item_data[table][name_header][item_name][item_header] = column_data
                         if table == 'UPbAnalyses':
                             if 'Rejected' not in item_data[table][name_header][item_name].keys():
-                                if row in self.rejected_rows:
+                                if row in rejected_rows:
                                     item_data[table][name_header][item_name]['Rejected'] = 1
                                 else:
+                                    item_data[table][name_header][item_name]['Rejected'] = 0
+                            else:
+                                if (item_data[table][name_header][item_name]['Rejected'] == 'Rejected'
+                                    or item_data[table][name_header][item_name]['Rejected'] == 1):
+                                    item_data[table][name_header][item_name]['Rejected'] = 1
+                                elif (item_data[table][name_header][item_name]['Rejected'] == 'Accepted'
+                                      or item_data[table][name_header][item_name]['Rejected'] == 0):
                                     item_data[table][name_header][item_name]['Rejected'] = 0
 
             # Now insert the items into the database
@@ -4254,11 +4266,17 @@ class ImportWizardDialog(QWidget):
                         return False
                     query.bindValue(':name', name)
                 else:
-                    # todo: troubleshoot binding Null values in query
                     # This table does not have a name field. Search for all values instead
                     search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE '
                     for column_name in query_columns:
-                        search_query += f'"{column_name}" = :{column_name} COLLATE NOCASE AND '
+                        if column_name in item_data[table][name_header][item_name].keys():
+                            value = item_data[table][name_header][item_name][column_name]
+                            if value in ['NULL', '', None]:
+                                search_query += f'"{column_name}" IS NULL AND '
+                            else:
+                                search_query += f'"{column_name}" = :{column_name} COLLATE NOCASE AND '
+                        else:
+                            search_query += f'"{column_name}" IS NULL AND '
                     search_query = search_query[:-5]  # Remove the last " AND "
                     if not query.prepare(search_query):
                         logger_setup.get_logger().critical(f'Error importing {table} entry')
@@ -4270,11 +4288,8 @@ class ImportWizardDialog(QWidget):
                     for column_name in query_columns:
                         if column_name in item_data[table][name_header][item_name].keys():
                             value = item_data[table][name_header][item_name][column_name]
-                            if value in ['NULL', '', None]:
-                                value = QVariant()
-                            query.bindValue(f':{column_name}', value)
-                        else:
-                            query.bindValue(f':{column_name}', QVariant())
+                            if value not in ['NULL', '', None]:
+                                query.bindValue(f':{column_name}', value)
                 if not query.exec():
                     logger_setup.get_logger().critical(f'Could not search for existing {table} in database')
                     logger_setup.get_logger().debug(f'Failed to query the {table} values')
@@ -4474,7 +4489,8 @@ class ImportWizardDialog(QWidget):
                             value = QVariant()
                         column = f':{column.replace('/', '').replace('*', '').replace(' ', '_')}'
                         query.bindValue(column, value)
-                    if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
+                    if not query.exec():
+                    # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
                         logger_setup.get_logger().critical(f'Error importing {table} "{item_name}"')
                         logger_setup.get_logger().debug(f'Failed to insert values into {table}')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -4488,7 +4504,6 @@ class ImportWizardDialog(QWidget):
                             header_name = list(header.keys())[0]
                             if item_name in self.item_ids[table][sheet][column][header_name].keys():
                                 self.item_ids[table][sheet][column][header_name][item_name] = item_id
-            import_table_count += 1
         release_savepoint('before_import_items')
         return True
 
@@ -4504,9 +4519,9 @@ class ImportWizardDialog(QWidget):
             "Linking tables...", "Cancel", 0, len(many_tables), self
         )
         linking_count = 0
-        # todo: check linking_count incrementing
         for table in many_tables:
-            linking_progress_dialog.setValue(linking_count+1)
+            linking_count += 1
+            linking_progress_dialog.setValue(linking_count)
             # Let the event loop process the dialog's updates
             QApplication.processEvents()
             # If the user clicked "Cancel", we can break out
@@ -4523,6 +4538,7 @@ class ImportWizardDialog(QWidget):
                 if sheet not in self.item_ids[table2].keys():
                     # The two tables are not on the same sheet, so skip it
                     continue
+                disabled_rows = self.right_tables[sheet].model().rows_for_status('disabled')
                 table1_id = None
                 table2_id = None
                 table1_name_header, table1_name_columns = self.find_name_header(table1, sheet)
@@ -4532,13 +4548,13 @@ class ImportWizardDialog(QWidget):
                 if not table1_name_columns or not table2_name_columns:
                     logger_setup.get_logger().critical(f'Could not find name columns for table {table} in database')
                     continue
-                for row in range(self.right_tables[sheet].rowCount()):
-                    if row in self.disabled_rows[sheet]:
+                for row in range(self.right_tables[sheet].model().rowCount()):
+                    if row in disabled_rows:
                         continue
                     for table1_name_column in table1_name_columns:
                         for table2_name_column in table2_name_columns:
-                            table1_name = self.right_tables[sheet].item(row, table1_name_column).text()
-                            table2_name = self.right_tables[sheet].item(row, table2_name_column).text()
+                            table1_name = self.right_tables[sheet].model().index(row, table1_name_column).data()
+                            table2_name = self.right_tables[sheet].model().index(row, table2_name_column).data()
                             if table1_name in ['NULL', '', None] or table2_name in ['NULL', '', None]:
                                 continue
                             for column1, header1 in self.item_ids[table1][sheet].items():
@@ -4568,7 +4584,7 @@ class ImportWizardDialog(QWidget):
                                         return False
                                     query.bindValue(':table1_id', table1_id)
                                     query.bindValue(':table2_id', table2_id)
-                                    if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
+                                    if not query.exec():
                                         logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
                                         logger_setup.get_logger().debug(f'Failed to query the {table} values')
                                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -4589,7 +4605,8 @@ class ImportWizardDialog(QWidget):
                                         return False
                                     query.bindValue(':table1_id', table1_id)
                                     query.bindValue(':table2_id', table2_id)
-                                    if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
+                                    if not query.exec():
+                                    # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
                                         logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
                                         logger_setup.get_logger().debug(f'Failed to insert values into {table}')
                                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -4598,7 +4615,6 @@ class ImportWizardDialog(QWidget):
                                         rollback_savepoint('before_import_many_to_many')
                                         return False
                                     logger_setup.get_logger().info(f'Linked {table1} "{table1_name}" (ID {table1_id}) with {table2} "{table2_name}" (ID {table2_id})')
-            linking_count += 1
         release_savepoint('before_import_many_to_many')
         return True
 

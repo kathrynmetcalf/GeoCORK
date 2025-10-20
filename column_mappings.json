@@ -923,6 +923,9 @@
                 },
                 "37": {
                     "field": "Spot Description"
+                },
+                "35": {
+                    "field": "Rejected"
                 }
             }
         },
@@ -961,6 +964,164 @@
             },
             "Lu_Hf": {
                 "23": 23
+            }
+        }
+    },
+    "Orme_etal_2025": {
+        "Sheets": {
+            "All Sample Information": {
+                "0": {
+                    "field": "Sample Name"
+                },
+                "1": {
+                    "field": "Sample Latitude degrees"
+                },
+                "2": {
+                    "field": "Sample Latitude direction"
+                },
+                "3": {
+                    "field": "Sample Longitude degrees"
+                },
+                "4": {
+                    "field": "Sample Longitude direction"
+                },
+                "5": {
+                    "field": "Sample Elevation"
+                },
+                "6": {
+                    "field": "Sample Height/Depth"
+                },
+                "7": {
+                    "field": "Sample Height/Depth Error"
+                },
+                "8": {
+                    "field": "Column Name"
+                },
+                "9": {
+                    "field": "Unit"
+                }
+            },
+            "LAICPMS Detrital Zircon U-Pb": {
+                "0": {
+                    "field": "Sample Name"
+                },
+                "1": {
+                    "field": "Spot Name"
+                },
+                "2": {
+                    "field": "Uppm"
+                },
+                "3": {
+                    "field": "206Pb/204Pb"
+                },
+                "4": {
+                    "field": "U/Th"
+                },
+                "5": {
+                    "field": "206Pb/207Pb"
+                },
+                "6": {
+                    "field": "206Pb/207Pb Error"
+                },
+                "7": {
+                    "field": "207Pb/235U"
+                },
+                "8": {
+                    "field": "207Pb/235U Error"
+                },
+                "9": {
+                    "field": "206Pb/238U"
+                },
+                "10": {
+                    "field": "206Pb/238U Error"
+                },
+                "11": {
+                    "field": "ErrorCorr/Rho"
+                },
+                "12": {
+                    "field": "206Pb/238UAge"
+                },
+                "13": {
+                    "field": "206Pb/238UAge Error"
+                },
+                "14": {
+                    "field": "207Pb/235UAge"
+                },
+                "15": {
+                    "field": "207Pb/235UAge Error"
+                },
+                "16": {
+                    "field": "207Pb/206PbAge"
+                },
+                "17": {
+                    "field": "207Pb/206PbAge Error"
+                },
+                "18": {
+                    "field": "Best Age"
+                },
+                "19": {
+                    "field": "Best Age Error"
+                },
+                "20": {
+                    "field": "Concordance"
+                }
+            },
+            "Maximum Depositional Ages": {
+                "0": {
+                    "field": "Sample Name"
+                },
+                "8": {
+                    "field": "Age Constraint"
+                },
+                "9": {
+                    "field": "Direct Age"
+                },
+                "10": {
+                    "field": "Direct Age Error"
+                },
+                "11": {
+                    "field": "Age Description"
+                }
+            }
+        },
+        "Units/Formats": {
+            "Reference": "",
+            "Instrument": "",
+            "Lab Facility": "",
+            "UPb Analysis Method": "",
+            "Elevation Unit": "m",
+            "Height/Depth Unit": "m",
+            "Sample Age Error": "2\u03c3 abs",
+            "Age Unit": "Ma",
+            "U-Pb Age Error": "2\u03c3 abs",
+            "Ratio Error": "2\u03c3 %",
+            "Spot Size Unit": "\u00b5m",
+            "Concordance Format": "Con%"
+        },
+        "OriginalMappings": {
+            "All Sample Information": {
+                "11": 11
+            },
+            "LAICPMS Detrital Zircon U-Pb": {
+                "20": 20
+            },
+            "Maximum Depositional Ages": {
+                "20": 20
+            },
+            "Sandstone Modal Analysis": {
+                "28": 28
+            },
+            "Zircon Epsilon Hafnium": {
+                "3": 3
+            },
+            "U-Pb versus Th U all grains": {
+                "5": 5
+            },
+            "Whole Rock Geochemistry": {
+                "27": 27
+            },
+            "DZ Compilation References": {
+                "7": 7
             }
         }
     }

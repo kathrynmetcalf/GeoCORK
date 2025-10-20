@@ -1390,7 +1390,7 @@ sample_possible_user_input_fields = {
         'Rock Type': ['RockTypes', 'RockTypeName'],
         'Unit': ['Units', 'UnitName']
     },
-    'Sample Age': {
+    'Default Sample Age': {
         'Direct Age': ['SampleAges', 'DirectAge'],
         'Direct Age Error': ['SampleAges', 'DirectAgeError'],
         'Direct Age Error Format': ['SampleAges', 'DirectAgeErrorFormatID'],
@@ -1496,6 +1496,7 @@ upb_possible_user_input_fields = {
         'Instrument Description': ['Instruments', 'InstrumentDescription'],
         'UPb Analysis Method Name': ['UPbAnalysisMethods', 'UPbAnalysisMethodName'],
         'UPb Analysis Method Description': ['UPbAnalysisMethods', 'UPbAnalysisMethodDescription'],
+        'Rejected': ['UPbAnalyses', 'Rejected'],
         'Rejection Reason': ['UPbRejectionReasons', 'UPbRejectionReasonName'],
     },
     'Ratios': {

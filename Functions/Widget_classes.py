@@ -6,6 +6,9 @@ from collections import namedtuple
 from datetime import datetime, timezone
 from multiprocessing.process import parent_process
 
+import pandas as pd
+import openpyxl
+import qtawesome
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
@@ -365,6 +368,289 @@ class SQLiteTableModel(QAbstractTableModel):
         self.endInsertRows()
         logger_setup.get_logger().info(f'Updated {self.table}')
         return True
+
+
+class ImportSheetModel(QAbstractTableModel):
+    """
+    Class to load an openpyxl worksheet into a pandas DataFrame and display it in a QTableView.
+    Adds a DataFrame for row status (accepted, rejected, disabled).
+    :param sheet:
+    :param check_style:
+    :param parent:
+    """
+    def __init__(self, sheet, check_style=False, parent=None):
+        super().__init__(parent=parent)
+        # drop empty rows and columns from the dataframe
+        self.sheet = sheet
+        non_empty_rows = []
+        for row in sheet.iter_rows(values_only=True):
+            if any(cell is not None and cell not in ['', 'NULL'] for cell in row):
+                non_empty_rows.append(row)
+        self._dataframe = pd.DataFrame(non_empty_rows)
+        self.header_background_colors = {}
+        self.cell_background_colors = {}
+        if check_style:
+            self.style_model()
+        self._dataframe.dropna(axis=1, how='all', inplace=True)
+        self._dataframe.fillna('NULL', inplace=True)
+        self._dataframe = self._dataframe.map(strip_strings)
+        # create another dataframe to store row status, accepted, rejected, disabled. Default accepted.
+        self._status_dataframe = pd.DataFrame(['accepted'] * len(self._dataframe), columns=['_row_status'])
+        self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
+        self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
+
+        self.reset_row_headers()
+
+    def rowCount(self, parent: QtC.QModelIndex = QtC.QModelIndex()) -> int:
+        if parent == QtC.QModelIndex():
+            return len(self._dataframe)
+        return 0
+
+    def columnCount(self, parent: QtC.QModelIndex = QtC.QModelIndex()) -> int:
+        if parent == QtC.QModelIndex():
+            return len(self._dataframe.columns)
+        return 0
+
+    def flags(self, index: QtC.QModelIndex) -> QtC.Qt.ItemFlag:
+        if not index.isValid():
+            return QtC.Qt.ItemFlag.NoItemFlags
+        return QtC.Qt.ItemFlag.ItemIsEnabled | QtC.Qt.ItemFlag.ItemIsSelectable | QtC.Qt.ItemFlag.ItemIsEditable
+
+    def data(self, index: QtC.QModelIndex, role: QtC.Qt.ItemDataRole = Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+        if role == QtC.Qt.ItemDataRole.DisplayRole or role == QtC.Qt.ItemDataRole.EditRole:
+            return str(self._dataframe.iat[index.row(), index.column()])
+        elif role == QtC.Qt.ItemDataRole.BackgroundRole:
+            # Return the cell background color if set
+            return self.cell_background_colors.get(index, QBrush(QtC.Qt.GlobalColor.transparent))
+        elif role == QtC.Qt.ItemDataRole.ForegroundRole:
+            # Return gray text if the row is disabled
+            status = self._status_dataframe.iat[index.row(), 0]
+            if status == 'disabled':
+                # logger_setup.get_logger().debug(f'Setting gray text for disabled row {index.row()}')
+                return QBrush(QColor("#A0A0A0"))  # Gray text
+        return None
+
+    def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = Qt.ItemDataRole.EditRole) -> bool:
+        if not index.isValid():
+            return False
+        if role == QtC.Qt.ItemDataRole.EditRole:
+            self._dataframe.iat[index.row(), index.column()] = value
+            self.dataChanged.emit(index, index, [role])
+            return True
+        elif role == QtC.Qt.ItemDataRole.BackgroundRole:
+            # Update the cell background color
+            self.cell_background_colors[index] = value
+            self.dataChanged.emit(index, index, [role])
+        return False
+
+    def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = Qt.ItemDataRole.DisplayRole):
+        if role == QtC.Qt.ItemDataRole.DisplayRole:
+            if orientation == QtC.Qt.Orientation.Horizontal:
+                return str(self._dataframe.columns[section])
+            elif orientation == QtC.Qt.Orientation.Vertical:
+                return str(self._dataframe.index[section])
+        elif role == QtC.Qt.ItemDataRole.BackgroundRole:
+            if orientation == QtC.Qt.Orientation.Horizontal:
+                # Return the column header background color if set
+                return self.header_background_colors.get(section, QBrush(QtC.Qt.GlobalColor.transparent))
+        if role == QtC.Qt.ItemDataRole.DecorationRole and orientation == QtC.Qt.Orientation.Vertical:
+            status = self._status_dataframe.iat[section, 0]
+            if status == 'accepted':
+                return self.accepted_icon
+            elif status == 'rejected':
+                return self.rejected_icon
+            elif status == 'disabled':
+                return None  # No icon for disabled
+        return super().headerData(section, orientation, role)
+
+    def setHeaderData(self, section, orientation, value, role: Qt.ItemDataRole = Qt.ItemDataRole.EditRole):
+        if orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.EditRole:
+            self._dataframe.rename({self._dataframe.columns[section]: value}, axis=1, inplace=True)
+            self.headerDataChanged.emit(orientation, section, section)
+            return True
+        elif orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.BackgroundRole:
+            # Update the column header background color
+            self.header_background_colors[section] = value
+            self.headerDataChanged.emit(orientation, section, section)
+            return True
+        elif orientation == QtC.Qt.Orientation.Vertical:
+            if role == QtC.Qt.ItemDataRole.DecorationRole:
+                # Update the row status based on the value
+                if value in ['accepted', 'rejected', 'disabled']:
+                    self._status_dataframe.iat[section, 0] = value
+                    self.headerDataChanged.emit(orientation, section, section)
+                    # Also update the foreground color of all cells in the row
+                    for column in range(self.columnCount()):
+                        index = self.index(section, column)
+                        self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.ForegroundRole])
+                    return True
+        return super().setHeaderData(section, orientation, value, role)
+
+    def removeSelectedRows(self, rows: list) -> bool:
+        """
+        Removes rows from the table based on provided row indices.
+        :param rows: list of row indices to remove from the table
+        :return: True for success, False otherwise
+        """
+        self.beginRemoveRows(QtC.QModelIndex(), 0, len(self._dataframe) - 1)
+        rows.sort(reverse=True)
+        for row in rows:
+            self._dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+            self._status_dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+        self._dataframe.reset_index(drop=True, inplace=True)
+        self._status_dataframe.reset_index(drop=True, inplace=True)
+        self.endRemoveRows()
+        return True
+
+    def removeRow(self, row: int, parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
+        """
+        Removes a row from the table based on provided row index.
+        :param row: row index to remove from the table
+        :param parent:
+        :return: True for success, False otherwise
+        """
+        self.beginRemoveRows(QtC.QModelIndex(), row, row)
+        self._dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+        self._status_dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+        self._dataframe.reset_index(drop=True, inplace=True)
+        self._status_dataframe.reset_index(drop=True, inplace=True)
+        self.endRemoveRows()
+        return True
+
+    def removeSelectedColumns(self, columns: list) -> bool:
+        """
+        Removes columns from the table based on provided column indices.
+        :param columns: list of column indices to remove from the table
+        :return: True for success, False otherwise
+        """
+        self.beginResetModel()
+        columns.sort(reverse=True)
+        for col in columns:
+            self._dataframe.drop(self._dataframe.columns[col], axis=1, inplace=True)
+        self.endResetModel()
+        return True
+
+    def insertColumns(self, column: int, count: int, parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
+        """
+        Inserts columns into the table at the given position.
+         New columns will be named "{column+count}", and any headers to the left that are the same as their index will be
+         renamed to match their new index.
+        :param column:
+        :param count:
+        :param parent:
+        :return:
+        """
+        self.beginInsertColumns(parent, column, column + count - 1)
+        for i in range(count):
+            new_col_name = f'{column + 1}'
+            self._dataframe.insert(column, new_col_name, 'NULL')
+        self.endInsertColumns()
+        # # Rename any integer headers to the right to match their new index
+        # for col in range(len(self._dataframe.columns)):
+        #     try:
+        #         header = int(self._dataframe.columns[col])
+        #         if header != col:
+        #             self._dataframe.rename({self._dataframe.columns[col]: f'{col}'}, axis=1, inplace=True)
+        #     except ValueError:
+        #         # This header is not an integer, so skip it
+        #         continue
+        # return True
+
+    def insertColumn(self, column: int, parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
+        """
+        Inserts a column into the table at the given position.
+        :param column:
+        :param parent:
+        :return:
+        """
+        self.beginInsertColumns(QtC.QModelIndex(), column, column)
+        new_column = ['NULL'] * len(self._dataframe.index)
+        new_df = pd.DataFrame(new_column, index=self._dataframe.index)
+        upper_df = self._dataframe.iloc[:, :column]
+        lower_df = self._dataframe.iloc[:, column:]
+        self._dataframe = pd.concat([upper_df, new_df, lower_df], axis=1)
+        self._dataframe.fillna('NULL', inplace=True)
+        self.endInsertRows()
+        # Rename any integer headers to the right to match their new index
+        for col in range(column, len(self._dataframe.columns)):
+            try:
+                header = int(self._dataframe.columns[col])
+                if header != col:
+                    self._dataframe.rename({self._dataframe.columns[col]: f'{col}'}, axis=1, inplace=True)
+            except ValueError:
+                # This header is not an integer, so skip it
+                continue
+        return True
+
+    def reset_row_headers(self):
+        """
+        Resets the row headers to be sequential integers starting from 1.
+        """
+        self.beginResetModel()
+        self._dataframe.index = [str(i+1) for i in self._dataframe.index]
+        self._status_dataframe.index = [str(i+1) for i in self._status_dataframe.index]
+        self.endResetModel()
+
+    def rows_for_status(self, status: str):
+        """
+        Returns the row index (not header) for all rows with the given status.
+        :param status: 'accepted', 'rejected', or 'disabled'
+        :return:
+        """
+        if status in ['accepted', 'rejected', 'disabled']:
+            df = self._status_dataframe.copy()
+            df.reset_index(drop=True, inplace=True)
+            return df.index[df['_row_status'] == status].tolist()
+        else:
+            return []
+
+    def return_row_status(self, row) -> str:
+        """
+        Returns the row status of the index's row.
+        """
+        return self._status_dataframe.iat[row, 0]
+
+    def update_row_status(self, row, status: str):
+        """
+        Updates the row status and icon of the index's row.
+        """
+        if status in ['accepted', 'rejected', 'disabled']:
+            self._status_dataframe.iat[row, 0] = status
+
+    def style_model(self):
+        """
+        Styles the model by getting the font and color for each cell in the sheet based on its content.
+        """
+        for row in range(1, self.sheet.max_row + 1):
+            for col in range(1, self.sheet.max_column + 1):
+                cell = self.sheet.cell(row=row, column=col)
+                if cell.font:
+                    font = cell.font
+                    if font.color and hasattr(font.color, "rgb") and isinstance(font.color.rgb, str):
+                        hex_col = "#" + font.color.rgb[-6:]
+                        # if the color is red or close to red set the row to rejected automatically
+                        if hex_col.lower() in ["#EB1800", "#FF00000"]:  # Red
+                            self._status_dataframe[row-1, '_row_status'] = 'rejected'
+                            for column in range(self.columnCount()):
+                                index = self.index(row-1, column)
+                                self.setData(index, QBrush(QColor("red")), QtC.Qt.ItemDataRole.ForegroundRole)
+                                break
+                    # if the row is struck through auto set rejected
+                    if font.strike:
+                        self._status_dataframe[row-1, '_row_status'] = 'rejected'
+                        for column in range(self.columnCount()):
+                            index = self.index(row - 1, column)
+                            self.setData(index, QFont.strikeOut(font.strike), QtC.Qt.ItemDataRole.FontRole)
+                            break
+
+
+    def clear_all_background_colors(self):
+        """
+        Sets all backgrounds to default which is usually transparent
+        """
+        self.cell_background_colors = {}
 
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
@@ -1539,6 +1825,18 @@ def get_column_types(table: str):
         column_types.append(query.value(2))
     return column_types
 
+
+def strip_strings(x):
+    """
+    Remove excess white space from strings. Returns the data unchanged if not a string.
+    :param x: Value from a DataFrame.
+    :return: Stripped value if string, unchanged if another data type.
+    """
+    if isinstance(x, str):
+        return x.strip()
+    return x
+
+
 def display_age(string: str):
     # split string on commas
     if ',' not in string:
@@ -2000,14 +2298,14 @@ def delete_question(table, delete_ids):
                 # Find all child IDs of the given parent_id
                 child_ids = find_child_ids(table, parent_id, child_ids)
             all_delete_ids = set(delete_ids + child_ids)
-            tree_item_names = [get_name_from_id(table, item_id) for item_id in all_delete_ids]
+            tree_item_names = [f'"{get_name_from_id(table, item_id)}"' for item_id in all_delete_ids]
             msg_text = f'Are you sure you want to delete these {len(all_delete_ids)} {table}?'
             if len(tree_item_names) < 11:
                 msg_text += f'\n{table}: {", ".join(tree_item_names)}'
             else:
                 msg_text += f'\n{table}: {", ".join(tree_item_names[:10])}...'
         else:
-            item_names = [get_name_from_id(table, item_id) for item_id in delete_ids]
+            item_names = [f'"{get_name_from_id(table, item_id)}"' for item_id in delete_ids]
             all_delete_ids = set(delete_ids)
             msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?'
             if len(item_names) < 11:
@@ -2015,31 +2313,35 @@ def delete_question(table, delete_ids):
             else:
                 msg_text += f'\n{table}: {", ".join(item_names[:10])}...'
         associations = find_foreign_associations(table, list(all_delete_ids))
-        if len(associations) == 0:
-            association_text = ''
-        elif len(associations) < 4:
-            # List the associations with their names for up to three table associations
-            association_text = '\nAssociated with: '
-            for associated_table, ids in associations.items():
-                if not ids:
-                    logger_setup.get_logger().info(f'Unable to find IDs for {associated_table} associations')
-                    return False
-                elif len(ids) == 0:
-                    continue
-                # append the association text with the number of IDs and the names of the IDs
-                elif len(ids) < 11:
-                    association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids)})'
-                else:
-                    if associated_table == 'UPbAnalyses':
-                        # We can use spot names, but just list the number of analyses
-                        association_text += f'\n{len(ids)} {associated_table}'
-                    else:
-                        association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids[:10])}...)'
+        associated_id_count = sum(len(ids) for ids in associations.values())
+        if associated_id_count == 0:
+            association_text = f'\nAssociated with no other records.'
         else:
-            association_text = f'\nAssociated with '
-            for associated_table, ids in associations.items():
-                # append the association text with the number of IDs and the names of the IDs
-                association_text += f'{len(ids)} {associated_table}, '
+            # Find the number of tables with non-empty associations
+            non_empty_tables = [associated_table for associated_table, ids in associations.items() if ids]
+            if len(non_empty_tables) < 4:
+                # List the associations with their names for up to three table associations
+                association_text = '\nAssociated with: '
+                for associated_table, ids in associations.items():
+                    if not ids:
+                        logger_setup.get_logger().info(f'Unable to find IDs for {associated_table} associations')
+                        return False
+                    elif len(ids) == 0:
+                        continue
+                    # append the association text with the number of IDs and the names of the IDs
+                    elif len(ids) < 11:
+                        association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids)})'
+                    else:
+                        if associated_table == 'UPbAnalyses':
+                            # We can use spot names, but just list the number of analyses
+                            association_text += f'\n{len(ids)} {associated_table}'
+                        else:
+                            association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids[:10])}...)'
+            else:
+                association_text = f'\nAssociated with '
+                for associated_table, ids in associations.items():
+                    # append the association text with the number of IDs and the names of the IDs
+                    association_text += f'{len(ids)} {associated_table}, '
         msg_text += association_text
     msg_box.setText(msg_text)
     msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
@@ -5542,7 +5844,7 @@ class CheckableTreeCombobox(TreeCombobox):
             self.popup_shown = False
             self.clicked = False
             self.stop_typing()
-            self.closing.emit()
+            # self.closing.emit()
             self.update_line_edit()
 
     def eventFilter(self, obj, event):
