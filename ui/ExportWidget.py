@@ -566,6 +566,8 @@ class ExportWidget(QWidget):
             logger_setup.get_logger().critical(f'Error updating table view')
             close_loading_dialog('Loading', 'Updating table view with new parameters')
             return
+        while model.canFetchMore():
+            model.fetchMore()
         self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
         self.worksheet_tabs_dict[current_worksheet_name]['model'] = model
 
@@ -1462,6 +1464,8 @@ class ExportWidget(QWidget):
 
             sample_name_query = f'SELECT SampleID, SampleName FROM Samples ORDER BY SampleName LIMIT 1000'
             self.samples_model.setQuery(sample_name_query)
+            while self.samples_model.canFetchMore():
+                self.samples_model.fetchMore()
             self.samples_proxy.setSourceModel(self.samples_model)
 
             self.samplesincluded_comboBox: CheckableComboBox
@@ -1752,6 +1756,8 @@ class ExportWidget(QWidget):
         model.blockSignals(True)
         model.setTable(table)
         model.select()
+        while model.canFetchMore():
+            model.fetchMore()
         model.blockSignals(False)
         return model
 

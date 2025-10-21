@@ -681,6 +681,8 @@ class ImportWizardDialog(QWidget):
         view_query = ViewQuery('References', False, **query_args)
         table_query = view_query.table_query
         self.combo_reference.setQuery(table_query)
+        while self.combo_reference.canFetchMore():
+            self.combo_reference.fetchMore()
         self.combo_reference_comboBox.setModel(self.combo_reference)
         self.combo_reference_comboBox.setModelColumn(get_name_column('ReferenceView'))
         self.combo_reference_comboBox.closing.connect(
@@ -4548,7 +4550,6 @@ class ImportWizardDialog(QWidget):
         """
         Method to import many-to-many relationships for database tables using the dictionary made during import.
         """
-        # todo: troubleshoot this method
         create_savepoint('before_import_many_to_many')
         linking_progress_dialog = QProgressDialog(
             "Linking tables...", "Cancel", 0, len(many_tables), self

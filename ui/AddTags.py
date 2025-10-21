@@ -148,6 +148,8 @@ class AddTags(QtW.QDialog):
         self.ids_added.append(query.lastInsertId())
         self.model.setTable(self.table)
         self.model.select()
+        while self.model.canFetchMore():
+            self.model.fetchMore()
         self.newName_lineEdit.clear()
         self.newDescription_lineEdit.clear()
         self.display_tags()

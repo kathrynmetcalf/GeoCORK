@@ -803,7 +803,6 @@ class DataViewerWidget(QWidget):
             return
         if table == 'UPbAnalyses':
             sql_query = f'''SELECT DISTINCT {name_header} FROM "{table}" 
-                            JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID
                             WHERE {get_headers(table)[0]} {ids}'''
         else:
             sql_query = f'SELECT DISTINCT {name_header} FROM "{table}" WHERE {get_headers(table)[0]} {ids}'

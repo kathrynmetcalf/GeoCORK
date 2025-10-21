@@ -195,6 +195,10 @@ class AgeFields(QtW.QWidget):
         else:
             samples_sampleage_model.setFilter(f'{self.sample_id_header} IS NULL')
             sample_model.setQuery(f'SELECT DefaultSampleAgeID FROM {self.table} WHERE {self.sample_id_header} IS NULL')
+        while samples_sampleage_model.canFetchMore():
+            samples_sampleage_model.fetchMore()
+        while sample_model.canFetchMore():
+            sample_model.fetchMore()
         if samples_sampleage_model.rowCount() == 0:
             logger_setup.get_logger().info(f"No ages for selected samples {self.sample_ids}")
             self.sample_ages = []
@@ -424,6 +428,8 @@ class AgeFields(QtW.QWidget):
         column_names = get_headers('SampleAges')
         sample_age_table = QtS.QSqlQueryModel()
         sample_age_table.setQuery(f'SELECT * FROM SampleAges WHERE SampleAgeID = {self.sample_age_id}')
+        while sample_age_table.canFetchMore():
+            sample_age_table.fetchMore()
         # if sample_age_table.rowCount() == 0:
         #     logger_setup.get_logger().info("No sample ages to populate")
         #     reset_fields = True
@@ -717,10 +723,16 @@ class AgeFields(QtW.QWidget):
                 logger_setup.get_logger().info(f"SampleAgeID {duplicate_id} already exists with these values")
                 query_model = QtS.QSqlQueryModel()
                 query_model.setQuery(f'SELECT AgeConstraintID FROM SampleAges_AgeConstraints WHERE SampleAgeID = {duplicate_id}')
+                while query_model.canFetchMore():
+                    query_model.fetchMore()
                 current_age_constraints = [query_model.index(row, 0).data() for row in range(query_model.rowCount())]
                 query_model.setQuery(f'SELECT AgeInterpretationID FROM SampleAges_AgeInterpretations WHERE SampleAgeID = {duplicate_id}')
+                while query_model.canFetchMore():
+                    query_model.fetchMore()
                 current_age_interpretations = [query_model.index(row, 0).data() for row in range(query_model.rowCount())]
                 query_model.setQuery(f'SELECT ReferenceID FROM SampleAges_References WHERE SampleAgeID = {duplicate_id}')
+                while query_model.canFetchMore():
+                    query_model.fetchMore()
                 current_age_references = [query_model.index(row, 0).data() for row in range(query_model.rowCount())]
                 selected_age_constraints = self.age_constraint_tree.traverse_checkable_tree(QtC.QModelIndex())[0]
                 selected_age_interpretations = self.age_interpretation_tree.traverse_checkable_tree(QtC.QModelIndex())[0]
@@ -1107,6 +1119,8 @@ class AgeFields(QtW.QWidget):
             logger_setup.get_logger().debug(f'Error: {sample_age_query_model.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {find_query}')
             return
+        while sample_age_query_model.canFetchMore():
+            sample_age_query_model.fetchMore()
         if sample_age_query_model.rowCount() > 0:
             # Check if the description contains any of the sample names
             for row in range(sample_age_query_model.rowCount()):

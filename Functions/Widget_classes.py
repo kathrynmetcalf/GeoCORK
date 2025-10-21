@@ -370,6 +370,13 @@ class SQLiteTableModel(QAbstractTableModel):
         logger_setup.get_logger().info(f'Updated {self.table}')
         return True
 
+    def canFetchMore(self, parent=None):
+        """
+        SQLiteTableModel already selects all data at once, so no more data to fetch.
+        :return:
+        """
+        return False
+
 
 class ImportSheetModel(QAbstractTableModel):
     """
@@ -741,6 +748,8 @@ class DisplayRoundedQueryModel(QSqlQueryModel):
             logger_setup.get_logger().debug(f"SQL query: {query}")
         else:
             self.query = query
+            while self.canFetchMore():
+                self.fetchMore()
             if 'table_info' in query:
                 self.set_table('table_info')
             elif 'WITH ' in query:
@@ -1390,6 +1399,8 @@ def set_table(model: QtS.QSqlTableModel, table: str) -> QtS.QSqlTableModel | boo
         logger_setup.get_logger().critical(f"Failed to set table to {table})")
         logger_setup.get_logger().debug(f"setTable error: {model.lastError().text()}")
         return False
+    while model.canFetchMore():
+        model.fetchMore()
     model.select()
     if model.lastError().text():
         logger_setup.get_logger().critical(f"Failed to set table to {table})")
@@ -1475,10 +1486,7 @@ def get_name_column(table: str) -> int | None:
         return 16
     elif (table in SQLUtils.user_viewable_tables or
           table in ['SampleView', 'SampleEditView', 'Spots', 'GPSLocations', 'FilterGroups', 'ReferenceView',
-                    'ColumnView', 'ColumnEditView', 'Grains', 'GrainView', 'GrainEditView', 'UPbAnalyses', 'UPbView',
-                    'UPbEditView']):
-        return 1
-    elif table == 'UPbAnalyses':
+                    'ColumnView', 'ColumnEditView', 'Grains', 'GrainView', 'GrainEditView', 'UPbAnalyses']):
         return 1
     elif table in ['UPbView', 'UPbEditView', 'GrainView', 'GrainEditView']:
         return 4
@@ -1577,9 +1585,12 @@ def columns_as_list_current(query: str, cols: list) -> list | None:
     model = QtS.QSqlQueryModel()
     model.setQuery(query)
     if model.lastError().text():
-        logger_setup.get_logger().critical(f"Failed to get columns from query: {query}")
+        logger_setup.get_logger().critical(f"Failed to get columns from query")
+        logger_setup.get_logger().debug(f"Query: {query}")
         logger_setup.get_logger().debug(f"Error: {model.lastError().text()}")
         return [None for column in cols]
+    while model.canFetchMore():
+        model.fetchMore()
     columns = []
     for col in cols:
         if isinstance(col, int):
@@ -2338,10 +2349,7 @@ def delete_question(table, delete_ids):
                 # List the associations with their names for up to three table associations
                 association_text = '\nAssociated with: '
                 for associated_table, ids in associations.items():
-                    if not ids:
-                        logger_setup.get_logger().info(f'Unable to find IDs for {associated_table} associations')
-                        return False
-                    elif len(ids) == 0:
+                    if len(ids) == 0:
                         continue
                     # append the association text with the number of IDs and the names of the IDs
                     elif len(ids) < 11:
@@ -2853,10 +2861,14 @@ class TreeModel(QtC.QAbstractProxyModel):
             if isinstance(self.source_model, QSqlTableModel):
                 if self.source_model.tableName() == '':
                     return
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
             elif isinstance(self.source_model, QSqlQueryModel):
                 query_object = source_model.query()
                 if query_object.lastQuery() == '':
                     return
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
             elif isinstance(self.source_model,SQLiteTableModel):
                 if source_model.query_text == '':
                     return
@@ -2926,6 +2938,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
             self.source_model.setQuery(f'{self.base_query}')
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
@@ -2944,6 +2958,11 @@ class TreeModel(QtC.QAbstractProxyModel):
         """
         self.parent_to_children = {}
         self.item_data = {}
+        try:
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
+        except Exception as e:
+            pass
         for row in range(self.source_model.rowCount()):
             record = self.source_model.record(row)
             item_id = record.value(0)  # Assuming the first column is the ID
@@ -3283,12 +3302,16 @@ class TreeModel(QtC.QAbstractProxyModel):
             parentID = int(p_id[2:])
         self.source_model.setQuery(
             f"{self.base_query_sql} {self.id_header} is {item_id} AND {self.parent_id_header} {p_id} AND {self.parent_row_header} is {row}")
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         if self.source_model.rowCount() > 0:
             # If the item is already in the correct place, do nothing
             return True
         # self.save_state.emit()
         self.source_model.setQuery(
             f"{self.base_query_sql} {self.id_header} is {item_id}")  # Only one record for each item ID
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
         if isinstance(oldParentID, int):
             op_id = f'= {oldParentID}'
@@ -3300,6 +3323,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         filtered_model = QtS.QSqlQueryModel()
         filtered_model.setQuery(
             f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} AND {self.parent_row_header} >= {row} ORDER BY {self.parent_row_header} DESC")
+        while filtered_model.canFetchMore():
+            filtered_model.fetchMore()
         child_count = filtered_model.rowCount()
         if child_count > 0:
             # If the parent already has children and the new one is replacing an existing row, update their parent rows
@@ -3309,20 +3334,28 @@ class TreeModel(QtC.QAbstractProxyModel):
                 currentParentRow = filtered_model.record(child).value(2)
                 newParentRow = currentParentRow + 1
                 self.source_model.setQuery(self.base_query)  # Reset the filter
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
                 if not self.update_parent_info(childID, parentID, newParentRow):
                     return False
                 if currentParentRow == row:
                     # Now update the moved item into the new space
                     self.source_model.setQuery(self.base_query)  # Reset the filter
+                    while self.source_model.canFetchMore():
+                        self.source_model.fetchMore()
                     if not self.update_parent_info(item_id, parentID, row):
                         return False
         else:  # no children to update
             self.source_model.setQuery(self.base_query)  # Reset the filter
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
             if not self.update_parent_info(item_id, parentID, row):
                 return False
         # Look for remaining children of the old parent whose parent rows need to be updated, order them by parent row from smallest to largest
         self.source_model.setQuery(
             f"{self.base_query_sql}  {self.parent_id_header} {op_id} AND {self.parent_row_header} > {oldParentRow} ORDER BY {self.parent_row_header} ASC")
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         child_count = self.source_model.rowCount()
         if child_count > 0:
             current_rows = []
@@ -3335,9 +3368,13 @@ class TreeModel(QtC.QAbstractProxyModel):
             for child in range(child_count):
                 newParentRow = current_rows[child] - 1
                 self.source_model.setQuery(self.base_query)  # Reset the filter
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
                 if not self.update_parent_info(child_ids[child], oldParentID, newParentRow):
                     return False
         self.source_model.setQuery(self.base_query)  # Reset the filter
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         return True
 
     def update_parent_info(self, item_id: int, parent_id, parent_row: int):
@@ -3385,6 +3422,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         query = QtS.QSqlQuery()
         p_id = 'IS NULL'
         self.source_model.setQuery(f"{self.base_query_sql} {self.sourceHeaders[1]} {p_id}")
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         child_count = self.source_model.rowCount()
         query.prepare(
             f'INSERT INTO {self.table}({self.parent_row_header}, {self.item_name_header}, {self.item_description_header}) VALUES(:parent_row, :item_name, :item_description)')
@@ -3409,9 +3448,13 @@ class TreeModel(QtC.QAbstractProxyModel):
             if parent_row is None:
                 # If no parent row is given, the item is added to the end of the list
                 self.source_model.setQuery(f"{self.base_query_sql} {self.parent_id_header} {p_id}")
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
                 child_count = self.source_model.rowCount()
                 parent_row = child_count
             self.source_model.setQuery(f"{self.base_query_sql} {self.item_name_header} is '{item_name}'")
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
             item_id = self.source_model.record(0).value(0)
             if not self.moveItem(item_id, parent_row, p_id):
                 rollback_savepoint('before_insert')
@@ -3449,6 +3492,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         filtered_model = QtS.QSqlQueryModel()
         filtered_model.setQuery(
             f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} AND {self.parent_row_header} >= {parent_row} ORDER BY {self.parent_row_header} ASC")
+        while filtered_model.canFetchMore():
+            filtered_model.fetchMore()
         childCount = filtered_model.rowCount()
         if childCount > 0:
             # If the parent already has children at rows beyond the deleted one, update their parent rows to close the gap
@@ -3458,6 +3503,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                 currentParentRow = filtered_model.record(child).value(2)
                 newParentRow = currentParentRow - 1
                 self.source_model.setQuery(self.base_query)  # Reset the filter
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
                 if not self.update_parent_info(childID, parent_id, newParentRow):
                     logger_setup.get_logger().critical(f'Error updating parent row for child')
                     logger_setup.get_logger().debug(f'Child ID: {childID}')
@@ -3498,6 +3545,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         item = self.getItem(proxy_index)
         item_id = item.data(0)
         source_row = None
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         for row in range(self.source_model.rowCount()):
             record = self.source_model.record(row)
             if record.value(0) == item_id:
@@ -3690,6 +3739,8 @@ class TreeModel(QtC.QAbstractProxyModel):
             if row == -1:
                 # If the row is -1, the item is being moved to the end of the list
                 self.source_model.setQuery(f"{self.base_query_sql} {self.sourceHeaders[1]} {p_id}")
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
                 childCount = self.source_model.rowCount()
                 row = childCount
             rows.append(row)
@@ -3701,6 +3752,8 @@ class TreeModel(QtC.QAbstractProxyModel):
         for move in range(len(item_ids)):
             self.source_model.setQuery(
                 f"{self.base_query_sql} {self.id_header} is {item_ids[move]}")  # Only one record for each item ID
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
             oldParentID = self.source_model.record(0).value(1)  # Get the current parent ID
             if self.table == 'Aliquots' and parentID == oldParentID:
                 logger_setup.get_logger().info(f"Cannot reorder top-level aliquots")
@@ -3713,6 +3766,8 @@ class TreeModel(QtC.QAbstractProxyModel):
                 return False
         # All moves were successful
         self.source_model.setQuery(self.base_query)  # Reset the filter
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         release_savepoint('drop_mime_data')
         # Emit signal so that the view can rebuild the tree model
         self.dataEdited.emit()
@@ -3766,6 +3821,8 @@ class TreeModel(QtC.QAbstractProxyModel):
             filtered_model = QtS.QSqlQueryModel()
             filtered_model.setQuery(
                 f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} ORDER BY {self.parent_row_header} ASC")
+            while filtered_model.canFetchMore():
+                filtered_model.fetchMore()
             childCount = filtered_model.rowCount()
             for child in range(childCount):
                 child_id = filtered_model.record(child).value(0)
@@ -3831,8 +3888,12 @@ class CheckableTreeModel(TreeModel):
             if isinstance(self.source_model, QSqlTableModel):
                 if self.source_model.tableName() == '':
                     return
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
             elif isinstance(self.source_model, QSqlQueryModel):
                 query_object = source_model.query()
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
                 if query_object.lastQuery() == '':
                     return
             elif isinstance(self.source_model, SQLiteTableModel):
@@ -3897,6 +3958,8 @@ class CheckableTreeModel(TreeModel):
         else:
             self.source_model = DisplayRoundedQueryModel(db=self.db)
             self.source_model.setQuery(f'{self.base_query}')
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
         self.sourceHeaders = []
         self.proxyHeaders = []
         self.column_headers()
@@ -6472,6 +6535,8 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     if query:
         model = DisplayRoundedQueryModel()
         model.setQuery(query)
+        while model.canFetchMore():
+            model.fetchMore()
         if table:
             model.set_table(table)
         if not table:
@@ -6494,6 +6559,8 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
         model = DisplayRoundedQueryModel()
         show_loading_dialog('Loading', f'Loading related data for {table}...')
         model.setQuery(table_query)
+        while model.canFetchMore():
+            model.fetchMore()
         model.set_table(table)
         close_loading_dialog('Loading', f'Loading related data for {table}...')
     else:
@@ -6521,10 +6588,14 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             # If the combo box is a CheckableComboBox and the table is a view, use CheckableSqlQueryModel
             checkable_model = CheckableSqlQueryModel()
             checkable_model.setQuery(table_query)
+            while checkable_model.canFetchMore():
+                checkable_model.fetchMore()
             comboBox.setModel(checkable_model)
         elif isinstance(comboBox, CheckableComboBox) and query:
             checkable_model = CheckableSqlQueryModel()
             checkable_model.setQuery(query)
+            while checkable_model.canFetchMore():
+                checkable_model.fetchMore()
             comboBox.setModel(checkable_model)
         else:
             try:
@@ -6586,6 +6657,8 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
             item_table = item_view
         elif table_id_header in get_headers(item_edit_view):
             item_table = item_edit_view
+    while model.canFetchMore():
+        model.fetchMore()
     for row in range(model.rowCount()):
         table_id = model.index(row, 0).data()
         if 'View' in item_table:
@@ -6602,6 +6675,8 @@ def populate_model_checks(model: CheckableSqlTableModel | CheckableSqlQueryModel
         else:
             model_query = f"SELECT {table_id_header}, {item_id_header} FROM {item_table} WHERE {item_id_header} {query_where_str} AND {table_id_header} = {table_id}"
         query_model.setQuery(model_query)
+        while query_model.canFetchMore():
+            query_model.fetchMore()
         close_loading_dialog('Loading', f'Loading related data for {item_table}...')
         if query_model.lastError().isValid():
             logger_setup.get_logger().critical(f'Error getting checks for {model.tableName()}')
@@ -6659,6 +6734,8 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
         return False
     table_model = QtS.QSqlQueryModel()
     table_model.setQuery(f"SELECT * FROM {table}")
+    while table_model.canFetchMore():
+        table_model.fetchMore()
     all_items = []
     some_items = []
     for row in range(table_model.rowCount()):
@@ -6670,6 +6747,8 @@ def populate_tree_model_checks(tree_model: CheckableTreeModel, item_ids: list, i
             logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {query_str}')
             return False
+        while query_model.canFetchMore():
+            query_model.fetchMore()
         # Go through each line in the model and check how many item_ids have this tag
         if query_model.rowCount() == len(item_ids):
             # All items have this tag
@@ -6703,6 +6782,8 @@ def populate_many_combo_checks(many_to_many_table: str, combo: QtW.QComboBox, fi
     many_to_many_model = QtS.QSqlTableModel()
     many_to_many_model.setTable(many_to_many_table)
     many_to_many_model.select()
+    while many_to_many_model.canFetchMore():
+        many_to_many_model.fetchMore()
     first_table = many_to_many_table.split('_')[0]
     first_table_id_header = get_headers(first_table)[0]
     all_items = []
@@ -7043,6 +7124,8 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
         return False
     query_model.setQuery(
         f'SELECT {first_table_id_header}, {second_table_id_header} FROM {many_table} WHERE {first_table_id_header} {query_where_str}')
+    while query_model.canFetchMore():
+        query_model.fetchMore()
     current_pairs = []
     for row in range(query_model.rowCount()):
         first_id = query_model.data(query_model.index(row, 0), QtC.Qt.ItemDataRole.DisplayRole)
@@ -7057,6 +7140,8 @@ def update_many_table_with_checks(table: str, checked_ids: list, partially_check
         logger_setup.get_logger().debug(f'Error: {query_model.lastError().text()}')
         logger_setup.get_logger().debug(f'SQL query: {model_query}')
         return False
+    while query_model.canFetchMore():
+        query_model.fetchMore()
     create_savepoint('update_many_table')
     to_remove = []
     to_add = []

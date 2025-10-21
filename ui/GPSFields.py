@@ -190,6 +190,8 @@ class GPSFields(QtW.QWidget):
             query_where_str = f' WHERE {self.item_id_header} IS NULL'
         self.item_model = QtS.QSqlQueryModel()
         self.item_model.setQuery(f'SELECT {self.table_gps_id_header} FROM {self.table}{query_where_str}')
+        while self.item_model.canFetchMore():
+            self.item_model.fetchMore()
         logger_setup.get_logger().info(f'Set {self.table} model query')
         if self.item_model.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
@@ -584,6 +586,8 @@ class GPSFields(QtW.QWidget):
         self.item_model.setQuery(
             f'''SELECT {self.table_gps_id_header}, {self.item_id_header} FROM {self.table} WHERE {self.item_id_header} 
                 in {tuple(self.item_ids)}''')
+        while self.item_model.canFetchMore():
+            self.item_model.fetchMore()
         ids_to_update = {}
         for row in range(self.item_model.rowCount()):
             gps_id = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -659,6 +663,8 @@ class GPSFields(QtW.QWidget):
                 self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} in {tuple(item_ids)}")
             elif len(item_ids) == 1:
                 self.item_model.setQuery(f"SELECT {self.table_gps_id_header} FROM {self.table} WHERE {self.item_id_header} = {item_ids[0]}")
+            while self.item_model.canFetchMore():
+                self.item_model.fetchMore()
             gps_ids = []
             for row in range(self.item_model.rowCount()):
                 id_value = self.item_model.index(row, 0).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -676,8 +682,12 @@ class GPSFields(QtW.QWidget):
                     item_where = f"{self.item_ids[0]}"
                 for gps in gps_ids:
                     self.item_model.setQuery(f"SELECT {self.item_id_header} FROM {self.table} WHERE {self.table_gps_id_header} = {gps} AND {self.item_id_header} IS NOT {item_where}")
+                    while self.item_model.canFetchMore():
+                        self.item_model.fetchMore()
                     other_item_model = QtS.QSqlQueryModel()
                     other_item_model.setQuery(f"SELECT {self.other_table_id_header} FROM {self.other_table} WHERE {self.other_table_gps_id_header} = {gps}")
+                    while other_item_model.canFetchMore():
+                        other_item_model.fetchMore()
                     if self.item_model.rowCount() == 0 and other_item_model.rowCount() == 0:
                         logger_setup.get_logger().info(f"GPS location {gps} is not associated with any other samples or columns")
                         if not gps_id:
@@ -811,9 +821,13 @@ class GPSFields(QtW.QWidget):
         for gps_id in gps_ids:
             self.item_model.setQuery(
                     f"SELECT {self.item_id_header} FROM {self.table} WHERE {self.table_gps_id_header} = {gps_id} AND {self.item_id_header} {sql_where}")
+            while self.item_model.canFetchMore():
+                self.item_model.fetchMore()
             other_item_model = QtS.QSqlQueryModel()
             other_item_model.setQuery(
                     f"SELECT {self.other_table_id_header} FROM {self.other_table} WHERE {self.other_table_gps_id_header} = {gps_id}")
+            while other_item_model.canFetchMore():
+                other_item_model.fetchMore()
             if self.item_model.rowCount() > 0 or other_item_model.rowCount() > 0:
                 other_items = True
         if not other_items:

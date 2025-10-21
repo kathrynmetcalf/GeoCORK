@@ -281,6 +281,8 @@ def convert_direction_id_to_abbreviation(direction_id: str) -> str:
     # direction_model = QtS.QSqlTableModel()
     # direction_model.setTable('DirectionUnits')
     # direction_model.select()
+    # while direction_model.canFetchMore():
+    #     direction_model.fetchMore()
     # direction_model.setFilter(f'DirectionUnitID = "{direction_id}"')
     # if direction_model.rowCount() == 0:
     #     return None

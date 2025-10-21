@@ -307,6 +307,8 @@ class SampleInformation(QtW.QDialog):
             sample_query = f'SELECT * FROM Samples WHERE SampleID IS NULL'
         self.samples_table = QtS.QSqlQueryModel()
         self.samples_table.setQuery(sample_query)
+        while self.samples_table.canFetchMore():
+            self.samples_table.fetchMore()
         if self.samples_table.rowCount() == 0:
             logger_setup.get_logger().info("No samples to populate")
             self.clear_fields()
@@ -443,6 +445,8 @@ class SampleInformation(QtW.QDialog):
         many_to_many_model = QtS.QSqlTableModel()
         many_to_many_model.setTable(many_to_many_table)
         many_to_many_model.select()
+        while many_to_many_model.canFetchMore():
+            many_to_many_model.fetchMore()
         all_items = []
         some_items = []
         text = combo.placeholderText()
@@ -639,6 +643,8 @@ class SampleInformation(QtW.QDialog):
         table_model = QtS.QSqlTableModel()
         table_model.setTable(table)
         table_model.select()
+        while table_model.canFetchMore():
+            table_model.fetchMore()
         # table_model.headerData(0, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
         table_model.setFilter(f"{name_field} is '{text}'")
         item_id = table_model.data(table_model.index(0, 0), QtC.Qt.ItemDataRole.DisplayRole)

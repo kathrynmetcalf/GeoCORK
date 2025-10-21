@@ -69,6 +69,8 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
                 table_model = QtS.QSqlTableModel()
                 table_model.setTable(key)
                 table_model.select()
+                while table_model.canFetchMore():
+                    table_model.fetchMore()
                 if table_model.rowCount == 0 or key == 'GeochemData':
                     # if the table is empty, we can just drop it
                     if not drop_table(key):
@@ -92,6 +94,8 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
             table_model = QtS.QSqlTableModel()
             table_model.setTable(key)
             table_model.select()
+            while table_model.canFetchMore():
+                table_model.fetchMore()
             if table_model.rowCount == 0:
                 # if the table is empty, we can just drop it and replace it with the new one
                 if not drop_table(key):
@@ -284,6 +288,8 @@ def check_database_schema(database: QtS.QSqlDatabase, blank_schema_file: str):
             table_model = QtS.QSqlTableModel()
             table_model.setTable(key)
             table_model.select()
+            while table_model.canFetchMore():
+                table_model.fetchMore()
             if key == 'Sources':
                 if not query.exec(f'''INSERT INTO "References" (ReferenceID, Authors, Year, Title, Source, DOI, 
                                     ReferenceCreated, ReferenceModified) SELECT SourceID, Authors, Year, Title, Source, 

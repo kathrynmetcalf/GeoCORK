@@ -1834,6 +1834,8 @@ def populate_age_conversions(database=None) -> bool:
     age_units = SQLUtils.age_units
     age_conversion_model.setTable('AgeUnitConversions')
     age_conversion_model.select()
+    while age_conversion_model.canFetchMore():
+        age_conversion_model.fetchMore()
     for unit1 in range(len(age_units)):
         for unit2 in range(len(age_units)):
             if unit2 > unit1:
@@ -1923,6 +1925,8 @@ def populate_concordance_conversions(database=None) -> bool:
     concordance_formats = SQLUtils.concordance_formats
     concordance_conversion_model.setTable('ConcordanceFormatConversions')
     concordance_conversion_model.select()
+    while concordance_conversion_model.canFetchMore():
+        concordance_conversion_model.fetchMore()
     for format1 in range(len(concordance_formats)):
         for format2 in range(len(concordance_formats)):
             if format2 > format1:
@@ -2066,6 +2070,9 @@ def populate_distance_conversions(database=None) -> bool:
     distance_units = SQLUtils.distance_units
     distance_conversion_model.setTable('DistanceUnitConversions')
     distance_conversion_model.select()
+    while distance_conversion_model.canFetchMore():
+        distance_conversion_model.fetchMore()
+    # International standard foot is 0.3048 meters exactly
     m_per_ft = 0.3048
     for unit1 in range(len(distance_units)):
         for unit2 in range(len(distance_units)):
@@ -2166,6 +2173,8 @@ def populate_error_conversions(database=None) -> bool:
     error_formats = SQLUtils.error_formats
     error_conversion_model.setTable('ErrorFormatConversions')
     error_conversion_model.select()
+    while error_conversion_model.canFetchMore():
+        error_conversion_model.fetchMore()
     for format1 in range(len(error_formats)):
         for format2 in range(len(error_formats)):
             if format2 > format1:
@@ -2272,8 +2281,12 @@ def populate_gps_conversions(database=None) -> bool:
     gps_formats = SQLUtils.gps_formats
     gps_format_model.setTable('GPSFormats')
     gps_format_model.select()
+    while gps_format_model.canFetchMore():
+        gps_format_model.fetchMore()
     gps_conversion_model.setTable('GPSFormatConversions')
     gps_conversion_model.select()
+    while gps_conversion_model.canFetchMore():
+        gps_conversion_model.fetchMore()
     for format1 in range(len(gps_formats)):
         for format2 in range(len(gps_formats)):
             if format1 == format2:

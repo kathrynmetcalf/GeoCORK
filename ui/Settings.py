@@ -317,7 +317,8 @@ def update_abbreviation(id_key: str) -> bool:
     elif id_key == 'concordance_format_id':
         model.setQuery(
             f"SELECT ConcordanceFormatAbbreviation FROM ConcordanceFormats WHERE ConcordanceFormatID = {settings.value(id_key)}")
-
+    while model.canFetchMore():
+        model.fetchMore()
     if model.rowCount() == 0:
         logger_setup.get_logger().critical(f"Error: No results found for {id_key}: {model.lastError().text()}")
         return False
@@ -433,6 +434,8 @@ class SettingsDialog(QtW.QDialog):
         self.reference_display_lineEdit.setText(reference_format)
 
         self.about_db_model.setQuery('SELECT * FROM About WHERE AboutID = 1')
+        while self.about_db_model.canFetchMore():
+            self.about_db_model.fetchMore()
         self.db_name_lineEdit.setText(self.about_db_model.record(0).value('Name'))
         self.db_authors_lineEdit.setText(self.about_db_model.record(0).value('Authors'))
         self.db_description_lineEdit.setText(self.about_db_model.record(0).value('Description'))
@@ -586,11 +589,15 @@ class SettingsDialog(QtW.QDialog):
         table, column, id_header, setting_key = self.variables_from_combobox(comboBox)
 
         model.setQuery(f'SELECT {column} FROM {table} WHERE {id_header} = {settings.value(setting_key)}')
+        while model.canFetchMore():
+            model.fetchMore()
         if model.rowCount() == 0:
             comboBox.setCurrentIndex(0)
         else:
             current_value = model.record(0).value(column)
             model.setQuery(f'SELECT {column} FROM {table} ORDER BY {id_header}')
+            while model.canFetchMore():
+                model.fetchMore()
             comboBox.setModel(model)
             comboBox.setCurrentText(current_value)
 
@@ -605,6 +612,8 @@ class SettingsDialog(QtW.QDialog):
 
         selected_text = comboBox.currentText()
         model.setQuery(f'SELECT {id_header} FROM {table} WHERE {column} = "{selected_text}"')
+        while model.canFetchMore():
+            model.fetchMore()
         if model.rowCount() == 1:
             update_setting(setting_key, model.record(0).value(id_header))
             update_abbreviation(setting_key)

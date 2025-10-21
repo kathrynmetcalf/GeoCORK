@@ -106,6 +106,8 @@ class EditTable(QtW.QDialog):
         self.name_header = self.table_headers[self.name_column]
         self.model.setQuery(
             f'SELECT * FROM "{self.table}" ORDER BY {self.name_header} LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}')
+        while self.model.canFetchMore():
+            self.model.fetchMore()
         self.table_headers = get_headers(self.table)
         self.table_proxy_model.setSourceModel(self.model)
         self.table_proxy_model.setFilterKeyColumn(-1)  # search all columns

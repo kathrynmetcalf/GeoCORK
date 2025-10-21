@@ -167,6 +167,8 @@ def validate_update(table: str, columns: list, values: list, where: str):
     table_model = QtS.QSqlTableModel()
     table_model.setTable(table)
     table_model.select()
+    while table_model.canFetchMore():
+        table_model.fetchMore()
     table_model.setFilter(where)
     all_records = []
     for col in range(1, table_model.columnCount()):
@@ -376,11 +378,15 @@ def check_insert_age_range(pairs: list, old_column: str, young_column: str):
     if age_model:
         if new_old != 'NULL' and new_young != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
+            while age_model.canFetchMore():
+                age_model.fetchMore()
             if age_model.rowCount() == 0:
                 return f'{old_column} does not exist', old_column
             oldest_old = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
             youngest_old = age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole)
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_young}')
+            while age_model.canFetchMore():
+                age_model.fetchMore()
             if age_model.rowCount() == 0:
                 return f'{young_column} does not exist', young_column
             oldest_young = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -412,12 +418,16 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
     if age_model:
         if new_old != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_old}')
+            while age_model.canFetchMore():
+                age_model.fetchMore()
             if age_model.rowCount() == 0:
                 return f'{old_column} does not exist', old_column
             new_oldest_old = float(age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole))
             new_youngest_old = float(age_model.index(0, 5).data(QtC.Qt.ItemDataRole.DisplayRole))
         if new_young != 'NULL':
             age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {new_young}')
+            while age_model.canFetchMore():
+                age_model.fetchMore()
             if age_model.rowCount() == 0:
                 return f'{young_column} does not exist', young_column
             new_oldest_young = float(age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole))
@@ -429,6 +439,8 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
             for old_young in old_youngs:
                 if old_young != 'NULL':
                     age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {old_young}')
+                    while age_model.canFetchMore():
+                        age_model.fetchMore()
                     if age_model.rowCount() == 0:
                         return f'{young_column} does not exist', young_column
                     oldest_young = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -439,6 +451,8 @@ def check_update_age_range(all_records: list, old_column: str, young_column: str
             for old_old in old_olds:
                 if old_old != 'NULL':
                     age_model.setQuery(f'SELECT * FROM Ages WHERE {get_headers('Ages')[0]} = {old_old}')
+                    while age_model.canFetchMore():
+                        age_model.fetchMore()
                     if age_model.rowCount() == 0:
                         return f'{old_column} does not exist', old_column
                     oldest_old = age_model.index(0, 4).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -467,6 +481,8 @@ def check_gps_format_insert(pairs: list, format_id: int):
     gps_format_model = QtS.QSqlTableModel()
     gps_format_model.setTable('GPSFormats')
     gps_format_model.select()
+    while gps_format_model.canFetchMore():
+        gps_format_model.fetchMore()
     gps_format_model.setFilter(f'GPSFormatID = {format_id}')
     gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
     for pair in pairs:
@@ -596,6 +612,8 @@ def check_gps_format_update(all_records: list, new_format_id: int):
     gps_format_model = QtS.QSqlTableModel()
     gps_format_model.setTable('GPSFormats')
     gps_format_model.select()
+    while gps_format_model.canFetchMore():
+        gps_format_model.fetchMore()
     gps_format_model.setFilter(f'GPSFormatID = {new_format_id}')
     gps_format_abbreviation = gps_format_model.data(gps_format_model.index(0, 2))
     for record in all_records:
