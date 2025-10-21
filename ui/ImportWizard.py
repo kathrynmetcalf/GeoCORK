@@ -349,14 +349,13 @@ class ImportWizardDialog(QWidget):
         combo_box_layout = QHBoxLayout()
         combo_box_layout.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        # todo: remove delimiter functionality if not needed
-        # Delimiter label + line edit
-        delimiter_label = QLabel("Delimiter:")
-        delimiter_label.setFixedWidth(50)
-        self.delimiter_edit = QLineEdit()
-        self.delimiter_edit.setPlaceholderText("e.g., -, etc.")
-        self.delimiter_edit.setFixedSize(QSize(100, 25))
-        self.delimiter_edit.textChanged.connect(self.update_left_table_on_delimiter_change)  # Connect signal
+        # # Delimiter label + line edit
+        # delimiter_label = QLabel("Delimiter:")
+        # delimiter_label.setFixedWidth(50)
+        # self.delimiter_edit = QLineEdit()
+        # self.delimiter_edit.setPlaceholderText("e.g., -, etc.")
+        # self.delimiter_edit.setFixedSize(QSize(100, 25))
+        # self.delimiter_edit.textChanged.connect(self.update_left_table_on_delimiter_change)  # Connect signal
 
         combo_box_layout.addWidget(QLabel("Notice: These dropdowns will overwrite all data in the tables.   "), 1,
                                    Qt.AlignmentFlag.AlignLeft)
@@ -404,15 +403,15 @@ class ImportWizardDialog(QWidget):
         formats_layout1.setAlignment(Qt.AlignmentFlag.AlignRight)
         formats_layout2.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        formats_layout1.addWidget(delimiter_label)
-        formats_layout1.addWidget(self.delimiter_edit)
+        # formats_layout1.addWidget(delimiter_label)
+        # formats_layout1.addWidget(self.delimiter_edit)
 
         formats_layout1.addStretch(1)
 
-        self.delimiter_checkbox = QCheckBox('Enable Delimiter?')
-        self.delimiter_checkbox.checkStateChanged.connect(self.update_left_table_on_delimiter_change)
-        formats_layout2.addWidget(self.delimiter_checkbox, Qt.AlignmentFlag.AlignLeft)
-        self.delimiter_checkbox.setToolTip('Will split the Spot Name column into Sample, Aliquot, (Grain), and Spot Names based on the delimiter')
+        # self.delimiter_checkbox = QCheckBox('Enable Delimiter?')
+        # self.delimiter_checkbox.checkStateChanged.connect(self.update_left_table_on_delimiter_change)
+        # formats_layout2.addWidget(self.delimiter_checkbox, Qt.AlignmentFlag.AlignLeft)
+        # self.delimiter_checkbox.setToolTip('Will split the Spot Name column into Sample, Aliquot, (Grain), and Spot Names based on the delimiter')
 
         formats_layout1.addStretch(4)
         formats_layout2.addStretch(4)
@@ -527,7 +526,7 @@ class ImportWizardDialog(QWidget):
         # Right table for the actual Excel data
         self.right_tables = {}
         self.workbook_tabs = QTabWidget()
-        self.right_table = QTableWidget()
+        self.right_table = QTableView()
         self.workbook_tabs.addTab(self.right_table, None)
 
         # Enable the context menu for the checkable combo boxes and connect the signals
@@ -653,7 +652,7 @@ class ImportWizardDialog(QWidget):
         self.sample_ids = []
 
         # Flash fill connections
-        self.left_table.cellChanged.connect(self.handle_cell_change)
+        self.left_table.cellChanged.connect(self.handle_left_cell_change)
 
 
         self.left_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -724,8 +723,8 @@ class ImportWizardDialog(QWidget):
         self.btn_import.setEnabled(False)
         self.validate_button.setEnabled(False)
         self.btn_add_column.setEnabled(False)
-        self.delimiter_edit.setEnabled(False)
-        self.delimiter_checkbox.setEnabled(False)
+        # self.delimiter_edit.setEnabled(False)
+        # self.delimiter_checkbox.setEnabled(False)
         self.combo_reference_comboBox.setEnabled(False)
         self.combo_instrument_comboBox.setEnabled(False)
         self.combo_lab_facility_comboBox.setEnabled(False)
@@ -746,8 +745,8 @@ class ImportWizardDialog(QWidget):
         # self.btn_import.setEnabled(True)
         self.validate_button.setEnabled(True)
         self.btn_add_column.setEnabled(True)
-        self.delimiter_edit.setEnabled(True)
-        self.delimiter_checkbox.setEnabled(True)
+        # self.delimiter_edit.setEnabled(True)
+        # self.delimiter_checkbox.setEnabled(True)
         self.combo_reference_comboBox.setEnabled(True)
         self.combo_instrument_comboBox.setEnabled(True)
         self.combo_lab_facility_comboBox.setEnabled(True)
@@ -822,9 +821,9 @@ class ImportWizardDialog(QWidget):
         }
         # item = QTableWidgetItem(name)
         index = self.right_table.model().index(row, field_to_column[header_name])
-        self.right_table.model().setData(index, QTableWidgetItem(name))
+        self.right_table.model().setData(index, QTableWidgetItem(name), Qt.ItemDataRole.DisplayRole)
         index = self.right_table.model().index(row, field_to_column[header_name] + 1)
-        self.right_table.model().setData(index, QTableWidgetItem(str(id)))
+        self.right_table.model().setData(index, QTableWidgetItem(str(id)), Qt.ItemDataRole.DisplayRole)
 
     def get_valid_unit_formats(self):
         age_unit_query = QSqlQuery()
@@ -908,7 +907,9 @@ class ImportWizardDialog(QWidget):
                 if item:
                     item.setBackground(Qt.GlobalColor.transparent)
         for sheet in self.sheet_mappings.keys():
-            self.right_table = self.right_tables[sheet]
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
+            if self.right_table != self.right_tables[sheet]:
+                logger_setup.get_logger().critical(f"Sheet {sheet} does not match the current right table")
             self.right_table.model().clear_all_background_colors()
 
         if not self.check_static_table_fields():
@@ -1131,7 +1132,7 @@ class ImportWizardDialog(QWidget):
                 index = table.model().index(row, column)
                 data = table.model().data(index, Qt.ItemDataRole.DisplayRole)
                 if data in ['NULL', None, '']:
-                    table.model().setData(index, value)
+                    table.model().setData(index, value, Qt.ItemDataRole.DisplayRole)
         table.blockSignals(False)
 
     def set_column_to_blank(self, column, table: QTableWidget | QTableView):
@@ -1151,7 +1152,7 @@ class ImportWizardDialog(QWidget):
         elif isinstance(table, QTableView):
             for row in range(table.model().rowCount()):
                 index = table.model().index(row, column)
-                table.model().setData(index, "")
+                table.model().setData(index, "", Qt.ItemDataRole.DisplayRole)
 
     def handle_vertical_header_double_click(self, logical_index):
         """
@@ -1442,7 +1443,7 @@ class ImportWizardDialog(QWidget):
                 new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
                 if ok:
                     for index in self.right_table.model().selectedIndexes():
-                        self.right_table.model().setData(index, new_value)
+                        self.right_table.model().setData(index, new_value, Qt.ItemDataRole.DisplayRole)
             elif action == remove_column:
                 self.remove_selected_columns(selected_columns)
 
@@ -1485,49 +1486,37 @@ class ImportWizardDialog(QWidget):
     #     File & Sheet Loading
     # ---------------------------
 
-    def handle_cell_change(self, row, column):
+    def handle_left_cell_change(self, row, column):
         """
         Handle cell value changes in the left table. Ask the user if they want to flash fill downward.
         """
 
-        if self.sender() == self.left_table:
-            target_table = self.left_table
-            # Get the current value of the cell
-            current_value = target_table.item(row, column).text().strip()
-            if target_table.item(row + 1, column) is None:
-                return
+        # Get the current value of the cell
+        current_value = self.left_table.item(row, column).text().strip()
+        # if self.left_table.item(row + 1, column) is None:
+        #     return
 
-            next_value = target_table.item(row + 1, column).text().strip()
-            # If the value is empty or invalid, ignore
-            if (not current_value or
-                    next_value == current_value or
-                    len(next_value) > 0 or
-                    len(target_table.selectionModel().selectedIndexes()) > 1):
-                return
+        header_name = self.left_table.horizontalHeaderItem(column).text().strip()
+        # headers for U-Pb data in right table
+        right_column = None
+        for r_column in range(self.right_tables[self.upb_sheet_name].model().columnCount()):
+            r_header_name = self.right_tables[self.upb_sheet_name].model().headerData(r_column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+            if r_header_name == header_name:
+                right_column = r_column
+                break
+        if right_column is not None:
+            # Update the value in the right table as well
+            index = self.right_tables[self.upb_sheet_name].model().index(row, right_column)
+            if self.right_tables[self.upb_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole) != current_value:
+                self.right_tables[self.upb_sheet_name].model().setData(index, current_value, Qt.ItemDataRole.DisplayRole)
 
-            ## Check if the user wants to flash fill - disabled for now
-            # reply = QMessageBox.question(
-            #     self, "Flash Fill Downward",
-            #     "Do you want to auto-fill downward with this value for blank cells?",
-            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            # )
-            #
-            # if reply == QMessageBox.StandardButton.Yes:
-            #     self.flash_fill_downward(target_table, row, column, current_value)
-        elif self.sender() == self.right_table:
-            target_table = self.right_table
-            # Get the current value of the cell
-            index = target_table.model().index(row, column)
-            current_value = str(target_table.model().data(index, Qt.ItemDataRole.DisplayRole)).strip()
-            index_below = target_table.model().index(row + 1, column)
-            next_value = target_table.item(row + 1, column).text().strip()
-            # If the value is empty or invalid, ignore
-            if (not current_value or
-                    next_value == current_value or
-                    len(next_value) > 0 or
-                    len(target_table.selectionModel().selectedIndexes()) > 1):
-                return
+            # next_value = self.left_table.item(row + 1, column).text().strip()
+            # # If the value is empty or invalid, ignore
+            # if (not current_value or
+            #         next_value == current_value or
+            #         len(next_value) > 0 or
+            #         len(self.left_table.selectionModel().selectedIndexes()) > 1):
+            #     return
 
             ## Check if the user wants to flash fill - disabled for now
             # reply = QMessageBox.question(
@@ -1539,6 +1528,47 @@ class ImportWizardDialog(QWidget):
             #
             # if reply == QMessageBox.StandardButton.Yes:
             #     self.flash_fill_downward(target_table, row, column, current_value)
+
+    def handle_right_cell_change(self, index):
+        if self.sender() == self.right_tables[self.upb_sheet_name].model():
+            right_table = self.right_tables[self.upb_sheet_name]
+            # Get the current value of the cell
+            current_value = str(right_table.model().data(index, Qt.ItemDataRole.DisplayRole)).strip()
+
+            header_name = self.right_table.model().headerData(index.column(), Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+
+            if self.right_table == self.right_tables[self.upb_sheet_name]:
+                for l_column in range(self.left_table.columnCount()):
+                    l_header_name = self.left_table.horizontalHeaderItem(l_column).text().strip()
+                    if l_header_name == header_name:
+                        # Update the value in the left table as well
+                        item = self.left_table.item(index.row(), l_column)
+                        if item is None:
+                            item = QTableWidgetItem()
+                            self.left_table.setItem(index.row(), l_column, item)
+                        if item.text().strip() != current_value:
+                            item.setText(current_value)
+                        break
+
+            # index_below = right_table.model().index(index.row() + 1, index.column())
+            # next_value = right_table.model().index(index.row() + 1, index.column).data(Qt.ItemDataRole.DisplayRole)
+            # # If the value is empty or invalid, ignore
+            # if (not current_value or
+            #         next_value == current_value or
+            #         len(next_value) > 0 or
+            #         len(right_table.selectionModel().selectedIndexes()) > 1):
+            #     return
+
+            ## Check if the user wants to flash fill - disabled for now
+            # reply = QMessageBox.question(
+            #     self, "Flash Fill Downward",
+            #     "Do you want to auto-fill downward with this value for blank cells?",
+            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            #     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            # )
+            #
+            # if reply == QMessageBox.StandardButton.Yes:
+            #     self.flash_fill_downward(right_table, row, column, current_value)
         else:
             return
 
@@ -1660,7 +1690,7 @@ class ImportWizardDialog(QWidget):
 
                     self.right_table.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
                     self.right_table.customContextMenuRequested.connect(self.show_right_table_context_menu)
-                    self.right_table.model().dataChanged.connect(self.handle_cell_change)
+                    self.right_table.model().userDataChanged.connect(self.handle_right_cell_change)
 
                     self.right_table.doubleClicked.connect(self.on_cell_clicked)
 
@@ -1756,7 +1786,9 @@ class ImportWizardDialog(QWidget):
 
         dataframe_model = ImportSheetModel(self.sheets[sheet_name], check_style)
         print(f'Rows: {dataframe_model.rowCount()}, Columns: {dataframe_model.columnCount()}')
+        self.right_table.blockSignals(True)
         self.right_table.setModel(dataframe_model)
+        self.right_table.blockSignals(False)
 
         self.right_table.resizeColumnsToContents()
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {sheet_name}...')
@@ -1870,9 +1902,9 @@ class ImportWizardDialog(QWidget):
         self.right_table.blockSignals(True)
         for row in range(self.right_table.model().rowCount()):
             index = self.right_table.model().index(row, id_column)
-            self.right_table.model().setData(index, str(checked_item_id), Qt.ItemDataRole.EditRole)
+            self.right_table.model().setData(index, str(checked_item_id), Qt.ItemDataRole.DisplayRole)
             index = self.right_table.model().index(row, name_column)
-            self.right_table.model().setData(index, str(checked_item_name), Qt.ItemDataRole.EditRole)
+            self.right_table.model().setData(index, str(checked_item_name), Qt.ItemDataRole.DisplayRole)
 
         self.right_table.blockSignals(False)
         self.right_table.hideColumn(id_column)
@@ -1930,7 +1962,8 @@ class ImportWizardDialog(QWidget):
         sr = sorted(selected_rows, reverse=True)
         for r in sr:
             self.right_table.model().removeRow(r)
-            self.left_table.removeRow(r)
+            if self.current_sheet_name == self.upb_sheet_name:
+                self.left_table.removeRow(r)
 
         # self.right_table.resizeColumnsToContents()
         # if self.current_sheet_name == self.upb_sheet_name:
@@ -2167,85 +2200,85 @@ class ImportWizardDialog(QWidget):
         if item and color_hex:
             item.setBackground(QBrush(QColor(color_hex)))
 
-    def update_left_table_on_delimiter_change(self):
-        """
-        Update the left table's Sample ID and Spot ID columns whenever the delimiter value changes.
-        """
-        # Find the right table column mapped to "Spot ID"
-
-        if self.delimiter_checkbox.isChecked():
-            spot_id_column = None
-            for col_idx, (field_name) in self.sheet_mappings[self.current_sheet_name].items():
-                if field_name == "Spot Name":
-                    spot_id_column = col_idx
-                    break
-
-            if spot_id_column is not None:
-                self.auto_split_sample_spot(spot_id_column)
-        else:
-            spot_id_column = None
-            for col_idx, (field_name) in self.sheet_mappings[self.current_sheet_name].items():
-                if field_name == "Spot Name":
-                    spot_id_column = col_idx
-                    break
-
-            if spot_id_column is not None:
-                row_count = self.right_table.model().rowCount()
-                for r in range(row_count):
-                    index = self.right_table.model().index(r, spot_id_column)
-                    cell_data = self.right_table.model().data(index)
-                    if not cell_data:
-                        continue
-
-                    spot_id_value = str(cell_data).strip()
-
-                    # Update the left table
-                    self.left_table.blockSignals(True)
-                    self.left_table.setItem(r, 0, QTableWidgetItem(""))
-                    self.left_table.setItem(r, 2, QTableWidgetItem(spot_id_value))  # Spot ID
-                    self.left_table.blockSignals(False)
-        # self.left_table.resizeColumnsToContents()
-
-    def auto_split_sample_spot(self, col_idx):
-        """
-        Split the right table's Spot ID column values into Sample ID and Spot ID
-        using the delimiter, and populate the left table accordingly.
-        """
-        delimiter = self.delimiter_edit.text().strip()
-        row_count = self.right_table.model().rowCount()
-
-        for r in range(row_count):
-            index = self.right_table.model().index(r, col_idx)
-            cell_data = self.right_table.model().data(index)
-            if not cell_data:
-                continue
-
-            spot_id_value = str(cell_data).strip()
-
-            if delimiter in spot_id_value and delimiter:
-                # Split based on the delimiter
-                sample_id, spot_id = spot_id_value.split(delimiter, 1)
-            else:
-                # No delimiter found, treat the entire value as Spot ID
-                sample_id = ""
-                spot_id = spot_id_value
-
-            # Update the left table
-            self.left_table.blockSignals(True)
-            if not self.left_table.item(r, 0) or self.left_table.item(r, 0).text() == "":
-                self.left_table.setItem(r, 0, QTableWidgetItem(sample_id))  # Sample ID
-            else:
-                # data already exists in this column, skip it and prefer user entered data.
-                pass
-            left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
-                            range(self.left_table.columnCount())]
-            if "Grain Name" in left_headers:
-                spot_idx = 3
-            else:
-                spot_idx = 2
-            self.left_table.setItem(r, spot_idx, QTableWidgetItem(spot_id))  # Spot ID
-            self.left_table.blockSignals(False)
-        # self.left_table.resizeColumnsToContents()
+    # def update_left_table_on_delimiter_change(self):
+    #     """
+    #     Update the left table's Sample ID and Spot ID columns whenever the delimiter value changes.
+    #     """
+    #     # Find the right table column mapped to "Spot ID"
+    #
+    #     if self.delimiter_checkbox.isChecked():
+    #         spot_id_column = None
+    #         for col_idx, (field_name) in self.sheet_mappings[self.current_sheet_name].items():
+    #             if field_name == "Spot Name":
+    #                 spot_id_column = col_idx
+    #                 break
+    #
+    #         if spot_id_column is not None:
+    #             self.auto_split_sample_spot(spot_id_column)
+    #     else:
+    #         spot_id_column = None
+    #         for col_idx, (field_name) in self.sheet_mappings[self.current_sheet_name].items():
+    #             if field_name == "Spot Name":
+    #                 spot_id_column = col_idx
+    #                 break
+    #
+    #         if spot_id_column is not None:
+    #             row_count = self.right_table.model().rowCount()
+    #             for r in range(row_count):
+    #                 index = self.right_table.model().index(r, spot_id_column)
+    #                 cell_data = self.right_table.model().data(index)
+    #                 if not cell_data:
+    #                     continue
+    #
+    #                 spot_id_value = str(cell_data).strip()
+    #
+    #                 # Update the left table
+    #                 self.left_table.blockSignals(True)
+    #                 self.left_table.setItem(r, 0, QTableWidgetItem(""))
+    #                 self.left_table.setItem(r, 2, QTableWidgetItem(spot_id_value))  # Spot ID
+    #                 self.left_table.blockSignals(False)
+    #     # self.left_table.resizeColumnsToContents()
+    #
+    # def auto_split_sample_spot(self, col_idx):
+    #     """
+    #     Split the right table's Spot ID column values into Sample ID and Spot ID
+    #     using the delimiter, and populate the left table accordingly.
+    #     """
+    #     delimiter = self.delimiter_edit.text().strip()
+    #     row_count = self.right_table.model().rowCount()
+    #
+    #     for r in range(row_count):
+    #         index = self.right_table.model().index(r, col_idx)
+    #         cell_data = self.right_table.model().data(index)
+    #         if not cell_data:
+    #             continue
+    #
+    #         spot_id_value = str(cell_data).strip()
+    #
+    #         if delimiter in spot_id_value and delimiter:
+    #             # Split based on the delimiter
+    #             sample_id, spot_id = spot_id_value.split(delimiter, 1)
+    #         else:
+    #             # No delimiter found, treat the entire value as Spot ID
+    #             sample_id = ""
+    #             spot_id = spot_id_value
+    #
+    #         # Update the left table
+    #         self.left_table.blockSignals(True)
+    #         if not self.left_table.item(r, 0) or self.left_table.item(r, 0).text() == "":
+    #             self.left_table.setItem(r, 0, QTableWidgetItem(sample_id))  # Sample ID
+    #         else:
+    #             # data already exists in this column, skip it and prefer user entered data.
+    #             pass
+    #         left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
+    #                         range(self.left_table.columnCount())]
+    #         if "Grain Name" in left_headers:
+    #             spot_idx = 3
+    #         else:
+    #             spot_idx = 2
+    #         self.left_table.setItem(r, spot_idx, QTableWidgetItem(spot_id))  # Spot ID
+    #         self.left_table.blockSignals(False)
+    #     # self.left_table.resizeColumnsToContents()
 
     def save_mapping(self):
         n_mappings = 0
@@ -2666,7 +2699,6 @@ class ImportWizardDialog(QWidget):
         for row in range(self.left_table.rowCount()):
             if row in disabled_rows:
                 continue
-            # todo: troubleshoot this returning the tab name
             sample = self.left_table.item(row, sample_col).text().strip()
             aliquot = self.left_table.item(row, aliquot_col).text().strip()
             if grain_col:
@@ -2727,27 +2759,24 @@ class ImportWizardDialog(QWidget):
                     else:
                         distinct_aliquots.add(aliquot)
 
-        if upb_analysis_duplicates or spot_duplicates or grain_duplicates or aliquot_duplicates or sample_duplicates:
+        if upb_analysis_duplicates or spot_duplicates or grain_duplicates or aliquot_duplicates:
             logger_setup.get_logger().info("Duplicates found in left table")
             # Highlight the duplicate cells
             self.left_table.blockSignals(True)
             for row in range(self.left_table.rowCount()):
-                # todo: troubleshoot this returning the tab name
+                if row in disabled_rows:
+                    continue
                 sample_item = self.left_table.item(row, sample_col)
                 sample_name = sample_item.text().strip()
-                if sample_name in duplicates.keys():
-                    self.update_left_table_background(sample_item, '#FFB8B8')  # Light red
-                else:
-                    sample_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
                 aliquot_item = self.left_table.item(row, aliquot_col)
                 aliquot_name = aliquot_item.text().strip()
-                if aliquot_name in duplicates[sample_name].keys():
+                if aliquot_name in aliquot_duplicates:
                     self.update_left_table_background(aliquot_item, '#FFB8B8')  # Light red
                 else:
                     aliquot_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
                 spot_item = self.left_table.item(row, spot_col)
                 spot_name = spot_item.text().strip()
-                if spot_name in duplicates[sample_name][aliquot_name].keys():
+                if spot_name in spot_duplicates:
                     self.update_left_table_background(spot_item, '#FFB8B8')  # Light red
                 else:
                     spot_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
@@ -2765,11 +2794,11 @@ class ImportWizardDialog(QWidget):
                 else:
                     upb_analysis_item.setBackground(QBrush(Qt.GlobalColor.transparent))  # Reset to default
 
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
             QMessageBox(QMessageBox.Icon.Warning, f'Conflicts Detected',
                         f'Red cells in the left table are duplicates with different parent items\n\n'
-                        'Resolve these red conflicts before importing').exec()
+                        'Ensure unique names before importing').exec()
             # Set the current tab to the UPb tab
-            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
             return False
 
         # Now that there are no duplicates in the import data, look for duplicates in the database
@@ -3188,7 +3217,10 @@ class ImportWizardDialog(QWidget):
             sample_name = self.left_table.item(row_idx, sample_col).text().strip()
             aliquot_name = self.left_table.item(row_idx, aliquot_col).text().strip()
             spot_name = self.left_table.item(row_idx, spot_col).text().strip()
-            grain_name = self.left_table.item(row_idx, grain_col).text().strip()
+            if grain_col:
+                grain_name = self.left_table.item(row_idx, grain_col).text().strip()
+            else:
+                grain_name = None
             if not grain_name or grain_name in ['NULL', '']:
                 grain_name = None
             upb_analysis_name = self.left_table.item(row_idx, upb_analysis_col).text().strip()
@@ -3308,7 +3340,7 @@ class ImportWizardDialog(QWidget):
         sample_mapped = True
         sample_info = list(SQLUtils.sample_possible_user_input_fields['Sample Info'].keys())
         sample_info.remove('Sample Name')
-        sample_age_info = list(SQLUtils.sample_possible_user_input_fields['Sample Age'].keys())
+        sample_age_info = list(SQLUtils.sample_possible_user_input_fields['Default Sample Age'].keys())
         sample_gps_info = list(SQLUtils.gps_possible_user_input_fields['Sample GPS'].keys())
         all_sample_info = []
         all_sample_info.extend(sample_info)
@@ -3670,7 +3702,7 @@ class ImportWizardDialog(QWidget):
                 sample_id_item = self.left_table.item(row_idx, sample_col)
                 aliquot_id_item = self.left_table.item(row_idx, aliquot_col)
                 spot_id_item = self.left_table.item(row_idx, spot_col)
-                grain_id_item = self.left_table.item(row_idx, grain_col)
+                grain_id_item = self.left_table.item(row_idx, grain_col) if grain_col else None
                 upb_analysis_item = self.left_table.item(row_idx, upb_analysis_col)
 
                 record["Sample Name"] = sample_id_item.text().strip() if sample_id_item else None
@@ -4195,18 +4227,21 @@ class ImportWizardDialog(QWidget):
                                 else:
                                     search_table = foreign_table
                                 if search_table in self.item_ids.keys():
-                                    for column, header in self.item_ids[search_table][sheet].items():
-                                        header = list(header.keys())[0]
-                                        if foreign_name_item:
-                                            column_data = self.item_ids[search_table][sheet][column][header][foreign_name_item]
-                                            break
-                                        elif header == foreign_name_header:
-                                            foreign_name_item = self.right_tables[sheet].model().index(row, column).data()
-                                            if foreign_name_item in self.item_ids[foreign_table][sheet][column][header].keys():
-                                                column_data = self.item_ids[foreign_table][sheet][column][header][foreign_name_item]
+                                    if sheet in self.item_ids[search_table].keys():
+                                        for column, header in self.item_ids[search_table][sheet].items():
+                                            header = list(header.keys())[0]
+                                            if foreign_name_item:
+                                                column_data = self.item_ids[search_table][sheet][column][header][foreign_name_item]
                                                 break
-                                            else:
-                                                column_data = 'NULL'
+                                            elif header == foreign_name_header:
+                                                foreign_name_item = self.right_tables[sheet].model().index(row, column).data()
+                                                if foreign_name_item in self.item_ids[foreign_table][sheet][column][header].keys():
+                                                    column_data = self.item_ids[foreign_table][sheet][column][header][foreign_name_item]
+                                                    break
+                                                else:
+                                                    column_data = 'NULL'
+                                    else:
+                                        column_data = 'NULL'
                                 elif item_header in combo_values.keys():
                                     # This is a static value for all rows
                                     column_data = combo_values[item_header]
@@ -4513,7 +4548,7 @@ class ImportWizardDialog(QWidget):
         """
         Method to import many-to-many relationships for database tables using the dictionary made during import.
         """
-
+        # todo: troubleshoot this method
         create_savepoint('before_import_many_to_many')
         linking_progress_dialog = QProgressDialog(
             "Linking tables...", "Cancel", 0, len(many_tables), self
@@ -4552,69 +4587,75 @@ class ImportWizardDialog(QWidget):
                     if row in disabled_rows:
                         continue
                     for table1_name_column in table1_name_columns:
-                        for table2_name_column in table2_name_columns:
-                            table1_name = self.right_tables[sheet].model().index(row, table1_name_column).data()
-                            table2_name = self.right_tables[sheet].model().index(row, table2_name_column).data()
-                            if table1_name in ['NULL', '', None] or table2_name in ['NULL', '', None]:
-                                continue
-                            for column1, header1 in self.item_ids[table1][sheet].items():
-                                header1_name = list(header1.keys())[0]
-                                for column2, header2 in self.item_ids[table2][sheet].items():
-                                    header2_name = list(header2.keys())[0]
-                                    if table1_name in self.item_ids[table1][sheet][column1][header1_name].keys():
-                                        table1_id = self.item_ids[table1][sheet][column1][header1_name][table1_name]
-                                    if table2_name in self.item_ids[table2][sheet][column2][header2_name].keys():
-                                        table2_id = self.item_ids[table2][sheet][column2][header2_name][table2_name]
-                                    if not table1_id or not table2_id:
-                                        logger_setup.get_logger().critical(f'Could not find IDs for {table1} "{table1_name}" or {table2} "{table2_name}" in database')
-                                        continue
-                                    elif table1_id in self.skipped_conflict_ids.get(table1, []) or table2_id in self.skipped_conflict_ids.get(table2, []):
-                                        # One of the items was skipped due to conflict resolution, so skip this relationship
-                                        continue
-                                    # Check if this relationship already exists in the database
-                                    query = QSqlQuery()
-                                    table1_id_field = get_headers(table1)[0]
-                                    table2_id_field = get_headers(table2)[0]
-                                    if not query.prepare(f'SELECT {table1_id_field} FROM {table} WHERE {table1_id_field} = :table1_id AND {table2_id_field} = :table2_id'):
-                                        logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                        logger_setup.get_logger().debug(f'Failed to prepare query to find existing relationship')
-                                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                        rollback_savepoint('before_import_many_to_many')
-                                        return False
-                                    query.bindValue(':table1_id', table1_id)
-                                    query.bindValue(':table2_id', table2_id)
-                                    if not query.exec():
-                                        logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                        logger_setup.get_logger().debug(f'Failed to query the {table} values')
-                                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                                        rollback_savepoint('before_import_many_to_many')
-                                        return False
-                                    if query.next():
-                                        # The relationship already exists, so skip it
-                                        continue
-                                    # Insert the new relationship
-                                    if not query.prepare(f'INSERT INTO {table} ({table1_id_field}, {table2_id_field}) VALUES (:table1_id, :table2_id)'):
-                                        logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                        logger_setup.get_logger().debug(f'Failed to prepare query to insert new relationship')
-                                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                        rollback_savepoint('before_import_many_to_many')
-                                        return False
-                                    query.bindValue(':table1_id', table1_id)
-                                    query.bindValue(':table2_id', table2_id)
-                                    if not query.exec():
-                                    # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
-                                        logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
-                                        logger_setup.get_logger().debug(f'Failed to insert values into {table}')
-                                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                                        rollback_savepoint('before_import_many_to_many')
-                                        return False
-                                    logger_setup.get_logger().info(f'Linked {table1} "{table1_name}" (ID {table1_id}) with {table2} "{table2_name}" (ID {table2_id})')
+                        table1_name = self.right_tables[sheet].model().index(row, table1_name_column).data()
+                        for column1, header1 in self.item_ids[table1][sheet].items():
+                            header1_name = list(header1.keys())[0]
+                            if table1_name in self.item_ids[table1][sheet][column1][header1_name].keys():
+                                table1_id = self.item_ids[table1][sheet][column1][header1_name][table1_name]
+                                if not table1_id:
+                                    logger_setup.get_logger().critical(
+                                        f'Could not link {table1} "{table1_name}" in sheet {sheet} with data from other sheets')
+                                    continue
+                                else:
+                                    for table2_name_column in table2_name_columns:
+                                        table2_name = self.right_tables[sheet].model().index(row, table2_name_column).data()
+                                        if table1_name in ['NULL', '', None] or table2_name in ['NULL', '', None]:
+                                            continue
+                                        for column2, header2 in self.item_ids[table2][sheet].items():
+                                                header2_name = list(header2.keys())[0]
+                                                if table2_name in self.item_ids[table2][sheet][column2][header2_name].keys():
+                                                    table2_id = self.item_ids[table2][sheet][column2][header2_name][table2_name]
+                                                    if not table2_id:
+                                                        logger_setup.get_logger().critical(f'Could not link {table2} "{table2_name}" in sheet {sheet} with data from other sheets')
+                                                        continue
+                                                    else:
+                                                        if table1_id in self.skipped_conflict_ids.get(table1, []) or table2_id in self.skipped_conflict_ids.get(table2, []):
+                                                            # One of the items was skipped due to conflict resolution, so skip this relationship
+                                                            continue
+                                                        # Check if this relationship already exists in the database
+                                                        query = QSqlQuery()
+                                                        table1_id_field = get_headers(table1)[0]
+                                                        table2_id_field = get_headers(table2)[0]
+                                                        if not query.prepare(f'SELECT {table1_id_field} FROM {table} WHERE {table1_id_field} = :table1_id AND {table2_id_field} = :table2_id'):
+                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                            logger_setup.get_logger().debug(f'Failed to prepare query to find existing relationship')
+                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                                            rollback_savepoint('before_import_many_to_many')
+                                                            return False
+                                                        query.bindValue(':table1_id', table1_id)
+                                                        query.bindValue(':table2_id', table2_id)
+                                                        if not query.exec():
+                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                            logger_setup.get_logger().debug(f'Failed to query the {table} values')
+                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                                                            rollback_savepoint('before_import_many_to_many')
+                                                            return False
+                                                        if query.next():
+                                                            # The relationship already exists, so skip it
+                                                            continue
+                                                        # Insert the new relationship
+                                                        if not query.prepare(f'INSERT INTO {table} ({table1_id_field}, {table2_id_field}) VALUES (:table1_id, :table2_id)'):
+                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                            logger_setup.get_logger().debug(f'Failed to prepare query to insert new relationship')
+                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                                            rollback_savepoint('before_import_many_to_many')
+                                                            return False
+                                                        query.bindValue(':table1_id', table1_id)
+                                                        query.bindValue(':table2_id', table2_id)
+                                                        if not query.exec():
+                                                        # if not query.exec() and 'UNIQUE constraint failed' not in query.lastError().text():
+                                                            logger_setup.get_logger().critical(f'Error linking {table1} "{table1_name}" and {table2} "{table2_name}"')
+                                                            logger_setup.get_logger().debug(f'Failed to insert values into {table}')
+                                                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                                                            rollback_savepoint('before_import_many_to_many')
+                                                            return False
+                                                        logger_setup.get_logger().info(f'Linked {table1} "{table1_name}" (ID {table1_id}) with {table2} "{table2_name}" (ID {table2_id})')
         release_savepoint('before_import_many_to_many')
         return True
 

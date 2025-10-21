@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from multiprocessing.process import parent_process
 
 import pandas as pd
+import numpy as np
 import openpyxl
 import qtawesome
 from PyQt6 import QtCore as QtC
@@ -378,22 +379,29 @@ class ImportSheetModel(QAbstractTableModel):
     :param check_style:
     :param parent:
     """
+    userDataChanged = QtC.pyqtSignal(QModelIndex, QModelIndex, list)
     def __init__(self, sheet, check_style=False, parent=None):
         super().__init__(parent=parent)
         # drop empty rows and columns from the dataframe
         self.sheet = sheet
         non_empty_rows = []
         for row in sheet.iter_rows(values_only=True):
-            if any(cell is not None and cell not in ['', 'NULL'] for cell in row):
+            if any(cell is not None and cell.strip() not in ['', 'NULL'] for cell in row):
                 non_empty_rows.append(row)
         self._dataframe = pd.DataFrame(non_empty_rows)
+        # strip strings for all items in the dataframe
+        self._dataframe = self._dataframe.map(strip_strings)
+        # Replace any cells with only whitespace or "" with nan
+        self._dataframe.replace(to_replace=r'^\s*$', value=np.nan, regex=True, inplace=True)
+        # Replace any cells with only "NULL" (case insensitive) with nan
+        self._dataframe.replace(to_replace='NULL', value=np.nan, regex=True, inplace=True)
         self.header_background_colors = {}
         self.cell_background_colors = {}
         if check_style:
             self.style_model()
+        self._dataframe.dropna(axis=0, how='all', inplace=True)
         self._dataframe.dropna(axis=1, how='all', inplace=True)
         self._dataframe.fillna('NULL', inplace=True)
-        self._dataframe = self._dataframe.map(strip_strings)
         # create another dataframe to store row status, accepted, rejected, disabled. Default accepted.
         self._status_dataframe = pd.DataFrame(['accepted'] * len(self._dataframe), columns=['_row_status'])
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
@@ -435,15 +443,20 @@ class ImportSheetModel(QAbstractTableModel):
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = Qt.ItemDataRole.EditRole) -> bool:
         if not index.isValid():
             return False
-        if role == QtC.Qt.ItemDataRole.EditRole:
-            self._dataframe.iat[index.row(), index.column()] = value
-            self.dataChanged.emit(index, index, [role])
+        if role in [QtC.Qt.ItemDataRole.EditRole, QtC.Qt.ItemDataRole.DisplayRole]:
+            if self._dataframe.iat[index.row(), index.column()] != value:
+                self._dataframe.iat[index.row(), index.column()] = value
+                self.dataChanged.emit(index, index, [role])
+                if role == QtC.Qt.ItemDataRole.EditRole:
+                    self.userDataChanged.emit(index, index, [role])
             return True
         elif role == QtC.Qt.ItemDataRole.BackgroundRole:
             # Update the cell background color
-            self.cell_background_colors[index] = value
-            self.dataChanged.emit(index, index, [role])
-        return False
+            if not self.cell_background_colors.get(index, QBrush(value)):
+                self.cell_background_colors[index] = value
+                self.dataChanged.emit(index, index, [role])
+            return True
+        return None
 
     def headerData(self, section: int, orientation: QtC.Qt.Orientation, role: QtC.Qt.ItemDataRole = Qt.ItemDataRole.DisplayRole):
         if role == QtC.Qt.ItemDataRole.DisplayRole:
@@ -467,13 +480,15 @@ class ImportSheetModel(QAbstractTableModel):
 
     def setHeaderData(self, section, orientation, value, role: Qt.ItemDataRole = Qt.ItemDataRole.EditRole):
         if orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.EditRole:
-            self._dataframe.rename({self._dataframe.columns[section]: value}, axis=1, inplace=True)
-            self.headerDataChanged.emit(orientation, section, section)
+            if value != self._dataframe.columns[section]:
+                self._dataframe.rename({self._dataframe.columns[section]: value}, axis=1, inplace=True)
+                self.headerDataChanged.emit(orientation, section, section)
             return True
         elif orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.BackgroundRole:
             # Update the column header background color
-            self.header_background_colors[section] = value
-            self.headerDataChanged.emit(orientation, section, section)
+            if section not in self.header_background_colors.keys() or self.header_background_colors[section] != value:
+                self.header_background_colors[section] = value
+                self.headerDataChanged.emit(orientation, section, section)
             return True
         elif orientation == QtC.Qt.Orientation.Vertical:
             if role == QtC.Qt.ItemDataRole.DecorationRole:

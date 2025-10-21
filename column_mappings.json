@@ -1006,7 +1006,7 @@
                     "field": "Sample Name"
                 },
                 "1": {
-                    "field": "Spot Name"
+                    "field": "UPb Analysis Name"
                 },
                 "2": {
                     "field": "Uppm"
@@ -1070,17 +1070,14 @@
                 "0": {
                     "field": "Sample Name"
                 },
-                "8": {
+                "1": {
                     "field": "Age Constraint"
                 },
-                "9": {
+                "2": {
                     "field": "Direct Age"
                 },
-                "10": {
+                "3": {
                     "field": "Direct Age Error"
-                },
-                "11": {
-                    "field": "Age Description"
                 }
             }
         },
