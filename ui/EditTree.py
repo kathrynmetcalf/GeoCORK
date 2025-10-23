@@ -16,6 +16,8 @@ from Functions.Database_manager import update_database
 from Functions.LoadingDialog_manager import LoadingDialogManager
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
+from ui.Merge import MergeDialog
+
 settings = SettingsManager().settings
 from Functions.Widget_classes import (
     set_table, TreeModel, TreeContextMenu, get_selected_tree_ids, expand_collapse, save_expanded_state,
@@ -110,7 +112,7 @@ class EditTree(QtW.QDialog):
         if self.table == 'Ages':
             tree_menu.set_view(self.edit_treeView, False, False, False)
         else:
-            tree_menu.set_view(self.edit_treeView, True, True, False)
+            tree_menu.set_view(self.edit_treeView, True, True, True)
         action = tree_menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if action:
             self.tree_context_menu(action)
@@ -125,6 +127,8 @@ class EditTree(QtW.QDialog):
             self.add_popup(action)
         elif 'Expand' in action.text() or 'Collapse' in action.text():
             expand_collapse(self.edit_treeView, action)
+        elif 'Merge' in action.text():
+            self.merge_items()
         elif 'Delete' in action.text():
             self.delete_item()
 
@@ -203,6 +207,25 @@ class EditTree(QtW.QDialog):
         parent_id = output[0]
         row = output[1]
         self.add_popup(None, parent_id, row, 'parent', new_child_ids, new_parent_rows)
+
+    def merge_items(self):
+        """
+        Merge the selected items in the tree view. The user will be prompted to select which item to keep.
+        All other items will be merged into the selected item. Children of the merged items will be re-assigned to the kept item.
+        """
+        save_expanded_state(self.table, self.edit_treeView)
+        tree_indexes = []
+        for view_index in self.edit_treeView.selectedIndexes():
+            tree_index = self.tree_proxy_model.mapToSource(view_index)
+            if tree_index.column() == 0 and tree_index not in tree_indexes:
+                tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
+        ids_to_merge = get_selected_tree_ids(tree_indexes)[0]
+        if len(ids_to_merge) < 2:
+            logger_setup.get_logger().error('At least two records must be selected to merge')
+            return
+        if MergeDialog(self.table, ids_to_merge, self).exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
+            self.update_proxy()
 
     def delete_item(self):
         """

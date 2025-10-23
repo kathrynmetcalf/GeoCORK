@@ -393,7 +393,7 @@ class ImportSheetModel(QAbstractTableModel):
         self.sheet = sheet
         non_empty_rows = []
         for row in sheet.iter_rows(values_only=True):
-            if any(cell is not None and cell.strip() not in ['', 'NULL'] for cell in row):
+            if any(cell is not None and str(cell).strip() not in ['', 'NULL'] for cell in row):
                 non_empty_rows.append(row)
         self._dataframe = pd.DataFrame(non_empty_rows)
         # strip strings for all items in the dataframe
@@ -2295,6 +2295,10 @@ def delete_question(table, delete_ids):
     msg_box.setIcon(QtW.QMessageBox.Icon.Question)
     if table == 'Samples':
         sample_names = [get_name_from_id(table, sample_id) for sample_id in delete_ids]
+        if None in sample_names:
+            logger_setup.get_logger().info(f'Samples were already deleted or do not exist')
+            close_loading_dialog('Preparing', 'Gathering information...')
+            return False
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
         aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
@@ -3494,9 +3498,20 @@ class TreeModel(QtC.QAbstractProxyModel):
             logger_setup.get_logger().debug(f'Item ID: {item_id}')
             return True
         # self.save_state.emit()
-        if not delete_data(self.table, del_ids):
+        # Check if the ids have already been deleted
+        query = QtS.QSqlQuery()
+        if not query.exec(f"SELECT {self.id_header} FROM {self.table} WHERE {self.id_header} IN ({', '.join(map(str, del_ids))})"):
+            logger_setup.get_logger().critical(f'Error checking for existing items in {self.table} before deletion')
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
             return False
-        logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
+        existing_ids = set()
+        while query.next():
+            existing_ids.add(query.value(0))
+        if existing_ids:
+            if not delete_data(self.table, del_ids):
+                return False
+            logger_setup.get_logger().info(f'Successfully deleted items from {self.table}')
         if parent_id:
             p_id = f'= {parent_id}'
         else:
@@ -6091,8 +6106,8 @@ class TreeContextMenu(QtW.QMenu):
 
     def add_multi_tree_actions(self, delete_active: bool = True, add_active: bool = True, edit_active: bool = True):
         """
-        Add actions for multiple selected items in the tree view. This method adds actions for editing, adding, and deleting
-        multiple items in the tree view. No hierarchical add actions are available for multiple items.
+        Add actions for multiple selected items in the tree view. This method adds actions for editing, merging, adding,
+        and deleting multiple items in the tree view. No hierarchical add actions are available for multiple items.
         :param delete_active:
         :param add_active:
         :param edit_active:
@@ -6100,6 +6115,7 @@ class TreeContextMenu(QtW.QMenu):
         """
         if edit_active:
             self.addAction('Edit')
+            self.addAction('Merge')
         if delete_active:
             self.addAction('Delete selected')
         if add_active:

@@ -38,6 +38,7 @@ from ui.EditTable import EditTable
 from ui.GPSDialog import GPSDialog
 from ui.New_reference import NewReference
 from ui.AgeDialog import AgeDialog
+from ui.Merge import MergeDialog
 import time
 
 class SetSelectedValues(QtW.QDialog):
@@ -344,7 +345,7 @@ class EditView(QtW.QDialog):
         committed.
         """
         self.msg.setWindowTitle('Reset Model')
-        self.msg.setText(f'Changes are saved but will not be visible until all windows are committed.\n')
+        self.msg.setText(f'Changes are saved but may not be visible until all windows are committed.\n')
         self.msg.setInformativeText(f'Are you sure you want to reset the model for {self.table}?')
         self.msg.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
         self.msg.setDefaultButton(QtW.QMessageBox.StandardButton.No)
@@ -546,6 +547,10 @@ class EditView(QtW.QDialog):
         else:
             set_selected_action = None
         edit_action = menu.addAction('Edit')
+        if len(indexes) > 1:
+            merge_action = menu.addAction('Merge')
+        else:
+            merge_action = None
         delete_action = menu.addAction('Delete row')
         action = menu.exec(self.edit_tableView.viewport().mapToGlobal(pos))
         if action is None:
@@ -576,6 +581,27 @@ class EditView(QtW.QDialog):
                     self.destroy_dropdown()
         elif action == edit_action:
             self.display_widget()
+        elif action == merge_action:
+            ids_to_merge = []
+            for index in indexes:
+                row = index.row()
+                column = 0
+                id = self.edit_tableView.model().index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole)
+                if id not in ids_to_merge:
+                    ids_to_merge.append(id)
+            if len(ids_to_merge) < 2:
+                logger_setup.get_logger().error('At least two records must be selected to merge')
+                return
+            merge_dlg = MergeDialog(self.table, ids_to_merge, self)
+            if merge_dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+                self.updated = True
+                ids_to_delete = [id for id in ids_to_merge if id != merge_dlg.id_to_keep]
+                self.model.removeRows(ids_to_delete)
+                self.set_table_item_ids = [item_id for item_id in self.table_item_ids if item_id not in ids_to_delete]
+                if self.reset_model_question():
+                    self.create_model()
+                else:
+                    self.display_table()
         elif action == delete_action:
             # get all the rows in the selected indexes
             ids_to_delete = []
@@ -588,6 +614,7 @@ class EditView(QtW.QDialog):
                 return
             if not delete_data(self.table, ids_to_delete):
                 return
+            self.updated = True
             self.model.removeRows(ids_to_delete)
             self.set_table_item_ids = [item_id for item_id in self.table_item_ids if item_id not in ids_to_delete]
             if self.reset_model_question():

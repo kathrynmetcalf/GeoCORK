@@ -20,6 +20,7 @@ from Functions.Widget_classes import (get_headers,
                                       ReadableProxyModel, get_name_column, get_total_records, EditableSqlQueryModel,
                                       get_id_from_name, get_record_index, delete_data)
 from ui.AddTags import AddTags
+from ui.Merge import MergeDialog
 
 
 class EditTable(QtW.QDialog):
@@ -139,17 +140,41 @@ class EditTable(QtW.QDialog):
         if not indexes:
             return
         menu = QtW.QMenu()
-        if len(indexes) == 1:
+        if len(indexes) > 1:
+            # Check if all selected indexes are valid
+            all_valid = all(index.isValid() for index in indexes)
+            if not all_valid:
+                return
+            merge_action = menu.addAction('Merge')
+            clear_action = None
+        elif len(indexes) == 1:
             if not indexes[0].isValid():
                 return
             clear_action = menu.addAction('Clear value')
+            merge_action = None
         else:
             clear_action = None
+            merge_action = None
         delete_action = menu.addAction('Delete row')
         action = menu.exec(self.edit_tableView.viewport().mapToGlobal(pos))
         if action:
             if action == clear_action:
                 self.model.setData(indexes[0], '', QtC.Qt.ItemDataRole.EditRole)
+            elif action == merge_action:
+                ids_to_merge = []
+                for index in indexes:
+                    row = index.row()
+                    column = 0
+                    id = self.table_proxy_model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole)
+                    if id not in ids_to_merge:
+                        ids_to_merge.append(id)
+                if len(ids_to_merge) < 2:
+                    logger_setup.get_logger().error('At least two records must be selected to merge')
+                    return
+                if MergeDialog(self.table, ids_to_merge, self).exec() == QtW.QDialog.DialogCode.Accepted:
+                    self.updated = True
+                    self.create_model()
+                    self.display_table()
             elif action == delete_action:
                 # get all the ids in the selected indexes
                 delete_ids = []

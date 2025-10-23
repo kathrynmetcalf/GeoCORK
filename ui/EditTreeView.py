@@ -31,6 +31,7 @@ from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
 from ui.EditTree import EditTree
 from ui.EditTable import EditTable
+from ui.Merge import MergeDialog
 from Functions.Widget_classes import find_tree_model
 import time
 
@@ -348,7 +349,7 @@ class EditTreeView(QtW.QDialog):
             if not index.isValid():
                 return
         tree_menu = TreeContextMenu()
-        tree_menu.set_view(self.edit_treeView, True, False, False)
+        tree_menu.set_view(self.edit_treeView, True, False, True)
         clear_action = tree_menu.addAction('Clear selected values')
         single_column = False
         for index in indexes:
@@ -374,6 +375,8 @@ class EditTreeView(QtW.QDialog):
         indexes = self.edit_treeView.selectedIndexes()
         if 'Add' in action.text() or 'Insert' in action.text():
             self.add_popup(action)
+        elif 'Merge' in action.text():
+            self.merge_items()
         elif 'Expand' in action.text() or 'Collapse' in action.text():
             expand_collapse(self.edit_treeView, action)
         elif 'Delete' in action.text():
@@ -1349,6 +1352,21 @@ class EditTreeView(QtW.QDialog):
             self.destroy_dropdown()
             self.display_widget()
             self.combo.showPopup()
+
+    def merge_items(self):
+        save_expanded_state(self.table, self.edit_treeView)
+        tree_indexes = []
+        for tree_index in self.edit_treeView.selectedIndexes():
+            index = tree_index.siblingAtColumn(0)
+            if index not in tree_indexes:
+                tree_indexes.append(index)
+        ids_to_merge = get_selected_tree_ids(tree_indexes)[0]
+        if len(ids_to_merge) < 2:
+            logger_setup.get_logger().error('At least two records must be selected to merge')
+            return
+        merge_dlg = MergeDialog(self.table, ids_to_merge, self)
+        if merge_dlg.exec() == QtW.QDialog.DialogCode.Accepted:
+            self.updated = True
 
     def rollback(self):
         save_expanded_state(self.table, self.edit_treeView)
