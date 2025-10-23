@@ -501,7 +501,9 @@ class ImportWizardDialog(QWidget):
         self.combos = {"Reference": self.combo_reference_comboBox,
                        "Instrument": self.combo_instrument_comboBox,
                        "Lab Facility": self.combo_lab_facility_comboBox,
-                       "UPb Analysis Method": self.combo_upb_analysis_method_comboBox,
+                       "UPb Analysis Method": self.combo_upb_analysis_method_comboBox
+                       }
+        self.static_combos = {
                        "Elevation Unit": self.elevation_unit_combobox,
                        "Height/Depth Unit": self.heightdepth_unit_combobox,
                        "Sample Age Error": self.sample_age_error_combobox,
@@ -606,6 +608,8 @@ class ImportWizardDialog(QWidget):
         self.sheet_mappings = {}
         # Map unknown values to static table values
         self.static_mappings = {}
+        # Hidden ID columns from combo box values added to the U-Pb sheet
+        self.hidden_mappings = {}
         # Original columns, maps the original index to the current index
         # Includes a key for each original column index, and a value of -1 if deleted, as well as a list of 'added' columns in their final index
         self.original_columns = {}
@@ -669,51 +673,55 @@ class ImportWizardDialog(QWidget):
         self.combo_upb_analysis_method_comboBox.disconnect()
         super().closeEvent(a0)
 
-    def populate_comboBoxes(self):
+    def populate_comboBoxes(self, combo=None):
         """
         Populates the combo boxes with values from the database.
         """
-        self.combo_reference_comboBox.setFixedWidth(150)
-        self.combo_reference_comboBox.set_single_click(True)
-        ref_show_cols = settings.value('reference_view_columns')
-        query_args = {'show_columns': ref_show_cols,
-                      'group_col': f'{ref_show_cols[0]}', 'order_col': f'{ref_show_cols[get_name_column('ReferenceView')]}'}
-        view_query = ViewQuery('References', False, **query_args)
-        table_query = view_query.table_query
-        self.combo_reference.setQuery(table_query)
-        while self.combo_reference.canFetchMore():
-            self.combo_reference.fetchMore()
-        self.combo_reference_comboBox.setModel(self.combo_reference)
-        self.combo_reference_comboBox.setModelColumn(get_name_column('ReferenceView'))
-        self.combo_reference_comboBox.closing.connect(
-            lambda: self.set_all_rows("Reference Display", self.combo_reference))
-        self.combo_reference_comboBox.set_line_edit_text(None)
+        if combo == self.combo_reference_comboBox or combo is None:
+            self.combo_reference_comboBox.setFixedWidth(150)
+            self.combo_reference_comboBox.set_single_click(True)
+            ref_show_cols = settings.value('reference_view_columns')
+            query_args = {'show_columns': ref_show_cols,
+                          'group_col': f'{ref_show_cols[0]}', 'order_col': f'{ref_show_cols[get_name_column('ReferenceView')]}'}
+            view_query = ViewQuery('References', False, **query_args)
+            table_query = view_query.table_query
+            self.combo_reference.setQuery(table_query)
+            while self.combo_reference.canFetchMore():
+                self.combo_reference.fetchMore()
+            self.combo_reference_comboBox.setModel(self.combo_reference)
+            self.combo_reference_comboBox.setModelColumn(get_name_column('ReferenceView'))
+            self.combo_reference_comboBox.closing.connect(
+                lambda: self.set_all_rows("Reference Display", self.combo_reference))
+            self.combo_reference_comboBox.set_line_edit_text('')
 
-        self.combo_instrument_comboBox.setFixedWidth(150)
-        self.combo_instrument_comboBox.set_single_click(True)
-        self.combo_instrument = set_table(self.combo_instrument, "Instruments")
-        self.combo_instrument_comboBox.setModel(self.combo_instrument)
-        self.combo_instrument_comboBox.closing.connect(
-            lambda: self.set_all_rows("Instrument Name", self.combo_instrument))
-        self.combo_instrument_comboBox.set_line_edit_text(None)
+        if combo == self.combo_instrument_comboBox or combo is None:
+            self.combo_instrument_comboBox.setFixedWidth(150)
+            self.combo_instrument_comboBox.set_single_click(True)
+            self.combo_instrument = set_table(self.combo_instrument, "Instruments")
+            self.combo_instrument_comboBox.setModel(self.combo_instrument)
+            self.combo_instrument_comboBox.closing.connect(
+                lambda: self.set_all_rows("Instrument Name", self.combo_instrument))
+            self.combo_instrument_comboBox.set_line_edit_text('')
 
-        self.combo_lab_facility_comboBox.setFixedWidth(150)
-        self.combo_lab_facility_comboBox.set_single_click(True)
-        self.combo_lab_facility = set_table(self.combo_lab_facility, "LabFacilities")
-        self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
-        self.combo_lab_facility_comboBox.closing.connect(
-            lambda: self.set_all_rows("Lab Facility Name", self.combo_lab_facility))
-        self.combo_lab_facility_comboBox.set_line_edit_text(None)
+        if combo == self.combo_lab_facility_comboBox or combo is None:
+            self.combo_lab_facility_comboBox.setFixedWidth(150)
+            self.combo_lab_facility_comboBox.set_single_click(True)
+            self.combo_lab_facility = set_table(self.combo_lab_facility, "LabFacilities")
+            self.combo_lab_facility_comboBox.setModel(self.combo_lab_facility)
+            self.combo_lab_facility_comboBox.closing.connect(
+                lambda: self.set_all_rows("Lab Facility Name", self.combo_lab_facility))
+            self.combo_lab_facility_comboBox.set_line_edit_text('')
 
-        self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
-        self.combo_upb_analysis_method_comboBox.set_single_click(True)
-        self.upb_analysis_method = set_table(self.upb_analysis_method, "UPbAnalysisMethods")
-        self.combo_upb_analysis_method.setSourceModel(self.upb_analysis_method)
-        self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
-        self.combo_upb_analysis_method_comboBox.set_single_click(True)
-        self.combo_upb_analysis_method_comboBox.closing.connect(
-            lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method))
-        self.combo_upb_analysis_method_comboBox.set_line_edit_text(None)
+        if combo == self.combo_upb_analysis_method_comboBox or combo is None:
+            self.combo_upb_analysis_method_comboBox.setFixedWidth(150)
+            self.combo_upb_analysis_method_comboBox.set_single_click(True)
+            self.upb_analysis_method = set_table(self.upb_analysis_method, "UPbAnalysisMethods")
+            self.combo_upb_analysis_method.setSourceModel(self.upb_analysis_method)
+            self.combo_upb_analysis_method_comboBox.setModel(self.combo_upb_analysis_method)
+            self.combo_upb_analysis_method_comboBox.set_single_click(True)
+            self.combo_upb_analysis_method_comboBox.closing.connect(
+                lambda: self.set_all_rows("UPb Analysis Method Name", self.combo_upb_analysis_method))
+            self.combo_upb_analysis_method_comboBox.set_line_edit_text('')
 
     def deactivate_widgets(self):
         """
@@ -1009,7 +1017,7 @@ class ImportWizardDialog(QWidget):
             if not update_database():
                 logger_setup.get_logger().critical('Error updating and displaying database')
                 self.close()
-            self.populate_comboBoxes()
+            self.populate_comboBoxes(combo)
 
     def add_combo_box(self, pos, action: QAction | None = None):
         """
@@ -1051,7 +1059,7 @@ class ImportWizardDialog(QWidget):
             if not update_database():
                 logger_setup.get_logger().critical('Error updating and displaying database')
                 self.close()
-            self.populate_comboBoxes()
+            self.populate_comboBoxes(combo)
 
     def show_left_header_context_menu(self, pos):
         """
@@ -1290,7 +1298,8 @@ class ImportWizardDialog(QWidget):
         """
         Adds a column to the right QTableWidget
         :param column_index: Int index of the column to add.
-        :param before:
+        :param before: True if inserting before the specified column index.
+        :param field: Optional field name to add without prompting the user.
         """
         # Open the Column Map Dialog to let the user select a column name and data type
 
@@ -1416,6 +1425,7 @@ class ImportWizardDialog(QWidget):
         Includes remove rows, mark rows rejected, unmark,
         and set selected cells to a user-defined value.
         """
+        logger_setup.get_logger().info("Showing right table context menu")
         menu = QMenu(self)
         remove_action = menu.addAction("Remove Selected Rows")
         disable_action = menu.addAction("Disable Selected Rows")
@@ -1426,6 +1436,8 @@ class ImportWizardDialog(QWidget):
 
         action = menu.exec(self.right_table.mapToGlobal(pos))
         if action:
+            if not self.right_table.model().selectedIndexes():
+                return
             selected_rows = []
             selected_columns = []
             for index in self.right_table.model().selectedIndexes():
@@ -1821,72 +1833,6 @@ class ImportWizardDialog(QWidget):
             field (str): The field name (e.g., 'Reference', 'Instrument').
             model (checkable model): The model to retrieve checks from.
         """
-        self.loading_manager.show_loading_dialog('Adding Column', f'Adding column {field}...')
-        try:
-            table = model.tableName()
-            name_column = get_name_column(get_view_from_table(table))
-        except AttributeError:
-            table = model.table  # for trees
-            name_column = 0  # for trees
-        # Determine the column index for the field
-        source_checked_row = None
-        checked_item_name = None
-        checked_item_id = None
-        if table not in SQLUtils.user_viewable_trees:
-            for row in range(model.rowCount()):
-                name_index = model.index(row, name_column)
-                id_index = model.index(row, 0)
-
-                if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
-                    checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
-                    checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
-                    source_checked_row = row
-                    break
-            if checked_item_name is None or checked_item_id is None:
-                self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {field}...')
-                return
-            logger_setup.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
-        else:
-            # Get the checked item from the tree
-            checked_items, partially_checked_items, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
-                QtCore.QModelIndex())
-            if checked_items:
-                checked_item_name = checked_indices[0].data(QtCore.Qt.ItemDataRole.DisplayRole)
-                checked_item_id = checked_items[0]
-                source_checked_row = checked_indices[0].row()
-            else:
-                self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {field}...')
-                return
-
-        field_to_column = {
-            "ReferenceID": self.get_column_index("ReferenceID"),
-            "Reference Display": self.get_column_index("Reference Display"),
-            "InstrumentID": self.get_column_index("InstrumentID"),
-            "Instrument Name": self.get_column_index("Instrument Name"),
-            "LabFacilityID": self.get_column_index("LabFacilityID"),
-            "Lab Facility Name": self.get_column_index("Lab Facility Name"),
-            "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
-            "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name"),
-        }
-
-        column = field_to_column.get(field)
-        if column is None:
-            self.add_column(field=field)
-
-        # Update all rows in the column
-        self.right_table.blockSignals(True)
-
-        field_to_column = {
-            "ReferenceID": self.get_column_index("ReferenceID"),
-            "Reference Display": self.get_column_index("Reference Display"),
-            "InstrumentID": self.get_column_index("InstrumentID"),
-            "Instrument Name": self.get_column_index("Instrument Name"),
-            "LabFacilityID": self.get_column_index("LabFacilityID"),
-            "Lab Facility Name": self.get_column_index("Lab Facility Name"),
-            "UPbAnalysisMethodID": self.get_column_index("UPbAnalysisMethodID"),
-            "UPb Analysis Method Name": self.get_column_index("UPb Analysis Method Name"),
-        }
-
         if field == "Reference Display":
             id_name = "ReferenceID"
         elif field == "Instrument Name":
@@ -1898,20 +1844,62 @@ class ImportWizardDialog(QWidget):
         else:
             id_name = None
 
-        id_column = field_to_column.get(id_name)
-        name_column = field_to_column.get(field)
+        try:
+            table = model.tableName()
+            name_column = get_name_column(get_view_from_table(table))
+        except AttributeError:
+            table = model.table  # for trees
+            name_column = 0  # for trees
+        # Determine the column index for the field
+        checked_item_name = None
+        checked_item_id = None
+        if table not in SQLUtils.user_viewable_trees:
+            for row in range(model.rowCount()):
+                name_index = model.index(row, name_column)
+                id_index = model.index(row, 0)
 
+                if model.data(name_index, QtCore.Qt.ItemDataRole.CheckStateRole) == Qt.CheckState.Checked:
+                    checked_item_name = model.data(name_index, Qt.ItemDataRole.DisplayRole)
+                    checked_item_id = model.data(id_index, Qt.ItemDataRole.DisplayRole)
+                    break
+            logger_setup.get_logger().info(f"Checked item: {checked_item_name}, ID: {checked_item_id}")
+        else:
+            # Get the checked item from the tree
+            checked_items, partially_checked_items, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
+                QtCore.QModelIndex())
+            if checked_items:
+                checked_item_name = checked_indices[0].data(QtCore.Qt.ItemDataRole.DisplayRole)
+                checked_item_id = checked_items[0]
+
+        id_column = self.get_column_index(id_name)  # Column with ID header in the right table
+        name_col = self.get_column_index(field)  # Column with name header in the right table
+
+        if (checked_item_id is None or checked_item_name is None) and (id_column or name_col):
+            # Remove the columns that were added before
+            self.loading_manager.show_loading_dialog('Removing Column', f'Removing column {field}...')
+            self.remove_selected_columns([id_column, name_col])
+            self.hidden_mappings.pop(id_column, None)
+            self.loading_manager.close_loading_dialog('Removing Column', f'Removing column {field}...')
+            return
+        elif self.get_column_index(field) is None:
+            self.add_column(field=field)
+            id_column = self.get_column_index(id_name)  # Column with ID header in the right table
+            name_col = self.get_column_index(field)  # Column with name header in the right table
+
+        # Update all rows in the column
         self.right_table.blockSignals(True)
+
         for row in range(self.right_table.model().rowCount()):
             index = self.right_table.model().index(row, id_column)
             self.right_table.model().setData(index, str(checked_item_id), Qt.ItemDataRole.DisplayRole)
-            index = self.right_table.model().index(row, name_column)
+            index = self.right_table.model().index(row, name_col)
             self.right_table.model().setData(index, str(checked_item_name), Qt.ItemDataRole.DisplayRole)
 
         self.right_table.blockSignals(False)
         self.right_table.hideColumn(id_column)
+        self.hidden_mappings[id_column] = {}
+        self.hidden_mappings[id_column][id_name] = checked_item_id
         # self.right_table.resizeColumnsToContents()
-        self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {field}...')
         QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name)}' for {field}.")
 
     def get_column_index(self, header_name):
@@ -1987,20 +1975,19 @@ class ImportWizardDialog(QWidget):
         sorted_columns = sorted(selected_columns, reverse=True)
 
         adjusted_mappings = {}
-        # Preserve mappings for columns to the left of the minimum selected column
-        for index in self.sheet_mappings[self.current_sheet_name].keys():
+        # Preserve mappings for columns to the left of the minimum selected column. Shift others left.
+        for index in self.sheet_mappings[self.current_sheet_name]:
             if index < min(sorted_columns):
                 adjusted_mappings[index] = self.sheet_mappings[self.current_sheet_name][index]
+            if index not in sorted_columns and index > min(sorted_columns):
+                field = self.sheet_mappings[self.current_sheet_name][index]
+                shift = sum(1 for deleted_index in sorted_columns if deleted_index < index)
+                adjusted_mappings[index - shift] = field
 
         for column_index in sorted_columns:
             # Remove the column from the right table
             self.right_table.model().removeColumn(column_index)
 
-            # Update column mappings to reflect the removed column
-            if column_index in self.sheet_mappings[self.current_sheet_name]:
-                field = self.sheet_mappings[self.current_sheet_name][column_index]
-                shift = sum(1 for deleted_index in sorted_columns if deleted_index < column_index)
-                adjusted_mappings[column_index-shift] = field
             # Check if this is one of the added columns
             if column_index in self.original_columns[self.current_sheet_name]['added']:
                 # If so, remove it from the added list
@@ -2013,6 +2000,7 @@ class ImportWizardDialog(QWidget):
                         break
                 # Adjust the indices of original columns after removal
                 for index, column in self.original_columns.items():
+                    column = list(column)[0]
                     shift = sum(1 for deleted_index in sorted_columns if deleted_index < column)
                     self.original_columns[index] = column - shift
                 # Adjust the indices in the 'added' list
@@ -2024,7 +2012,7 @@ class ImportWizardDialog(QWidget):
 
 
         self.sheet_mappings[self.current_sheet_name] = adjusted_mappings
-        self.right_table.resizeRowsToContents()
+        # self.right_table.resizeRowsToContents()
         # Notify the user
         QMessageBox.information(self, "Columns Removed", "Selected columns have been successfully removed.")
 
@@ -2344,9 +2332,15 @@ class ImportWizardDialog(QWidget):
             sheets = {}
             for sheet, column_mappings in self.sheet_mappings.items():
                 if column_mappings:
-                    sheets[sheet] = {str(k): {"field": v} for k, v in column_mappings.items()}
+                    if sheet not in sheets:
+                        sheets[sheet] = {}
+                    for k, v in column_mappings.items():
+                        if v not in ["Reference Display", "ReferenceID", "Instrument Name", "InstrumentID",
+                                 "Lab Facility Name", "LabFacilityID", "UPb Analysis Method Name", "UPbAnalysisMethodID"]:
+                            # Do not save the mappings for combo box added columns as these values rely on the database and can change
+                            sheets[sheet][str(k)] = {"field": v}
             combos = {}
-            for key, combo in self.combos.items():
+            for key, combo in self.static_combos.items():
                 combos[key] = combo.currentText()
             configs[name] = {"Sheets": sheets, "Units/Formats": combos, "OriginalMappings": self.original_columns}
             with open(CONFIG_FILE, 'w') as f:
@@ -2377,7 +2371,7 @@ class ImportWizardDialog(QWidget):
                             )
                 continue_button = dlg.addButton("Continue", QMessageBox.ButtonRole.YesRole)
                 cancel_button = dlg.addButton("Cancel", QMessageBox.ButtonRole.RejectRole)
-                dlg.setDefaultButton('Cancel')
+                dlg.setDefaultButton(cancel_button)
                 dlg.exec()
                 if dlg.clickedButton() != continue_button:
                     return
@@ -2420,9 +2414,24 @@ class ImportWizardDialog(QWidget):
         logger_setup.get_logger().info(f"Loading Mapping {name}")
         self.loading_manager.show_loading_dialog('Loading', f'Loading mapping: {name}...')
         loaded = configs[name]
+        # Preserve mappings for columns added by combo box selections
+        combo_mappings = {}
+        for sheet, column_mappings in self.sheet_mappings.items():
+            for col_idx, field_name in column_mappings.items():
+                if col_idx not in loaded.get("Sheets", {}).get(sheet, {}):
+                    if field_name in ["ReferenceID", "InstrumentID", "LabFacilityID", "UPbAnalysisMethodID"]:
+                        # Preserve this mapping
+                        if sheet not in combo_mappings:
+                            combo_mappings[sheet] = {}
+                        combo_mappings[sheet][col_idx] = field_name
+                        # Save the name column mapping as well
+                        combo_mappings[sheet][col_idx-1] = self.sheet_mappings[sheet][col_idx-1]
         self.sheet_mappings.clear()
         for sheet in self.sheets.keys():
-            self.sheet_mappings[sheet] = {}
+            if sheet in combo_mappings:
+                self.sheet_mappings[sheet] = combo_mappings[sheet].copy()
+            else:
+                self.sheet_mappings[sheet] = {}
 
 
         ## For the future, account for added and deleted columns when saving mappings
@@ -2467,8 +2476,9 @@ class ImportWizardDialog(QWidget):
             loaded_combos = loaded["Units/Formats"]
             for sheet, mappings in loaded_sheets.items():
                 if sheet in self.sheet_mappings.keys():
-                    self.sheet_mappings[sheet] = {int(k): v["field"] for k, v in mappings.items()}
-            for key, combo in self.combos.items():
+                    for k, v in mappings.items():
+                        self.sheet_mappings[sheet][int(k)] = v["field"]
+            for key, combo in self.static_combos.items():
                 if key in loaded_combos:
                     val = loaded_combos[key]
                     idx = combo.findText(val)
@@ -2481,8 +2491,7 @@ class ImportWizardDialog(QWidget):
         else:
             # GeoCORK v1.0.0 format, apply to the upb sheet only
             for k_str, v in loaded.items():
-                idx = int(k_str)
-                self.sheet_mappings[self.upb_sheet_name][idx] = (v["field"])
+                self.sheet_mappings[self.upb_sheet_name][int(k_str)] = (v["field"])
 
         for sheet in self.sheet_mappings.keys():
             right_table = self.right_tables[sheet]
@@ -2492,7 +2501,8 @@ class ImportWizardDialog(QWidget):
                 hdr_data = right_table.model().headerData(col_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
                 if not hdr_data:
                     continue
-                if col_idx in column_mappings:
+                if col_idx in column_mappings and (sheet not in combo_mappings.keys() or col_idx not in combo_mappings[sheet]):
+                    # Overwrite any existing mapping that is not from a combo box added column
                     f_name = column_mappings[col_idx]
                     right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, f"{f_name}", Qt.ItemDataRole.EditRole)
                     right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, QColor("#B8CFFF"), Qt.ItemDataRole.BackgroundRole)
@@ -2500,9 +2510,15 @@ class ImportWizardDialog(QWidget):
                     if f_name in ["Sample Name", "Aliquot Name", "Spot Name", "Grain Name", "UPb Analysis Name"] and sheet == self.upb_sheet_name:
                         self.update_left_table_on_header_change(f_name, col_idx)
                 else:
-                    # Set text to column number and background to transparent
-                    right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, str(col_idx), Qt.ItemDataRole.EditRole)
-                    right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent, Qt.ItemDataRole.BackgroundRole)
+                    if (right_table.model().headerData(col_idx, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+                            not in ["Reference Display", "ReferenceID", "Instrument Name", "InstrumentID",
+                                    "Lab Facility Name", "LabFacilityID", "UPb Analysis Method Name", "UPbAnalysisMethodID"]):
+                        # Set text to column number and background to transparent
+                        right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, str(col_idx), Qt.ItemDataRole.EditRole)
+                        right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent, Qt.ItemDataRole.BackgroundRole)
+                    else:
+                        # This is a combo box added column, preserve its mapping but set background to transparent so the user knows it is not saved
+                        right_table.model().setHeaderData(col_idx, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent, Qt.ItemDataRole.BackgroundRole)
         self.update_mapping_list(name, configs)
         # self.right_table.resizeColumnsToContents()
         self.loading_manager.close_loading_dialog('Loading', f'Loading mapping: {name}...')
@@ -3680,7 +3696,7 @@ class ImportWizardDialog(QWidget):
 
         # Create a modal progress dialog
         progress_dialog = QProgressDialog(
-            "Importing U-Pb data...", "Cancel", 0, import_count, self
+            "Importing items...", "Cancel", 0, import_count, self
         )
         create_savepoint('before_upb_import')
         inserted_count = 0
@@ -3987,6 +4003,7 @@ class ImportWizardDialog(QWidget):
             rollback_savepoint('before_upb_import')
             return False
         # QSqlDatabase().commit()
+        logger_setup.get_logger().info(f"Imported {inserted_count} UPb Analysis records")
         release_savepoint('before_upb_import')
         return True
 
@@ -4041,6 +4058,7 @@ class ImportWizardDialog(QWidget):
 
         self.item_ids = {}
         item_data = {}
+        logger_setup.get_logger().info(f'Organizing data for import')
         for table in item_tables:
             organize_count += 1
             organize_progress_dialog.setValue(organize_count)
@@ -4081,14 +4099,28 @@ class ImportWizardDialog(QWidget):
                                         if column not in self.item_ids[table][sheet].keys():
                                             self.item_ids[table][sheet][column] = {}
                                         self.item_ids[table][sheet][column][item_header] = {}
+            if self.hidden_mappings:
+                for column, id_header in self.hidden_mappings.items():
+                    id_header = list(id_header.keys())[0]
+                    if id_header == get_headers(db_table)[0]:
+                        # This is the ID column for this table, it was added by the combo box to the U-Pb sheet
+                        if table not in self.item_ids.keys():
+                            self.item_ids[table] = {}
+                        if self.upb_sheet_name not in self.item_ids[table].keys():
+                            self.item_ids[table][self.upb_sheet_name] = {}
+                        if column not in self.item_ids[table][self.upb_sheet_name].keys():
+                            self.item_ids[table][self.upb_sheet_name][column] = {}
+                        self.item_ids[table][self.upb_sheet_name][column][id_header] = {}
+                        break
 
         import_progress_dialog = QProgressDialog(
-            "Importing data...", "Cancel", 0, len(self.item_ids.keys()), self
+            "Importing data...", "Cancel", 0, len(self.item_ids.keys())+1, self
         )
         create_savepoint('before_import_items')
         import_table_count = 0
 
         for table in self.item_ids.keys():
+            import_progress_dialog.setLabelText(f'Importing {table}')
             import_table_count += 1
             import_progress_dialog.setValue(import_table_count)
             # Let the event loop process the dialog's updates
@@ -4098,7 +4130,7 @@ class ImportWizardDialog(QWidget):
                 logger_setup.get_logger().info('Canceled importing data')
                 rollback_savepoint('before_import_items')
                 return False
-            logger_setup.get_logger().info(f'Importing tags for {table}')
+            logger_setup.get_logger().info(f'Importing {table}')
             table_name_columns = {}
             if table == 'SampleGPSLocations' or table == 'ColumnGPSLocations':
                 db_table = 'GPSLocations'
@@ -4120,12 +4152,12 @@ class ImportWizardDialog(QWidget):
                 foreign_keys[query.value(3)] = {'foreign_table': query.value(2), 'foreign_column': query.value(4)}
             if table not in ['SampleAges', 'References', 'SampleGPSLocations', 'ColumnGPSLocations']:
                 name_header = get_headers(table)[get_name_column(table)]
-            elif table == 'References':
-                name_header = None
-                for sheet in self.item_ids[table].keys():
-                    if search_dictionary(self.item_ids[table][sheet], 'ReferenceDisplay'):
-                        name_header = 'ReferenceDisplay'
-                        break
+            elif table == 'References' and search_dictionary(self.item_ids[table], get_headers(db_table)[0]):
+                # ID column is mapped, so make sure that ReferenceDisplay is too
+                if search_dictionary(self.item_ids[table], 'ReferenceDisplay'):
+                    name_header = 'ReferenceDisplay'
+                else:
+                    name_header = None
             else:
                 name_header = None
             for sheet in self.item_ids[table].keys():
@@ -4170,103 +4202,138 @@ class ImportWizardDialog(QWidget):
                         continue
                     for name_column in name_columns:
                         item_name = self.right_tables[sheet].model().index(row, name_column).data()
+                        logger_setup.get_logger().info(f'Gathering data for {table} item "{item_name}" from sheet {sheet}, row {row}')
+                        item_id = None
                         if item_name in ['NULL', '', None]:
                             continue
                         if item_name not in item_data[table][name_header].keys():
                             item_data[table][name_header][item_name] = {}
-                        for column, item_header in self.item_ids[table][sheet].items():
-                            item_header = list(item_header.keys())[0]
-                            if item_header not in item_data[table][name_header][item_name].keys():
-                                self.item_ids[table][sheet][column][item_header][
-                                    item_name] = None  # Placeholder, will set after insert
-                                if item_header == name_header:
-                                    item = item_name
-                                else:
-                                    item_input = self.right_tables[sheet].model().index(row, column).data()
-                                    if item_header == 'Rejected':
-                                        item = self.static_mappings[sheet][column][item_input]
+                        if sheet == self.upb_sheet_name and self.hidden_mappings and search_dictionary(
+                                self.item_ids[table][sheet], get_headers(db_table)[0]):
+                            # This table has an ID column added to the U-Pb sheet via the hidden mappings, so get the ID directly
+                            for column, header in self.item_ids[table][sheet].items():
+                                header = list(header.keys())[0]
+                                if header == get_headers(db_table)[0]:
+                                    item_id = self.right_tables[sheet].model().index(row, column).data()
+                                    break
+                            if item_id:
+                                # Now set the other columns to this ID value
+                                for column, header in self.item_ids[table][sheet].items():
+                                    header = list(header.keys())[0]
+                                    item_data[table][name_header][item_name][header] = item_id
+                                    self.item_ids[table][sheet][column][header][item_name] = item_id
+                        else:
+                            for column, item_header in self.item_ids[table][sheet].items():
+                                item_header = list(item_header.keys())[0]
+                                if (item_header not in item_data[table][name_header][item_name].keys() or
+                                        item_name not in self.item_ids[table][sheet][column][item_header].keys()):
+                                    self.item_ids[table][sheet][column][item_header][
+                                        item_name] = None  # Placeholder, will set after insert
+                                    if item_header == name_header:
+                                        item = item_name
                                     else:
-                                        item = item_input
-                                if item_header in foreign_keys.keys():
-                                    # This column is a foreign key
-                                    foreign_table = foreign_keys[item_header]['foreign_table']
-                                    if foreign_table in SQLUtils.static_tables:
-                                        item = self.static_mappings[sheet][column][item_input]
-                                    else:
-                                        if foreign_table == 'GPSLocations':
-                                            if table == 'Samples':
-                                                item = self.item_ids['SampleGPSLocations'][sheet][column][item_input]
-                                            elif table == 'Columns':
-                                                item = self.item_ids['ColumnGPSLocations'][sheet][column][item_input]
+                                        item_input = self.right_tables[sheet].model().index(row, column).data()
+                                        if item_header == 'Rejected':
+                                            item = self.static_mappings[sheet][column][item_input]
                                         else:
-                                            item = self.item_ids[foreign_table][sheet][column][item_input]
-                                item_data[table][name_header][item_name][item_header] = item
-                        for item_header in foreign_keys.keys():
-                            if item_header not in item_data[table][name_header][item_name].keys():
-                                foreign_table = foreign_keys[item_header]['foreign_table']
-                                foreign_query, foreign_virtual, foreign_stored, foreign_columns = get_columns(foreign_table)
-                                # Get a list of all columns except the ID column. This list already excludes calculated and automatically set columns
-                                foreign_query_columns = [col.replace('"', '') for col in foreign_columns if
-                                                 f'"{get_headers(foreign_table)[0]}"' not in col and
-                                                 'Created' not in col and 'Modified' not in col and 'Parent' not in col and 'Converted' not in col]
-                                if get_headers(foreign_table)[get_name_column(foreign_table)] in foreign_query_columns:
-                                    foreign_name_header = get_headers(foreign_table)[get_name_column(foreign_table)]
-                                    foreign_name_item = None
-                                elif foreign_table == 'References' and search_dictionary(self.item_ids[foreign_table][sheet], 'ReferenceDisplay'):
-                                    foreign_name_header = 'ReferenceDisplay'
-                                    foreign_name_item = None
-                                else:
-                                    # This should be the parent table of the foreign table, so we can use its name column
-                                    foreign_name_header = name_header
-                                    foreign_name_item = item_name
-                                if foreign_table == 'GPSLocations':
-                                    if table == 'Samples':
-                                        search_table = 'SampleGPSLocations'
-                                    elif table == 'Columns':
-                                        search_table = 'ColumnGPSLocations'
+                                            item = item_input
+                                    if item_header in foreign_keys.keys():
+                                        # This column is a foreign key
+                                        foreign_table = foreign_keys[item_header]['foreign_table']
+                                        if foreign_table in SQLUtils.static_tables:
+                                            item = self.static_mappings[sheet][column][item_input]
+                                        else:
+                                            if foreign_table == 'GPSLocations':
+                                                if table == 'Samples':
+                                                    item = self.item_ids['SampleGPSLocations'][sheet][column][item_input]
+                                                elif table == 'Columns':
+                                                    item = self.item_ids['ColumnGPSLocations'][sheet][column][item_input]
+                                            else:
+                                                item = self.item_ids[foreign_table][sheet][column][item_input]
+                                    item_data[table][name_header][item_name][item_header] = item
+                            for item_header in foreign_keys.keys():
+                                if item_header not in item_data[table][name_header][item_name].keys() or item_data[table][name_header][item_name][item_header] in ['NULL', '', None]:
+                                    foreign_table = foreign_keys[item_header]['foreign_table']
+                                    foreign_query, foreign_virtual, foreign_stored, foreign_columns = get_columns(foreign_table)
+                                    # Get a list of all columns except the ID column. This list already excludes calculated and automatically set columns
+                                    foreign_query_columns = [col.replace('"', '') for col in foreign_columns if
+                                                     f'"{get_headers(foreign_table)[0]}"' not in col and
+                                                     'Created' not in col and 'Modified' not in col and 'Parent' not in col and 'Converted' not in col]
+                                    if get_headers(foreign_table)[get_name_column(foreign_table)] in foreign_query_columns:
+                                        foreign_name_header = get_headers(foreign_table)[get_name_column(foreign_table)]
+                                        foreign_name_item = None
+                                    elif (foreign_table == 'References' and 'References' in self.item_ids.keys() and
+                                          search_dictionary(self.item_ids[foreign_table][sheet], 'ReferenceDisplay')):
+                                        foreign_name_header = 'ReferenceDisplay'
+                                        foreign_name_item = None
+                                    else:
+                                        # This should be the parent table of the foreign table, so we can use its name column
+                                        foreign_name_header = name_header
+                                        foreign_name_item = item_name
+                                    if foreign_table == 'GPSLocations':
+                                        if table == 'Samples':
+                                            search_table = 'SampleGPSLocations'
+                                        elif table == 'Columns':
+                                            search_table = 'ColumnGPSLocations'
+                                        else:
+                                            search_table = foreign_table
                                     else:
                                         search_table = foreign_table
-                                else:
-                                    search_table = foreign_table
-                                if search_table in self.item_ids.keys():
-                                    if sheet in self.item_ids[search_table].keys():
-                                        for column, header in self.item_ids[search_table][sheet].items():
-                                            header = list(header.keys())[0]
-                                            if foreign_name_item:
-                                                column_data = self.item_ids[search_table][sheet][column][header][foreign_name_item]
-                                                break
-                                            elif header == foreign_name_header:
-                                                foreign_name_item = self.right_tables[sheet].model().index(row, column).data()
-                                                if foreign_name_item in self.item_ids[foreign_table][sheet][column][header].keys():
-                                                    column_data = self.item_ids[foreign_table][sheet][column][header][foreign_name_item]
+                                    if search_table in self.item_ids.keys():
+                                        if sheet in self.item_ids[search_table].keys():
+                                            for column, header in self.item_ids[search_table][sheet].items():
+                                                header = list(header.keys())[0]
+                                                if foreign_name_item:
+                                                    column_data = self.item_ids[search_table][sheet][column][header][foreign_name_item]
                                                     break
-                                                else:
-                                                    column_data = 'NULL'
+                                                elif header == foreign_name_header:
+                                                    foreign_name_item = self.right_tables[sheet].model().index(row, column).data()
+                                                    if foreign_name_item in self.item_ids[foreign_table][sheet][column][header].keys():
+                                                        column_data = self.item_ids[foreign_table][sheet][column][header][foreign_name_item]
+                                                        break
+                                                    else:
+                                                        column_data = 'NULL'
+                                        else:
+                                            column_data = 'NULL'
+                                    elif item_header in combo_values.keys():
+                                        # This is a static value for all rows
+                                        column_data = combo_values[item_header]
                                     else:
                                         column_data = 'NULL'
-                                elif item_header in combo_values.keys():
-                                    # This is a static value for all rows
-                                    column_data = combo_values[item_header]
+                                    item_data[table][name_header][item_name][item_header] = column_data
+                            if table == 'UPbAnalyses':
+                                if 'Rejected' not in item_data[table][name_header][item_name].keys():
+                                    if row in rejected_rows:
+                                        item_data[table][name_header][item_name]['Rejected'] = 1
+                                    else:
+                                        item_data[table][name_header][item_name]['Rejected'] = 0
                                 else:
-                                    column_data = 'NULL'
-                                item_data[table][name_header][item_name][item_header] = column_data
-                        if table == 'UPbAnalyses':
-                            if 'Rejected' not in item_data[table][name_header][item_name].keys():
-                                if row in rejected_rows:
-                                    item_data[table][name_header][item_name]['Rejected'] = 1
-                                else:
-                                    item_data[table][name_header][item_name]['Rejected'] = 0
-                            else:
-                                if (item_data[table][name_header][item_name]['Rejected'] == 'Rejected'
-                                    or item_data[table][name_header][item_name]['Rejected'] == 1):
-                                    item_data[table][name_header][item_name]['Rejected'] = 1
-                                elif (item_data[table][name_header][item_name]['Rejected'] == 'Accepted'
-                                      or item_data[table][name_header][item_name]['Rejected'] == 0):
-                                    item_data[table][name_header][item_name]['Rejected'] = 0
+                                    if (item_data[table][name_header][item_name]['Rejected'] == 'Rejected'
+                                        or item_data[table][name_header][item_name]['Rejected'] == 1):
+                                        item_data[table][name_header][item_name]['Rejected'] = 1
+                                    elif (item_data[table][name_header][item_name]['Rejected'] == 'Accepted'
+                                          or item_data[table][name_header][item_name]['Rejected'] == 0):
+                                        item_data[table][name_header][item_name]['Rejected'] = 0
+
+            import_table_count = 0
+            item_progress_dialog = QProgressDialog(
+                f"Importing {len(item_data[table][name_header].keys())} {table}...", "Cancel", 0, len(item_data[table][name_header].keys()), self
+            )
+            item_count = 0
 
             # Now insert the items into the database
             for item_name in item_data[table][name_header].keys():
+                item_count += 1
+                item_progress_dialog.setValue(item_count)
+                # Let the event loop process the dialog's updates
+                QApplication.processEvents()
+                # If the user clicked "Cancel", we can break out
+                if item_progress_dialog.wasCanceled():
+                    logger_setup.get_logger().info('Canceled importing data')
+                    rollback_savepoint('before_import_items')
+                    return False
                 input_values = {}
+                item_id = None
                 all_null = True
                 for column_header in query_columns:
                     if column_header in item_data[table][name_header][item_name].keys():
@@ -4292,55 +4359,73 @@ class ImportWizardDialog(QWidget):
                 else:
                     name = None
                 # Search for existing item in database
-                if name:
-                    search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE {name_header} = :name COLLATE NOCASE'
-                    if not query.prepare(search_query):
-                        logger_setup.get_logger().critical(f'Error importing {table} "{name}"')
-                        logger_setup.get_logger().debug(f'Failed to prepare query to find existing item')
-                        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                        rollback_savepoint('before_import_items')
-                        return False
-                    query.bindValue(':name', name)
+                if get_headers(db_table)[0] in item_data[table][name_header][item_name].keys():
+                    # The ID column is mapped, so use this ID
+                    item_id = item_data[table][name_header][item_name][get_headers(db_table)[0]]
+                    for sheet in self.item_ids[table].keys():
+                        for column, header in self.item_ids[table][sheet].items():
+                            header_name = list(header.keys())[0]
+                            if item_name in self.item_ids[table][sheet][column][header_name].keys():
+                                self.item_ids[table][sheet][column][header_name][item_name] = item_id
+                    continue
                 else:
-                    # This table does not have a name field. Search for all values instead
-                    search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE '
-                    for column_name in query_columns:
-                        if column_name in item_data[table][name_header][item_name].keys():
-                            value = item_data[table][name_header][item_name][column_name]
-                            if value in ['NULL', '', None]:
-                                search_query += f'"{column_name}" IS NULL AND '
+                    if name:
+                        search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE {name_header} = :name COLLATE NOCASE'
+                        if not query.prepare(search_query):
+                            logger_setup.get_logger().critical(f'Error importing {table} "{name}"')
+                            logger_setup.get_logger().debug(f'Failed to prepare query to find existing item')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            rollback_savepoint('before_import_items')
+                            return False
+                        query.bindValue(':name', name)
+                    else:
+                        # This table does not have a name field. Search for all values instead
+                        non_null = False
+                        search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE '
+                        for column_name in query_columns:
+                            if column_name in item_data[table][name_header][item_name].keys():
+                                value = item_data[table][name_header][item_name][column_name]
+                                if value in ['NULL', '', None]:
+                                    search_query += f'"{column_name}" IS NULL AND '
+                                else:
+                                    search_query += f'"{column_name}" = :{column_name} COLLATE NOCASE AND '
+                                    non_null = True
                             else:
-                                search_query += f'"{column_name}" = :{column_name} COLLATE NOCASE AND '
-                        else:
-                            search_query += f'"{column_name}" IS NULL AND '
-                    search_query = search_query[:-5]  # Remove the last " AND "
-                    if not query.prepare(search_query):
-                        logger_setup.get_logger().critical(f'Error importing {table} entry')
-                        logger_setup.get_logger().debug(f'Failed to prepare query to find existing item')
+                                search_query += f'"{column_name}" IS NULL AND '
+                        search_query = search_query[:-5]  # Remove the last " AND "
+                        if not non_null:
+                            # All values are null, so skip this entry
+                            continue
+                        if not query.prepare(search_query):
+                            logger_setup.get_logger().critical(f'Error importing {table} entry')
+                            logger_setup.get_logger().debug(f'Failed to prepare query to find existing item')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            rollback_savepoint('before_import_items')
+                            return False
+                        for column_name in query_columns:
+                            if column_name in item_data[table][name_header][item_name].keys():
+                                value = item_data[table][name_header][item_name][column_name]
+                                if value not in ['NULL', '', None]:
+                                    query.bindValue(f':{column_name}', value)
+                    if not query.exec():
+                        logger_setup.get_logger().critical(f'Could not search for existing {table} in database')
+                        logger_setup.get_logger().debug(f'Failed to query the {table} values')
                         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                         logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                        logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                         rollback_savepoint('before_import_items')
                         return False
-                    for column_name in query_columns:
-                        if column_name in item_data[table][name_header][item_name].keys():
-                            value = item_data[table][name_header][item_name][column_name]
-                            if value not in ['NULL', '', None]:
-                                query.bindValue(f':{column_name}', value)
-                if not query.exec():
-                    logger_setup.get_logger().critical(f'Could not search for existing {table} in database')
-                    logger_setup.get_logger().debug(f'Failed to query the {table} values')
-                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                    logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
-                    rollback_savepoint('before_import_items')
-                    return False
-                if query.next():
-                    item_id = query.value(0)
-                else:
-                    item_id = None
+                    if query.next():
+                        item_id = query.value(0)
+                    else:
+                        item_id = None
                 if item_id:
                     # The item already exists in the database. Follow conflict resolution strategy
+                    if search_dictionary(self.item_ids[table], get_headers(db_table)[0]):
+                        # The ID column is mapped and assigned above, so assume this is the correct item
+                        continue
                     if table in ['SampleAges', 'References', 'SampleGPSLocations', 'ColumnGPSLocations']:
                         # Have already checked it against all values
                         for sheet in self.item_ids[table].keys():

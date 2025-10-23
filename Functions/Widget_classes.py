@@ -554,6 +554,18 @@ class ImportSheetModel(QAbstractTableModel):
         self.endResetModel()
         return True
 
+    def removeColumn(self, column: int, parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
+        """
+        Removes a column from the table based on the provided column index.
+        :param column: column index to remove from the table
+        :param parent:
+        :return: True for success, False otherwise
+        """
+        self.beginRemoveColumns(QtC.QModelIndex(), column, column)
+        self._dataframe.drop(self._dataframe.columns[column], axis=1, inplace=True)
+        self.endRemoveColumns()
+        return True
+
     def insertColumns(self, column: int, count: int, parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
         """
         Inserts columns into the table at the given position.
@@ -569,16 +581,17 @@ class ImportSheetModel(QAbstractTableModel):
             new_col_name = f'{column + 1}'
             self._dataframe.insert(column, new_col_name, 'NULL')
         self.endInsertColumns()
-        # # Rename any integer headers to the right to match their new index
-        # for col in range(len(self._dataframe.columns)):
-        #     try:
-        #         header = int(self._dataframe.columns[col])
-        #         if header != col:
-        #             self._dataframe.rename({self._dataframe.columns[col]: f'{col}'}, axis=1, inplace=True)
-        #     except ValueError:
-        #         # This header is not an integer, so skip it
-        #         continue
-        # return True
+
+        # Rename any integer headers to the right to match their new index
+        for col in range(column, len(self._dataframe.columns)):
+            try:
+                header = int(self._dataframe.columns[col])
+                if header != col:
+                    self._dataframe.columns.values[col] = f'{col}'
+            except ValueError:
+                # This header is not an integer, so skip it
+                continue
+        return True
 
     def insertColumn(self, column: int, parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
         """
@@ -594,13 +607,13 @@ class ImportSheetModel(QAbstractTableModel):
         lower_df = self._dataframe.iloc[:, column:]
         self._dataframe = pd.concat([upper_df, new_df, lower_df], axis=1)
         self._dataframe.fillna('NULL', inplace=True)
-        self.endInsertRows()
+        self.endInsertColumns()
         # Rename any integer headers to the right to match their new index
         for col in range(column, len(self._dataframe.columns)):
             try:
                 header = int(self._dataframe.columns[col])
                 if header != col:
-                    self._dataframe.rename({self._dataframe.columns[col]: f'{col}'}, axis=1, inplace=True)
+                    self._dataframe.columns.values[col] = f'{col}'
             except ValueError:
                 # This header is not an integer, so skip it
                 continue
@@ -4963,7 +4976,10 @@ class CheckableComboBox(QtW.QComboBox):
         :return:
         """
         if not self.typing:
-            super().setCurrentText(text)
+            # Get the index of the text in the combo box
+            index = self.findText(text)
+            if index != -1:
+                super().setCurrentIndex(index)
 
     def setCurrentIndex(self, index: int):
         """
@@ -5104,6 +5120,7 @@ class CheckableComboBox(QtW.QComboBox):
             self.select_all()
         elif action == delete_action:
             self.delete_triggered.emit(self)
+        event.accept()
 
     def set_single_click(self, single_click: bool):
         """
@@ -5246,6 +5263,7 @@ class CheckableComboBox(QtW.QComboBox):
                 if self.context_menu:
                     self.stop_typing()
                     self.contextMenuEvent(event)
+                    event.accept()
                     return True
             return super().eventFilter(obj, event)
 
@@ -5642,7 +5660,6 @@ class TreeCombobox(QtW.QComboBox):
                 save_expanded_state(model.table, self.treeView)
             self.popup_shown = False
             self.stop_typing()
-            self.closing.emit()
 
     def focusOutEvent(self, event):
         """
@@ -5965,14 +5982,19 @@ class CheckableTreeCombobox(TreeCombobox):
                             return True
                         checked_ids, partially_checked_ids, checked_indices, partially_checked_indices = (
                             tree_model.traverse_checkable_tree(QtC.QModelIndex()))
-                        if self.treeView.currentIndex() in checked_indices:
-                            self.treeView.setCurrentIndex(QtC.QModelIndex())
+                        for index in checked_indices:
+                            if index == self.treeView.currentIndex() or (index.row() == self.treeView.currentIndex().row()
+                                and index.column() == self.treeView.currentIndex().column()
+                                and index.parent() == self.treeView.currentIndex().parent()):
+                                self.treeView.setCurrentIndex(QtC.QModelIndex())
+                                break
                         self.clear_all_checks()
                         self.treeView.toggle_check_state(self.treeView.currentIndex())
                         self.stop_typing()
                         self.set_line_edit_text(self.treeView.currentIndex().data(QtC.Qt.ItemDataRole.DisplayRole))
                         self.expand_collapse = True
                         self.hidePopup()
+                        self.closing.emit()
                     else:
                         self.treeView.toggle_check_state(self.treeView.currentIndex())
                         self.stop_typing()
@@ -6283,6 +6305,8 @@ def set_comboBox_text(comboBox: QtW.QComboBox, text: str):
         comboBox.setCurrentIndex(-1)
     else:
         comboBox.setCurrentText(text)
+    if comboBox.currentText() != text:
+        logger_setup.get_logger().debug(f'ComboBox {comboBox.objectName()} text "{text}" not found in items.')
 
 def show_column(comboBox: QtW.QComboBox, column: str | int):
     """

@@ -1070,22 +1070,21 @@
                 "0": {
                     "field": "Sample Name"
                 },
-                "1": {
+                "4": {
                     "field": "Age Constraint"
                 },
-                "2": {
+                "5": {
                     "field": "Direct Age"
                 },
-                "3": {
+                "6": {
                     "field": "Direct Age Error"
+                },
+                "7": {
+                    "field": "Age Description"
                 }
             }
         },
         "Units/Formats": {
-            "Reference": "",
-            "Instrument": "",
-            "Lab Facility": "",
-            "UPb Analysis Method": "",
             "Elevation Unit": "m",
             "Height/Depth Unit": "m",
             "Sample Age Error": "2\u03c3 abs",
@@ -1097,7 +1096,7 @@
         },
         "OriginalMappings": {
             "All Sample Information": {
-                "11": 11
+                "9": 9
             },
             "LAICPMS Detrital Zircon U-Pb": {
                 "20": 20
@@ -1106,7 +1105,7 @@
                 "20": 20
             },
             "Sandstone Modal Analysis": {
-                "28": 28
+                "23": 23
             },
             "Zircon Epsilon Hafnium": {
                 "3": 3
