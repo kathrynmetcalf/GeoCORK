@@ -349,7 +349,10 @@ class SampleInformation(QtW.QDialog):
                         return
                     query.next()
                     text = query.value(0)
-                    set_comboBox_text(self.column_name_comboBox, text)
+                    combo_index = self.column_name_comboBox.findText(text)
+                    combo_model = self.column_name_comboBox.model()
+                    combo_model_index = combo_model.index(combo_index, get_name_column(get_view_from_table('Columns')))
+                    combo_model.setData(combo_model_index, QtC.Qt.CheckState.Checked, QtC.Qt.ItemDataRole.CheckStateRole)
             elif 'HeightDepthError' in header and 'Calculated' not in header:
                 if text is None or text == '':
                     self.height_depth_error_lineEdit.setText(self.height_depth_error_lineEdit.placeholderText())
