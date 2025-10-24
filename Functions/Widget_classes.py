@@ -909,6 +909,7 @@ class ReadableProxyModel(QtC.QSortFilterProxyModel):
             super().headerData(section, orientation, role)
         if role == QtC.Qt.ItemDataRole.DisplayRole and orientation == QtC.Qt.Orientation.Horizontal:
             header = super().headerData(section, orientation, role)
+            header = '' if header is None else header
             if '_' in header:
                 return header
             readable_header = get_readable_header(header)
