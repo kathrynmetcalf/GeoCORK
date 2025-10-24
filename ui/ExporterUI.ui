@@ -449,7 +449,7 @@
         <string>Select columns to add to the exported tabs on the right. For non-database exports these are required.</string>
        </property>
        <property name="text">
-        <string>Step 4 Select Columns To Output (optionally required):  </string>
+        <string>Select Columns To Output (required for custom format):  </string>
        </property>
        <property name="wordWrap">
         <bool>true</bool>
