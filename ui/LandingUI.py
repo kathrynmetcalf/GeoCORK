@@ -91,6 +91,8 @@ class LandingPage(QWidget):
                                       Qt.TransformationMode.SmoothTransformation)
         self.label.setPixmap(scaled_pixmap)
 
+
+
         self.show()
 
         if start_filepath:
@@ -154,10 +156,12 @@ class LandingPage(QWidget):
                     logger_setup.get_logger().critical(f"Error opening database: {self.db.lastError().text()}")
                     self.loading_manager.close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                    self.show()
                     return
                 if not turn_on_foreign_keys():
                     self.loading_manager.close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                    self.show()
                     return
                 Savepoint_manager.SavepointManager()
             if not skip_update:
@@ -165,6 +169,7 @@ class LandingPage(QWidget):
                     logger_setup.get_logger().critical('Error updating and displaying database')
                     self.loading_manager.close_loading_dialog("Opening",
                          f"Opening {self.selected_files.split('/')[-1]}... \n(GeoCORK may be slower for large databases)")
+                    self.show()
                     return
             self.hide()
             geo_cork = GeoCORK(self)

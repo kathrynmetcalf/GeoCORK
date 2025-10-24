@@ -1,11 +1,13 @@
 import time
 import os
 from datetime import datetime
+
 from tzlocal import get_localzone
 
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
 from PyQt6.QtWidgets import QMessageBox, QFileDialog, QProgressDialog
-from PyQt6.QtCore import QStandardPaths
+from PyQt6.QtCore import QStandardPaths, QEventLoop
+from PyQt6.QtCore import QThread
 
 import Functions.Database_views as DB_views
 from Functions.BackupDatabase import BackupThread
@@ -145,7 +147,7 @@ def update_database(database=None) -> bool:
         logger_setup.get_logger().debug(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}")
         dialog = QMessageBox()
         dialog.setIcon(QMessageBox.Icon.Critical)
-        dialog.setText(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}\nWould you like to try to open the database anyway?")
+        dialog.setText(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}\nWould you like to try to open the database anyway? \n \n This will likely cause issues with your data and is not recommended.")
         dialog.setWindowTitle("Error updating database")
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         ret = dialog.exec()
@@ -179,3 +181,61 @@ def update_database(database=None) -> bool:
     '''Delete backup made at the beginning of the update if it exists'''
 
     return True
+
+
+def backup_database(database: QSqlDatabase) -> None | str:
+    """
+    Backs up the current database or provided database. Returns either None if there was no backup created
+    or returns the file path as string for the backup file.
+    :param self:
+    :param database: QSqlDatabase or None
+    :return: None if failure, file path as a string if success
+    """
+    if database is None:
+        db = QSqlDatabase.database()
+    else:
+        db = database
+    db_file = db.databaseName()
+    logger_setup.get_logger().info(f'Creating backup of {db.connectionName()}:')
+    local_timezone = get_localzone()
+    current_time = datetime.now(local_timezone)
+    formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
+
+    backup_file = (QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) +
+                   rf"/backups/{os.path.basename(db_file).replace('.db', '')}-{formatted_timestamp}.db")
+
+    backup_dir = os.path.dirname(backup_file)
+    if backup_dir and not os.path.exists(backup_dir):
+        os.makedirs(backup_dir, exist_ok=True)
+
+    logger_setup.get_logger().info(f'Backing up to {backup_file}')
+
+    if not SavepointManager.get_instance().active_savepoints():
+        progressBar = QProgressDialog()
+        progressBar.setLabelText('Backing up database...')
+        progressBar.setCancelButtonText(None)
+        progressBar.show()
+
+        # Create and start the backup thread
+        thread = BackupThread(db_file, backup_file)
+        thread.progress_updated.connect(progressBar.setValue)
+
+        loop = QEventLoop()
+
+        def on_finished():
+            loop.quit()
+
+        thread.backup_finished.connect(on_finished)
+        thread.start()
+
+        # Block the current function until the thread is done
+        loop.exec()  # This keeps UI responsive
+
+        progressBar.close()
+        return backup_file
+
+    else:
+        logger_setup.get_logger().critical(
+            'Uncommitted changes: cannot backup\nPlease commit or discard changes before creating a backup.')
+        logger_setup.get_logger().debug(f"Savepoints: {SavepointManager.get_instance().active_savepoints_names()}")
+        return None

@@ -5,7 +5,9 @@ import sqlite3
 
 from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
+from PyQt6.QtWidgets import QMessageBox
 
+import Database_manager
 import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
@@ -1435,10 +1437,36 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
 
     if version == 'v1.0.0' or version == '1.0.0':
         # Update from version 1.0.0 to 1.1.0
+        continue_messagebox = QMessageBox.information(None,
+                                "Outdated GeoCORK Schema",
+                                f"GeoCORK has tried to open an outdated database. The version loaded is v1.0.0 and this version of GeoCORK is {settings.value('default_geocork_version')}. \n \n"
+                                f"Would you like to proceed with updating this database to the latest version? If not, use the GeoCORK version associated with this database. \n \n"
+                                f"We will attempt to backup the database automatically, but we strongly recommend making your own backups",
+                                buttons=
+                                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                defaultButton=QMessageBox.StandardButton.No)
+
+        if continue_messagebox == QMessageBox.StandardButton.No:
+            logger_setup.get_logger().info('User rejected updating schema from v1.0.0 to v1.1.0')
+            return False
+
         logger_setup.get_logger().info('Updating database schema from version v1.0.0 to v1.1.0')
         # Grain tables added automatically in Create_database.py
         # Add empty GrainID column to Spots table
         # Add UPbAnalysisName column to UPbAnalyses table and populate with SpotName
+
+        backup_file = Database_manager.backup_database(database)
+
+        if backup_file is None:
+            logger_setup.get_logger().critical(f'Error updating database schema. Could not create backup file.')
+            return False
+        else:
+            QMessageBox.information(None,
+                "Information Critical",
+                f"Successfully backed up the database to {backup_file}.\n Should there be any issues use that file to restore your data.",
+                                        buttons=
+            QMessageBox.StandardButton.Ok,
+            defaultButton = QMessageBox.StandardButton.Ok)
 
         create_savepoint('before_schema_update')
 
