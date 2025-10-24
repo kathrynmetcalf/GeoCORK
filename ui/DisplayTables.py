@@ -141,8 +141,8 @@ class DisplayTables(QtW.QWidget):
         self.next_button.clicked.connect(self.next_page)
         self.show_per_page_comboBox.currentIndexChanged.connect(self.change_rows_per_page)
 
-        self.refreshbutton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
-        self.refreshbutton.clicked.connect(self.display_table)
+        self.refresh_button.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.2))
+        self.refresh_button.clicked.connect(self.display_table)
 
     # def switch_to_frozen_table(self):
     #     """
