@@ -920,6 +920,7 @@ class ImportWizardDialog(QWidget):
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
             if self.right_table != self.right_tables[sheet]:
                 logger_setup.get_logger().critical(f"Sheet {sheet} does not match the current right table")
+                return False
             self.right_table.model().clear_all_background_colors()
 
         if not self.check_static_table_fields():
@@ -1129,6 +1130,7 @@ class ImportWizardDialog(QWidget):
             return  # User canceled
 
         # Update all rows in the column
+        logger_setup.get_logger().info(f'Setting column to {value}')
         table.blockSignals(True)
         if isinstance(table, QTableWidget):
             for row in range(table.rowCount()):
@@ -1144,6 +1146,7 @@ class ImportWizardDialog(QWidget):
                 if data in ['NULL', None, '']:
                     table.model().setData(index, value, Qt.ItemDataRole.DisplayRole)
         table.blockSignals(False)
+        logger_setup.get_logger().info(f'Set column to {value}')
 
     def set_column_to_blank(self, column, table: QTableWidget | QTableView):
         """
@@ -1152,6 +1155,7 @@ class ImportWizardDialog(QWidget):
             column (int): The column index to update.
         """
         # Update all rows in the column
+        logger_setup.get_logger().info(f'Setting column {column} to blank')
         if isinstance(table, QTableWidget):
             for row in range(table.model().rowCount()):
                 item = table.item(row, column)
@@ -1163,6 +1167,7 @@ class ImportWizardDialog(QWidget):
             for row in range(table.model().rowCount()):
                 index = table.model().index(row, column)
                 table.model().setData(index, "", Qt.ItemDataRole.DisplayRole)
+        logger_setup.get_logger().info(f'Set column {column} to blank')
 
     def handle_vertical_header_double_click(self, logical_index):
         """
@@ -1436,11 +1441,11 @@ class ImportWizardDialog(QWidget):
 
         action = menu.exec(self.right_table.mapToGlobal(pos))
         if action:
-            if not self.right_table.model().selectedIndexes():
+            if not self.right_table.selectedIndexes():
                 return
             selected_rows = []
             selected_columns = []
-            for index in self.right_table.model().selectedIndexes():
+            for index in self.right_table.selectedIndexes():
                 if index.row() not in selected_rows:
                     selected_rows.append(index.row())
                 if index.column() not in selected_columns:
@@ -1456,7 +1461,7 @@ class ImportWizardDialog(QWidget):
             elif action == set_value_action:
                 new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
                 if ok:
-                    for index in self.right_table.model().selectedIndexes():
+                    for index in self.right_table.selectedIndexes():
                         self.right_table.model().setData(index, new_value, Qt.ItemDataRole.DisplayRole)
             elif action == remove_column:
                 self.remove_selected_columns(selected_columns)
