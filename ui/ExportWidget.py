@@ -653,35 +653,20 @@ class ExportWidget(QWidget):
             # sheet 2 (ZrUPb) is list of samples, grains, analysis, and upb data
 
             case 'detritalPy':
-                if (settings.value('concordance_format_id', int) != 3 or
-                    settings.value('age_error_format_id', int) not in (1,2) or
-                    settings.value('ratio_error_format_id', int) not in (3,4)): # Format is not discordance ratio, abs error on ages, or % error on ratios
+                # means error is in % and not sigma as required by detritalPy
+                if settings.value('age_error_format_id', int) not in (1,2):
                     response = QMessageBox.question(self, 'Update settings',
-                         'detritalPy uses discordance ratio, absolute error for ages, and percentage error for ratios.\nWould you like to update the settings now?',
+                         'detritalPy uses absolute error for ages.\nWould you like to update the settings now?\n1% will be converted to 1sigma and 2% will be converted to 2sigma.',
                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.Yes)
                     if response == QMessageBox.StandardButton.Yes:
-                        settings.setValue('concordance_format_id', 3)
-                        settings.setValue('concordance_format_abbreviation', 'Dis')
                         if settings.value('age_error_format_id', int) == 3:  # 1 sigma %
                             settings.setValue('age_error_format_id', 1)
                             settings.setValue('age_error_format_abbreviation', '1σ abs')
-                            # Match the ratio error format sigma to the age error format
-                            settings.setValue('ratio_error_format_id', 3)
-                            settings.setValue('ratio_error_format_abbreviation', '1σ %')
+
                         elif settings.value('age_error_format_id', int) == 4:  # 2 sigma %
                             settings.setValue('age_error_format_id', 2)
                             settings.setValue('age_error_format_abbreviation', '2σ abs')
-                            # Match the ratio error format sigma to the age error format
-                            settings.setValue('ratio_error_format_id', 4)
-                            settings.setValue('ratio_error_format_abbreviation', '2σ %')
-                        elif settings.value('age_error_format_id', int) == 1:  # 1 sigma abs
-                            # Match the ratio error format sigma to the age error format
-                            settings.setValue('ratio_error_format_id', 3)
-                            settings.setValue('ratio_error_format_abbreviation', '1σ %')
-                        elif settings.value('age_error_format_id', int) == 2:  # 2 sigma abs
-                            # Match the ratio error format sigma to the age error format
-                            settings.setValue('ratio_error_format_id', 4)
-                            settings.setValue('ratio_error_format_abbreviation', '2σ %')
+
                         if not update_database():
                             logger_setup.get_logger().critical(f'Error updating and displaying database')
                             self.parent().close()
@@ -811,6 +796,25 @@ class ExportWidget(QWidget):
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
             case 'DZstats':
+                # means error is in % and not sigma as required by detritalPy
+                if settings.value('age_error_format_id', int) not in (1, 2):
+                    response = QMessageBox.question(self, 'Update settings',
+                                                    'DZstats uses absolute error for ages.\nWould you like to update the settings now?\n1% will be converted to 1sigma and 2% will be converted to 2sigma.',
+                                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                                    QMessageBox.StandardButton.Yes)
+                    if response == QMessageBox.StandardButton.Yes:
+                        if settings.value('age_error_format_id', int) == 3:  # 1 sigma %
+                            settings.setValue('age_error_format_id', 1)
+                            settings.setValue('age_error_format_abbreviation', '1σ abs')
+
+                        elif settings.value('age_error_format_id', int) == 4:  # 2 sigma %
+                            settings.setValue('age_error_format_id', 2)
+                            settings.setValue('age_error_format_abbreviation', '2σ abs')
+
+                        if not update_database():
+                            logger_setup.get_logger().critical(f'Error updating and displaying database')
+                            self.parent().close()
+
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
@@ -819,6 +823,25 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('DZStats', False, True, UPb_columns, UPb_columns, False)
             case 'DZmix, DZmds, DZnmf':
+                # means error is in % and not sigma as required by detritalPy
+                if settings.value('age_error_format_id', int) not in (1, 2):
+                    response = QMessageBox.question(self, 'Update settings',
+                                                    'DZmix, DZmds, DZnmf uses absolute error for ages.\nWould you like to update the settings now?\n1% will be converted to 1sigma and 2% will be converted to 2sigma.',
+                                                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                                                    QMessageBox.StandardButton.Yes)
+                    if response == QMessageBox.StandardButton.Yes:
+                        if settings.value('age_error_format_id', int) == 3:  # 1 sigma %
+                            settings.setValue('age_error_format_id', 1)
+                            settings.setValue('age_error_format_abbreviation', '1σ abs')
+
+                        elif settings.value('age_error_format_id', int) == 4:  # 2 sigma %
+                            settings.setValue('age_error_format_id', 2)
+                            settings.setValue('age_error_format_abbreviation', '2σ abs')
+
+                        if not update_database():
+                            logger_setup.get_logger().critical(f'Error updating and displaying database')
+                            self.parent().close()
+
                 self.fileformat_comboBox.setCurrentText('Excel (.xlsx)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
