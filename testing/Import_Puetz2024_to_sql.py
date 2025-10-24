@@ -227,7 +227,7 @@ def Puetz_importer():
     tables = ['"References"', 'Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'UPbAnalysisMethods', 'LabFacilities',
               'Instruments', 'UPbAnalysisContexts', 'SpotContexts', 'Units', 'Regions', 'RockTypes', 'SpotCompositions',
               'SampleAges', 'GPSLocations', 'Columns', 'Samples_Regions', 'Samples_RockTypes', 'Samples_SampleAges',
-              'Samples_Units', 'Spots_SpotContexts', 'UPbAnalyses_UPbAnalysisContexts']
+              'Samples_Units', 'Spots_SpotContexts', 'UPbAnalyses_UPbAnalysisContexts', 'GrainCompositions']
     table_properties = {}
     print(f'Gathering headers for {len(tables)} tables')
     # get the headers for each table
@@ -1264,9 +1264,31 @@ def Puetz_importer():
 
 
     # --------------------
-    # Import the spot and analysis tags from Puetz et al. (2024) into the database file.
+    # Import the spot, grain, and analysis tags from Puetz et al. (2024) into the database file.
     # --------------------
     # These are mostly in the Samples sheet as well.
+
+    # Create the Grain Composition table
+
+    static_columns = get_static_columns('GrainCompositions', db)
+
+    grain_composition_sql_df = pd.DataFrame(columns=static_columns)
+    grain_composition_sql_df['GrainCompositionName'] = sample_df['Mineral']
+    grain_composition_sql_df.dropna(axis=0, how='all', inplace=True)
+    grain_composition_sql_df.drop_duplicates(inplace=True)
+    grain_composition_sql_df.reset_index(drop=True, inplace=True)
+    grain_composition_sql_df['GrainCompositionID'] = pd.Series(list(range(1, grain_composition_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    grain_composition_sql_df['GrainCompositionCreated'] = pd.to_datetime('now')
+    grain_composition_sql_df['GrainCompositionModified'] = pd.to_datetime('now')
+
+    # Add the grain_composition_sql_df to the database
+    try:
+        conn = sqlite3.connect(db)
+        grain_composition_sql_df.to_sql('GrainCompositions', conn, if_exists='append', index=False)
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"SQLite error: {e}")
+        return
 
     # Create the Spot Composition table
 
@@ -1483,6 +1505,7 @@ def Puetz_importer():
     age_error_format = 2  # 2σ absolute
     age_unit_id = 2  # Ma
     spot_composition_id = 1  # zircon
+    grain_composition_id = 1  # zircon
     spot_size_unit_id = 5  # μm
     concordance_format_id = 5
 
@@ -1567,6 +1590,9 @@ def Puetz_importer():
     static_columns = get_static_columns('Spots', db)
     spot_sql_df = pd.DataFrame(columns=static_columns)
 
+    static_columns = get_static_columns('Grains', db)
+    grain_sql_df = pd.DataFrame(columns=static_columns)
+
     upb_analysis_df = edit_duplicate_grain_name(upb_analysis_df)
     try:
         if upb_analysis_df.empty:
@@ -1574,10 +1600,29 @@ def Puetz_importer():
     except Exception as e:
         return
 
-    # Add basic/constant information to the UPbAnalyses and Spots tables
+    # Add basic/constant information to the UPbAnalyses, Spots, and Grain tables
+    grain_sql_df['GrainName'] = upb_analysis_df['Sample&Grain']
+    grain_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    spot_sql_df['GrainID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    grain_sql_df['GrainCompositionID'] = pd.Series(list(range(1, grain_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    grain_sql_df['GrainCreated'] = pd.to_datetime('now')
+    grain_sql_df['GrainModified'] = pd.to_datetime('now')
+
+    # Add the grain_sql_df to the database
+    try:
+        conn = sqlite3.connect(db)
+        grain_sql_df.to_sql('Grains', conn, if_exists='append', index=False)
+        conn.close()
+    except sqlite3.Error as e:
+        print(f"SQLite error: {e}")
+        return
+
+    print(f'Imported {grain_sql_df.shape[0]} grains')
+
     spot_sql_df['SpotName'] = upb_analysis_df['Sample&Grain']
     spot_sql_df['SpotID'] = pd.Series(list(range(1, spot_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     upb_analysis_df['SpotID'] = pd.Series(list(range(1, spot_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    upb_analysis_sql_df['UPbAnalysisName'] = upb_analysis_df['Sample&Grain']
     upb_analysis_sql_df['SpotID'] = pd.Series(list(range(1, upb_analysis_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     upb_analysis_sql_df['UPbAnalysisID'] = pd.Series(list(range(1, upb_analysis_df.shape[0] + 1)), dtype=pd.Int64Dtype())
     upb_analysis_sql_df['RatioErrorFormatID'] = pd.Series([ratio_error_format]*upb_analysis_df.shape[0], dtype=pd.Int64Dtype())
@@ -1591,6 +1636,7 @@ def Puetz_importer():
                                               'Spectrometer Location', 'Institution', 'Spectrometer Model']]
     merged_sample_analysis_df = upb_analysis_df.merge(sample_to_analysis, on='Ref-Sample Key', how='left')
     spot_sql_df['AliquotID'] = merged_sample_analysis_df['SampleID']
+    spot_sql_df['GrainID'] = grain_sql_df['GrainID']
     spot_sql_df['SpotCompositionID'] = spot_composition_id
     spot_sql_df['SpotCreated'] = pd.to_datetime('now')
     spot_sql_df['SpotModified'] = pd.to_datetime('now')
@@ -1609,7 +1655,9 @@ def Puetz_importer():
 
     print(f'Importing spot contexts')
 
-    # Create the SpotContext table
+    # No GrainContexts to import
+
+    # Create the SpotContexts table
 
     static_columns = get_static_columns('SpotContexts', db)
 
