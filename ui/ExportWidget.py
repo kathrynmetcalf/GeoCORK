@@ -139,13 +139,14 @@ class ExportWidget(QWidget):
         self.add_workbook_button.clicked.connect(self.update_table_view)
 
         self.remove_workbook_button.clicked.connect(self.remove_current_worksheet_tab)
-        self.remove_workbook_button.clicked.connect(self.update_table_view
-                                                    )
+        self.remove_workbook_button.clicked.connect(self.update_table_view)
         self.export_pushbutton.clicked.connect(self.export_button)
         self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
         self.edit_columnnames_pushButton.clicked.connect(self.open_columnname_mapping_dialog)
 
         self.active_filter_sample_checkBox.checkStateChanged.connect(self.update_table_view)
+
+        self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
 
         self.populate_stack()
 
@@ -172,7 +173,7 @@ class ExportWidget(QWidget):
         self.filtered_upb_ids = set()
 
         # Get the current selected samples, filters, and grouped filters
-        self.checked_sample_list = self.samples_model.return_checked_ids()[0]
+        self.checked_sample_list = self.samplesincluded_comboBox.model().return_checked_ids()[0]
         self.checked_sample_names = f"({', '.join(map(str, self.checked_sample_list))})"
 
         self.checked_filter_list = self.filter_model.return_checked_ids()[0]
@@ -1448,7 +1449,6 @@ class ExportWidget(QWidget):
         logger_setup.get_logger().info('Populating ExportWidget with data from the database')
         start_show_time = time.time()
         show_loading_dialog('Loading', 'Loading data for export...')
-        self.columnselection_comboBox.addItems(SQLUtils.table_attributes_dict)
 
         query = QSqlQuery(db=self.database)
         # Get a count of the number of samples in the database
@@ -1494,11 +1494,34 @@ class ExportWidget(QWidget):
 
         self.export_format()
         # self.update_step_2_list()
+        try:
+            self.exportformat_comboBox.currentIndexChanged.disconnect()
+        except TypeError: pass
 
         self.exportformat_comboBox.currentIndexChanged.connect(self.export_format)
         self.exportformat_comboBox.currentIndexChanged.connect(self.update_table_view)
 
+        try:
+            self.selectionscope_comboBox.currentIndexChanged.disconnect()
+        except TypeError: pass
         self.selectionscope_comboBox.currentIndexChanged.connect(self.update_step_2_list)
+
+        try:
+            self.samplesincluded_comboBox.closing.disconnect()
+        except TypeError:
+            pass
+        try:
+            self.filterselection_comboBox.closing.disconnect()
+        except TypeError:
+            pass
+        try:
+            self.groupedfilter_comboBox.closing.disconnect()
+        except TypeError:
+            pass
+        try:
+            self.columnselection_comboBox.currentIndexChanged.disconnect()
+        except TypeError:
+            pass
 
         self.samplesincluded_comboBox.closing.connect(self.update_table_view)
         self.filterselection_comboBox.closing.connect(self.update_table_view)
