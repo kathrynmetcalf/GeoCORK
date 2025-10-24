@@ -244,7 +244,6 @@ class EditView(QtW.QDialog):
         self.limit = f'LIMIT {self.rows_per_page} OFFSET {self.current_page * self.rows_per_page}'
         self.where = ''
 
-        self.create_model()
         self.combo = None
         self.combo_index = QtC.QModelIndex()
         self.combo_model = None
@@ -265,16 +264,13 @@ class EditView(QtW.QDialog):
             elif 'SampleAge' in header and 'AgeSignature' not in header:
                 self.age_headers.append(header)
 
+        self.create_model()
+
         create_savepoint('before_edit')
 
-        self.edit_tableView.installEventFilter(self)
-        self.edit_tableView.selectionModel().currentChanged.connect(self.on_index_change)
-        self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
-        self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
+        self.connect_table_signals()
         self.commit_pushButton.clicked.connect(self.commit_question)
         self.cancel_pushButton.clicked.connect(self.discard_question)
-        self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
-        self.edit_tableView.doubleClicked.connect(self.display_widget)
         self.goto_line_edit.returnPressed.connect(self.go_to_record)
         self.prev_button.clicked.connect(self.previous_page)
         self.next_button.clicked.connect(self.next_page)
@@ -284,6 +280,29 @@ class EditView(QtW.QDialog):
 
         self.loading_manager.close_loading_dialog('Loading', f'Opening edit window for {self.table}...')
         logger_setup.get_logger().info(f'EditView created for {self.table} in {time.time() - edit_view_start_time:.2f} seconds')
+
+    def connect_table_signals(self):
+        """
+        Method to connect signals to the QTableView
+        :return:
+        """
+        self.edit_tableView.installEventFilter(self)
+        self.edit_tableView.selectionModel().currentChanged.connect(self.on_index_change)
+        self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.edit_tableView.customContextMenuRequested.connect(self.show_context_menu)
+        self.edit_tableView.selectionModel().currentRowChanged.connect(self.on_row_change)
+        self.edit_tableView.doubleClicked.connect(self.display_widget)
+
+    def disconnect_table_signals(self):
+        """
+        Method to disconnect signals from the QTableView
+        :return:
+        """
+        self.edit_tableView.removeEventFilter(self)
+        self.edit_tableView.selectionModel().currentChanged.disconnect(self.on_index_change)
+        self.edit_tableView.customContextMenuRequested.disconnect(self.show_context_menu)
+        self.edit_tableView.selectionModel().currentRowChanged.disconnect(self.on_row_change)
+        self.edit_tableView.doubleClicked.disconnect(self.display_widget)
 
     def create_model(self):
         name_column = get_name_column(self.table)
@@ -630,16 +649,6 @@ class EditView(QtW.QDialog):
         self.edit_tableView.horizontalHeader().setSortIndicator(-1, QtC.Qt.SortOrder.AscendingOrder)
         self.proxy_model = ReadableProxyModel(view=True)
         self.proxy_model.setSourceModel(self.model)
-        if self.table == 'UPbAnalyses':
-            self.name_column = get_name_column(get_view_from_table(self.table))
-        proxy_name_column = None
-        if self.name_column is not None:
-            self.name_header = self.show_cols[self.name_column]
-            for column in range(self.proxy_model.columnCount()):
-                header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
-                if header == self.name_header:
-                    proxy_name_column = column
-                    break
         self.edit_tableView.setModel(self.proxy_model)
         for column in range(self.proxy_model.columnCount()):
             header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
@@ -652,6 +661,15 @@ class EditView(QtW.QDialog):
 
         self.edit_tableView.resizeRowsToContents()
         self.edit_tableView.verticalHeader().setSectionResizeMode(QtW.QHeaderView.ResizeMode.ResizeToContents)
+        self.name_column = get_name_column(get_view_from_table(self.table))
+        proxy_name_column = None
+        if self.name_column is not None:
+            self.name_header = self.show_cols[self.name_column]
+            for column in range(self.proxy_model.columnCount()):
+                header = self.model.headerData(column, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
+                if header == self.name_header:
+                    proxy_name_column = column
+                    break
         if proxy_name_column:
             self.proxy_model.sort(proxy_name_column, QtC.Qt.SortOrder.AscendingOrder)
 
@@ -680,6 +698,7 @@ class EditView(QtW.QDialog):
         for column in range(self.proxy_model.columnCount()):
             if self.edit_tableView.columnWidth(column) > 400:
                 self.edit_tableView.setColumnWidth(column, 400)
+        self.connect_table_signals()
 
         self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
         end_time = time.time()
