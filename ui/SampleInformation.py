@@ -250,7 +250,8 @@ class SampleInformation(QtW.QDialog):
         self.commit_pushButton.clicked.connect(self.commit_clicked)
         self.cancel_pushButton.clicked.connect(self.discard_clicked)
         self.sample_name_comboBox.closing.connect(self.update_sample_list)
-        self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
+        # this should not be needed as the combobox handles the custom context menus now
+        # self.sample_name_comboBox.view().customContextMenuRequested.connect(self.show_context_menu)
         self.sample_name_comboBox.edit_triggered.connect(self.edit_popup)
         self.sample_name_comboBox.delete_triggered.connect(self.delete_item)
         self.sample_igsn_lineEdit.editingFinished.connect(lambda: self.update_field('SampleIGSN', f'{self.sample_igsn_lineEdit.text()}'))
@@ -558,50 +559,52 @@ class SampleInformation(QtW.QDialog):
         logger_setup.get_logger().info(f"Populated checks for {many_to_many_table}")
         return text
 
-    def show_context_menu(self, pos: QtC.QPoint):
-        combo = self.sender()
-        while not isinstance(combo, QtW.QComboBox):
-            combo = combo.parent()
-        logger_setup.get_logger().info("Showing context menu")
-        menu = QtW.QMenu()
-        if isinstance(combo, CheckableComboBox) and not combo.single_click:
-            select_action = menu.addAction("Select all")
-            unselect_action = menu.addAction("Unselect all")
-            delete_action = menu.addAction("Delete selected")
-            add_action = None
-            edit_action = None
-        else:
-            add_action = menu.addAction("Add")
-            edit_action = menu.addAction("Edit")
-            select_action = None
-            unselect_action = None
-            delete_action = None
-        action = menu.exec(combo.view().mapToGlobal(pos))
-        if not action:
-            return
-        if action == select_action:
-            self.check_all_samples()
-        elif action == unselect_action:
-            self.uncheck_all_samples()
-        elif action == delete_action:
-            selected_indexes = combo.view().selectionModel().selectedIndexes()
-            selected_ids = []
-            for index in selected_indexes:
-                id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
-                if id is not None:
-                    selected_ids.append(id)
-            if selected_ids:
-                delete_data( 'Samples', selected_ids)
-                action = None
-            else:
-                action = None
-                return
-        elif action == add_action:
-            self.add_popup(combo, action)
-            action = None
-        elif action == edit_action:
-            self.edit_popup()
-            action = None
+    # this should not be needed anymore as context menu is handed at the combobox level in Widget_classes not here
+    # keeping commented if this is needed sometime later
+    # def show_context_menu(self, pos: QtC.QPoint):
+    #     combo = self.sender()
+    #     while not isinstance(combo, QtW.QComboBox):
+    #         combo = combo.parent()
+    #     logger_setup.get_logger().info("Showing context menu")
+    #     menu = QtW.QMenu()
+    #     if isinstance(combo, CheckableComboBox) and not combo.single_click:
+    #         select_action = menu.addAction("Select all")
+    #         unselect_action = menu.addAction("Unselect all")
+    #         delete_action = menu.addAction("Delete selected")
+    #         add_action = None
+    #         edit_action = None
+    #     else:
+    #         add_action = menu.addAction("Add")
+    #         edit_action = menu.addAction("Edit")
+    #         select_action = None
+    #         unselect_action = None
+    #         delete_action = None
+    #     action = menu.exec(combo.view().mapToGlobal(pos))
+    #     if not action:
+    #         return
+    #     if action == select_action:
+    #         self.check_all_samples()
+    #     elif action == unselect_action:
+    #         self.uncheck_all_samples()
+    #     elif action == delete_action:
+    #         selected_indexes = combo.view().selectionModel().selectedIndexes()
+    #         selected_ids = []
+    #         for index in selected_indexes:
+    #             id = combo.model().index(index.row(), 0).data(QtC.Qt.ItemDataRole.DisplayRole)
+    #             if id is not None:
+    #                 selected_ids.append(id)
+    #         if selected_ids:
+    #             delete_data( 'Samples', selected_ids)
+    #             action = None
+    #         else:
+    #             action = None
+    #             return
+    #     elif action == add_action:
+    #         self.add_popup(combo, action)
+    #         action = None
+    #     elif action == edit_action:
+    #         self.edit_popup()
+    #         action = None
 
     def update_field(self, field: str, text: str):
         logger_setup.get_logger().info(f"Update field called with {field} and {text}")
