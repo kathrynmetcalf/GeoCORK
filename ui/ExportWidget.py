@@ -190,6 +190,9 @@ class ExportWidget(QWidget):
             self.worksheet_tabs_dict[current_worksheet_name]['selected_columns'] = \
                 self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
             self.load_checkbox_states()
+            self.get_selected_values()
+            selected_columns = self.worksheet_tabs_dict[current_worksheet_name]['selected_columns']
+            ordered_columns = self.worksheet_tabs_dict[current_worksheet_name]['ordered_columns']
         else:
             # update selected columns
             self.get_selected_values()
@@ -492,7 +495,9 @@ class ExportWidget(QWidget):
             logger_setup.get_logger().info('Created table TempPivotTable successfully')
 
             # defaults to pivot based on the first column in the exporter.
+            # tuple is in format (table, attribute)
             first_tuple = next(iter(ordered_columns))
+            # get the attirbute of the first tuple to pivot based on
             pivot_col = first_tuple[1]
             pivot_col = self.column_name_mappings[pivot_col]
 
@@ -522,7 +527,7 @@ class ExportWidget(QWidget):
                 # if no columns/values are found then could be an error, check if items are checked, if there are
                 # then something went wrong.
                 if not len(self.checked_sample_list) == 0:
-                    logger_setup.get_logger().critical('No rows returned for distinct first column')
+                    logger_setup.get_logger().critical('No rows returned. Try broadening filters, samples, or additional filters.')
                     model = SQLiteTableModel()
                     proxy_model = ReadableProxyModel()
                     proxy_model.setSourceModel(model)
