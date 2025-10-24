@@ -6,7 +6,7 @@ import time
 
 import qtawesome
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtCore import Qt, QAbstractTableModel
+from PyQt6.QtCore import Qt, QAbstractTableModel, QSize
 from PyQt6.QtGui import QDesktopServices, QShowEvent
 from PyQt6.QtSql import QSqlDatabase, QSqlQueryModel, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -47,9 +47,6 @@ class ExportWidget(QWidget):
         loadUi(sources_ui_file, self)
 
         self.database = database
-
-        self.refreshbutton.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.0))
-        self.refreshbutton.clicked.connect(self.refresh_button)
 
         self.checked_sample_list = []
         """List of SampleIDs that are currently checked to be included in the export"""
@@ -134,15 +131,56 @@ class ExportWidget(QWidget):
         text = self.use_converted_label.text()
         self.use_converted_label.setText(f"<b>{text}</b>")
 
-        # Connect buttons to methods
-        self.add_workbook_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, {}, False))
-        self.add_workbook_button.clicked.connect(self.update_table_view)
+        self.refresh_button = QPushButton("")
+        self.refresh_button.setObjectName("refreshbutton")
+        self.refresh_button.setToolTip('Refreshes the widget and can fix issues')
+        self.refresh_button.setMaximumSize(QSize(25, 40))
 
-        self.remove_workbook_button.clicked.connect(self.remove_current_worksheet_tab)
-        self.remove_workbook_button.clicked.connect(self.update_table_view)
-        self.export_pushbutton.clicked.connect(self.export_button)
-        self.editorder_pushbutton.clicked.connect(self.open_column_order_dialog)
-        self.edit_columnnames_pushButton.clicked.connect(self.open_columnname_mapping_dialog)
+        self.add_worksheet_button = QPushButton("Add Worksheet")
+        self.add_worksheet_button.setObjectName("add_worksheet_button")
+        self.add_worksheet_button.setToolTip('Adds a worksheet to the exporter')
+
+        self.remove_worksheet_button = QPushButton("Delete Worksheet")
+        self.remove_worksheet_button.setObjectName("remove_worksheet_button")
+        self.remove_worksheet_button.setToolTip('Deletes the currently viewed worksheet from the exporter')
+
+        self.edit_columnnames_button = QPushButton("Edit Column Names")
+        self.edit_columnnames_button.setObjectName("edit_columnnames_button")
+        self.edit_columnnames_button.setToolTip('Edits the column names to be exported. Column names seen below are what will be exported, not what they are called in the database.')
+
+        self.worksheetbutton_layout.addWidget(self.refresh_button)
+        self.worksheetbutton_layout.addWidget(self.add_worksheet_button)
+        self.worksheetbutton_layout.addWidget(self.remove_worksheet_button)
+        self.worksheetbutton_layout.addWidget(self.edit_columnnames_button)
+
+
+        self.editorder_button = QPushButton("Edit Column Order")
+        self.editorder_button.setObjectName("editorder_button")
+        self.editorder_button.setToolTip('Edits the order of selected columns to be viewed in the current worksheet')
+
+        self.export_button = QPushButton("Export")
+        self.export_button.setObjectName("export_button")
+        self.export_button.setToolTip('Exports the current workbook with all options selected')
+
+        self.options_layout.addWidget(self.editorder_button)
+        self.options_layout.addWidget(self.export_button)
+
+        # Connect buttons to methods
+        self.refresh_button.setIcon(qtawesome.icon('fa6s.rotate-right', color='green', scale_factor=1.2))
+        self.refresh_button.clicked.connect(self.refresh_widget)
+
+        self.add_worksheet_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, {}, False))
+        self.add_worksheet_button.clicked.connect(self.update_table_view)
+
+        self.remove_worksheet_button.clicked.connect(self.remove_current_worksheet_tab)
+        self.remove_worksheet_button.clicked.connect(self.update_table_view)
+
+        self.edit_columnnames_button.clicked.connect(self.open_columnname_mapping_dialog)
+
+
+        self.export_button.clicked.connect(self.export_data)
+
+        self.editorder_button.clicked.connect(self.open_column_order_dialog)
 
         self.active_filter_sample_checkBox.checkStateChanged.connect(self.update_table_view)
 
@@ -638,9 +676,9 @@ class ExportWidget(QWidget):
         self.selectionscope_comboBox.setEnabled(True)
         self.columnattributes_stack.setEnabled(True)
         self.columnselection_comboBox.setEnabled(True)
-        self.editorder_pushbutton.setEnabled(True)
-        self.add_workbook_button.setEnabled(True)
-        self.remove_workbook_button.setEnabled(True)
+        self.editorder_button.setEnabled(True)
+        self.add_worksheet_button.setEnabled(True)
+        self.remove_worksheet_button.setEnabled(True)
         self.fileformat_comboBox.setEnabled(True)
         self.filterselection_comboBox.show()
         self.groupedfilter_comboBox.show()
@@ -872,9 +910,9 @@ class ExportWidget(QWidget):
                 # self.selectionscope_comboBox.setEnabled(False)
                 # self.columnattributes_stack.setEnabled(False)
                 self.columnselection_comboBox.setEnabled(False)
-                self.editorder_pushbutton.setEnabled(False)
-                self.add_workbook_button.setEnabled(False)
-                self.remove_workbook_button.setEnabled(False)
+                self.editorder_button.setEnabled(False)
+                self.add_worksheet_button.setEnabled(False)
+                self.remove_worksheet_button.setEnabled(False)
                 # self.filterselection_comboBox.hide()
                 self.groupedfilter_comboBox.hide()
                 self.groupedfilter_label.hide()
@@ -1159,7 +1197,7 @@ class ExportWidget(QWidget):
         """Delete all worksheet tabs and their associated data. This is used when the ExportWidget has a change
         in selected export format."""
         self.workbooktabs.setParent(None)
-        self.verticalLayout_7.removeWidget(self.workbooktabs)
+        self.workbook_layout.removeWidget(self.workbooktabs)
         self.workbooktabs.deleteLater()
 
         self.workbooktabs = QTabWidget()
@@ -1168,7 +1206,7 @@ class ExportWidget(QWidget):
         self.workbooktabs.tabBarDoubleClicked.connect(self.rename_worksheet_tab)
         self.previous_worksheet = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
 
-        self.verticalLayout_7.addWidget(self.workbooktabs)
+        self.workbook_layout.addWidget(self.workbooktabs)
 
         self.worksheet_tabs_dict = {}
         self.previous_worksheet = None
@@ -1440,7 +1478,7 @@ class ExportWidget(QWidget):
         self.worksheet_tabs_dict[current_worksheet_name]['pivot'] = not pivottable_checkbox
         self.update_table_view()
 
-    def refresh_button(self):
+    def refresh_widget(self):
         """
         Method to force a refresh of the dropdowns and table view.
         """
@@ -1564,7 +1602,7 @@ class ExportWidget(QWidget):
 
         super().showEvent(a0)
 
-    def export_button(self):
+    def export_data(self):
         """Method to export the generated tableView and SQL code to a given format. Based on the exportformat_comboBox's
          current index. This method is called when the export_puhsbutton is clicked."""
         show_loading_dialog('Export', 'Exporting data...')

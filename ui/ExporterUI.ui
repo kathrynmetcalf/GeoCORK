@@ -21,7 +21,7 @@
   </property>
   <layout class="QHBoxLayout" name="horizontalLayout">
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_9">
+    <layout class="QVBoxLayout" name="options_layout">
      <item>
       <widget class="QLabel" name="use_converted_label">
        <property name="font">
@@ -38,7 +38,7 @@
       </widget>
      </item>
      <item>
-      <layout class="QGridLayout" name="gridLayout">
+      <layout class="QGridLayout" name="optionscombo_layout">
        <property name="sizeConstraint">
         <enum>QLayout::SetDefaultConstraint</enum>
        </property>
@@ -506,149 +506,19 @@
        </property>
       </widget>
      </item>
-     <item>
-      <widget class="QPushButton" name="editorder_pushbutton">
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>25</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>550</width>
-         <height>25</height>
-        </size>
-       </property>
-       <property name="statusTip">
-        <string>Edits the selected columns order in the currently selected worksheet.</string>
-       </property>
-       <property name="text">
-        <string>Edit Column Order</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QPushButton" name="export_pushbutton">
-       <property name="minimumSize">
-        <size>
-         <width>0</width>
-         <height>25</height>
-        </size>
-       </property>
-       <property name="maximumSize">
-        <size>
-         <width>550</width>
-         <height>25</height>
-        </size>
-       </property>
-       <property name="statusTip">
-        <string>Exports the given worksheets or database, does not modify data in the database</string>
-       </property>
-       <property name="text">
-        <string>Export</string>
-       </property>
-      </widget>
-     </item>
     </layout>
    </item>
    <item>
-    <layout class="QVBoxLayout" name="verticalLayout_7">
+    <layout class="QVBoxLayout" name="workbook_layout">
      <item>
-      <widget class="QLabel" name="label_8">
+      <widget class="QLabel" name="datatables_label">
        <property name="text">
         <string>Data Table(s) Preview:</string>
        </property>
       </widget>
      </item>
      <item>
-      <layout class="QHBoxLayout" name="horizontalLayout_4">
-       <item>
-        <widget class="QPushButton" name="refreshbutton">
-         <property name="minimumSize">
-          <size>
-           <width>25</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>25</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="text">
-          <string/>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="add_workbook_button">
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="statusTip">
-          <string>Adds a worksheet to the exporter</string>
-         </property>
-         <property name="text">
-          <string>Add Worksheet</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="remove_workbook_button">
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="statusTip">
-          <string>Deletes the currently viewed worksheet from the exporter</string>
-         </property>
-         <property name="text">
-          <string>Delete Worksheet</string>
-         </property>
-        </widget>
-       </item>
-       <item>
-        <widget class="QPushButton" name="edit_columnnames_pushButton">
-         <property name="minimumSize">
-          <size>
-           <width>0</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="maximumSize">
-          <size>
-           <width>16777215</width>
-           <height>25</height>
-          </size>
-         </property>
-         <property name="statusTip">
-          <string>Edits the column names to be exported. Column names seen below are what will be exported, not what they are called in the database.</string>
-         </property>
-         <property name="text">
-          <string>Edit Column Names</string>
-         </property>
-        </widget>
-       </item>
-      </layout>
+      <layout class="QHBoxLayout" name="worksheetbutton_layout"/>
      </item>
      <item>
       <widget class="QTabWidget" name="workbooktabs">

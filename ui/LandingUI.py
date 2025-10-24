@@ -45,6 +45,17 @@ class LandingPage(QWidget):
 
         self.loadWindowState()
 
+        self.newdatabase_button = QPushButton('New Database')
+        self.newdatabase_button.setObjectName("newdatabase_button")
+        self.opendatabase_button = QPushButton('Open Database')
+        self.opendatabase_button.setObjectName("opendatabase_button")
+        self.mergedatabase_button = QPushButton('Merge Database')
+        self.mergedatabase_button.setObjectName("mergedatabase_button")
+
+        self.verticalLayout.insertWidget(1, self.mergedatabase_button)
+        self.verticalLayout.insertWidget(1, self.opendatabase_button)
+        self.verticalLayout.insertWidget(1, self.newdatabase_button)
+
         self.newdatabase_button.clicked.connect(self.new_database_dialog)
         self.opendatabase_button.clicked.connect(self.showFileDialog)
         self.mergedatabase_button.clicked.connect(self.show_merge_db)
