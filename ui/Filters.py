@@ -718,12 +718,14 @@ class RuleWidget(QWidget):
                     date_range_validator = QRegularExpressionValidator(date_range_regex)
                     self.value_input.setValidator(date_range_validator)
                     self.value_input.setPlaceholderText("e.g. YYYY-MM-DD,YYYY-MM-DD")
+                    self.value_input.setToolTip("Enter two dates in any order separated by a comma")
                 case 'number':
                     # Numeric fields
                     double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
                     double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
                     self.value_input.setValidator(double_comma_double_validator)
                     self.value_input.setPlaceholderText("e.g. 0.0,0.0")
+                    self.value_input.setToolTip("Enter two numeric values in any order separated by a comma")
                     # Because it's numeric, let's allow the user to pick units (e.g. for an age)
                     # currently not implemented as filters used CalculatedAge values rather than actual values.
                     # the user should know what unit to search in.
@@ -740,14 +742,17 @@ class RuleWidget(QWidget):
                     date_range_validator = QRegularExpressionValidator(date_range_regex)
                     self.value_input.setPlaceholderText("e.g. YYYY-MM-DD")
                     self.value_input.setValidator(date_range_validator)
+                    self.value_input.setToolTip("Enter two dates in any order separated by a comma")
                 case 'string':
                     # Text-based
                     self.value_input.setPlaceholderText("e.g. abc123")
                     self.value_input.setValidator(None)  # No numeric validator
+                    self.value_input.setToolTip("")
                 case 'boolean':
                     # todo: Change this to a combobox for True/False
                     self.value_input.setPlaceholderText("e.g. True/False")
                     self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(True|False)$")))
+                    self.value_input.setToolTip("")
                 case 'number':
                     # Numeric fields, e.g. Ages
                     float_validator = QDoubleValidator(
@@ -758,6 +763,7 @@ class RuleWidget(QWidget):
                     float_validator.setNotation(QDoubleValidator.Notation.StandardNotation)
                     self.value_input.setPlaceholderText("e.g. 0.0")
                     self.value_input.setValidator(float_validator)
+                    self.value_input.setToolTip("Enter a numeric value")
                     # currently not implemented as filters used CalculatedAge values rather than actual values.
                     # the user should know what unit to search in.
                     # Show units if it's numeric
@@ -793,11 +799,14 @@ class RuleWidget(QWidget):
             while query.next():
                 values.add(query.value(0))
             value_completer.setModel(QtCore.QStringListModel(values))
+            value_completer.model().sort(0, QtCore.Qt.SortOrder.AscendingOrder)
             value_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
             value_completer.setCaseSensitivity(QtCore.Qt.CaseSensitivity.CaseInsensitive)
+            value_completer.setModelSorting(QtWidgets.QCompleter.ModelSorting.CaseInsensitivelySortedModel)
             value_completer.setCompletionMode(QtWidgets.QCompleter.CompletionMode.PopupCompletion)
             self.value_input.setCompleter(value_completer)
-
+        else:
+            self.value_input.setCompleter(None)
 
 class GroupBox(QGroupBox):
     """
