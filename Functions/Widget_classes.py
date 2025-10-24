@@ -4965,7 +4965,9 @@ class CheckableComboBox(QtW.QComboBox):
                         if checked_name is not None and checked_name not in checked_names:
                             checked_names.append(checked_name)
         for id in checked_ids:
-            checked_names.append(get_name_from_id(self.table, id))
+            name = get_name_from_id(self.table, id)
+            if name:
+                checked_names.append(name)
         text = '; '.join(checked_names)
         self.set_line_edit_text(text)
 
@@ -5094,11 +5096,23 @@ class CheckableComboBox(QtW.QComboBox):
                 select_all_action = menu.addAction("Check All")
                 delete_action = None
             else:
-                edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
+                # Check if the parent window at any level is class SampleInformation
+                if self.table == 'Samples':
+                    parent = self.parent()
+                    while parent is not None:
+                        if parent.__class__.__name__ == 'SampleInformation':
+                            break
+                        parent = parent.parent()
+                    if parent is not None:
+                        edit_action = None
+                    else:
+                        edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
+                else:
+                    edit_action = menu.addAction(f"Edit {TxM.add_spaces_camel(table)}")
                 add_action = None
                 clear_all_action = menu.addAction("Clear All Checks")
                 select_all_action = menu.addAction("Check All")
-                delete_action = menu.addAction(f"Delete {TxM.add_spaces_camel(table)}")
+                delete_action = menu.addAction(f"Delete checked {TxM.add_spaces_camel(table)}")
         elif self.table in ('Samples', 'Aliquots', 'Spots', 'UPbAnalyses'):
             edit_action = None
             add_action = None

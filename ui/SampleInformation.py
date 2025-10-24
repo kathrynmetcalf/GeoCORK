@@ -22,7 +22,7 @@ from Functions.Widget_classes import (
     CheckableTreeView, save_expanded_state, set_comboBox_text, find_upb_from_samples, delete_data,
     find_tree_model, CheckableComboBox, get_selected_tree_ids, get_headers, add_tree_popup, restore_expanded_state,
     DisplayRoundedQueryModel, populate_combo_box, populate_many_combo_checks, ReadableProxyModel, show_column,
-    get_view_from_table, close_loading_dialog, show_loading_dialog
+    get_view_from_table, close_loading_dialog, show_loading_dialog, get_name_from_id, get_id_from_name
 )
 from Functions.Savepoint_manager import SavepointManager, create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Check_triggers import validate_insert, validate_update, update_modified_timestamp
@@ -65,6 +65,7 @@ class SampleInformation(QtW.QDialog):
 
         # Sample names table
         self.sample_names_model = CheckableSqlTableModel()  # The one used to populate the dropdown checkbox of samples to edit, shows only name and description
+        self.sample_names_proxy = ReadableProxyModel()
         self.sample_names_model = set_table(self.sample_names_model, 'Samples')
         if sample_id_list is None or len(sample_id_list) == 0:
             self.selected_sample_list = []
@@ -873,7 +874,27 @@ class SampleInformation(QtW.QDialog):
             selected_ids, partially_checked_ids, checked_indices, partially_checked_indices = model.traverse_checkable_tree(
                 QtC.QModelIndex())
         if selected_ids:
-            delete_data(table, selected_ids)
+            if delete_data(table, selected_ids):
+                self.updated = True
+                if table == 'Samples':
+                    for deleted_id in selected_ids:
+                        self.selected_sample_list.remove(deleted_id)
+                # Update all
+                self.checked_sample_list = []
+                self.sample_names_model = CheckableSqlTableModel()
+                self.sample_names_model = set_table(self.sample_names_model, 'Samples')
+                if len(self.selected_sample_list) > 1:
+                    self.sample_names_model.setFilter(f"SampleID in {tuple(self.selected_sample_list)}")
+                else:
+                    self.sample_names_model.setFilter(f"SampleID = {self.selected_sample_list[0]}")
+                self.sample_names_model.select()
+                self.sample_names_proxy = QtC.QSortFilterProxyModel()
+                self.sample_names_proxy.setSourceModel(self.sample_names_model)
+                self.sample_name_comboBox.setModel(self.sample_names_proxy)
+                self.check_all_samples()
+                self.sample_name_comboBox.enable_context_menu(True)
+                self.sample_name_comboBox.set_line_edit_text(self.checked_sample_names)
+                self.populate_dropdowns()
         else:
             return
 
