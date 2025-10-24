@@ -7,7 +7,7 @@ from PyQt6 import QtSql as QtS
 from PyQt6 import QtWidgets as QtW
 from PyQt6.QtWidgets import QMessageBox
 
-import Database_manager
+import Functions.Database_manager as Database_manager
 import Functions.SQLUtils as SQLUtils
 import logger_setup
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
