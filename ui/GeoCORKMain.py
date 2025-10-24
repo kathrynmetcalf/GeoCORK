@@ -327,6 +327,8 @@ class GeoCORK(QtW.QMainWindow):
                 parent_name = get_name_from_id('Samples', p_id)
             elif parent_type == 'Aliquot':
                 parent_name = get_name_from_id('Aliquots', p_id)
+            elif parent_type == 'Grain':
+                parent_name = get_name_from_id('Grains', p_id)
             elif parent_type == 'Spot':
                 parent_name = get_name_from_id('Spots', p_id)
             else:
@@ -334,6 +336,8 @@ class GeoCORK(QtW.QMainWindow):
                 return
             if child_type == 'Aliquot':
                 child_label = 'Aliquots'
+            elif child_type == 'Grain':
+                child_label = 'Grains'
             elif child_type == 'Spot':
                 child_label = 'Spots'
             elif child_type == 'UPbAnalysis':

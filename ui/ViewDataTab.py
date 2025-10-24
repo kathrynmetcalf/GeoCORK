@@ -115,6 +115,16 @@ class ViewDataTab(QtW.QWidget):
             table = 'Aliquots'
             self.show_cols = settings.value('aliquot_view_columns')
             query_args = {'show_columns': self.show_cols, 'where': f'WHERE SampleID = {self.parent_id}'}
+        elif self.child_type == 'Grain':
+            table = 'Grains'
+            self.show_cols = settings.value('grain_view_columns')
+            if self.parent_type == 'Sample':
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE SampleID = {self.parent_id}'}
+            elif self.parent_type == 'Aliquot':
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE AliquotID = {self.parent_id}'}
+            else:
+                logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for Grain table')
+                table = None
         elif self.child_type == 'Spot':
             table = 'Spots'
             self.show_cols = settings.value('spot_view_columns')
@@ -122,6 +132,8 @@ class ViewDataTab(QtW.QWidget):
                 query_args = {'show_columns': self.show_cols, 'where': f'WHERE AliquotID = {self.parent_id}'}
             elif self.parent_type == 'Sample':
                 query_args = {'show_columns': self.show_cols, 'where': f'WHERE SampleID = {self.parent_id}'}
+            elif self.parent_type == 'Grain':
+                query_args = {'show_columns': self.show_cols, 'where': f'WHERE GrainID = {self.parent_id}'}
             else:
                 logger_setup.get_logger().critical(f'Error: Invalid parent type {self.parent_type} for Spot table')
                 table = None
