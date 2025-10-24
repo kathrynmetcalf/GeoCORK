@@ -740,7 +740,7 @@ class ViewQuery:
         self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'UPbAnalysisID'
-        self.order_col: str = 'SpotName'
+        self.order_col: str = 'UPbAnalysisName'
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
@@ -847,7 +847,7 @@ class ViewQuery:
         self.limit: str = ''
         self.where: str = ''
         self.group_col: str = 'UPbAnalysisID'
-        self.order_col: str = 'SpotName'
+        self.order_col: str = 'UPbAnalysisName'
         for key, value in self.kwargs.items():
             setattr(self, key, value)
 
