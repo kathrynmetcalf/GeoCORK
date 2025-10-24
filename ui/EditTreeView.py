@@ -1004,7 +1004,7 @@ class EditTreeView(QtW.QDialog):
             index = tree_index.siblingAtColumn(0)
             if index not in tree_indexes:
                 tree_indexes.append(index)
-        item_ids = get_selected_tree_ids(tree_indexes)[0]
+        item_ids = list(get_selected_tree_ids(tree_indexes).keys())
         if not item_ids:
             return
 
@@ -1360,7 +1360,7 @@ class EditTreeView(QtW.QDialog):
             index = tree_index.siblingAtColumn(0)
             if index not in tree_indexes:
                 tree_indexes.append(index)
-        ids_to_merge = get_selected_tree_ids(tree_indexes)[0]
+        ids_to_merge = list(get_selected_tree_ids(tree_indexes).keys())
         if len(ids_to_merge) < 2:
             logger_setup.get_logger().error('At least two records must be selected to merge')
             return

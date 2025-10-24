@@ -112,7 +112,7 @@ class EditTree(QtW.QDialog):
         if self.table == 'Ages':
             tree_menu.set_view(self.edit_treeView, False, False, False)
         else:
-            tree_menu.set_view(self.edit_treeView, True, True, True)
+            tree_menu.set_view(self.edit_treeView, True, True, False)
         action = tree_menu.exec(self.edit_treeView.viewport().mapToGlobal(pos))
         if action:
             self.tree_context_menu(action)
@@ -219,7 +219,7 @@ class EditTree(QtW.QDialog):
             tree_index = self.tree_proxy_model.mapToSource(view_index)
             if tree_index.column() == 0 and tree_index not in tree_indexes:
                 tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
-        ids_to_merge = get_selected_tree_ids(tree_indexes)[0]
+        ids_to_merge = list(get_selected_tree_ids(tree_indexes))
         if len(ids_to_merge) < 2:
             logger_setup.get_logger().error('At least two records must be selected to merge')
             return
@@ -237,7 +237,7 @@ class EditTree(QtW.QDialog):
             tree_index = self.tree_proxy_model.mapToSource(view_index)
             if tree_index.column() == 0 and tree_index not in tree_indexes:
                 tree_indexes.append(self.tree_proxy_model.mapToSource(view_index))
-        item_ids = get_selected_tree_ids(tree_indexes)[0]
+        item_ids = list(get_selected_tree_ids(tree_indexes))
         if not item_ids:
             return
 

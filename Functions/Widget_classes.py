@@ -3458,7 +3458,7 @@ class TreeModel(QtC.QAbstractProxyModel):
             return False
         else:
             logger_setup.get_logger().info(f'Successfully inserted new item {item_name}')
-            if parent_id:
+            if parent_id and parent_id != 'Null':
                 p_id = f'= {parent_id}'
             else:
                 p_id = 'IS NULL'
@@ -4288,20 +4288,14 @@ def get_selected_tree_ids(indexes: list[QtC.QModelIndex]):
     :param indexes: List of QModelIndex objects representing the selected items in the tree model
     :return: Tuple containing three lists: item_ids, parent_ids, and parent_rows
     """
-    item_ids = []
-    parent_ids = []
-    parent_rows = []
+    item_parent_dictionary = {}
     for index in indexes:
         item_id = index.siblingAtColumn(1).data(QtC.Qt.ItemDataRole.DisplayRole)
         parent_id = index.siblingAtColumn(2).data(QtC.Qt.ItemDataRole.DisplayRole)
         parent_row = index.siblingAtColumn(3).data(QtC.Qt.ItemDataRole.DisplayRole)
-        if item_id not in item_ids:
-            item_ids.append(item_id)
-        if parent_id not in parent_ids:
-            parent_ids.append(parent_id)
-        if parent_row not in parent_rows:
-            parent_rows.append(parent_row)
-    return item_ids, parent_ids, parent_rows
+        if item_id not in item_parent_dictionary.keys():
+            item_parent_dictionary[item_id] = [parent_id, parent_row]
+    return item_parent_dictionary
 
 def find_tree_model(model, indexes: list[QtC.QModelIndex] | None):
     """
@@ -6074,8 +6068,8 @@ class TreeContextMenu(QtW.QMenu):
         if not self.model:
             logger_setup.get_logger().info(f'No checkable tree model found in {self.tree_view.objectName()}')
             return
-        item_ids, parent_ids, parent_rows = get_selected_tree_ids(self.indexes)
-        if len(item_ids) == 1:  # only one item selected
+        item_parent_dictionary = get_selected_tree_ids(self.indexes)
+        if len(item_parent_dictionary.keys()) == 1:  # only one item selected
             self.add_single_tree_actions(delete_active, add_active, edit_active)
         else:
             self.add_multi_tree_actions(delete_active, add_active, edit_active)
@@ -6115,11 +6109,12 @@ class TreeContextMenu(QtW.QMenu):
         """
         if edit_active:
             self.addAction('Edit')
-            self.addAction('Merge')
         if delete_active:
             self.addAction('Delete selected')
+            self.addAction('Merge selected')
         if add_active:
             self.addAction('Add')
+            self.addAction('Add parent')
 
     def add_expand_collapse_actions(self):
         """
@@ -6380,20 +6375,24 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
     if not tree_model:
         logger_setup.get_logger().info(f'No tree model found in {tree_view.objectName()}')
         return dlg_args
-    item_ids, parent_ids, parent_rows = get_selected_tree_ids(tree_indexes)
+    item_parent_dictionary = get_selected_tree_ids(tree_indexes)
     if action:
+        item_ids = list(item_parent_dictionary.keys())
+        first_item_id = item_ids[0]
         if action.text() == 'Insert above':
-            row = parent_rows[0]
-            parent_id = parent_ids[0]
+            row = item_parent_dictionary[first_item_id][1]
+            parent_id = item_parent_dictionary[first_item_id][0]
             dlg_args = {'parent_ids' : parent_id, 'parent_row': row}
         elif action.text() == 'Insert below':
-            row = parent_rows[0] + 1
-            parent_id = parent_ids[0]
+            row = item_parent_dictionary[first_item_id][1] + 1
+            parent_id = item_parent_dictionary[first_item_id][0]
             dlg_args = {'parent_ids' : parent_id, 'parent_row': row}
         elif action.text() == 'Add child':
-            parent_id = item_ids[0]
+            parent_id = item_parent_dictionary[first_item_id][0]
             dlg_args = {'parent_ids' : parent_id}
         elif action.text() == 'Add parent':
+            parent_ids = [item_parent_dictionary[item_id][0] for item_id in item_ids]
+            parent_rows = [item_parent_dictionary[item_id][1] for item_id in item_ids]
             dlg_args = {'add_item': 'parent', 'item_ids': item_ids, 'old_parent_ids': parent_ids, 'old_parent_rows': parent_rows}
         elif action.text() == 'Add to end' or action.text() == 'Add':
             dlg_args = {'add_item': 'child'}
