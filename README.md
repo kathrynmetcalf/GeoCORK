@@ -20,6 +20,7 @@ Puetz_etal_2024.db is a global detrital zircon database with 1.8 million U-Pb an
 Explore these databases or start your own.
 
 ## Manual
+A basic user guide is available to help you get started with GeoCORK.
 Video tutorials and a user manual are forthcoming.
 
 ## Capabilities
