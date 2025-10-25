@@ -2026,6 +2026,9 @@ def display_value_with_error(string: str):
     return string
 
 def return_rounded(value: str | float | int):
+    round_values = settings.value('round_values')
+    if round_values == 'false':
+        return value
     decimal_places = settings.value('decimals_to_show')
     if isinstance(value, str):
         if value == '':
@@ -2034,7 +2037,8 @@ def return_rounded(value: str | float | int):
             try:
                 float(value) # value is float, not text
                 if value.split('.')[1] != '0':
-                    rounded_value = f'{float(value):.{decimal_places}f}'
+                    rounded_value = str(round(float(value), decimal_places))
+                    # rounded_value = f'{float(value):.{decimal_places}f}'
                 else: # value is an integer
                     rounded_value = int(float(value))
             except ValueError:

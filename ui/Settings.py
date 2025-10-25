@@ -91,7 +91,8 @@ def default_settings():
     # Reference format settings, sets to "Authors, Year, Source"
     settings.setValue('default_reference_format',
                       '''(ifnull(Authors, "") || ", " || ifnull(Year, "") || ", " || ifnull(Source, ""))''')
-    settings.setValue('default_decimals_to_show', 2)
+    settings.setValue('round_values', 'false')
+    settings.setValue('default_decimals_to_show', 4)
 
     # Column display settings
     settings.setValue('default_sample_view_columns', [
@@ -394,6 +395,13 @@ class SettingsDialog(QtW.QDialog):
         decimals = [str(i) for i in range(0, 10)]
         self.decimals_comboBox.addItems(decimals)
         self.decimals_comboBox.setCurrentText(str(settings.value('decimals_to_show')))
+        view_rounded = settings.value('round_values')
+        if view_rounded == 'true':
+            self.view_rounded_checkBox.setChecked(True)
+            self.decimals_comboBox.setEnabled(True)
+        else:
+            self.view_rounded_checkBox.setChecked(False)
+            self.decimals_comboBox.setEnabled(False)
         self.set_combobox(self.gps_format_comboBox, self.gps_format_model)
         self.gps_format_comboBox.setCurrentText(settings.value('gps_format_abbreviation'))
         self.set_combobox(self.elev_unit_comboBox, self.elevation_unit_model)

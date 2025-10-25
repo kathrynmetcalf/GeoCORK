@@ -17,7 +17,7 @@
    <item>
     <widget class="QTabWidget" name="settings_tabWidget">
      <property name="currentIndex">
-      <number>2</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="units_formats_tab">
       <attribute name="title">
@@ -32,6 +32,13 @@
             <string>Decimals to show</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_3">
+            <item>
+             <widget class="QCheckBox" name="view_rounded_checkBox">
+              <property name="text">
+               <string>View rounded</string>
+              </property>
+             </widget>
+            </item>
             <item>
              <widget class="QComboBox" name="decimals_comboBox">
               <property name="minimumSize">
