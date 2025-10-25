@@ -60,7 +60,12 @@ Data are stored in a .db file. GeoCORK can import from .xlsx files and export to
 
 ### Spot Metadata
 - Parent aliquot
+- Optional parent grain
 - Composition of analyzed material
+- Contexts
+
+### Grain Metadata
+- Composition of grain
 - Contexts
 
 ### U-Pb Data and Metadata
