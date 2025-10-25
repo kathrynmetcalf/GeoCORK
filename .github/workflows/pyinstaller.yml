@@ -18,12 +18,12 @@ jobs:
       - name: Package .app correctly (preserves macOS bundle metadata)
         run: |
           cd dist
-          ditto -c -k --sequesterRsrc --keepParent "GeoCORK.app" "GeoCORK-macos.zip"
+          tar -czf GeoCORK.app.tar.gz GeoCORK.app
           
       - uses: actions/upload-artifact@v4
         with:
           name: GeoCORK-macos
-          path: dist/GeoCORK.app
+          path: dist/GeoCORK.app.tar.gz
           
   windows-builder:
       runs-on: 'windows-latest'
