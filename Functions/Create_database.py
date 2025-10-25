@@ -2218,11 +2218,17 @@ def populate_error_conversions(database=None) -> bool:
                         # Both formats are 1 sigma or 2 sigma, x is the databased error and y is the value it is an error of
                         conversion1to2 = '(x/y)*100'
                         conversion2to1 = '(x/100)*y'
-                    else:
+                    elif error_formats[format1][1][0] == '2' and error_formats[format2][1][0] == '1':
+                        # 2 sigma absolute to 1 sigma percent, x is the databased error and y is the value it is an error of
+                        conversion1to2 = '(x/y)*100/2'
+                        # 1 sigma percent to 2 sigma absolute, x is the databased error and y is the value it is an error of
+                        conversion2to1 = '(x/100)*2*y'
+                    elif error_formats[format1][1][0] == '1' and error_formats[format2][1][0] == '2':
                         # 1 sigma ratio to 2 sigma percent, x is the databased error and y is the value it is an error of
                         conversion1to2 = '(x/y)*200'
                         # 2 sigma percent to 1 sigma absolute, x is the databased error and y is the value it is an error of
                         conversion2to1 = '(x/200)*y'
+
                 error_conversion_model.setFilter(
                     f'FromErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format1][1]}") AND ToErrorFormatID = (SELECT ErrorFormatID FROM ErrorFormats WHERE ErrorFormatAbbreviation = "{error_formats[format2][1]}")')
                 if error_conversion_model.rowCount() == 0:
