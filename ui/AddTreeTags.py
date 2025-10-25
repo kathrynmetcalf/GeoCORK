@@ -223,7 +223,7 @@ class AddTreeTags(QtW.QDialog):
                 logger_setup.get_logger().info(f'Added {name} to {self.parent_id} in {self.table}')
         elif self.add_item == 'parent':  # Need to update the parent of all new child ids to the newly-added item
             # Find the top-level parent ID in the list of old parent IDs
-            top_parent_id, top_parent_row = self.tree_model.top_node(self.old_parent_ids)
+            top_parent_id, top_parent_row = self.tree_model.top_node(self.item_ids)
             parent_id = top_parent_id
             parent_row = top_parent_row
             if not parent_id and not parent_row:

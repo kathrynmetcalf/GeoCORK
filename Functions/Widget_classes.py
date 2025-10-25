@@ -3846,33 +3846,56 @@ class TreeModel(QtC.QAbstractProxyModel):
         :param item_ids: list of unique item IDs
         :return: tuple containing the top parent ID and the row number of the top child in that parent
         """
-        def walk_tree(parent_id, item_ids: list):
-            if isinstance(parent_id, int):
-                p_id = f'= {parent_id}'
-            else:
-                p_id = 'IS NULL'
-            filtered_model = QtS.QSqlQueryModel()
-            filtered_model.setQuery(
-                f"SELECT * FROM {self.table} WHERE {self.parent_id_header} {p_id} ORDER BY {self.parent_row_header} ASC")
-            while filtered_model.canFetchMore():
-                filtered_model.fetchMore()
-            childCount = filtered_model.rowCount()
-            for child in range(childCount):
-                child_id = filtered_model.record(child).value(0)
-                parent_row = child
-                if child_id in item_ids:
-                    return parent_id, parent_row
-                else:
-                    walk_tree(child_id, item_ids)
+        def get_depth(depth_id):
+            depth = 0
+            while depth_id is not None:
+                self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {depth_id}")
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
+                depth_parent_id = self.source_model.record(0).value(1)
+                if depth_parent_id == '':
+                    break
+                depth_id = depth_parent_id
+                depth += 1
+            return depth
 
-        parent_id = 'Null'
         if len(item_ids) == 0:
             logger_setup.get_logger().debug(f'No item IDs provided, returning None')
             return None, None
         if '' in item_ids:
             logger_setup.get_logger().debug(f'Empty item ID found, referencing root. Returning None')
             return None, None
-        (top_parent_id, top_parent_row) = walk_tree(parent_id, item_ids)
+        depths = {}
+        for item_id in item_ids:
+            depths[item_id] = get_depth(item_id)
+        # If there is a tie for minimum depth, break it by the minimum parent row
+        min_depth = min(depths.values())
+        candidates = [item_id for item_id, depth in depths.items() if depth == min_depth]
+        if len(candidates) > 1:
+            top_parent_row = None
+            top_parent_id = None
+            for item_id in candidates:
+                self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {item_id}")
+                while self.source_model.canFetchMore():
+                    self.source_model.fetchMore()
+                parent_id = self.source_model.record(0).value(1)
+                parent_row = self.source_model.record(0).value(2)
+                if top_parent_row is None or parent_row < top_parent_row:
+                    top_parent_row = parent_row
+                    top_parent_id = parent_id
+        else:
+            top_item_id = candidates[0]
+            self.source_model.setQuery(f"{self.base_query_sql} {self.id_header} is {top_item_id}")
+            while self.source_model.canFetchMore():
+                self.source_model.fetchMore()
+            top_parent_id = self.source_model.record(0).value(1)
+            top_parent_row = self.source_model.record(0).value(2)
+        if top_parent_id == '':
+            top_parent_id = 'NULL'
+        # Reset the model
+        self.source_model.setQuery(self.base_query)
+        while self.source_model.canFetchMore():
+            self.source_model.fetchMore()
         return top_parent_id, top_parent_row
 
 
