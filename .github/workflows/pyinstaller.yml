@@ -25,7 +25,7 @@ jobs:
           name: GeoCORK-macos
           path: dist/GeoCORK.app.tar.gz
           
-  windows-builder:
+  windows-builder-2025:
       runs-on: 'windows-latest'
   
       steps:
@@ -34,10 +34,27 @@ jobs:
         with:
           python-version: 3.12
   
-      - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome
-      - run: pyinstaller mainAppEngine.py --windowed --console --name GeoCORK --icon icon.ico --add-data "Reference/GeologicTime_Ages.xml:." --add-data "ui/GeoCORK_Logo.png:." --add-data "ui/AgeFields.ui:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/GPSFields.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
+      - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome Pillow
+      - run: pyinstaller mainAppEngine.py --windowed --onefile --name GeoCORK --icon icon.ico --add-data "Reference/GeologicTime_Ages.xml:." --add-data "ui/GeoCORK_Logo.png:." --add-data "ui/AgeFields.ui:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/GPSFields.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
   
       - uses: actions/upload-artifact@v4
         with:
-          name: GeoCORK-windows
+          name: GeoCORK-windows-2025
+          path: dist/*
+
+  windows-builder-2022:
+      runs-on: 'windows-2022'
+  
+      steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: 3.12
+  
+      - run: pip install -r requirements.txt pyinstaller PyQt6 PyQt6-Qt6 pandas openpyxl QtAwesome Pillow
+      - run: pyinstaller mainAppEngine.py --windowed --onefile --name GeoCORK --icon icon.ico --add-data "Reference/GeologicTime_Ages.xml:." --add-data "ui/GeoCORK_Logo.png:." --add-data "ui/AgeFields.ui:." --add-data "ui/AddTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/AddTreeTags.ui:." --add-data "ui/DataViewerWidget.ui:." --add-data "ui/DisplayTables.ui:." --add-data "ui/DisplayTablesSimplified.ui:." --add-data "ui/EditSampleTable.ui:." --add-data "ui/EditTable.ui:." --add-data "ui/EditTree.ui:." --add-data "ui/EditUPbTags.ui:." --add-data "ui/ExporterUI.ui:." --add-data "ui/Filters.ui:." --add-data "ui/GeoCORKMain.ui:." --add-data "ui/GPSFields.ui:." --add-data "ui/LandingPage.ui:." --add-data "ui/MergeDatabase.ui:." --add-data "ui/New_reference.ui:." --add-data "ui/SampleInformation.ui:." --add-data "ui/SelectColumns.ui:." --add-data "ui/Settings.ui:."
+  
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GeoCORK-windows-2022
           path: dist/*
