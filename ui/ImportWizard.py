@@ -1619,7 +1619,7 @@ class ImportWizardDialog(QWidget):
 
     def select_file(self):
         dlg = QFileDialog(self)
-        path, _ = dlg.getOpenFileName(self, "Select Excel File", "", "Excel Files (*.xlsx *.xls)")
+        path, _ = dlg.getOpenFileName(self, "Select Excel File", "", "Excel Files (*.xlsx)")
         if path:
             logger_setup.get_logger().debug("Selected Excel File: " + path)
             self.selected_file_path = path
@@ -1696,7 +1696,9 @@ class ImportWizardDialog(QWidget):
                     self.static_mappings[sheet.title] = {}
                     self.right_table = QTableView()
                     self.right_tables[sheet.title] = self.right_table
+                    self.workbook_tabs.blockSignals(True)
                     self.workbook_tabs.addTab(self.right_table, sheet.title)
+                    self.workbook_tabs.blockSignals(False)
                     self.current_sheet_name = sheet.title
 
                     # Display data on the right table
@@ -1746,7 +1748,8 @@ class ImportWizardDialog(QWidget):
                 self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex())
                 wb.close()
             except Exception as e:
-                logger_setup.get_logger().critical("Error", f"Failed to read Excel file:\n{e}")
+                logger_setup.get_logger().critical(f"Failed to read Excel file:\n{e}")
+                self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
                 return
         self.activate_widgets()
         self.resize_tables()
@@ -2295,7 +2298,8 @@ class ImportWizardDialog(QWidget):
             else:
                 configs = {}
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save mapping:\n{e}")
+            logger_setup.get_logger().critical('Error loading config file')
+            logger_setup.get_logger().debug(f'{e}')
 
         if configs == {}:
             name, ok = QInputDialog.getText(self, "Save Mapping", "Enter a name for this mapping:")
@@ -2392,7 +2396,8 @@ class ImportWizardDialog(QWidget):
                 QMessageBox.warning(self, "No Mappings", "No mappings found in configuration.")
                 return
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to load mapping:\n{e}")
+            logger_setup.get_logger().critical("Error loading configuration file")
+            logger_setup.get_logger().debug(f'{e}')
             return
 
         # items = list(configs.keys())

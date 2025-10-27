@@ -1441,7 +1441,7 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
                                 "Outdated GeoCORK Schema",
                                 f"GeoCORK has tried to open an outdated database. The version loaded is v1.0.0 and this version of GeoCORK is {settings.value('default_geocork_version')}. \n \n"
                                 f"Would you like to proceed with updating this database to the latest version? If not, use the GeoCORK version associated with this database. \n \n"
-                                f"We will attempt to backup the database automatically, but we strongly recommend making your own backups",
+                                f"We will attempt to backup the database automatically, but we strongly recommend making your own backups.",
                                 buttons=
                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
                                 defaultButton=QMessageBox.StandardButton.No)
