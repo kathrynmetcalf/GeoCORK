@@ -230,7 +230,7 @@ class GeoCORK(QtW.QMainWindow):
         elif ' : ' in self.tabWidget.tabText(self.tabWidget.currentIndex()):
             self.tabWidget.widget(self.tabWidget.currentIndex()).display_table()
         elif self.tabWidget.tabText(self.tabWidget.currentIndex()) == 'Export':
-            self.tabWidget.widget(self.tabWidget.currentIndex()).refresh_button()
+            self.tabWidget.widget(self.tabWidget.currentIndex()).refresh_widget()
 
     def switch_to_export_tab(self):
         self.tabWidget.setCurrentIndex(2)
