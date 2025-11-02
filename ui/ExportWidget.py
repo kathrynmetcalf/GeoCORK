@@ -723,7 +723,7 @@ class ExportWidget(QWidget):
 
                 ZrUPb_columns = {
                     ('Samples', 'SampleName'): True,
-                    ('Aliquots', 'AliquotName'): True,
+                    ('Grains', 'GrainName'): True,
                     ('Spots', 'SpotName'): True,
 
                     ('UPbAnalyses', "Calculated206Pb/204Pb"): True,
@@ -763,7 +763,7 @@ class ExportWidget(QWidget):
                     "CalculatedLon": "Longitude",
                     "ReferenceDisplay": "Source",
 
-                    "AliquotName": "Grain_ID",
+                    "GrainName": "Grain_ID",
                     "SpotName": "Analysis_ID",
 
                     "Calculated206Pb/204Pb": "206Pb_204Pb",
