@@ -672,25 +672,14 @@ class ExportWidget(QWidget):
         Main method to swap between predefined export formats.
         :return:
         """
-        self.delete_all_worksheet_tabs()
-        self.selectionscope_comboBox.setEnabled(True)
-        self.columnattributes_stack.setEnabled(True)
-        self.columnselection_comboBox.setEnabled(True)
-        self.editorder_button.setEnabled(True)
-        self.add_worksheet_button.setEnabled(True)
-        self.remove_worksheet_button.setEnabled(True)
-        self.fileformat_comboBox.setEnabled(True)
-        self.filterselection_comboBox.show()
-        self.groupedfilter_comboBox.show()
-        self.groupedfilter_label.show()
-        self.filters_label.show()
-        self.column_name_mappings.clear()
+
         match self.exportformat_comboBox.currentText():
             # DetritalPy requires an excel file, with multiple sheets
             # sheet 1 (Samples) is a distinct list of sample, units, basins(), age, lat, long, and source
             # sheet 2 (ZrUPb) is list of samples, grains, analysis, and upb data
 
             case 'detritalPy':
+                self.clear_worksheet_data()
                 # means error is in % and not sigma as required by detritalPy
                 if settings.value('age_error_format_id', int) not in (1,2):
                     response = QMessageBox.question(self, 'Update settings',
@@ -796,6 +785,7 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns, True)
             case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':
+                self.clear_worksheet_data()
                 # modeled after UPb6.csv in IsoplotR
                 # 207/235
                 # 206/238
@@ -821,6 +811,7 @@ class ExportWidget(QWidget):
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
             case 'IsoplotR - 38/06, 07/06':
+                self.clear_worksheet_data()
                 # modeled after UPb2.csv in IsoplotR
                 # 238/206
                 # 207/206
@@ -834,6 +825,7 @@ class ExportWidget(QWidget):
                 self.add_worksheet_tab('IsoplotR', False, False, UPb_columns, UPb_columns, True)
 
             case 'DZstats':
+                self.clear_worksheet_data()
                 # means error is in % and not sigma as required by detritalPy
                 if settings.value('age_error_format_id', int) not in (1, 2):
                     response = QMessageBox.question(self, 'Update settings',
@@ -861,6 +853,7 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('DZStats', False, True, UPb_columns, UPb_columns, False)
             case 'DZmix, DZmds, DZnmf':
+                self.clear_worksheet_data()
                 # means error is in % and not sigma as required by detritalPy
                 if settings.value('age_error_format_id', int) not in (1, 2):
                     response = QMessageBox.question(self, 'Update settings',
@@ -888,6 +881,7 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('DZmix, DZmds, DZnmf', False, True, UPb_columns, UPb_columns, True)
             case 'AgeCalcML concordia':
+                self.clear_worksheet_data()
                 self.fileformat_comboBox.setCurrentText('Comma-Separated Value (.csv)')
                 UPb_columns = {
                     ('Samples', 'SampleName'): True,
@@ -899,6 +893,7 @@ class ExportWidget(QWidget):
                 }
                 self.add_worksheet_tab('AgeCalcML concordia', False, True, UPb_columns, UPb_columns, True)
             case 'Database':
+                self.clear_worksheet_data()
                 self.fileformat_comboBox.setEnabled(False)
                 if self.findChild(QSqlTableModel, 'database_QSqlTableModel') is not None:
                     self.findChild(QSqlTableModel, 'database_QSqlTableModel').clear()
@@ -980,7 +975,23 @@ class ExportWidget(QWidget):
                     'sql': ''
                 }
             case 'Custom':
-                self.create_first_worksheet_tab()
+                if "Worksheet 1" not in self.worksheet_tabs_dict.keys():
+                    self.create_first_worksheet_tab()
+
+    def clear_worksheet_data(self):
+        self.delete_all_worksheet_tabs()
+        self.selectionscope_comboBox.setEnabled(True)
+        self.columnattributes_stack.setEnabled(True)
+        self.columnselection_comboBox.setEnabled(True)
+        self.editorder_button.setEnabled(True)
+        self.add_worksheet_button.setEnabled(True)
+        self.remove_worksheet_button.setEnabled(True)
+        self.fileformat_comboBox.setEnabled(True)
+        self.filterselection_comboBox.show()
+        self.groupedfilter_comboBox.show()
+        self.groupedfilter_label.show()
+        self.filters_label.show()
+        self.column_name_mappings.clear()
 
     def update_step_2_list(self):
         """Updates the CheckableComboBox model based upon selected values. Allows the user to select
@@ -1553,7 +1564,9 @@ class ExportWidget(QWidget):
         self.groupedfilter_comboBox.setModel(self.groupedfilter_proxy)
         self.groupedfilter_model.check_ids_from_list(self.checked_grouped_filter_list)
 
-        self.export_format()
+        if self.exportformat_comboBox.currentText() != 'Custom' or len(self.worksheet_tabs_dict.keys()) == 0:
+            # Only update the format if the format is not custom or if the format is custom but no sheet has been created yet
+            self.export_format()
         # self.update_step_2_list()
         try:
             self.exportformat_comboBox.currentIndexChanged.disconnect()
@@ -1588,6 +1601,8 @@ class ExportWidget(QWidget):
         self.filterselection_comboBox.closing.connect(self.update_table_view)
         self.groupedfilter_comboBox.closing.connect(self.update_table_view)
         self.columnselection_comboBox.currentIndexChanged.connect(self.switch_table_layout)
+        self.workbooktabs.currentChanged.connect(self.tab_changed)
+        self.workbooktabs.tabBarDoubleClicked.connect(self.rename_worksheet_tab)
 
         # self.samplesincluded_comboBox.clearEditText()
 
