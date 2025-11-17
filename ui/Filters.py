@@ -227,15 +227,15 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     elif operator_raw == "is between" or operator_raw == "is not between":
         # Range operator – return a list of two conditions
         try:
-            if value.split(',')[0] >= value.split(',')[1]:
+            if float(value.split(',')[0]) >= float(value.split(',')[1]):
                 value_lower = value.split(',')[1]
                 value_upper = value.split(',')[0]
             else:
                 value_lower = value.split(',')[0]
                 value_upper = value.split(',')[1]
         except IndexError:
-            logger_setup.get_logger().error(f"Range operator requires two values, got: {value}")
-            raise ValueError(f"Range operator requires two values, got: {value}")
+            logger_setup.get_logger().error(f"Range operator requires two numbers, got: {value}")
+            raise ValueError(f"Range operator requires two numbers, got: {value}")
         if operator_raw == "is between":
             if datatype == "date":
                 operator_sql = [f"<= '{value_upper}'", f">= '{value_lower}'"]
@@ -1253,7 +1253,8 @@ class QueryBuilder(QWidget):
             conn.commit()
             conn.close()
         except sqlite3.Error as e:
-            logger_setup.get_logger().critical(f"Failed to get filtered ids")
+            logger_setup.get_logger().critical("Error filtering data")
+            logger_setup.get_logger().debug(f"Failed to get filtered ids")
             logger_setup.get_logger().debug(f"Error: {e}")
             logger_setup.get_logger().debug(f"SQL query: {sql_query}")
             return None

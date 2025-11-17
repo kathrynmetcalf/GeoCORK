@@ -555,15 +555,27 @@ class SettingsDialog(QtW.QDialog):
 
         self.select_columns.save_list_states()
 
+        # Style sheet related values
         self.combobox_height_scaler_spinbox: QDoubleSpinBox
-        update_setting('checkable_combobox_height_scaler', self.combobox_height_scaler_spinbox.value())
-        update_setting('checkable_combobox_width_scaler', self.combobox_width_scaler_spinbox.value())
+        style_settings = {'checkable_combobox_height_scaler': self.combobox_height_scaler_spinbox.value(),
+                          'checkable_combobox_width_scaler': self.combobox_width_scaler_spinbox.value(),
+                          'font_size': float(self.font_size_comboBox.currentText()),
+                          'table_font_size': float(self.table_font_size_comboBox.currentText()),
+                          'font_family': self.fontComboBox.currentFont().family()}
+        # Updating the style sheet takes time, so only do it if necessary
+        for key, value in style_settings.items():
+            if settings.value(key) != value:
+                update_setting('checkable_combobox_height_scaler', self.combobox_height_scaler_spinbox.value())
+                update_setting('checkable_combobox_width_scaler', self.combobox_width_scaler_spinbox.value())
 
-        update_setting('font_size', float(self.font_size_comboBox.currentText()))
-        update_setting('table_font_size', float(self.table_font_size_comboBox.currentText()))
-        update_setting('font_family', self.fontComboBox.currentFont().family())
+                update_setting('font_size', float(self.font_size_comboBox.currentText()))
+                update_setting('table_font_size', float(self.table_font_size_comboBox.currentText()))
+                update_setting('font_family', self.fontComboBox.currentFont().family())
 
-        update_stylesheet()
+                self.loading_manager.show_loading_dialog('Updating', 'Updating style...')
+                update_stylesheet()
+                self.loading_manager.close_loading_dialog('Updating', 'Updating style...')
+                break
 
         self.populate_fields()
         self.loading_manager.close_loading_dialog('Updating', 'Updating settings...')
