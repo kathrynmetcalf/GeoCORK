@@ -499,9 +499,11 @@ class ExportWidget(QWidget):
             if not db.isOpen():
                 logger_setup.get_logger().critical('Error opening database connection')
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
+                self.uncheck_pivot()
                 return None
             if not turn_on_foreign_keys():
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
+                self.uncheck_pivot()
                 return None
 
             drop_table_qry = QSqlQuery()
@@ -509,8 +511,9 @@ class ExportWidget(QWidget):
             if not drop_table_qry.exec('DROP TABLE IF EXISTS TempPivotTable'):
                 logger_setup.get_logger().critical(
                     f'Error dropping TempPivotTable: {drop_table_qry.lastError().text()}')
+                self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
-                return
+                return None
 
             uri = f'file:{settings.value('db_file', type=str)}'
             # Execute the query
@@ -528,6 +531,7 @@ class ExportWidget(QWidget):
                 logger_setup.get_logger().critical(f"Error creating TempPivotTable")
                 logger_setup.get_logger().debug(f"Error: {e}")
                 logger_setup.get_logger().debug(f"SQL query: {sql_temptable_create}")
+                self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
@@ -536,10 +540,19 @@ class ExportWidget(QWidget):
             # defaults to pivot based on the first column in the exporter.
             # tuple is in format (table, attribute)
             first_tuple = next(iter(ordered_columns))
-            # get the attirbute of the first tuple to pivot based on
+            # get the attribute of the first tuple to pivot based on
             pivot_col = first_tuple[1]
+            if 'Name' not in pivot_col:
+                response = QMessageBox.question(self, 'Missing name',
+                                                'Pivot may not work correctly without a name field in the first column.\nDo you want to continue?',
+                                                QMessageBox.StandardButton.No | QMessageBox.StandardButton.No,
+                                                QMessageBox.StandardButton.Yes)
+                if response == QMessageBox.StandardButton.No:
+                    # Uncheck the pivot checkbox
+                    self.uncheck_pivot()
+                    close_loading_dialog('Loading', 'Updating table view with new parameters')
+                    return None
             pivot_col = self.column_name_mappings[pivot_col]
-
 
             first_column_list = []
             uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
@@ -559,6 +572,7 @@ class ExportWidget(QWidget):
                 logger_setup.get_logger().critical(f"Error selecting distinct values from TempPivotTable")
                 logger_setup.get_logger().debug(f"Error: {e}")
                 logger_setup.get_logger().debug(f"SQL query: {sql_distinct_first_column}")
+                self.uncheck_pivot()
                 close_loading_dialog('Loading', 'Updating table view with new parameters')
                 return None
 
@@ -571,6 +585,7 @@ class ExportWidget(QWidget):
                     proxy_model = ReadableProxyModel()
                     proxy_model.setSourceModel(model)
                     tableView.setModel(proxy_model)
+                    self.uncheck_pivot()
                     close_loading_dialog('Loading', 'Updating table view with new parameters')
                     return False
                 else:
@@ -587,8 +602,17 @@ class ExportWidget(QWidget):
 
                     if self.column_name_mappings[field] == pivot_col:
                         continue
-                    case_expressions.append(
-                        f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field}] END) AS [{name + "_" + self.column_name_mappings[field]}]')
+                    try:
+                        if not isinstance(name, str):
+                            name = str(name)
+                        case_expressions.append(
+                            f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field}] END) AS [{name + "_" + self.column_name_mappings[field]}]')
+                    except Exception as e:
+                        logger_setup.get_logger().critical(f"Error getting column name for {name}")
+                        logger_setup.get_logger().debug(f"Error: {e}")
+                        self.uncheck_pivot()
+                        close_loading_dialog('Loading', 'Updating table view with new parameters')
+                        return None
 
             case_list_sql = '\n, '.join(case_expressions)
 
@@ -607,9 +631,13 @@ class ExportWidget(QWidget):
         model = SQLiteTableModel(database = settings.value('db_file', type=str))
         model.setQuery(query_str)
         if model.last_error:
-            logger_setup.get_logger().critical(f'Error updating table view')
+            if 'too many columns' in str(model.last_error):
+                logger_setup.get_logger().critical(f"Too many rows to pivot")
+                self.uncheck_pivot()
+            else:
+                logger_setup.get_logger().critical(f'Error updating table view')
             close_loading_dialog('Loading', 'Updating table view with new parameters')
-            return
+            return None
         while model.canFetchMore():
             model.fetchMore()
         self.worksheet_tabs_dict[current_worksheet_name]['sql'] = query_str.replace(f'LIMIT {self.max_rows_to_display}', '')
@@ -1479,14 +1507,28 @@ class ExportWidget(QWidget):
         headers_checkbox = self.worksheet_tabs_dict[current_worksheet_name]['headers']
         self.worksheet_tabs_dict[current_worksheet_name]['headers'] = not headers_checkbox
 
+    def uncheck_pivot(self):
+        """
+        Find and uncheck the pivot checkbox
+        :return:
+        """
+        for child in self.findChildren(QCheckBox):
+            if isinstance(child, QCheckBox) and child.text() == "Pivot Table":
+                child.setChecked(False)
+                current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+                self.worksheet_tabs_dict[current_worksheet_name]['pivot'] = False
+                break
+
     def update_pivottable_checkbox(self):
         """
         Helper method to update the worksheet tabs dictionary when the checkbox state is changed.
         """
-
+        pivot_checkbox = self.sender()
         current_worksheet_name = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
-        pivottable_checkbox = self.worksheet_tabs_dict[current_worksheet_name]['pivot']
-        self.worksheet_tabs_dict[current_worksheet_name]['pivot'] = not pivottable_checkbox
+        if not pivot_checkbox or pivot_checkbox.checkState() == Qt.CheckState.Unchecked:
+            self.worksheet_tabs_dict[current_worksheet_name]['pivot'] = False
+        else:
+            self.worksheet_tabs_dict[current_worksheet_name]['pivot'] = True
         self.update_table_view()
 
     def refresh_widget(self):
