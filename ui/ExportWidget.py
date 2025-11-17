@@ -597,16 +597,20 @@ class ExportWidget(QWidget):
             # Creates the column names for the first col and other columns, so if SampleID, BestAge is being pivot
             # with samples in the list as S1, S2, S3, then:
             # end result should be S1_BestAge, S2_BestAge, S3_BestAge
+            columns_names = []
             for name in first_column_list:
                 for table, field in ordered_columns:
+                    field_name = self.column_name_mappings[field]
+                    if field_name not in columns_names:
+                        columns_names.append(field_name)
 
-                    if self.column_name_mappings[field] == pivot_col:
+                    if field_name == pivot_col:
                         continue
                     try:
                         if not isinstance(name, str):
                             name = str(name)
                         case_expressions.append(
-                            f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field}] END) AS [{name + "_" + self.column_name_mappings[field]}]')
+                            f'MAX(CASE WHEN [{pivot_col}] = \'{name}\' THEN [{field_name}] END) AS [{name + "_" + field_name}]')
                     except Exception as e:
                         logger_setup.get_logger().critical(f"Error getting column name for {name}")
                         logger_setup.get_logger().debug(f"Error: {e}")
@@ -617,7 +621,9 @@ class ExportWidget(QWidget):
             case_list_sql = '\n, '.join(case_expressions)
 
             # final pivot string, takes the data from TempPivotTable and modifies it.
-            query_str = (f"""With cte AS (SELECT {columns_str}, ROW_NUMBER() OVER (
+            columns_names_str = ', '.join(columns_names)
+
+            query_str = (f"""With cte AS (SELECT {columns_names_str}, ROW_NUMBER() OVER (
             PARTITION BY {pivot_col}
             ORDER BY rowid) AS RowNum
             FROM TempPivotTable)
