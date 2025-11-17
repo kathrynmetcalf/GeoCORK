@@ -1436,7 +1436,7 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
     #
 
     if version == 'v1.0.0' or version == '1.0.0':
-        # Update from version 1.0.0 to 1.1.0
+        # Update from version 1.0.0 to 1.0.1
         continue_messagebox = QMessageBox.information(None,
                                 "Outdated GeoCORK Schema",
                                 f"GeoCORK has tried to open an outdated database. The version loaded is v1.0.0 and this version of GeoCORK is {settings.value('default_geocork_version')}. \n \n"
@@ -1447,10 +1447,10 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
                                 defaultButton=QMessageBox.StandardButton.No)
 
         if continue_messagebox == QMessageBox.StandardButton.No:
-            logger_setup.get_logger().info('User rejected updating schema from v1.0.0 to v1.1.0')
+            logger_setup.get_logger().info(f'User rejected updating schema from v1.0.0 to {settings.value('default_geocork_version')}')
             return False
 
-        logger_setup.get_logger().info('Updating database schema from version v1.0.0 to v1.1.0')
+        logger_setup.get_logger().info(f'Updating database schema from version v1.0.0 to {settings.value('default_geocork_version')}')
         # Grain tables added automatically in Create_database.py
         # Add empty GrainID column to Spots table
         # Add UPbAnalysisName column to UPbAnalyses table and populate with SpotName

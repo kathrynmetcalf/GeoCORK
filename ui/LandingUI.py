@@ -66,7 +66,7 @@ class LandingPage(QWidget):
         self.github_button.clicked.connect(self.open_github)
         self.selected_files = None
 
-        self.citation = LinkLabel(text = 'Metcalf, K., & Burges, J. (2025). kathrynmetcalf/GeoCORK: GeoCORK v1.1.0 (v1.1.0). Zenodo. https://doi.org/10.5281/zenodo.15833658',
+        self.citation = LinkLabel(text = 'Metcalf, K., & Burges, J. (2025). kathrynmetcalf/GeoCORK: GeoCORK v1.0.2 (v1.0.2). Zenodo. https://doi.org/10.5281/zenodo.15833658',
                                   url = 'https://doi.org/10.5281/zenodo.15833658')
         self.citation.setObjectName("citation")
         self.horizontalLayout_4.insertWidget(0, self.citation)

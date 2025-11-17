@@ -235,7 +235,7 @@ def default_settings():
         'ReferenceCreated', 'ReferenceModified'
     ])
 
-    settings.setValue('default_geocork_version', 'v1.1.0')
+    settings.setValue('default_geocork_version', 'v1.0.2')
     settings.setValue('db_file', '')
 
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)
