@@ -655,8 +655,8 @@ class ImportWizardDialog(QWidget):
         # Sample IDs added or updated during import
         self.sample_ids = []
 
-        # Flash fill connections
-        self.left_table.cellChanged.connect(self.handle_left_cell_change)
+        # # Flash fill connections
+        # self.left_table.cellChanged.connect(self.handle_left_cell_change)
 
 
         self.left_table.horizontalHeader().setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
@@ -1356,6 +1356,13 @@ class ImportWizardDialog(QWidget):
             if column >= column_index:
                 # Shift the mapping right by one
                 self.sheet_mappings[self.current_sheet_name][column + 1] = field
+                # Shift the header background color
+                background_color = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.BackgroundRole)
+                self.right_table.model().setHeaderData(column+1, Qt.Orientation.Horizontal, background_color,
+                                                       Qt.ItemDataRole.BackgroundRole)
+                if column != column_index:
+                    self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent,
+                                                       Qt.ItemDataRole.BackgroundRole)
         self.sheet_mappings[self.current_sheet_name][column_index] = selected_field
         # Update the original columns mapping
         for index, column in self.original_columns[self.current_sheet_name].items():
@@ -1402,6 +1409,11 @@ class ImportWizardDialog(QWidget):
             self.right_table.hideColumn(column_index)
             # self.right_table.resizeColumnsToContents()
 
+        # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name / UPb Analysis Name, auto-populate left table
+        if (selected_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
+                self.current_sheet_name == self.upb_sheet_name):
+            self.update_left_table_on_header_change(selected_field, column_index)
+
         self.loading_manager.close_loading_dialog('Adding Column', f'Adding column {selected_field}...')
 
         # Notify the user only when method is initated from the user
@@ -1421,8 +1433,15 @@ class ImportWizardDialog(QWidget):
             if action == set_value_action:
                 new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
                 if ok:
-                    for item in self.left_table.selectedItems():
-                        item.setText(new_value)
+                    # No item if a cell is blank, so switch to selectedIndexes
+                    for index in self.left_table.selectedIndexes():
+                        # Check if the index has an item
+                        item = self.left_table.item(index.row(), index.column())
+                        if item is None:
+                            item = QTableWidgetItem()
+                            self.left_table.setItem(index.row(), index.column(), item)
+                        if item.text().strip() != new_value:
+                            item.setText(new_value)
 
     def show_right_table_context_menu(self, pos: QPoint):
         """
@@ -1463,6 +1482,11 @@ class ImportWizardDialog(QWidget):
                 if ok:
                     for index in self.right_table.selectedIndexes():
                         self.right_table.model().setData(index, new_value, Qt.ItemDataRole.DisplayRole)
+                    for column in selected_columns:
+                        header = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+                        if (header in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
+                            self.current_sheet_name == self.upb_sheet_name):
+                            self.update_left_table_on_header_change(header, column)
             elif action == remove_column:
                 self.remove_selected_columns(selected_columns)
 
@@ -1511,7 +1535,11 @@ class ImportWizardDialog(QWidget):
         """
 
         # Get the current value of the cell
-        current_value = self.left_table.item(row, column).text().strip()
+        item = self.left_table.item(row, column)
+        if item:
+            current_value = self.left_table.item(row, column).text().strip()
+        else:
+            current_value = None
         # if self.left_table.item(row + 1, column) is None:
         #     return
 
@@ -2089,6 +2117,15 @@ class ImportWizardDialog(QWidget):
                             grain_col_index = left_headers.index("Grain Name")
                             self.left_table.removeColumn(grain_col_index)
                     del self.sheet_mappings[self.current_sheet_name][logical_index]
+                if (curr_map in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
+                        self.current_sheet_name == self.upb_sheet_name):
+                    # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name / UPb Analysis Name, auto-clear left table
+                    for left_column in range(self.left_table.model().columnCount()):
+                        if curr_map == self.left_table.model().headerData(left_column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole):
+                            for row in range(self.left_table.model().rowCount()):
+                                item = self.left_table.item(row, left_column)
+                                if item:
+                                    item.setText("")
                 # Reset the text and background color
                 self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, str(logical_index), Qt.ItemDataRole.EditRole)
                 self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent, Qt.ItemDataRole.BackgroundRole)
