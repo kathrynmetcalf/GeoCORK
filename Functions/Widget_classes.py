@@ -534,8 +534,13 @@ class ImportSheetModel(QAbstractTableModel):
         :return: True for success, False otherwise
         """
         self.beginRemoveRows(QtC.QModelIndex(), row, row)
-        self._dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
-        self._status_dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+        if row == self.rowCount() - 1:
+            # dropping the last row
+            self._dataframe.drop(self._dataframe.tail(1).index, axis=0, inplace=True)
+            self._status_dataframe.drop(self._dataframe.tail(1).index, axis=0, inplace=True)
+        else:
+            self._dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+            self._status_dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
         self._dataframe.reset_index(drop=True, inplace=True)
         self._status_dataframe.reset_index(drop=True, inplace=True)
         self.endRemoveRows()
