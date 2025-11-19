@@ -170,7 +170,7 @@ class ExportWidget(QWidget):
         self.refresh_button.clicked.connect(self.refresh_widget)
 
         self.add_worksheet_button.clicked.connect(lambda: self.add_worksheet_tab(None, False, False, {}, {}, False))
-        self.add_worksheet_button.clicked.connect(self.update_table_view)
+        # self.add_worksheet_button.clicked.connect(self.update_table_view)
 
         self.remove_worksheet_button.clicked.connect(self.remove_current_worksheet_tab)
         self.remove_worksheet_button.clicked.connect(self.update_table_view)
@@ -1098,6 +1098,10 @@ class ExportWidget(QWidget):
                 QMessageBox.warning(self, "Duplicate Name", "A worksheet with that name already exists.")
                 return
 
+        # Save previous sheet information
+        self.previous_worksheet = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
+        self.save_checkbox_states(self.previous_worksheet)
+
         # Create a new tableView
         new_tableView = QTableView()
         new_tableView.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
@@ -1163,6 +1167,8 @@ class ExportWidget(QWidget):
         self.workbooktabs.blockSignals(True)
         self.workbooktabs.setCurrentWidget(new_tab)
         self.workbooktabs.blockSignals(False)
+
+        self.previous_worksheet = self.workbooktabs.tabText(self.workbooktabs.currentIndex())
 
         distinct_checkbox.stateChanged.connect(self.update_distinct_checkbox)
         headers_checkbox.stateChanged.connect(self.update_header_checkbox)
