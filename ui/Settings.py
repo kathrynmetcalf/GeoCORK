@@ -190,8 +190,9 @@ def default_settings():
         '"Calculated206Pb/238UAgeError"', '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
         '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"', '"CalculatedBestAgeFilled"',
         '"CalculatedBestAgeErrorFilled"',
-        '"CalculatedSpotSize"', '"CalculatedConcordance"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SpotComposition', 'SpotContext', 'GrainComposition', 'GrainContext',
+        '"CalculatedSpotSize"', '"CalculatedConcordance_206Pb/238Uv207Pb/206Pb"',
+        '"CalculatedConcordance_206Pb/238Uv207Pb/235U"', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
+        'UPbAgeInterpretationName', 'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
         'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
 
@@ -213,9 +214,10 @@ def default_settings():
         '"207Pb/206PbAge"', '"207Pb/206PbAgeError"', '"207Pb/235UAge"', '"207Pb/235UAgeError"',
         '"206Pb/238UAge"', '"206Pb/238UAgeError"', '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
         '"BestAge"', '"BestAgeError"', '"BestAgeFilled"', '"BestAgeErrorFilled"',
-        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance"', 'ConcordanceFormatAbbreviation',
+        'AgeUnitAbbreviation', 'AgeErrorFormatAbbreviation', '"Concordance_206Pb/238Uv207Pb/206Pb"',
+        '"Concordance_206Pb/238Uv207Pb/235U"', 'ConcordanceFormatAbbreviation',
         '"SpotSize"', 'SpotSizeUnitAbbreviation', 'Rejected', 'RejectionReasonName', 'UPbAnalysisContextName',
-        'UPbAgeInterpretationName', 'SpotComposition', 'SpotContext', 'GrainComposition', 'GrainContext',
+        'UPbAgeInterpretationName', 'SpotCompositionName', 'SpotContextName', 'GrainCompositionName', 'GrainContextName',
         'UPbAnalysisCreated', 'UPbAnalysisModified'
     ])
 
@@ -235,7 +237,7 @@ def default_settings():
         'ReferenceCreated', 'ReferenceModified'
     ])
 
-    settings.setValue('default_geocork_version', 'v1.0.2')
+    settings.setValue('default_geocork_version', 'v1.0.3')
     settings.setValue('db_file', '')
 
     settings.setValue('default_checkable_combobox_height_scaler', 1.0)
@@ -274,6 +276,33 @@ def check_missing_settings():
         if settings.value(setting) is None:
             settings.setValue(setting, settings.value(f'default_{setting}'))
 
+def update_column_settings() -> bool:
+    """
+    Check the current column settings against the default settings. If a column does not exist in the default settings,
+    remove it. This is a column name from an older version that is no longer in use.
+    :return:
+    """
+    from Functions import SQLUtils
+    column_settings_dict = SQLUtils.view_setting_dict.copy()
+    for view, column_settings in column_settings_dict.items():
+        # remove any duplicates
+        current_columns = list(dict.fromkeys(settings.value(column_settings)))
+        default_columns = settings.value(f'default_{column_settings}')
+        for column in current_columns:
+            # Remove any columns that are not in the default list
+            if column not in default_columns:
+                try:
+                    # Some columns had 'Name' appended from previous versions
+                    if f'{column}Name' in default_columns:
+                        index = current_columns.index(column)
+                        current_columns[index] = f'{column}Name'
+                    else:
+                        current_columns.remove(column)
+                except Exception as e:
+                    logger_setup.get_logger().debug(f'Remove column error: {e}')
+                    return False
+        settings.setValue(column_settings, current_columns)
+    return True
 
 def update_setting(key: str, value: str):
     """

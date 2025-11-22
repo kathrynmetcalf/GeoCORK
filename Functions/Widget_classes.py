@@ -7052,8 +7052,10 @@ def get_readable_header(header: str):
         header += f' ({settings.value("age_error_format_abbreviation")})'
     elif 'CalculatedSpotSize' in header:
         header = f'Calculated Spot Size ({settings.value('spotsize_unit_abbreviation')})'
-    elif 'CalculatedConcordance' in header:
-        header = f'Calculated Concordance ({settings.value('concordance_format_abbreviation')})'
+    elif 'CalculatedConcordance_206Pb/238Uv207Pb/206Pb' in header:
+        header = f'Calculated Concordance 206Pb/238Uv207Pb/206Pb ({settings.value('concordance_format_abbreviation')})'
+    elif 'CalculatedConcordance_206Pb/238Uv207Pb/235U' in header:
+        header = f'Calculated Concordance 206Pb/238Uv207Pb/235U ({settings.value('concordance_format_abbreviation')})'
     elif ('Age' in header and 'Calculated' in header
           and not any(s in header for s in ['Name', 'Description', 'Reference', 'Unit', 'Format', 'Created', 'Modified'])):
         header += f' ({settings.value("age_unit_abbreviation")})'
@@ -7085,12 +7087,18 @@ def get_readable_header(header: str):
         header = header.replace('U Pb', 'U-Pb')
     if ' Pb/' in header:
         header = header.replace(' Pb/', 'Pb/')
-    if ' U/' in header:
-        header = header.replace(' U/', 'U/')
-    if ' Pb ' in header:
-        header = header.replace(' Pb ', 'Pb ')
+    if '8 U' in header:
+        header = header.replace('8 U', '8U')
+    if '5 U' in header:
+        header = header.replace('5 U', '5U')
+    if '2 Th' in header:
+        header = header.replace('2 Th', '2Th')
+    if ' Pb' in header:
+        header = header.replace(' Pb', 'Pb')
     if ' U ' in header:
         header = header.replace(' U ', 'U ')
+    if '(' in header and ' (' not in header:
+        header = header.replace('(', ' (')
     return header
 
 loading_manager = LoadingDialogManager.get_instance()

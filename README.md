@@ -11,7 +11,7 @@ Find the latest release [here](https://github.com/kathrynmetcalf/GeoCORK/release
 ## Publications
 If you have used GeoCORK in your workflow, please cite the accompanying publication and zenodo data release. At the bottom of the page you can find BibTeX formats. 
 
-Metcalf, K., and Burges, J., 2025, kathrynmetcalf/GeoCORK: GeoCORK v1.0.2:, doi:10.5281/ZENODO.15833658.
+Metcalf, K., and Burges, J., 2025, kathrynmetcalf/GeoCORK: GeoCORK v1.0.3:, doi:10.5281/ZENODO.15833658.
 
 ## Example Files
 Two example databases and supporting files can be found at (zenodo link).

@@ -241,8 +241,10 @@ qupb_calc_best_age_error = 'UPbAnalyses."CalculatedBestAgeError" AS "CalculatedB
 qupb_age_error_formats = 'REPLACE(GROUP_CONCAT(DISTINCT AgeErrorFormats.ErrorFormatAbbreviation), ",", "; ") AS AgeErrorFormatAbbreviation'
 qupb_age_units = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeUnits.AgeUnitAbbreviation), ",", "; ") AS AgeUnitAbbreviation'
 qupb_age_interpretations = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAgeInterpretations.AgeInterpretationName), ",", "; ") AS UPbAgeInterpretationName'
-qupb_concordance = 'UPbAnalyses.Concordance AS Concordance'
-qupb_calc_concordance = 'UPbAnalyses."CalculatedConcordance" AS "CalculatedConcordance"'
+qupb_concordance_68v76 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/206Pb" AS "Concordance_206Pb/238Uv207Pb/206Pb"'
+qupb_concordance_68v75 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/235U" AS "Concordance_206Pb/238Uv207Pb/235U"'
+qupb_calc_concordance_68v76 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/206Pb" AS "Concordance_206Pb/238Uv207Pb/206Pb"'
+qupb_calc_concordance_68v75 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/235U" AS "Concordance_206Pb/238Uv207Pb/235U"'
 qconcordance_formats = 'REPLACE(GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation), ",", "; ") AS ConcordanceFormatAbbreviation'
 qspot_size = 'UPbAnalyses.SpotSize AS SpotSize'
 qspot_sizes = f'REPLACE(GROUP_CONCAT(DISTINCT CalculatedSpotSize), ",", "; ") AS CalculatedSpotSize'
@@ -1151,7 +1153,8 @@ table_attributes_dict = {
 
         "ErrorCorr/Rho",
 
-        "CalculatedConcordance",
+        "CalculatedConcordance_206Pb/238Uv207Pb/206Pb",
+        "CalculatedConcordance_206Pb/238Uv207Pb/235U",
         "Rejected",
         "CalculatedSpotSize",
 
@@ -1305,7 +1308,8 @@ view_attributes_dict = {
         '"Calculated207Pb/235UAge"', '"Calculated207Pb/235UAgeError"',
         '"Calculated208Pb/232ThAge"', '"Calculated208Pb/232ThAgeError"',
         '"CalculatedBestAgeFilled"', '"CalculatedBestAgeErrorFilled"',
-        '"CalculatedSpotSize"', '"CalculatedConcordance"',
+        '"CalculatedSpotSize"', '"CalculatedConcordance_206Pb/238Uv207Pb/206Pb"',
+        '"CalculatedConcordance_206Pb/238Uv207Pb/235U"',
         f"{qupb_rejected.split('AS ')[1]}", f"{qupb_rejection_reasons.split('AS ')[1]}",
         f"{qupb_contexts.split('AS ')[1]}",
         f"{qupb_created.split('AS ')[1]}", f"{qupb_modified.split('AS ')[1]}"
@@ -1345,7 +1349,8 @@ view_attributes_dict = {
         '"208Pb/232ThAge"', '"208Pb/232ThAgeError"',
         '"BestAge"', '"BestAgeError"',
         '"BestAgeFilled"', '"BestAgeErrorFilled"',
-        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}", '"Concordance"',
+        f"{qupb_age_error_formats.split('AS ')[1]}", f"{qupb_age_units.split('AS ')[1]}",
+        '"Concordance_206Pb/238Uv207Pb/206Pb"', '"Concordance_206Pb/238Uv207Pb/235U"',
         f"{qconcordance_formats.split('AS ')[1]}",
         '"SpotSize"', f"{qspot_size_unit.split('AS ')[1]}", f"{qupb_rejected.split('AS ')[1]}",
         f"{qupb_rejection_reasons.split('AS ')[1]}", f"{qupb_contexts.split('AS ')[1]}",
@@ -1553,7 +1558,8 @@ upb_possible_user_input_fields = {
         'Best Age Error': ['UPbAnalyses', 'BestAgeError'],
         'Age Unit': ['UPbAnalyses', 'AgeUnitID'],
         'Age Error Format': ['UPbAnalyses', 'AgeErrorFormatID'],
-        'Concordance': ['UPbAnalyses', 'Concordance'],
+        'Concordance_206Pb/238Uv207Pb/206Pb': ['UPbAnalyses', 'Concordance_206Pb/238Uv207Pb/206Pb'],
+        'Concordance_206Pb/238Uv207Pb/235U': ['UPbAnalyses', 'Concordance_206Pb/238Uv207Pb/235U'],
         'Concordance Format': ['UPbAnalyses', 'ConcordanceFormatID'],
         'Age Interpretation': ['AgeInterpretations', 'AgeInterpretationName'],
     },
@@ -1655,7 +1661,8 @@ possible_database_input_fields = [
     'AgeErrorFormatID',
     'AgeUnitID',
     'AgeInterpretationID',
-    'Concordance', 'ConcordanceFormatID', 'ConcordanceFormatName',
+    'Concordance_206Pb/238Uv207Pb/206Pb', 'Concordance_206Pb/238Uv207Pb/235U',
+    'ConcordanceFormatID', 'ConcordanceFormatName',
     'SpotSize', 'SpotSizeUnitID',
     'Rejected',
     'RejectionReasonName',

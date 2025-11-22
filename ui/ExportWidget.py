@@ -775,7 +775,7 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', "CalculatedBestAgeFilled"): True,
                     ('UPbAnalyses', "CalculatedBestAgeErrorFilled"): True,
 
-                    ('UPbAnalyses', "CalculatedConcordance"): True
+                    ('UPbAnalyses', "CalculatedConcordance206Pb/238Uv207Pb/206Pb"): True
                 }
 
                 self.column_name_mappings = {
@@ -815,7 +815,7 @@ class ExportWidget(QWidget):
                     "CalculatedBestAgeFilled": "BestAge",
                     "CalculatedBestAgeErrorFilled": "BestAge_err",
 
-                    "CalculatedConcordance": "Disc"
+                    "CalculatedConcordance_206Pb/238Uv207Pb/206Pb": "Disc"
                 }
                 self.add_worksheet_tab('ZrUPb', False, False, ZrUPb_columns, ZrUPb_columns, True)
             case 'IsoplotR - 07/35, 06/38, 04/38, 07/06, 04/07, 04/06':

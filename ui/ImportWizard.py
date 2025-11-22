@@ -6,7 +6,8 @@ import time
 import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
-from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant, QModelIndex, QAbstractTableModel
+from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant, QModelIndex, QAbstractTableModel, \
+    QEventLoop
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -311,6 +312,8 @@ class ImportWizardDialog(QWidget):
     def __init__(self, parent: QWidget):
         super().__init__(parent=None)
         self.loading_manager = LoadingDialogManager.get_instance()
+
+        logger_setup.get_logger().info("Import Wizard initializing...")
 
         self.setWindowTitle("UPb Import Wizard")
         self.loadWindowState()
@@ -665,6 +668,8 @@ class ImportWizardDialog(QWidget):
         self.conflict_mode = "skip"
 
         self.deactivate_widgets()
+
+        logger_setup.get_logger().info("Import Wizard initialized")
 
     def closeEvent(self, a0):
         self.combo_reference_comboBox.disconnect()
@@ -1145,6 +1150,7 @@ class ImportWizardDialog(QWidget):
                 data = table.model().data(index, Qt.ItemDataRole.DisplayRole)
                 if data in ['NULL', None, '']:
                     table.model().setData(index, value, Qt.ItemDataRole.DisplayRole)
+                    table.model().userDataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
         table.blockSignals(False)
         logger_setup.get_logger().info(f'Set column to {value}')
 
@@ -1162,11 +1168,12 @@ class ImportWizardDialog(QWidget):
                 if item is None:
                     item = QTableWidgetItem()
                     table.setItem(row, column, item)
-                item.setText("")
+                item.setText("NULL")
         elif isinstance(table, QTableView):
             for row in range(table.model().rowCount()):
                 index = table.model().index(row, column)
-                table.model().setData(index, "", Qt.ItemDataRole.DisplayRole)
+                table.model().setData(index, "NULL", Qt.ItemDataRole.DisplayRole)
+                table.model().userDataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
         logger_setup.get_logger().info(f'Set column {column} to blank')
 
     def handle_vertical_header_double_click(self, logical_index):
@@ -1480,13 +1487,15 @@ class ImportWizardDialog(QWidget):
             elif action == set_value_action:
                 new_value, ok = QInputDialog.getText(self, "Set Value", "Enter new value:")
                 if ok:
+                    logger_setup.get_logger().info(f"Setting selected cells to {new_value}")
                     for index in self.right_table.selectedIndexes():
                         self.right_table.model().setData(index, new_value, Qt.ItemDataRole.DisplayRole)
-                    for column in selected_columns:
-                        header = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
-                        if (header in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
-                            self.current_sheet_name == self.upb_sheet_name):
-                            self.update_left_table_on_header_change(header, column)
+                        self.right_table.model().userDataChanged.emit(index, index, [Qt.ItemDataRole.DisplayRole])
+                    # for column in selected_columns:
+                    #     header = self.right_table.model().headerData(column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
+                    #     if (header in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
+                    #         self.current_sheet_name == self.upb_sheet_name):
+                    #         self.update_left_table_on_header_change(header, column)
             elif action == remove_column:
                 self.remove_selected_columns(selected_columns)
 
@@ -1553,9 +1562,11 @@ class ImportWizardDialog(QWidget):
                 break
         if right_column is not None:
             # Update the value in the right table as well
+            self.right_tables[self.upb_sheet_name].blockSignals(True)
             index = self.right_tables[self.upb_sheet_name].model().index(row, right_column)
             if self.right_tables[self.upb_sheet_name].model().data(index, Qt.ItemDataRole.DisplayRole) != current_value:
                 self.right_tables[self.upb_sheet_name].model().setData(index, current_value, Qt.ItemDataRole.DisplayRole)
+            self.right_tables[self.upb_sheet_name].blockSignals(False)
 
             # next_value = self.left_table.item(row + 1, column).text().strip()
             # # If the value is empty or invalid, ignore
@@ -1880,6 +1891,7 @@ class ImportWizardDialog(QWidget):
         else:
             id_name = None
 
+        logger_setup.get_logger().debug(f"Setting all rows for {field} and {id_name}")
         try:
             table = model.tableName()
             name_column = get_name_column(get_view_from_table(table))
@@ -1922,6 +1934,11 @@ class ImportWizardDialog(QWidget):
             id_column = self.get_column_index(id_name)  # Column with ID header in the right table
             name_col = self.get_column_index(field)  # Column with name header in the right table
 
+        if not id_column or not name_col:
+            # still did not find the column with the ID header and the column with the name header
+            logger_setup.get_logger().critical(f'Could not find data for {field} in the database')
+            return
+
         # Update all rows in the column
         self.right_table.blockSignals(True)
 
@@ -1936,6 +1953,7 @@ class ImportWizardDialog(QWidget):
         self.hidden_mappings[id_column] = {}
         self.hidden_mappings[id_column][id_name] = checked_item_id
         # self.right_table.resizeColumnsToContents()
+        logger_setup.get_logger().info(f"All rows updated with '{str(checked_item_name)}' for {field}.")
         QMessageBox.information(self, "Success", f"All rows updated with '{str(checked_item_name)}' for {field}.")
 
     def get_column_index(self, header_name):
@@ -1960,6 +1978,7 @@ class ImportWizardDialog(QWidget):
         Update the left table row text appearance based on the right table row status.
         """
         if self.current_sheet_name == self.upb_sheet_name:
+            logger_setup.get_logger().info(f"Updating left table row status for {self.current_sheet_name}")
             # get the default style text color
             if not self.style().standardPalette():
                 text_color = QColor("#000000")  # Default to black
@@ -1976,6 +1995,7 @@ class ImportWizardDialog(QWidget):
                     item = self.left_table.item(row, c)
                     if item:
                         item.setForeground(QBrush(color))  # Gray text
+            logger_setup.get_logger().info(f"Updated left table row status for {self.current_sheet_name}")
 
     def remove_selected_rows(self, rows=None):
         if rows is None:
@@ -1984,7 +2004,7 @@ class ImportWizardDialog(QWidget):
                 return
         else:
             selected_rows = rows
-
+        logger_setup.get_logger().info(f'Removing selected rows: {selected_rows}')
         sr = sorted(selected_rows, reverse=True)
         for r in sr:
             self.right_table.model().removeRow(r)
@@ -1994,6 +2014,8 @@ class ImportWizardDialog(QWidget):
         # self.right_table.resizeColumnsToContents()
         # if self.current_sheet_name == self.upb_sheet_name:
         #     self.left_table.resizeColumnsToContents()
+
+        logger_setup.get_logger().info(f'Removed selected rows')
 
     def remove_selected_columns(self, columns=None):
         """
@@ -2069,20 +2091,25 @@ class ImportWizardDialog(QWidget):
         else:
             selected_rows = rows
 
+        logger_setup.get_logger().info(f'Disabling selected rows: {selected_rows}')
         for r in selected_rows:
             self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "disabled", Qt.ItemDataRole.DecorationRole)
         if self.current_sheet_name == self.upb_sheet_name:
             self.update_left_table_row_status()
 
+        logger_setup.get_logger().info(f'Disabled selected rows')
         self.repaint()
 
     def mark_selected_rows_rejected(self, rows, rejected: bool):
         if not rows:
             return
+
         if rejected:
+            logger_setup.get_logger().info(f'Marking selected rows as rejected: {rows}')
             for r in rows:
                 self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "rejected", Qt.ItemDataRole.DecorationRole)
         else:
+            logger_setup.get_logger().info(f'Marking selected rows as accepted: {rows}')
             for r in rows:
                 self.right_table.model().setHeaderData(r, Qt.Orientation.Vertical, "accepted", Qt.ItemDataRole.DecorationRole)
         if self.current_sheet_name == self.upb_sheet_name:
@@ -2102,6 +2129,7 @@ class ImportWizardDialog(QWidget):
         value = self.right_table.model().headerData(logical_index, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole)
         if not value:
             return
+        logger_setup.get_logger().info(f'Double-click on header {value}')
         original_header_text = str(logical_index)
         curr_map = self.sheet_mappings[self.current_sheet_name].get(logical_index, "None")
         dialog = ColumnMapDialog(original_header_text, curr_map, self)
@@ -2138,6 +2166,7 @@ class ImportWizardDialog(QWidget):
                 if (new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
                         self.current_sheet_name == self.upb_sheet_name):
                     self.update_left_table_on_header_change(new_field, logical_index)
+            logger_setup.get_logger().info(f'Header updated: {new_field}')
 
     def update_left_table_on_header_change(self, field, logical_index):
         sample_col = None
@@ -2145,6 +2174,7 @@ class ImportWizardDialog(QWidget):
         spot_col = None
         grain_col = None
         upb_analysis_col = None
+        logger_setup.get_logger().info(f'Updating left table after header change: {field}')
         for column in range(self.left_table.columnCount()):
             if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
                 sample_col = column
@@ -2226,6 +2256,7 @@ class ImportWizardDialog(QWidget):
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, upb_analysis_col, QTableWidgetItem(upb_analysis_value))  # UPb Analysis Name
                 self.left_table.blockSignals(False)
+        logger_setup.get_logger().info(f'Updated left table after header change: {field}')
         self.left_table.resizeColumnsToContents()
 
     def update_left_table_background(self, item, color_hex):
