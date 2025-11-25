@@ -177,8 +177,8 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'],
                                  ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
     spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
-    concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'CalculatedConcordance_206Pb/238Uv207Pb/206Pb',
-                                    'CalculatedConcordance_206Pb/238Uv207Pb/235U']]
+    concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance_206Pb/238Uv207Pb/206Pb',
+                                    'Concordance_206Pb/238Uv207Pb/235U']]
     if database is None:
         upb_analyses_model = QtS.QSqlTableModel()
     else:
@@ -751,8 +751,8 @@ def update_generated_columns(table: str, database: QtS.QSqlDatabase = None) -> b
                              ['UPbAnalyses', 'AgeUnitID', '207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge',
                               '208Pb/232ThAge', 'BestAge']]
         spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
-        concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'CalculatedConcordance_206Pb/238Uv207Pb/206Pb',
-                                        'CalculatedConcordance_206Pb/238Uv207Pb/235U']]
+        concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance_206Pb/238Uv207Pb/206Pb',
+                                        'Concordance_206Pb/238Uv207Pb/235U']]
         if database is None:
             upb_analyses_model = QtS.QSqlTableModel()
         else:

@@ -181,7 +181,7 @@ class DisplayTables(QtW.QWidget):
             if self.model.last_error:
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
                 self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
-                return
+                self.parent().close()
             self.tree_model = TreeModel(self.model, None)
             self.tree_proxy_model.setSourceModel(self.tree_model)
             self.tree_proxy_model.setFilterKeyColumn(-1)
@@ -261,7 +261,7 @@ class DisplayTables(QtW.QWidget):
             if self.model.last_error is not None:
                 logger_setup.get_logger().critical(f'Error displaying {self.table}')
                 self.loading_manager.close_loading_dialog('Loading', f'Displaying {self.table}...')
-                return
+                self.parent().close()
             self.model.set_table(self.table)
             self.table_proxy_model.setSourceModel(self.model)
             self.dbTable_tableView: QTableView
@@ -322,7 +322,7 @@ class DisplayTables(QtW.QWidget):
 
         else:
             logger_setup.get_logger().error(f"Error {self.table}: Tried to switch to a table with no table or tree...")
-            return
+            self.parent().close()
 
         self.edit_pushButton.setText(f"Edit {self.table}")
         self.goto_line_edit.clear()

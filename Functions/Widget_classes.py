@@ -519,8 +519,13 @@ class ImportSheetModel(QAbstractTableModel):
         self.beginRemoveRows(QtC.QModelIndex(), 0, len(self._dataframe) - 1)
         rows.sort(reverse=True)
         for row in rows:
-            self._dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
-            self._status_dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+            if row == self.rowCount() - 1:
+                # dropping the last row
+                self._dataframe.drop(self._dataframe.tail(1).index, axis=0, inplace=True)
+                self._status_dataframe.drop(self._status_dataframe.tail(1).index, axis=0, inplace=True)
+            else:
+                self._dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+                self._status_dataframe.drop(self._status_dataframe.index[row], axis=0, inplace=True)
         self._dataframe.reset_index(drop=True, inplace=True)
         self._status_dataframe.reset_index(drop=True, inplace=True)
         self.endRemoveRows()
@@ -537,12 +542,14 @@ class ImportSheetModel(QAbstractTableModel):
         if row == self.rowCount() - 1:
             # dropping the last row
             self._dataframe.drop(self._dataframe.tail(1).index, axis=0, inplace=True)
-            self._status_dataframe.drop(self._dataframe.tail(1).index, axis=0, inplace=True)
+            self._status_dataframe.drop(self._status_dataframe.tail(1).index, axis=0, inplace=True)
         else:
             self._dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
-            self._status_dataframe.drop(self._dataframe.index[row], axis=0, inplace=True)
+            self._status_dataframe.drop(self._status_dataframe.index[row], axis=0, inplace=True)
         self._dataframe.reset_index(drop=True, inplace=True)
+        self._dataframe.index = np.arange(1, len(self._dataframe) + 1)
         self._status_dataframe.reset_index(drop=True, inplace=True)
+        self._status_dataframe.index = np.arange(1, len(self._status_dataframe) + 1)
         self.endRemoveRows()
         return True
 
@@ -4829,7 +4836,6 @@ class ReorderListView(QtW.QListView):
                 # Dropping between items
                 super().dropEvent(event)
 
-
 class ColumnListProxyModel(QtC.QSortFilterProxyModel):
     """
     A proxy model that filters and sorts columns in a list. This model extends QSortFilterProxyModel to display headers
@@ -4844,6 +4850,37 @@ class ColumnListProxyModel(QtC.QSortFilterProxyModel):
             readable_header = get_readable_header(header)
             return readable_header
         return super().data(index, role)
+
+
+class DisableItemModel(QtG.QStandardItemModel):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+        self.disabled_items = []
+
+    def data(self, index: QtC.QModelIndex, role: int = ...):
+        if not index.isValid():
+            return None
+        if role == QtC.Qt.ItemDataRole.DisplayRole or role == QtC.Qt.ItemDataRole.EditRole:
+            item = self.item(index.row(), index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if item:
+                return item
+        elif role == QtC.Qt.ItemDataRole.ForegroundRole:
+            # Return gray text if the row is disabled
+            item = self.item(index.row(), index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
+            if item in self.disabled_items:
+                # logger_setup.get_logger().debug(f'Setting gray text for disabled item}')
+                return QBrush(QColor("#A0A0A0"))  # Gray text
+        return super().data(index, role)
+
+    def flags(self, index: QtC.QModelIndex):
+        if not index.isValid():
+            return None
+        item = self.item(index.row(), index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
+        if item in self.disabled_items:
+            # Item is not selectable
+            return QtC.Qt.ItemFlag.NoItemFlags
+        return super().flags(index)
 
 class ColumnItemModel(QtG.QStandardItemModel):
     """
@@ -5363,7 +5400,12 @@ class SearchableComboBox(QtW.QComboBox):
         :param texts: list of text strings to be added as items to the combo box
         :return:
         """
-        super().addItems(texts)
+        combo_model = self.view().model()
+        if isinstance(combo_model, DisableItemModel):
+            for text_item in texts:
+                self.addItem(text_item)
+        else:
+            super().addItems(texts)
         # Set the default text to blank
         self.lineEdit().setText(None)
 

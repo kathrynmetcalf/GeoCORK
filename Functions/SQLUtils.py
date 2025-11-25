@@ -65,7 +65,7 @@ qaliquot_parent_row = 'AliquotParentRow AS AliquotParentRow'
 qaliquot_sample = 'Samples.SampleName AS SampleName'
 qaliquot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT AliquotContextName), ",", "; ") AS AliquotContextName'
 qaliquot_spots = 'REPLACE(GROUP_CONCAT(DISTINCT SpotName), ",", "; ") AS SpotName'
-qaliquot_spot_context = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContextName), ",", "; ") AS SpotContextName'
+qaliquot_spot_context = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
 qaliquot_spot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositionName), ",", "; ") AS SpotCompositionName'
 qaliquot_references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) AS UPb Reference'
 qaliquot_upb_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
@@ -91,7 +91,7 @@ qspot_name = 'Spots.SpotName AS SpotName'
 qspots = 'REPLACE(GROUP_CONCAT(DISTINCT Spots.SpotName), ",", "; ") AS SpotName'
 qspot_composition = 'SpotCompositionName AS SpotCompositionName'
 qspot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositionName), ",", "; ") AS SpotCompositionName'
-qspot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContextName), ",", "; ") AS SpotContextName'
+qspot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
 qspot_description = 'SpotDescription AS SpotDescription'
 qspot_created = 'SpotCreated AS SpotCreated'
 qspot_modified = 'SpotModified AS SpotModified'
@@ -1674,6 +1674,34 @@ possible_database_input_fields = [
 """List of valid columns to be entered through the importer.
 No Calculated values should be in this list
 Used to create the insert statement with SQL"""
+
+# Dictionary of tables with unit/format IDs and columns that connect with that unit/format
+unit_format_affected = {
+    'SampleAges': {'DirectAgeUnitID': ['DirectAge', 'OldestDirectAge', 'YoungestDirectAge', 'DirectAgeError'],
+                   'DirectAgeErrorFormatID': ['DirectAgeError']},
+    'UPbAnalyses': {'AgeUnitID': ['207Pb/206PbAge', '206Pb/238UAge', '207Pb/235UAge', '208Pb/232ThAge', 'BestAge',
+                                  '207Pb/206PbAgeError', '206Pb/238UAgeError', '207Pb/235UAgeError', '208Pb/232ThAge',
+                                  'BestAgeError'],
+                    'AgeErrorFormatID': ['207Pb/206PbAgeError', '206Pb/238UAgeError', '207Pb/235UAgeError', '208Pb/232ThAge',
+                                  'BestAgeError'],
+                    'SpotSizeUnitID': ['SpotSize'], 'ConcordanceFormatID': ['Concordance_206Pb/238Uv207Pb/206Pb',
+                                'Concordance_206Pb/238Uv207Pb/235U'],
+                    'RatioErrorFormatID': ['206Pb/204PbError', '204Pb/206PbError', '207Pb/204PbError',
+                                           '204Pb/207PbError', '208Pb/204PbError', '204Pb/208PbError',
+                                           '206Pb/207PbError', '207Pb/206PbError', '204Pb/238UError', '238U/204PbError',
+                                           '206Pb/238UError', '238U/206PbError', '207Pb/235UError', '235U/207PbError',
+                                           '208Pb/232ThError', '232Th/208PbError', '238U/232ThError', '232Th/238UError',]},
+    'GPSLocations': {'GPSElevUnitID': ['GPSElev', 'GPSElevError'], 'GPSFormatID': ['GPSLocationDisplay']},
+    'Samples': {'HeightDepthUnitID': ['HeightDepth', 'HeightDepthError']},
+    'Columns': {'ColumnTotalHeightDepthUnitID': ['ColumnTotalHeightDepth']}
+}
+elevation_unit_affected = [['GPSLocations', 'GPSElevUnitID', 'GPSElev', 'GPSElevError']]
+gps_unit_affected = [['GPSLocations', 'GPSFormatID', 'GPSLocationDisplay']]
+heightdepth_unit_affected = [['Samples', 'HeightDepthUnitID', 'HeightDepth', 'HeightDepthError'],
+                             ['Columns', 'ColumnTotalHeightDepthUnitID', 'ColumnTotalHeightDepth']]
+spotsize_unit_affected = [['UPbAnalyses', 'SpotSizeUnitID', 'SpotSize']]
+concordance_format_affected = [['UPbAnalyses', 'ConcordanceFormatID', 'Concordance_206Pb/238Uv207Pb/206Pb',
+                                'Concordance_206Pb/238Uv207Pb/235U']]
 
 
 
