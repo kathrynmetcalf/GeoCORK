@@ -258,13 +258,14 @@ class EditView(QtW.QDialog):
         self.table_headers = get_headers(self.table)
         self.gps_headers = []
         self.age_headers = []
+
+        self.create_model()
+
         for header in self.show_cols:
             if 'GPS' in header or 'Elevation' in header:
                 self.gps_headers.append(header)
             elif 'SampleAge' in header and 'AgeSignature' not in header:
                 self.age_headers.append(header)
-
-        self.create_model()
 
         create_savepoint('before_edit')
 
@@ -286,6 +287,7 @@ class EditView(QtW.QDialog):
         Method to connect signals to the QTableView
         :return:
         """
+        self.disconnect_table_signals()
         self.edit_tableView.installEventFilter(self)
         self.edit_tableView.selectionModel().currentChanged.connect(self.on_index_change)
         self.edit_tableView.setContextMenuPolicy(QtC.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -298,11 +300,26 @@ class EditView(QtW.QDialog):
         Method to disconnect signals from the QTableView
         :return:
         """
-        self.edit_tableView.removeEventFilter(self)
-        self.edit_tableView.selectionModel().currentChanged.disconnect(self.on_index_change)
-        self.edit_tableView.customContextMenuRequested.disconnect(self.show_context_menu)
-        self.edit_tableView.selectionModel().currentRowChanged.disconnect(self.on_row_change)
-        self.edit_tableView.doubleClicked.disconnect(self.display_widget)
+        try:
+            self.edit_tableView.removeEventFilter(self)
+        except ValueError:
+            pass
+        try:
+            self.edit_tableView.selectionModel().currentChanged.disconnect(self.on_index_change)
+        except TypeError:
+            pass
+        try:
+            self.edit_tableView.customContextMenuRequested.disconnect(self.show_context_menu)
+        except TypeError:
+            pass
+        try:
+            self.edit_tableView.selectionModel().currentRowChanged.disconnect(self.on_row_change)
+        except TypeError:
+            pass
+        try:
+            self.edit_tableView.doubleClicked.disconnect(self.display_widget)
+        except TypeError:
+            pass
 
     def create_model(self):
         name_column = get_name_column(self.table)
@@ -873,11 +890,11 @@ class EditView(QtW.QDialog):
             logger_setup.get_logger().debug(f'SQL query: {table_query}')
             return False
         if query.next():
-            for header in self.gps_headers:
+            for header in show_columns:
                 col = self.show_cols.index(header)
                 self.model.setData(self.model.index(row, col), query.value(header), QtC.Qt.ItemDataRole.EditRole)
                 logger_setup.get_logger().info(
-                    f'New value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
+                    f'New {header} value: {self.model.index(row, col).data(QtC.Qt.ItemDataRole.DisplayRole)}')
         if not query.exec('DROP TABLE IF EXISTS TempPaged'):
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: DROP TABLE IF EXISTS TempPaged')
@@ -1306,12 +1323,23 @@ class EditView(QtW.QDialog):
                 partially_checked_values = [get_name_from_id(combo_model.tableName(), id) for id in
                                             partially_checked_ids]
                 for model_index in model_indexes:
-                    current_values = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole).split(';')
-                    new_values = [value for value in current_values if
-                                  value in partially_checked_values or value in checked_values]
+                    current_values = self.model.data(model_index, QtC.Qt.ItemDataRole.DisplayRole)
+                    if current_values:
+                        current_values = current_values.split(';')
+                        new_values = [value for value in current_values if
+                                      value in partially_checked_values or value in checked_values]
+                    else:
+                        new_values = []
                     new_values.extend(checked_values)
                     new_values = '; '.join(set(new_values))
                     self.model.setData(model_index, new_values, QtC.Qt.ItemDataRole.EditRole)
+            else:
+                for model_index in model_indexes:
+                    if not self.model.setData(model_index, combo.currentText(), QtC.Qt.ItemDataRole.EditRole):
+                        logger_setup.get_logger().critical(f'Error updating view')
+                        logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                        self.destroy_dropdown()
+                        return
         if updated:
             self.updated = True
             for model_index in model_indexes:
@@ -1879,11 +1907,11 @@ class EditView(QtW.QDialog):
         for model_index in self.model.edited_indexes:
             header = self.model.headerData(model_index.column(), QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole)
             header_found = False
-            if 'GPS' in header or 'Elevation' in header and not header_found:
+            if header in self.gps_headers and not header_found:
                 # Already handled in the GPSDialog
                 header_found = True
                 continue
-            elif 'SampleAgeCalculated' in header and not header_found:
+            elif header in self.age_headers and not header_found:
                 # Already handled in the AgeDialog
                 header_found = True
                 continue
@@ -2029,12 +2057,12 @@ class EditView(QtW.QDialog):
         id_header = table_headers[0]
         query = QtS.QSqlQuery()
         if not query.exec(f'SELECT {id_header} FROM {table} WHERE {table_headers[get_name_column(table)]} = "{value}"'):
-            logger_setup.get_logger().critical(f'Failed to get ID for {value}: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'Failed to get ID for {value}: {query.lastError().text()}')
             return None
         if query.next():
             return query.value(0)
         else:
-            logger_setup.get_logger().critical(f'{get_name_column(table)} {value} not found in {table}')
+            logger_setup.get_logger().debug(f'{get_name_column(table)} {value} not found in {table}')
             return None
 
     def add_popup(self):

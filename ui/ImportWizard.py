@@ -7,7 +7,7 @@ import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant, QModelIndex, QAbstractTableModel, \
-    QEventLoop
+    QEventLoop, QTimer
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -686,6 +686,11 @@ class ImportWizardDialog(QWidget):
 
         self.conflict_mode = "skip"
 
+        self.repaint_timer = QTimer()
+        self.repaint_timer.setSingleShot(True)
+        self.repaint_timer.setInterval(100)
+        self.repaint_timer.timeout.connect(self.repaint_importer)
+
         self.deactivate_widgets()
 
         logger_setup.get_logger().info("Import Wizard initialized")
@@ -790,6 +795,9 @@ class ImportWizardDialog(QWidget):
         self.age_unit_combobox.setEnabled(True)
         self.spot_size_unit_combobox.setEnabled(True)
         self.conc_format_combobox.setEnabled(True)
+
+    def repaint_importer(self):
+        self.repaint()
 
     def on_cell_clicked(self, index: QModelIndex):
         row = index.row()
@@ -1524,7 +1532,7 @@ class ImportWizardDialog(QWidget):
             elif action == remove_column:
                 self.remove_selected_columns(selected_columns)
 
-        # self.repaint()
+        self.repaint_timer.start()
 
     def show_right_table_vertical_header_context_menu(self, pos: QPoint):
         """
@@ -1557,7 +1565,7 @@ class ImportWizardDialog(QWidget):
             elif action == accept_action:
                 self.mark_selected_rows_rejected(selected_rows, False)
 
-        # self.repaint()
+        self.repaint_timer.start()
 
     # ---------------------------
     #     File & Sheet Loading
@@ -2123,7 +2131,7 @@ class ImportWizardDialog(QWidget):
         row_count = self.right_table.model().rowCount()
         for row_idx in range(row_count):
             self.right_table.model().setHeaderData(row_idx, Qt.Orientation.Vertical, str(row_idx + 1))
-        self.repaint()
+        self.repaint_timer.start()
 
     def disable_selected_rows(self, rows=None):
         if rows is None:
@@ -2140,7 +2148,7 @@ class ImportWizardDialog(QWidget):
             self.update_left_table_row_status()
 
         logger_setup.get_logger().info(f'Disabled selected rows')
-        self.repaint()
+        self.repaint_timer.start()
 
     def mark_selected_rows_rejected(self, rows, rejected: bool):
         if not rows:
@@ -2157,7 +2165,7 @@ class ImportWizardDialog(QWidget):
         if self.current_sheet_name == self.upb_sheet_name:
             self.update_left_table_row_status()
 
-        self.repaint()
+        self.repaint_timer.start()
 
 
     # ---------------------------

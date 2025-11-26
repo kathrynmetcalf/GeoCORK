@@ -1501,7 +1501,7 @@ def get_name_column(table: str) -> int | None:
     """
     table = table.replace('"', '').strip()
     if (table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or
-            table in ['AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView']):
+            table in ['Ages', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView']):
         return 3
     elif 'Format' in table or 'Unit' in table:
         # return the column for the abbreviation
@@ -1789,7 +1789,7 @@ def get_record_index(table: str, record_id: int, ids_to_show: list = None) -> in
     :param ids_to_show: optional list of IDs to filter the results by so can acurately find the row in a filtered table
     :return: row number/index of the record
     """
-    if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+    if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or table == 'Ages':
         # If the table is a tree, we cannot use this method to find the index, so return -1
         logger_setup.get_logger().error(f'Cannot get record index for tree {table}')
         logger_setup.get_logger().debug(
@@ -2225,7 +2225,7 @@ def delete_data(table: str, data_ids: list):
                     # If all UPb analyses of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
                         childless_samples.append(sample_id)
-    elif table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+    elif table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or table == 'Ages':
         # For user viewable trees, we need to check for child IDs
         table_child_ids = []
         for parent_id in data_ids:
@@ -2351,7 +2351,7 @@ def delete_question(table, delete_ids):
             msg_text += f'\nSpots: {", ".join(spot_names[:10])}...\n'
         msg_text += f'\nAssociated with {len(upb_analysis_ids)} U-Pb analyses'
     else:
-        if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees:
+        if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or table == 'Ages':
             # For user viewable trees, we need to check for child IDs
             child_ids = []
             for parent_id in delete_ids:
@@ -6489,14 +6489,14 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
         if action.text() == 'Insert above':
             row = item_parent_dictionary[first_item_id][1]
             parent_id = item_parent_dictionary[first_item_id][0]
-            dlg_args = {'parent_ids' : parent_id, 'parent_row': row}
+            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
         elif action.text() == 'Insert below':
             row = item_parent_dictionary[first_item_id][1] + 1
             parent_id = item_parent_dictionary[first_item_id][0]
-            dlg_args = {'parent_ids' : parent_id, 'parent_row': row}
+            dlg_args = {'parent_id' : parent_id, 'parent_row': row}
         elif action.text() == 'Add child':
-            parent_id = item_parent_dictionary[first_item_id][0]
-            dlg_args = {'parent_ids' : parent_id}
+            parent_id = first_item_id
+            dlg_args = {'parent_id' : parent_id}
         elif action.text() == 'Add parent':
             parent_ids = [item_parent_dictionary[item_id][0] for item_id in item_ids]
             parent_rows = [item_parent_dictionary[item_id][1] for item_id in item_ids]
@@ -6712,7 +6712,7 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
     else:
         model = DisplayRoundedModel()
         set_table(model, table)
-    if table in SQLUtils.user_viewable_trees:
+    if table in SQLUtils.user_viewable_trees or table == 'Ages':
         if isinstance(comboBox, CheckableTreeCombobox):
             tree_model = CheckableTreeModel()
         else:
