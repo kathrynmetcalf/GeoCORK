@@ -31,7 +31,7 @@ settings_list = [
     'reference_view_freeze', 'checkable_combobox_height_scaler',
     'checkable_combobox_width_scaler', 'font_family', 'font_size', 'table_font_size', 'debug_level', 'show_per_page',
     'autofill_best_age', 'young_fill_best_age', 'old_fill_best_age', 'best_age_cutoff', 'geocork_version',
-    'current_db_path'
+    'current_db_path', 'display_tooltips'
 ]
 """List of all setting keys used by GeoCORK. This list is used to check for missing settings and to reset settings to default values."""
 
@@ -250,6 +250,8 @@ def default_settings():
     settings.setValue('default_young_fill_best_age', '"206Pb/238UAge"')
     settings.setValue('default_old_fill_best_age', '"207Pb/206PbAge"')
     settings.setValue('default_best_age_cutoff', 1000)
+
+    settings.setValue('default_display_tooltips', True)
 
 def reset_to_default_settings():
     """
@@ -500,6 +502,8 @@ class SettingsDialog(QtW.QDialog):
             self.fontComboBox.addItems([settings.value('default_font_family')])
         self.fontComboBox.setCurrentFont(QFont(settings.value('font_family')))
 
+        self.display_tooltips_checkBox.setChecked(settings.value('display_tooltips', type=bool))
+
     def populate_best_age_fields(self):
         if settings.value('autofill_best_age') == 'true':
             self.autofill_best_checkBox.setChecked(True)
@@ -605,6 +609,8 @@ class SettingsDialog(QtW.QDialog):
                 update_stylesheet()
                 self.loading_manager.close_loading_dialog('Updating', 'Updating style...')
                 break
+
+        update_setting('display_tooltips', self.display_tooltips_checkBox.isChecked())
 
         self.populate_fields()
         self.loading_manager.close_loading_dialog('Updating', 'Updating settings...')

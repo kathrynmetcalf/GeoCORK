@@ -15,7 +15,8 @@ from PyQt6 import QtGui as QtG
 from PyQt6 import QtSql as QtS
 from numpy import integer
 from PyQt6 import QtWidgets as QtW
-from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel
+from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex, QSortFilterProxyModel, QObject, QSettings, \
+    QEvent
 from PyQt6.QtGui import QTextOption, QAction, QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
 from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog, QToolTip, QCompleter
@@ -55,6 +56,38 @@ class WordWrapDelegate(QtW.QStyledItemDelegate):
         super().initStyleOption(option, index)
         option.textElideMode = Qt.TextElideMode.ElideNone  # Do not cut text
         option.wrapMode = QTextOption.WrapMode.WordWrap  # Allow word wrap
+
+class TooltipFilter(QObject):
+    """
+    Event filter to accept/reject ALL tooltips globally
+    based on a user setting (stored in QSettings).
+    """
+
+    def __init__(self, settings: QSettings):
+        super().__init__()
+        self.settings = settings
+
+    def eventFilter(self, obj, event):
+        # Tooltip triggered by moving/hovering (QHelpEvent)
+        if event.type() == QEvent.Type.ToolTip:
+            allow = self.settings.value("display_tooltips", True, bool)
+            if not allow:
+                # Hide tooltip + stop event propagation
+                QToolTip.hideText()
+                return True
+            return False  # allow tooltip normally
+
+        if event.type() in (
+            QEvent.Type.ToolTipChange,
+            QEvent.Type.QueryWhatsThis
+        ):
+            allow = self.settings.value("display_tooltips", True, bool)
+            if not allow:
+                QToolTip.hideText()
+                return True
+            return False
+
+        return super().eventFilter(obj, event)
 
 # ---------------------------
 #    Table Classes

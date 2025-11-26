@@ -6,6 +6,7 @@ import platform
 from PyQt6.QtWidgets import QApplication, QErrorMessage, QStyleFactory
 
 import logger_setup
+from Widget_classes import TooltipFilter
 from ui.LandingUI import LandingPage
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
@@ -20,6 +21,9 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setApplicationName("GeoCORK")
+
+    tooltip_filter = TooltipFilter(settings)
+    app.installEventFilter(tooltip_filter)
 
     logger_setup.setup_async_logger()
     logger = logger_setup.get_logger()

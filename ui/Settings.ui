@@ -900,6 +900,29 @@
        </item>
       </layout>
      </widget>
+     <widget class="QWidget" name="ui_tab">
+      <attribute name="title">
+       <string>User Interface Settings</string>
+      </attribute>
+      <layout class="QVBoxLayout" name="verticalLayout_8">
+       <item>
+        <widget class="QGroupBox" name="groupBox">
+         <property name="title">
+          <string>Display Settings</string>
+         </property>
+         <layout class="QGridLayout" name="gridLayout_7">
+          <item row="0" column="0">
+           <widget class="QCheckBox" name="display_tooltips_checkBox">
+            <property name="text">
+             <string>Display Tooltips</string>
+            </property>
+           </widget>
+          </item>
+         </layout>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
    <item>

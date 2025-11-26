@@ -127,6 +127,8 @@ class ColumnMapDialog(QDialog):
         main_layout.addWidget(self.btn_ok)
         self.setLayout(main_layout)
 
+        self.setMinimumSize(600, 300)
+
         # Set the current tab to U-Pb Data, or another tab is a field is already set
         tab_widget.setCurrentIndex(tab_names.index(current_tab_name))
 
