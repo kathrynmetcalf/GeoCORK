@@ -4932,6 +4932,24 @@ class ColumnItemModel(QtG.QStandardItemModel):
                 return False
         return super().setData(index, value, role)
 
+class TableToolTipModel(QtG.QStandardItemModel):
+    """
+    Subclass of QStandardItemModel to link table items in the model with descriptions to return as tool tips. Can be
+    applied to any combo box or list that accepts QStandardItemModel
+    """
+    def __init__(self, parent=None):
+        super().__init__(parent)
+
+    def data(self, index, role=QtC.Qt.ItemDataRole.DisplayRole):
+        if not index.isValid():
+            return None
+        if role == Qt.ItemDataRole.ToolTipRole:
+            table = self.data(index, Qt.ItemDataRole.DisplayRole)
+            if table in SQLUtils.table_attributes_description_dict.keys():
+                description = SQLUtils.table_attributes_description_dict[table]['description']
+                return description
+        return super().data(index, role)
+
 class CheckableComboBox(QtW.QComboBox):
     """
     A QComboBox subclass that allows for checkable items in the dropdown list. This class extends QComboBox to provide

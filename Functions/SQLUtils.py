@@ -614,13 +614,13 @@ not_null = {
 }
 "Tables that are the basis for view and their columns that cannot be null"
 
-user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts',
+user_viewable_tables = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'AliquotContexts',
                         'Columns', 'GrainContexts', 'GrainCompositions', 'Instruments', 'LabFacilities', 'References', 'Regions', 'RejectionReasons',
                         'RockTypes', 'SampleContexts', 'Samples', 'SamplingMethods', 'Settings', 'SpotCompositions',
                         'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable tables and trees used throughout GeoCORK."""
 
-user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'Ages', 'AliquotContexts', 'Aliquots',
+user_viewable_trees = ['AgeConstraints', 'AgeInterpretations', 'AgeSignatures', 'AliquotContexts', 'Aliquots',
                        'GrainContexts', 'Regions', 'RockTypes', 'SampleContexts', 'SamplingMethods', 'Settings', 'SpotCompositions',
                        'SpotContexts', 'UPbAnalysisMethods', 'UPbAnalysisContexts', 'Units']
 """List of all user-viewable trees used throughout GeoCORK. If a table is included in this list it is assumed to be in the correct format"""
@@ -1175,6 +1175,168 @@ table_attributes_dict = {
     ]
 }
 """List of all columns visible to the user.
+Used in ExporterWidget.py as valid columns able to be exported
+Used in Filters.py as valid columns to be filtered"""
+
+table_attributes_description_dict = {
+    'AgeConstraints': {'attributes': [
+        "AgeConstraintName", "AgeConstraintDescription",
+        "AgeConstraintCreated", "AgeConstraintModified"], 'description': 'How the ages are constrained: e.g. biostratigraphy, weighted mean'},
+    'AgeInterpretations': {'attributes': [
+        "AgeInterpretationName", "AgeInterpretationDescription",
+        "AgeInterpretationCreated", "AgeInterpretationModified"], 'description': 'How the ages are interpreted: e.g. deposition, metamorphism'},
+    'AgeSignatures': {'attributes': [
+        "AgeSignatureName", "AgeSignatureDescription",
+        "AgeSignatureCreated", "AgeSignatureModified"], 'description': 'Descriptors for age fingerprints or populations of ages'},
+    'AliquotContexts': {'attributes': [
+        "AliquotContextName", "AliquotContextDescription",
+        "AliquotContextCreated", "AliquotContextModified"], 'description': 'Open-ended tag for additional context'},
+    'Aliquots': {'attributes': [
+        "AliquotName", "AliquotDescription", "AliquotCreated", "AliquotModified"], 'description': 'Subsets of samples - can be nested subsets, links to samples and spots'},
+    'Columns': {'attributes': [
+        "ColumnName", "ColumnDescription",
+        "CalculatedColumnTotalHeightDepth",
+        "ColumnCreated", "ColumnModified"], 'description': 'Cores, wells, stratigraphic columns, etc.'},
+    'GPSLocations': {'attributes': [
+        "GPSLocationConverted", "GPSLocationDisplay",
+        "CalculatedZone", "CalculatedEasting", "CalculatedNorthing",
+        "CalculatedLat", "CalculatedLon",
+        "CalculatedGPSElev", "CalculatedGPSElevError"], 'description': 'GPS coordinates and elevations'},
+    'GrainCompositions': {'attributes': [
+        "GrainCompositionName", "GrainCompositionDescription",
+        "GrainCompositionCreated", "GrainCompositionModified"], 'description': 'Minerals or descriptive compositions of grains'},
+    'GrainContexts': {'attributes': [
+        "GrainContextName", "GrainContextDescription",
+        "GrainContextCreated", "GrainContextModified"], 'description': 'Open-ended tag for additional context'},
+    'Grains': {'attributes': [
+        "GrainName", "GrainDescription", "GrainCreated", "GrainModified"], 'description': 'Grains, optionally associated with spots'},
+    'Instruments': {'attributes': [
+        "InstrumentName", "InstrumentDescription",
+        "InstrumentCreated", "InstrumentModified"], 'description': 'Instruments used for analyses'},
+    'LabFacilities': {'attributes': [
+        "LabFacilityName", "LabFacilityDescription",
+        "LabFacilityCreated", "LabFacilityModified"], 'description': 'Lab facilities where analyses were conducted'},
+    'References': {'attributes': [
+        "Authors", "Year", "Title", "Source", "DOI", "ReferenceDescription",
+        "ReferenceCreated", "ReferenceModified", "ReferenceDisplay"], 'description': 'References for analyses'},
+    'Regions': {'attributes': [
+        "RegionName", "RegionDescription",
+        "RegionCreated", "RegionModified"], 'description': 'Regions of sample sites'},
+    'RejectionReasons': {'attributes': [
+        "RejectionReasonName", "RejectionReasonDescription",
+        "RejectionReasonCreated", "RejectionReasonModified"], 'description': 'Reasons for analysis rejection'},
+    'RockTypes': {'attributes': [
+        "RockTypeName", "RockTypeDescription",
+        "RockTypeCreated", "RockTypeModified"], 'description': 'Rock types of samples'},
+    'SampleAges': {'attributes': [
+        "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge",
+        "SampleAgeDescription", "SampleAgeCreated", "SampleAgeModified"], 'description': 'Ages of the samples'},
+    'SampleContexts': {'attributes': [
+        "SampleContextName", "SampleContextDescription",
+        "SampleContextCreated", "SampleContextModified"], 'description': 'Open-ended tag for additional context'},
+    'Samples': {'attributes': [
+        "SampleName", "SampleIGSN", "CalculatedHeightDepth", "CalculatedHeightDepthError", "SampleDescription",
+        "SampleCreated", "SampleModified"], 'description': 'Samples each collected from a single location, linked to aliquots and analyses'},
+    'SamplingMethods': {'attributes': [
+        "SamplingMethodName", "SamplingMethodDescription",
+        "SamplingMethodCreated", "SamplingMethodModified"], 'description': 'Methods of sampling: e.g. grab, core'},
+    'Settings': {'attributes': [
+        "SettingName", "SettingDescription",
+        "SettingCreated", "SettingModified"], 'description': 'Sample settings: e.g. basin, batholith, tectonic environment'},
+    'Spots': {'attributes': [
+        "SpotName", "SpotDescription", "SpotCreated", "SpotModified"], 'description': 'Locations of analysis: e.g. laser spot, dissolved grain'},
+    'SpotCompositions': {'attributes': [
+        "SpotCompositionName", "SpotCompositionDescription",
+        "SpotCompositionCreated", "SpotCompositionModified"], 'description': 'Compositions of analyzed material - may be different from overall rock or grain'},
+    'SpotContexts': {'attributes': [
+        "SpotContextName", "SpotContextDescription",
+        "SpotContextCreated", "SpotContextModified"], 'description': 'Open-ended tag for additional context: e.g. rim, core'},
+    'UPbAnalyses': {'attributes': [
+        "UPbAnalysisName",
+        "Pb204cps",
+        "Pb206cps",
+        "Pb207cps",
+        "Pb208cps",
+        "Pb*cps",
+        "Th232cps",
+        "U235cps",
+        "U238cps",
+        "Uppm",
+        "Thppm",
+        "CalculatedU/Th",
+        "CalculatedTh/U",
+
+        "Calculated204Pb/206Pb",
+        "Calculated204Pb/206PbError",
+        "Calculated204Pb/207Pb",
+        "Calculated204Pb/207PbError",
+        "Calculated204Pb/208Pb",
+        "Calculated204Pb/208PbError",
+        "Calculated204Pb/238U",
+        "Calculated204Pb/238UError",
+        "Calculated206Pb/204Pb",
+        "Calculated206Pb/204PbError",
+        "Calculated206Pb/207Pb",
+        "Calculated206Pb/207PbError",
+        "Calculated206Pb/238U",
+        "Calculated206Pb/238UError",
+        "Calculated207Pb/204Pb",
+        "Calculated207Pb/204PbError",
+        "Calculated207Pb/206Pb",
+        "Calculated207Pb/206PbError",
+        "Calculated207Pb/235U",
+        "Calculated207Pb/235UError",
+        "Calculated208Pb/204Pb",
+        "Calculated208Pb/204PbError",
+        "Calculated208Pb/232Th",
+        "Calculated208Pb/232ThError",
+        "Calculated232Th/208Pb",
+        "Calculated232Th/208PbError",
+        "Calculated232Th/238U",
+        "Calculated232Th/238UError",
+        "Calculated235U/207Pb",
+        "Calculated235U/207PbError",
+        "Calculated238U/204Pb",
+        "Calculated238U/204PbError",
+        "Calculated238U/206Pb",
+        "Calculated238U/206PbError",
+        "Calculated238U/232Th",
+        "Calculated238U/232ThError",
+
+        "Calculated206Pb/238UAge",
+        "Calculated206Pb/238UAgeError",
+        "Calculated207Pb/206PbAge",
+        "Calculated207Pb/206PbAgeError",
+        "Calculated207Pb/235UAge",
+        "Calculated207Pb/235UAgeError",
+        "Calculated208Pb/232ThAge",
+        "Calculated208Pb/232ThAgeError",
+        "CalculatedBestAge",
+        "CalculatedBestAgeError",
+        "CalculatedBestAgeFilled",
+        "CalculatedBestAgeErrorFilled",
+
+        "ErrorCorr/Rho",
+
+        "CalculatedConcordance_206Pb/238Uv207Pb/206Pb",
+        "CalculatedConcordance_206Pb/238Uv207Pb/235U",
+        "Rejected",
+        "CalculatedSpotSize",
+
+        "UPbAnalysisCreated",
+        "UPbAnalysisModified"],
+        'description': 'U-Pb analyses, linked to spots'},
+    'UPbAnalysisContexts': {'attributes': [
+        "UPbAnalysisContextName", "UPbAnalysisContextDescription",
+        "UPbAnalysisContextCreated", "UPbAnalysisContextModified"], 'description': 'Open-ended tag for additional context'},
+    'UPbAnalysisMethods': {'attributes': [
+        "UPbAnalysisMethodName", "UPbAnalysisMethodDescription",
+        "UPbAnalysisMethodCreated", "UPbAnalysisMethodModified"], 'description': 'Analytical methods for U-Pb analyses'},
+    'Units': {'attributes': [
+        "UnitName", "UnitDescription",
+        "UnitCreated", "UnitModified"], 'description': 'Geologic units for samples'},
+}
+"""List of all columns visible to the user with descriptions.
 Used in ExporterWidget.py as valid columns able to be exported
 Used in Filters.py as valid columns to be filtered"""
 

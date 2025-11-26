@@ -20,7 +20,7 @@ from Functions.Widget_classes import (
     TreeSortFilterProxyModel, DisplayRoundedModel, DisplayRoundedQueryModel, SQLiteTableModel, WordWrapDelegate,
     save_expanded_state, restore_expanded_state, expand_collapse, TreeContextMenu, TreeModel,
     ReadableProxyModel, add_tree_popup, FrozenTableView, get_name_column, get_headers, get_total_records,
-    get_record_index, close_loading_dialog, show_loading_dialog, columns_as_list,
+    get_record_index, close_loading_dialog, show_loading_dialog, columns_as_list, TableToolTipModel,
     set_table, get_id_from_name, scroll_to_record, get_view_from_table
 )
 import Functions.Text_manipulations as TxM
@@ -542,6 +542,7 @@ class DisplayTables(QtW.QWidget):
         :return:
         """
         self.dbTable_comboBox: QtW.QComboBox
+        self.dbTable_comboBox.setModel(TableToolTipModel())
         self.dbTable_comboBox.addItems(self.user_view_tables)
         self.previous_table = ''
         self.dbTable_comboBox.setCurrentText('Samples')

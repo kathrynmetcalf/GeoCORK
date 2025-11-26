@@ -23,7 +23,7 @@ from Functions import SQLUtils
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
 from Functions.Widget_classes import get_id_from_name, get_headers, get_name_column, get_name_from_id, \
-    show_loading_dialog, close_loading_dialog
+    show_loading_dialog, close_loading_dialog, TableToolTipModel
 from ui.DataViewerWidget import DataViewerWidget
 
 
@@ -570,6 +570,7 @@ class RuleWidget(QWidget):
         self.datatype = datatype
         # Table combo
         self.table_combo = FocusWheelComboBox()
+        self.table_combo.setModel(TableToolTipModel())
         self.table_combo.addItems(SQLUtils.table_attributes_dict.keys())
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
