@@ -435,6 +435,8 @@ class ImportSheetModel(QAbstractTableModel):
         self._dataframe.replace(to_replace=r'^\s*$', value=np.nan, regex=True, inplace=True)
         # Replace any cells with only "NULL" (case insensitive) with nan
         self._dataframe.replace(to_replace='NULL', value=np.nan, regex=True, inplace=True)
+        # Fill None with nan
+        self._dataframe.fillna(value=np.nan, inplace=True)
         self.header_background_colors = {}
         self.cell_background_colors = {}
         if check_style:
@@ -442,6 +444,13 @@ class ImportSheetModel(QAbstractTableModel):
         self._dataframe.dropna(axis=0, how='all', inplace=True)
         self._dataframe.dropna(axis=1, how='all', inplace=True)
         self._dataframe.fillna('NULL', inplace=True)
+        self._dataframe.reset_index(drop=True, inplace=True)
+        # Rename headers as integer of their column index
+        column_headers = list(self._dataframe.columns)
+        for column_header in column_headers:
+            column_index = column_headers.index(column_header)
+            if column_header != column_index:
+                self._dataframe.columns.values[column_index] = column_index
         # create another dataframe to store row status, accepted, rejected, disabled. Default accepted.
         self._status_dataframe = pd.DataFrame(['accepted'] * len(self._dataframe), columns=['_row_status'])
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
@@ -632,7 +641,7 @@ class ImportSheetModel(QAbstractTableModel):
             try:
                 header = int(self._dataframe.columns[col])
                 if header != col:
-                    self._dataframe.columns.values[col] = f'{col}'
+                    self._dataframe.columns.values[col] = col
             except ValueError:
                 # This header is not an integer, so skip it
                 continue
@@ -658,7 +667,7 @@ class ImportSheetModel(QAbstractTableModel):
             try:
                 header = int(self._dataframe.columns[col])
                 if header != col:
-                    self._dataframe.columns.values[col] = f'{col}'
+                    self._dataframe.columns.values[col] = col
             except ValueError:
                 # This header is not an integer, so skip it
                 continue
@@ -1672,6 +1681,8 @@ def columns_as_list_current(query: str, cols: list) -> list | None:
     for column in columns:
         # Collect unique values from the column
         column_list = list(set(model.index(row, column).data(QtC.Qt.ItemDataRole.DisplayRole) for row in range(model.rowCount())))
+        if column_list == ['']:
+            column_list = []
         column_lists.append(column_list)
     return column_lists
 
@@ -1722,6 +1733,12 @@ def get_name_from_id(table: str, item_id: int):
     :param item_id: ID to retrieve the name from (e.g. RockTypeID)
     :return: Name (e.g. RockTypeName)
     """
+    if not table:
+        logger_setup.get_logger().info("No table provided")
+        return None
+    if not item_id:
+        logger_setup.get_logger().info(f"No ID provided for {table}")
+        return None
     query = QtS.QSqlQuery()
     headers = get_headers(table)
     if table == '"References"':
@@ -2145,24 +2162,26 @@ def delete_query(table: str, ids: list):
             delete_names.append(name)
         else:
             logger_setup.get_logger().warning(f"Could not find name for ID {item_id} in {table}")
+            logger_setup.get_logger().debug(f"ID {item_id} not found in {table}")
+            rollback_savepoint('before_delete')
+            return False
     logger_setup.get_logger().info(f"Deleting {table}: {delete_names}")
     query = QtS.QSqlQuery()
     id_header = get_headers(table)[0]  # Get the first header which is the ID column
-    if len(ids) > 0:
-        query.prepare(f'DELETE FROM "{table}" WHERE {id_header} in {tuple(ids)}')
-    if len(ids) == 1:
-        query.prepare(f'DELETE FROM "{table}" WHERE {id_header}={ids[0]}')
-    if not query.exec():
-        logger_setup.get_logger().error(f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
-        logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-        logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
-        rollback_savepoint('before_delete')
-        return False
+    for delete_id in ids:
+        query.prepare(f'DELETE FROM "{table}" WHERE {id_header}={delete_id}')
+        if not query.exec():
+            logger_setup.get_logger().error(f"Failed to delete {', '.join(get_name_from_id(table, item_id) for item_id in ids)} from {table}")
+            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+            rollback_savepoint('before_delete')
+            return False
+        logger_setup.get_logger().info(f"Successfully deleted ID {delete_id} from {table}")
     logger_setup.get_logger().info(f"Deleted {len(ids)} records from {table}")
     release_savepoint('before_delete')
     return True
 
-def delete_data(table: str, data_ids: list):
+def delete_data(table: str, data_ids: list, enable_message=True):
     """
     Given a table, delete given IDS. If table is Samples, Aliquots, or Spots, delete given ids and all sub items
     :param table: Table the IDs belong to
@@ -2181,43 +2200,45 @@ def delete_data(table: str, data_ids: list):
     aliquot_ids = []
     aliquot_child_ids = []
     spot_ids = []
+    grain_ids = []
     upb_analysis_ids = []
     table_child_ids = []
     childless_samples = []
     childless_aliquots = []
     childless_spots = []
+    spotless_grains = []
     if table == 'Samples':
-        aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
+        aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
         aliquot_child_ids = []
         for parent_id in aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
         sample_ids = data_ids
-        logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+        logger_setup.get_logger().info(f"Deleting {len(sample_ids)} samples, {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
     elif table == 'Aliquots':
-        spot_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
+        spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
         aliquot_ids = data_ids
         aliquot_child_ids = []
         for parent_id in aliquot_ids:
             aliquot_child_ids = find_child_ids('Aliquots', parent_id, aliquot_child_ids)
-        logger_setup.get_logger().info(f"Deleting {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
+        logger_setup.get_logger().info(f"Deleting {len(aliquot_ids)} aliquots, {len(aliquot_child_ids)} sub-aliquots, {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
         parent_samples = find_current_parent_items(aliquot_ids, table)
         if parent_samples:
             # Determine if all aliquots of these samples are being deleted
             for sample_id in parent_samples:
-                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
+                sub_aliquot_ids, sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(aliquot_id not in aliquot_ids for aliquot_id in sub_aliquot_ids):
                     # If all aliquots of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
                         childless_samples.append(sample_id)
     elif table == 'Spots':
-        upb_analysis_ids = find_current_sub_items(data_ids, table)
+        grain_ids, upb_analysis_ids = find_current_sub_items(data_ids, table)
         spot_ids = data_ids
-        logger_setup.get_logger().info(f"Deleting {len(spot_ids)} spots and {len(upb_analysis_ids)} UPb analyses")
+        logger_setup.get_logger().info(f"Deleting {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} UPb analyses")
         parent_samples, parent_aliquots = find_current_parent_items(data_ids, table)
         if parent_aliquots:
             # Determine if all spots of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
+                sub_spot_ids, grain_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
                 if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
                     # If all spots of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
@@ -2225,19 +2246,20 @@ def delete_data(table: str, data_ids: list):
         if childless_aliquots:
             # Determine if all spots of these samples are being deleted
             for sample_id in parent_samples:
-                sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
+                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
                     # If all spots of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
                         childless_samples.append(sample_id)
+
     elif table == 'UPbAnalyses':
         upb_analysis_ids = data_ids
         logger_setup.get_logger().info(f"Deleting {len(upb_analysis_ids)} UPb analyses")
-        parent_samples, parent_aliquots, parent_spots = find_current_parent_items(data_ids, table)
+        parent_samples, parent_aliquots, parent_grains, parent_spots = find_current_parent_items(data_ids, table)
         if parent_spots:
             # Determine if all UPb analyses of these spots are being deleted
             for spot_id in parent_spots:
-                sub_upb_analysis_ids = find_current_sub_items([spot_id], 'Spots')
+                sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([spot_id], 'Spots')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the spot are being deleted, add the spot to the list
                     if spot_id not in childless_spots:
@@ -2245,15 +2267,22 @@ def delete_data(table: str, data_ids: list):
         if childless_spots:
             # Determine if all UPb analyses of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
+                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
                         childless_aliquots.append(aliquot_id)
+            # Determine if all UPb analyses of these grains are being deleted
+            for grain_id in parent_grains:
+                sub_parent_sample_ids, sub_parent_aliquot_ids,sub_parent_spot_ids = find_current_parent_items([grain_id], 'Grains')
+                if not any(spot_id not in childless_spots for spot_id in sub_parent_spot_ids):
+                    # If all Spots of the grain are being deleted, add the grain to the list
+                    if grain_id not in spotless_grains:
+                        spotless_grains.append(grain_id)
         if childless_aliquots:
             # Determine if all UPb analyses of these samples are being deleted
             for sample_id in parent_samples:
-                sub_aliquot_ids, sub_spot_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
+                sub_aliquot_ids, sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([sample_id], 'Samples')
                 if not any(upb_analysis_id not in upb_analysis_ids for upb_analysis_id in sub_upb_analysis_ids):
                     # If all UPb analyses of the sample are being deleted, add the sample to the list
                     if sample_id not in childless_samples:
@@ -2264,34 +2293,47 @@ def delete_data(table: str, data_ids: list):
         for parent_id in data_ids:
             # Find all child IDs of the given parent_id
             table_child_ids = find_child_ids(table, parent_id, table_child_ids)
-    if childless_samples or childless_aliquots or childless_spots:
+    if childless_samples or childless_aliquots or spotless_grains or childless_spots:
         # If there are childless samples, aliquots, or spots, warn the user these will be deleted as well and ask if they want to proceed
-        msg_box = QtW.QMessageBox()
-        msg_box.setIcon(QtW.QMessageBox.Icon.Question)
-        msg_box.setWindowTitle('Delete Empty Items')
-        msg_text = f'Deleting these {len(data_ids)} {table} will also delete the following empty items:'
-        if childless_samples:
-            sample_names = [get_name_from_id('Samples', sample_id) for sample_id in childless_samples]
-            msg_text += f'\n{len(childless_samples)} Samples: {", ".join(sample_names)}'
-        if childless_aliquots:
-            aliquot_names = [get_name_from_id('Aliquots', aliquot_id) for aliquot_id in childless_aliquots]
-            msg_text += f'\n{len(childless_aliquots)} Aliquots: {", ".join(aliquot_names)}'
-        if childless_spots:
-            spot_names = [get_name_from_id('Spots', spot_id) for spot_id in childless_spots]
-            msg_text += f'\n{len(childless_spots)} Spots: {", ".join(spot_names)}'
-        msg_text += '\n\nDo you want to continue?'
-        msg_box.setText(msg_text)
-        msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
-        msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
-        response = msg_box.exec()
-        if response == QtW.QMessageBox.StandardButton.Yes:
-            # If the user wants to delete the empty items, add them to the deletion lists
+        proceed = False
+        if enable_message:
+            msg_box = QtW.QMessageBox()
+            msg_box.setIcon(QtW.QMessageBox.Icon.Question)
+            msg_box.setWindowTitle('Delete Empty Items')
+            msg_text = f'Deleting these {len(data_ids)} {table} will also delete the following empty items:'
+            if childless_samples:
+                sample_names = [get_name_from_id('Samples', sample_id) for sample_id in childless_samples]
+                msg_text += f'\n{len(childless_samples)} Samples: {", ".join(sample_names)}'
+            if childless_aliquots:
+                aliquot_names = [get_name_from_id('Aliquots', aliquot_id) for aliquot_id in childless_aliquots]
+                msg_text += f'\n{len(childless_aliquots)} Aliquots: {", ".join(aliquot_names)}'
+            if spotless_grains:
+                grain_names = [get_name_from_id('Grains', grain_id) for grain_id in spotless_grains]
+                msg_text += f'\n{len(spotless_grains)} Grains: {", ".join(grain_names)}'
+            if childless_spots:
+                spot_names = [get_name_from_id('Spots', spot_id) for spot_id in childless_spots]
+                msg_text += f'\n{len(childless_spots)} Spots: {", ".join(spot_names)}'
+            msg_text += '\n\nDo you want to continue?'
+            msg_box.setText(msg_text)
+            msg_box.setStandardButtons(QtW.QMessageBox.StandardButton.Yes | QtW.QMessageBox.StandardButton.No)
+            msg_box.setDefaultButton(QtW.QMessageBox.StandardButton.No)
+            response = msg_box.exec()
+            if response == QtW.QMessageBox.StandardButton.Yes:
+                # If the user wants to delete the empty items, add them to the deletion lists
+                proceed = True
+            else:
+                proceed = False
+        else:
+            proceed = True
+        if proceed:
             if childless_samples:
                 sample_ids.extend(childless_samples)
             if childless_aliquots:
                 aliquot_ids.extend(childless_aliquots)
             if childless_spots:
                 spot_ids.extend(childless_spots)
+            if spotless_grains:
+                grain_ids.extend(spotless_grains)
         else:
             # If the user does not want to delete the empty items, cancel the deletion
             close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
@@ -2309,6 +2351,11 @@ def delete_data(table: str, data_ids: list):
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
                 return False
             logger_setup.get_logger().info(f'Deleted {len(upb_analysis_ids)} UPb analyses')
+        if grain_ids:
+            if not delete_query('Grains', grain_ids):
+                close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
+                return False
+            logger_setup.get_logger().info(f'Deleted {len(grain_ids)} Grains')
         if spot_ids:
             if not delete_query('Spots', spot_ids):
                 close_loading_dialog('Deleting', f'Deleting {len(data_ids)} {table}...')
@@ -2342,6 +2389,7 @@ def delete_data(table: str, data_ids: list):
 def delete_question(table, delete_ids):
     show_loading_dialog('Preparing', 'Gathering information...')
     msg_box = QtW.QMessageBox()
+    # msg_box.setParent(loading_manager.get_instance().dialog)
     msg_box.setIcon(QtW.QMessageBox.Icon.Question)
     if table == 'Samples':
         sample_names = [get_name_from_id(table, sample_id) for sample_id in delete_ids]
@@ -2350,13 +2398,13 @@ def delete_question(table, delete_ids):
             close_loading_dialog('Preparing', 'Gathering information...')
             return False
         # Samples have a special case where they are related to Aliquots, Spots, and UPbAnalyses
-        aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
+        aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
         if len(delete_ids) < 11:
             msg_text += f'\nSamples: {", ".join(sample_names)}\n'
         else:
             msg_text += f'\nSamples: {", ".join(sample_names[:10])}...\n'
-        msg_text += f'\nAssociated with {len(aliquot_ids)} aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
+        msg_text += f'\nAssociated with {len(aliquot_ids)} aliquots, {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
     elif table == 'Aliquots':
         aliquot_names = [get_name_from_id(table, aliquot_id) for aliquot_id in delete_ids]
         # Look for children of Aliquots
@@ -2366,23 +2414,23 @@ def delete_question(table, delete_ids):
             child_aliquot_ids = (aliquot_id, child_aliquot_ids)
 
         # Aliquots have a special case where they are related to Spots and UPbAnalyses
-        spot_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
+        spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
         if len(delete_ids) < 11:
             msg_text += f'\nAliquots: {", ".join(aliquot_names)}\n'
         else:
             msg_text += f'\nAliquots: {", ".join(aliquot_names[:10])}...\n'
-        msg_text += f'\nAssociated with {len(child_aliquot_ids)} child aliquots, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
+        msg_text += f'\nAssociated with {len(child_aliquot_ids)} child aliquots, {len(grain_ids)} grains, {len(spot_ids)} spots, and {len(upb_analysis_ids)} U-Pb analyses'
     elif table == 'Spots':
         spot_names = [get_name_from_id(table, spot_id) for spot_id in delete_ids]
-        # Spots have a special case where they are related to UPbAnalyses
-        upb_analysis_ids = find_current_sub_items(delete_ids, table)
+        # Spots have a special case where they are related to UPbAnalyses and Grains
+        grain_ids, upb_analysis_ids = find_current_sub_items(delete_ids, table)
         msg_text = f'Are you sure you want to delete these {len(delete_ids)} {table}?\n'
         if len(delete_ids) < 11:
             msg_text += f'\nSpots: {", ".join(spot_names)}\n'
         else:
             msg_text += f'\nSpots: {", ".join(spot_names[:10])}...\n'
-        msg_text += f'\nAssociated with {len(upb_analysis_ids)} U-Pb analyses'
+        msg_text += f'\nAssociated with {len(grain_ids)} grains and {len(upb_analysis_ids)} U-Pb analyses'
     else:
         if table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or table == 'Ages':
             # For user viewable trees, we need to check for child IDs
@@ -2422,11 +2470,7 @@ def delete_question(table, delete_ids):
                     elif len(ids) < 11:
                         association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids)})'
                     else:
-                        if associated_table == 'UPbAnalyses':
-                            # We can use spot names, but just list the number of analyses
-                            association_text += f'\n{len(ids)} {associated_table}'
-                        else:
-                            association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids[:10])}...)'
+                        association_text += f'\n{len(ids)} {associated_table} ({", ".join(get_name_from_id(associated_table, id) for id in ids[:10])}...)'
             else:
                 association_text = f'\nAssociated with '
                 for associated_table, ids in associations.items():
@@ -2665,42 +2709,47 @@ def find_current_sub_items(data_ids: list, table: str):
     # Find all the sub items of a list of samples, aliquots, or spots
     logger_setup.get_logger().info(f"Finding sub items for {len(data_ids)} {table}")
     aliquot_ids = []
+    grain_ids = []
     spot_ids = []
     upb_analysis_ids = []
     if not data_ids:
         logger_setup.get_logger().warning(f"No data IDs provided for finding sub items in {table}")
         if table == 'Spots':
-            return upb_analysis_ids
+            return grain_ids, upb_analysis_ids
         elif table == 'Aliquots':
-            return spot_ids, upb_analysis_ids
+            return spot_ids, grain_ids, upb_analysis_ids
         elif table == 'Samples':
-            return aliquot_ids, spot_ids, upb_analysis_ids
+            return aliquot_ids, spot_ids, grain_ids, upb_analysis_ids
     show_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
     if len(data_ids) > 1:
         where = f'IN {tuple(data_ids)}'
     else:
         where = f'= {data_ids[0]}'
     if table == 'Samples':
-        sql_query = f"""SELECT Aliquots.AliquotID, Spots.SpotID, UPbAnalyses.UPbAnalysisID FROM Aliquots
+        sql_query = f"""SELECT Aliquots.AliquotID, Spots.SpotID, Grains.GrainID, UPbAnalyses.UPbAnalysisID FROM Aliquots
                         {SQLUtils.aliquot_spot_join}
                         {SQLUtils.spot_upb_analysis_join}
+                        {SQLUtils.spot_grain_join}
                         WHERE SampleID {where}"""
-        aliquot_ids, spot_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2])
+        aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2, 3])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
-        return aliquot_ids, spot_ids, upb_analysis_ids
+        return aliquot_ids, spot_ids, grain_ids, upb_analysis_ids
     elif table == 'Aliquots':
-        sql_query = f"""SELECT Spots.SpotID, UPbAnalyses.UPbAnalysisID FROM Spots
+        sql_query = f"""SELECT Spots.SpotID, Grains.GrainID, UPbAnalyses.UPbAnalysisID FROM Spots
                         {SQLUtils.spot_upb_analysis_join}
+                        {SQLUtils.spot_grain_join}
                         WHERE AliquotID {where}"""
-        spot_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1])
+        spot_ids, grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
-        return spot_ids, upb_analysis_ids
+        return spot_ids, grain_ids, upb_analysis_ids
     elif table == 'Spots':
-        sql_query = f"""SELECT UPbAnalyses.UPbAnalysisID FROM UPbAnalyses
+        sql_query = f"""SELECT Grains.GrainID, UPbAnalyses.UPbAnalysisID FROM UPbAnalyses
+                        {SQLUtils.spot_upb_analysis_join}
+                        {SQLUtils.spot_grain_join}
                         WHERE SpotID {where}"""
-        upb_analysis_ids = columns_as_list_current(sql_query, [0])[0]
+        grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
-        return upb_analysis_ids
+        return grain_ids, upb_analysis_ids
     else:
         logger_setup.get_logger().critical(f"Table {table} in not supported for finding sub items")
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
@@ -2710,7 +2759,7 @@ def find_current_sub_items(data_ids: list, table: str):
 def find_current_parent_items(data_ids: list, table: str):
     """
     Find parent items for a list of data IDs in a given table. This is intended to find parent items for Aliquots, Spots,
-    and UPbAnalyses. For uncommited data only with a significant efficiency cost.
+    Grains, and UPbAnalyses. For uncommited data only with a significant efficiency cost.
     :param data_ids: List of data IDs to find parent items for
     :param table: Table to search for parent items
     :return: Tuple of lists of parent sample IDs, aliquot IDs, and spot IDs
@@ -2718,17 +2767,26 @@ def find_current_parent_items(data_ids: list, table: str):
     logger_setup.get_logger().info(f"Finding parent items for {len(data_ids)} {table}")
     if not data_ids:
         logger_setup.get_logger().warning(f"No data IDs provided for finding parent items in {table}")
-        return None, None, None
+        return None, None, None, None
     show_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
     if len(data_ids) > 1:
         where = f'IN {tuple(data_ids)}'
     else:
         where = f'= {data_ids[0]}'
     if table == 'UPbAnalyses':
-        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, UPbAnalyses.SpotID FROM UPbAnalyses 
+        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, Spots.GrainID, UPbAnalyses.SpotID FROM UPbAnalyses 
                         {SQLUtils.upb_spot_join}
+                        {SQLUtils.spot_grain_join}
                         {SQLUtils.spot_aliquot_join}
                         WHERE UPbAnalysisID {where}"""
+        sample_ids, aliquot_ids, grain_ids, spot_ids = columns_as_list_current(sql_query, [0, 1, 2, 3])
+        close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
+        return sample_ids, aliquot_ids, grain_ids, spot_ids
+    elif table == 'Grains':
+        sql_query = f"""SELECT Aliquots.SampleID, Spots.AliquotID, Spots.SpotID FROM Grains
+                        {SQLUtils.grain_spot_join}
+                        {SQLUtils.spot_aliquot_join}
+                        WHERE GrainID {where}"""
         sample_ids, aliquot_ids, spot_ids = columns_as_list_current(sql_query, [0, 1, 2])
         close_loading_dialog('Finding Parent Items', f'Finding parent items for {len(data_ids)} {table}...')
         return sample_ids, aliquot_ids, spot_ids

@@ -6,7 +6,7 @@ import platform
 from PyQt6.QtWidgets import QApplication, QErrorMessage, QStyleFactory
 
 import logger_setup
-from Widget_classes import TooltipFilter
+from Functions.Widget_classes import TooltipFilter
 from ui.LandingUI import LandingPage
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings

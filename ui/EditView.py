@@ -1427,7 +1427,7 @@ class EditView(QtW.QDialog):
                                 # The ID of the edit table is not in the current view, e.g. SpotID not in Samples
                                 if self.table == 'Samples':
                                     # None of its sub-item IDs are in the current view, so we need to find the IDs of the sub-items
-                                    aliquot_ids, spot_ids, upb_analysis_ids = find_current_sub_items(selected_ids, self.table)
+                                    aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(selected_ids, self.table)
                                     if table == 'Aliquots' or 'Aliquots_' in table:
                                         item_ids = aliquot_ids
                                     elif table == 'Spots' or 'Spots_' in table:

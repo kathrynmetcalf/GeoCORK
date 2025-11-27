@@ -166,7 +166,10 @@ class DisplayTables(QtW.QWidget):
         self.table = TxM.remove_spaces(table)
 
         logger_setup.get_logger().info(f'Displaying {self.table}')
-        self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
+        if self.table != get_view_from_table(self.table):
+            self.loading_manager.show_loading_dialog('Loading', f'Loading related data for {self.table}...')
+        else:
+            self.loading_manager.show_loading_dialog('Loading', f'Displaying {self.table}...')
         start_display_time = time.time()
         # If moving from a tree table, save the expanded state first
         if self.previous_table in self.dbtree_list and self.previous_table != self.table:

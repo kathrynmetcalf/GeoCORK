@@ -91,7 +91,7 @@ class DataViewerWidget(QWidget):
         # Remove ambiguous tables
         items.remove('References')
         items.remove('AgeInterpretations')
-        items.remove('Ages')
+        # items.remove('Ages')
         # Add specific table relations
         items.append('SampleAgeReferences')
         items.append('SampleAgeInterpretations')

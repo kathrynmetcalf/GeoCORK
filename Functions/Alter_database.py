@@ -2,6 +2,7 @@ import time
 
 from PyQt6 import QtCore as QtC
 from PyQt6 import QtSql as QtS
+from PyQt6.QtWidgets import QProgressDialog, QApplication
 
 import Functions.Create_database as Create_db
 import logger_setup
@@ -9,6 +10,8 @@ from Functions.Database_manager import turn_on_foreign_keys, turn_off_foreign_ke
 from Functions.Savepoint_manager import create_savepoint, release_savepoint, rollback_savepoint
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
+from Functions.LoadingDialog_manager import LoadingDialogManager
+loading_manager = LoadingDialogManager.get_instance()
 from Functions.Widget_classes import set_table, get_columns
 # the below imports are required for GPS conversions, pycharm detects no usage do not remove
 # below comments are for pycharm to ignore issues
@@ -24,11 +27,12 @@ def settings_reset(database: QtS.QSqlDatabase = None) -> bool:
     :param database: QSqlDatabase instance to use, if None the default database is used
     :return: True for success, False for failure
     """
-    tables_affected = [['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE],
-                       ['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
+    tables_affected = [['UPbAnalyses', Create_db.CREATE_UPBANALYSES_TABLE],
+                       ['SampleAges', Create_db.CREATE_SAMPLE_AGE_TABLE],
                        ['GPSLocations', Create_db.CREATE_GPS_LOCATIONS_TABLE],
                        ['Samples', Create_db.CREATE_SAMPLES_TABLE],
-                       ['Columns', Create_db.CREATE_COLUMNS_TABLE], ['References', Create_db.CREATE_REFERENCES_TABLE]]
+                       ['Columns', Create_db.CREATE_COLUMNS_TABLE],
+                       ['References', Create_db.CREATE_REFERENCES_TABLE]]
     if drop_virtual_columns(tables_affected, database=database):
         if populate_generated_columns(database):
             return True
@@ -50,9 +54,21 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
     start_time = time.time()
     if not turn_off_foreign_keys():
         return False
+    drop_count = len(tables_affected)+1
+    drop_progress = QProgressDialog("Resetting calculations...", "Cancel", 0, drop_count, loading_manager.dialog)
+    drop_progress.setMinimumDuration(0)
+    table_idx = 0
     create_savepoint('before_drop')
+
     for table_info in tables_affected:
+        logger_setup.get_logger().info(f"Progress: {table_idx}/{drop_count}")
         table = table_info[0]
+        drop_progress.setValue(table_idx + 1)
+        # Let the event loop process the dialog's updates
+        QApplication.processEvents()
+        # If the user clicked "Cancel", we can break out
+        if drop_progress.wasCanceled():
+            return False
         if edit_table is not None and table != edit_table:
             continue
         create_sql = table_info[1]
@@ -91,8 +107,6 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
                 rollback_savepoint('before_drop')
                 return False
             logger_setup.get_logger().info(f'Successfully inserted into new table: {table}_new')
-
-            release_savepoint('before_drop')
 
             if not database.commit():
                 if 'no transaction is active' not in database.lastError().text():
@@ -140,6 +154,15 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
                 rollback_savepoint('before_drop')
                 return False
 
+        table_idx += 1
+
+    drop_progress.setValue(table_idx + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if drop_progress.wasCanceled():
+        return False
+
     release_savepoint('before_drop')
     end_time = time.time()
     logger_setup.get_logger().info(f'Dropped virtual columns: {end_time-start_time} seconds')
@@ -157,6 +180,19 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     """
     start_time = time.time()
     create_savepoint('before_populate')
+    logger_setup.get_logger().info('Populating generated columns...')
+    populate_count = 0
+    populate_progress = QProgressDialog('Recalculating from settings...', 'Cancel', 0, 11, loading_manager.dialog)
+    populate_progress.setMinimumDuration(0)
+
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
+
     # Retrieve the settings
     age_unit_id = settings.value('age_unit_id')  # default to Ma
     elevation_unit_id = settings.value('elevation_unit_id')  # default to m
@@ -200,52 +236,151 @@ def populate_generated_columns(database: QtS.QSqlDatabase = None) -> bool:
     ratio_error_format_affected = [affected_upb_ratio]
 
     # Convert the columns and catch any errors
+
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not convert_columns(age_unit_affected, ['AgeUnitConversions'], ['AgeUnit'],
                            [age_unit_id], database=database):
         rollback_savepoint('before_populate')
         return False
 
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not convert_columns(elevation_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
                            [elevation_unit_id], database=database):
         rollback_savepoint('before_populate')
         return False
 
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not convert_columns(gps_unit_affected, ['GPSFormatConversions'], ['GPSFormat'],
                            [gps_format_id], database=database):
         rollback_savepoint('before_populate')
         return False
 
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not convert_columns(heightdepth_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
                            [heightdepth_unit_id], database=database):
         rollback_savepoint('before_populate')
         return False
 
+    populate_count += 1
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not convert_columns(spotsize_unit_affected, ['DistanceUnitConversions'], ['DistanceUnit'],
                            [spotsize_unit_id], database=database):
         rollback_savepoint('before_populate')
         return False
 
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not convert_columns(concordance_format_affected, ['ConcordanceFormatConversions'], ['ConcordanceFormat'],
                            [concordance_format_id], database=database):
+        rollback_savepoint('before_populate')
+        return False
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
         rollback_savepoint('before_populate')
         return False
     if not convert_columns(age_error_format_affected, ['ErrorFormatConversions', 'AgeUnitConversions'],
                            ['ErrorFormat', 'AgeUnit'], [age_error_format_id, age_unit_id], database=database):
         rollback_savepoint('before_populate')
         return False
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not convert_columns(ratio_error_format_affected, ['ErrorFormatConversions'], ['ErrorFormat'],
                            [ratio_error_format_id], database=database):
+        rollback_savepoint('before_populate')
+        return False
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
         rollback_savepoint('before_populate')
         return False
     if not generate_reference_column('References', settings.value('reference_format'), database=database):
         rollback_savepoint('before_populate')
         return False
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_count += 1
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
+        rollback_savepoint('before_populate')
+        return False
     if not generate_age_display_column('SampleAges', database=database):
+        rollback_savepoint('before_populate')
+        return False
+    populate_count += 1
+    logger_setup.get_logger().info(f'Populate progress: {populate_count}/11')
+    populate_progress.setValue(populate_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if populate_progress.wasCanceled():
         rollback_savepoint('before_populate')
         return False
     if not generate_best_age_fill_columns(database=database):
         rollback_savepoint('before_populate')
         return False
+    populate_count += 1
     release_savepoint('before_populate')
     end_time = time.time()
     logger_setup.get_logger().info(f'Populated virtual columns: {end_time-start_time} seconds')
