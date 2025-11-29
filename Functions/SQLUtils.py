@@ -631,7 +631,7 @@ export_database_tables_viewable = sorted(user_viewable_tables + ['UPbAnalyses', 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Grains', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView','Spots',
+trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView',
                   'SpotEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView']
 
 tree_tables_schema = {

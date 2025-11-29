@@ -164,12 +164,15 @@ def validate_update(table: str, columns: list, values: list, where: str):
             pairs.append(([columns[index], 'NULL']))
         else:
             pairs.append([columns[index], values[index]])
-    table_model = QtS.QSqlTableModel()
-    table_model.setTable(table)
-    table_model.select()
-    while table_model.canFetchMore():
-        table_model.fetchMore()
-    table_model.setFilter(where)
+    table_model = QtS.QSqlQueryModel()
+    table_model.setQuery(f'SELECT * FROM {table} WHERE {where}')
+    if table_model.lastError().text():
+        error = f'Error validating updated values for {table}'
+        logger_setup.get_logger().debug(error)
+        logger_setup.get_logger().debug(f'Error getting current values for {table}')
+        logger_setup.get_logger().debug(f'Error: {table_model.lastError().text()}')
+        logger_setup.get_logger().debug(f'Query: SELECT * FROM {table} WHERE {where}')
+        return error, None
     all_records = []
     for col in range(1, table_model.columnCount()):
         column_name = table_model.record().fieldName(col)
