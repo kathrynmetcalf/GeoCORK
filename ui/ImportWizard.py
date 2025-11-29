@@ -33,7 +33,7 @@ from Functions.Widget_classes import (
     CheckableComboBox, CheckableSqlTableModel, SearchableComboBox, set_table, CheckableTreeModel,
     CheckableTreeCombobox, save_expanded_state, get_name_column, add_tree_popup, get_id_from_name, get_name_from_id,
     get_headers, CheckableSqlQueryModel, SQLiteTableModel, CompleterInputDialog, get_table_from_view, get_view_from_table,
-    search_dictionary, ImportSheetModel, loading_manager, DisableItemModel)
+    search_dictionary, ImportSheetModel, loading_manager, DisableItemModel, delete_data)
 from Functions.Database_views import ViewQuery
 from ui.AddTags import AddTags
 from ui.AddTreeTags import AddTreeTags
@@ -338,7 +338,6 @@ class ImportWizardDialog(QWidget):
 
         self.setWindowTitle("UPb Import Wizard")
         self.loadWindowState()
-        self.loading_manager = LoadingDialogManager.get_instance()
 
         main_layout = QVBoxLayout(self)
 
@@ -357,6 +356,8 @@ class ImportWizardDialog(QWidget):
         self.identify_rejected.setToolTip(
             'If checked, will automatically identify rows with red or strikethrough text as rejected')
         top_layout.addWidget(self.identify_rejected)
+        self.identify_rejected.setChecked(False)
+        self.identify_rejected.stateChanged.connect(self.on_identify_rejected_changed)
 
         self.sheet_instructions = QLabel("Select sheet with U-Pb data:")
         self.sheet_instructions.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -1169,10 +1170,10 @@ class ImportWizardDialog(QWidget):
             for row in range(table.rowCount()):
                 item = table.item(row, column)
                 if item is None:
-                    table.blockSignals(True)
+                    # This will update the right table as well
+                    table.blockSignals(False)
                     item = QTableWidgetItem()
                     table.setItem(row, column, item)
-                    table.blockSignals(False)
                 item.setData(Qt.ItemDataRole.EditRole, value)
         elif isinstance(table, QTableView):
             table.blockSignals(True)
@@ -1346,13 +1347,15 @@ class ImportWizardDialog(QWidget):
         """
         # Open the Column Map Dialog to let the user select a column name and data type
 
+        logger_setup.get_logger().info(f'Adding column {column_index} for field {field}')
+
         if self.sender() in [self.combo_reference_comboBox, self.combo_instrument_comboBox,
                              self.combo_lab_facility_comboBox, self.combo_upb_analysis_method_comboBox]:
             # Set the current sheet to the U-Pb data sheet
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
 
         if field is None:
-            if not column_index:
+            if column_index is None:
                 column_index = self.right_table.model().columnCount()
             dialog = ColumnMapDialog(column_index, self.sheet_mappings[self.current_sheet_name], self)
             if dialog.exec():
@@ -1844,7 +1847,10 @@ class ImportWizardDialog(QWidget):
                 self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex())
                 wb.close()
             except Exception as e:
-                logger_setup.get_logger().critical(f"Failed to read Excel file:\n{e}")
+                logger_setup.get_logger().critical(f"Error reading the excel file")
+                logger_setup.get_logger().debug(f"Failed to read Excel file:\n{e}")
+                self.loading_manager.close_loading_dialog(f"Loading {sheet.title}",
+                                                          f"Loading sheet {sheet.title} with {row_count} rows...")
                 self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
                 return
         self.activate_widgets()
@@ -1876,7 +1882,20 @@ class ImportWizardDialog(QWidget):
         Update the current right table widget.
         """
         self.current_sheet_name = self.workbook_tabs.tabText(self.workbook_tabs.currentIndex())
-        self.right_table = self.right_tables[self.current_sheet_name]
+        if self.current_sheet_name in self.right_tables.keys():
+            self.right_table = self.right_tables[self.current_sheet_name]
+        elif len(list(self.right_tables.keys())) > 0:
+            self.right_table = self.right_tables[0]
+        else:
+            self.right_table = QTableView()
+
+    def on_identify_rejected_changed(self):
+        if self.upb_sheet_name and self.upb_sheet_name in self.right_tables.keys():
+            if self.identify_rejected.isChecked():
+                if not self.right_tables[self.upb_sheet_name].model().style_model():
+                    self.identify_rejected.setChecked(False)
+            else:
+                self.right_tables[self.upb_sheet_name].model().unstyle_model()
 
     def on_tab_changed(self, index):
         """
@@ -1920,7 +1939,9 @@ class ImportWizardDialog(QWidget):
         self.left_table.blockSignals(True)
         right_table = self.right_tables[self.upb_sheet_name]
         row_count = right_table.model().rowCount()
-        self.sync_left_table_rows()
+        self.left_table.setRowCount(row_count)
+        self.left_table.setColumnCount(4)
+        self.left_table.setHorizontalHeaderLabels(["Sample Name", "Aliquot Name", "Spot Name", "UPb Analysis Name"])
         self.left_table.blockSignals(False)
 
         self.left_table.resizeColumnsToContents()
@@ -2183,31 +2204,24 @@ class ImportWizardDialog(QWidget):
             return
         logger_setup.get_logger().info(f'Double-click on header {value}')
         original_header_text = str(logical_index)
-        curr_map = self.sheet_mappings[self.current_sheet_name]
+        curr_map = self.sheet_mappings[self.current_sheet_name].copy()
         dialog = ColumnMapDialog(logical_index, self.sheet_mappings[self.current_sheet_name], self)
         if dialog.exec():
             new_field = dialog.get_selected_value()
             if new_field == "None" or not new_field:
                 if logical_index in self.sheet_mappings[self.current_sheet_name]:
-                    if self.sheet_mappings[self.current_sheet_name][logical_index] == "Grain Name" and self.current_sheet_name == self.upb_sheet_name:
+                    if curr_map[logical_index] == "Grain Name" and self.current_sheet_name == self.upb_sheet_name:
                         # Remove the Grain Name column from the left table if it exists
                         left_headers = [self.left_table.horizontalHeaderItem(i).text() for i in
                                         range(self.left_table.columnCount())]
                         if "Grain Name" in left_headers:
                             grain_col_index = left_headers.index("Grain Name")
                             self.left_table.removeColumn(grain_col_index)
+                    elif (curr_map[logical_index] in ["Sample Name", "Aliquot Name", "Spot Name", "UPb Analysis Name"]
+                        and self.current_sheet_name == self.upb_sheet_name):
+                        # If it’s Sample Name / Aliquot Name / Spot Name / UPb Analysis Name, auto-clear left table
+                        self.update_left_table_on_header_change('', logical_index, curr_map[logical_index])
                     del self.sheet_mappings[self.current_sheet_name][logical_index]
-                if (curr_map in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
-                        self.current_sheet_name == self.upb_sheet_name):
-                    # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name / UPb Analysis Name, auto-clear left table
-                    self.left_table.blockSignals(True)
-                    for left_column in range(self.left_table.model().columnCount()):
-                        if curr_map == self.left_table.model().headerData(left_column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole):
-                            for row in range(self.left_table.model().rowCount()):
-                                item = self.left_table.item(row, left_column)
-                                if item:
-                                    item.setData(Qt.ItemDataRole.EditRole, "")
-                    self.left_table.blockSignals(False)
                 # Reset the text and background color
                 self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, str(logical_index), Qt.ItemDataRole.EditRole)
                 self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, Qt.GlobalColor.transparent, Qt.ItemDataRole.BackgroundRole)
@@ -2216,18 +2230,24 @@ class ImportWizardDialog(QWidget):
                 self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, f"{new_field}", Qt.ItemDataRole.EditRole)
                 self.right_table.model().setHeaderData(logical_index, Qt.Orientation.Horizontal, QColor("#C0FFB8"), Qt.ItemDataRole.BackgroundRole)
 
+                # If old field is Sample Name / Aliquot Name / Grain Name / Spot Name / UPb Analysis Name, auto-clear left table
+                if (logical_index in curr_map.keys() and curr_map[logical_index] in
+                        ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
+                        self.current_sheet_name == self.upb_sheet_name):
+                    self.update_left_table_on_header_change('', logical_index, curr_map[logical_index])
                 # If it’s Sample Name / Aliquot Name / Grain Name / Spot Name / UPb Analysis Name, auto-populate left table
                 if (new_field in ["Sample Name", "Aliquot Name", "Grain Name", "Spot Name", "UPb Analysis Name"] and
                         self.current_sheet_name == self.upb_sheet_name):
                     self.update_left_table_on_header_change(new_field, logical_index)
             logger_setup.get_logger().info(f'Header updated: {new_field}')
 
-    def update_left_table_on_header_change(self, field, logical_index):
+    def update_left_table_on_header_change(self, field, logical_index, left_header=None):
         sample_col = None
         aliquot_col = None
         spot_col = None
         grain_col = None
         upb_analysis_col = None
+        clear_col = None
         logger_setup.get_logger().info(f'Updating left table after header change: {field}')
         for column in range(self.left_table.columnCount()):
             if self.left_table.horizontalHeaderItem(column).text() == "Sample Name":
@@ -2240,6 +2260,8 @@ class ImportWizardDialog(QWidget):
                 grain_col = column
             elif self.left_table.horizontalHeaderItem(column).text() == "UPb Analysis Name":
                 upb_analysis_col = column
+            if self.left_table.horizontalHeaderItem(column).text() == left_header:
+                clear_col = column
 
         if field == "Sample Name":
             for r in range(self.right_tables[self.upb_sheet_name].model().rowCount()):
@@ -2309,6 +2331,16 @@ class ImportWizardDialog(QWidget):
                 # Update the left table
                 self.left_table.blockSignals(True)
                 self.left_table.setItem(r, upb_analysis_col, QTableWidgetItem(upb_analysis_value))  # UPb Analysis Name
+                self.left_table.blockSignals(False)
+        elif field == '':
+            if not clear_col:
+                logger_setup.get_logger().critical(f'Error clearing left table column')
+                logger_setup.get_logger().debug(f'No column to clear for header: {left_header}')
+                return
+            for r in range(self.right_tables[self.upb_sheet_name].model().rowCount()):
+                # Update the left table
+                self.left_table.blockSignals(True)
+                self.left_table.setItem(r, clear_col, QTableWidgetItem(''))  # Reset to blank
                 self.left_table.blockSignals(False)
         logger_setup.get_logger().info(f'Updated left table after header change: {field}')
         self.left_table.resizeColumnsToContents()
@@ -3802,11 +3834,15 @@ class ImportWizardDialog(QWidget):
         imported_samples = len(self.upb_imports['SampleID'])
         if 'Samples' in self.skipped_import_ids.keys():
             imported_samples = imported_samples - len(self.skipped_import_ids['Samples'])
-        imported_message += f"Samples: imported {imported_samples}\n"
+        if imported_samples < 0:
+            imported_samples = 0
+        imported_message += f"Samples: {imported_samples}\n"
         imported_analyses = len(self.upb_imports['UPbAnalysisID'])
         if 'UPbAnalyses' in self.skipped_import_ids.keys():
             imported_analyses = imported_analyses - len(self.skipped_import_ids['UPbAnalysisID'])
-        imported_message += f"UPb Analyses: imported {imported_analyses}\n"
+        if imported_analyses < 0:
+            imported_analyses = 0
+        imported_message += f"UPb Analyses: {imported_analyses}\n"
         QMessageBox.information(self, "Success", imported_message)
         if not update_database():
             logger_setup.get_logger().critical('Error updating and displaying database')
@@ -3851,6 +3887,7 @@ class ImportWizardDialog(QWidget):
         progress_dialog = QProgressDialog(
             "Importing items...", "Cancel", 0, import_count, self
         )
+        progress_dialog.setMinimumDuration(0)
         create_savepoint('before_upb_import')
         inserted_count = 0
         try:
@@ -4085,6 +4122,111 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().info(f"Imported Spot: {record['Spot Name']}")
 
 
+                # Find matching GrainID or create new
+                if record["Grain Name"] and record["SpotID"]:
+                    logger_setup.get_logger().info(f"Grain Name: {record['Grain Name']}")
+                    grain_query = QSqlQuery()
+                    if not grain_query.prepare('SELECT GrainID FROM Grains WHERE GrainName=:name COLLATE NOCASE'):
+                        logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                        logger_setup.get_logger().debug(f"Failed to prepare query to find Grain")
+                        logger_setup.get_logger().debug(f"Error: {grain_query.lastError().text()}")
+                        logger_setup.get_logger().debug(f"SQL query: {grain_query.lastQuery()}")
+                        rollback_savepoint('before_upb_import')
+                        return False
+                    grain_query.bindValue(':name', record["Grain Name"])
+                    if not grain_query.exec():
+                        logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                        logger_setup.get_logger().debug(f"Error searching for existing Grain")
+                        logger_setup.get_logger().debug(f"Error: {grain_query.lastError().text()}")
+                        logger_setup.get_logger().debug(f"SQL query: {grain_query.lastQuery()}")
+                        rollback_savepoint('before_upb_import')
+                        return False
+                    if grain_query.next():
+                        grain_id = grain_query.value(0)
+                        if grain_id:
+                            # Check that existing grain has spots from the same aliquot
+                            spot_grain_query = QSqlQuery()
+                            if not spot_grain_query.prepare('SELECT SpotID, AliquotID FROM Spots WHERE GrainID=:grainID'):
+                                logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                                logger_setup.get_logger().debug(f"Failed to prepare query to find Grain")
+                                logger_setup.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
+                                logger_setup.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
+                                rollback_savepoint('before_upb_import')
+                                return False
+                            spot_grain_query.bindValue(':grainID', grain_id)
+                            if not spot_grain_query.exec():
+                                logger_setup.get_logger().critical(f"Error importing Grain {record['Grain Name']}")
+                                logger_setup.get_logger().debug(f"Error searching for existing Grain")
+                                logger_setup.get_logger().debug(f"Error: {spot_grain_query.lastError().text()}")
+                                logger_setup.get_logger().debug(f"SQL query: {spot_grain_query.lastQuery()}")
+                                rollback_savepoint('before_upb_import')
+                                return False
+                            while spot_grain_query.next():
+                                if spot_grain_query.value(1) != record["AliquotID"]:
+                                    logger_setup.get_logger().error(
+                                        f'Grain {record["Grain Name"]} exists but is already associated with Spots from a different aliquot.\nGrain names must be unique.')
+                                    # Highlight the cell in the left table
+                                    self.left_table.item(row_idx, grain_col).setBackground(
+                                        QColor('#FFB8B8'))  # Light red
+                                    self.workbook_tabs.setCurrentIndex(
+                                        self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
+                                    # scroll the left table to the row
+                                    self.left_table.scrollToItem(self.left_table.item(row_idx, grain_col))
+                                    rollback_savepoint('before_upb_import')
+                                    return False
+                            record["GrainID"] = grain_id
+                            logger_setup.get_logger().info(f"Existing Grain: {record['Grain Name']}")
+                        else:
+                            record["GrainID"] = None
+                    else:
+                        record["GrainID"] = None
+                    if not record["GrainID"]:
+                        insert_sql = f"INSERT INTO Grains (GrainName) VALUES (:grain_name)"
+                        insert_query = QSqlQuery()
+                        if not insert_query.prepare(insert_sql):
+                            logger_setup.get_logger().critical(
+                                f"Error importing Grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Failed to prepare data for grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        insert_query.bindValue(':grain_name', record["Grain Name"])
+                        if not insert_query.exec():
+                            # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
+                            logger_setup.get_logger().critical(
+                                f"Error importing Grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Failed to insert data for grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                            logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        update_sql = "UPDATE Spots SET GrainID=:grain_id WHERE SpotID=:spot_id"
+                        update_query = QSqlQuery()
+                        if not update_query.prepare(update_sql):
+                            logger_setup.get_logger().critical(
+                                f"Error importing Grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Failed to prepare data for spot {record['Spot Name']}")
+                            logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        update_query.bindValue(':grain_id', record["GrainID"])
+                        update_query.bindValue(':spot_id', record["SpotID"])
+                        if not update_query.exec():
+                            logger_setup.get_logger().critical(
+                                f"Error importing Grain {record['Grain Name']}")
+                            logger_setup.get_logger().debug(f"Failed to insert grain data for spot {record['Spot Name']}")
+                            logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
+                            logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
+                            logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
+                            rollback_savepoint('before_upb_import')
+                            return False
+                        record['GrainID'] = insert_query.lastInsertId()
+                        self.upb_imports['GrainID'].append(record["GrainID"])
+                        logger_setup.get_logger().info(f"Imported Grain: {record['Grain Name']}")
+
                 # Find matching UPbAnalysisID or create new
                 if record["UPb Analysis Name"] and record["SpotID"]:
                     logger_setup.get_logger().info(f"UPb Analysis Name: {record['UPb Analysis Name']}")
@@ -4128,7 +4270,7 @@ class ImportWizardDialog(QWidget):
                         insert_query = QSqlQuery()
                         if not insert_query.prepare(insert_sql):
                             logger_setup.get_logger().critical(f"Error importing UPb Analysis {record['UPb Analysis Name']}")
-                            logger_setup.get_logger().debug(f"Failed to prepare data for spot {record['Spot Name']}")
+                            logger_setup.get_logger().debug(f"Failed to prepare UPb data for spot {record['Spot Name']}")
                             logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                             logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                             rollback_savepoint('before_upb_import')
@@ -4138,7 +4280,7 @@ class ImportWizardDialog(QWidget):
                         if not insert_query.exec():
                         # if not insert_query.exec() and 'UNIQUE constraint failed' not in insert_query.lastError().text():
                             logger_setup.get_logger().critical(f"Error importing UPb Analysis {record['UPb Analysis Name']}")
-                            logger_setup.get_logger().debug(f"Failed to insert data for spot {record['Spot Name']}")
+                            logger_setup.get_logger().debug(f"Failed to insert UPb data for spot {record['Spot Name']}")
                             logger_setup.get_logger().debug(f"Error: {insert_query.lastError().text()}")
                             logger_setup.get_logger().debug(f"SQL query: {insert_query.executedQuery()}")
                             logger_setup.get_logger().debug(f"Values: {insert_query.boundValues()}")
@@ -4207,6 +4349,7 @@ class ImportWizardDialog(QWidget):
         organize_progress_dialog = QProgressDialog(
             "Organizing data...", "Cancel", 0, len(item_tables), self
         )
+        organize_progress_dialog.setMinimumDuration(0)
         organize_count = 0
 
         self.item_ids = {}
@@ -4269,6 +4412,7 @@ class ImportWizardDialog(QWidget):
         import_progress_dialog = QProgressDialog(
             "Importing data...", "Cancel", 0, len(self.item_ids.keys())+1, self
         )
+        import_progress_dialog.setMinimumDuration(0)
         create_savepoint('before_import_items')
         import_table_count = 0
 
@@ -4471,24 +4615,24 @@ class ImportWizardDialog(QWidget):
             if name_header not in item_data[table].keys():
                 continue
 
-            import_table_count = 0
             item_progress_dialog = QProgressDialog(
                 f"Importing {len(item_data[table][name_header].keys())} {table}...", "Cancel", 0, len(item_data[table][name_header].keys()),
-                import_progress_dialog
+                self
             )
+            item_progress_dialog.setMinimumDuration(0)
             item_count = 0
 
-            existing_items = {}
-            if not query.exec(f'SELECT {get_headers(db_table)[0]}, {get_headers(db_table)[get_name_column(db_table)]} FROM {db_table}'):
-                logger_setup.get_logger().critical(f'Could not search for existing {table} in database')
-                logger_setup.get_logger().debug(f'Failed to query the {table} values')
-                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                rollback_savepoint('before_import_items')
-                return False
-            while query.next():
-                # key: item name, value: item ID
-                existing_items[query.value(1)] = query.value(0)
+            # existing_items = {}
+            # if not query.exec(f'SELECT {get_headers(db_table)[0]}, {get_headers(db_table)[get_name_column(db_table)]} FROM {db_table}'):
+            #     logger_setup.get_logger().critical(f'Could not search for existing {table} in database')
+            #     logger_setup.get_logger().debug(f'Failed to query the {table} values')
+            #     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            #     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            #     rollback_savepoint('before_import_items')
+            #     return False
+            # while query.next():
+            #     # key: item name, value: item ID
+            #     existing_items[query.value(1)] = query.value(0)
 
             # Now insert the items into the database
             for item_name in item_data[table][name_header].keys():
@@ -4539,8 +4683,25 @@ class ImportWizardDialog(QWidget):
                     continue
                 else:
                     if name:
-                        if name in existing_items.keys():
-                            item_id = existing_items[name]
+                        search_query = f'SELECT {get_headers(db_table)[0]} FROM "{db_table}" WHERE {get_headers(db_table)[get_name_column(db_table)]}=:name'
+                        if not query.prepare(search_query):
+                            logger_setup.get_logger().critical(f'Error importing {table} entry')
+                            logger_setup.get_logger().debug(f'Failed to prepare query to find existing item')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            rollback_savepoint('before_import_items')
+                            return False
+                        query.bindValue(':name', name)
+                        if not query.exec():
+                            logger_setup.get_logger().critical(f'Could not search for existing {table} in database')
+                            logger_setup.get_logger().debug(f'Failed to query the {table} values')
+                            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                            logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+                            rollback_savepoint('before_import_items')
+                            return False
+                        if query.next():
+                            item_id = query.value(0)
                         else:
                             item_id = None
                     else:
@@ -4615,22 +4776,13 @@ class ImportWizardDialog(QWidget):
                                                                         and item_id in self.upb_imports[get_headers(table)[0]]):
                             logger_setup.get_logger().info(f'Overwriting existing {table} "{name}"')
                             # Delete the existing item and re-insert it
-                            delete_query = f'DELETE FROM "{db_table}" WHERE {get_headers(db_table)[0]} = {item_id}'
-                            if not query.prepare(delete_query):
-                                logger_setup.get_logger().critical(f'Error importing {table} "{name}"')
-                                logger_setup.get_logger().debug(f'Failed to prepare query to delete existing item')
-                                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                rollback_savepoint('before_import_items')
-                                return False
-                            if not query.exec():
+                            if not delete_data(table, [item_id], enable_message=False):
                                 logger_setup.get_logger().critical(f'Could not overwrite existing {table} in the database')
                                 logger_setup.get_logger().debug(f'Failed to delete values from {table} for ID {item_id}')
-                                logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-                                logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-                                logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                                 rollback_savepoint('before_import_items')
                                 return False
+                            if table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses']:
+                                pass
                         elif ((get_headers(table)[0] in self.upb_imports.keys() and item_id in self.upb_imports[
                             get_headers(table)[0]])
                               or self.conflict_mode == 'add to'):
@@ -4740,6 +4892,7 @@ class ImportWizardDialog(QWidget):
                                     logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                                     rollback_savepoint('before_import_items')
                                     return False
+                                logger_setup.get_logger().info(f'Successfully updated {table} "{name}"')
                             for sheet in self.item_ids[table].keys():
                                 for column, header in self.item_ids[table][sheet].items():
                                     header_name = list(header.keys())[0]
@@ -4821,6 +4974,17 @@ class ImportWizardDialog(QWidget):
                             header_name = list(header.keys())[0]
                             if item_name in self.item_ids[table][sheet][column][header_name].keys():
                                 self.item_ids[table][sheet][column][header_name][item_name] = item_id
+                    logger_setup.get_logger().info(f'Added {table} item "{item_name}"')
+        import_table_count += 1
+        import_progress_dialog.setValue(import_table_count)
+        # Let the event loop process the dialog's updates
+        QApplication.processEvents()
+        # If the user clicked "Cancel", we can break out
+        if import_progress_dialog.wasCanceled():
+            logger_setup.get_logger().info('Canceled importing data')
+            rollback_savepoint('before_import_items')
+            return False
+
         release_savepoint('before_import_items')
         return True
 
@@ -4834,6 +4998,7 @@ class ImportWizardDialog(QWidget):
         linking_progress_dialog = QProgressDialog(
             "Linking tables...", "Cancel", 0, len(many_tables), self
         )
+        linking_progress_dialog.setMinimumDuration(1)
         linking_count = 0
         for table in many_tables:
             linking_count += 1

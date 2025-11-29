@@ -19,7 +19,7 @@ from PyQt6.QtCore import QMetaType, QAbstractTableModel, Qt, QModelIndex, QSortF
     QEvent
 from PyQt6.QtGui import QTextOption, QAction, QFont, QBrush, QColor
 from PyQt6.QtSql import QSqlTableModel, QSqlQueryModel, QSqlQuery, QSqlDatabase
-from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog, QToolTip, QCompleter
+from PyQt6.QtWidgets import QGroupBox, QStyledItemDelegate, QProgressDialog, QToolTip, QCompleter, QApplication
 
 import Functions.Text_manipulations as TxM
 import logger_setup
@@ -425,10 +425,10 @@ class ImportSheetModel(QAbstractTableModel):
         # drop empty rows and columns from the dataframe
         self.sheet = sheet
         non_empty_rows = []
+        sheet_rows = []
         for row in sheet.iter_rows(values_only=True):
-            if any(cell is not None and str(cell).strip() not in ['', 'NULL'] for cell in row):
-                non_empty_rows.append(row)
-        self._dataframe = pd.DataFrame(non_empty_rows)
+            sheet_rows.append(row)
+        self._dataframe = pd.DataFrame(sheet_rows)
         # strip strings for all items in the dataframe
         self._dataframe = self._dataframe.map(strip_strings)
         # Replace any cells with only whitespace or "" with nan
@@ -439,22 +439,21 @@ class ImportSheetModel(QAbstractTableModel):
         self._dataframe.fillna(value=np.nan, inplace=True)
         self.header_background_colors = {}
         self.cell_background_colors = {}
-        if check_style:
-            self.style_model()
-        self._dataframe.dropna(axis=0, how='all', inplace=True)
-        self._dataframe.dropna(axis=1, how='all', inplace=True)
-        self._dataframe.fillna('NULL', inplace=True)
-        self._dataframe.reset_index(drop=True, inplace=True)
         # Rename headers as integer of their column index
         column_headers = list(self._dataframe.columns)
         for column_header in column_headers:
             column_index = column_headers.index(column_header)
             if column_header != column_index:
                 self._dataframe.columns.values[column_index] = column_index
-        # create another dataframe to store row status, accepted, rejected, disabled. Default accepted.
-        self._status_dataframe = pd.DataFrame(['accepted'] * len(self._dataframe), columns=['_row_status'])
+        # Create another dataframe to store row status, accepted, rejected, disabled. Default accepted.
+        # Also store the text color and strikethrough font. Default np.nan
+        self._status_dataframe = pd.DataFrame({'_row_status': ['accepted'] * len(self._dataframe),
+            '_color': [np.nan] * len(self._dataframe), '_strikethrough': [np.nan] * len(self._dataframe)})
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
+        
+        if check_style:
+            self.style_model()
 
         self.reset_row_headers()
 
@@ -477,16 +476,28 @@ class ImportSheetModel(QAbstractTableModel):
         if not index.isValid():
             return None
         if role == QtC.Qt.ItemDataRole.DisplayRole or role == QtC.Qt.ItemDataRole.EditRole:
-            return str(self._dataframe.iat[index.row(), index.column()])
+            value = self._dataframe.iat[index.row(), index.column()]
+            if str(value) == str(np.nan):
+                return 'NULL'
+            else:
+                return str(value)
         elif role == QtC.Qt.ItemDataRole.BackgroundRole:
             # Return the cell background color if set
             return self.cell_background_colors.get(index, QBrush(QtC.Qt.GlobalColor.transparent))
         elif role == QtC.Qt.ItemDataRole.ForegroundRole:
             # Return gray text if the row is disabled
             status = self._status_dataframe.iat[index.row(), 0]
+            color = self._status_dataframe.iat[index.row(), 1]
             if status == 'disabled':
                 # logger_setup.get_logger().debug(f'Setting gray text for disabled row {index.row()}')
                 return QBrush(QColor("#A0A0A0"))  # Gray text
+            elif isinstance(color, QBrush):
+                return color
+        elif role == QtC.Qt.ItemDataRole.FontRole:
+            if isinstance(self._status_dataframe.iat[index.row(), 2], QFont):
+                return self._status_dataframe.iat[index.row(), 2]
+
+        # return super().data(index, role)
         return None
 
     def setData(self, index: QtC.QModelIndex, value, role: QtC.Qt.ItemDataRole = Qt.ItemDataRole.EditRole) -> bool:
@@ -660,7 +671,7 @@ class ImportSheetModel(QAbstractTableModel):
         upper_df = self._dataframe.iloc[:, :column]
         lower_df = self._dataframe.iloc[:, column:]
         self._dataframe = pd.concat([upper_df, new_df, lower_df], axis=1)
-        self._dataframe.fillna('NULL', inplace=True)
+        # self._dataframe.fillna('NULL', inplace=True)
         self.endInsertColumns()
         # Rename any integer headers to the right to match their new index
         for col in range(column, len(self._dataframe.columns)):
@@ -712,8 +723,31 @@ class ImportSheetModel(QAbstractTableModel):
         """
         Styles the model by getting the font and color for each cell in the sheet based on its content.
         """
-        for row in range(1, self.sheet.max_row + 1):
-            for col in range(1, self.sheet.max_column + 1):
+        if self.sheet.max_row != self.rowCount():
+            logger_setup.get_logger().error('Rows have been removed and can no longer be mapped to the original import file.\n\nSave the current mapping, reload the import file, and select the checkbox before removing rows.')
+            return False
+        if self.rowCount() != self._status_dataframe.shape[0]:
+            logger_setup.get_logger().critical('Data are unsynced.\n\nSave the current mapping and reload the import file.')
+            return False
+
+        logger_setup.get_logger().info('Identifying rejected rows by style')
+        show_loading_dialog('Loading', 'Identifying rejected rows...')
+
+        style_progress_dialog = QProgressDialog(
+            "Identifying rejected rows...", "Cancel", 0, self.sheet.max_row+1, LoadingDialogManager.get_instance().dialog
+        )
+
+        for row in range(1, self.sheet.max_row+1):
+            style_progress_dialog.setValue(row)
+            QApplication.processEvents()
+            if style_progress_dialog.wasCanceled():
+                close_loading_dialog('Loading', 'Identifying rejected rows...')
+                return False
+            for col in range(1, self.sheet.max_column):
+                if col > self.columnCount():
+                    continue
+                if self._status_dataframe.iat[row-1, 0] == 'rejected':
+                    continue
                 cell = self.sheet.cell(row=row, column=col)
                 if cell.font:
                     font = cell.font
@@ -721,18 +755,32 @@ class ImportSheetModel(QAbstractTableModel):
                         hex_col = "#" + font.color.rgb[-6:]
                         # if the color is red or close to red set the row to rejected automatically
                         if hex_col.lower() in ["#EB1800", "#FF00000"]:  # Red
-                            self._status_dataframe[row-1, '_row_status'] = 'rejected'
-                            for column in range(self.columnCount()):
-                                index = self.index(row-1, column)
-                                self.setData(index, QBrush(QColor("red")), QtC.Qt.ItemDataRole.ForegroundRole)
-                                break
+                            self._status_dataframe.iat[row-1, 0] = 'rejected'
+                            self._status_dataframe.iat[row-1, 1] = QBrush(QColor("red"))
+                            break
                     # if the row is struck through auto set rejected
                     if font.strike:
-                        self._status_dataframe[row-1, '_row_status'] = 'rejected'
-                        for column in range(self.columnCount()):
-                            index = self.index(row - 1, column)
-                            self.setData(index, QFont.strikeOut(font.strike), QtC.Qt.ItemDataRole.FontRole)
-                            break
+                        self._status_dataframe.iat[row-1, 0] = 'rejected'
+                        font = QFont()
+                        font.setStrikeOut(True)
+                        self._status_dataframe.iat[row-1, 2] = font
+                        break
+        style_progress_dialog.setValue(row+1)
+        QApplication.processEvents()
+        if style_progress_dialog.wasCanceled():
+            close_loading_dialog('Loading', 'Identifying rejected rows...')
+            return False
+
+        logger_setup.get_logger().info('Identified rejected rows by style')
+        close_loading_dialog('Loading', 'Identifying rejected rows...')
+        return True
+
+    def unstyle_model(self):
+        # Default font color
+        for row in range(self.rowCount()):
+            self._status_dataframe.iat[row+1, 0] = 'rejected'
+            self._status_dataframe.iat[row+1, 1] = np.nan
+            self._status_dataframe.iat[row+1, 2] = np.nan
 
 
     def clear_all_background_colors(self):
