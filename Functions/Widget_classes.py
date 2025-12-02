@@ -6624,7 +6624,8 @@ def add_tree_popup(tree_view: QtW.QTreeView, action: QtG.QAction | None = None):
     item_parent_dictionary = get_selected_tree_ids(tree_indexes)
     if action:
         item_ids = list(item_parent_dictionary.keys())
-        first_item_id = item_ids[0]
+        if len(item_ids) > 0:
+            first_item_id = item_ids[0]
         if action.text() == 'Insert above':
             row = item_parent_dictionary[first_item_id][1]
             parent_id = item_parent_dictionary[first_item_id][0]
