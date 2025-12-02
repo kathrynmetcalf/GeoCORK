@@ -696,6 +696,8 @@ class ImportWizardDialog(QWidget):
 
         self.deactivate_widgets()
 
+        self.setMinimumHeight(800)
+
         logger_setup.get_logger().info("Import Wizard initialized")
 
     def closeEvent(self, a0):
@@ -1845,6 +1847,8 @@ class ImportWizardDialog(QWidget):
                                                              f"Loading sheet {sheet.title} with {row_count} rows...")
 
                 self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex())
+                # needed to properly make sure dictionaries and other widgets are loaded
+                self.on_tab_changed(self.combo_sheets.currentIndex())
                 wb.close()
             except Exception as e:
                 logger_setup.get_logger().critical(f"Error reading the excel file")
