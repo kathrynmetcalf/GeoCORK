@@ -68,6 +68,7 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
         QApplication.processEvents()
         # If the user clicked "Cancel", we can break out
         if drop_progress.wasCanceled():
+            rollback_savepoint('before_drop')
             return False
         if edit_table is not None and table != edit_table:
             continue
@@ -112,15 +113,18 @@ def drop_virtual_columns(tables_affected: list[list[str]], edit_table: str = Non
                 if 'no transaction is active' not in database.lastError().text():
                     logger_setup.get_logger().critical(f"Error committing database")
                     logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                    rollback_savepoint('before_drop')
                     return False
             if not database.close():
                 if 'no transaction is active' not in database.lastError().text():
                     logger_setup.get_logger().critical(f"Error closing database")
                     logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                    rollback_savepoint('before_drop')
                     return False
             if not database.open():
                 logger_setup.get_logger().critical(f"Error opening database")
                 logger_setup.get_logger().debug(f'Error: {database.lastError().text()}')
+                rollback_savepoint('before_drop')
                 return False
 
             # Drop the original table

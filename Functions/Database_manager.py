@@ -5,7 +5,7 @@ from datetime import datetime
 from tzlocal import get_localzone
 
 from PyQt6.QtSql import QSqlDatabase, QSqlTableModel, QSqlQuery
-from PyQt6.QtWidgets import QMessageBox, QFileDialog, QProgressDialog
+from PyQt6.QtWidgets import QMessageBox, QFileDialog, QProgressDialog, QApplication
 from PyQt6.QtCore import QStandardPaths, QEventLoop
 from PyQt6.QtCore import QThread
 
@@ -143,7 +143,8 @@ def update_database(database=None) -> bool:
     if not turn_off_foreign_keys():
         loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
-    if not Create_db.update_schema(db_version, database=db):
+    schema_success = Create_db.update_schema(db_version, database=db)
+    if schema_success == 'False':
         logger_setup.get_logger().debug(f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}")
         dialog = QMessageBox()
         dialog.setIcon(QMessageBox.Icon.Critical)
@@ -155,6 +156,22 @@ def update_database(database=None) -> bool:
             loading_manager.close_loading_dialog('Loading', 'Updating database...')
             return False
         logger_setup.get_logger().info('Trying to open the database anyway')
+    elif schema_success != 'True':
+        # A backup file was returned to restore
+        backup_file = schema_success
+        dialog = QMessageBox()
+        dialog.setIcon(QMessageBox.Icon.Critical)
+        dialog.setText(
+            f"Error updating schema from v.{db_version} to v.{settings.value('geocork_version')}\nWould you like to restore from the backup file?")
+        dialog.setWindowTitle("Error updating database")
+        dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        ret = dialog.exec()
+        if ret != QMessageBox.StandardButton.Yes:
+            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            for widget in QApplication.allWidgets():
+                if widget.objectName() == 'LandingPage':
+                    widget.restore_backup(db.databaseName(), backup_file)
+                    return False
 
     if not turn_on_foreign_keys():
         loading_manager.close_loading_dialog('Loading', 'Updating database...')
@@ -195,7 +212,6 @@ def backup_database(database: QSqlDatabase) -> None | str:
     """
     Backs up the current database or provided database. Returns either None if there was no backup created
     or returns the file path as string for the backup file.
-    :param self:
     :param database: QSqlDatabase or None
     :return: None if failure, file path as a string if success
     """
@@ -210,7 +226,7 @@ def backup_database(database: QSqlDatabase) -> None | str:
     formatted_timestamp = current_time.strftime('%Y-%m-%d %H.%M.%S')
 
     backup_file = (QStandardPaths.writableLocation(QStandardPaths.StandardLocation.AppDataLocation) +
-                   rf"/backups/{os.path.basename(db_file).replace('.db', '')}-{formatted_timestamp}.db")
+                   rf"/backups/{os.path.basename(db_file).replace('.db', '')}/{os.path.basename(db_file).replace('.db', '')}-{formatted_timestamp}.db")
 
     backup_dir = os.path.dirname(backup_file)
     if backup_dir and not os.path.exists(backup_dir):

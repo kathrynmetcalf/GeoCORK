@@ -986,6 +986,220 @@ CREATE_UPBANALYSES_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
                         ON DELETE SET NULL
                     )'''
 
+CREATE_UPBANALYSES_TABLE_v101 = '''CREATE TABLE IF NOT EXISTS UPbAnalyses(
+                    UPbAnalysisID INTEGER PRIMARY KEY,
+                    UPbAnalysisName TEXT NOT NULL CHECK (UPbAnalysisName <> ''),
+                    SpotID INTEGER NOT NULL,
+                    ReferenceID INTEGER,
+                    LabFacilityID INTEGER,
+                    InstrumentID INTEGER,
+                    UPbAnalysisMethodID INTEGER, 
+                    Pb204cps REAL, 
+                    Pb206cps REAL, 
+                    Pb207cps REAL, 
+                    Pb208cps REAL, 
+                    "Pb*cps" REAL,
+                    Th232cps REAL, 
+                    U235cps REAL, 
+                    U238cps REAL,
+                    Uppm REAL,
+                    Thppm REAL,
+                    "U/Th" REAL,
+                    "Th/U" REAL,
+                    "CalculatedU/Th" AS (CASE
+                        WHEN "U/Th" IS NOT NULL THEN "U/Th"
+                        WHEN "Th/U" IS NOT NULL THEN 1/"Th/U"
+                        ELSE NULL
+                        END) STORED,
+                    "CalculatedTh/U" AS (CASE
+                        WHEN "Th/U" IS NOT NULL THEN "Th/U"
+                        WHEN "U/Th" IS NOT NULL THEN 1/"U/Th"
+                        ELSE NULL
+                        END) STORED,
+                    "206Pb/207Pb" REAL,
+                    "206Pb/207PbError" REAL, 
+                    "207Pb/206Pb" REAL,
+                    "207Pb/206PbError" REAL, 
+                    "Calculated206Pb/207Pb" AS (CASE
+                        WHEN "206Pb/207Pb" IS NOT NULL THEN "206Pb/207Pb"
+                        WHEN "207Pb/206Pb" IS NOT NULL THEN 1/"207Pb/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated207Pb/206Pb" AS (CASE
+                        WHEN "207Pb/206Pb" IS NOT NULL THEN "207Pb/206Pb"
+                        WHEN "206Pb/207Pb" IS NOT NULL THEN 1/"206Pb/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "207Pb/235U" REAL,
+                    "207Pb/235UError" REAL, 
+                    "235U/207Pb" REAL,
+                    "235U/207PbError" REAL, 
+                    "Calculated207Pb/235U" AS (CASE
+                        WHEN "207Pb/235U" IS NOT NULL THEN "207Pb/235U"
+                        WHEN "235U/207Pb" IS NOT NULL THEN 1/"235U/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated235U/207Pb" AS (CASE
+                        WHEN "235U/207Pb" IS NOT NULL THEN "235U/207Pb"
+                        WHEN "207Pb/235U" IS NOT NULL THEN 1/"207Pb/235U"
+                        ELSE NULL
+                        END) STORED,
+                    "206Pb/238U" REAL,
+                    "206Pb/238UError" REAL, 
+                    "238U/206Pb" REAL,
+                    "238U/206PbError" REAL,
+                    "Calculated206Pb/238U" AS (CASE
+                        WHEN "206Pb/238U" IS NOT NULL THEN "206Pb/238U"
+                        WHEN "238U/206Pb" IS NOT NULL THEN 1/"238U/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated238U/206Pb" AS (CASE
+                        WHEN "238U/206Pb" IS NOT NULL THEN "238U/206Pb"
+                        WHEN "206Pb/238U" IS NOT NULL THEN 1/"206Pb/238U"
+                        ELSE NULL
+                        END) STORED, 
+                    "208Pb/232Th" REAL,
+                    "208Pb/232ThError" REAL, 
+                    "232Th/208Pb" REAL,
+                    "232Th/208PbError" REAL, 
+                    "Calculated208Pb/232Th" AS (CASE
+                        WHEN "208Pb/232Th" IS NOT NULL THEN "208Pb/232Th"
+                        WHEN "232Th/208Pb" IS NOT NULL THEN 1/"232Th/208Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated232Th/208Pb" AS (CASE
+                        WHEN "232Th/208Pb" IS NOT NULL THEN "232Th/208Pb"
+                        WHEN "208Pb/232Th" IS NOT NULL THEN 1/"208Pb/232Th"
+                        ELSE NULL
+                        END) STORED,
+                    "238U/232Th" REAL,
+                    "238U/232ThError" REAL, 
+                    "232Th/238U" REAL,
+                    "232Th/238UError" REAL, 
+                    "Calculated238U/232Th" AS (CASE
+                        WHEN "238U/232Th" IS NOT NULL THEN "238U/232Th"
+                        WHEN "232Th/238U" IS NOT NULL THEN 1/"232Th/238U"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated232Th/238U" AS (CASE
+                        WHEN "232Th/238U" IS NOT NULL THEN "232Th/238U"
+                        WHEN "238U/232Th" IS NOT NULL THEN 1/"238U/232Th"
+                        ELSE NULL
+                        END) STORED,
+                    "204Pb/238U" REAL,
+                    "204Pb/238UError" REAL, 
+                    "238U/204Pb" REAL,
+                    "238U/204PbError" REAL, 
+                    "Calculated204Pb/238U" AS (CASE
+                        WHEN "204Pb/238U" IS NOT NULL THEN "204Pb/238U"
+                        WHEN "238U/204Pb" IS NOT NULL THEN 1/"238U/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated238U/204Pb" AS (CASE
+                        WHEN "238U/204Pb" IS NOT NULL THEN "238U/204Pb"
+                        WHEN "204Pb/238U" IS NOT NULL THEN 1/"204Pb/238U"
+                        ELSE NULL
+                        END) STORED,
+                    "206Pb/204Pb" REAL,
+                    "206Pb/204PbError" REAL, 
+                    "204Pb/206Pb" REAL,
+                    "204Pb/206PbError" REAL, 
+                    "Calculated206Pb/204Pb" AS (CASE
+                        WHEN "206Pb/204Pb" IS NOT NULL THEN "206Pb/204Pb"
+                        WHEN "204Pb/206Pb" IS NOT NULL THEN 1/"204Pb/206Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/206Pb" AS (CASE
+                        WHEN "204Pb/206Pb" IS NOT NULL THEN "204Pb/206Pb"
+                        WHEN "206Pb/204Pb" IS NOT NULL THEN 1/"206Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "207Pb/204Pb" REAL,
+                    "207Pb/204PbError" REAL, 
+                    "204Pb/207Pb" REAL,
+                    "204Pb/207PbError" REAL, 
+                    "Calculated207Pb/204Pb" AS (CASE
+                        WHEN "207Pb/204Pb" IS NOT NULL THEN "207Pb/204Pb"
+                        WHEN "204Pb/207Pb" IS NOT NULL THEN 1/"204Pb/207Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/207Pb" AS (CASE
+                        WHEN "204Pb/207Pb" IS NOT NULL THEN "204Pb/207Pb"
+                        WHEN "207Pb/204Pb" IS NOT NULL THEN 1/"207Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "208Pb/204Pb" REAL,
+                    "208Pb/204PbError" REAL, 
+                    "204Pb/208Pb" REAL,
+                    "204Pb/208PbError" REAL, 
+                    "Calculated208Pb/204Pb" AS (CASE
+                        WHEN "208Pb/204Pb" IS NOT NULL THEN "208Pb/204Pb"
+                        WHEN "204Pb/208Pb" IS NOT NULL THEN 1/"204Pb/208Pb"
+                        ELSE NULL
+                        END) STORED,
+                    "Calculated204Pb/208Pb" AS (CASE
+                        WHEN "204Pb/208Pb" IS NOT NULL THEN "204Pb/208Pb"
+                        WHEN "208Pb/204Pb" IS NOT NULL THEN 1/"208Pb/204Pb"
+                        ELSE NULL
+                        END) STORED,
+                    RatioErrorFormatID INTEGER,
+                    "ErrorCorr/Rho" REAL,
+                    "207Pb/206PbAge" REAL,
+                    "207Pb/206PbAgeError" REAL, 
+                    "207Pb/235UAge" REAL,
+                    "207Pb/235UAgeError" REAL, 
+                    "206Pb/238UAge" REAL,
+                    "206Pb/238UAgeError" REAL,
+                    "208Pb/232ThAge" REAL,
+                    "208Pb/232ThAgeError" REAL,
+                    BestAge REAL,
+                    BestAgeError REAL, 
+                    AgeErrorFormatID INTEGER,
+                    AgeUnitID INTEGER,
+                    AgeInterpretationID INTEGER,
+                    "Concordance" REAL,
+                    ConcordanceFormatID INTEGER,
+                    SpotSize REAL,
+                    SpotSizeUnitID INTEGER,
+                    Rejected INTEGER,
+                    UPbAnalysisCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UPbAnalysisModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (UPbAnalysisName COLLATE NOCASE),
+                    FOREIGN KEY(SpotID) REFERENCES Spots(SpotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(ReferenceID) REFERENCES "References"(ReferenceID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(LabFacilityID) REFERENCES LabFacilities(LabFacilityID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(UPbAnalysisMethodID) REFERENCES UPbAnalysisMethods(UPbAnalysisMethodID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(InstrumentID) REFERENCES Instruments(InstrumentID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(RatioErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(AgeErrorFormatID) REFERENCES ErrorFormats(ErrorFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL, 
+                    FOREIGN KEY(AgeUnitID) REFERENCES AgeUnits(AgeUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(AgeInterpretationID) REFERENCES AgeInterpretations(AgeInterpretationID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(ConcordanceFormatID) REFERENCES ConcordanceFormats(ConcordanceFormatID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(SpotSizeUnitID) REFERENCES DistanceUnits(DistanceUnitID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    )'''
+
 CREATE_UPB_CONTEXT_TABLE = '''CREATE TABLE IF NOT EXISTS UPbAnalysisContexts(
                     UPbAnalysisContextID INTEGER PRIMARY KEY,
                     ParentUPbAnalysisContextID INTEGER,
@@ -1405,13 +1619,13 @@ def create_tables(database=None) -> bool:
     return True
 
 
-def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
+def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
     """
     Function to update the database schema to the latest version.
     :param version: Current version of the database schema. If None, defaults to 0.
     :param database: QSqlDatabase instance to use, if None the default database is used.
     :return: True for success, False for failure
-    :rtype: bool
+    :rtype: str
     """
     if database is None:
         database = QtS.QSqlDatabase()
@@ -1420,7 +1634,7 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
         version = 0
     if version == settings.value('default_geocork_version'):
         logger_setup.get_logger().info('Database schema is up to date')
-        return True
+        return 'True'
     # else:
     #     dialog = QtW.QMessageBox()
     #     dialog.setIcon(QtW.QMessageBox.Icon.Information)
@@ -1448,7 +1662,7 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
     if continue_messagebox == QMessageBox.StandardButton.No:
         logger_setup.get_logger().info(
             f'User rejected updating schema from {version} to {settings.value('default_geocork_version')}')
-        return False
+        return 'False'
 
     logger_setup.get_logger().info(
         f'Updating database schema from version {version} to {settings.value('default_geocork_version')}')
@@ -1460,7 +1674,7 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
 
     if backup_file is None:
         logger_setup.get_logger().critical(f'Error updating database schema. Could not create backup file.')
-        return False
+        return 'False'
     else:
         QMessageBox.information(None,
                                 "Information Critical",
@@ -1471,15 +1685,15 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> bool:
 
     if version == 'v1.0.0' or version == '1.0.0':
         if not update_schema_v101(database):
-            return False
+            return backup_file
         version = 'v1.0.1'
 
     if version == 'v1.0.1' or version == 'v1.0.2':
         if not update_schema_v103(database):
-            return False
+            return backup_file
         version = 'v1.0.3'
 
-    return True
+    return 'True'
 
 def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     # Update from version 1.0.0 to 1.0.1
@@ -1643,7 +1857,7 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
         return False
 
     # Create new UPbAnalyses table with new create statement
-    create_sql = CREATE_UPBANALYSES_TABLE
+    create_sql = CREATE_UPBANALYSES_TABLE_v101
     column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS UPbAnalyses')[1]
     if not query.exec(f'CREATE TABLE IF NOT EXISTS UPbAnalyses_new{column_creation}'):
         logger_setup.get_logger().debug(f"Failed to create new UPbAnalyses table")
@@ -1704,6 +1918,12 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
         # rollback_savepoint('before_schema_update')
         return False
     logger_setup.get_logger().info(f'Successfully altered table rename: UPbAnalyses_new to UPbAnalyses')
+    update_version_query = f"UPDATE About SET Version = 'v1.0.1' WHERE AboutID = 1"
+    if not query.exec(update_version_query):
+        logger_setup.get_logger().critical(f'Error updating version lable')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        return False
 
     release_savepoint('before_schema_update')
 
@@ -1750,12 +1970,11 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
             return False
     concordance_values = {}
     if not query.exec(f'SELECT UPbAnalysisID, Concordance FROM UPbAnalyses'):
-        if 'no such column: Concordance' not in query.lastError().text():
-            logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
-            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-            rollback_savepoint('before_schema_update')
-            return False
+        logger_setup.get_logger().debug(f'Error retrieving UPbAnalysisID and Concordance from UPbAnalyses table')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        rollback_savepoint('before_schema_update')
+        return False
     while query.next():
         concordance_values[query.value(0)] = query.value(1)
 
