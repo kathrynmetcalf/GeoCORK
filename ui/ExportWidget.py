@@ -621,6 +621,8 @@ class ExportWidget(QWidget):
             case_list_sql = '\n, '.join(case_expressions)
 
             # final pivot string, takes the data from TempPivotTable and modifies it.
+            for column in range(len(columns_names)):
+                columns_names[column] = f'"{columns_names[column]}"'
             columns_names_str = ', '.join(columns_names)
 
             query_str = (f"""With cte AS (SELECT {columns_names_str}, ROW_NUMBER() OVER (
