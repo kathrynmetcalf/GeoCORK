@@ -666,7 +666,10 @@ tree_tables_schema = {
         'id_column': 'AgeID',
         'name_column': 'AgeName',
         'parent_column': 'ParentAgeID',
-        'cte_name': 'RecursiveAges'
+        'cte_name': 'RecursiveAges',
+        'bridge_table': 'SampleAges',
+        'bridge_from_column': ['OldestAgeID', 'YoungestAgeID'],
+        'bridge_to_column': 'AgeID',
     },
     'AliquotContexts.[AliquotContextName]': {
         'id_column': 'AliquotContextID',

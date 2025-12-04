@@ -291,18 +291,44 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
               JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
         )""".strip()
 
-        if meta['bridge_table'].split('_')[0] == 'UPbAnalyses':
-            # If this is an analysis tag, using EXISTS to much too slow with a large database
-            # Instead, we use an IN check
-            exists_sql = f"""{meta['bridge_table']}.{meta['bridge_to_column']} {'NOT ' if (operator_sql=='!=' or 'NOT' in operator_sql) else ''}IN 
-            (SELECT {meta['bridge_to_column']} FROM {cte_name})"""
+        if field_key == 'Ages.[AgeName]':
+            col1 = "OldestAgeID"
+            col2 = "YoungestAgeID"
+
+            join_condition = (
+                f"({meta['bridge_table']}.{col1} = {cte_name}.AgeID "
+                f"OR {meta['bridge_table']}.{col2} = {cte_name}.AgeID)")
+
+            in_condition = (
+                f"({meta['bridge_table']}.{col1} IN (SELECT {col1} FROM {cte_name}) "
+                f"OR {meta['bridge_table']}.{col2} IN (SELECT {col2} FROM {cte_name}))"
+            )
+
         else:
-            # ----- AND‑logic uses *EXISTS* to demand **this value present** -----
-            exists_sql = f"""{'NOT ' if (operator_sql=='!=' or 'NOT' in operator_sql) else ''}EXISTS (
+            # normal single-column case
+            join_condition = (
+                f"{meta['bridge_table']}.{meta['bridge_to_column']} = "
+                f"{cte_name}.{meta['bridge_to_column']}"
+            )
+            in_condition = (
+                f"{meta['bridge_table']}.{meta['bridge_to_column']} "
+                f"IN (SELECT {meta['bridge_to_column']} FROM {cte_name})"
+            )
+
+        # ------------------- Construct final EXISTS / IN clause -------------------
+        if meta['bridge_table'].split('_')[0] == 'UPbAnalyses':
+            # IN check (but now supports dual columns when Ages.AgeName)
+            exists_sql = (
+                f"{'' if operator_sql not in ('!=', 'NOT') else 'NOT '}"
+                f"{in_condition}"
+            )
+        else:
+            exists_sql = f"""{'NOT ' if (operator_sql == '!=' or 'NOT' in operator_sql) else ''}EXISTS (
                 SELECT 1
                   FROM {meta['bridge_table']}
-                  JOIN {cte_name} ON {meta['bridge_table']}.{meta['bridge_to_column']} = {cte_name}.{meta['bridge_to_column']}
-                 WHERE {meta['bridge_table']}.{meta['bridge_from_column']} = {meta['bridge_table'].split('_')[0]}.{meta['bridge_from_column']}
+                  JOIN {cte_name}
+                        ON {join_condition}
+                 WHERE {in_condition}
             )"""
 
         return exists_sql, [cte_sql], field_key
