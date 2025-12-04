@@ -777,7 +777,7 @@ class ExportWidget(QWidget):
                     ('UPbAnalyses', "CalculatedBestAgeFilled"): True,
                     ('UPbAnalyses', "CalculatedBestAgeErrorFilled"): True,
 
-                    ('UPbAnalyses', "CalculatedConcordance206Pb/238Uv207Pb/206Pb"): True
+                    ('UPbAnalyses', "CalculatedConcordance_206Pb/238Uv207Pb/206Pb"): True
                 }
 
                 self.column_name_mappings = {
