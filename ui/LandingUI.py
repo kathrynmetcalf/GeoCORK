@@ -391,9 +391,14 @@ class LandingPage(QWidget):
         item = self.listWidget.itemAt(pos)
         if item:
             context_menu = QtWidgets.QMenu()
-            delete_action = QAction("Delete", self.listWidget)
+            delete_action = QAction("Remove from list", self.listWidget)
             delete_action.triggered.connect(lambda: self.remove_db_from_recent(item))
             context_menu.addAction(delete_action)
+
+            delete_all_action = QAction("Remove all from list", self.listWidget)
+            delete_all_action.triggered.connect(lambda: self.remove_all_db_from_recent())
+            context_menu.addAction(delete_all_action)
+
             context_menu.exec(self.listWidget.mapToGlobal(pos))
 
     def remove_db_from_recent(self, item):
@@ -416,6 +421,23 @@ class LandingPage(QWidget):
 
             row = self.listWidget.row(item)
             self.listWidget.takeItem(row)
+
+    def remove_all_db_from_recent(self):
+        """
+        Removes all databases from the recent list.
+        """
+        item: QListWidgetItem
+        msg = QMessageBox.question(
+            self,
+            "Remove All Databases",
+            f"Are you sure you want to remove all databases from recent databases?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+
+        if msg == QMessageBox.StandardButton.Yes:
+            self.list_recents = []
+            settings.setValue('ui/LandingPage/recentlist', self.list_recents)
+            self.listWidget.clear()
 
 
     def get_filename(self):
