@@ -1238,16 +1238,22 @@ class ViewQuery:
                     SELECT * FROM Samples {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
                 ),
                 LimitedAliquots AS (
-                    SELECT * FROM Aliquots WHERE SampleID IN (SELECT SampleID FROM LimitedSamples)
+                SELECT a.*
+                FROM Aliquots a
+                JOIN LimitedSamples s ON a.SampleID = s.SampleID
                 ),
                 LimitedSpots AS (
-                    SELECT * FROM Spots WHERE AliquotID IN (SELECT AliquotID FROM LimitedAliquots)
+                    SELECT sp.*
+                    FROM Spots sp
+                    JOIN LimitedAliquots a ON sp.AliquotID = a.AliquotID
                 ),
                 LimitedUPbAnalyses AS (
-                    SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
+                    SELECT ua.*
+                    FROM UPbAnalyses ua
+                    JOIN LimitedSpots sp ON ua.SpotID = sp.SpotID
                 ),
                 LimitedGrains AS (
-                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
+                    SELECT g.* FROM Grains g JOIN LimitedSpots sp ON g.GrainID = sp.GrainID
                 )
             '''
         elif where_table == 'Aliquots':

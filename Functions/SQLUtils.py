@@ -1060,7 +1060,7 @@ table_attributes_dict = {
     ],
     'SampleAges': [
         "CalculatedDirectAge", "CalculatedDirectAgeError", "CalculatedOldestDirectAge", "CalculatedYoungestDirectAge",
-        "SampleAgeDescription", "SampleAgeCreated", "SampleAgeModified"
+        "SampleAgeDescription", 'OldestAge', 'YoungestAge', "SampleAgeCreated", "SampleAgeModified"
     ],
     'SampleContexts': [
         "SampleContextName", "SampleContextDescription",

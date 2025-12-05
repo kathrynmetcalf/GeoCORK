@@ -257,6 +257,17 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         # … expand as required …
         operator_sql = "="
 
+    sampleagebypass = False
+    if field_key == 'SampleAges.[OldestAge]':
+        field_key = 'SampleAges.[OldestAgeID]'
+        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}')"
+        sampleagebypass = True
+
+    if field_key == 'SampleAges.[YoungestAge]':
+        field_key = 'SampleAges.[YoungestAgeID]'
+        value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}')"
+        sampleagebypass = True
+
     # ---------- TREE TABLE? ----------------------------------------------
     if field_key in SQLUtils.tree_tables_schema:
         meta = SQLUtils.tree_tables_schema[field_key]
@@ -346,6 +357,8 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             cond_sql = f"{field_key} {operator_sql} {value}"
         elif datatype == "boolean":
             cond_sql = f"{field_key} {operator_sql} {1 if value == 'True' else 0}"
+        elif sampleagebypass:
+            cond_sql = f"{field_key} {operator_sql} {value}"
         else:
             cond_sql = f"{field_key} {operator_sql} '{value}'"
 
@@ -682,7 +695,8 @@ class RuleWidget(QWidget):
                "Name" in self.attribute_combo.currentText() or
                "ErrorSigma" in self.attribute_combo.currentText() or
                "Unit" in self.attribute_combo.currentText()) or
-              'References' in self.table_combo.currentText()):
+              'References' in self.table_combo.currentText() or
+            ('SampleAges' in self.table_combo.currentText() and 'Age' in self.attribute_combo.currentText())):
             operator_items = [
                 "is",
                 "is not",
@@ -813,11 +827,14 @@ class RuleWidget(QWidget):
             return
         name_header = get_headers(self.table_combo.currentText())[name_column]
         # only add completer if the attribute is a Name header and placeholder text is for strings
-        if self.attribute_combo.currentText() == name_header and self.value_input.placeholderText() == "e.g. abc123":
+        if ((self.attribute_combo.currentText() == name_header and self.value_input.placeholderText() == "e.g. abc123") or
+            ('SampleAges' in self.table_combo.currentText() and 'Age' in self.attribute_combo.currentText())):
             # Populate the value input with a completer based on the selected attribute
             value_completer = QtWidgets.QCompleter()
             query = QSqlQuery()
             sql_query = f'SELECT DISTINCT {self.attribute_combo.currentText()} FROM "{self.table_combo.currentText()}"'
+            if ('SampleAges' in self.table_combo.currentText() and 'Age' in self.attribute_combo.currentText()):
+                sql_query = "SELECT AgeName FROM Ages"
             if not query.exec(sql_query):
                 logger_setup.get_logger().critical(f'Error creating the completer for input')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -1344,6 +1361,7 @@ class QueryBuilder(QWidget):
         # If the where clause is not empty and does not start with 'GROUP BY', then add a WHERE clause
         if not where.startswith('WHERE') and not where.startswith('GROUP BY') and where.strip():
             where = 'WHERE ' + where
+
 
         if type == 'Samples':
             # where = where_clause.replace('Items', 'Samples').replace('ItemID', 'SampleID')
