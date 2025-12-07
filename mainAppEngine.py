@@ -2,8 +2,9 @@ import os
 import signal
 import sys
 import platform
+import traceback
 
-from PyQt6.QtWidgets import QApplication, QErrorMessage, QStyleFactory
+from PyQt6.QtWidgets import QApplication
 
 import logger_setup
 from Functions.Widget_classes import TooltipFilter
@@ -21,6 +22,8 @@ if __name__ == "__main__":
 
     app = QApplication(sys.argv)
     app.setApplicationName("GeoCORK")
+
+    app.aboutToQuit.connect(lambda: logger.info("GeoCORK is about to quit."))
 
     tooltip_filter = TooltipFilter(settings)
     app.installEventFilter(tooltip_filter)
@@ -61,8 +64,14 @@ if __name__ == "__main__":
         start_filepath = sys.argv[-1]
     landing_page = LandingPage(start_filepath)
 
-    exit_code = app.exec()
+    try:
+        exit_code = app.exec()
 
-    logger_setup.stop_logger()
+    except Exception:
+        raise
+
+    finally:
+        logger.info("GeoCORK has exited with code %s.", exit_code)
+        logger_setup.stop_logger()
 
     sys.exit(exit_code)

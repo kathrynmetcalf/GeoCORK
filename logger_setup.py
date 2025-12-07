@@ -1,11 +1,13 @@
 import logging
 import logging.handlers
+import sys
+import traceback
 from datetime import datetime
 from queue import Queue
 import os
 
 from PyQt6.QtCore import QSettings, QStandardPaths
-from PyQt6.QtWidgets import QMessageBox
+from PyQt6.QtWidgets import QMessageBox, QApplication
 
 from Functions.Settings_manager import SettingsManager
 settings = SettingsManager().settings
@@ -99,6 +101,8 @@ def setup_async_logger():
     _queue_listener = logging.handlers.QueueListener(log_queue, console_handler, file_handler)
     _queue_listener.start()
 
+    sys.excepthook = log_uncaught_exceptions
+
 
 def get_logger() -> logging.Logger:
     """
@@ -140,3 +144,37 @@ def stop_logger():
     global _queue_listener
     if _queue_listener:
         _queue_listener.stop()
+
+def _log_direct(level, message):
+    # Bypass CustomLogger methods to avoid QMessageBox
+    record = _logger.makeRecord(
+        _logger.name, level, fn="", lno=0, msg=message, args=None, exc_info=None
+    )
+    for handler in _logger.handlers:
+        handler.handle(record)
+
+def log_uncaught_exceptions(exc_type, exc_value, exc_tb):
+    """
+    Called whenever an exception reaches the top of the interpreter.
+    This guarantees the crash is logged before Python terminates.
+    """
+    message = "".join(traceback.format_exception(exc_type, exc_value, exc_tb))
+
+    if _logger:
+        _logger.critical(f"UNCAUGHT EXCEPTION:\n {message}")
+        # _log_direct(logging.CRITICAL, "UNCAUGHT EXCEPTION:\n" + message)
+
+    # Force the listener to flush logs NOW
+    try:
+        if _queue_listener:
+            _queue_listener.stop()
+    except:
+        pass
+
+    try:
+        QApplication.quit()  # stops event loop
+    except Exception:
+        pass
+
+    # Do NOT swallow exception — rethrow full crash
+    sys.__excepthook__(exc_type, exc_value, exc_tb)
