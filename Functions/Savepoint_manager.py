@@ -24,17 +24,14 @@ class SavepointManager:
     def add_savepoint(self, savepoint_name: str):
         if savepoint_name not in self.savepoint_list:
             self.savepoint_list.append(savepoint_name)
-        # print(self.savepoint_list)
 
     def remove_savepoint(self, savepoint_name: str):
         if savepoint_name in self.savepoint_list:
             self.savepoint_list.remove(savepoint_name)
-        # print(self.savepoint_list)
 
     def rollback_savepoint(self, savepoint_name: str):
         if savepoint_name in self.savepoint_list:
             self.savepoint_list.remove(savepoint_name)
-        # print(self.savepoint_list)
 
     def active_savepoints_names(self) -> list:
         """

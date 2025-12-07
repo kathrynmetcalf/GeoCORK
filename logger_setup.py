@@ -9,7 +9,10 @@ import os
 from PyQt6.QtCore import QSettings, QStandardPaths
 from PyQt6.QtWidgets import QMessageBox, QApplication
 
+import Savepoint_manager
 from Functions.Settings_manager import SettingsManager
+from Savepoint_manager import SavepointManager
+
 settings = SettingsManager().settings
 from tzlocal import get_localzone
 
@@ -162,6 +165,7 @@ def log_uncaught_exceptions(exc_type, exc_value, exc_tb):
 
     if _logger:
         _logger.critical(f"UNCAUGHT EXCEPTION:\n {message}")
+        _logger.critical("Application will attempt to close gracefully.")
         # _log_direct(logging.CRITICAL, "UNCAUGHT EXCEPTION:\n" + message)
 
     # Force the listener to flush logs NOW
@@ -172,6 +176,14 @@ def log_uncaught_exceptions(exc_type, exc_value, exc_tb):
         pass
 
     try:
+        savepoint_manager = SavepointManager.get_instance()
+
+        if savepoint_manager is not None:
+            if savepoint_manager.active_savepoints():
+                _logger.critical("Active savepoints detected during crash, attempting to close application gracefully.")
+                if len(savepoint_manager.active_savepoints_names > 0):
+                    Savepoint_manager.rollback_savepoint[savepoint_manager.active_savepoints_names()[0]]
+
         QApplication.quit()  # stops event loop
     except Exception:
         pass
