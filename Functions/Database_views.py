@@ -134,10 +134,10 @@ class ViewQuery:
         query_columns = ',\n '.join(query_columns)
 
         count_sample_subquery = SQLUtils.qupb_count_sample_subquery
-        count_sample_subquery = count_sample_subquery.replace(' Samples ',' LimitedSamples ls ')
-        count_sample_subquery = count_sample_subquery.replace(' Aliquots ',' LimitedAliquots la ')
-        count_sample_subquery = count_sample_subquery.replace(' Spots ',' LimitedSpots lsp ')
-        count_sample_subquery = count_sample_subquery.replace(' UPbAnalyses ',' LimitedUPbAnalyses lu ')
+        # count_sample_subquery = count_sample_subquery.replace(' Samples ',' LimitedSamplesAliquots lsa ')
+        # count_sample_subquery = count_sample_subquery.replace(' Aliquots ',' LimitedSamplesAliquots lsa ')
+        # count_sample_subquery = count_sample_subquery.replace(' Spots ',' LimitedSpotsUPbAnalysesGrains lspuag ')
+        # count_sample_subquery = count_sample_subquery.replace(' UPbAnalyses ',' LimitedSpotsUPbAnalysesGrains lspuag ')
 
         sample_query = f'''
                 {self.limited_hierarchy},
@@ -148,8 +148,8 @@ class ViewQuery:
                 {count_sample_subquery}
                 SELECT
                         {query_columns}
-                       FROM LimitedSamples ls
-                       {SQLUtils.limited_sample_hierarchy_join}
+                       FROM LimitedSamplesAliquots lsa
+                       {SQLUtils.limited_sample_aliquot_hierarchy_join}
                        {SQLUtils.limited_sample_tags_join}
                        {SQLUtils.limited_aliquot_tags_join}
                        {SQLUtils.limited_spot_tags_join}
@@ -275,8 +275,8 @@ class ViewQuery:
                 {count_sample_subquery}
                 SELECT
                         {query_columns}
-                    FROM LimitedSamples ls
-                    {SQLUtils.limited_sample_hierarchy_join}
+                    FROM LimitedSamplesAliquots lsa
+                    {SQLUtils.limited_sample_aliquot_hierarchy_join}
                     {SQLUtils.limited_sample_tags_join}
                     {SQLUtils.limited_aliquot_tags_join}
                     {SQLUtils.limited_spot_tags_join}
@@ -381,8 +381,8 @@ class ViewQuery:
                     {SQLUtils.limited_upb_tags}
                     SELECT
                         {query_columns}
-                    FROM LimitedAliquots la
-                    {SQLUtils.limited_aliquot_hierarchy_join}
+                    FROM LimitedSamplesAliquots lsa
+                    {SQLUtils.limited_sample_aliquot_hierarchy_join}
                     {SQLUtils.limited_aliquot_tags_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
@@ -449,8 +449,8 @@ class ViewQuery:
                     {SQLUtils.limited_aliquot_tags}
                     SELECT
                         {query_columns}
-                    FROM LimitedAliquots la
-                    {SQLUtils.limited_aliquot_hierarchy_join}
+                    FROM LimitedSamplesAliquots lsa
+                    {SQLUtils.limited_sample_aliquot_hierarchy_join}
                     {SQLUtils.limited_aliquot_tags_join}
                     {self.query_where}
                     {self.group_by}
@@ -518,8 +518,7 @@ class ViewQuery:
                     SELECT
                         {query_columns}
                     FROM Grains
-                    {SQLUtils.spot_grain_join}
-                    {SQLUtils.limited_spot_hierarchy_join}
+                    {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.grain_composition_join}
@@ -573,9 +572,11 @@ class ViewQuery:
         query_columns = ',\n '.join(query_columns)
 
         grain_query = f'''
+                    {self.limited_hierarchy}
                     SELECT
                         {query_columns}
-                    FROM Grains
+                    FROM LimitedSpotsUPbAnalysesGrains lspuag
+                    {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
@@ -640,8 +641,8 @@ class ViewQuery:
                     {SQLUtils.limited_upb_tags}
                     SELECT
                         {query_columns}
-                    FROM LimitedSpots lsp
-                    {SQLUtils.limited_spot_hierarchy_join}
+                    FROM LimitedSpotsUPbAnalysesGrains lspuag
+                    {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.spot_composition_join}
@@ -714,8 +715,8 @@ class ViewQuery:
                     {SQLUtils.limited_spot_tags}
                     SELECT
                         {query_columns}
-                    FROM LimitedSpots lsp
-                    {SQLUtils.limited_spot_hierarchy_join}
+                    FROM LimitedSpotsUPbAnalysesGrains lspuag
+                    {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.spot_composition_join}
                     {SQLUtils.spot_grain_join}
@@ -808,8 +809,8 @@ class ViewQuery:
                     {SQLUtils.limited_spot_tags}
                     SELECT 
                         {query_columns}
-                    FROM LimitedUPbAnalyses lu
-                    {SQLUtils.limited_upb_hierarchy_join}
+                    FROM LimitedSpotsUPbAnalysesGrains lspuag
+                    {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.upb_reference_join}
@@ -916,8 +917,8 @@ class ViewQuery:
                     {SQLUtils.limited_spot_tags}
                     SELECT 
                         {query_columns}
-                    FROM LimitedUPbAnalyses lu
-                    {SQLUtils.limited_upb_hierarchy_join}
+                    FROM LimitedSpotsUPbAnalysesGrains lspuag
+                    {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.upb_reference_join}
@@ -1104,6 +1105,7 @@ class ViewQuery:
 
         where_table = self.table
         where_header = ''
+        hierarchy_where_join = ''
         hierarchy_where = ''
         hierarchy_order_by = ''
         hierarchy_limit = ''
@@ -1135,7 +1137,7 @@ class ViewQuery:
                         if header in self.where:
                             where_header = header
                             self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({where_header} INTEGER PRIMARY KEY)"
-                            hierarchy_where = f"WHERE {where_header} IN (SELECT {where_header} FROM TempIDs)"
+                            hierarchy_where_join = f"INNER JOIN TempIDs ti ON"
                             break
                 else:
                     hierarchy_where = self.where
@@ -1155,7 +1157,7 @@ class ViewQuery:
                                                             SELECT {headers[0]} FROM {self.table}
                                                             ORDER BY {self.order_col} {self.limit}
                                                             """
-                        hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
+                        hierarchy_where_join = f"INNER JOIN TempPaged tp ON"
                         hierarchy_limit = ''
                         self.query_limit = ''
                     else:
@@ -1177,7 +1179,7 @@ class ViewQuery:
                                                         SELECT {where_header} FROM {self.table}
                                                         {self.limit}
                                                         """
-                    hierarchy_where = f"WHERE {where_header} IN (SELECT TempPaged.{where_header} FROM TempPaged)"
+                    hierarchy_where_join = f"INNER JOIN TempPaged tp ON"
                     hierarchy_order_by = ''
                     hierarchy_limit = ''
                     self.query_limit = ''
@@ -1192,7 +1194,7 @@ class ViewQuery:
                                 break
                         if self.where_ids:
                             self.create_temp_id = f"CREATE TEMP TABLE TempIDs ({where_header} INTEGER PRIMARY KEY)"
-                            hierarchy_where = f"WHERE {where_header} IN (SELECT {where_header} FROM TempIDs)"
+                            hierarchy_where_join = f"INNER JOIN TempIDs ti ON"
                         else:
                             hierarchy_where = self.where
                         self.query_where = ''
@@ -1204,7 +1206,7 @@ class ViewQuery:
                                 # Order applies to same table as where, so apply in the hierarchy query
                                 hierarchy_order_by = f'ORDER BY {self.order_col}'
                         break
-            if hierarchy_where == '':
+            if hierarchy_where == '' and hierarchy_where_join == '':
                 logger_setup.get_logger().info(f'Where clause {self.where} does not apply to Samples, Aliquots, Spots or UPbAnalyses.')
                 logger_setup.get_logger().info(f'Consider simplifying the query or using the filtering query building.')
         elif self.order_col != '' and self.limit != '':
@@ -1216,7 +1218,7 @@ class ViewQuery:
                                             """
                 hierarchy_order_by = ''
                 hierarchy_limit = ''
-                hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
+                hierarchy_where_join = f"INNER JOIN TempPaged tp ON"
                 self.query_limit = ''
             else:
                 # Ordering by a different table than the where clause, so apply the ordering and limit in the main query
@@ -1230,86 +1232,155 @@ class ViewQuery:
                                         SELECT {headers[0]} FROM {self.table}
                                         {self.limit}"""
             hierarchy_limit = ''
-            hierarchy_where = f"WHERE {headers[0]} IN (SELECT TempPaged.{headers[0]} FROM TempPaged)"
+            hierarchy_where_join = f"INNER JOIN TempPaged tp ON"
             self.query_limit = ''
         if where_table == 'Samples':
+            if hierarchy_where_join != '':
+                if 'TempIDs' in hierarchy_where_join:
+                    hierarchy_where_join += f" s.SampleID = ti.SampleID"
+                elif 'TempPaged' in hierarchy_where_join:
+                    hierarchy_where_join += f" s.SampleID = tp.SampleID"
             self.limited_hierarchy = f'''
-                WITH RECURSIVE LimitedSamples AS (
-                    SELECT * FROM Samples {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                WITH RECURSIVE LimitedSamplesAliquots AS (
+                    SELECT s.*, a.* 
+                    FROM Samples s 
+                    {hierarchy_where_join}
+                    INNER JOIN Aliquots a ON s.SampleID = a.SampleID
+                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
                 ),
-                LimitedAliquots AS (
-                SELECT a.*
-                FROM Aliquots a
-                JOIN LimitedSamples s ON a.SampleID = s.SampleID
-                ),
-                LimitedSpots AS (
-                    SELECT sp.*
+                LimitedSpotsUPbAnalysesGrains AS (
+                    SELECT sp.*, ua.*, g.*
                     FROM Spots sp
-                    JOIN LimitedAliquots a ON sp.AliquotID = a.AliquotID
-                ),
-                LimitedUPbAnalyses AS (
-                    SELECT ua.*
-                    FROM UPbAnalyses ua
-                    JOIN LimitedSpots sp ON ua.SpotID = sp.SpotID
-                ),
-                LimitedGrains AS (
-                    SELECT g.* FROM Grains g JOIN LimitedSpots sp ON g.GrainID = sp.GrainID
+                    INNER JOIN LimitedSamplesAliquots lsa ON sp.AliquotID = lsa.AliquotID
+                    INNER JOIN UPbAnalyses ua ON sp.SpotID = ua.SpotID
+                    LEFT JOIN Grains g on sp.GrainID = g.GrainID
                 )
             '''
         elif where_table == 'Aliquots':
+            if hierarchy_where_join != '':
+                if 'TempIDs' in hierarchy_where_join:
+                    hierarchy_where_join += f" a.AliquotID = ti.AliquotID"
+                elif 'TempPaged' in hierarchy_where_join:
+                    hierarchy_where_join += f" a.AliquotID = tp.AliquotID"
             self.limited_hierarchy = f'''
-                WITH RECURSIVE LimitedAliquots AS (
-                    SELECT * FROM Aliquots {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                WITH RECURSIVE LimitedSamplesAliquots AS (
+                    SELECT s.*, a.* 
+                    FROM Aliquots a
+                    {hierarchy_where_join}
+                    INNER JOIN Samples s ON s.SampleID = a.SampleID
+                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
                 ),
-                LimitedSpots AS (
-                    SELECT * FROM Spots WHERE AliquotID IN (SELECT AliquotID FROM LimitedAliquots)
-                ),
-                LimitedUPbAnalyses AS (
-                    SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
-                ),
-                LimitedSamples AS (
-                    SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
-                ),
-                LimitedGrains AS (
-                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
+                LimitedSpotsUPbAnalysesGrains AS (
+                    SELECT sp.*, ua.*, g.*
+                    FROM Spots sp
+                    INNER JOIN LimitedSamplesAliquots lsa ON sp.AliquotID = lsa.AliquotID
+                    INNER JOIN UPbAnalyses ua ON sp.SpotID = ua.SpotID
+                    LEFT JOIN Grains g on sp.GrainID = g.GrainID
                 )
             '''
         elif where_table == 'Spots':
+            if hierarchy_where_join != '':
+                if 'TempIDs' in hierarchy_where_join:
+                    hierarchy_where_join += f" sp.SpotID = ti.SpotID"
+                elif 'TempPaged' in hierarchy_where_join:
+                    hierarchy_where_join += f" sp.SpotID = tp.SpotID"
             self.limited_hierarchy = f'''
-                WITH RECURSIVE LimitedSpots AS (
-                    SELECT * FROM Spots {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                WITH RECURSIVE LimitedSpotsUPbAnalysesGrains AS (
+                    SELECT sp.*, ua.*, g.*
+                    FROM Spots sp
+                    {hierarchy_where_join}
+                    INNER JOIN UpbAnalyses ua ON sp.SpotID = ua.SpotID
+                    LEFT JOIN Grains g ON sp.GrainID = g.GrainID
+                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
                 ),
-                LimitedUPbAnalyses AS (
-                    SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
-                ),
-                LimitedAliquots AS (
-                    SELECT * FROM Aliquots WHERE AliquotID IN (SELECT AliquotID FROM LimitedSpots)
-                ),
-                LimitedSamples AS (
-                    SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
-                ),
-                LimitedGrains AS (
-                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
+                LimitedSamplesAliquots AS (
+                    SELECT s.*, a.* 
+                    FROM Aliquots a
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON a.AliquotID = lspuag.AliquotID
+                    INNER JOIN Samples s ON s.SampleID = a.SampleID
                 )
             '''
-        elif where_table == 'UPbAnalyses':
+        elif where_table == 'UpbAnalyses':
+            if hierarchy_where_join != '':
+                if 'TempIDs' in hierarchy_where_join:
+                    hierarchy_where_join += f" ua.UPbAnalysisID = ti.UPbAnalysisID"
+                elif 'TempPaged' in hierarchy_where_join:
+                    hierarchy_where_join += f" ua.UPbAnalysisID = tp.UPbAnalysisID"
             self.limited_hierarchy = f'''
-                WITH RECURSIVE LimitedUPbAnalyses AS (
-                    SELECT * FROM UPbAnalyses {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                WITH RECURSIVE LimitedSpotsUPbAnalysesGrains AS (
+                    SELECT sp.*, ua.*, g.*
+                    FROM UPbAnalyses ua
+                    {hierarchy_where_join}
+                    INNER JOIN Spots sp ON ua.SpotID = sp.SpotID
+                    LEFT JOIN Grains g ON sp.GrainID = g.GrainID
+                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
                 ),
-                LimitedSpots AS (
-                    SELECT * FROM Spots WHERE SpotID IN (SELECT SpotID FROM LimitedUPbAnalyses)
-                ),
-                LimitedAliquots AS (
-                    SELECT * FROM Aliquots WHERE AliquotID IN (SELECT AliquotID FROM LimitedSpots)
-                ),
-                LimitedSamples AS (
-                    SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
-                ),
-                LimitedGrains AS (
-                    SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
+                LimitedSamplesAliquots AS (
+                    SELECT s.*, a.* 
+                    FROM Aliquots a
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON a.AliquotID = lspuag.AliquotID
+                    INNER JOIN Samples s ON s.SampleID = a.SampleID
                 )
             '''
+        elif where_table == 'Grains':
+            if hierarchy_where_join != '':
+                if 'TempIDs' in hierarchy_where_join:
+                    hierarchy_where_join += f" g.GrainID = ti.GrainID"
+                elif 'TempPaged' in hierarchy_where_join:
+                    hierarchy_where_join += f" g.GrainID = tp.GrainID"
+            self.limited_hierarchy = f'''
+                WITH RECURSIVE LimitedSpotsUPbAnalysesGrains AS (
+                    SELECT sp.*, ua.*, g.*
+                    FROM Grains g
+                    {hierarchy_where_join}
+                    INNER JOIN Spots sp ON g.GrainID = sp.GrainID
+                    INNER JOIN UPbAnalyses ua ON sp.SpotID = ua.SpotID
+                ),
+                LimitedSamplesAliquots AS (
+                    SELECT s.*, a.* 
+                    FROM Aliquots a
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON a.AliquotID = lspuag.AliquotID
+                    INNER JOIN Samples s ON s.SampleID = a.SampleID
+                )
+            '''
+        # elif where_table == 'Aliquots':
+        #     self.limited_hierarchy = f'''
+        #         WITH RECURSIVE LimitedAliquots AS (
+        #             SELECT * FROM Aliquots {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+        #         ),
+        #         LimitedSpots AS (
+        #             SELECT * FROM Spots WHERE AliquotID IN (SELECT AliquotID FROM LimitedAliquots)
+        #         ),
+        #         LimitedUPbAnalyses AS (
+        #             SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
+        #         ),
+        #         LimitedSamples AS (
+        #             SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
+        #         ),
+        #         LimitedGrains AS (
+        #             SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
+        #         )
+        #     '''
+        # elif where_table == 'UPbAnalyses':
+        #     self.limited_hierarchy = f'''
+        #         WITH RECURSIVE LimitedUPbAnalyses AS (
+        #             SELECT * FROM UPbAnalyses {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+        #         ),
+        #         LimitedSpots AS (
+        #             SELECT * FROM Spots WHERE SpotID IN (SELECT SpotID FROM LimitedUPbAnalyses)
+        #         ),
+        #         LimitedAliquots AS (
+        #             SELECT * FROM Aliquots WHERE AliquotID IN (SELECT AliquotID FROM LimitedSpots)
+        #         ),
+        #         LimitedSamples AS (
+        #             SELECT s.*
+        #             FROM Samples s
+        #             WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
+        #         ),
+        #         LimitedGrains AS (
+        #             SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
+        #         )
+        #     '''
         else:
             # No direct limits on the main hierarchy tables
             self.limited_hierarchy = ''
