@@ -108,6 +108,7 @@ CREATE_AGES_TABLE = '''CREATE TABLE IF NOT EXISTS Ages(
                     AgeName TEXT NOT NULL CHECK (AgeName <> ''),
                     OldestAge REAL,
                     YoungestAge REAL,
+                    Color TEXT,
                     AgeCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
                     AgeModified DATETIME DEFAULT CURRENT_TIMESTAMP, 
                     UNIQUE (AgeName COLLATE NOCASE),
@@ -1632,7 +1633,7 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
     query = QtS.QSqlQuery(database)
     if version is None:
         version = 0
-    if version == settings.value('default_geocork_version'):
+    if version == settings.value('default_geocork_version') or version == 0:
         logger_setup.get_logger().info('Database schema is up to date')
         return 'True'
     # else:
@@ -2084,6 +2085,57 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
         settings.setValue(column_setting, current_columns)
     logger_setup.get_logger().info(f'Successfully updated view and edit columns')
 
+
+    logger_setup.get_logger().info('Updating Ages table to includue colors.')
+    if not query.exec(f'ALTER TABLE Ages ADD COLUMN "Color" TEXT'):
+        if 'duplicate column name' not in query.lastError().text():
+            logger_setup.get_logger().debug(f'Error adding Color column to Ages table')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            rollback_savepoint('before_schema_update')
+            return False
+
+    base_path = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    xml_file = os.path.join(base_path, "GeologicTime_Ages.xml")
+    tree = ET.parse(xml_file)
+    root = tree.getroot()
+
+    age_colors = {}
+
+    for elem in root.iter():
+        if elem.tag == "Age":
+            name = elem.get("name")
+            color = elem.get("color")
+
+            if name and color:
+                age_colors[name.strip().lower()] = color.strip()
+
+    updated = 0
+    not_found = []
+    age_color_query = QtS.QSqlQuery()
+    age_color_query.prepare("""
+                  UPDATE Ages
+                  SET Color = :color
+                  WHERE lower(AgeName) = :name
+                  """)
+    for age_name, color in age_colors.items():
+        query.bindValue(":color", color)
+        query.bindValue(":name", age_name)
+
+        if not query.exec():
+            logger_setup.get_logger().debug(f'Error adding color value {color} to {age_name} during update')
+            logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+            logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+            continue
+
+        rows = query.numRowsAffected()
+        if rows == 0:
+            not_found.append(age_name)
+        else:
+            updated += rows
+    logger_setup.info(f'Updated {updated} ages with colors during schema update.')
+    if not_found:
+        logger_setup.info(f'Could not find {len(not_found)} ages to update colors during schema update: {not_found}')
     return True
 
 def populate_tables(database=None) -> bool:
@@ -3000,7 +3052,7 @@ def populate_ages(database=None) -> bool:
     epoch_row = 0
     age_row = 0
     for eon in root.findall('Eon'):
-        age_item = ('', eon_row, f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}')
+        age_item = ('', eon_row, f'{eon.get("name")}', f'{eon.get("oldest")}', f'{eon.get("youngest")}', f'{eon.get("color")}')
         if not add_age(age_item, database):
             return False
         for era in eon.findall('Era'):
@@ -3009,7 +3061,7 @@ def populate_ages(database=None) -> bool:
                 out = []
                 while query.next(): out.append(query.value(0))
                 eon_id = out[0]
-                age_item = (eon_id, era_row, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}')
+                age_item = (eon_id, era_row, f'{era.get("name")}', f'{era.get("oldest")}', f'{era.get("youngest")}', f'{era.get("color")}')
                 if not add_age(age_item, database):
                     return False
                 for period in era.findall('Period'):
@@ -3020,7 +3072,7 @@ def populate_ages(database=None) -> bool:
                         era_id = out[0]
                         age_item = (
                             era_id, period_row, f'{period.get("name")}', f'{period.get("oldest")}',
-                            f'{period.get("youngest")}')
+                            f'{period.get("youngest")}', f'{period.get("color")}')
                         if not add_age(age_item, database):
                             return False
                         for epoch in period.findall('Epoch'):
@@ -3030,7 +3082,7 @@ def populate_ages(database=None) -> bool:
                                 while query.next(): out.append(query.value(0))
                                 period_id = out[0]
                                 age_item = (period_id, epoch_row, f'{epoch.get("name")}', f'{epoch.get("oldest")}',
-                                            f'{epoch.get("youngest")}')
+                                            f'{epoch.get("youngest")}', f'{epoch.get("color")}')
                                 if not add_age(age_item, database):
                                     return False
                                 for age in epoch.findall('Age'):
@@ -3043,7 +3095,7 @@ def populate_ages(database=None) -> bool:
                                         while query.next(): out.append(query.value(0))
                                         epoch_id = out[0]
                                         age_item = (epoch_id, age_row, f'{age.get("name")}', f'{age.get("oldest")}',
-                                                    f'{age.get("youngest")}')
+                                                    f'{age.get("youngest")}', f'{age.get("color")}')
                                         if not add_age(age_item, database):
                                             return False
                                     age_row += 1
@@ -3062,7 +3114,7 @@ def populate_ages(database=None) -> bool:
 def add_age(age: tuple, database=None) -> bool:
     """
     Adds each age item to the table with its parent ID. Called by populate_ages. Uses the default database if none is provided.
-    :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma)
+    :param age: tuple that contains (Parent ageID, age name, Max Ma, Min Ma, hexColor)
     :param database: QSqlDatabase instance to populate tables in, if None uses the default connection.
     :return: True if successful, False if error
     """
@@ -3072,8 +3124,8 @@ def add_age(age: tuple, database=None) -> bool:
         query = QtS.QSqlQuery(database)
     if age[0]:
         # if there is a parent
-        sql = f'''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge)
-                        VALUES({age[0]}, {age[1]}, "{age[2]}", {age[3]}, {age[4]})'''
+        sql = f'''INSERT INTO Ages(ParentAgeID, AgeParentRow, AgeName, OldestAge, YoungestAge, Color)
+                        VALUES({age[0]}, {age[1]}, "{age[2]}", {age[3]}, {age[4]}, "{age[5]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
                 logger_setup.get_logger().critical('Error populating Ages')
@@ -3082,8 +3134,8 @@ def add_age(age: tuple, database=None) -> bool:
                 logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
                 return False
     else:
-        sql = f'''INSERT INTO Ages(AgeParentRow, AgeName, OldestAge, YoungestAge)
-                        VALUES({age[1]}, "{age[2]}", {age[3]}, {age[4]})'''
+        sql = f'''INSERT INTO Ages(AgeParentRow, AgeName, OldestAge, YoungestAge, Color)
+                        VALUES({age[1]}, "{age[2]}", {age[3]}, {age[4]}, "{age[5]}")'''
         if not query.exec(sql):
             if 'UNIQUE constraint failed' not in query.lastError().text():
                 logger_setup.get_logger().critical('Error populating Ages')
