@@ -21,28 +21,28 @@ qsample_column_data = 'NULLIF(COALESCE(Samples.CalculatedHeightDepth, "") || "±
 qsample_column_data_display = 'NULLIF(COALESCE(Samples.HeightDepth, "") || "±" || COALESCE(Samples.HeightDepthError, ""), "±") AS ColumnHeightDepth'
 qsample_column_data_unit = 'ColumnHeightDepthUnits.DistanceUnitAbbreviation AS ColumnHeightDepthUnitAbbreviation'
 qsample_age = 'SampleAges.SampleAgeDisplay AS SampleAgeCalculated'
-qage_range = 'NULLIF(COALESCE(CalculatedOldestDirectAge, " ") || "-" || COALESCE(CalculatedYoungestDirectAge, " "), " - ") AS SampleAgeRangeCalculated'
-qage_range_display = 'NULLIF(COALESCE(OldestDirectAge, " ") || "-" || COALESCE(YoungestDirectAge, " "), " - ") AS SampleAgeRange'
+qage_range = 'NULLIF(COALESCE(SampleAges.CalculatedOldestDirectAge, " ") || "-" || COALESCE(SampleAges.CalculatedYoungestDirectAge, " "), " - ") AS SampleAgeRangeCalculated'
+qage_range_display = 'NULLIF(COALESCE(SampleAges.OldestDirectAge, " ") || "-" || COALESCE(SampleAges.YoungestDirectAge, " "), " - ") AS SampleAgeRange'
 qage_unit = 'DirectAgeUnitAbbreviation AS SampleAgeUnitAbbreviation'
 qage_error_format = 'DirectAgeErrorFormatAbbreviation AS SampleAgeErrorFormatAbbreviation'
-qsample_age_constraint = 'REPLACE(GROUP_CONCAT(DISTINCT AgeConstraintName), ",", "; ") AS SampleAgeConstraintName'
+qsample_age_constraint = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeConstraints.AgeConstraintName), ",", "; ") AS SampleAgeConstraintName'
 qsample_age_interpretation = 'REPLACE(GROUP_CONCAT(DISTINCT SampleAgeInterpretations.AgeInterpretationName), ",", "; ") AS SampleAgeInterpretationName'
 qsample_age_references = 'GROUP_CONCAT(DISTINCT SampleAgeReferences.ReferenceDisplay) AS SampleAgeReferenceDisplay'
 qsample_description = 'Samples.SampleDescription AS SampleDescription'
-qage_signature = 'REPLACE(GROUP_CONCAT(DISTINCT AgeSignatureName), ",", "; ") AS SampleAgeSignatureName'
-qregions = 'REPLACE(GROUP_CONCAT(DISTINCT RegionName), ",", "; ") AS RegionName'
-qrock_types = 'REPLACE(GROUP_CONCAT(DISTINCT RockTypeName), ",", "; ") AS RockTypeName'
-qsample_context = 'REPLACE(GROUP_CONCAT(DISTINCT SampleContextName), ",", "; ") AS SampleContextName'
-qsampling_methods = 'REPLACE(GROUP_CONCAT(DISTINCT SamplingMethodName), ",", "; ") AS SamplingMethodName'
-qsettings = 'REPLACE(GROUP_CONCAT(DISTINCT SettingName), ",", "; ") AS SettingName'
-qunits = 'REPLACE(GROUP_CONCAT(DISTINCT UnitName), ",", "; ") AS UnitName'
+qage_signature = 'REPLACE(GROUP_CONCAT(DISTINCT AgeSignatures.AgeSignatureName), ",", "; ") AS SampleAgeSignatureName'
+qregions = 'REPLACE(GROUP_CONCAT(DISTINCT Regions.RegionName), ",", "; ") AS RegionName'
+qrock_types = 'REPLACE(GROUP_CONCAT(DISTINCT RockTypes.RockTypeName), ",", "; ") AS RockTypeName'
+qsample_context = 'REPLACE(GROUP_CONCAT(DISTINCT SampleContexts.SampleContextName), ",", "; ") AS SampleContextName'
+qsampling_methods = 'REPLACE(GROUP_CONCAT(DISTINCT SamplingMethods.SamplingMethodName), ",", "; ") AS SamplingMethodName'
+qsettings = 'REPLACE(GROUP_CONCAT(DISTINCT Settings.SettingName), ",", "; ") AS SettingName'
+qunits = 'REPLACE(GROUP_CONCAT(DISTINCT Units.UnitName), ",", "; ") AS UnitName'
 qsample_created = 'Samples.SampleCreated AS SampleCreated'
 qsample_modified = 'Samples.SampleModified AS SampleModified'
 
 #Columns, skip null values
 qcolumn_name = 'Columns.ColumnName AS ColumnName'
-qcolumn_names = 'REPLACE(GROUP_CONCAT(DISTINCT ColumnName), ",", "; ") AS ColumnName'
-qcolumn_data = f'NULLIF(COALESCE(HeightDepth, "") || "±" || COALESCE(HeightDepthError, ""), "±") AS ColumnHeightDepth'
+qcolumn_names = 'REPLACE(GROUP_CONCAT(DISTINCT Columns.ColumnName), ",", "; ") AS ColumnName'
+qcolumn_data = f'NULLIF(COALESCE(Columns.HeightDepth, "") || "±" || COALESCE(Columns.HeightDepthError, ""), "±") AS ColumnHeightDepth'
 qcolumn_gps = f'ColumnGPS.GPSLocationConverted AS ColumnGPSLocationCalculated'
 qcolumn_gps_display = 'ColumnGPS.GPSLocationDisplay AS ColumnGPSLocationDisplay'
 qcolumn_gps_id = 'Columns.ColumnBaseGPSID AS ColumnGPSLocationID'
@@ -52,84 +52,81 @@ qcolumn_total_height_depth_unit = f'ColumnUnits.DistanceUnitAbbreviation AS Colu
 qcolumn_elev = 'NULLIF(COALESCE(ColumnGPS.CalculatedGPSElev, "") || "±" || COALESCE(ColumnGPS.CalculatedGPSElevError, ""), "±") AS ColumnElevationCalculated'
 qcolumn_elev_display = 'NULLIF(COALESCE(ColumnGPS.GPSElev, "") || "±" || COALESCE(ColumnGPS.GPSElevError, ""), "±") AS ColumnElevation'
 qcolumn_elev_unit = 'ColumnElevationUnits.DistanceUnitAbbreviation AS ColumnElevationUnitAbbreviation'
-qcolumn_description = 'ColumnDescription AS ColumnDescription'
-qcolumn_created = 'ColumnCreated AS ColumnCreated'
-qcolumn_modified = 'ColumnModified AS ColumnModified'
+qcolumn_description = 'Columns.ColumnDescription AS ColumnDescription'
+qcolumn_created = 'Columns.ColumnCreated AS ColumnCreated'
+qcolumn_modified = 'Columns.ColumnModified AS ColumnModified'
 
 # Aliquot view columns
 qaliquot_count = 'COUNT(DISTINCT Aliquots.AliquotID) AS AliquotCount'
-qaliquot_name = 'AliquotName AS AliquotName'
-qaliquots = 'REPLACE(GROUP_CONCAT(DISTINCT AliquotName), ",", "; ") AS AliquotName'
-qaliquot_parent_id = 'ParentAliquotID AS ParentAliquotID'
-qaliquot_parent_row = 'AliquotParentRow AS AliquotParentRow'
+qaliquot_name = 'Aliquots.AliquotName AS AliquotName'
+qaliquots = 'REPLACE(GROUP_CONCAT(DISTINCT Aliquots.AliquotName), ",", "; ") AS AliquotName'
+qaliquot_parent_id = 'Aliquots.ParentAliquotID AS ParentAliquotID'
+qaliquot_parent_row = 'Aliquots.AliquotParentRow AS AliquotParentRow'
 qaliquot_sample = 'Samples.SampleName AS SampleName'
-qaliquot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT AliquotContextName), ",", "; ") AS AliquotContextName'
-qaliquot_spots = 'REPLACE(GROUP_CONCAT(DISTINCT SpotName), ",", "; ") AS SpotName'
-qaliquot_spot_context = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
-qaliquot_spot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositionName), ",", "; ") AS SpotCompositionName'
+qaliquot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT AliquotContexts.AliquotContextName), ",", "; ") AS AliquotContextName'
+qaliquot_spots = 'REPLACE(GROUP_CONCAT(DISTINCT Spots.SpotName), ",", "; ") AS SpotName'
+qaliquot_spot_context = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
+qaliquot_spot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositions.SpotCompositionName), ",", "; ") AS SpotCompositionName'
 qaliquot_references = 'GROUP_CONCAT(DISTINCT ReferenceDisplay) AS UPb Reference'
-qaliquot_upb_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
-qaliquot_labs = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilityName), ",", "; ") AS LabFacilityName'
-qaliquot_description = 'AliquotDescription AS AliquotDescription'
-qaliquot_created = 'AliquotCreated AS AliquotCreated'
-qaliquot_modified = 'AliquotModified AS AliquotModified'
+qaliquot_upb_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethods.UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
+qaliquot_labs = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilties.LabFacilityName), ",", "; ") AS LabFacilityName'
+qaliquot_description = 'Aliquots.AliquotDescription AS AliquotDescription'
+qaliquot_created = 'Aliquots.AliquotCreated AS AliquotCreated'
+qaliquot_modified = 'Aliquots.AliquotModified AS AliquotModified'
 
 # Grain view columns
 qgrain_count = 'COUNT(DISTINCT Grains.GrainID) AS GrainCount'
-qgrain_name = 'GrainName AS GrainName'
-qgrains = 'REPLACE(GROUP_CONCAT(DISTINCT GrainName), ",", "; ") AS GrainName'
-qgrain_composition = 'GrainCompositionName AS GrainCompositionName'
-qgrain_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT GrainCompositionName), ",", "; ") AS GrainCompositionName'
+qgrain_name = 'Grains.GrainName AS GrainName'
+qgrains = 'REPLACE(GROUP_CONCAT(DISTINCT Grains.GrainName), ",", "; ") AS GrainName'
+qgrain_composition = 'GrainCompositions.GrainCompositionName AS GrainCompositionName'
+qgrain_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT GrainCompositions.GrainCompositionName), ",", "; ") AS GrainCompositionName'
 qgrain_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT GrainContexts.GrainContextName), ",", "; ") AS GrainContextName'
-qgrain_description = 'GrainDescription AS GrainDescription'
-qgrain_created = 'GrainCreated AS GrainCreated'
-qgrain_modified = 'GrainModified AS GrainModified'
+qgrain_description = 'Grains.GrainDescription AS GrainDescription'
+qgrain_created = 'Grains.GrainCreated AS GrainCreated'
+qgrain_modified = 'Grains.GrainModified AS GrainModified'
 
 # Spot view columns
 qspot_count = 'COUNT(DISTINCT Spots.SpotID) AS SpotCount'
 qspot_name = 'Spots.SpotName AS SpotName'
 qspots = 'REPLACE(GROUP_CONCAT(DISTINCT Spots.SpotName), ",", "; ") AS SpotName'
-qspot_composition = 'SpotCompositionName AS SpotCompositionName'
-qspot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositionName), ",", "; ") AS SpotCompositionName'
+qspot_composition = 'SpotCompositions.SpotCompositionName AS SpotCompositionName'
+qspot_compositions = 'REPLACE(GROUP_CONCAT(DISTINCT SpotCompositions.SpotCompositionName), ",", "; ") AS SpotCompositionName'
 qspot_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT SpotContexts.SpotContextName), ",", "; ") AS SpotContextName'
-qspot_description = 'SpotDescription AS SpotDescription'
-qspot_created = 'SpotCreated AS SpotCreated'
-qspot_modified = 'SpotModified AS SpotModified'
+qspot_description = 'Spots.SpotDescription AS SpotDescription'
+qspot_created = 'Spots.SpotCreated AS SpotCreated'
+qspot_modified = 'Spots.SpotModified AS SpotModified'
 
 # UPb view columns
 # qupb_count = 'SUM(CASE WHEN Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS "Accepted/TotalUPbAnalyses"'  # accepted/total
 qupb_analyses = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.UPbAnalysisName), ",", "; ") AS UPbAnalyses'
-qupb_analysis_name = 'UPbAnalysisName AS UPbAnalysisName'
+qupb_analysis_name = 'UPbAnalyses.UPbAnalysisName AS UPbAnalysisName'
 qupb_count = 'DistinctUPbAnalyses.AcceptedTotalUPbAnalyses AS "Accepted/TotalUPbAnalyses"'
 qupb_count_sample_subquery = f'''
 DistinctUPbAnalyses AS 
 (
     SELECT 
-    Samples.SampleID,
-    SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
-    FROM Samples 
-    LEFT JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID
-    LEFT JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID
-    LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
-    GROUP BY Samples.SampleID
+    lsa.SampleID,
+    SUM(CASE WHEN lspuag.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT lspuag.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
+    FROM LimitedSamplesAliquots lsa
+    LEFT JOIN LimitedSpotsUPbAnalysesGrains lspuag ON lsa.AliquotID = lspuag.AliquotID
+    GROUP BY lsa.SampleID
 )
 '''
 qupb_count_aliquot_subquery = f'''
 DistinctUPbAnalyses AS 
 (
     SELECT
-    Aliquots.AliquotID,
+    lsa.AliquotID,
     SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
-    FROM Aliquots 
-    LEFT JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID
-    LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+    FROM LimitedSamplesAliquots lsa
+    LEFT JOIN LimitedSpotsUPbAnalysesGrains lspuag ON lsa.AliquotID = lspuag.AliquotID
     GROUP BY Aliquots.AliquotID
 )
 '''
 qupb_references = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay) AS UPbReference'
-qupb_lab_facilities = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilityName), ",", "; ") AS LabFacilityName'
-qupb_instruments = 'REPLACE(GROUP_CONCAT(DISTINCT InstrumentName), ",", "; ") AS InstrumentName'
-qupb_analysis_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
+qupb_lab_facilities = 'REPLACE(GROUP_CONCAT(DISTINCT LabFacilities.LabFacilityName), ",", "; ") AS LabFacilityName'
+qupb_instruments = 'REPLACE(GROUP_CONCAT(DISTINCT Instruments.InstrumentName), ",", "; ") AS InstrumentName'
+qupb_analysis_methods = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisMethods.UPbAnalysisMethodName), ",", "; ") AS UPbAnalysisMethodName'
 qupb_204cps = 'UPbAnalyses."Pb204cps" AS "Pb204cps"'
 qupb_206cps = 'UPbAnalyses."Pb206cps" AS "Pb206cps"'
 qupb_207cps = 'UPbAnalyses."Pb207cps" AS "Pb207cps"'
@@ -247,15 +244,15 @@ qupb_calc_concordance_68v76 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207
 qupb_calc_concordance_68v75 = 'UPbAnalyses."CalculatedConcordance_206Pb/238Uv207Pb/235U" AS "Concordance_206Pb/238Uv207Pb/235U"'
 qconcordance_formats = 'REPLACE(GROUP_CONCAT(DISTINCT ConcordanceFormats.ConcordanceFormatAbbreviation), ",", "; ") AS ConcordanceFormatAbbreviation'
 qspot_size = 'UPbAnalyses.SpotSize AS SpotSize'
-qspot_sizes = f'REPLACE(GROUP_CONCAT(DISTINCT CalculatedSpotSize), ",", "; ") AS CalculatedSpotSize'
+qspot_sizes = f'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalyses.CalculatedSpotSize), ",", "; ") AS CalculatedSpotSize'
 qspot_size_unit = 'REPLACE(GROUP_CONCAT(DISTINCT SpotSizeUnits.DistanceUnitAbbreviation), ",", "; ") AS SpotSizeUnitAbbreviation'
 rejected_text = "'Rejected'"
 accepted_text = "'Accepted'"
 qupb_rejected = f'(CASE WHEN UPbAnalyses.Rejected = 1 THEN {rejected_text} ELSE {accepted_text} END) AS Rejected'
 qupb_rejection_reasons = 'REPLACE(GROUP_CONCAT(DISTINCT UPbRejectionReasons.RejectionReasonName), ",", "; ") AS RejectionReasonName'
 qupb_contexts = 'REPLACE(GROUP_CONCAT(DISTINCT UPbAnalysisContexts.UPbAnalysisContextName), ",", "; ") AS UPbAnalysisContextName'
-qupb_created = 'UPbAnalysisCreated AS UPbAnalysisCreated'
-qupb_modified = 'UPbAnalysisModified AS UPbAnalysisModified'
+qupb_created = 'UPbAnalyses.UPbAnalysisCreated AS UPbAnalysisCreated'
+qupb_modified = 'UPbAnalyses.UPbAnalysisModified AS UPbAnalysisModified'
 
 # Reference view columns
 qreference_display = 'ReferenceDisplay AS ReferenceDisplay'
@@ -276,7 +273,7 @@ sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON Sa
                         LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID = OldAge.AgeID
                         LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID = YoungAge.AgeID'''
 sampleage_age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID = SampleAges_AgeConstraints.SampleAgeID
-                        LEFT JOIN AgeConstraints ON SampleAges_AgeConstraints.AgeConstraintID = AgeConstraints.AgeConstraintID'''
+                        LEFT JOIN AgeConstraints AS SampleAgeConstraints ON SampleAges_AgeConstraints.AgeConstraintID = AgeConstraints.AgeConstraintID'''
 sampleage_age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID = SampleAges_AgeInterpretations.SampleAgeID
                         LEFT JOIN AgeInterpretations AS SampleAgeInterpretations ON SampleAges_AgeInterpretations.AgeInterpretationID = SampleAgeInterpretations.AgeInterpretationID'''
 sampleage_age_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID = SampleAges_References.SampleAgeID
@@ -362,6 +359,12 @@ upb_distinct_join_aliquot = '''LEFT JOIN DistinctUPbAnalyses ON Aliquots.Aliquot
 
 
 # Limited hierarchy joins
+limited_sample_aliquot_hierarchy_join = f'''
+                        INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON lsa.AliquotID = lspuag.AliquotID
+                        '''
+limited_spot_upb_grain_hierarchy_join = f'''
+                        INNER JOIN LimitedSamplesAliquots lsa ON lspuag.AliquotID = lsa.AliquotID
+                        '''
 limited_sample_hierarchy_join = f'''
                         JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
                         JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
@@ -395,143 +398,144 @@ limited_sample_tags = f'''
         LimitedSamples_AgeSignatures AS (
             SELECT s_ags.SampleID, ags.*
             FROM AgeSignatures ags
-            JOIN Samples_AgeSignatures s_ags ON ags.AgeSignatureID = s_ags.AgeSignatureID
-            WHERE s_ags.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_AgeSignatures s_ags ON ags.AgeSignatureID = s_ags.AgeSignatureID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_ags.SampleID = lsa.SampleID
         ),
         LimitedSamples_Regions AS (
             SELECT s_re.SampleID, re.*
             FROM Regions re
-            JOIN Samples_Regions s_re ON re.RegionID = s_re.RegionID
-            WHERE s_re.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_Regions s_re ON re.RegionID = s_re.RegionID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_re.SampleID = lsa.SampleID
         ),
         LimitedSamples_RockTypes AS (
             SELECT s_rt.SampleID, rt.*
             FROM RockTypes rt
-            JOIN Samples_RockTypes s_rt ON rt.RockTypeID = s_rt.RockTypeID
-            WHERE s_rt.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_RockTypes s_rt ON rt.RockTypeID = s_rt.RockTypeID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_rt.SampleID = lsa.SampleID
         ),
         LimitedSamples_SampleAges AS (
             SELECT s_sa.SampleID, sa.*
             FROM SampleAges sa
-            JOIN Samples_SampleAges s_sa ON sa.SampleAgeID = s_sa.SampleAgeID
-            WHERE s_sa.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_SampleAges s_sa ON sa.SampleAgeID = s_sa.SampleAgeID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_sa.SampleID = lsa.SampleID
         ),
         LimitedSampleAges_AgeConstraints AS (
             SELECT sa_ac.SampleAgeID, ac.*
             FROM AgeConstraints ac
-            JOIN SampleAges_AgeConstraints sa_ac ON ac.AgeConstraintID = sa_ac.AgeConstraintID
-            WHERE sa_ac.SampleAgeID in (SELECT SampleAgeID FROM LimitedSamples_SampleAges)
+            INNER JOIN SampleAges_AgeConstraints sa_ac ON ac.AgeConstraintID = sa_ac.AgeConstraintID
+            INNER JOIN LimitedSamples_SampleAges lssa ON sa_ac.SampleAgeID = lssa.SampleAgeID
         ),
         LimitedSampleAges_AgeInterpretations AS (
             SELECT sa_ai.SampleAgeID, ai.*
             FROM AgeInterpretations ai
-            JOIN SampleAges_AgeInterpretations sa_ai ON ai.AgeInterpretationID = sa_ai.AgeInterpretationID
-            WHERE sa_ai.SampleAgeID in (SELECT SampleAgeID FROM LimitedSamples_SampleAges)
+            INNER JOIN SampleAges_AgeInterpretations sa_ai ON ai.AgeInterpretationID = sa_ai.AgeInterpretationID
+            INNER JOIN LimitedSamples_SampleAges lssa ON sa_ai.SampleAgeID = lssa.SampleAgeID
         ),
         LimitedSampleAges_References AS (
             SELECT sa_r.SampleAgeID, r.*
             FROM "References" r
-            JOIN SampleAges_References sa_r ON r.ReferenceID = sa_r.ReferenceID
-            WHERE sa_r.SampleAgeID in (SELECT SampleAgeID FROM LimitedSamples_SampleAges)
+            INNER JOIN SampleAges_References sa_r ON r.ReferenceID = sa_r.ReferenceID
+            INNER JOIN LimitedSamples_SampleAges lssa ON sa_r.SampleAgeID = lssa.SampleAgeID
         ),
         LimitedSamples_SampleContexts AS (
             SELECT s_sc.SampleID, sc.*
             FROM SampleContexts sc
-            JOIN Samples_SampleContexts s_sc ON sc.SampleContextID = s_sc.SampleContextID
-            WHERE s_sc.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_SampleContexts s_sc ON sc.SampleContextID = s_sc.SampleContextID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_sc.SampleID = lsa.SampleID
         ),
         LimitedSamples_SamplingMethods AS (
             SELECT s_sm.SampleID, sm.*
             FROM SamplingMethods sm
-            JOIN Samples_SamplingMethods s_sm ON sm.SamplingMethodID = s_sm.SamplingMethodID
-            WHERE s_sm.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_SamplingMethods s_sm ON sm.SamplingMethodID = s_sm.SamplingMethodID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_sm.SampleID = lsa.SampleID
         ),
         LimitedSamples_Settings AS (
             SELECT s_se.SampleID, se.*
             FROM Settings se
-            JOIN Samples_Settings s_se ON se.SettingID = s_se.SettingID
-            WHERE s_se.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_Settings s_se ON se.SettingID = s_se.SettingID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_se.SampleID = lsa.SampleID
         ),
         LimitedSamples_Units AS (
             SELECT s_u.SampleID, u.*
             FROM Units u
-            JOIN Samples_Units s_u ON u.UnitID = s_u.UnitID
-            WHERE s_u.SampleID in (SELECT SampleID FROM LimitedSamples)
+            INNER JOIN Samples_Units s_u ON u.UnitID = s_u.UnitID
+            INNER JOIN LimitedSamplesAliquots lsa ON s_u.SampleID = lsa.SampleID
         )
     '''
 limited_aliquot_tags = f'''
         LimitedAliquots_AliquotContexts AS (
             SELECT a_ac.AliquotID, ac.*
             FROM AliquotContexts ac
-            JOIN Aliquots_AliquotContexts a_ac ON ac.AliquotContextID = a_ac.AliquotContextID
-            WHERE a_ac.AliquotID in (SELECT AliquotID FROM LimitedAliquots)
+            INNER JOIN Aliquots_AliquotContexts a_ac ON ac.AliquotContextID = a_ac.AliquotContextID
+            INNER JOIN LimitedSamplesAliquots lsa ON a_ac.AliquotID = lsa.AliquotID
         )
     '''
 limited_spot_tags = f'''
         LimitedSpots_SpotContexts AS (
             SELECT s_sc.SpotID, sc.*
             FROM SpotContexts sc
-            JOIN Spots_SpotContexts s_sc ON sc.SpotContextID = s_sc.SpotContextID
-            WHERE s_sc.SpotID in (SELECT SpotID FROM LimitedSpots)
+            INNER JOIN Spots_SpotContexts s_sc ON sc.SpotContextID = s_sc.SpotContextID
+            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON s_sc.SpotID = lspuag.SpotID
         ),
         LimitedGrains_GrainContexts AS (
             SELECT g_gc.GrainID, gc.*
             FROM GrainContexts gc
-            JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
-            WHERE g_gc.GrainID in (SELECT GrainID FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots))
+            INNER JOIN Grains_GrainContexts g_gc ON gc.GrainContextID = g_gc.GrainContextID
+            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON g_gc.GrainID = lspuag.GrainID
         )
     '''
 limited_upb_tags = f'''
         LimitedUPbAnalyses_UpbAnalysisContexts AS (
             SELECT ua_uac.UPbAnalysisID, ac.*
             FROM UPbAnalysisContexts ac
-            JOIN UPbAnalyses_UPbAnalysisContexts ua_uac ON ac.UPbAnalysisContextID = ua_uac.UPbAnalysisContextID
-            WHERE ua_uac.UPbAnalysisID in (SELECT UPbAnalysisID FROM LimitedUPbAnalyses)
+            INNER JOIN UPbAnalyses_UPbAnalysisContexts ua_uac ON ac.UPbAnalysisContextID = ua_uac.UPbAnalysisContextID
+            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON ua_uac.UPbAnalysisID = lspuag.UPbAnalysisID
         ),
         LimitedUPbAnalyses_RejectionReasons AS (
             SELECT ua_rr.UPbAnalysisID, rr.*
             FROM RejectionReasons rr
-            JOIN UPbAnalyses_RejectionReasons ua_rr ON rr.RejectionReasonID = ua_rr.RejectionReasonID
-            WHERE ua_rr.UPbAnalysisID in (SELECT UPbAnalysisID FROM LimitedUPbAnalyses)
+            INNER JOIN UPbAnalyses_RejectionReasons ua_rr ON rr.RejectionReasonID = ua_rr.RejectionReasonID
+            INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON ua_rr.UPbAnalysisID = lspuag.UPbAnalysisID
         )
     '''
 
 
 # Limited tag joins
 limited_sample_tags_join = f'''
-    LEFT JOIN LimitedSamples_AgeSignatures lsas ON ls.SampleID = lsas.SampleID
-    LEFT JOIN LimitedSamples_Regions lsre ON ls.SampleID = lsre.SampleID
-    LEFT JOIN LimitedSamples_RockTypes lsrt ON ls.SampleID = lsrt.SampleID
-    LEFT JOIN LimitedSamples_SampleAges lssa ON ls.DefaultSampleAgeID = lssa.SampleAgeID
-    LEFT JOIN LimitedSampleAges_AgeConstraints lsaac ON ls.DefaultSampleAgeID = lsaac.SampleAgeID
-    LEFT JOIN LimitedSampleAges_AgeInterpretations AS SampleAgeInterpretations ON ls.DefaultSampleAgeID = SampleAgeInterpretations.SampleAgeID
-    LEFT JOIN LimitedSampleAges_References AS SampleAgeReferences ON ls.DefaultSampleAgeID = SampleAgeReferences.SampleAgeID
-    LEFT JOIN LimitedSamples_SampleContexts lssc ON ls.SampleID = lssc.SampleID
-    LEFT JOIN LimitedSamples_SamplingMethods lssm ON ls.SampleID = lssm.SampleID
-    LEFT JOIN LimitedSamples_Settings lss ON ls.SampleID = lss.SampleID
-    LEFT JOIN LimitedSamples_Units lsu ON ls.SampleID = lsu.SampleID
+    LEFT JOIN LimitedSamples_AgeSignatures lsas ON lsa.SampleID = lsas.SampleID
+    LEFT JOIN LimitedSamples_Regions lsre ON lsa.SampleID = lsre.SampleID
+    LEFT JOIN LimitedSamples_RockTypes lsrt ON lsa.SampleID = lsrt.SampleID
+    LEFT JOIN LimitedSamples_SampleAges lssa ON lsa.DefaultSampleAgeID = lssa.SampleAgeID
+    LEFT JOIN LimitedSampleAges_AgeConstraints AS SampleAgeConstraints ON lsa.DefaultSampleAgeID = SampleAgeConstraints.SampleAgeID
+    LEFT JOIN LimitedSampleAges_AgeInterpretations AS SampleAgeInterpretations ON lsa.DefaultSampleAgeID = SampleAgeInterpretations.SampleAgeID
+    LEFT JOIN LimitedSampleAges_References AS SampleAgeReferences ON lsa.DefaultSampleAgeID = SampleAgeReferences.SampleAgeID
+    LEFT JOIN LimitedSamples_SampleContexts lssc ON lsa.SampleID = lssc.SampleID
+    LEFT JOIN LimitedSamples_SamplingMethods lssm ON lsa.SampleID = lssm.SampleID
+    LEFT JOIN LimitedSamples_Settings lss ON lsa.SampleID = lss.SampleID
+    LEFT JOIN LimitedSamples_Units lsu ON lsa.SampleID = lsu.SampleID
 '''
 
 limited_aliquot_tags_join = f'''
-    LEFT JOIN LimitedAliquots_AliquotContexts laac ON la.AliquotID = laac.AliquotID
+    LEFT JOIN LimitedAliquots_AliquotContexts laac ON lsa.AliquotID = laac.AliquotID
 '''
 
 limited_spot_tags_join = f'''
-    LEFT JOIN LimitedSpots_SpotContexts lspsc ON lsp.SpotID = lspsc.SpotID
-    LEFT JOIN LimitedGrains_GrainContexts lggc ON lsp.GrainID = lggc.GrainID
+    LEFT JOIN LimitedSpots_SpotContexts lspsc ON lspuag.SpotID = lspsc.SpotID
+    LEFT JOIN LimitedGrains_GrainContexts lggc ON lspuag.GrainID = lggc.GrainID
 '''
 
 limited_upb_tags_join = f'''
-    LEFT JOIN LimitedUPbAnalyses_UpbAnalysisContexts luac ON lu.UPbAnalysisID = luac.UPbAnalysisID
-    LEFT JOIN LimitedUPbAnalyses_RejectionReasons AS UPbRejectionReasons ON lu.UPbAnalysisID = UPbRejectionReasons.UPbAnalysisID
+    LEFT JOIN LimitedUPbAnalyses_UpbAnalysisContexts luac ON lspuag.UPbAnalysisID = luac.UPbAnalysisID
+    LEFT JOIN LimitedUPbAnalyses_RejectionReasons AS UPbRejectionReasons ON lspuag.UPbAnalysisID = UPbRejectionReasons.UPbAnalysisID
 '''
 
 # Dictionary for limited table abbreviations
 limited_table_abbreviations = {
-    'Samples': 'ls',
-    'Aliquots': 'la',
-    'Spots': 'lsp',
-    'UPbAnalyses': 'lu',
+    'Samples': 'lsa',
+    'Aliquots': 'lsa',
+    'Spots': 'lspuag',
+    'UPbAnalyses': 'lspuag',
+    'Grains': 'lspuag',
     'AgeSignatures': 'lsas',
     'Regions': 'lsre',
     'RockTypes': 'lsrt',
@@ -965,6 +969,7 @@ as_table_dict = {
     'DirectAgeErrorFormats': 'ErrorFormats',
     'OldAge': 'Ages',
     'YoungAge': 'Ages',
+    'SampleAgeConstraints': 'AgeConstraints',
     'SampleAgeInterpretations': 'AgeInterpretations',
     'SampleAgeReferences': 'References',
     'SampleLatDirections': 'DirectionUnits',
@@ -2012,6 +2017,11 @@ def get_join_from_table(join: str, tables: list[str]) -> str:
             case 'SampleAges':
                 if default_sample_age_join not in join and sample_sampleage_join not in join:
                     join += default_sample_age_join + '\n'
+            case 'SampleAgeConstraints':
+                if default_sample_age_join not in join and sample_sampleage_join not in join:
+                    join += sample_sampleage_join + '\n'
+                if sampleage_age_constraint_join not in join:
+                    join += sampleage_age_constraint_join + '\n'
             case 'SampleAgeInterpretations':
                 if default_sample_age_join not in join and sample_sampleage_join not in join:
                     join += sample_sampleage_join + '\n'
