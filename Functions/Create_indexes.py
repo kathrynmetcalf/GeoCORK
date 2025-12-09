@@ -588,12 +588,12 @@ def create_indexes(database=None) -> bool:
     if index_progress.wasCanceled():
         return False
 
-    if not query.exec(CREATE_SPOTS_SPOTCONTEXTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating SpotContexts index')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
-        return False
+    # if not query.exec(CREATE_SPOTS_SPOTCONTEXTS_INDEX):
+    #     logger_setup.get_logger().critical(f'Error creating SpotContexts index')
+    #     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+    #     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    #     loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+    #     return False
 
     index_count += 1
     logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
@@ -1132,12 +1132,12 @@ def create_indexes(database=None) -> bool:
         return False
 
     # Create many-to-many spot tables
-    if not query.exec(CREATE_SPOTS_SPOTCONTEXTS_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Spots_SpotsContexts index')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
-        return False
+    # if not query.exec(CREATE_SPOTS_SPOTCONTEXTS_INDEX):
+    #     logger_setup.get_logger().critical(f'Error creating Spots_SpotsContexts index')
+    #     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+    #     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    #     loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+    #     return False
 
     index_count += 1
     logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
@@ -1289,12 +1289,12 @@ def create_indexes(database=None) -> bool:
     if index_progress.wasCanceled():
         return False
 
-    if not query.exec(CREATE_SPOTS_GRAINS_COMPOSITE_INDEX):
-        logger_setup.get_logger().critical(f'Error creating Spots index')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
-        return False
+    # if not query.exec(CREATE_SPOTS_GRAINS_COMPOSITE_INDEX):
+    #     logger_setup.get_logger().critical(f'Error creating Spots index')
+    #     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+    #     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    #     loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+    #     return False
 
     index_count += 1
     logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
@@ -1322,12 +1322,12 @@ def create_indexes(database=None) -> bool:
     if index_progress.wasCanceled():
         return False
 
-    if not query.exec(CREATE_UPBANALYSES_SPOTS_COMPOSITE_INDEX):
-        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index')
-        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
-        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
-        return False
+    # if not query.exec(CREATE_UPBANALYSES_SPOTS_COMPOSITE_INDEX):
+    #     logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index')
+    #     logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+    #     logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+    #     loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+    #     return False
 
     index_count += 1
     logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')

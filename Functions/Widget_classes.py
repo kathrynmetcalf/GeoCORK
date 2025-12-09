@@ -178,7 +178,14 @@ class SQLiteTableModel(QAbstractTableModel):
                     if create_temp_id and where_ids:
                         cursor.execute(create_temp_id)
                         id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
-                        cursor.execute(f'INSERT INTO TempIds ({id_header}) VALUES ({", ".join(f"({item_id})" for item_id in where_ids)})')
+                        temp_query = f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}'
+                        logger_setup.get_logger().debug(f'Temp query: {temp_query}')
+                        try:
+                            cursor.execute(temp_query)
+                        except sqlite3.Error as e:
+                            logger_setup.get_logger().critical(f"Error creating TempTable")
+                            logger_setup.get_logger().debug(f"Error: {e}")
+                            logger_setup.get_logger().debug(f"SQL query: {query}")
                     if create_temp_paged:
                         cursor.execute(create_temp_paged)
                 elif 'TempIds' in query or 'TempPaged' in query:

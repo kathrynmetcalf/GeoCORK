@@ -43,6 +43,7 @@ def turn_on_foreign_keys(database: QSqlDatabase = QSqlDatabase()) -> bool:
             return True
         else:
             logger_setup.get_logger().critical('Failed to re-enable foreign keys')
+            logger_setup.get_logger().info(f'Foreign keys status: {query.value(0)}')
             return False
 
     return False

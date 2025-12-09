@@ -1703,7 +1703,7 @@ def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     query = QtS.QSqlQuery(database)
 
     create_sql = CREATE_SPOTS_TABLE
-    column_creation = '''SpotID INTEGER PRIMARY KEY,
+    column_creation = '''(SpotID INTEGER PRIMARY KEY,
                     SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
                     AliquotID INTEGER NOT NULL,
                     GrainID INTEGER,
@@ -2150,9 +2150,9 @@ def update_schema_v103(database: QtS.QSqlDatabase = None) -> bool:
             not_found.append(age_name)
         else:
             updated += rows
-    logger_setup.info(f'Updated {updated} ages with colors during schema update.')
+    logger_setup.get_logger().info(f'Updated {updated} ages with colors during schema update.')
     if not_found:
-        logger_setup.info(f'Could not find {len(not_found)} ages to update colors during schema update: {not_found}')
+        logger_setup.get_logger().info(f'Could not find {len(not_found)} ages to update colors during schema update: {not_found}')
     return True
 
 def populate_tables(database=None) -> bool:

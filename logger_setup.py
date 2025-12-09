@@ -7,6 +7,7 @@ from queue import Queue
 import os
 
 from PyQt6.QtCore import QSettings, QStandardPaths
+from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QMessageBox, QApplication
 
 import Savepoint_manager
@@ -183,6 +184,8 @@ def log_uncaught_exceptions(exc_type, exc_value, exc_tb):
                 _logger.critical("Active savepoints detected during crash, attempting to close application gracefully.")
                 if len(savepoint_manager.active_savepoints_names > 0):
                     Savepoint_manager.rollback_savepoint[savepoint_manager.active_savepoints_names()[0]]
+                QSqlDatabase().commit()
+                QSqlDatabase().close()
 
         QApplication.quit()  # stops event loop
     except Exception:
