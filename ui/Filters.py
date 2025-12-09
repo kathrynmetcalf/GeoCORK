@@ -369,122 +369,215 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
 
 def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
     """
-    Build SQL for age-aware conditions on SampleAges.*
+    Build SQL for age-aware conditions on SampleAges.*, supporting:
+      - SampleAges (no Direct/Relative toggle → always use CalculatedDirectAge)
+      - OldestAge (Direct / Relative / Both)
+      - YoungestAge (Direct / Relative / Both)
 
-    Supports three modes via condition['datatype']:
-        - 'relativeage' : use Ages.AgeName -> SampleAges.*AgeID
-        - 'directage'   : use SampleAges.CalculatedAge (numeric)
-        - 'bothage'/'ages': OR of relative + direct, and
-                            'Holocene' also maps to its numeric bounds.
+    Matches the 10 core cases in SampleAgesSqlQueries.txt:
+      • SampleAges: geologic / numeric
+      • OldestAge  (Direct): geologic / numeric
+      • YoungestAge(Direct): geologic / numeric
+      • OldestAge  (Relative): geologic / numeric
+      • YoungestAge(Relative): geologic / numeric
+      (Both-age mode is implemented as OR of Direct + Relative semantics.)
     """
-    field_key: str = condition["field"].replace(" ", "")
-    value = condition["value"]
-    operator_raw: str = condition["operator"].lower()
-    mode: str = condition["datatype"]  # 'relativeage', 'directage', 'bothage', 'ages'
 
-    # Expect SampleAges.[SampleAge|SampleAgeOldest|SampleAgeYoungest]
-    if "." not in field_key:
-        raise ValueError(f"Age datatype used on non-qualified field: {field_key}")
+    field_key: str = condition["field"].replace(" ", "")
+    raw_value = str(condition["value"]).strip()
+    operator_raw: str = condition["operator"].lower()
+    mode: str = condition["datatype"]   # 'relativeage', 'directage', 'bothage', 'ages'
 
     table, col = field_key.split(".")
-    attr = col.strip("[]")
+    attr = col.strip("[]")  # 'SampleAge', 'OldestAge', 'YoungestAge', etc.
 
-    # Map to AgeID columns on SampleAges
+    # ----------------- Column mapping -----------------
+    # NOTE:
+    #   - SampleAges "no option between direct or relative" → CalculatedDirectAge only
+    #   - OldestAge / YoungestAge get both an AgeID column and a Calculated*DirectAge column
     if attr == "SampleAgeOldest":
         ageid_col = f"{table}.[OldestAgeID]"
-        direct_age_col = f"{table}.[OldestDirectAge]"
+        direct_col = f"{table}.[CalculatedOldestDirectAge]"
     elif attr == "SampleAgeYoungest":
         ageid_col = f"{table}.[YoungestAgeID]"
-        direct_age_col = f"{table}.[YoungestDirectAge]"
-    elif attr == "SampleAge":
-        # Adjust if your schema uses a different name
-        ageid_col = f"{table}.[SampleAgeID]"
-        direct_age_col = f"{table}.[DirectAge]"
+        direct_col = f"{table}.[CalculatedYoungestDirectAge]"
     else:
-        # Fallback – treat this as holding an AgeID already
-        ageid_col = f"{table}.[{attr}]"
+        # Generic SampleAge case (no Direct/Relative toggle – just use CalculatedDirectAge)
+        ageid_col = None
+        direct_col = f"{table}.[CalculatedDirectAge]"
 
-    clauses: List[str] = []
-
-    def is_float_literal(text: str) -> bool:
+    # ----------------- Helpers -----------------
+    def is_number(text: str) -> bool:
         try:
             float(text)
             return True
-        except (TypeError, ValueError):
+        except Exception:
             return False
 
-    is_numeric = is_float_literal(value)
+    def map_numeric_op(col: str, num: float) -> str:
+        """
+        Apply the usual numeric operators to a *direct* age column.
+        Mirrors the non-age numeric operator behaviour where reasonable.
+        """
+        if operator_raw in {"is", "is on"}:
+            return f"{col} = {num}"
+        elif operator_raw in {"is not"}:
+            return f"{col} != {num}"
+        elif operator_raw == "is less than":
+            return f"{col} < {num}"
+        elif operator_raw == "is greater than":
+            return f"{col} > {num}"
+        elif operator_raw == "is blank":
+            return f"{col} IS NULL"
+        elif operator_raw == "is not blank":
+            return f"{col} IS NOT NULL"
+        elif operator_raw in {"is between", "is not between"}:
+            parts = [p.strip() for p in raw_value.split(",")]
+            if len(parts) != 2 or not all(is_number(p) for p in parts):
+                raise ValueError(f"Range operator requires two numbers, got: {raw_value}")
 
-    if mode in {"relativeage", "bothage", "ages"} and not is_numeric:
+            lower = float(parts[0])
+            upper = float(parts[1])
+            if lower > upper:
+                lower, upper = upper, lower
 
-        # 1a. Exact AgeName match
-        clauses.append(
-            f"{ageid_col} = (SELECT AgeID FROM Ages "
-            f"WHERE AgeName = '{value}' COLLATE NOCASE)"
-        )
+            if operator_raw == "is between":
+                return f"{col} >= {lower} AND {col} <= {upper}"
+            else:  # "is not between"
+                return f"{col} < {lower} OR {col} > {upper}"
 
-        # 1b. ALSO check the *other* AgeID column (Oldest vs Youngest)
-        if "Oldest" in ageid_col:
-            other_col = f"{table}.[YoungestAgeID]"
-        elif "Youngest" in ageid_col:
-            other_col = f"{table}.[OldestAgeID]"
-        else:
-            other_col = None
+        # Fallback: treat as equality
+        return f"{col} = {num}"
 
-        if other_col:
-            clauses.append(
-                f"{other_col} = (SELECT AgeID FROM Ages "
-                f"WHERE AgeName = '{value}' COLLATE NOCASE)"
-            )
-
-        # ===========================================================
-        # 1c. Direct numeric match of the same age interval
-        #     Holocene → CalculatedAge BETWEEN youngest AND oldest
-        # ===========================================================
-        clauses.append(
-            f"{direct_age_col} BETWEEN "
-            f"(SELECT OldestAge FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE) "
+    def direct_geologic_range(col: str, age_name: str) -> str:
+        """
+        [Calculated*DirectAge] BETWEEN Ages.YoungestAge AND Ages.OldestAge
+        for a given geologic age name.
+        """
+        return (
+            f"{col} BETWEEN "
+            f"(SELECT YoungestAge FROM Ages WHERE AgeName='{age_name}' COLLATE NOCASE) "
             f"AND "
-            f"(SELECT YoungestAge  FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE)"
+            f"(SELECT OldestAge FROM Ages WHERE AgeName='{age_name}' COLLATE NOCASE)"
         )
 
-        # ===============================================================
-        # 2) DIRECT-AGE LOGIC (value is numeric)
-        # ===============================================================
+    def relative_numeric_interval(ageid_column: str, num: float) -> str:
+        """
+        140 BETWEEN Ages.YoungestAge AND Ages.OldestAge
+        where Ages.AgeID = SampleAges.OldestAgeID / YoungestAgeID.
+
+        Implemented via correlated subqueries so we don't need an explicit JOIN
+        in the auto-generated SQL.
+        """
+        return (
+            f"{num} BETWEEN "
+            f"(SELECT YoungestAge FROM Ages WHERE AgeID = {ageid_column}) "
+            f"AND "
+            f"(SELECT OldestAge FROM Ages WHERE AgeID = {ageid_column})"
+        )
+
+    def relative_geologic_id_match(ageid_column: str, age_name: str) -> str:
+        """
+        YoungestAge geologic (relative): AgeID match
+          DefaultSampleAges.[YoungestAgeID] = (SELECT AgeID FROM Ages WHERE AgeName='Quaternary' ...)
+        """
+        return (
+            f"{ageid_column} = "
+            f"(SELECT AgeID FROM Ages WHERE AgeName='{age_name}' COLLATE NOCASE)"
+        )
+
+    is_numeric = is_number(raw_value)
+    clauses: List[str] = []
+
+    # ----------------- CASE 1–2: SampleAges (mode 'ages') -----------------
+    # SampleAges has no Direct/Relative toggle – always use CalculatedDirectAge
+    #   Case SampleAges is geologic age entry
+    #   Case SampleAges is numerical entry
+    if mode == "ages" or (ageid_col is None and mode in {"directage", "relativeage", "bothage"}):
+        if is_numeric:
+            num = float(raw_value)
+            clauses.append(map_numeric_op(direct_col, num))
+        else:
+            clauses.append(direct_geologic_range(direct_col, raw_value))
+
+        cond_sql = " OR ".join(f"({c})" for c in clauses)
+        return cond_sql, [], field_key
+
+    # ----------------- DIRECT MODE: Oldest / Youngest -----------------
+    if mode == "directage":
+        # OldestAges is set to Direct, search by CalculatedOldestDirectAge
+        #   geologic entry → BETWEEN (YoungestAge, OldestAge) for AgeName
+        #   numeric entry  → direct numeric comparison
+        #
+        # YoungestAge is set to Direct, search by CalculatedYoungestDirectAge
+        if is_numeric:
+            num = float(raw_value)
+            clauses.append(map_numeric_op(direct_col, num))
+        else:
+            clauses.append(direct_geologic_range(direct_col, raw_value))
+
+        cond_sql = " OR ".join(f"({c})" for c in clauses)
+        return cond_sql, [], field_key
+
+    # ----------------- RELATIVE MODE: Oldest / Youngest -----------------
+    if mode == "relativeage":
+        # OldestAges is set to Relative
+        #   geologic entry (as in spec): use CalculatedOldestDirectAge BETWEEN range
+        #   numeric entry: 140 BETWEEN Ages.YoungestAge AND Ages.OldestAge
+        #                  where Ages.AgeID = sa.OldestAgeID
+        #
+        # YoungestAge is set to Relative
+        #   geologic entry: YoungestAgeID = (AgeID for AgeName)
+        #   numeric entry:  140 BETWEEN Ages.YoungestAge AND Ages.OldestAge
+        #                   where Ages.AgeID = sa.YoungestAgeID
+        if is_numeric:
+            num = float(raw_value)
+            if ageid_col is not None:
+                clauses.append(relative_numeric_interval(ageid_col, num))
+            else:
+                # Fallback: if no AgeID column (unexpected), behave like direct numeric
+                clauses.append(map_numeric_op(direct_col, num))
+        else:
+            clauses.append(relative_geologic_id_match(ageid_col, raw_value))
+
+        cond_sql = " OR ".join(f"({c})" for c in clauses)
+        return cond_sql, [], field_key
+
+    # ----------------- BOTH MODE: combine Direct + Relative semantics -----------------
+    # Not part of the original 10 examples, but implemented as:
+    #   (Direct-style clause) OR (Relative-style clause)
+    if mode == "bothage":
+        # Direct component
+        if is_numeric:
+            num = float(raw_value)
+            direct_clause = map_numeric_op(direct_col, num)
+        else:
+            direct_clause = direct_geologic_range(direct_col, raw_value)
+
+        # Relative component
+        if is_numeric and ageid_col is not None:
+            rel_clause = relative_numeric_interval(ageid_col, float(raw_value))
+        elif not is_numeric and ageid_col is not None:
+            # For BOTH + geologic, follow your "Both" examples:
+            #   (Calculated*DirectAge BETWEEN range) OR (AgeID match)
+            rel_clause = relative_geologic_id_match(ageid_col, raw_value)
+        else:
+            # Fallback: no AgeID – just reuse direct behaviour
+            rel_clause = direct_clause
+
+        clauses.extend([direct_clause, rel_clause])
+        cond_sql = " OR ".join(f"({c})" for c in clauses)
+        return cond_sql, [], field_key
+
+    # ----------------- Fallback (should not normally hit) -----------------
+    # Default to direct numeric / geologic semantics if mode is unexpected.
     if is_numeric:
+        clauses.append(map_numeric_op(direct_col, float(raw_value)))
+    else:
+        clauses.append(direct_geologic_range(direct_col, raw_value))
 
-        num = float(value)
-
-        # 2a. Direct numeric comparison
-        if mode in {"directage", "bothage", "ages"}:
-            if operator_raw in {"is", "is on"}:
-                clauses.append(f"{direct_age_col} = {num}")
-            elif operator_raw == "is not":
-                clauses.append(f"{direct_age_col} != {num}")
-            elif operator_raw == "is less than":
-                clauses.append(f"{direct_age_col} < {num}")
-            elif operator_raw == "is greater than":
-                clauses.append(f"{direct_age_col} > {num}")
-
-        # ===============================================================
-        # 2b. Numeric falls inside *any* age interval (reverse lookup)
-        #     e.g. 0.5 → find any Ages containing 0.5 Ma
-        # ===============================================================
-        if mode in {"relativeage", "bothage", "ages"}:
-            clauses.append(
-                f"{ageid_col} IN (SELECT AgeID FROM Ages "
-                f"WHERE {num} BETWEEN YoungestAge AND OldestAge)"
-            )
-
-        # ===============================================================
-        # Final SQL
-        # ===============================================================
-    if not clauses:
-        raise ValueError(f"No age-clause produced for: {condition}")
-
-    sql = " OR ".join(f"({c})" for c in clauses)
-
-    return sql, [], field_key
+    cond_sql = " OR ".join(f"({c})" for c in clauses)
+    return cond_sql, [], field_key
 
 
 def _collapse_same_field_basic(conds: List[str], expected_count: int) -> str:
@@ -825,7 +918,7 @@ class RuleWidget(QWidget):
         Slot to change the operator combobox values based on the current text of attribute combo.
         """
         if (self.table_combo.currentText() == 'SampleAges' and
-                self.attribute_combo.currentText() in ("SampleAge", "SampleAgeOldest", "sampleAgeYoungest")):
+                self.attribute_combo.currentText() in ("SampleAgeOldest", "SampleAgeYoungest")):
             self.age_type_combo.setVisible(True)
             # Optionally set default to "Both"
             idx = self.age_type_combo.findText("Both")
@@ -835,7 +928,7 @@ class RuleWidget(QWidget):
             self.age_type_combo.setVisible(False)
 
         if (self.table_combo.currentText() == 'SampleAges' and
-            self.attribute_combo.currentText() in ("SampleAge", "SampleAgeOldest", "sampleAgeYoungest")):
+            self.attribute_combo.currentText() in ("SampleAge", "SampleAgeOldest", "SampleAgeYoungest")):
             operator_items = [
                 "is",
                 "is not",
@@ -850,8 +943,6 @@ class RuleWidget(QWidget):
             ]
             self.operator_combo.clear()
             self.operator_combo.addItems(operator_items)
-            self.age_type_combo.setVisible(True)
-            # Optionally set default to "Both"
             idx = self.age_type_combo.findText("Both")
             if idx >= 0:
                 self.age_type_combo.setCurrentIndex(idx)
