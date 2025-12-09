@@ -1667,9 +1667,6 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
 
     logger_setup.get_logger().info(
         f'Updating database schema from version {version} to {settings.value('default_geocork_version')}')
-    # Grain tables added automatically in Create_database.py
-    # Add empty GrainID column to Spots table
-    # Add UPbAnalysisName column to UPbAnalyses table and populate with SpotName
 
     backup_file = Database_manager.backup_database(database)
 
@@ -1684,7 +1681,7 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
                                 QMessageBox.StandardButton.Ok,
                                 defaultButton=QMessageBox.StandardButton.Ok)
 
-    if version == 'v1.0.0' or version == '1.0.0':
+    if version == 'v1.0.0' or version == 'v1.1.0' or version == '1.0.0':
         if not update_schema_v101(database):
             return backup_file
         version = 'v1.0.1'
@@ -1698,12 +1695,32 @@ def update_schema(version: str, database: QtS.QSqlDatabase = None) -> str:
 
 def update_schema_v101(database: QtS.QSqlDatabase = None) -> bool:
     # Update from version 1.0.0 to 1.0.1
+    # Grain tables added automatically in Create_database.py
+    # Add empty GrainID column to Spots table
+    # Add UPbAnalysisName column to UPbAnalyses table and populate with SpotName
 
     create_savepoint('before_schema_update')
     query = QtS.QSqlQuery(database)
 
     create_sql = CREATE_SPOTS_TABLE
-    column_creation = create_sql.split(f'CREATE TABLE IF NOT EXISTS Spots')[1]
+    column_creation = '''SpotID INTEGER PRIMARY KEY,
+                    SpotName TEXT NOT NULL CHECK (SpotName <> ''), 
+                    AliquotID INTEGER NOT NULL,
+                    GrainID INTEGER,
+                    SpotCompositionID INTEGER,
+                    SpotCreated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    SpotModified DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (SpotName COLLATE NOCASE, AliquotID),
+                    FOREIGN KEY(AliquotID) REFERENCES Aliquots(AliquotID)
+                        ON UPDATE CASCADE
+                        ON DELETE CASCADE,
+                    FOREIGN KEY(SpotCompositionID) REFERENCES SpotCompositions(SpotCompositionID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL,
+                    FOREIGN KEY(GrainID) REFERENCES Grains(GrainID)
+                        ON UPDATE CASCADE
+                        ON DELETE SET NULL
+                    )'''
     if not query.exec(f'CREATE TABLE IF NOT EXISTS Spots_new{column_creation}'):
         logger_setup.get_logger().debug(f"Failed to create new Spots table")
         logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")

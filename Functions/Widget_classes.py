@@ -178,7 +178,7 @@ class SQLiteTableModel(QAbstractTableModel):
                     if create_temp_id and where_ids:
                         cursor.execute(create_temp_id)
                         id_header = create_temp_id.split('TempIDs (')[1].split(' ')[0].strip()
-                        cursor.execute(f'INSERT INTO TempIds ({id_header}) VALUES {", ".join(f"({item_id})" for item_id in where_ids)}')
+                        cursor.execute(f'INSERT INTO TempIds ({id_header}) VALUES ({", ".join(f"({item_id})" for item_id in where_ids)})')
                     if create_temp_paged:
                         cursor.execute(create_temp_paged)
                 elif 'TempIds' in query or 'TempPaged' in query:

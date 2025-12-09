@@ -118,7 +118,9 @@ def update_database(database=None) -> bool:
         loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
 
-    query = QSqlQuery(db=db)
+    if database is None:
+        database = QSqlDatabase.database()
+    query = QSqlQuery(db=database)
 
     '''Backup database before any changes.
     Restore the backup before returning if the update fails'''
@@ -170,14 +172,14 @@ def update_database(database=None) -> bool:
             loading_manager.close_loading_dialog('Loading', 'Updating database...')
             for widget in QApplication.allWidgets():
                 if widget.objectName() == 'LandingPage':
-                    widget.restore_backup(db.databaseName(), backup_file)
+                    widget.restore_backup(database.databaseName(), backup_file)
                     return False
 
     if not turn_on_foreign_keys():
         loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
 
-    if not Create_db.create_tables(db):
+    if not Create_db.create_tables(database):
         logger_setup.get_logger().critical(f"Error creating database tables")
         loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
@@ -194,14 +196,14 @@ def update_database(database=None) -> bool:
         return False
 
     # Drop and regenerate the generated columns
-    if not Alter_db.settings_reset(db):
+    if not Alter_db.settings_reset(database):
         logger_setup.get_logger().critical(f"Error resetting settings")
         loading_manager.close_loading_dialog('Loading', 'Updating database...')
         return False
     end_time = time.time()
     loading_manager.close_loading_dialog('Loading', 'Updating database...')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")
-    db.commit()
+    database.commit()
 
     '''Delete backup made at the beginning of the update if it exists'''
 

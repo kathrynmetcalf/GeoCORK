@@ -44,6 +44,8 @@ CREATE_ALIQUOTS_ALIQUOTCONTEXT_INDEX = '''
 
 CREATE_ALIQUOTS_SAMPLES_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Aliquots_SampleID ON Aliquots(SampleID)'''
 
+CREATE_ALIQUOTS_SAMPLES_COMPOSITE_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Aliquots_AliquotID_SampleID ON Aliquots(SampleID, AliquotID, AliquotName)'''
+
 CREATE_COLUMNS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Columns_ColumnID ON Columns(ColumnID)'''
 
@@ -173,10 +175,11 @@ CREATE_SPOT_CONTEXT_INDEX = '''
 CREATE_SPOTS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Spots_SpotID ON Spots(SpotID)'''
 
-CREATE_SPOTS_SPOTCONTEXTS_INDEX = '''
-                    CREATE INDEX IF NOT EXISTS idx_Spots_SpotContexts_SpotID ON Spots_SpotContexts(SpotID)'''
-
 CREATE_SPOTS_ALIQUOTS_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Spots_AliquotID ON Spots(AliquotID)'''
+
+CREATE_SPOTS_ALIQUOTS_COMPOSITE_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Spots_SpotID_AliquotID ON Spots(AliquotID, SpotID)'''
+
+CREATE_SPOTS_GRAINS_INDEX = '''CREATE INDEX IF NOT EXISTS idx_Spots_GrainsID ON Spots(GrainID)'''
 
 CREATE_UNITS_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_Units_UnitID ON Units(UnitID)'''
@@ -200,6 +203,11 @@ CREATE_UPBANALYSES_UPBANALYSISMETHODS_INDEX = '''CREATE INDEX IF NOT EXISTS idx_
 CREATE_UPBANALYSIS_METHOD_INDEX = '''
                     CREATE INDEX IF NOT EXISTS idx_UPbAnalysisMethods_UPbAnalysisMethodID ON UPbAnalysisMethods(UPbAnalysisMethodID)'''
 
+CREATE_UPBANALYSIS_CONTEXT_INDEX = '''CREATE INDEX IF NOT EXISTS idx_UPbAnalysisContexts_UPbAnalysisContextID ON UPbAnalysisContexts(UPbAnalysisContextID)'''
+
+CREATE_UPBANALYSES_UPBANALYSISCONTEXTS_INDEX = '''
+                    CREATE INDEX IF NOT EXISTS idx_UPbAnalyses_UPbAnalysisContexts_UPbAnalysisContextID ON UPbAnalyses_UpbAnalysisContexts(UPbAnalysisContextID)'''
+
 
 def create_indexes(database=None) -> bool:
     """
@@ -214,14 +222,19 @@ def create_indexes(database=None) -> bool:
     """
     loading_manager = LoadingDialogManager.get_instance()
     start_time = time.time()
+
+    if not drop_all_indexes(database):
+        return False
+
     logger_setup.get_logger().info('Creating database indexes')
     if database is None:
         query = QtSql.QSqlQuery()
     else:
         query = QtSql.QSqlQuery(database)
 
+    total_indexes = 68
     index_count = 0
-    index_progress = QProgressDialog('Indexing database...', 'Cancel', 0, 58, loading_manager.dialog)
+    index_progress = QProgressDialog('Indexing database...', 'Cancel', 0, total_indexes, loading_manager.dialog)
     index_progress.setMinimumDuration(0)
 
     index_progress.setValue(index_count + 1)
@@ -244,7 +257,7 @@ def create_indexes(database=None) -> bool:
             return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -260,7 +273,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -277,7 +290,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -294,7 +307,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -311,7 +324,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -328,7 +341,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -345,7 +358,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -362,7 +375,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -379,7 +392,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -396,7 +409,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -413,7 +426,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -430,7 +443,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -447,7 +460,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -464,7 +477,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -481,7 +494,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -498,13 +511,48 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
     # If the user clicked "Cancel", we can break out
     if index_progress.wasCanceled():
         return False
+
+
+    if not query.exec(CREATE_UPBANALYSIS_CONTEXT_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+
+    if not query.exec(CREATE_UPBANALYSES_UPBANALYSISCONTEXTS_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
 
     # Create spot tag tables
     if not query.exec(CREATE_SPOT_COMPOSITIONS_INDEX):
@@ -515,7 +563,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -532,7 +580,23 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+    if not query.exec(CREATE_SPOTS_SPOTCONTEXTS_INDEX):
+        logger_setup.get_logger().critical(f'Error creating SpotContexts index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -549,7 +613,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -566,7 +630,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -583,7 +647,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -600,7 +664,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -617,7 +681,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -634,7 +698,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -651,7 +715,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -668,7 +732,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -685,7 +749,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -701,6 +765,16 @@ def create_indexes(database=None) -> bool:
         loading_manager.close_loading_dialog('Loading', 'Indexing database...')
         return False
 
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+
     if not query.exec(CREATE_SAMPLE_CONTEXT_INDEX):
         logger_setup.get_logger().critical(f'Error creating SampleContexts index')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -709,7 +783,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -727,7 +801,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -745,7 +819,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -762,7 +836,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -779,7 +853,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -796,7 +870,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -813,7 +887,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -830,7 +904,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -847,7 +921,23 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+    if not query.exec(CREATE_ALIQUOTS_SAMPLES_COMPOSITE_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Aliquots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -863,6 +953,15 @@ def create_indexes(database=None) -> bool:
         loading_manager.close_loading_dialog('Loading', 'Indexing database...')
         return False
 
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
     if not query.exec(CREATE_UPBANALYSES_INDEX):
         logger_setup.get_logger().critical(f'Error creating UPbAnalyses index')
         logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
@@ -871,7 +970,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -888,7 +987,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -905,7 +1004,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -922,7 +1021,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -939,7 +1038,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -956,7 +1055,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -973,7 +1072,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -990,7 +1089,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1007,7 +1106,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1024,7 +1123,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1041,7 +1140,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1059,7 +1158,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1076,7 +1175,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1093,7 +1192,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1110,7 +1209,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1130,7 +1229,7 @@ def create_indexes(database=None) -> bool:
             return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1150,7 +1249,55 @@ def create_indexes(database=None) -> bool:
             return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+    if not query.exec(CREATE_SPOTS_ALIQUOTS_COMPOSITE_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Spots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+    if not query.exec(CREATE_SPOTS_GRAINS_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Spots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+    if not query.exec(CREATE_SPOTS_GRAINS_COMPOSITE_INDEX):
+        logger_setup.get_logger().critical(f'Error creating Spots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1167,7 +1314,23 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
+    index_progress.setValue(index_count + 1)
+    # Let the event loop process the dialog's updates
+    QApplication.processEvents()
+    # If the user clicked "Cancel", we can break out
+    if index_progress.wasCanceled():
+        return False
+
+    if not query.exec(CREATE_UPBANALYSES_SPOTS_COMPOSITE_INDEX):
+        logger_setup.get_logger().critical(f'Error creating UPbAnalyses_Spots index')
+        logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+        logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+        loading_manager.close_loading_dialog('Loading', 'Indexing database...')
+        return False
+
+    index_count += 1
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1184,7 +1347,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1201,7 +1364,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1218,7 +1381,7 @@ def create_indexes(database=None) -> bool:
         return False
 
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
     index_progress.setValue(index_count + 1)
     # Let the event loop process the dialog's updates
     QApplication.processEvents()
@@ -1234,7 +1397,7 @@ def create_indexes(database=None) -> bool:
         loading_manager.close_loading_dialog('Loading', 'Indexing database...')
         return False
     index_count += 1
-    logger_setup.get_logger().info(f'Indexing progress: {index_count}/58')
+    logger_setup.get_logger().info(f'Indexing progress: {index_count}/{total_indexes}')
 
     end_time = time.time()
     logger_setup.get_logger().info(f'Database indexes created in {end_time - start_time} seconds')
@@ -1256,30 +1419,50 @@ def drop_all_indexes(database=None) -> bool:
     start_time = time.time()
     logger_setup.get_logger().info('Dropping all database indexes')
     if database is None:
-        query = QtSql.QSqlQuery()
-    else:
-        query = QtSql.QSqlQuery(database)
+        database = QtSql.QSqlDatabase.database()
 
     # Fetch all index names from sqlite_master
-    if not query.exec("SELECT name FROM sqlite_master WHERE type='index'"):
-        logger_setup.get_logger().critical(f"Failed to list indexes: {query.lastError().text()}")
+    select_indexes = "SELECT name FROM sqlite_master WHERE type='index'"
+    try:
+        conn = sqlite3.connect(database.databaseName())
+        with conn:
+            cursor = conn.cursor()
+            cursor.execute(select_indexes)
+            index_names = cursor.fetchall()
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger_setup.get_logger().critical(f"Error resetting indexes")
+        logger_setup.get_logger().debug(f'Error retrieving indexes: {e}')
+        logger_setup.get_logger().debug(f'SQL query: {select_indexes}')
         return False
-
-    index_names = []
-    while query.next():
-        if 'sqlite' not in query.value(0):
-            index_names.append(query.value(0))
 
     # Drop each index
     for idx_name in index_names:
-        drop_statement = f"DROP INDEX IF EXISTS [{idx_name}]"
-        if not query.exec(drop_statement):
-            logger_setup.get_logger().critical(f"Error dropping index '{idx_name}'")
-            logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
-            logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        if 'sqlite_autoindex' in idx_name[0]:
+            continue
+        drop_statement = f"DROP INDEX IF EXISTS {idx_name[0]}"
+
+        try:
+            conn = sqlite3.connect(database.databaseName())
+            with conn:
+                cursor = conn.cursor()
+                cursor.execute(drop_statement)
+            conn.commit()
+            conn.close()
+            logger_setup.get_logger().info(f'Dropped index {idx_name[0]}')
+        except sqlite3.Error as e:
+            logger_setup.get_logger().critical(f"Error resetting indexes")
+            logger_setup.get_logger().debug(f'Error dropping index {idx_name[0]}: {e}')
+            logger_setup.get_logger().debug(f'SQL query: {drop_statement}')
             return False
-        else:
-            logger_setup.get_logger().debug(f"Successfully dropped index '{idx_name}'")
+        # if not query.exec(drop_statement):
+        #     logger_setup.get_logger().critical(f"Error dropping index '{idx_name}'")
+        #     logger_setup.get_logger().debug(f"Error: {query.lastError().text()}")
+        #     logger_setup.get_logger().debug(f"SQL query: {query.lastQuery()}")
+        #     return False
+        # else:
+        #     logger_setup.get_logger().debug(f"Successfully dropped index '{idx_name}'")
 
     end_time = time.time()
     logger_setup.get_logger().info(f'Database indexes dropped in {end_time - start_time} seconds')
