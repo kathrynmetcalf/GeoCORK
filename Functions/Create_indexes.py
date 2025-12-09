@@ -223,8 +223,9 @@ def create_indexes(database=None) -> bool:
     loading_manager = LoadingDialogManager.get_instance()
     start_time = time.time()
 
-    if not drop_all_indexes(database):
-        return False
+    # BROKEN DO NOT USE
+    # if not drop_all_indexes(database):
+    #     return False
 
     logger_setup.get_logger().info('Creating database indexes')
     if database is None:

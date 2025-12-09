@@ -10,9 +10,8 @@ from PyQt6.QtCore import QSettings, QStandardPaths
 from PyQt6.QtSql import QSqlDatabase
 from PyQt6.QtWidgets import QMessageBox, QApplication
 
-import Savepoint_manager
+from Functions.Savepoint_manager import SavepointManager
 from Functions.Settings_manager import SettingsManager
-from Savepoint_manager import SavepointManager
 
 settings = SettingsManager().settings
 from tzlocal import get_localzone
