@@ -202,6 +202,9 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     operator_raw: str = condition["operator"].lower()
     datatype: str = condition["datatype"]
 
+    if datatype in {"relativeage", "directage", "bothage", "ages"}:
+        return _build_age_condition(condition)
+
     operator_sql: str | List[str]
     # ---------- operator mapping (trimmed to the set used in UI) ----------
     if operator_raw in {"is", "is on"}:
@@ -363,6 +366,125 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
             cond_sql = f"{field_key} {operator_sql} '{value}'"
 
     return cond_sql, [], field_key
+
+def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
+    """
+    Build SQL for age-aware conditions on SampleAges.*
+
+    Supports three modes via condition['datatype']:
+        - 'relativeage' : use Ages.AgeName -> SampleAges.*AgeID
+        - 'directage'   : use SampleAges.CalculatedAge (numeric)
+        - 'bothage'/'ages': OR of relative + direct, and
+                            'Holocene' also maps to its numeric bounds.
+    """
+    field_key: str = condition["field"].replace(" ", "")
+    value = condition["value"]
+    operator_raw: str = condition["operator"].lower()
+    mode: str = condition["datatype"]  # 'relativeage', 'directage', 'bothage', 'ages'
+
+    # Expect SampleAges.[SampleAge|SampleAgeOldest|SampleAgeYoungest]
+    if "." not in field_key:
+        raise ValueError(f"Age datatype used on non-qualified field: {field_key}")
+
+    table, col = field_key.split(".")
+    attr = col.strip("[]")
+
+    # Map to AgeID columns on SampleAges
+    if attr == "SampleAgeOldest":
+        ageid_col = f"{table}.[OldestAgeID]"
+        direct_age_col = f"{table}.[OldestDirectAge]"
+    elif attr == "SampleAgeYoungest":
+        ageid_col = f"{table}.[YoungestAgeID]"
+        direct_age_col = f"{table}.[YoungestDirectAge]"
+    elif attr == "SampleAge":
+        # Adjust if your schema uses a different name
+        ageid_col = f"{table}.[SampleAgeID]"
+        direct_age_col = f"{table}.[DirectAge]"
+    else:
+        # Fallback – treat this as holding an AgeID already
+        ageid_col = f"{table}.[{attr}]"
+
+    clauses: List[str] = []
+
+    def is_float_literal(text: str) -> bool:
+        try:
+            float(text)
+            return True
+        except (TypeError, ValueError):
+            return False
+
+    is_numeric = is_float_literal(value)
+
+    if mode in {"relativeage", "bothage", "ages"} and not is_numeric:
+
+        # 1a. Exact AgeName match
+        clauses.append(
+            f"{ageid_col} = (SELECT AgeID FROM Ages "
+            f"WHERE AgeName = '{value}' COLLATE NOCASE)"
+        )
+
+        # 1b. ALSO check the *other* AgeID column (Oldest vs Youngest)
+        if "Oldest" in ageid_col:
+            other_col = f"{table}.[YoungestAgeID]"
+        elif "Youngest" in ageid_col:
+            other_col = f"{table}.[OldestAgeID]"
+        else:
+            other_col = None
+
+        if other_col:
+            clauses.append(
+                f"{other_col} = (SELECT AgeID FROM Ages "
+                f"WHERE AgeName = '{value}' COLLATE NOCASE)"
+            )
+
+        # ===========================================================
+        # 1c. Direct numeric match of the same age interval
+        #     Holocene → CalculatedAge BETWEEN youngest AND oldest
+        # ===========================================================
+        clauses.append(
+            f"{direct_age_col} BETWEEN "
+            f"(SELECT OldestAge FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE) "
+            f"AND "
+            f"(SELECT YoungestAge  FROM Ages WHERE AgeName = '{value}' COLLATE NOCASE)"
+        )
+
+        # ===============================================================
+        # 2) DIRECT-AGE LOGIC (value is numeric)
+        # ===============================================================
+    if is_numeric:
+
+        num = float(value)
+
+        # 2a. Direct numeric comparison
+        if mode in {"directage", "bothage", "ages"}:
+            if operator_raw in {"is", "is on"}:
+                clauses.append(f"{direct_age_col} = {num}")
+            elif operator_raw == "is not":
+                clauses.append(f"{direct_age_col} != {num}")
+            elif operator_raw == "is less than":
+                clauses.append(f"{direct_age_col} < {num}")
+            elif operator_raw == "is greater than":
+                clauses.append(f"{direct_age_col} > {num}")
+
+        # ===============================================================
+        # 2b. Numeric falls inside *any* age interval (reverse lookup)
+        #     e.g. 0.5 → find any Ages containing 0.5 Ma
+        # ===============================================================
+        if mode in {"relativeage", "bothage", "ages"}:
+            clauses.append(
+                f"{ageid_col} IN (SELECT AgeID FROM Ages "
+                f"WHERE {num} BETWEEN YoungestAge AND OldestAge)"
+            )
+
+        # ===============================================================
+        # Final SQL
+        # ===============================================================
+    if not clauses:
+        raise ValueError(f"No age-clause produced for: {condition}")
+
+    sql = " OR ".join(f"({c})" for c in clauses)
+
+    return sql, [], field_key
 
 
 def _collapse_same_field_basic(conds: List[str], expected_count: int) -> str:
@@ -607,10 +729,21 @@ class RuleWidget(QWidget):
         self.setMinimumSize(100, 50)
 
         self.datatype = datatype
+        self._age_names = []  # cache of AgeName list for SampleAges/Age
+        query = QSqlQuery("SELECT AgeName FROM Ages ORDER BY AgeName COLLATE NOCASE ASC")
+
+        age_list = []
+        while query.next():
+            val = query.value(0)
+            if val is not None:
+                age_list.append(str(val))
+
         # Table combo
         self.table_combo = FocusWheelComboBox()
         self.table_combo.setModel(TableToolTipModel())
-        self.table_combo.addItems(SQLUtils.table_attributes_dict.keys())
+        self.table_combo.addItems(
+            [k for k in SQLUtils.table_attributes_dict if k.lower() != "ages"]
+        )
         self.table_combo.setCurrentIndex(0)
         self.layout.addWidget(self.table_combo)
         self.table_combo.currentIndexChanged.connect(self.table_switcher)
@@ -618,13 +751,20 @@ class RuleWidget(QWidget):
         # Attribute combo
         self.attribute_combo = FocusWheelComboBox()
         self.layout.addWidget(self.attribute_combo)
-        self.table_switcher()
+
         self.attribute_combo.setMinimumWidth(250)
         self.attribute_combo.currentIndexChanged.connect(self.attribute_switcher)
 
+        # Sample Age type combo (hidden unless SampleAges)
+        self.age_type_combo = FocusWheelComboBox()
+        self.age_type_combo.addItems(["Direct", "Relative", "Both"])
+        self.age_type_combo.setMinimumWidth(120)
+        self.age_type_combo.setVisible(False)  # hidden by default
+        self.layout.addWidget(self.age_type_combo)
+        self.age_type_combo.currentIndexChanged.connect(self.sampleage_switcher)
+
         # Operator combo
         self.operator_combo = FocusWheelComboBox()
-        # self.attribute_switcher()
         self.layout.addWidget(self.operator_combo)
         self.operator_combo.setMinimumWidth(150)
         self.operator_combo.currentIndexChanged.connect(self.lineedit_switcher)
@@ -639,6 +779,9 @@ class RuleWidget(QWidget):
         self.layout.addWidget(self.unit_combo)
 
         # Initially configure widgets based on operator/attribute
+        self.table_switcher()
+        self.attribute_switcher()
+        self.sampleage_switcher()
         self.lineedit_switcher()
 
         if field is not None:
@@ -667,19 +810,55 @@ class RuleWidget(QWidget):
 
     def table_switcher(self) -> None:
         """
-        Slot to change the attribute combobox values based on the current text of table combo. E.g. if a
-        Samples table is in the table combo, then Samples columns from SQLUtils.table_attributes_dict
+        Slot to change the attribute combobox values based on the current text of table combo.
         """
         self.attribute_combo.clear()
-        self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
+        if self.table_combo.currentText() == 'SampleAges':
+            self.attribute_combo.addItems(['SampleAge', 'SampleAgeOldest', 'SampleAgeYoungest', 'SampleAgeError',
+                                           'SampleAgeDescription', 'SampleAgeCreated', 'SampleAgeModified'])
+        else:
+            self.attribute_combo.addItems(SQLUtils.table_attributes_dict[self.table_combo.currentText()])
+        self.attribute_switcher()
 
     def attribute_switcher(self) -> None:
         """
-        Slot to change the operator combobox values based on the current text of attribute combo. E.g. if a
-        date column is in the attribute combo, then date operators 'is on, before...' should be visible. Calls
-        lineedit switchers and validators so they update.
+        Slot to change the operator combobox values based on the current text of attribute combo.
         """
-        if "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
+        if (self.table_combo.currentText() == 'SampleAges' and
+                self.attribute_combo.currentText() in ("SampleAge", "SampleAgeOldest", "sampleAgeYoungest")):
+            self.age_type_combo.setVisible(True)
+            # Optionally set default to "Both"
+            idx = self.age_type_combo.findText("Both")
+            if idx >= 0:
+                self.age_type_combo.setCurrentIndex(idx)
+        else:
+            self.age_type_combo.setVisible(False)
+
+        if (self.table_combo.currentText() == 'SampleAges' and
+            self.attribute_combo.currentText() in ("SampleAge", "SampleAgeOldest", "sampleAgeYoungest")):
+            operator_items = [
+                "is",
+                "is not",
+                "starts with",
+                "ends with",
+                "contains",
+                "does not contain",
+                "is between",
+                "is not between",
+                "is blank",
+                "is not blank"
+            ]
+            self.operator_combo.clear()
+            self.operator_combo.addItems(operator_items)
+            self.age_type_combo.setVisible(True)
+            # Optionally set default to "Both"
+            idx = self.age_type_combo.findText("Both")
+            if idx >= 0:
+                self.age_type_combo.setCurrentIndex(idx)
+            else:
+                self.age_type_combo.setVisible(False)
+
+        elif "Created" in self.attribute_combo.currentText() or "Modified" in self.attribute_combo.currentText():
             operator_items = [
                 "is on",
                 "is not on",
@@ -695,8 +874,7 @@ class RuleWidget(QWidget):
                "Name" in self.attribute_combo.currentText() or
                "ErrorSigma" in self.attribute_combo.currentText() or
                "Unit" in self.attribute_combo.currentText()) or
-              'References' in self.table_combo.currentText() or
-            ('SampleAges' in self.table_combo.currentText() and 'Age' in self.attribute_combo.currentText())):
+              'References' in self.table_combo.currentText()):
             operator_items = [
                 "is",
                 "is not",
@@ -711,7 +889,6 @@ class RuleWidget(QWidget):
             self.operator_combo.addItems(operator_items)
             self.datatype = "string"
         elif "Rejected" in self.attribute_combo.currentText():
-            # Numeric fields (e.g. Ages, numeric measurements)
             operator_items = [
                 "is",
                 "is not"
@@ -737,18 +914,75 @@ class RuleWidget(QWidget):
         self.lineedit_switcher()
         self.lineedit_completer()
 
+    def sampleage_switcher(self):
+        match self.age_type_combo.currentText():
+            case "Direct":
+                self.datatype = "directage"
+            case "Relative":
+                self.datatype = "relativeage"
+            case "Both":
+                self.datatype = "bothage"
+
     def lineedit_switcher(self):
         """
         Show or hide the unit combo (Ga, Ma, ka) and set up appropriate validators
         based on the chosen operator/attribute.
-        :return:
         """
         # Hide the unit combo by default, show only for numeric/time-based fields
         self.unit_combo.hide()
         self.value_input.clear()
 
+        is_sampleages_age = (
+                            self.attribute_combo.currentText() == 'SampleAge' or
+                            self.attribute_combo.currentText() == 'SampleAgeOldest' or
+                            self.attribute_combo.currentText() == 'SampleAgeYoungest'
+        )
+
         if 'between' in self.operator_combo.currentText():
-            # Date-based fields
+            if is_sampleages_age:
+                # Between: TWO tokens, each AgeName OR double
+                age_names = getattr(self, "_age_names", [])
+                if age_names:
+                    escaped = [QRegularExpression.escape(a) for a in age_names]
+                    ages_pattern = "|".join(escaped)
+                    pattern = rf"^({ages_pattern}|-?\d+(\.\d+)?),({ages_pattern}|-?\d+(\.\d+)?)$"
+                else:
+                    # Fallback: numeric-only if ages not yet loaded
+                    pattern = r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$"
+
+                regex = QRegularExpression(pattern)
+                regex.setPatternOptions(QRegularExpression.PatternOption.CaseInsensitiveOption)
+                validator = QRegularExpressionValidator(regex, self.value_input)
+                self.value_input.setValidator(validator)
+                self.value_input.setPlaceholderText("e.g. Holocene,Pleistocene or 0.0,1.0")
+                self.value_input.setToolTip(
+                    "Enter two age names or numeric values, separated by a comma"
+                )
+                return
+        else:
+            if is_sampleages_age:
+                # Single value: ONE AgeName OR double
+                age_names = getattr(self, "_age_names", [])
+                if age_names:
+                    escaped = [QRegularExpression.escape(a) for a in age_names]
+                    ages_pattern = "|".join(escaped)
+                    pattern = rf"^({ages_pattern}|-?\d+(\.\d+)?)$"
+                else:
+                    # Fallback: numeric-only
+                    pattern = r"^-?\d+(\.\d+)?$"
+
+                regex = QRegularExpression(pattern)
+                regex.setPatternOptions(QRegularExpression.PatternOption.CaseInsensitiveOption)
+                validator = QRegularExpressionValidator(regex, self.value_input)
+                self.value_input.setValidator(validator)
+                self.value_input.setPlaceholderText("e.g. Holocene or 0.0")
+                self.value_input.setToolTip("Enter an age name or numeric value")
+                return
+
+        # ─────────────────────────────────────────────
+        # Default behaviour (unchanged)
+        # ─────────────────────────────────────────────
+        if 'between' in self.operator_combo.currentText():
             match self.datatype:
                 case 'date':
                     # todo: Change this to a date selector
@@ -761,41 +995,32 @@ class RuleWidget(QWidget):
                     self.value_input.setPlaceholderText("e.g. YYYY-MM-DD,YYYY-MM-DD")
                     self.value_input.setToolTip("Enter two dates in any order separated by a comma")
                 case 'number':
-                    # Numeric fields
                     double_comma_double_regex = QRegularExpression(r"^-?\d+(\.\d+)?,-?\d+(\.\d+)?$")
                     double_comma_double_validator = QRegularExpressionValidator(double_comma_double_regex)
                     self.value_input.setValidator(double_comma_double_validator)
                     self.value_input.setPlaceholderText("e.g. 0.0,0.0")
                     self.value_input.setToolTip("Enter two numeric values in any order separated by a comma")
-                    # Because it's numeric, let's allow the user to pick units (e.g. for an age)
-                    # currently not implemented as filters used CalculatedAge values rather than actual values.
-                    # the user should know what unit to search in.
-                    # self.unit_combo.show()
         else:
-            # Single value conditions
             match self.datatype:
                 case 'date':
-                    # Date-based
-                    # todo: Change this to a date selector
                     date_range_regex = QRegularExpression(
                         r"^(?:(?:19|20)\d{2})-(?:(?:0[1-9]|1[0-2]))-(?:0[1-9]|[12][0-9]|3[01])$"
                     )
                     date_range_validator = QRegularExpressionValidator(date_range_regex)
                     self.value_input.setPlaceholderText("e.g. YYYY-MM-DD")
                     self.value_input.setValidator(date_range_validator)
-                    self.value_input.setToolTip("Enter two dates in any order separated by a comma")
+                    self.value_input.setToolTip("Enter date as YYYY-MM-DD")
                 case 'string':
-                    # Text-based
                     self.value_input.setPlaceholderText("e.g. abc123")
-                    self.value_input.setValidator(None)  # No numeric validator
+                    self.value_input.setValidator(None)
                     self.value_input.setToolTip("")
                 case 'boolean':
-                    # todo: Change this to a combobox for True/False
                     self.value_input.setPlaceholderText("e.g. True/False")
-                    self.value_input.setValidator(QRegularExpressionValidator(QRegularExpression("^(True|False)$")))
+                    self.value_input.setValidator(
+                        QRegularExpressionValidator(QRegularExpression("^(True|False)$"))
+                    )
                     self.value_input.setToolTip("")
                 case 'number':
-                    # Numeric fields, e.g. Ages
                     float_validator = QDoubleValidator(
                         bottom=-999999999999.0,
                         top=999999999999.0,
@@ -805,43 +1030,59 @@ class RuleWidget(QWidget):
                     self.value_input.setPlaceholderText("e.g. 0.0")
                     self.value_input.setValidator(float_validator)
                     self.value_input.setToolTip("Enter a numeric value")
-                    # currently not implemented as filters used CalculatedAge values rather than actual values.
-                    # the user should know what unit to search in.
-                    # Show units if it's numeric
-                    # if "Age" in self.attribute_combo.currentText():
-                    # self.unit_combo.show()
 
     def lineedit_completer(self) -> None:
         """
-        Adds a line edit completer based on the current attribute in the combobox. The completer only is created for
-        name columns, e.g. SampleName, RockTypeName,... this allows the user to easily select values within the
-        database without having to memorize specifics.
+        Adds a line edit completer based on the current attribute in the combobox.
         """
         # escape if attribute combo is not set
         if self.attribute_combo.currentText() == "":
             self.value_input.setCompleter(None)
+            self._age_names = []  # reset cache
             return
+
         name_column = get_name_column(self.table_combo.currentText())
         if not name_column:
             self.value_input.setCompleter(None)
+            self._age_names = []  # reset cache
             return
+
+        is_sampleages_age = (
+                self.attribute_combo.currentText() == 'SampleAge' or
+                self.attribute_combo.currentText() == 'SampleAgeOldest' or
+                self.attribute_combo.currentText() == 'SampleAgeYoungest'
+        )
+
         name_header = get_headers(self.table_combo.currentText())[name_column]
-        # only add completer if the attribute is a Name header and placeholder text is for strings
-        if ((self.attribute_combo.currentText() == name_header and self.value_input.placeholderText() == "e.g. abc123") or
-            ('SampleAges' in self.table_combo.currentText() and 'Age' in self.attribute_combo.currentText())):
-            # Populate the value input with a completer based on the selected attribute
+
+        if ((self.attribute_combo.currentText() == name_header and
+             self.value_input.placeholderText() == "e.g. abc123") or is_sampleages_age):
+
             value_completer = QtWidgets.QCompleter()
             query = QSqlQuery()
+
             sql_query = f'SELECT DISTINCT {self.attribute_combo.currentText()} FROM "{self.table_combo.currentText()}"'
-            if ('SampleAges' in self.table_combo.currentText() and 'Age' in self.attribute_combo.currentText()):
+            if is_sampleages_age:
+                # Special: drive from Ages table
                 sql_query = "SELECT AgeName FROM Ages"
+
             if not query.exec(sql_query):
-                logger_setup.get_logger().critical(f'Error creating the completer for input')
+                logger_setup.get_logger().critical('Error creating the completer for input')
                 logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
                 logger_setup.get_logger().debug(f'SQL command: {sql_query}')
+
             values = set()
             while query.next():
                 values.add(query.value(0))
+
+            if is_sampleages_age:
+                self._age_names = sorted(
+                    [str(v) for v in values if v is not None],
+                    key=str.lower
+                )
+            else:
+                self._age_names = []
+
             value_completer.setModel(QtCore.QStringListModel(values))
             value_completer.model().sort(0, QtCore.Qt.SortOrder.AscendingOrder)
             value_completer.setFilterMode(QtCore.Qt.MatchFlag.MatchContains)
@@ -851,6 +1092,7 @@ class RuleWidget(QWidget):
             self.value_input.setCompleter(value_completer)
         else:
             self.value_input.setCompleter(None)
+            self._age_names = []  # reset cache
 
 class GroupBox(QGroupBox):
     """

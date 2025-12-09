@@ -91,8 +91,6 @@ class LandingPage(QWidget):
                                       Qt.TransformationMode.SmoothTransformation)
         self.label.setPixmap(scaled_pixmap)
 
-
-
         self.show()
 
         if start_filepath:
