@@ -1300,7 +1300,7 @@ class ViewQuery:
                     INNER JOIN Samples s ON s.SampleID = a.SampleID
                 )
             '''
-        elif where_table == 'UpbAnalyses':
+        elif where_table == 'UPbAnalyses':
             if hierarchy_where_join != '':
                 if 'TempIDs' in hierarchy_where_join:
                     hierarchy_where_join += f" ua.UPbAnalysisID = ti.UPbAnalysisID"

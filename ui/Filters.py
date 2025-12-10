@@ -389,12 +389,9 @@ def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
     mode: str = condition["datatype"]   # 'relativeage', 'directage', 'bothage', 'ages'
 
     table, col = field_key.split(".")
-    attr = col.strip("[]")  # 'SampleAge', 'OldestAge', 'YoungestAge', etc.
+    attr = col.strip("[]")  # 'SampleAge', 'SampleAgeOldest', 'SampleAgeYoungest', etc.
 
     # ----------------- Column mapping -----------------
-    # NOTE:
-    #   - SampleAges "no option between direct or relative" → CalculatedDirectAge only
-    #   - OldestAge / YoungestAge get both an AgeID column and a Calculated*DirectAge column
     if attr == "SampleAgeOldest":
         ageid_col = f"{table}.[OldestAgeID]"
         direct_col = f"{table}.[CalculatedOldestDirectAge]"
@@ -454,20 +451,18 @@ def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
         [Calculated*DirectAge] BETWEEN Ages.YoungestAge AND Ages.OldestAge
         for a given geologic age name.
         """
+        safe_name = age_name.replace("'", "''")
         return (
             f"{col} BETWEEN "
-            f"(SELECT YoungestAge FROM Ages WHERE AgeName='{age_name}' COLLATE NOCASE) "
+            f"(SELECT YoungestAge FROM Ages WHERE AgeName='{safe_name}' COLLATE NOCASE) "
             f"AND "
-            f"(SELECT OldestAge FROM Ages WHERE AgeName='{age_name}' COLLATE NOCASE)"
+            f"(SELECT OldestAge FROM Ages WHERE AgeName='{safe_name}' COLLATE NOCASE)"
         )
 
     def relative_numeric_interval(ageid_column: str, num: float) -> str:
         """
         140 BETWEEN Ages.YoungestAge AND Ages.OldestAge
         where Ages.AgeID = SampleAges.OldestAgeID / YoungestAgeID.
-
-        Implemented via correlated subqueries so we don't need an explicit JOIN
-        in the auto-generated SQL.
         """
         return (
             f"{num} BETWEEN "
@@ -478,12 +473,25 @@ def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
 
     def relative_geologic_id_match(ageid_column: str, age_name: str) -> str:
         """
-        YoungestAge geologic (relative): AgeID match
-          DefaultSampleAges.[YoungestAgeID] = (SELECT AgeID FROM Ages WHERE AgeName='Quaternary' ...)
+        Relative + geologic entry:
+          SampleAges.[OldestAgeID/YoungestAgeID] is in the subtree of the
+          requested AgeName (the age itself + all descendants via ParentAgeID).
         """
+        safe_name = age_name.replace("'", "''")
+
         return (
-            f"{ageid_column} = "
-            f"(SELECT AgeID FROM Ages WHERE AgeName='{age_name}' COLLATE NOCASE)"
+            f"{ageid_column} IN ("
+            f"  WITH RECURSIVE AgeTree AS ("
+            f"    SELECT AgeID "
+            f"    FROM Ages "
+            f"    WHERE AgeName = '{safe_name}' COLLATE NOCASE "
+            f"    UNION ALL "
+            f"    SELECT a.AgeID "
+            f"    FROM Ages a "
+            f"    JOIN AgeTree at ON a.ParentAgeID = at.AgeID"
+            f"  ) "
+            f"  SELECT AgeID FROM AgeTree"
+            f")"
         )
 
     is_numeric = is_number(raw_value)
@@ -503,7 +511,7 @@ def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
         cond_sql = " OR ".join(f"({c})" for c in clauses)
         return cond_sql, [], field_key
 
-    # ----------------- DIRECT MODE: Oldest / Youngest -----------------
+    # ----------------- DIRECT MODE -----------------
     if mode == "directage":
         # OldestAges is set to Direct, search by CalculatedOldestDirectAge
         #   geologic entry → BETWEEN (YoungestAge, OldestAge) for AgeName
@@ -519,7 +527,7 @@ def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
         cond_sql = " OR ".join(f"({c})" for c in clauses)
         return cond_sql, [], field_key
 
-    # ----------------- RELATIVE MODE: Oldest / Youngest -----------------
+    # ----------------- RELATIVE MODE -----------------
     if mode == "relativeage":
         # OldestAges is set to Relative
         #   geologic entry (as in spec): use CalculatedOldestDirectAge BETWEEN range
@@ -535,7 +543,6 @@ def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
             if ageid_col is not None:
                 clauses.append(relative_numeric_interval(ageid_col, num))
             else:
-                # Fallback: if no AgeID column (unexpected), behave like direct numeric
                 clauses.append(map_numeric_op(direct_col, num))
         else:
             clauses.append(relative_geologic_id_match(ageid_col, raw_value))
@@ -558,11 +565,8 @@ def _build_age_condition(condition: dict) -> Tuple[str, List[str], str]:
         if is_numeric and ageid_col is not None:
             rel_clause = relative_numeric_interval(ageid_col, float(raw_value))
         elif not is_numeric and ageid_col is not None:
-            # For BOTH + geologic, follow your "Both" examples:
-            #   (Calculated*DirectAge BETWEEN range) OR (AgeID match)
             rel_clause = relative_geologic_id_match(ageid_col, raw_value)
         else:
-            # Fallback: no AgeID – just reuse direct behaviour
             rel_clause = direct_clause
 
         clauses.extend([direct_clause, rel_clause])
@@ -1727,7 +1731,7 @@ class QueryBuilder(QWidget):
 
             aliquot_select = f"""
             SELECT DISTINCT AliquotID FROM (
-                SELECT Aliquots.AliquotID, {selects}
+                SELECT Aliquots.AliquotID
                 FROM Samples
                 {join}
                 WHERE Aliquots.AliquotID IN (SELECT AliquotID FROM Aliquots_cte)
@@ -1747,7 +1751,7 @@ class QueryBuilder(QWidget):
             # where = where_clause.replace('Items', 'Spots').replace('ItemID', 'SpotID')
             join = SQLUtils.get_join_from_table(join, ['Spots'])
             sql_query = full_sql + f"""SELECT DISTINCT SpotID FROM (
-                SELECT Spots.SpotID, {selects}
+                SELECT Spots.SpotID
                 FROM Samples {join}
                 {where})
                 WHERE SpotID IS NOT NULL;"""
@@ -1755,7 +1759,7 @@ class QueryBuilder(QWidget):
             # where = where_clause.replace('Items', 'UPbAnalyses').replace('ItemID', 'UPbAnalysisID')
             join = SQLUtils.get_join_from_table(join, ['UPbAnalyses'])
             sql_query = full_sql + f"""SELECT DISTINCT UPbAnalysisID FROM (
-                SELECT UPbAnalyses.UPbAnalysisID, {selects}
+                SELECT UPbAnalyses.UPbAnalysisID
                 FROM Samples {join}
                 {where})
                 WHERE UPbAnalysisID IS NOT NULL;"""
