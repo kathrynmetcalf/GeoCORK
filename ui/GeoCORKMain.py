@@ -323,31 +323,16 @@ class GeoCORK(QtW.QMainWindow):
             return
         self.tabWidget: PartiallyCloseableTabWidget
         for p_id in parent_ids:
-            if parent_type == 'Sample':
-                parent_name = get_name_from_id('Samples', p_id)
-            elif parent_type == 'Aliquot':
-                parent_name = get_name_from_id('Aliquots', p_id)
-            elif parent_type == 'Grain':
-                parent_name = get_name_from_id('Grains', p_id)
-            elif parent_type == 'Spot':
-                parent_name = get_name_from_id('Spots', p_id)
-            else:
-                print("Error: Invalid parent type")
+            if parent_type not in ['Samples', 'Aliquots', 'Grains', 'Spots']:
+                logger_setup.get_logger().critical(f'Parent type {parent_type} not recognized')
                 return
-            if child_type == 'Aliquot':
-                child_label = 'Aliquots'
-            elif child_type == 'Grain':
-                child_label = 'Grains'
-            elif child_type == 'Spot':
-                child_label = 'Spots'
-            elif child_type == 'UPbAnalysis':
-                child_label = 'U-Pb Analyses'
-            else:
-                print("Error: Invalid child type")
+            parent_name = get_name_from_id(parent_type, p_id)
+            if child_type not in ['Aliquots', 'Grains', 'Spots', 'UPbAnalyses']:
+                logger_setup.get_logger().critical(f'Child type {child_type} not recognized')
                 return
-            label = f'{parent_type} {parent_name}: {child_label}'
+            label = f'{parent_type} {parent_name}: {child_type}'
             self.loading_manager.show_loading_dialog('Loading',
-                                                     f'Loading {parent_type} {parent_name}: {child_label}...')
+                                                     f'Loading {parent_type} {parent_name}: {child_type}...')
             tab = ViewDataTab(p_id, parent_type, child_type, label)
             tab.setUpdatesEnabled(False)
             start_add_tab_time = time.time()

@@ -466,13 +466,13 @@ class DisplayTables(QtW.QWidget):
                 # index = self.dbTable_tableView.indexAt(pos)
                 # parent_ids = self.table_proxy_model.data(self.table_proxy_model.index(index.row(), 0), QtC.Qt.ItemDataRole.DisplayRole)
                 if action == view_aliquot_action:
-                    self.main_window.open_tab(parent_ids, 'Sample', 'Aliquot')
+                    self.main_window.open_tab(parent_ids, 'Samples', 'Aliquots')
                 elif action == view_grain_action:
-                    self.main_window.open_tab(parent_ids, 'Sample', 'Grain')
+                    self.main_window.open_tab(parent_ids, 'Samples', 'Grains')
                 elif action == view_spot_action:
-                    self.main_window.open_tab(parent_ids, 'Sample', 'Spot')
+                    self.main_window.open_tab(parent_ids, 'Samples', 'Spots')
                 elif action == view_upb_analyses_action:
-                    self.main_window.open_tab(parent_ids, 'Sample', 'UPbAnalysis')
+                    self.main_window.open_tab(parent_ids, 'Samples', 'UPbAnalyses')
                 else:
                     self.table_context_menu(action)
         else:

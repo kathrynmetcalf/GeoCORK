@@ -1935,7 +1935,7 @@ class EditView(QtW.QDialog):
                 while query.next():
                     where_col_ids['UPbAnalyses'].append(query.value(0))
                 header_found = True
-            elif header in ['SampleName', 'AliquotName', 'SpotName', 'ColumnName'] and not header_found:
+            elif header in ['SampleName', 'AliquotName', 'SpotName', 'GrainName', 'ColumnName'] and not header_found:
                 if header.split('Name')[0] in self.table :
                     # This is the name column for this table
                     text = self.model.index(row, model_index.column()).data(QtC.Qt.ItemDataRole.DisplayRole)
@@ -1952,12 +1952,26 @@ class EditView(QtW.QDialog):
                         # Look for an ID column for the other table
                         if other_id_header == db_header or other_id_header in db_header:
                             # Edit the current table with the ID of the other table
-                            other_id = 'Null'
-                            if not query.exec(f'SELECT {other_id_header} FROM {other_table} WHERE {other_name_header} = "{other_item_name}"'):
-                                logger_setup.get_logger().critical(f'Failed to get {other_id_header} for {other_item_name}: {query.lastError().text()}')
-                                return False
-                            if query.next():
-                                other_id = query.value(0)
+                            if other_item_name == '':
+                                # Set to blank
+                                other_id = 'NULL'
+                            else:
+                                if not query.exec(f'SELECT {other_id_header} FROM {other_table} WHERE {other_name_header} = "{other_item_name}"'):
+                                    logger_setup.get_logger().critical(f'Error setting {other_id_header} to {other_item_name}')
+                                    logger_setup.get_logger().debug(f'Failed to get {other_id_header} for {other_item_name}')
+                                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                    return False
+                                if query.next():
+                                    other_id = query.value(0)
+                                else:
+                                    logger_setup.get_logger().critical(
+                                        f'No {other_id_header} {other_item_name} exists')
+                                    logger_setup.get_logger().debug(
+                                        f'Failed to get {other_id_header} for {other_item_name}')
+                                    logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
+                                    logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
+                                    return False
                             update_cols[self.table].append(db_header)
                             update_col_values[self.table].append(other_id)
                             header_found = True
