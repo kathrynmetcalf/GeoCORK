@@ -114,7 +114,7 @@ Data are stored in a .db file. GeoCORK can import from .xlsx files and export to
 ## BibTeX Citation
 ```
 @misc{metcalfKathrynmetcalfGeoCORKGeoCORK2025,
-	title = {kathrynmetcalf/{GeoCORK}: {GeoCORK} v1.0.0},
+	title = {kathrynmetcalf/{GeoCORK}: {GeoCORK} v1.0.3},
 	copyright = {GNU General Public License v3.0 only},
 	shorttitle = {kathrynmetcalf/{GeoCORK}},
 	url = {https://zenodo.org/doi/10.5281/zenodo.15833658},
