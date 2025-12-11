@@ -412,7 +412,10 @@ class ViewDataTab(QtW.QWidget):
         logger_setup.get_logger().info(
             f'Opening edit dialog for {self.child_type} with parent {self.parent_type} ID {self.parent_id}')
         dlg_args = {'parent_id': self.parent_id, 'parent_type': self.parent_type}
-        dlg = EditTreeView(self, self.table, **dlg_args)
+        if self.child_type == 'Aliquots':
+            dlg = EditTreeView(self, self.table, **dlg_args)
+        else:
+            dlg = EditView(self, self.table, **dlg_args)
         if dlg.exec() == QtW.QDialog.DialogCode.Accepted:
             if not update_database():
                 logger_setup.get_logger().error('Error updating and displaying database')

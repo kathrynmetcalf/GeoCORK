@@ -341,12 +341,12 @@ unit_join = '''LEFT JOIN Samples_Units ON Samples.SampleID = Samples_Units.Sampl
 sample_aliquot_join = 'LEFT JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID'
 
 # AliquotJoins
-aliquot_sample_join = 'LEFT JOIN Samples ON Aliquots.SampleID = Samples.SampleID'
+aliquot_sample_join = 'INNER JOIN Samples ON Aliquots.SampleID = Samples.SampleID'
 aliquot_context_join = '''LEFT JOIN Aliquots_AliquotContexts ON Aliquots.AliquotID = Aliquots_AliquotContexts.AliquotID
                                 LEFT JOIN AliquotContexts ON Aliquots_AliquotContexts.AliquotContextID = AliquotContexts.AliquotContextID'''
 
 # Aliquot-spot Join
-aliquot_spot_join = 'LEFT JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID'
+aliquot_spot_join = 'INNER JOIN Spots ON Aliquots.AliquotID = Spots.AliquotID'
 
 # GrainJoins
 grain_context_join = '''LEFT JOIN Grains_GrainContexts ON Grains.GrainID = Grains_GrainContexts.GrainID
@@ -355,15 +355,15 @@ grain_composition_join = '''LEFT JOIN GrainCompositions ON Grains.GrainCompositi
 grain_spot_join = 'LEFT JOIN Spots ON Grains.GrainID = Spots.GrainID'
 
 # SpotJoins
-spot_aliquot_join = 'LEFT JOIN Aliquots ON Spots.AliquotID = Aliquots.AliquotID'
+spot_aliquot_join = 'INNER JOIN Aliquots ON Spots.AliquotID = Aliquots.AliquotID'
 spot_composition_join = '''LEFT JOIN SpotCompositions ON Spots.SpotCompositionID = SpotCompositions.SpotCompositionID'''
 spot_context_join = '''LEFT JOIN Spots_SpotContexts ON Spots.SpotID = Spots_SpotContexts.SpotID
                                 LEFT JOIN SpotContexts ON Spots_SpotContexts.SpotContextID = SpotContexts.SpotContextID'''
 spot_grain_join = 'LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID'
-spot_upb_analysis_join = 'LEFT JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID'
+spot_upb_analysis_join = 'INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID'
 
 # UPbJoins
-upb_spot_join = 'LEFT JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID'
+upb_spot_join = 'INNER JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID'
 upb_reference_join = 'LEFT JOIN "References" AS UPbReferences ON UPbAnalyses.ReferenceID = UPbReferences.ReferenceID'
 upb_labs_join = 'LEFT JOIN LabFacilities ON UPbAnalyses.LabFacilityID = LabFacilities.LabFacilityID'
 upb_instruments_join = 'LEFT JOIN Instruments ON UPbAnalyses.InstrumentID = Instruments.InstrumentID'
@@ -626,8 +626,8 @@ one_editable = {
     'Columns': {'ColumnTotalHeightDepthUnitAbbreviation': 'DistanceUnits', 'ColumnBaseGPSDisplay': 'GPSLocations'},
     'Aliquots': {'SampleName': 'Samples', 'SpotName': 'Spots'},
     'Grains': {'SpotName': 'Spots', 'GrainCompositionName': 'GrainCompositions'},
-    'Spots': {'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
-    'UPbAnalyses': {'SpotName': 'Spots', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
+    'Spots': {'GrainName': 'Grains', 'AliquotName': 'Aliquots', 'SpotCompositionName': 'SpotCompositions'},
+    'UPbAnalyses': {'SpotName': 'Spots', 'GrainName': 'Grains', 'AliquotName': 'Aliquots', 'SampleName': 'Samples',
                     'UPbReference': 'References',
                     'LabFacilityName': 'LabFacilities', 'InstrumentName': 'Instruments',
                     'UPbAnalysisMethodName': 'UPbAnalysisMethods',

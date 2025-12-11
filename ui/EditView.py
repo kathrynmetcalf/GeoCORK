@@ -334,13 +334,16 @@ class EditView(QtW.QDialog):
             elif self.table == 'Samples':
                 self.show_cols = settings.value('sample_edit_columns')
                 self.add_pushButton.hide()
-            elif self.table == 'Spots' or self.table == 'UPbAnalyses':
-                self.parent_id_header = 'SampleID' if self.parent_type == 'Sample' \
-                    else 'AliquotID' if self.parent_type == 'Aliquot' \
-                    else 'SpotID' if self.parent_type == 'Spot' else None
+            elif self.table == 'Spots' or self.table == 'UPbAnalyses' or self.table == 'Grains':
+                self.parent_id_header = 'SampleID' if self.parent_type == 'Samples' \
+                    else 'AliquotID' if self.parent_type == 'Aliquots' \
+                    else 'GrainID' if self.parent_type == 'Grains' \
+                    else 'SpotID' if self.parent_type == 'Spots' else None
                 if self.parent_id_header:
                     self.where = f' WHERE {self.parent_id_header} = {self.parent_id}'
-                if self.table == 'Spots':
+                if self.table == 'Grains':
+                    self.show_cols = settings.value('grain_edit_columns')
+                elif self.table == 'Spots':
                     self.show_cols = settings.value('spot_edit_columns')
                 elif self.table == 'UPbAnalyses':
                     self.show_cols = settings.value('upb_analysis_edit_columns')
@@ -749,7 +752,7 @@ class EditView(QtW.QDialog):
             if self.combo is not None:
                 logger_setup.get_logger().info('Error destroying previous dropdown')
                 return
-        if model_index.column() == self.name_column and self.table != 'UPbAnalyses':
+        if model_index.column() == self.name_column:
             # The column is the name column for the table. This should be edited with a line edit.
             self.create_lineedit()
             return
@@ -994,77 +997,39 @@ class EditView(QtW.QDialog):
             self.combo.addItem('Accepted')
             self.combo.addItem('Rejected')
         else:
-            # if self.dropdown_table == 'References':
-            #     self.combo = CheckableComboBox()
-            #     self.combo_model = CheckableSqlQueryModel()
-            #     self.combo_model.setQuery(f'SELECT * FROM "References"')
-            #     self.combo_proxy = ReadableProxyModel()
-            #     self.combo_proxy.setSourceModel(self.combo_model)
-            #     self.combo.setModel(self.combo_proxy)
-            # else:
-            #     set_table(self.combo_model, self.dropdown_table)
-            # if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Aliquots', 'Spots')) or
-            #       (self.table == 'Spots' and self.dropdown_table == 'Aliquots')):
-            #     if self.parent_type == 'Sample':
-            #         if self.dropdown_table == 'Aliquot':
-            #             self.combo = CheckableTreeCombobox()
-            #             combo_model = CheckableSqlQueryModel()
-            #             combo_model.setQuery(f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_ids}')
-            #             self.tree_model = CheckableTreeModel()
-            #             self.tree_model.setSourceModel(combo_model)
-            #             self.combo.setModel(self.tree_model)
-            #         elif self.dropdown_table == 'Spots':
-            #             self.combo = CheckableComboBox()
-            #             self.combo_model = CheckableSqlQueryModel()
-            #             self.combo_model.setQuery(f'''SELECT * FROM Spots
-            #                 {SQLUtils.spot_aliquot_join}
-            #                 WHERE SampleID = {self.parent_ids}''')
-            #             self.combo_proxy = ReadableProxyModel()
-            #             self.combo_proxy.setSourceModel(self.combo_model)
-            #             self.combo.setModel(self.combo_proxy)
-            #     elif self.parent_type == 'Aliquot':
-            #         if self.dropdown_table == 'Spots':
-            #             self.combo = CheckableComboBox()
-            #             self.combo_model = CheckableSqlQueryModel()
-            #             self.combo_model.setQuery(f'SELECT * FROM Spots WHERE AliquotID = {self.parent_ids}')
-            #             self.combo_proxy = ReadableProxyModel()
-            #             self.combo_proxy.setSourceModel(self.combo_model)
-            #             self.combo.setModel(self.combo_proxy)
-            # elif self.dropdown_table in SQLUtils.user_viewable_trees:
-            #     self.combo = CheckableTreeCombobox()
-            #     self.tree_model = CheckableTreeModel()
-            #     self.tree_model.setSourceModel(self.combo_model)
-            #     self.combo.setModel(self.tree_model)
-            # elif self.dropdown_table == 'References':
-            #     pass
-            # elif 'Abbreviation' in header:
-            #     self.combo = QtW.QComboBox()
-            #     self.combo.setModel(self.combo_model)
-            # else:
-            #     self.combo = CheckableComboBox()
-            #     self.combo_model = CheckableSqlTableModel()
-            #     set_table(self.combo_model, self.dropdown_table)
-            #     self.combo_proxy = ReadableProxyModel()
-            #     self.combo_proxy.setSourceModel(self.combo_model)
-            #     self.combo.setModel(self.combo_proxy)
-            # self.combo.setModelColumn(get_name_column(self.dropdown_table))
-
             query = None
-            if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Aliquots', 'Spots')) or
-                  (self.table == 'Spots' and self.dropdown_table == 'Aliquots')):
-                if self.parent_type == 'Sample':
-                    if self.dropdown_table == 'Aliquot':
+            if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Aliquots', 'Spots', 'Grains')) or
+                  (self.table == 'Spots' and self.dropdown_table in ('Grains', 'Aliquots')) or
+                    (self.table == 'Grains' and self.dropdown_table == 'Aliquots')):
+                if self.parent_type == 'Samples':
+                    if self.dropdown_table == 'Aliquots':
                         self.combo = CheckableTreeCombobox()
                         query = f'SELECT * FROM Aliquots WHERE SampleID = {self.parent_id}'
+                    elif self.dropdown_table == 'Grains':
+                        self.combo = CheckableComboBox()
+                        query = f'''SELECT * FROM Grains 
+                            {SQLUtils.spot_aliquot_join}
+                            {SQLUtils.grain_spot_join}
+                            WHERE SampleID = {self.parent_id}'''
                     elif self.dropdown_table == 'Spots':
                         self.combo = CheckableComboBox()
                         query = f'''SELECT * FROM Spots 
                             {SQLUtils.spot_aliquot_join}
                             WHERE SampleID = {self.parent_id}'''
-                elif self.parent_type == 'Aliquot':
+                elif self.parent_type == 'Aliquots':
+                    if self.dropdown_table == 'Grains':
+                        self.combo = CheckableComboBox()
+                        query = f'''SELECT * FROM Grains
+                            {SQLUtils.spot_aliquot_join}
+                            {SQLUtils.grain_spot_join}
+                            WHERE AliquotID = {self.parent_id}'''
                     if self.dropdown_table == 'Spots':
                         self.combo = CheckableComboBox()
                         query = f'SELECT * FROM Spots WHERE AliquotID = {self.parent_id}'
+                elif self.parent_type == 'Grains':
+                    if self.dropdown_table == 'Spots':
+                        self.combo = CheckableComboBox()
+                        query = f'SELECT * FROM Spots WHERE GrainID = {self.parent_id}'
             elif self.dropdown_table in SQLUtils.user_viewable_trees:
                 self.combo = CheckableTreeCombobox()
             elif 'Abbreviation' in header:
@@ -1161,7 +1126,7 @@ class EditView(QtW.QDialog):
             self.destroy_dropdown()
             return
         # Figure out which table to update and which IDs to update
-        if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Samples', 'Aliquots')) or
+        if ((self.table == 'UPbAnalyses' and self.dropdown_table in ('Samples', 'Aliquots', 'Grains')) or
                 (self.table == 'Spots' and self.dropdown_table == 'Samples')):
             if self.update_analysis_chain(selected_ids, model_indexes):
                 # Update handled
@@ -1430,6 +1395,8 @@ class EditView(QtW.QDialog):
                                     aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = find_current_sub_items(selected_ids, self.table)
                                     if table == 'Aliquots' or 'Aliquots_' in table:
                                         item_ids = aliquot_ids
+                                    elif table == 'Grains' or 'Grains_' in table:
+                                        item_ids = grain_ids
                                     elif table == 'Spots' or 'Spots_' in table:
                                         item_ids = spot_ids
                                     elif table == 'UPbAnalyses' or 'UPbAnalyses_' in table:
@@ -1448,7 +1415,10 @@ class EditView(QtW.QDialog):
         spot_id = None
         updated = False
         for model_index in model_indexes:
-            if model_index.data(QtC.Qt.ItemDataRole.DisplayRole) != self.combo.currentText():
+            if not model_index.data(QtC.Qt.ItemDataRole.DisplayRole) and self.combo.currentText() == '':
+                # Both are blank, so no change
+                continue
+            elif model_index.data(QtC.Qt.ItemDataRole.DisplayRole) != self.combo.currentText():
                 updated = True
         if not updated:
             logger_setup.get_logger().info('No changes to update')
@@ -1464,13 +1434,18 @@ class EditView(QtW.QDialog):
                     create_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
-                aliquot_id = self.select_child('Samples', sample_id)
+                aliquot_id = self.select_child('Samples', 'Aliquots', sample_id)
                 if not aliquot_id:
                     logger_setup.get_logger().info(f'No aliquot ID selected for {sample_name}')
                     create_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
-                spot_id = self.select_child('Aliquots', aliquot_id)
+                grain_id = self.select_child('Aliquots', 'Grains', aliquot_id)
+                if not grain_id:
+                    logger_setup.get_logger().critical(f'No grain ID selected for {aliquot_id}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                spot_id = self.select_child('Aliquots', 'Spots', aliquot_id)
                 if not spot_id:
                     logger_setup.get_logger().info(f'No spot ID selected for {sample_name}')
                     create_savepoint('before_update_chain')
@@ -1488,6 +1463,22 @@ class EditView(QtW.QDialog):
                 spot_id = self.select_child('Aliquots', aliquot_id)
                 if not spot_id:
                     logger_setup.get_logger().info(f'No spot ID selected for {aliquot_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+            elif self.dropdown_table == 'Grains':
+                sample_id = None
+                aliquot_id = None
+                grain_name = self.combo.currentText()
+                grain_id = get_id_from_name('Grains', grain_name)
+                if not grain_id:
+                    logger_setup.get_logger().critical(f'No aliquot ID found for {grain_name}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                spot_id = self.select_child('Grains', 'Spots', grain_id)
+                if not spot_id:
+                    logger_setup.get_logger().info(f'No spot ID selected for {grain_name}')
                     create_savepoint('before_update_chain')
                     self.destroy_dropdown()
                     return False
@@ -1544,6 +1535,8 @@ class EditView(QtW.QDialog):
         for header in self.show_cols:
             if 'SpotName' in header:
                 spot_column = self.show_cols.index(header)
+            if 'GrainName' in header:
+                grain_column = self.show_cols.index(header)
             if 'AliquotName' in header:
                 aliquot_column = self.show_cols.index(header)
             if 'SampleName' in header:
@@ -1552,6 +1545,16 @@ class EditView(QtW.QDialog):
             if spot_column is not None and spot_id is not None:
                 update_index = self.model.index(model_index.row(), spot_column)
                 if not self.model.setData(update_index, get_name_from_id('Spots', spot_id),
+                                          QtC.Qt.ItemDataRole.EditRole):
+                    logger_setup.get_logger().critical(f'Error updating view')
+                    logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
+                    create_savepoint('before_update_chain')
+                    self.destroy_dropdown()
+                    return False
+                self.model.edited_indexes.remove(update_index)
+            if grain_column is not None and grain_id is not None:
+                update_index = self.model.index(model_index.row(), grain_column)
+                if not self.model.setData(update_index, get_name_from_id('Grains', grain_id),
                                           QtC.Qt.ItemDataRole.EditRole):
                     logger_setup.get_logger().critical(f'Error updating view')
                     logger_setup.get_logger().debug(f'Error: {self.model.last_error}')
@@ -1582,13 +1585,9 @@ class EditView(QtW.QDialog):
         release_savepoint('before_update_chain')
         return True
 
-    def select_child(self, parent_table, parent_id):
+    def select_child(self, parent_table, child_table, parent_id):
         # Open a dialog to select the child item
-        if parent_table == 'Samples':
-            child_table = 'Aliquots'
-        elif parent_table == 'Aliquots':
-            child_table = 'Spots'
-        else:
+        if parent_table not in ['Samples', 'Aliquots', 'Grains', 'Spots']:
             return False
         parent_id_header = get_headers(parent_table)[0]
         child_id_header = get_headers(child_table)[0]

@@ -6909,7 +6909,11 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             if isinstance(model, SampleAgeProxyModel):
                 name_col = get_name_column('SampleAges')
             else:
-                name_col = get_name_column(get_view_from_table(model.tableName()))
+                if 'View' in model.tableName():
+                    name_table = get_view_from_table(model.tableName())
+                else:
+                    name_table = model.tableName()
+                name_col = get_name_column(name_table)
             show_column(comboBox, model.headerData(name_col, QtC.Qt.Orientation.Horizontal, QtC.Qt.ItemDataRole.DisplayRole))
     logger_setup.get_logger().debug(f'Populated combo box {comboBox.objectName()} in {time.time() - start_populate_combo_time} seconds')
 
