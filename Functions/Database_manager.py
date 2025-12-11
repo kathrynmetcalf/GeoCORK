@@ -91,7 +91,7 @@ def update_database(database=None) -> bool:
     """
     start_time = time.time()
     loading_manager = LoadingDialogManager.get_instance()
-    loading_manager.show_loading_dialog('Loading', 'Updating database...')
+    loading_manager.show_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
     logger_setup.get_logger().info("Updating database")
     # Check if the database exists and all tables are present
     if database is None:
@@ -102,21 +102,21 @@ def update_database(database=None) -> bool:
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error committing database")
             logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
-            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
             return False
     if not db.close():
         if 'no transaction is active' not in db.lastError().text():
             logger_setup.get_logger().critical(f"Error closing database")
             logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
-            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
             return False
     if not db.open():
         logger_setup.get_logger().critical(f"Error opening database")
         logger_setup.get_logger().debug(f'Error: {db.lastError().text()}')
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
     if not turn_on_foreign_keys():
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
 
     if database is None:
@@ -137,14 +137,14 @@ def update_database(database=None) -> bool:
             logger_setup.get_logger().critical('Error retrieving database version')
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL query: {query.lastQuery()}')
-            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
             return False
         else:
             db_version = query.value(0)
             logger_setup.get_logger().info(f'Database version: {db_version}')
     # if db_version != settings.value('geocork_version'):
     if not turn_off_foreign_keys():
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
     schema_success = Create_db.update_schema(db_version, database=db)
     if schema_success == 'False':
@@ -156,7 +156,7 @@ def update_database(database=None) -> bool:
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         ret = dialog.exec()
         if ret != QMessageBox.StandardButton.Yes:
-            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
             return False
         logger_setup.get_logger().info('Trying to open the database anyway')
     elif schema_success != 'True':
@@ -170,39 +170,39 @@ def update_database(database=None) -> bool:
         dialog.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         ret = dialog.exec()
         if ret != QMessageBox.StandardButton.Yes:
-            loading_manager.close_loading_dialog('Loading', 'Updating database...')
+            loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
             for widget in QApplication.allWidgets():
                 if widget.objectName() == 'LandingPage':
                     widget.restore_backup(database.databaseName(), backup_file)
                     return False
 
     if not turn_on_foreign_keys():
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
 
     if not Create_db.create_tables(database):
         logger_setup.get_logger().critical(f"Error creating database tables")
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
     if not Create_indexes.create_indexes(db):
         logger_setup.get_logger().critical(f"Error creating database indexes")
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
 
     # Make sure the view column settings do not have any leftover old column names
     from ui import Settings
     if not Settings.update_column_settings():
         logger_setup.get_logger().critical(f"Error updating database settings")
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
 
     # Drop and regenerate the generated columns
     if not Alter_db.settings_reset(database):
         logger_setup.get_logger().critical(f"Error resetting settings")
-        loading_manager.close_loading_dialog('Loading', 'Updating database...')
+        loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
         return False
     end_time = time.time()
-    loading_manager.close_loading_dialog('Loading', 'Updating database...')
+    loading_manager.close_loading_dialog('Loading', 'Updating database... \n(GeoCORK may be slower for large databases)')
     logger_setup.get_logger().info(f"Database updated in {end_time - start_time} seconds")
     database.commit()
 

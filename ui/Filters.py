@@ -1638,6 +1638,7 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f"Failed to get filtered ids")
             logger_setup.get_logger().debug(f"Error: {e}")
             logger_setup.get_logger().debug(f"SQL query: {sql_query}")
+            close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
             return None
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
         logger_setup.get_logger().info('Gathered filtered ids successfully')
