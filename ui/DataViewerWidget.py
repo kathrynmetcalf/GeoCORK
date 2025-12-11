@@ -521,7 +521,11 @@ class DataViewerWidget(QWidget):
                     table_condition = f"WHERE Spots.SpotID {sql_selected_data_filter_ids}"
                 case 'UPbAnalyses':
                     table_condition = f"WHERE UPbAnalyses.UPbAnalysisID {sql_selected_data_filter_ids}"
+            self.loading_manager.close_loading_dialog('Loading',
+                                                      f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
         else:
+            self.loading_manager.close_loading_dialog('Loading',
+                                                      f'Displaying filtered {self.dbTable_comboBox_2.currentText()}...')
             return
 
         sql += table_condition

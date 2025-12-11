@@ -189,11 +189,6 @@ def _process_group_inner(group: dict, recursive_tables: Dict[str, int]) -> Tuple
 
     return other_conditions, ctes
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -> Tuple[str, List[str], str]:
     """Return (sql_fragment, new_ctes_list, field_key)."""
 
@@ -230,34 +225,36 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     elif operator_raw == "is between" or operator_raw == "is not between":
         # Range operator – return a list of two conditions
         try:
-            if float(value.split(',')[0]) >= float(value.split(',')[1]):
-                value_lower = value.split(',')[1]
-                value_upper = value.split(',')[0]
+            lower_raw, upper_raw = value.split(",", 1)
+            lower_raw = lower_raw.strip()
+            upper_raw = upper_raw.strip()
+            if float(lower_raw) <= float(upper_raw):
+                value_lower = lower_raw
+                value_upper = upper_raw
             else:
-                value_lower = value.split(',')[0]
-                value_upper = value.split(',')[1]
-        except IndexError:
+                value_lower = upper_raw
+                value_upper = lower_raw
+        except Exception:
             logger_setup.get_logger().error(f"Range operator requires two numbers, got: {value}")
             raise ValueError(f"Range operator requires two numbers, got: {value}")
         if operator_raw == "is between":
             if datatype == "date":
-                operator_sql = [f"<= '{value_upper}'", f">= '{value_lower}'"]
+                operator_sql = [f">= '{value_lower}'", f"<= '{value_upper}'"]
             elif datatype == "number":
-                operator_sql = [f"<= {value_upper}", f">= {value_lower}"]
+                operator_sql = [f">= {value_lower}", f"<= {value_upper}"]
             else:
                 logger_setup.get_logger().error(f"Range must be numeric or date, got: {datatype}")
                 raise ValueError(f"Unsupported datatype for range operator: {datatype}")
-        elif operator_raw == "is not between":
-            # Range operator – return a list of two conditions
+        else:  # "is not between"
             if datatype == "date":
-                operator_sql = [f"< '{value_upper}'", f"> '{value_lower}'"]
+                operator_sql = [f"< '{value_lower}'", f"> '{value_upper}'"]
             elif datatype == "number":
-                operator_sql = [f"< {value_upper}", f"> {value_lower}"]
+                operator_sql = [f"< {value_lower}", f"> {value_upper}"]
             else:
                 logger_setup.get_logger().error(f"Range must be numeric or date, got: {datatype}")
                 raise ValueError(f"Unsupported datatype for range operator: {datatype}")
     else:
-        # … expand as required …
+        # default
         operator_sql = "="
 
     sampleagebypass = False
@@ -271,32 +268,40 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         value = f"(SELECT AgeID FROM Ages WHERE AgeName = '{value}')"
         sampleagebypass = True
 
-    # ---------- TREE TABLE? ----------------------------------------------
+    # ---------- TREE TABLE? (Regions, Ages hierarchy, etc.) ----------
     if field_key in SQLUtils.tree_tables_schema:
         meta = SQLUtils.tree_tables_schema[field_key]
-        table = field_key.split(".")[0]
+        table = field_key.split(".")[0]  # e.g., "Regions", "Ages"
 
-        # Build *WHERE* on the tree table (equal, like, etc.)
+        # Build WHERE on the *tree table* (equal, like, etc.) for the CTE seed
         if isinstance(operator_sql, list):
             if len(operator_sql) == 2:
-                operator_sql = f"{table}.{meta['name_column']} {operator_sql[0]} AND {table}.{meta['name_column']} {operator_sql[1]}"
+                # range: col >= lower AND col <= upper
+                where = (
+                    f"{table}.{meta['name_column']} {operator_sql[0]} "
+                    f"AND {table}.{meta['name_column']} {operator_sql[1]}"
+                )
             else:
                 logger_setup.get_logger().error(f"Range not specified correctly: {value}")
                 raise ValueError(f"Range operator requires two values, got: {value}")
         elif "NULL" in operator_sql or "LIKE" in operator_sql:
-            where = f"{table}.{meta['name_column']} {operator_sql.replace('NOT ','')}"
+            # LIKE / IS NULL / IS NOT NULL → already has full operator
+            where = f"{table}.{meta['name_column']} {operator_sql.replace('NOT ', '')}"
         elif '!=' in operator_sql:
+            # "is not X" – we want the children of the matching node, so seed with "="
             where = f"{table}.{meta['name_column']} = '{value}'"
         else:
+            # simple comparisons, case-insensitive on the name
             where = f"{table}.{meta['name_column']} {operator_sql} '{value}' COLLATE NOCASE"
 
-        # Increment per‑field counter so CTE names stay unique per query
+        # Ensure per-field counter so CTE names stay unique per query
         recursive_tables[field_key] += 1
         cte_name = f"{meta['cte_name']}{recursive_tables[field_key]}"
 
+        # Recursive CTE over the tree table
         cte_sql = f"""
         {cte_name} AS (
-            SELECT {meta['id_column']} 
+            SELECT {meta['id_column']}
               FROM {table}
              WHERE {where}
             UNION ALL
@@ -305,48 +310,77 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
               JOIN {cte_name} r ON t.{meta['parent_column']} = r.{meta['id_column']}
         )""".strip()
 
+        # ---- join condition between bridge table and CTE (which holds id_column) ----
         if field_key == 'Ages.[AgeName]':
+            # Special handling: SampleAges.* uses OldestAgeID / YoungestAgeID
             col1 = "OldestAgeID"
             col2 = "YoungestAgeID"
 
+            # rows in bridge_table are "in" the CTE if either ID hits the tree
             join_condition = (
-                f"({meta['bridge_table']}.{col1} = {cte_name}.AgeID "
-                f"OR {meta['bridge_table']}.{col2} = {cte_name}.AgeID)")
-
-            in_condition = (
-                f"({meta['bridge_table']}.{col1} IN (SELECT {col1} FROM {cte_name}) "
-                f"OR {meta['bridge_table']}.{col2} IN (SELECT {col2} FROM {cte_name}))"
+                f"({meta['bridge_table']}.{col1} = {cte_name}.{meta['id_column']} "
+                f"OR {meta['bridge_table']}.{col2} = {cte_name}.{meta['id_column']})"
             )
-
         else:
-            # normal single-column case
+            # normal single-column case (Regions, RockTypes, etc.)
             join_condition = (
                 f"{meta['bridge_table']}.{meta['bridge_to_column']} = "
-                f"{cte_name}.{meta['bridge_to_column']}"
-            )
-            in_condition = (
-                f"{meta['bridge_table']}.{meta['bridge_to_column']} "
-                f"IN (SELECT {meta['bridge_to_column']} FROM {cte_name})"
+                f"{cte_name}.{meta['id_column']}"
             )
 
-        # ------------------- Construct final EXISTS / IN clause -------------------
-        if meta['bridge_table'].split('_')[0] == 'UPbAnalyses':
-            # IN check (but now supports dual columns when Ages.AgeName)
-            exists_sql = (
-                f"{'' if operator_sql not in ('!=', 'NOT') else 'NOT '}"
-                f"{in_condition}"
-            )
-        else:
-            exists_sql = f"""{'NOT ' if (operator_sql == '!=' or 'NOT' in operator_sql) else ''}EXISTS (
-                SELECT 1
-                  FROM {meta['bridge_table']}
-                  JOIN {cte_name}
-                        ON {join_condition}
-                 WHERE {in_condition}
-            )"""
+        # ---------- correlate EXISTS to the *outer* main table ----------
+        # We infer the main table from the bridge table prefix:
+        #   Samples_Regions   → main_table = Samples,   pk = SampleID
+        #   Aliquots_Regions  → main_table = Aliquots, pk = AliquotID
+        #   Spots_Regions     → main_table = Spots,    pk = SpotID
+        #   UPbAnalyses_...   → main_table = UPbAnalyses, pk = UPbAnalysisID
+        main_table = meta.get("base_table", meta["bridge_table"].split("_")[0])
+
+        default_pk_map = {
+            "Samples": "SampleID",
+            "Aliquots": "AliquotID",
+            "Spots": "SpotID",
+            "UPbAnalyses": "UPbAnalysisID",
+        }
+        main_pk = meta.get("base_pk", default_pk_map.get(main_table, f"{main_table.rstrip('s')}ID"))
+
+        # correlation: bridge_table.FK_to_main = MainTable.PK
+        correlation_condition = (
+            f"{meta['bridge_table']}.{main_pk} = {main_table}.{main_pk}"
+        )
+
+        # ---------- Build final SQL fragment ----------
+        # For UPbAnalyses we prefer a plain IN check on the *main* table
+        # if main_table == "UPbAnalyses":
+        #     if field_key == 'Ages.[AgeName]':
+        #         # both OldestAgeID and YoungestAgeID against recursive Ages CTE
+        #         in_condition = (
+        #             f"({main_table}.OldestAgeID IN (SELECT {meta['id_column']} FROM {cte_name}) "
+        #             f"OR {main_table}.YoungestAgeID IN (SELECT {meta['id_column']} FROM {cte_name}))"
+        #         )
+        #     else:
+        #         in_condition = (
+        #             f"{main_table}.{meta['bridge_to_column']} "
+        #             f"IN (SELECT {meta['id_column']} FROM {cte_name})"
+        #         )
+        #
+        #     prefix = "NOT " if (operator_sql == "!=" or "NOT" in str(operator_sql)) else ""
+        #     exists_sql = f"{prefix}{in_condition}"
+        #
+        # else:
+        # General case: EXISTS correlated via bridge_table → main_table
+        prefix = "NOT " if (operator_sql == "!=" or "NOT" in str(operator_sql)) else ""
+        exists_sql = f"""{prefix}EXISTS (
+            SELECT 1
+              FROM {meta['bridge_table']}
+              JOIN {cte_name}
+                    ON {join_condition}
+             WHERE {correlation_condition}
+        )"""
 
         return exists_sql, [cte_sql], field_key
 
+    # ---------- Non-tree conditions ----------
     if isinstance(operator_sql, list):
         if len(operator_sql) == 2:
             cond_sql = f"{field_key} {operator_sql[0]} AND {field_key} {operator_sql[1]}"
