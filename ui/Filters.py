@@ -1656,7 +1656,7 @@ class QueryBuilder(QWidget):
         :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
         :return: list of ids of given type or None
         """
-        show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        # show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
         sql_query = self.get_sql(type)
         uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
         try:
@@ -1676,7 +1676,7 @@ class QueryBuilder(QWidget):
             return None
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
         logger_setup.get_logger().info('Gathered filtered ids successfully')
-        close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        # close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
         return results if results else None
 
     def get_sql(self, type: str) -> str:

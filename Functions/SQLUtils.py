@@ -297,7 +297,7 @@ sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON Sa
                         LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID = OldAge.AgeID
                         LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID = YoungAge.AgeID'''
 sampleage_age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID = SampleAges_AgeConstraints.SampleAgeID
-                        LEFT JOIN AgeConstraints AS SampleAgeConstraints ON SampleAges_AgeConstraints.AgeConstraintID = AgeConstraints.AgeConstraintID'''
+                        LEFT JOIN AgeConstraints AS SampleAgeConstraints ON SampleAges_AgeConstraints.AgeConstraintID = SampleAgeConstraints.AgeConstraintID'''
 sampleage_age_interpretation_join = '''LEFT JOIN SampleAges_AgeInterpretations ON SampleAges.SampleAgeID = SampleAges_AgeInterpretations.SampleAgeID
                         LEFT JOIN AgeInterpretations AS SampleAgeInterpretations ON SampleAges_AgeInterpretations.AgeInterpretationID = SampleAgeInterpretations.AgeInterpretationID'''
 sampleage_age_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.SampleAgeID = SampleAges_References.SampleAgeID
