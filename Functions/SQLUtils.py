@@ -11,11 +11,11 @@ qreference_id = '"References".ReferenceID AS ReferenceID'
 # Sample view columns
 qsample_name = 'Samples.SampleName AS SampleName'
 qigsn = 'Samples.SampleIGSN AS SampleIGSN'
-qgps = 'GPSLocations.GPSLocationConverted AS GPSSampleLocationCalculated'
-qgps_display = 'GPSLocations.GPSLocationDisplay AS SampleGPSLocationDisplay'
+qgps = 'SampleGPS.GPSLocationConverted AS GPSSampleLocationCalculated'
+qgps_display = 'SampleGPS.GPSLocationDisplay AS SampleGPSLocationDisplay'
 qsample_gps_id = 'Samples.SampleGPSLocationID AS SampleGPSLocationID'
-qsample_elev = 'NULLIF(COALESCE(GPSLocations.CalculatedGPSElev, "") || "±" || COALESCE(GPSLocations.CalculatedGPSElevError, ""), "±") AS SampleElevationCalculated'
-qsample_elev_display = 'NULLIF(COALESCE(GPSLocations.GPSElev, "") || "±" || COALESCE(GPSLocations.GPSElevError, ""), "±") AS SampleElevation'
+qsample_elev = 'NULLIF(COALESCE(SampleGPS.CalculatedGPSElev, "") || "±" || COALESCE(SampleGPS.CalculatedGPSElevError, ""), "±") AS SampleElevationCalculated'
+qsample_elev_display = 'NULLIF(COALESCE(SampleGPS.GPSElev, "") || "±" || COALESCE(SampleGPS.GPSElevError, ""), "±") AS SampleElevation'
 qsample_elev_unit = 'SampleElevationUnits.DistanceUnitAbbreviation AS SampleElevationUnitAbbreviation'
 qsample_column_data = 'NULLIF(COALESCE(Samples.CalculatedHeightDepth, "") || "±" || COALESCE(Samples.CalculatedHeightDepthError, ""), "±") AS ColumnHeightDepthCalculated'
 qsample_column_data_display = 'NULLIF(COALESCE(Samples.HeightDepth, "") || "±" || COALESCE(Samples.HeightDepthError, ""), "±") AS ColumnHeightDepth'
@@ -106,9 +106,10 @@ DistinctUPbAnalyses AS
 (
     SELECT 
     lsa.SampleID,
-    SUM(CASE WHEN lspuag.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT lspuag.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
+    SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
     FROM LimitedSamplesAliquots lsa
-    LEFT JOIN LimitedSpotsUPbAnalysesGrains lspuag ON lsa.AliquotID = lspuag.AliquotID
+    INNER JOIN Spots ON lsa.AliquotID = Spots.AliquotID
+    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
     GROUP BY lsa.SampleID
 )
 '''
@@ -119,8 +120,31 @@ DistinctUPbAnalyses AS
     lsa.AliquotID,
     SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
     FROM LimitedSamplesAliquots lsa
-    LEFT JOIN LimitedSpotsUPbAnalysesGrains lspuag ON lsa.AliquotID = lspuag.AliquotID
-    GROUP BY Aliquots.AliquotID
+    INNER JOIN Spots ON lsa.AliquotID = Spots.AliquotID
+    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+    GROUP BY lsa.AliquotID
+)
+'''
+qupb_count_grain_subquery = f'''
+DistinctUPbAnalyses AS 
+(
+    SELECT
+    lspuag.GrainID,
+    SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
+    FROM LimitedSpotsUPbAnalysesGrains lspuag
+    INNER JOIN UPbAnalyses ON lspuag.SpotID = UPbAnalyses.SpotID
+    GROUP BY lspuag.GrainID
+)
+'''
+qupb_count_spot_subquery = f'''
+DistinctUPbAnalyses AS 
+(
+    SELECT
+    lspuag.SpotID,
+    SUM(CASE WHEN UPbAnalyses.Rejected = 0 THEN 1 ELSE 0 END) || "/" || COUNT(DISTINCT UPbAnalyses.UPbAnalysisID) AS AcceptedTotalUPbAnalyses
+    FROM LimitedSpotsUPbAnalysesGrains lspuag
+    INNER JOIN UPbAnalyses ON lspuag.SpotID = UPbAnalyses.SpotID
+    GROUP BY lspuag.SpotID
 )
 '''
 qupb_references = 'GROUP_CONCAT(DISTINCT UPbReferences.ReferenceDisplay) AS UPbReference'
@@ -269,7 +293,7 @@ qreference_modified = 'ReferenceModified AS ReferenceModified'
 # SampleAge-Age joins
 sample_age_join = 'LEFT JOIN Ages ON SampleAges.OldestAgeID = Ages.AgeID OR SampleAges.YoungestAgeID = Ages.AgeID'
 sample_age_left_joins = '''LEFT JOIN ErrorFormats AS DirectAgeErrorFormats ON SampleAges.DirectAgeErrorFormatID = DirectAgeErrorFormats.ErrorFormatID
-                        LEFT JOIN AgeUnits ON SampleAges.DirectAgeUnitID = AgeUnits.AgeUnitID
+                        LEFT JOIN AgeUnits AS SampleAgeUnits ON SampleAges.DirectAgeUnitID = SampleAgeUnits.AgeUnitID
                         LEFT JOIN Ages AS OldAge ON SampleAges.OldestAgeID = OldAge.AgeID
                         LEFT JOIN Ages AS YoungAge ON SampleAges.YoungestAgeID = YoungAge.AgeID'''
 sampleage_age_constraint_join = '''LEFT JOIN SampleAges_AgeConstraints ON SampleAges.SampleAgeID = SampleAges_AgeConstraints.SampleAgeID
@@ -280,11 +304,11 @@ sampleage_age_reference_join = '''LEFT JOIN SampleAges_References ON SampleAges.
                         LEFT JOIN "References" AS SampleAgeReferences ON SampleAges_References.ReferenceID = SampleAgeReferences.ReferenceID'''
 
 # GPSLocation joins
-gps_sample_join = '''LEFT JOIN GPSLocations AS GPSLocations ON Samples.SampleGPSLocationID = GPSLocations.GPSLocationID'''
-gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON GPSLocations.GPSLatDirectionID = SampleLatDirections.DirectionUnitID
-                        LEFT JOIN DirectionUnits AS SampleLonDirections ON GPSLocations.GPSLonDirectionID = SampleLonDirections.DirectionUnitID
-                        LEFT JOIN DistanceUnits AS SampleElevationUnits ON GPSLocations.GPSElevUnitID = SampleElevationUnits.DistanceUnitID
-                        LEFT JOIN GPSFormats AS GPSFormats ON GPSLocations.GPSFormatID = GPSFormats.GPSFormatID'''
+gps_sample_join = '''LEFT JOIN GPSLocations AS SampleGPS ON Samples.SampleGPSLocationID = SampleGPS.GPSLocationID'''
+gps_sample_left_joins = '''LEFT JOIN DirectionUnits AS SampleLatDirections ON SampleGPS.GPSLatDirectionID = SampleLatDirections.DirectionUnitID
+                        LEFT JOIN DirectionUnits AS SampleLonDirections ON SampleGPS.GPSLonDirectionID = SampleLonDirections.DirectionUnitID
+                        LEFT JOIN DistanceUnits AS SampleElevationUnits ON SampleGPS.GPSElevUnitID = SampleElevationUnits.DistanceUnitID
+                        LEFT JOIN GPSFormats AS SampleGPSFormats ON SampleGPS.GPSFormatID = SampleGPSFormats.GPSFormatID'''
 gps_column_join = '''LEFT JOIN GPSLocations AS ColumnGPS ON Columns.ColumnBaseGPSID = ColumnGPS.GPSLocationID'''
 gps_column_left_joins = '''LEFT JOIN DirectionUnits AS ColumnLatDirections ON ColumnGPS.GPSLatDirectionID = ColumnLatDirections.DirectionUnitID
                         LEFT JOIN DirectionUnits AS ColumnLonDirections ON ColumnGPS.GPSLonDirectionID = ColumnLonDirections.DirectionUnitID
@@ -356,6 +380,8 @@ upb_context_join = '''LEFT JOIN UPbAnalyses_UPbAnalysisContexts ON UPbAnalyses.U
                                 LEFT JOIN UPbAnalysisContexts ON UPbAnalyses_UPbAnalysisContexts.UPbAnalysisContextID = UPbAnalysisContexts.UPbAnalysisContextID'''
 upb_distinct_join_sample = '''LEFT JOIN DistinctUPbAnalyses ON Samples.SampleID = DistinctUPbAnalyses.SampleID'''
 upb_distinct_join_aliquot = '''LEFT JOIN DistinctUPbAnalyses ON Aliquots.AliquotID = DistinctUPbAnalyses.AliquotID'''
+upb_distinct_join_grain = '''LEFT JOIN DistinctUPbAnalyses ON Grains.GrainID = DistinctUPbAnalyses.GrainID'''
+upb_distinct_join_spot = '''LEFT JOIN DistinctUPbAnalyses ON Spots.SpotID = DistinctUPbAnalyses.SpotID'''
 
 
 # Limited hierarchy joins
@@ -365,35 +391,39 @@ limited_sample_aliquot_hierarchy_join = f'''
 limited_spot_upb_grain_hierarchy_join = f'''
                         INNER JOIN LimitedSamplesAliquots lsa ON lspuag.AliquotID = lsa.AliquotID
                         '''
-limited_sample_hierarchy_join = f'''
-                        JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
-                        JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
-                        JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-                        '''
-limited_aliquot_hierarchy_join = f'''
-                        JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-                        JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
-                        JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-                        '''
-limited_grain_hierarchy_join = f'''
-                        JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
-                        JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
-                        JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-                        JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-                        '''
-limited_spot_hierarchy_join = f'''
-                        JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
-                        JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-                        JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
-                        '''
-limited_upb_hierarchy_join = f'''
-                        JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
-                        JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
-                        JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
-                    '''
+# limited_sample_hierarchy_join = f'''
+#                         JOIN LimitedAliquots la ON ls.SampleID = la.SampleID
+#                         JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
+#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
+#                         '''
+# limited_aliquot_hierarchy_join = f'''
+#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
+#                         JOIN LimitedSpots lsp ON la.AliquotID = lsp.AliquotID
+#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
+#                         '''
+# limited_grain_hierarchy_join = f'''
+#                         JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
+#                         JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
+#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
+#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
+#                         '''
+# limited_spot_hierarchy_join = f'''
+#                         JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
+#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
+#                         JOIN LimitedUPbAnalyses lu ON lsp.SpotID = lu.SpotID
+#                         '''
+# limited_upb_hierarchy_join = f'''
+#                         JOIN LimitedSpots lsp ON lu.SpotID = lsp.SpotID
+#                         JOIN LimitedAliquots la ON lsp.AliquotID = la.AliquotID
+#                         JOIN LimitedSamples ls ON la.SampleID = ls.SampleID
+#                     '''
 
 # Limited tags
 # Limit the many-to-many relationships
+upb_distinct_join_limited_sample = '''LEFT JOIN DistinctUPbAnalyses ON lsa.SampleID = DistinctUPbAnalyses.SampleID'''
+upb_distinct_join_limited_aliquot = '''LEFT JOIN DistinctUPbAnalyses ON lsa.AliquotID = DistinctUPbAnalyses.AliquotID'''
+upb_distinct_join_limited_grain = '''LEFT JOIN DistinctUPbAnalyses ON lspuag.GrainID = DistinctUPbAnalyses.GrainID'''
+upb_distinct_join_limited_spot = '''LEFT JOIN DistinctUPbAnalyses ON lspuag.SpotID = DistinctUPbAnalyses.SpotID'''
 limited_sample_tags = f'''
         LimitedSamples_AgeSignatures AS (
             SELECT s_ags.SampleID, ags.*
@@ -499,6 +529,15 @@ limited_upb_tags = f'''
         )
     '''
 
+limited_sample_gps_info = f'''
+        LimitedSamplesGPsInfo AS (
+            SELECT 
+            {qgps_display},
+            {qsample_elev_display},
+            {qsample_elev_unit},
+            {qgps},
+            {qsample_elev}
+            FROM SamplesGPsInfo s'''
 
 # Limited tag joins
 limited_sample_tags_join = f'''
@@ -528,6 +567,8 @@ limited_upb_tags_join = f'''
     LEFT JOIN LimitedUPbAnalyses_UpbAnalysisContexts luac ON lspuag.UPbAnalysisID = luac.UPbAnalysisID
     LEFT JOIN LimitedUPbAnalyses_RejectionReasons AS UPbRejectionReasons ON lspuag.UPbAnalysisID = UPbRejectionReasons.UPbAnalysisID
 '''
+
+
 
 # Dictionary for limited table abbreviations
 limited_table_abbreviations = {
@@ -635,8 +676,8 @@ export_database_tables_viewable = sorted(user_viewable_tables + ['UPbAnalyses', 
 conditionally_editable_tables = ['GPSLocations', 'SampleAges', 'Grains', 'Spots', 'UPbAnalyses']
 conditionally_editable_trees = ['Aliquots']
 
-trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView',
-                  'SpotEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView']
+trigger_tables = ['Columns', 'ColumnEditView', 'GPSLocations', 'SampleAges', 'Samples', 'SampleEditView', 'Spots',
+                  'SpotEditView', 'UPbAnalyses', 'UPbView', 'UPbEditView', 'Grains', 'GrainEditView']
 
 tree_tables_schema = {
     'AgeConstraints.[AgeConstraintName]': {

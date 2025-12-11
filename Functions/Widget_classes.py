@@ -6402,6 +6402,7 @@ class TreeContextMenu(QtW.QMenu):
         :return:
         """
         view_data_menu = self.addMenu('View Data')
+        view_data_menu.addAction('View Grains')
         view_data_menu.addAction('View Spots')
         view_data_menu.addAction('View U-Pb Analyses')
 

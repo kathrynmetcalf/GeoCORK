@@ -119,25 +119,58 @@ class ViewQuery:
                         SQLUtils.qupb_references,
                         SQLUtils.qsample_created,
                         SQLUtils.qsample_modified]
-
+        lsa_column_list = [SQLUtils.qsample_id,
+                             SQLUtils.qigsn,
+                             SQLUtils.qsample_name,
+                             SQLUtils.qsample_description,
+                             SQLUtils.qsample_gps_id,
+                             SQLUtils.qgps_display,
+                             SQLUtils.qsample_elev_display,
+                             SQLUtils.qsample_elev_unit,
+                             SQLUtils.qgps,
+                             SQLUtils.qsample_elev,
+                             SQLUtils.qcolumn_name,
+                             SQLUtils.qsample_column_data,
+                             SQLUtils.qaliquots,
+                             SQLUtils.qsample_created,
+                             SQLUtils.qsample_modified]
+        lspuag_column_list = [SQLUtils.qgrain_count,
+                             SQLUtils.qgrain_compositions,
+                             SQLUtils.qspot_count,
+                             SQLUtils.qspot_compositions,
+                             SQLUtils.qupb_lab_facilities,
+                             SQLUtils.qupb_analysis_methods,
+                             SQLUtils.qupb_ratio_error_formats,
+                             SQLUtils.qupb_age_units,
+                             SQLUtils.qupb_age_error_formats,
+                             SQLUtils.qconcordance_formats,
+                             SQLUtils.qspot_sizes,
+                             SQLUtils.qspot_size,
+                             SQLUtils.qspot_size_unit,
+                             SQLUtils.qupb_age_interpretations,
+                             SQLUtils.qupb_references]
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if column.split(' ')[0] != column:
-                        # There is a condition such as DISTINCT or COUNT
-                        sql_col = column.replace(col.split(' AS ')[1], col)
-                        query_columns.append(sql_col)
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
                     else:
-                        query_columns.append(col)
+                        sql_col = col
+                    query_columns.append(sql_col)
                     break
         query_columns = ',\n '.join(query_columns)
 
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.',1)[1]}'
+        query_columns = query_columns.strip()
+
         count_sample_subquery = SQLUtils.qupb_count_sample_subquery
-        # count_sample_subquery = count_sample_subquery.replace(' Samples ',' LimitedSamplesAliquots lsa ')
-        # count_sample_subquery = count_sample_subquery.replace(' Aliquots ',' LimitedSamplesAliquots lsa ')
-        # count_sample_subquery = count_sample_subquery.replace(' Spots ',' LimitedSpotsUPbAnalysesGrains lspuag ')
-        # count_sample_subquery = count_sample_subquery.replace(' UPbAnalyses ',' LimitedSpotsUPbAnalysesGrains lspuag ')
 
         sample_query = f'''
                 {self.limited_hierarchy},
@@ -154,39 +187,12 @@ class ViewQuery:
                        {SQLUtils.limited_aliquot_tags_join}
                        {SQLUtils.limited_spot_tags_join}
                        {SQLUtils.limited_upb_tags_join}
-                       {SQLUtils.column_join}
-                       {SQLUtils.column_unit_join}
-                       {SQLUtils.sample_age_join}
-                       {SQLUtils.sample_age_left_joins}
-                       {SQLUtils.gps_sample_join}
-                       {SQLUtils.gps_sample_left_joins}
-                       {SQLUtils.gps_column_join}
-                       {SQLUtils.gps_column_left_joins}
-                       {SQLUtils.spot_composition_join}
-                       {SQLUtils.spot_grain_join}
-                       {SQLUtils.grain_composition_join}
-                       {SQLUtils.grain_context_join}
-                       {SQLUtils.upb_distinct_join_sample}
-                       {SQLUtils.upb_reference_join}
-                       {SQLUtils.upb_labs_join}
-                       {SQLUtils.upb_instruments_join}
-                       {SQLUtils.upb_method_join}
-                       {SQLUtils.upb_ratio_error_format_join}
-                       {SQLUtils.upb_age_error_format_join}
-                       {SQLUtils.upb_age_unit_join}
-                       {SQLUtils.upb_concordance_format_join}
-                       {SQLUtils.upb_age_interpretation_join}
-                       {SQLUtils.upb_spot_size_unit_join}
+                       {SQLUtils.upb_distinct_join_limited_sample}
                         {self.query_where}
                         {self.group_by}
                         {self.order_by}
                         {self.query_limit}
                        '''
-
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            sample_query = sample_query.replace(f' {key}.', f' {value}.')
-            sample_query = sample_query.replace(f'({key}.', f'({value}.')
-        sample_query = sample_query.strip()
 
         # print(sample_query)
         self.table_query = sample_query
@@ -250,71 +256,81 @@ class ViewQuery:
                         SQLUtils.qupb_references,
                         SQLUtils.qsample_created,
                         SQLUtils.qsample_modified]
-
+        lsa_column_list = [SQLUtils.qsample_id,
+                           SQLUtils.qigsn,
+                           SQLUtils.qsample_name,
+                           SQLUtils.qsample_description,
+                           SQLUtils.qsample_gps_id,
+                           SQLUtils.qgps_display,
+                           SQLUtils.qsample_elev_display,
+                           SQLUtils.qsample_elev_unit,
+                           SQLUtils.qgps,
+                           SQLUtils.qsample_elev,
+                           SQLUtils.qcolumn_name,
+                           SQLUtils.qsample_column_data_display,
+                           SQLUtils.qsample_column_data_unit,
+                           SQLUtils.qaliquots,
+                           SQLUtils.qsample_created,
+                           SQLUtils.qsample_modified]
+        lspuag_column_list = [SQLUtils.qgrain_count,
+                              SQLUtils.qgrain_compositions,
+                              SQLUtils.qspot_count,
+                              SQLUtils.qspot_compositions,
+                              SQLUtils.qupb_lab_facilities,
+                              SQLUtils.qupb_analysis_methods,
+                              SQLUtils.qupb_ratio_error_formats,
+                              SQLUtils.qupb_age_units,
+                              SQLUtils.qupb_age_error_formats,
+                              SQLUtils.qconcordance_formats,
+                              SQLUtils.qspot_sizes,
+                              SQLUtils.qspot_size,
+                              SQLUtils.qspot_size_unit,
+                              SQLUtils.qupb_age_interpretations,
+                              SQLUtils.qupb_references]
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
 
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
+
         count_sample_subquery = SQLUtils.qupb_count_sample_subquery
-        count_sample_subquery = count_sample_subquery.replace(' Samples ', ' LimitedSamples ls ')
-        count_sample_subquery = count_sample_subquery.replace(' Aliquots ', ' LimitedAliquots la ')
-        count_sample_subquery = count_sample_subquery.replace(' Spots ', ' LimitedSpots lsp ')
-        count_sample_subquery = count_sample_subquery.replace(' UPbAnalyses ', ' LimitedUPbAnalyses lu ')
 
         sample_query = f'''
-                {self.limited_hierarchy},
-                {SQLUtils.limited_sample_tags},
-                {SQLUtils.limited_aliquot_tags},
-                {SQLUtils.limited_spot_tags},
-                {SQLUtils.limited_upb_tags},
-                {count_sample_subquery}
-                SELECT
-                        {query_columns}
-                    FROM LimitedSamplesAliquots lsa
-                    {SQLUtils.limited_sample_aliquot_hierarchy_join}
-                    {SQLUtils.limited_sample_tags_join}
-                    {SQLUtils.limited_aliquot_tags_join}
-                    {SQLUtils.limited_spot_tags_join}
-                    {SQLUtils.limited_upb_tags_join}
-                    {SQLUtils.column_join}
-                    {SQLUtils.column_unit_join}
-                    {SQLUtils.sample_age_join}
-                    {SQLUtils.sample_age_left_joins}
-                    {SQLUtils.gps_sample_join}
-                    {SQLUtils.gps_sample_left_joins}
-                    {SQLUtils.gps_column_join}
-                    {SQLUtils.gps_column_left_joins}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.spot_grain_join}
-                    {SQLUtils.grain_composition_join}
-                    {SQLUtils.grain_context_join}
-                    {SQLUtils.upb_distinct_join_sample}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.upb_instruments_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_ratio_error_format_join}
-                    {SQLUtils.upb_age_error_format_join}
-                    {SQLUtils.upb_age_unit_join}
-                    {SQLUtils.upb_concordance_format_join}
-                    {SQLUtils.upb_context_join}
-                    {SQLUtils.upb_age_interpretation_join}
-                    {SQLUtils.upb_spot_size_unit_join}
-                    {self.query_where}
-                    {self.group_by}
-                    {self.order_by}
-                    {self.query_limit}
-                    '''
-
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            sample_query = sample_query.replace(f' {key}.', f' {value}.')
-            sample_query = sample_query.replace(f'({key}.', f'({value}.')
-        sample_query = sample_query.strip()
+                        {self.limited_hierarchy},
+                        {SQLUtils.limited_sample_tags},
+                        {SQLUtils.limited_aliquot_tags},
+                        {SQLUtils.limited_spot_tags},
+                        {SQLUtils.limited_upb_tags},
+                        {count_sample_subquery}
+                        SELECT
+                                {query_columns}
+                               FROM LimitedSamplesAliquots lsa
+                               {SQLUtils.limited_sample_aliquot_hierarchy_join}
+                               {SQLUtils.limited_sample_tags_join}
+                               {SQLUtils.limited_aliquot_tags_join}
+                               {SQLUtils.limited_spot_tags_join}
+                               {SQLUtils.limited_upb_tags_join}
+                               {SQLUtils.upb_distinct_join_limited_sample}
+                                {self.query_where}
+                                {self.group_by}
+                                {self.order_by}
+                                {self.query_limit}
+                               '''
 
         # print(sample_query)
         self.table_query = sample_query
@@ -358,20 +374,50 @@ class ViewQuery:
                         SQLUtils.qupb_references,
                         SQLUtils.qaliquot_created,
                         SQLUtils.qaliquot_modified]
+        lsa_column_list = [SQLUtils.qaliquot_id,
+                             SQLUtils.qaliquot_parent_id,
+                             SQLUtils.qaliquot_parent_row,
+                             SQLUtils.qaliquot_name,
+                             SQLUtils.qsample_id,
+                             SQLUtils.qaliquot_sample,
+                             SQLUtils.qaliquot_created,
+                             SQLUtils.qaliquot_modified]
+        lspuag_column_list = [SQLUtils.qgrain_count,
+                             SQLUtils.qgrain_compositions,
+                             SQLUtils.qspot_count,
+                             SQLUtils.qspot_compositions,
+                             SQLUtils.qupb_lab_facilities,
+                             SQLUtils.qupb_analysis_methods,
+                             SQLUtils.qupb_ratio_error_formats,
+                             SQLUtils.qupb_age_units,
+                             SQLUtils.qupb_age_error_formats,
+                             SQLUtils.qconcordance_formats,
+                             SQLUtils.qspot_sizes,
+                             SQLUtils.qupb_age_interpretations,
+                             SQLUtils.qupb_references]
 
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
 
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
+
         count_aliquot_subquery = SQLUtils.qupb_count_aliquot_subquery
-        count_aliquot_subquery = count_aliquot_subquery.replace(' Aliquots ', ' LimitedAliquots la ')
-        count_aliquot_subquery = count_aliquot_subquery.replace(' Spots ', ' LimitedSpots lsp ')
-        count_aliquot_subquery = count_aliquot_subquery.replace(' UPbAnalyses ', ' LimitedUPbAnalyses lu ')
 
         aliquot_query = f'''
                     {self.limited_hierarchy},
@@ -386,31 +432,11 @@ class ViewQuery:
                     {SQLUtils.limited_aliquot_tags_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.spot_grain_join}
-                    {SQLUtils.grain_composition_join}
-                    {SQLUtils.grain_context_join}
-                    {SQLUtils.upb_distinct_join_aliquot}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.upb_instruments_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_ratio_error_format_join}
-                    {SQLUtils.upb_age_error_format_join}
-                    {SQLUtils.upb_age_unit_join}
-                    {SQLUtils.upb_concordance_format_join}
-                    {SQLUtils.upb_context_join}
-                    {SQLUtils.upb_age_interpretation_join}
-                    {SQLUtils.upb_spot_size_unit_join}
+                    {SQLUtils.upb_distinct_join_limited_aliquot}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
                     '''
-
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            aliquot_query = aliquot_query.replace(f' {key}.', f' {value}.')
-            aliquot_query = aliquot_query.replace(f'({key}.', f'({value}.')
-        aliquot_query = aliquot_query.strip()
 
         self.table_query = aliquot_query
 
@@ -434,15 +460,33 @@ class ViewQuery:
                         SQLUtils.qaliquot_contexts,
                         SQLUtils.qaliquot_created,
                         SQLUtils.qaliquot_modified]
+        lsa_column_list = [SQLUtils.qaliquot_id,
+                        SQLUtils.qaliquot_parent_id,
+                        SQLUtils.qaliquot_parent_row,
+                        SQLUtils.qaliquot_name,
+                        SQLUtils.qsample_id,
+                        SQLUtils.qaliquot_sample,
+                        SQLUtils.qaliquot_created,
+                        SQLUtils.qaliquot_modified]
 
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
+
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
 
         aliquot_query = f'''
                     {self.limited_hierarchy},
@@ -456,11 +500,6 @@ class ViewQuery:
                     {self.group_by}
                     {self.order_by}
                     '''
-
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            aliquot_query = aliquot_query.replace(f' {key}.', f' {value}.')
-            aliquot_query = aliquot_query.replace(f'({key}.', f'({value}.')
-        aliquot_query = aliquot_query.strip()
 
         self.table_query = aliquot_query
 
@@ -504,37 +543,62 @@ class ViewQuery:
                              SQLUtils.qupb_references,
                              SQLUtils.qgrain_created,
                              SQLUtils.qgrain_modified]
+        lsa_column_list = [SQLUtils.qaliquot_id,
+                             SQLUtils.qsample_id,
+                             SQLUtils.qaliquot_name,
+                             SQLUtils.qsample_name]
+        lspuag_column_list = [SQLUtils.qgrain_id,
+                             SQLUtils.qspot_id,
+                             SQLUtils.qgrain_name,
+                             SQLUtils.qgrain_description,
+                             SQLUtils.qspot_name,
+                             SQLUtils.qgrain_composition,
+                             SQLUtils.qspot_compositions,
+                             SQLUtils.qupb_lab_facilities,
+                             SQLUtils.qupb_instruments,
+                             SQLUtils.qupb_analysis_methods,
+                             SQLUtils.qupb_ratio_error_formats,
+                             SQLUtils.qupb_age_units,
+                             SQLUtils.qupb_age_error_formats,
+                             SQLUtils.qconcordance_formats,
+                             SQLUtils.qspot_sizes,
+                             SQLUtils.qupb_age_interpretations,
+                             SQLUtils.qupb_references,
+                             SQLUtils.qgrain_created,
+                             SQLUtils.qgrain_modified]
 
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
+
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
+
+        count_grain_subquery = SQLUtils.qupb_count_grain_subquery
 
         grain_query = f'''
                     SELECT
-                        {query_columns}
+                        {query_columns},
+                        {count_grain_subquery}
                     FROM Grains
                     {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
-                    {SQLUtils.grain_composition_join}
-                    {SQLUtils.grain_context_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.upb_instruments_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_ratio_error_format_join}
-                    {SQLUtils.upb_age_error_format_join}
-                    {SQLUtils.upb_age_unit_join}
-                    {SQLUtils.upb_concordance_format_join}
-                    {SQLUtils.upb_context_join}
-                    {SQLUtils.upb_age_interpretation_join}
-                    {SQLUtils.upb_spot_size_unit_join}
+                    {SQLUtils.upb_distinct_join_limited_grain}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
@@ -561,15 +625,31 @@ class ViewQuery:
                         SQLUtils.qgrain_contexts,
                         SQLUtils.qgrain_created,
                         SQLUtils.qgrain_modified]
+        lspuag_column_list = [SQLUtils.qgrain_id,
+                        SQLUtils.qgrain_name,
+                        SQLUtils.qgrain_description,
+                        SQLUtils.qgrain_composition,
+                        SQLUtils.qgrain_created,
+                        SQLUtils.qgrain_modified]
 
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
+
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
 
         grain_query = f'''
                     {self.limited_hierarchy}
@@ -577,6 +657,7 @@ class ViewQuery:
                         {query_columns}
                     FROM LimitedSpotsUPbAnalysesGrains lspuag
                     {SQLUtils.limited_spot_upb_grain_hierarchy_join}
+                    {SQLUtils.limited_spot_tags_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
@@ -617,7 +698,7 @@ class ViewQuery:
                         SQLUtils.qupb_age_units,
                         SQLUtils.qupb_age_error_formats,
                         SQLUtils.qconcordance_formats,
-                        SQLUtils.qspot_size,
+                        SQLUtils.qspot_sizes,
                         SQLUtils.qupb_contexts,
                         SQLUtils.qupb_age_interpretations,
                         SQLUtils.qupb_count,
@@ -625,51 +706,69 @@ class ViewQuery:
                         SQLUtils.qupb_references,
                         SQLUtils.qspot_created,
                         SQLUtils.qspot_modified]
+        lsa_column_list = [SQLUtils.qaliquot_id,
+                             SQLUtils.qsample_id,
+                             SQLUtils.qaliquot_name,
+                             SQLUtils.qsample_name]
+        lspuag_column_list = [SQLUtils.qspot_id,
+                             SQLUtils.qspot_name,
+                             SQLUtils.qupb_analyses,
+                             SQLUtils.qgrain_name,
+                             SQLUtils.qspot_composition,
+                             SQLUtils.qgrain_composition,
+                             SQLUtils.qupb_lab_facilities,
+                             SQLUtils.qupb_instruments,
+                             SQLUtils.qupb_analysis_methods,
+                             SQLUtils.qupb_ratio_error_formats,
+                             SQLUtils.qupb_age_units,
+                             SQLUtils.qupb_age_error_formats,
+                             SQLUtils.qconcordance_formats,
+                             SQLUtils.qspot_sizes,
+                             SQLUtils.qupb_age_interpretations,
+                             SQLUtils.qupb_references,
+                             SQLUtils.qspot_created,
+                             SQLUtils.qspot_modified]
 
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
-                if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                if col.split(' AS ')[1] == column:
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
+
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
+
+        count_spot_subquery = SQLUtils.qupb_count_spot_subquery
 
         spot_query = f'''
                     {self.limited_hierarchy},
                     {SQLUtils.limited_spot_tags},
-                    {SQLUtils.limited_upb_tags}
+                    {SQLUtils.limited_upb_tags},
+                    {count_spot_subquery}
                     SELECT
                         {query_columns}
                     FROM LimitedSpotsUPbAnalysesGrains lspuag
                     {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_spot_tags_join}
                     {SQLUtils.limited_upb_tags_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.spot_grain_join}
-                    {SQLUtils.grain_composition_join}
-                    {SQLUtils.grain_context_join}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.upb_instruments_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_ratio_error_format_join}
-                    {SQLUtils.upb_age_error_format_join}
-                    {SQLUtils.upb_age_unit_join}
-                    {SQLUtils.upb_concordance_format_join}
-                    {SQLUtils.upb_context_join}
-                    {SQLUtils.upb_age_interpretation_join}
-                    {SQLUtils.upb_spot_size_unit_join}
+                    {SQLUtils.upb_distinct_join_limited_spot}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
                     {self.query_limit}
                     '''
-
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            spot_query = spot_query.replace(f' {key}.', f' {value}.')
-            spot_query = spot_query.replace(f'({key}.', f'({value}.')
-        spot_query = spot_query.strip()
 
         self.table_query = spot_query
 
@@ -700,15 +799,39 @@ class ViewQuery:
                         SQLUtils.qgrain_contexts,
                         SQLUtils.qspot_created,
                         SQLUtils.qspot_modified]
+        lsa_column_list = [SQLUtils.qaliquot_id,
+                                 SQLUtils.qsample_id,
+                                 SQLUtils.qaliquot_name,
+                                 SQLUtils.qsample_name]
+        lspuag_column_list = [SQLUtils.qspot_id,
+                        SQLUtils.qspot_name,
+                        SQLUtils.qupb_analyses,
+                        SQLUtils.qgrain_name,
+                        SQLUtils.qspot_composition,
+                        SQLUtils.qgrain_composition,
+                        SQLUtils.qspot_created,
+                        SQLUtils.qspot_modified]
 
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
+
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
 
         spot_query = f'''
                     {self.limited_hierarchy},
@@ -718,20 +841,11 @@ class ViewQuery:
                     FROM LimitedSpotsUPbAnalysesGrains lspuag
                     {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_spot_tags_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.spot_grain_join}
-                    {SQLUtils.grain_composition_join}
-                    {SQLUtils.grain_context_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
                     {self.query_limit}
                     '''
-
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            spot_query = spot_query.replace(f' {key}.', f' {value}.')
-            spot_query = spot_query.replace(f'({key}.', f'({value}.')
-        spot_query = spot_query.strip()
 
         self.table_query = spot_query
 
@@ -748,25 +862,7 @@ class ViewQuery:
         self.get_group_oder_clauses()
         self.limited_hierarchy_query()
 
-        from Functions.Widget_classes import get_headers
-
-        headers = get_headers(self.table)
-        columns = []
-        for header in headers:
-            if f'UPbAnalyses."{header}" AS "{header}"' in columns:
-                continue
-            if 'Calculated' in header:
-                if f'UPbAnalyses."{header}" AS "{header}"' not in columns:
-                    columns.append(f'UPbAnalyses."{header}" AS "{header}"')
-                if f'{header}Error' in headers and f'UPbAnalyses."{header}Error" AS "{header}Error"' not in columns:
-                    columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
-            elif f'Calculated{header}' in headers:
-                pass
-            elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
-                pass
-            elif f'UPbAnalyses."{header}" AS "{header}"' not in columns:
-                columns.append(f'UPbAnalyses."{header}" AS "{header}"')
-        upb_query_columns = columns
+        upb_query_columns = upb_columns(False)
 
         query_columns1 = [SQLUtils.qupb_id,
                         SQLUtils.qspot_id,
@@ -793,15 +889,49 @@ class ViewQuery:
                         SQLUtils.qupb_created,
                         SQLUtils.qupb_modified]
 
+        lsa_column_list = [SQLUtils.qaliquot_id,
+                          SQLUtils.qsample_id,
+                          SQLUtils.qaliquot_name,
+                          SQLUtils.qsample_name]
+
+        lspuag_column_list = [SQLUtils.qupb_id,
+                          SQLUtils.qspot_id,
+                          SQLUtils.qupb_analysis_name,
+                          SQLUtils.qspot_name,
+                          SQLUtils.qgrain_name,
+                          SQLUtils.qupb_references,
+                          SQLUtils.qupb_lab_facilities,
+                          SQLUtils.qupb_instruments,
+                          SQLUtils.qupb_analysis_methods,
+                          SQLUtils.qupb_rejected,
+                          SQLUtils.qupb_age_interpretations,
+                          SQLUtils.qspot_composition,
+                          SQLUtils.qgrain_composition,
+                          SQLUtils.qupb_created,
+                          SQLUtils.qupb_modified]
+        lspuag_column_list.extend(upb_query_columns)
+
         query_column_list = query_columns1 + upb_query_columns + query_columns2
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
+
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
 
         upb_query = f'''
                     {self.limited_hierarchy},
@@ -813,33 +943,11 @@ class ViewQuery:
                     {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.limited_spot_tags_join}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.upb_instruments_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_ratio_error_format_join}
-                    {SQLUtils.upb_age_error_format_join}
-                    {SQLUtils.upb_age_unit_join}
-                    {SQLUtils.upb_concordance_format_join}
-                    {SQLUtils.upb_context_join}
-                    {SQLUtils.upb_age_interpretation_join}
-                    {SQLUtils.upb_spot_size_unit_join}
-                    {SQLUtils.upb_spot_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.spot_grain_join}
-                    {SQLUtils.grain_composition_join}
-                    {SQLUtils.grain_context_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
                     {self.query_limit}
                     '''
-
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            upb_query = upb_query.replace(f' {key}.', f' {value}.')
-            upb_query = upb_query.replace(f'({key}.', f'({value}.')
-        upb_query = upb_query.strip()
 
         self.table_query = upb_query
 
@@ -855,23 +963,7 @@ class ViewQuery:
         self.get_group_oder_clauses()
         self.limited_hierarchy_query()
 
-        from Functions.Widget_classes import get_headers
-
-        headers = get_headers(self.table)
-        columns = []
-        for header in headers:
-            if f'lu."{header}" AS "{header}"' in columns:
-                continue
-            elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
-                pass
-            elif 'Calculated' in header:
-                pass
-            else:
-                if f'lu."{header}" AS "{header}"' not in columns:
-                    columns.append(f'lu."{header}" AS "{header}"')
-                if f'{header}Error' in headers and f'lu."{header}Error" AS "{header}Error"' not in columns:
-                    columns.append(f'lu."{header}Error" AS "{header}Error"')
-        upb_query_columns = columns
+        upb_query_columns = upb_columns(True)
 
         query_columns1 = [SQLUtils.qupb_id,
                         SQLUtils.qspot_id,
@@ -901,15 +993,55 @@ class ViewQuery:
                         SQLUtils.qgrain_contexts,
                         SQLUtils.qupb_created,
                         SQLUtils.qupb_modified]
+
+        lsa_column_list = [SQLUtils.qaliquot_id,
+                          SQLUtils.qsample_id,
+                          SQLUtils.qaliquot_name,
+                          SQLUtils.qsample_name]
+
+        lspuag_column_list = [SQLUtils.qupb_id,
+                          SQLUtils.qspot_id,
+                          SQLUtils.qupb_analysis_name,
+                          SQLUtils.qspot_name,
+                          SQLUtils.qgrain_name,
+                          SQLUtils.qupb_references,
+                          SQLUtils.qupb_lab_facilities,
+                          SQLUtils.qupb_instruments,
+                          SQLUtils.qupb_analysis_methods,
+                          SQLUtils.qupb_ratio_error_formats,
+                          SQLUtils.qupb_age_units,
+                          SQLUtils.qupb_age_error_formats,
+                          SQLUtils.qconcordance_formats,
+                          SQLUtils.qspot_size_unit,
+                          SQLUtils.qupb_rejected,
+                          SQLUtils.qupb_age_interpretations,
+                          SQLUtils.qspot_composition,
+                          SQLUtils.qgrain_composition,
+                          SQLUtils.qupb_created,
+                          SQLUtils.qupb_modified]
+        lspuag_column_list.extend(upb_query_columns)
+
         query_column_list = query_columns1 + upb_query_columns + query_columns2
         query_columns = []
         for column in self.show_columns:
             for col in query_column_list:
                 if col.split(' AS ')[1] in column:
-                    if col not in query_columns:
-                        query_columns.append(col)
-                        break
+                    if col in lsa_column_list:
+                        sql_col = f"lsa.{column}"
+                    elif col in lspuag_column_list:
+                        sql_col = f"lspuag.{column}"
+                    else:
+                        sql_col = col
+                    query_columns.append(sql_col)
+                    break
         query_columns = ',\n '.join(query_columns)
+
+        for key, value in SQLUtils.limited_table_abbreviations.items():
+            query_columns = query_columns.replace(f' {key}.', f' {value}.')
+            query_columns = query_columns.replace(f'({key}.', f'({value}.')
+            if query_columns.startswith(f'{key}.'):
+                query_columns = f'{value}.{query_columns.split(f'{key}.', 1)[1]}'
+        query_columns = query_columns.strip()
 
         upb_query = f'''
                     {self.limited_hierarchy},
@@ -921,33 +1053,11 @@ class ViewQuery:
                     {SQLUtils.limited_spot_upb_grain_hierarchy_join}
                     {SQLUtils.limited_upb_tags_join}
                     {SQLUtils.limited_spot_tags_join}
-                    {SQLUtils.upb_reference_join}
-                    {SQLUtils.upb_labs_join}
-                    {SQLUtils.upb_instruments_join}
-                    {SQLUtils.upb_method_join}
-                    {SQLUtils.upb_ratio_error_format_join}
-                    {SQLUtils.upb_age_error_format_join}
-                    {SQLUtils.upb_age_unit_join}
-                    {SQLUtils.upb_concordance_format_join}
-                    {SQLUtils.upb_context_join}
-                    {SQLUtils.upb_age_interpretation_join}
-                    {SQLUtils.upb_spot_size_unit_join}
-                    {SQLUtils.upb_spot_join}
-                    {SQLUtils.spot_composition_join}
-                    {SQLUtils.spot_context_join}
-                    {SQLUtils.spot_grain_join}
-                    {SQLUtils.grain_composition_join}
-                    {SQLUtils.grain_context_join}
                     {self.query_where}
                     {self.group_by}
                     {self.order_by}
                     {self.query_limit}
                     '''
-        for key, value in SQLUtils.limited_table_abbreviations.items():
-            upb_query = upb_query.replace(f' {key}.', f' {value}.')
-            upb_query = upb_query.replace(f'({key}.', f'({value}.')
-        upb_query = upb_query.strip()
-
         self.table_query = upb_query
 
     def create_column_view_query(self):
@@ -1153,6 +1263,7 @@ class ViewQuery:
                                                             ORDER BY {self.order_col} {self.limit}
                                                             """
                         else:
+                            where_header = headers[0]
                             self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
                                                             SELECT {headers[0]} FROM {self.table}
                                                             ORDER BY {self.order_col} {self.limit}
@@ -1212,6 +1323,7 @@ class ViewQuery:
         elif self.order_col != '' and self.limit != '':
             if self.order_col in headers:
                 # Everything applies to the same table, so put them all in the hierarchy query
+                where_header = headers[0]
                 self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
                                                 SELECT {headers[0]} FROM {self.table}
                                                 ORDER BY {self.order_col} {self.limit}
@@ -1228,159 +1340,469 @@ class ViewQuery:
                 # order gets applied in the main query regardless
         elif self.limit != '':
             # Only limit, so apply in the hierarchy
+            where_header = headers[0]
             self.create_temp_paged = f"""CREATE TEMP TABLE TempPaged AS
                                         SELECT {headers[0]} FROM {self.table}
                                         {self.limit}"""
             hierarchy_limit = ''
             hierarchy_where_join = f"INNER JOIN TempPaged tp ON"
             self.query_limit = ''
+        group_lspuag = ''
+        group_lsa = ''
+        lsa_select = ''
+        lsa_joins = ''
+        lspuag_select = ''
+        lspuag_joins = ''
+        if where_table in ['Samples', 'Aliquots', 'Spots', 'UPbAnalyses', 'Grains']:
+            if where_table in ['Samples', 'Aliquots']:
+                if headers[0] in ['SampleID', 'AliquotID']:
+                    group_lsa = f'GROUP BY {self.table}.{headers[0]}'
+                    group_lspuag = f'GROUP BY lsa.{headers[0]}'
+                elif headers[0] in ['SpotID', 'UPbAnalysisID', 'GrainID']:
+                    group_lsa = ''
+                    group_lspuag = f'GROUP BY {self.table}.{headers[0]}'
+            else:
+                if headers[0] in ['SpotID', 'UPbAnalysisID', 'GrainID']:
+                    group_lspuag = f'GROUP BY {self.table}.{headers[0]}'
+                    group_lsa = f'GROUP BY lspuag.{headers[0]}'
+                elif headers[0] in ['SampleID', 'AliquotID']:
+                    group_lspuag = ''
+                    group_lsa = f'GROUP BY {self.table}.{headers[0]}'
+            if self.table == 'Samples':
+                lsa_select = f''',
+                        {SQLUtils.qigsn},
+                        {SQLUtils.qsample_description},
+                        {SQLUtils.qsample_gps_id},
+                        Samples.DefaultSampleAgeID,
+                        {SQLUtils.qcolumn_name},
+                        {SQLUtils.qaliquots},
+                        {SQLUtils.qsample_created},
+                        {SQLUtils.qsample_modified}'''
+                lsa_joins = f'''{SQLUtils.column_join}
+                       {SQLUtils.gps_sample_join}
+                       {SQLUtils.gps_sample_left_joins}
+                       {SQLUtils.gps_column_join}
+                       {SQLUtils.gps_column_left_joins}'''
+                if self.edit_view:
+                    lsa_select += f''',\n{SQLUtils.qgps_display},
+                                            {SQLUtils.qsample_elev_display},
+                                            {SQLUtils.qsample_elev_unit},
+                                            {SQLUtils.qsample_column_data_display},
+                                            {SQLUtils.qsample_column_data_unit}'''
+                    lsa_joins += f'''\n{SQLUtils.column_unit_join}'''
+                else:
+                    lsa_select += f''',\n{SQLUtils.qgps},
+                                            {SQLUtils.qsample_elev},
+                                            {SQLUtils.qsample_column_data}'''
+                    lsa_joins += f'''\n{SQLUtils.column_units_join}'''
+                lspuag_select = f''',
+                        {SQLUtils.qgrain_count},
+                        {SQLUtils.qgrain_compositions},
+                        {SQLUtils.qspot_count},
+                        {SQLUtils.qspot_compositions},
+                        {SQLUtils.qupb_lab_facilities},
+                        {SQLUtils.qupb_analysis_methods},
+                        {SQLUtils.qupb_ratio_error_formats},
+                        {SQLUtils.qupb_age_units},
+                        {SQLUtils.qupb_age_error_formats},
+                        {SQLUtils.qconcordance_formats},
+                        {SQLUtils.qspot_sizes},
+                        {SQLUtils.qspot_size},
+                        {SQLUtils.qspot_size_unit},
+                        {SQLUtils.qupb_references},
+                        {SQLUtils.qupb_age_interpretations}'''
+                lspuag_joins = f'''{SQLUtils.grain_composition_join}
+                    {SQLUtils.spot_composition_join}
+                       {SQLUtils.upb_reference_join}
+                       {SQLUtils.upb_labs_join}
+                       {SQLUtils.upb_instruments_join}
+                       {SQLUtils.upb_method_join}
+                       {SQLUtils.upb_ratio_error_format_join}
+                       {SQLUtils.upb_age_error_format_join}
+                       {SQLUtils.upb_age_unit_join}
+                       {SQLUtils.upb_concordance_format_join}
+                       {SQLUtils.upb_age_interpretation_join}
+                       {SQLUtils.upb_spot_size_unit_join}'''
+            elif self.table == 'Aliquots':
+                lsa_select = f''',
+                        {SQLUtils.qaliquot_parent_id},
+                        {SQLUtils.qaliquot_parent_row},
+                        {SQLUtils.qaliquot_sample},
+                        {SQLUtils.qaliquot_created},
+                        {SQLUtils.qaliquot_modified}'''
+                lsa_joins = ''
+                if not self.edit_view:
+                    lspuag_select = f''',
+                            {SQLUtils.qgrain_count},
+                            {SQLUtils.qgrain_compositions},
+                            {SQLUtils.qspot_count},
+                            {SQLUtils.qspot_compositions},
+                            {SQLUtils.qupb_lab_facilities},
+                            {SQLUtils.qupb_analysis_methods},
+                            {SQLUtils.qupb_ratio_error_formats},
+                            {SQLUtils.qupb_age_units},
+                            {SQLUtils.qupb_age_error_formats},
+                            {SQLUtils.qconcordance_formats},
+                            {SQLUtils.qspot_sizes},
+                            {SQLUtils.qspot_size},
+                            {SQLUtils.qspot_size_unit},
+                            {SQLUtils.qupb_references},
+                            {SQLUtils.qupb_age_interpretations}'''
+                    lspuag_joins = f'''{SQLUtils.grain_composition_join}
+                        {SQLUtils.spot_composition_join}
+                           {SQLUtils.upb_reference_join}
+                           {SQLUtils.upb_labs_join}
+                           {SQLUtils.upb_instruments_join}
+                           {SQLUtils.upb_method_join}
+                           {SQLUtils.upb_ratio_error_format_join}
+                           {SQLUtils.upb_age_error_format_join}
+                           {SQLUtils.upb_age_unit_join}
+                           {SQLUtils.upb_concordance_format_join}
+                           {SQLUtils.upb_age_interpretation_join}
+                           {SQLUtils.upb_spot_size_unit_join}'''
+            elif self.table == 'Spots':
+                if self.edit_view:
+                    lspuag_select = f''',
+                        {SQLUtils.qspot_name},
+                        {SQLUtils.qupb_analyses},
+                        {SQLUtils.qgrain_name},
+                        {SQLUtils.qspot_composition},
+                        {SQLUtils.qgrain_composition},
+                        {SQLUtils.qspot_created},
+                        {SQLUtils.qspot_modified}'''
+                    lspuag_joins = f'''{SQLUtils.grain_composition_join}
+                    {SQLUtils.spot_composition_join}'''
+                else:
+                    lspuag_select = f''',
+                            {SQLUtils.qspot_name},
+                            {SQLUtils.qupb_analyses},
+                            {SQLUtils.qgrain_name},
+                            {SQLUtils.qspot_composition},
+                            {SQLUtils.qgrain_composition},
+                            {SQLUtils.qupb_lab_facilities},
+                            {SQLUtils.qupb_instruments},
+                            {SQLUtils.qupb_analysis_methods},
+                            {SQLUtils.qupb_ratio_error_formats},
+                            {SQLUtils.qupb_age_units},
+                            {SQLUtils.qupb_age_error_formats},
+                            {SQLUtils.qconcordance_formats},
+                            {SQLUtils.qspot_sizes},
+                            {SQLUtils.qupb_age_interpretations},
+                            {SQLUtils.qupb_references},
+                            {SQLUtils.qspot_created},
+                            {SQLUtils.qspot_modified}'''
+                    lspuag_joins = f'''{SQLUtils.grain_composition_join}
+                    {SQLUtils.spot_composition_join}
+                       {SQLUtils.upb_reference_join}
+                       {SQLUtils.upb_labs_join}
+                       {SQLUtils.upb_instruments_join}
+                       {SQLUtils.upb_method_join}
+                       {SQLUtils.upb_ratio_error_format_join}
+                       {SQLUtils.upb_age_error_format_join}
+                       {SQLUtils.upb_age_unit_join}
+                       {SQLUtils.upb_concordance_format_join}
+                       {SQLUtils.upb_age_interpretation_join}
+                       {SQLUtils.upb_spot_size_unit_join}'''
+            elif self.table == 'UPbAnalyses':
+                upb_query_columns = upb_columns(self.edit_view)
+                query_columns = [SQLUtils.qupb_analysis_name,
+                                 SQLUtils.qspot_name,
+                                 SQLUtils.qgrain_name,
+                                 SQLUtils.qupb_references,
+                                 SQLUtils.qupb_lab_facilities,
+                                 SQLUtils.qupb_instruments,
+                                 SQLUtils.qupb_analysis_methods,
+                                 SQLUtils.qupb_ratio_error_formats,
+                                 SQLUtils.qupb_age_units,
+                                 SQLUtils.qupb_age_error_formats,
+                                 SQLUtils.qconcordance_formats,
+                                 SQLUtils.qspot_size_unit,
+                                 SQLUtils.qspot_composition,
+                                 SQLUtils.qupb_age_interpretations,
+                                 SQLUtils.qgrain_composition,
+                                 SQLUtils.qupb_created,
+                                 SQLUtils.qupb_modified]
+                query_columns.extend(upb_query_columns)
+                lspuag_select = f',\n'.join(query_columns)
+                lspuag_select = f',\n{lspuag_select}'
+                lspuag_joins = f'''{SQLUtils.upb_reference_join}
+                       {SQLUtils.upb_labs_join}
+                       {SQLUtils.upb_instruments_join}
+                       {SQLUtils.upb_method_join}
+                       {SQLUtils.upb_ratio_error_format_join}
+                       {SQLUtils.upb_age_error_format_join}
+                       {SQLUtils.upb_age_unit_join}
+                       {SQLUtils.upb_concordance_format_join}
+                       {SQLUtils.upb_age_interpretation_join}
+                       {SQLUtils.upb_spot_size_unit_join}
+                       {SQLUtils.spot_composition_join}
+                       {SQLUtils.grain_composition_join}'''
+            elif self.table == 'Grains':
+                lspuag_select = f''',
+                        {SQLUtils.qgrain_name},
+                        {SQLUtils.qgrain_description},
+                        {SQLUtils.qspot_name},
+                        {SQLUtils.qgrain_composition},
+                        {SQLUtils.qspot_compositions},
+                        {SQLUtils.qupb_lab_facilities},
+                        {SQLUtils.qupb_instruments},
+                        {SQLUtils.qupb_analysis_methods},
+                        {SQLUtils.qupb_ratio_error_formats},
+                        {SQLUtils.qupb_age_units},
+                        {SQLUtils.qupb_age_error_formats},
+                        {SQLUtils.qconcordance_formats},
+                        {SQLUtils.qspot_sizes},
+                        {SQLUtils.qupb_age_interpretations},
+                        {SQLUtils.qupb_references},
+                        {SQLUtils.qgrain_created},
+                        {SQLUtils.qgrain_modified}'''
+                lspuag_joins = f'''{SQLUtils.grain_composition_join}
+                    {SQLUtils.spot_composition_join}
+                       {SQLUtils.upb_reference_join}
+                       {SQLUtils.upb_labs_join}
+                       {SQLUtils.upb_instruments_join}
+                       {SQLUtils.upb_method_join}
+                       {SQLUtils.upb_ratio_error_format_join}
+                       {SQLUtils.upb_age_error_format_join}
+                       {SQLUtils.upb_age_unit_join}
+                       {SQLUtils.upb_concordance_format_join}
+                       {SQLUtils.upb_age_interpretation_join}
+                       {SQLUtils.upb_spot_size_unit_join}'''
         if where_table == 'Samples':
             if hierarchy_where_join != '':
                 if 'TempIDs' in hierarchy_where_join:
-                    hierarchy_where_join += f" s.SampleID = ti.SampleID"
+                    hierarchy_where_join += f" Samples.SampleID = ti.SampleID"
                 elif 'TempPaged' in hierarchy_where_join:
-                    hierarchy_where_join += f" s.SampleID = tp.SampleID"
+                    if where_header == 'SampleID':
+                        hierarchy_where_join += f" Samples.SampleID = tp.SampleID"
             self.limited_hierarchy = f'''
                 WITH RECURSIVE LimitedSamplesAliquots AS (
-                    SELECT s.*, a.* 
-                    FROM Samples s 
+                    SELECT 
+                        {SQLUtils.qsample_id},
+                        {SQLUtils.qaliquot_id},
+                        {SQLUtils.qsample_name},
+                        {SQLUtils.qaliquot_name}
+                        {lsa_select}
+                    FROM Samples
                     {hierarchy_where_join}
-                    INNER JOIN Aliquots a ON s.SampleID = a.SampleID
-                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                    INNER JOIN Aliquots ON Samples.SampleID = Aliquots.SampleID
+                    {lsa_joins}
+                    {hierarchy_where} 
+                    {group_lsa}
+                    {hierarchy_order_by} {hierarchy_limit}
                 ),
                 LimitedSpotsUPbAnalysesGrains AS (
-                    SELECT sp.*, ua.*, g.*
-                    FROM Spots sp
-                    INNER JOIN LimitedSamplesAliquots lsa ON sp.AliquotID = lsa.AliquotID
-                    INNER JOIN UPbAnalyses ua ON sp.SpotID = ua.SpotID
-                    LEFT JOIN Grains g on sp.GrainID = g.GrainID
+                    SELECT 
+                        {SQLUtils.qspot_id},
+                        Spots.AliquotID,
+                        {SQLUtils.qupb_id},
+                        {SQLUtils.qupb_rejected},
+                        {SQLUtils.qgrain_id}
+                        {lspuag_select}
+                    FROM Spots
+                    INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
+                    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+                    {SQLUtils.spot_grain_join}
+                    {lspuag_joins}
+                   {group_lspuag}
                 )
             '''
         elif where_table == 'Aliquots':
             if hierarchy_where_join != '':
                 if 'TempIDs' in hierarchy_where_join:
-                    hierarchy_where_join += f" a.AliquotID = ti.AliquotID"
+                    if 'SampleID' in self.where:
+                        hierarchy_where_join += f" Samples.SampleID = ti.SampleID"
+                    elif 'AliquotID' in self.where:
+                        hierarchy_where_join += f" Aliquots.AliquotID = ti.AliquotID"
                 elif 'TempPaged' in hierarchy_where_join:
-                    hierarchy_where_join += f" a.AliquotID = tp.AliquotID"
+                    if where_header == 'SampleID':
+                        hierarchy_where_join += f" Samples.SampleID = tp.SampleID"
+                    elif where_header == 'AliquotID':
+                        hierarchy_where_join += f" Aliquots.AliquotID = tp.AliquotID"
             self.limited_hierarchy = f'''
                 WITH RECURSIVE LimitedSamplesAliquots AS (
-                    SELECT s.*, a.* 
-                    FROM Aliquots a
+                    SELECT 
+                        {SQLUtils.qsample_id},
+                        {SQLUtils.qaliquot_id},
+                        {SQLUtils.qsample_name},
+                        {SQLUtils.qaliquot_name}
+                        {lsa_select}
+                    FROM Aliquots
                     {hierarchy_where_join}
-                    INNER JOIN Samples s ON s.SampleID = a.SampleID
-                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                    INNER JOIN Samples ON Samples.SampleID = Aliquots.SampleID
+                    {hierarchy_where} 
+                    {group_lsa}
+                    {hierarchy_order_by} {hierarchy_limit}
                 ),
                 LimitedSpotsUPbAnalysesGrains AS (
-                    SELECT sp.*, ua.*, g.*
-                    FROM Spots sp
-                    INNER JOIN LimitedSamplesAliquots lsa ON sp.AliquotID = lsa.AliquotID
-                    INNER JOIN UPbAnalyses ua ON sp.SpotID = ua.SpotID
-                    LEFT JOIN Grains g on sp.GrainID = g.GrainID
+                    SELECT 
+                        {SQLUtils.qspot_id},
+                        Spots.AliquotID,
+                        {SQLUtils.qupb_id},
+                        {SQLUtils.qupb_rejected},
+                        {SQLUtils.qgrain_id}
+                        {lspuag_select}
+                    FROM Spots
+                    INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
+                    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+                    {SQLUtils.spot_grain_join}
+                    {lspuag_joins}
+                   {group_lspuag}
                 )
             '''
         elif where_table == 'Spots':
             if hierarchy_where_join != '':
                 if 'TempIDs' in hierarchy_where_join:
-                    hierarchy_where_join += f" sp.SpotID = ti.SpotID"
+                    if 'SpotID' in self.where:
+                        hierarchy_where_join += f" Spots.SpotID = ti.SpotID"
+                    elif 'AliquotID' in self.where:
+                        hierarchy_where_join += f" Spots.AliquotID = ti.AliquotID"
+                    elif 'GrainID' in self.where:
+                        hierarchy_where_join += f" Grains.GrainID = ti.GrainID"
+                    elif 'UPbAnalysisID' in self.where:
+                        hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = ti.UPbAnalysisID"
                 elif 'TempPaged' in hierarchy_where_join:
-                    hierarchy_where_join += f" sp.SpotID = tp.SpotID"
+                    if where_header == 'SpotID':
+                        hierarchy_where_join += f" Spots.SpotID = tp.SpotID"
+                    elif where_header == 'AliquotID':
+                        hierarchy_where_join += f" Spots.AliquotID = tp.AliquotID"
+                    elif where_header == 'GrainID':
+                        hierarchy_where_join += f" Grains.GrainID = tp.GrainID"
+                    elif where_header == 'UPbAnalysisID':
+                        hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = tp.UPbAnalysisID"
             self.limited_hierarchy = f'''
                 WITH RECURSIVE LimitedSpotsUPbAnalysesGrains AS (
-                    SELECT sp.*, ua.*, g.*
-                    FROM Spots sp
+                    SELECT 
+                        {SQLUtils.qspot_id},
+                        Spots.AliquotID,
+                        {SQLUtils.qupb_id},
+                        {SQLUtils.qupb_rejected},
+                        {SQLUtils.qgrain_id}
+                        {lspuag_select}
+                    FROM Spots
                     {hierarchy_where_join}
-                    INNER JOIN UpbAnalyses ua ON sp.SpotID = ua.SpotID
-                    LEFT JOIN Grains g ON sp.GrainID = g.GrainID
-                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                    INNER JOIN UpbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+                    LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID
+                    {lspuag_joins}
+                    {hierarchy_where} 
+                    {group_lspuag}
+                    {hierarchy_order_by} {hierarchy_limit}
                 ),
                 LimitedSamplesAliquots AS (
-                    SELECT s.*, a.* 
-                    FROM Aliquots a
-                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON a.AliquotID = lspuag.AliquotID
-                    INNER JOIN Samples s ON s.SampleID = a.SampleID
+                    SELECT 
+                        {SQLUtils.qaliquot_id},
+                        {SQLUtils.qsample_id},
+                        {SQLUtils.qaliquot_name},
+                        {SQLUtils.qsample_name}
+                        {lsa_select}
+                    FROM Aliquots
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
+                    {lsa_joins}
+                    {group_lsa}
                 )
             '''
         elif where_table == 'UPbAnalyses':
             if hierarchy_where_join != '':
                 if 'TempIDs' in hierarchy_where_join:
-                    hierarchy_where_join += f" ua.UPbAnalysisID = ti.UPbAnalysisID"
+                    if 'SpotID' in self.where:
+                        hierarchy_where_join += f" Spots.SpotID = ti.SpotID"
+                    elif 'AliquotID' in self.where:
+                        hierarchy_where_join += f" Spots.AliquotID = ti.AliquotID"
+                    elif 'GrainID' in self.where:
+                        hierarchy_where_join += f" Grains.GrainID = ti.GrainID"
+                    elif 'UPbAnalysisID' in self.where:
+                        hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = ti.UPbAnalysisID"
                 elif 'TempPaged' in hierarchy_where_join:
-                    hierarchy_where_join += f" ua.UPbAnalysisID = tp.UPbAnalysisID"
+                    if where_header == 'SpotID':
+                        hierarchy_where_join += f" Spots.SpotID = tp.SpotID"
+                    elif where_header == 'AliquotID':
+                        hierarchy_where_join += f" Spots.AliquotID = tp.AliquotID"
+                    elif where_header == 'GrainID':
+                        hierarchy_where_join += f" Grains.GrainID = tp.GrainID"
+                    elif where_header == 'UPbAnalysisID':
+                        hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = tp.UPbAnalysisID"
             self.limited_hierarchy = f'''
                 WITH RECURSIVE LimitedSpotsUPbAnalysesGrains AS (
-                    SELECT sp.*, ua.*, g.*
-                    FROM UPbAnalyses ua
+                    SELECT 
+                        {SQLUtils.qspot_id},
+                        Spots.AliquotID,
+                        {SQLUtils.qupb_id},
+                        {SQLUtils.qupb_rejected},
+                        {SQLUtils.qgrain_id}
+                        {lspuag_select}
+                    FROM UPbAnalyses
                     {hierarchy_where_join}
-                    INNER JOIN Spots sp ON ua.SpotID = sp.SpotID
-                    LEFT JOIN Grains g ON sp.GrainID = g.GrainID
-                    {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
+                    INNER JOIN Spots ON UPbAnalyses.SpotID = Spots.SpotID
+                    LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID
+                    {lspuag_joins}
+                    {hierarchy_where} 
+                    {group_lspuag}
+                    {hierarchy_order_by} {hierarchy_limit}
                 ),
                 LimitedSamplesAliquots AS (
-                    SELECT s.*, a.* 
-                    FROM Aliquots a
-                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON a.AliquotID = lspuag.AliquotID
-                    INNER JOIN Samples s ON s.SampleID = a.SampleID
+                    SELECT 
+                        {SQLUtils.qaliquot_id},
+                        {SQLUtils.qsample_id},
+                        {SQLUtils.qaliquot_name},
+                        {SQLUtils.qsample_name}
+                        {lsa_select}
+                    FROM Aliquots
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
+                    {lsa_joins}
+                    {group_lsa}
                 )
             '''
         elif where_table == 'Grains':
             if hierarchy_where_join != '':
                 if 'TempIDs' in hierarchy_where_join:
-                    hierarchy_where_join += f" g.GrainID = ti.GrainID"
+                    if 'SpotID' in self.where:
+                        hierarchy_where_join += f" Spots.SpotID = ti.SpotID"
+                    elif 'AliquotID' in self.where:
+                        hierarchy_where_join += f" Spots.AliquotID = ti.AliquotID"
+                    elif 'GrainID' in self.where:
+                        hierarchy_where_join += f" Grains.GrainID = ti.GrainID"
+                    elif 'UPbAnalysisID' in self.where:
+                        hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = ti.UPbAnalysisID"
                 elif 'TempPaged' in hierarchy_where_join:
-                    hierarchy_where_join += f" g.GrainID = tp.GrainID"
+                    if where_header == 'SpotID':
+                        hierarchy_where_join += f" Spots.SpotID = tp.SpotID"
+                    elif where_header == 'AliquotID':
+                        hierarchy_where_join += f" Spots.AliquotID = tp.AliquotID"
+                    elif where_header == 'GrainID':
+                        hierarchy_where_join += f" Grains.GrainID = tp.GrainID"
+                    elif where_header == 'UPbAnalysisID':
+                        hierarchy_where_join += f" UPbAnalyses.UPbAnalysisID = tp.UPbAnalysisID"
             self.limited_hierarchy = f'''
                 WITH RECURSIVE LimitedSpotsUPbAnalysesGrains AS (
-                    SELECT sp.*, ua.*, g.*
-                    FROM Grains g
+                    SELECT 
+                        {SQLUtils.qspot_id},
+                        Spots.AliquotID,
+                        {SQLUtils.qupb_id},
+                        {SQLUtils.qupb_rejected},
+                        {SQLUtils.qgrain_id}
+                        {lspuag_select}
+                    FROM Grains
                     {hierarchy_where_join}
-                    INNER JOIN Spots sp ON g.GrainID = sp.GrainID
-                    INNER JOIN UPbAnalyses ua ON sp.SpotID = ua.SpotID
+                    INNER JOIN Spots ON Grains.GrainID = Spots.GrainID
+                    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID 
+                    {lspuag_joins}
+                    {hierarchy_where} 
+                    {group_lspuag}
+                    {hierarchy_order_by} {hierarchy_limit}
                 ),
                 LimitedSamplesAliquots AS (
-                    SELECT s.*, a.* 
-                    FROM Aliquots a
-                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON a.AliquotID = lspuag.AliquotID
-                    INNER JOIN Samples s ON s.SampleID = a.SampleID
+                    SELECT 
+                        {SQLUtils.qaliquot_id},
+                        {SQLUtils.qsample_id},
+                        {SQLUtils.qaliquot_name},
+                        {SQLUtils.qsample_name}
+                        {lsa_select}
+                    FROM Aliquots
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
+                    {lsa_joins}
+                    {group_lsa}
                 )
             '''
-        # elif where_table == 'Aliquots':
-        #     self.limited_hierarchy = f'''
-        #         WITH RECURSIVE LimitedAliquots AS (
-        #             SELECT * FROM Aliquots {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
-        #         ),
-        #         LimitedSpots AS (
-        #             SELECT * FROM Spots WHERE AliquotID IN (SELECT AliquotID FROM LimitedAliquots)
-        #         ),
-        #         LimitedUPbAnalyses AS (
-        #             SELECT * FROM UPbAnalyses WHERE SpotID IN (SELECT SpotID FROM LimitedSpots)
-        #         ),
-        #         LimitedSamples AS (
-        #             SELECT * FROM Samples WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
-        #         ),
-        #         LimitedGrains AS (
-        #             SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
-        #         )
-        #     '''
-        # elif where_table == 'UPbAnalyses':
-        #     self.limited_hierarchy = f'''
-        #         WITH RECURSIVE LimitedUPbAnalyses AS (
-        #             SELECT * FROM UPbAnalyses {hierarchy_where} {hierarchy_order_by} {hierarchy_limit}
-        #         ),
-        #         LimitedSpots AS (
-        #             SELECT * FROM Spots WHERE SpotID IN (SELECT SpotID FROM LimitedUPbAnalyses)
-        #         ),
-        #         LimitedAliquots AS (
-        #             SELECT * FROM Aliquots WHERE AliquotID IN (SELECT AliquotID FROM LimitedSpots)
-        #         ),
-        #         LimitedSamples AS (
-        #             SELECT s.*
-        #             FROM Samples s
-        #             WHERE SampleID IN (SELECT SampleID FROM LimitedAliquots)
-        #         ),
-        #         LimitedGrains AS (
-        #             SELECT * FROM Grains WHERE GrainID IN (SELECT GrainID FROM LimitedSpots)
-        #         )
-        #     '''
         else:
             # No direct limits on the main hierarchy tables
             self.limited_hierarchy = ''
@@ -1415,3 +1837,40 @@ class ViewQuery:
                     if self.order_col in get_headers(key):
                         self.order_by = f'ORDER BY {table_abbreviation_dict[key]}.{self.order_col}'
                         break
+
+def upb_columns(edit: bool) -> list:
+    from Functions.Widget_classes import get_headers
+
+    headers = get_headers('UPbAnalyses')
+    columns = []
+    if not edit:
+        for header in headers:
+            if f'UPbAnalyses."{header}" AS "{header}"' in columns:
+                continue
+            if 'Calculated' in header:
+                if f'UPbAnalyses."{header}" AS "{header}"' not in columns:
+                    columns.append(f'UPbAnalyses."{header}" AS "{header}"')
+                if f'{header}Error' in headers and f'UPbAnalyses."{header}Error" AS "{header}Error"' not in columns:
+                    columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
+            elif f'Calculated{header}' in headers:
+                pass
+            elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
+                pass
+            elif f'UPbAnalyses."{header}" AS "{header}"' not in columns:
+                columns.append(f'UPbAnalyses."{header}" AS "{header}"')
+
+    if edit:
+        for header in headers:
+            if f'UPbAnalyses."{header}" AS "{header}"' in columns:
+                continue
+            elif 'ID' in header or 'Rejected' in header or 'Created' in header or 'Modified' in header:
+                pass
+            elif 'Calculated' in header:
+                pass
+            else:
+                if f'UPbAnalyses."{header}" AS "{header}"' not in columns:
+                    columns.append(f'UPbAnalyses."{header}" AS "{header}"')
+                if f'{header}Error' in headers and f'UPbAnalyses."{header}Error" AS "{header}Error"' not in columns:
+                    columns.append(f'UPbAnalyses."{header}Error" AS "{header}Error"')
+
+    return columns
