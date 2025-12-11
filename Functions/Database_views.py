@@ -1696,6 +1696,7 @@ class ViewQuery:
                         {SQLUtils.qsample_name}
                         {lsa_select}
                     FROM Aliquots
+                    INNER JOIN Samples ON Samples.SampleID = Aliquots.SampleID
                     INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {lsa_joins}
                     {group_lsa}
@@ -1747,6 +1748,7 @@ class ViewQuery:
                         {SQLUtils.qsample_name}
                         {lsa_select}
                     FROM Aliquots
+                    INNER JOIN Samples ON Samples.SampleID = Aliquots.SampleID
                     INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {lsa_joins}
                     {group_lsa}
