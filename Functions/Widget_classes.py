@@ -117,7 +117,6 @@ class SQLiteTableModel(QAbstractTableModel):
         self.edited_indexes = []
         self.last_error = None
         self.query_text = query
-        self.filter_text = ''
         self.database = database if database is not None else settings.value('db_file', type=str)
         self.view_query = view_query
         self.limit: str = ''
@@ -140,9 +139,6 @@ class SQLiteTableModel(QAbstractTableModel):
         self.view_query = view_query
         self.load_data(new_query, self.database)
         logger_setup.get_logger().info(f'Set new query in {time.time() - set_time} seconds')
-
-    def setFilter(self, new_filter: str):
-        self.filter_text = new_filter
 
     def update_database(self, new_database: str, view_query: ViewQuery = None):
         """

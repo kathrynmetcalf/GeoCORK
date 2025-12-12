@@ -447,11 +447,11 @@ class SampleInformation(QtW.QDialog):
     def populate_checks(self, many_to_many_table: str, combo: QtW.QComboBox):
         logger_setup.get_logger().info(f"Populating checks for {many_to_many_table}")
         start_populate_checks_time = time.time()
-        many_to_many_model = SQLiteTableModel(f"SELECT * FROM {many_to_many_table}")
-        # many_to_many_model.setTable(many_to_many_table)
-        # many_to_many_model.select()
-        # while many_to_many_model.canFetchMore():
-        #     many_to_many_model.fetchMore()
+        many_to_many_model = QtS.QSqlTableModel()
+        many_to_many_model.setTable(many_to_many_table)
+        many_to_many_model.select()
+        while many_to_many_model.canFetchMore():
+            many_to_many_model.fetchMore()
         all_items = []
         some_items = []
         text = combo.placeholderText()
