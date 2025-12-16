@@ -1424,8 +1424,7 @@ class ViewQuery:
                         {SQLUtils.qspot_size_unit},
                         {SQLUtils.qupb_references},
                         {SQLUtils.qupb_age_interpretations}'''
-                lspuag_joins = f'''INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
-                    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+                lspuag_joins = f'''INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
                     {SQLUtils.spot_grain_join}
                     {SQLUtils.grain_composition_join}
                     {SQLUtils.spot_composition_join}
@@ -1466,8 +1465,7 @@ class ViewQuery:
                             {SQLUtils.qspot_size_unit},
                             {SQLUtils.qupb_references},
                             {SQLUtils.qupb_age_interpretations}'''
-                    lspuag_joins = f'''INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
-                    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+                    lspuag_joins = f'''INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
                     {SQLUtils.spot_grain_join}
                     {SQLUtils.grain_composition_join}
                         {SQLUtils.spot_composition_join}
@@ -1494,8 +1492,7 @@ class ViewQuery:
                         {SQLUtils.qgrain_composition},
                         {SQLUtils.qspot_created},
                         {SQLUtils.qspot_modified}'''
-                    lspuag_joins = f'''INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
-                    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+                    lspuag_joins = f'''INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
                     {SQLUtils.spot_grain_join}
                     {SQLUtils.grain_composition_join}
                     {SQLUtils.spot_composition_join}'''
@@ -1518,7 +1515,9 @@ class ViewQuery:
                             {SQLUtils.qupb_references},
                             {SQLUtils.qspot_created},
                             {SQLUtils.qspot_modified}'''
-                    lspuag_joins = f'''{SQLUtils.grain_composition_join}
+                    lspuag_joins = f'''INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
+                    {SQLUtils.spot_grain_join}
+                    {SQLUtils.grain_composition_join}
                     {SQLUtils.spot_composition_join}
                        {SQLUtils.upb_reference_join}
                        {SQLUtils.upb_labs_join}
@@ -1637,6 +1636,7 @@ class ViewQuery:
                         {lspuag_select}
                     FROM {lspuag_from_table}
                     {lspuag_joins}
+                    INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
                    {group_lspuag}
                 )
             '''
@@ -1676,11 +1676,9 @@ class ViewQuery:
                         {SQLUtils.qgrain_id}
                         {lspuag_select}
                     FROM {lspuag_from_table}
-                    INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
-                    INNER JOIN UPbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
-                    {SQLUtils.spot_grain_join}
                     {lspuag_joins}
-                   {group_lspuag}
+                    INNER JOIN LimitedSamplesAliquots lsa ON Spots.AliquotID = lsa.AliquotID
+                    {group_lspuag}
                 )
             '''
         elif where_table == 'Spots':
@@ -1714,8 +1712,6 @@ class ViewQuery:
                         {lspuag_select}
                     FROM {lspuag_from_table}
                     {hierarchy_where_join}
-                    INNER JOIN UpbAnalyses ON Spots.SpotID = UPbAnalyses.SpotID
-                    LEFT JOIN Grains ON Spots.GrainID = Grains.GrainID
                     {lspuag_joins}
                     {hierarchy_where} 
                     {group_lspuag}
@@ -1729,8 +1725,8 @@ class ViewQuery:
                         {SQLUtils.qsample_name}
                         {lsa_select}
                     FROM {lsa_from_table}
-                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {lsa_joins}
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {group_lsa}
                 )
             '''
@@ -1778,8 +1774,8 @@ class ViewQuery:
                         {SQLUtils.qsample_name}
                         {lsa_select}
                     FROM Aliquots
-                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {lsa_joins}
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {group_lsa}
                 )
             '''
@@ -1827,8 +1823,8 @@ class ViewQuery:
                         {SQLUtils.qsample_name}
                         {lsa_select}
                     FROM Aliquots
-                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {lsa_joins}
+                    INNER JOIN LimitedSpotsUPbAnalysesGrains lspuag ON Aliquots.AliquotID = lspuag.AliquotID
                     {group_lsa}
                 )
             '''

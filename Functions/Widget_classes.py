@@ -2230,6 +2230,8 @@ def delete_query(table: str, ids: list):
     create_savepoint('before_delete')
     delete_names = []
     for item_id in ids:
+        if not item_id:
+            continue
         name = get_name_from_id(table, item_id)
         if name:
             delete_names.append(name)
@@ -2311,7 +2313,7 @@ def delete_data(table: str, data_ids: list, enable_message=True):
         if parent_aliquots:
             # Determine if all spots of these aliquots are being deleted
             for aliquot_id in parent_aliquots:
-                sub_spot_ids, grain_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
+                sub_spot_ids, sub_grain_ids, sub_upb_analysis_ids = find_current_sub_items([aliquot_id], 'Aliquots')
                 if not any(spot_id not in spot_ids for spot_id in sub_spot_ids):
                     # If all spots of the aliquot are being deleted, add the aliquot to the list
                     if aliquot_id not in childless_aliquots:
@@ -2803,7 +2805,7 @@ def find_current_sub_items(data_ids: list, table: str):
                         {SQLUtils.aliquot_spot_join}
                         {SQLUtils.spot_upb_analysis_join}
                         {SQLUtils.spot_grain_join}
-                        WHERE SampleID {where}"""
+                        WHERE Aliquots.SampleID {where}"""
         aliquot_ids, spot_ids, grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2, 3])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return aliquot_ids, spot_ids, grain_ids, upb_analysis_ids
@@ -2811,15 +2813,15 @@ def find_current_sub_items(data_ids: list, table: str):
         sql_query = f"""SELECT Spots.SpotID, Grains.GrainID, UPbAnalyses.UPbAnalysisID FROM Spots
                         {SQLUtils.spot_upb_analysis_join}
                         {SQLUtils.spot_grain_join}
-                        WHERE AliquotID {where}"""
+                        WHERE Spots.AliquotID {where}"""
         spot_ids, grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1, 2])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return spot_ids, grain_ids, upb_analysis_ids
     elif table == 'Spots':
         sql_query = f"""SELECT Grains.GrainID, UPbAnalyses.UPbAnalysisID FROM UPbAnalyses
-                        {SQLUtils.spot_upb_analysis_join}
+                        {SQLUtils.upb_spot_join}
                         {SQLUtils.spot_grain_join}
-                        WHERE SpotID {where}"""
+                        WHERE UPbAnalyses.SpotID {where}"""
         grain_ids, upb_analysis_ids = columns_as_list_current(sql_query, [0, 1])
         close_loading_dialog('Finding Sub Items', f'Finding sub items for {len(data_ids)} {table}...')
         return grain_ids, upb_analysis_ids
