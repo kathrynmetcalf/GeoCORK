@@ -1533,6 +1533,7 @@ class QueryBuilder(QWidget):
         """
         # query for the SQLQuery and name for a given name
         filter_name = item.text()
+        show_loading_dialog('Loading', f'Populating from {filter_name}...')
         query = QSqlQuery()
         sql_query = """
                 SELECT SQLQuery, FilterGroupName 
@@ -1542,6 +1543,7 @@ class QueryBuilder(QWidget):
         query.prepare(sql_query)
         query.bindValue(":filter_name", filter_name)
         logger_setup.get_logger().info(f'Populating QueryBuilder from stored filter: {filter_name}')
+
         if query.exec():
             if query.next():
                 sql_query_result = query.value(0)
@@ -1563,6 +1565,7 @@ class QueryBuilder(QWidget):
             logger_setup.get_logger().debug(f'Error: {query.lastError().text()}')
             logger_setup.get_logger().debug(f'SQL command: {sql_query}')
             logger_setup.get_logger().debug(f'Bound values: {query.boundValues()}')
+        close_loading_dialog('Loading', f'Populating from {filter_name}...')
 
     def view_samples(self):
         """
@@ -1656,7 +1659,7 @@ class QueryBuilder(QWidget):
         :param str type: Samples, Aliquots, Spots, or UPbAnalyses to query the database for
         :return: list of ids of given type or None
         """
-        # show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        show_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
         sql_query = self.get_sql(type)
         uri = f'file:{settings.value('db_file', type=str)}?mode=ro&immutable=1'
         try:
@@ -1676,7 +1679,7 @@ class QueryBuilder(QWidget):
             return None
         logger_setup.get_logger().debug(f'Filtered ids: {results}')
         logger_setup.get_logger().info('Gathered filtered ids successfully')
-        # close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
+        close_loading_dialog('Filtering', f'Filtering {type} based on current criteria...')
         return results if results else None
 
     def get_sql(self, type: str) -> str:

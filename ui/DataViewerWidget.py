@@ -174,6 +174,7 @@ class DataViewerWidget(QWidget):
 
     def data_table_switcher(self):
         new_table = self.dbTable_comboBox.currentText()
+        show_loading_dialog('Loading', f'Loading {new_table}...')
         if self.query_builder:
             filtered_ids = self.query_builder.get_filtered_ids(new_table)
         else:
@@ -202,12 +203,14 @@ class DataViewerWidget(QWidget):
             logger_setup.get_logger().error(
                 f'No matching {new_table} for given filter(s)')
             self.dbTable_comboBox.setCurrentText(self.data_table)
+            close_loading_dialog('Loading', f'Loading {new_table}...')
             return
         else:
             if len(set(filtered_ids)) > 1000:
                 if self.data_table_model:
                     # Only prompt if the model is already set to prevent unnecessary prompts
                     if not self.view_many_results(len(set(filtered_ids)), new_table):
+                        close_loading_dialog('Loading', f'Loading {new_table}...')
                         return
             self.setWindowTitle(f'Filtered {self.data_table} View')
             self.data_table = new_table
@@ -217,6 +220,7 @@ class DataViewerWidget(QWidget):
             else:
                 self.switch_to_tree(self.db_stackedWidget)
             self.display_data_table()
+            close_loading_dialog('Loading', f'Loading {new_table}...')
 
     def data_filter_table_switcher(self):
         table = self.dbTable_comboBox_2.currentText()

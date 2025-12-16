@@ -1318,6 +1318,7 @@ def Puetz_importer():
     print('Importing U-Pb analysis methods')
 
     # Create the UPbAnalysisMethods table
+    # todo: Populate parent and parent row
 
     static_columns = get_static_columns('UPbAnalysisMethods', db)
 

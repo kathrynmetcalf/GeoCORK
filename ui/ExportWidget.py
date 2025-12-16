@@ -686,6 +686,9 @@ class ExportWidget(QWidget):
         logger_setup.get_logger().info(f'Updated table view in {time.time() - start_update_table_view_time:.2f} seconds')
 
     def update_active_filters(self):
+        if not self.active_filter_sample_checkBox.isChecked():
+            self.active_filter_sample_ids = []
+            return
         tab_widget = self.parentWidget().parentWidget()
         if tab_widget is not None:
             try:
