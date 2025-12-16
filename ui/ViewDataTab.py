@@ -336,6 +336,11 @@ class ViewDataTab(QtW.QWidget):
                 self.view.hideColumn(2)  # don't show ParentAliquotID
                 self.view.hideColumn(3)  # don't show AliquotParentRow
                 self.view.hideColumn(4)  # don't show SampleID
+            case 'Grains':
+                self.view.hideColumn(0)  # don't show GrainID
+                self.view.hideColumn(1)  # don't show SpotID
+                self.view.hideColumn(2)  # don't show AliquotID
+                self.view.hideColumn(3)  # don't show SampleID
             case 'Spots':
                 self.view.hideColumn(0)  # don't show SpotID
                 self.view.hideColumn(1)  # don't show SampleID
