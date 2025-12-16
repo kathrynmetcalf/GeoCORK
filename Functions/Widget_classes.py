@@ -444,8 +444,10 @@ class ImportSheetModel(QAbstractTableModel):
         self._dataframe.replace(to_replace='NULL', value=np.nan, regex=True, inplace=True)
         # Fill None with nan
         self._dataframe.fillna(value=np.nan, inplace=True)
-        self.header_background_colors = {}
-        self.cell_background_colors = {}
+        # Fill all nan with 'NULL'
+        self._dataframe.replace(to_replace=np.nan, value='NULL', regex=True, inplace=True)
+        self.header_background_brushes = {}
+        self.cell_background_brushes = {}
         # Rename headers as integer of their column index
         column_headers = list(self._dataframe.columns)
         for column_header in column_headers:
@@ -458,11 +460,17 @@ class ImportSheetModel(QAbstractTableModel):
             '_color': [np.nan] * len(self._dataframe), '_strikethrough': [np.nan] * len(self._dataframe)})
         self.rejected_icon = qtawesome.icon('fa5s.minus-circle', color='red', scale_factor=1.0)
         self.accepted_icon = qtawesome.icon('fa5s.check', color='green', scale_factor=1.0)
-        
+
+        self.gray_brush = QBrush(QColor("#A0A0A0"))
+        self.red_brush = QBrush(QColor("red"))
+        self.transparent_brush = QBrush(QtC.Qt.GlobalColor.transparent)
+
         if check_style:
             self.style_model()
 
         self.reset_row_headers()
+        self._data_array = self._dataframe.to_numpy()
+        self._status_array = self._status_dataframe.to_numpy()
 
     def rowCount(self, parent: QtC.QModelIndex = QtC.QModelIndex()) -> int:
         if parent == QtC.QModelIndex():
@@ -483,26 +491,22 @@ class ImportSheetModel(QAbstractTableModel):
         if not index.isValid():
             return None
         if role == QtC.Qt.ItemDataRole.DisplayRole or role == QtC.Qt.ItemDataRole.EditRole:
-            value = self._dataframe.iat[index.row(), index.column()]
-            if str(value) == str(np.nan):
-                return 'NULL'
-            else:
-                return str(value)
+            value = str(self._data_array[index.row(), index.column()])
+            return 'NULL' if value == 'nan' else str(value)
         elif role == QtC.Qt.ItemDataRole.BackgroundRole:
             # Return the cell background color if set
-            return self.cell_background_colors.get(index, QBrush(QtC.Qt.GlobalColor.transparent))
+            return self.cell_background_brushes.get(index, self.transparent_brush)
         elif role == QtC.Qt.ItemDataRole.ForegroundRole:
             # Return gray text if the row is disabled
-            status = self._status_dataframe.iat[index.row(), 0]
-            color = self._status_dataframe.iat[index.row(), 1]
+            status = self._status_array[index.row(), 0]
             if status == 'disabled':
                 # logger_setup.get_logger().debug(f'Setting gray text for disabled row {index.row()}')
-                return QBrush(QColor("#A0A0A0"))  # Gray text
-            elif isinstance(color, QBrush):
-                return color
+                return self.gray_brush  # Gray text
+            elif isinstance(self._status_array[index.row(), 1], QBrush):
+                return self._status_array[index.row(), 1]
         elif role == QtC.Qt.ItemDataRole.FontRole:
-            if isinstance(self._status_dataframe.iat[index.row(), 2], QFont):
-                return self._status_dataframe.iat[index.row(), 2]
+            if isinstance(self._status_array[index.row(), 2], QFont):
+                return self._status_array[index.row(), 2]
 
         # return super().data(index, role)
         return None
@@ -516,11 +520,12 @@ class ImportSheetModel(QAbstractTableModel):
                 self.dataChanged.emit(index, index, [role])
                 if role == QtC.Qt.ItemDataRole.EditRole:
                     self.userDataChanged.emit(index, index, [role])
+                self._data_array[index.row(), index.column()] = value
             return True
         elif role == QtC.Qt.ItemDataRole.BackgroundRole:
             # Update the cell background color
-            if not self.cell_background_colors.get(index, QBrush(value)):
-                self.cell_background_colors[index] = value
+            if not self.cell_background_brushes.get(index, value):
+                self.cell_background_brushes[index] = value
                 self.dataChanged.emit(index, index, [role])
             return True
         return None
@@ -534,9 +539,9 @@ class ImportSheetModel(QAbstractTableModel):
         elif role == QtC.Qt.ItemDataRole.BackgroundRole:
             if orientation == QtC.Qt.Orientation.Horizontal:
                 # Return the column header background color if set
-                return self.header_background_colors.get(section, QBrush(QtC.Qt.GlobalColor.transparent))
+                return self.header_background_brushes.get(section, self.transparent_brush)
         if role == QtC.Qt.ItemDataRole.DecorationRole and orientation == QtC.Qt.Orientation.Vertical:
-            status = self._status_dataframe.iat[section, 0]
+            status = self._status_array[section, 0]
             if status == 'accepted':
                 return self.accepted_icon
             elif status == 'rejected':
@@ -553,20 +558,21 @@ class ImportSheetModel(QAbstractTableModel):
             return True
         elif orientation == QtC.Qt.Orientation.Horizontal and role == QtC.Qt.ItemDataRole.BackgroundRole:
             # Update the column header background color
-            if section not in self.header_background_colors.keys() or self.header_background_colors[section] != value:
-                self.header_background_colors[section] = value
+            if section not in self.header_background_brushes.keys() or self.header_background_brushes[section] != value:
+                self.header_background_brushes[section] = value
                 self.headerDataChanged.emit(orientation, section, section)
             return True
         elif orientation == QtC.Qt.Orientation.Vertical:
             if role == QtC.Qt.ItemDataRole.DecorationRole:
                 # Update the row status based on the value
-                if value in ['accepted', 'rejected', 'disabled']:
+                if value in ['accepted', 'rejected', 'disabled'] and self._status_array[section, 0] != value:
                     self._status_dataframe.iat[section, 0] = value
                     self.headerDataChanged.emit(orientation, section, section)
                     # Also update the foreground color of all cells in the row
                     for column in range(self.columnCount()):
                         index = self.index(section, column)
                         self.dataChanged.emit(index, index, [QtC.Qt.ItemDataRole.ForegroundRole])
+                    self._status_array = self._status_dataframe.to_numpy()
                     return True
         return super().setHeaderData(section, orientation, value, role)
 
@@ -588,6 +594,8 @@ class ImportSheetModel(QAbstractTableModel):
                 self._status_dataframe.drop(self._status_dataframe.index[row], axis=0, inplace=True)
         self._dataframe.reset_index(drop=True, inplace=True)
         self._status_dataframe.reset_index(drop=True, inplace=True)
+        self._data_array = self._dataframe.to_numpy()
+        self._status_array = self._status_dataframe.to_numpy()
         self.endRemoveRows()
         return True
 
@@ -610,6 +618,8 @@ class ImportSheetModel(QAbstractTableModel):
         self._dataframe.index = np.arange(1, len(self._dataframe) + 1)
         self._status_dataframe.reset_index(drop=True, inplace=True)
         self._status_dataframe.index = np.arange(1, len(self._status_dataframe) + 1)
+        self._data_array = self._dataframe.to_numpy()
+        self._status_array = self._status_dataframe.to_numpy()
         self.endRemoveRows()
         return True
 
@@ -623,6 +633,7 @@ class ImportSheetModel(QAbstractTableModel):
         columns.sort(reverse=True)
         for col in columns:
             self._dataframe.drop(self._dataframe.columns[col], axis=1, inplace=True)
+        self._data_array = self._dataframe.to_numpy()
         self.endResetModel()
         return True
 
@@ -635,6 +646,7 @@ class ImportSheetModel(QAbstractTableModel):
         """
         self.beginRemoveColumns(QtC.QModelIndex(), column, column)
         self._dataframe.drop(self._dataframe.columns[column], axis=1, inplace=True)
+        self._data_array = self._dataframe.to_numpy()
         self.endRemoveColumns()
         return True
 
@@ -663,6 +675,7 @@ class ImportSheetModel(QAbstractTableModel):
             except ValueError:
                 # This header is not an integer, so skip it
                 continue
+        self._data_array = self._dataframe.to_numpy()
         return True
 
     def insertColumn(self, column: int, parent: QtC.QModelIndex = QtC.QModelIndex()) -> bool:
@@ -689,6 +702,7 @@ class ImportSheetModel(QAbstractTableModel):
             except ValueError:
                 # This header is not an integer, so skip it
                 continue
+        self._data_array = self._dataframe.to_numpy()
         return True
 
     def reset_row_headers(self):
@@ -717,7 +731,7 @@ class ImportSheetModel(QAbstractTableModel):
         """
         Returns the row status of the index's row.
         """
-        return self._status_dataframe.iat[row, 0]
+        return str(self._status_array[row, 0])
 
     def update_row_status(self, row, status: str):
         """
@@ -725,6 +739,7 @@ class ImportSheetModel(QAbstractTableModel):
         """
         if status in ['accepted', 'rejected', 'disabled']:
             self._status_dataframe.iat[row, 0] = status
+            self._status_array[row, 0] = status
 
     def style_model(self):
         """
@@ -753,7 +768,7 @@ class ImportSheetModel(QAbstractTableModel):
             for col in range(1, self.sheet.max_column):
                 if col > self.columnCount():
                     continue
-                if self._status_dataframe.iat[row-1, 0] == 'rejected':
+                if self._status_array[row-1, 0] == 'rejected':
                     continue
                 cell = self.sheet.cell(row=row, column=col)
                 if cell.font:
@@ -763,7 +778,7 @@ class ImportSheetModel(QAbstractTableModel):
                         # if the color is red or close to red set the row to rejected automatically
                         if hex_col.lower() in ["#EB1800", "#FF00000"]:  # Red
                             self._status_dataframe.iat[row-1, 0] = 'rejected'
-                            self._status_dataframe.iat[row-1, 1] = QBrush(QColor("red"))
+                            self._status_dataframe.iat[row-1, 1] = self.red_brush
                             break
                     # if the row is struck through auto set rejected
                     if font.strike:
@@ -780,6 +795,7 @@ class ImportSheetModel(QAbstractTableModel):
 
         logger_setup.get_logger().info('Identified rejected rows by style')
         close_loading_dialog('Loading', 'Identifying rejected rows...')
+        self._status_array = self._status_dataframe.to_numpy()
         return True
 
     def unstyle_model(self):
@@ -788,13 +804,13 @@ class ImportSheetModel(QAbstractTableModel):
             self._status_dataframe.iat[row+1, 0] = 'rejected'
             self._status_dataframe.iat[row+1, 1] = np.nan
             self._status_dataframe.iat[row+1, 2] = np.nan
-
+        self._status_array = self._status_dataframe.to_numpy()
 
     def clear_all_background_colors(self):
         """
         Sets all backgrounds to default which is usually transparent
         """
-        self.cell_background_colors = {}
+        self.cell_background_brushes = {}
 
 
 class DisplayRoundedModel(QtS.QSqlTableModel):
@@ -1596,6 +1612,8 @@ def get_name_column(table: str) -> int | None:
     :param table: Name of the SQL database table or view
     :return: Returns the column number starting from 0
     """
+    if not table:
+        return None
     table = table.replace('"', '').strip()
     if (table in SQLUtils.user_viewable_trees or table in SQLUtils.conditionally_editable_trees or
             table in ['Ages', 'AliquotView', 'AliquotEditView', 'SpotView', 'SpotEditView']):
@@ -1609,7 +1627,7 @@ def get_name_column(table: str) -> int | None:
         return 16
     elif (table in SQLUtils.user_viewable_tables or
           table in ['SampleView', 'SampleEditView', 'Spots', 'GPSLocations', 'FilterGroups', 'ReferenceView',
-                    'ColumnView', 'ColumnEditView', 'Grains', 'GrainView', 'GrainEditView', 'UPbAnalyses']):
+                    'ColumnView', 'ColumnEditView', 'Grains', 'UPbAnalyses']):
         return 1
     elif table in ['UPbView', 'UPbEditView', 'GrainView', 'GrainEditView']:
         return 4
@@ -6884,12 +6902,14 @@ def populate_combo_box(comboBox: QtW.QComboBox, **kwargs):
             checkable_model.setQuery(table_query)
             while checkable_model.canFetchMore():
                 checkable_model.fetchMore()
+            checkable_model.set_table(table)
             comboBox.setModel(checkable_model)
         elif isinstance(comboBox, CheckableComboBox) and query:
             checkable_model = CheckableSqlQueryModel()
             checkable_model.setQuery(query)
             while checkable_model.canFetchMore():
                 checkable_model.fetchMore()
+            checkable_model.set_table(table)
             comboBox.setModel(checkable_model)
         else:
             try:
