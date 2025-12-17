@@ -203,7 +203,11 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     operator_sql: str | List[str]
     # ---------- operator mapping (trimmed to the set used in UI) ----------
     if operator_raw in {"is", "is on"}:
-        operator_sql = "="
+        if datatype == "date":
+            # build special date condition, since we only input the date, add a LIKE '2025-01-01%' so it queries right
+            operator_sql = f"LIKE '{value}%'"
+        else:
+            operator_sql = "="
     elif operator_raw in {"is not", "is not on"}:
         operator_sql = "!="
     elif operator_raw == "is blank":
@@ -225,16 +229,23 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     elif operator_raw == "is between" or operator_raw == "is not between":
         # Range operator – return a list of two conditions
         try:
-            lower_raw, upper_raw = value.split(",", 1)
-            lower_raw = lower_raw.strip()
-            upper_raw = upper_raw.strip()
-            if float(lower_raw) <= float(upper_raw):
-                value_lower = lower_raw
-                value_upper = upper_raw
+            is_float = False
+            try:
+                float(value.split(',')[0])
+                is_float = True
+            except ValueError:
+                pass
+            if is_float:
+                if float(value.split(',')[0]) >= float(value.split(',')[1]):
+                    value_lower = value.split(',')[1]
+                    value_upper = value.split(',')[0]
+                else:
+                    value_lower = value.split(',')[0]
+                    value_upper = value.split(',')[1]
             else:
-                value_lower = upper_raw
-                value_upper = lower_raw
-        except Exception:
+                value_lower = value.split(',')[0]
+                value_upper = value.split(',')[1]
+        except IndexError:
             logger_setup.get_logger().error(f"Range operator requires two numbers, got: {value}")
             raise ValueError(f"Range operator requires two numbers, got: {value}")
         if operator_raw == "is between":
@@ -252,7 +263,6 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
                 operator_sql = [f"< {value_lower}", f"> {value_upper}"]
             else:
                 logger_setup.get_logger().error(f"Range must be numeric or date, got: {datatype}")
-                raise ValueError(f"Unsupported datatype for range operator: {datatype}")
     else:
         # default
         operator_sql = "="
@@ -383,7 +393,10 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
     # ---------- Non-tree conditions ----------
     if isinstance(operator_sql, list):
         if len(operator_sql) == 2:
-            cond_sql = f"{field_key} {operator_sql[0]} AND {field_key} {operator_sql[1]}"
+            if datatype == 'date':
+                cond_sql = f"{field_key} {operator_sql[0]} OR {field_key} {operator_sql[1]}"
+            else:
+                cond_sql = f"{field_key} {operator_sql[0]} AND {field_key} {operator_sql[1]}"
         else:
             logger_setup.get_logger().error(f"Range not specified correctly: {value}")
             raise ValueError(f"Range operator requires two values, got: {value}")
