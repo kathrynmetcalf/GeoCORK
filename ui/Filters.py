@@ -209,7 +209,11 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         else:
             operator_sql = "="
     elif operator_raw in {"is not", "is not on"}:
-        operator_sql = "!="
+        if datatype == "date":
+            # build special date condition, since we only input the date, add a LIKE '2025-01-01%' so it queries right
+            operator_sql = f"NOT LIKE '{value}%'"
+        else:
+            operator_sql = "!="
     elif operator_raw == "is blank":
         operator_sql = "IS NULL"
     elif operator_raw == "is not blank":
@@ -222,9 +226,9 @@ def _build_single_condition(condition: dict, recursive_tables: Dict[str, int]) -
         operator_sql = f"LIKE '{value}%' COLLATE NOCASE"
     elif operator_raw == "ends with":
         operator_sql = f"LIKE '%{value}' COLLATE NOCASE"
-    elif operator_raw == "is less than":
+    elif operator_raw in {"is less than", "is before"}:
         operator_sql = "<"
-    elif operator_raw == "is greater than":
+    elif operator_raw in {"is greater than", "is after"}:
         operator_sql = ">"
     elif operator_raw == "is between" or operator_raw == "is not between":
         # Range operator – return a list of two conditions
