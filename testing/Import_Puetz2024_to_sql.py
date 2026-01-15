@@ -1300,6 +1300,7 @@ def Puetz_importer():
     spot_composition_sql_df.drop_duplicates(inplace=True)
     spot_composition_sql_df.reset_index(drop=True, inplace=True)
     spot_composition_sql_df['SpotCompositionID'] = pd.Series(list(range(1, spot_composition_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    spot_composition_sql_df['SpotCompositionParentRow'] = pd.Series(list(range(spot_composition_sql_df.shape[0])), dtype=pd.Int64Dtype())
     spot_composition_sql_df['SpotCompositionCreated'] = pd.to_datetime('now')
     spot_composition_sql_df['SpotCompositionModified'] = pd.to_datetime('now')
 
@@ -1328,6 +1329,7 @@ def Puetz_importer():
     analysis_method_sql_df.drop_duplicates(inplace=True)
     analysis_method_sql_df.reset_index(drop=True, inplace=True)
     analysis_method_sql_df['UPbAnalysisMethodID'] = pd.Series(list(range(1, analysis_method_sql_df.shape[0] + 1)), dtype=pd.Int64Dtype())
+    analysis_method_sql_df['UPbAnalysisMethodParentRow'] = pd.Series(list(range(0, analysis_method_sql_df.shape[0])), dtype=pd.Int64Dtype())
     analysis_method_sql_df['UPbAnalysisMethodCreated'] = pd.to_datetime('now')
     analysis_method_sql_df['UPbAnalysisMethodModified'] = pd.to_datetime('now')
 
@@ -1811,7 +1813,7 @@ def Puetz_importer():
     upb_analysis_sql_df['207Pb/206PbAgeError'] = upb_analysis_df['Calc 207Pb/206Pb             2σ uncert']
     upb_analysis_sql_df['BestAge'] = upb_analysis_df['Non-Iter. Probability age (Ma)']
     upb_analysis_sql_df['BestAgeError'] = upb_analysis_df['Non iterative           2σ uncert']
-    upb_analysis_sql_df['Concordance'] = upb_analysis_df['Min. Seg. Disc.']
+    upb_analysis_sql_df['Concordance_206Pb/238Uv207Pb/206Pb'] = upb_analysis_df['Min. Seg. Disc.']
     upb_analysis_sql_df['UPbAnalysisCreated'] = pd.to_datetime('now')
     upb_analysis_sql_df['UPbAnalysisModified'] = pd.to_datetime('now')
 
