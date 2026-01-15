@@ -524,9 +524,8 @@ class ImportSheetModel(QAbstractTableModel):
             return True
         elif role == QtC.Qt.ItemDataRole.BackgroundRole:
             # Update the cell background color
-            if not self.cell_background_brushes.get(index, value):
-                self.cell_background_brushes[index] = value
-                self.dataChanged.emit(index, index, [role])
+            self.cell_background_brushes[index] = value
+            self.dataChanged.emit(index, index, [role])
             return True
         return None
 

@@ -1120,5 +1120,81 @@
                 "7": 7
             }
         }
+    },
+    "Scherer_etal_2010": {
+        "Sheets": {
+            "U-Pb": {
+                "7": {
+                    "field": "Grain Context"
+                },
+                "8": {
+                    "field": "Grain Context"
+                },
+                "9": {
+                    "field": "Grain Context"
+                },
+                "10": {
+                    "field": "Region"
+                },
+                "0": {
+                    "field": "Grain Name"
+                },
+                "1": {
+                    "field": "Uppm"
+                },
+                "2": {
+                    "field": "Thppm"
+                },
+                "3": {
+                    "field": "206Pb/238UAge"
+                },
+                "4": {
+                    "field": "206Pb/238UAge Error"
+                },
+                "5": {
+                    "field": "207Pb/206PbAge"
+                },
+                "6": {
+                    "field": "207Pb/206PbAge Error"
+                },
+                "11": {
+                    "field": "Sample Name"
+                },
+                "12": {
+                    "field": "UPb Analysis Name"
+                }
+            }
+        },
+        "Units/Formats": {
+            "Elevation Unit": "m",
+            "Height/Depth Unit": "m",
+            "Sample Age Error": "1\u03c3 abs",
+            "Age Unit": "Ma",
+            "U-Pb Age Error": "1\u03c3 abs",
+            "Ratio Error": "2\u03c3 %",
+            "Spot Size Unit": "\u00b5m",
+            "Concordance Format": "MinSegDis"
+        },
+        "OriginalMappings": {
+            "U-Pb": {
+                "0": 0,
+                "1": 1,
+                "2": 2,
+                "3": 3,
+                "4": 4,
+                "5": 5,
+                "6": 6,
+                "7": 7,
+                "8": 8,
+                "9": 9,
+                "10": 10,
+                "11": 11,
+                "12": 12
+            },
+            "Grain info": {
+                "0": 0,
+                "1": 1
+            }
+        }
     }
 }

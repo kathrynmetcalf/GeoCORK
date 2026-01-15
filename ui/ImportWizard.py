@@ -2,6 +2,7 @@ import collections
 import json
 import os
 import time
+import webbrowser
 
 import pandas as pd
 import qtawesome
@@ -50,12 +51,12 @@ class ColumnMapDialog(QDialog):
     The list of available categories and columns is defined by SQLUtils.upb_possible_user_input_fields.
     """
 
-    def __init__(self, map_column: int, current_mapping: dict, parent: QWidget):
+    def __init__(self, map_column: int | None, current_mapping: dict, parent: QWidget):
         """
         Creates a ColumnMapDialog instance with the original text of the header, typically a number, the current field,
         if defined, and a parent widget.
 
-        :param str map_column: Index of the column.
+        :param str map_column: Index of the column. None if adding a new column.
         :param current_mapping: Dictionary of columns and their current headers.
         :param parent: Parent widget.
         """
@@ -69,7 +70,10 @@ class ColumnMapDialog(QDialog):
         tab_widget = QTabWidget()
         form_layout.addRow(tab_widget)
 
-        if map_column in current_mapping.keys():
+        if not map_column:
+            current_field = None
+            self.setWindowTitle(f"New Column Mapper")
+        elif map_column in current_mapping.keys():
             current_field = current_mapping[map_column]
             self.setWindowTitle(f"Column Mapper {current_field}")
         else:
@@ -380,6 +384,10 @@ class ImportWizardDialog(QWidget):
         top_layout.addWidget(self.combo_sheets)
         self.combo_sheets.currentIndexChanged.connect(self.update_upb_sheet)
 
+        self.btn_help = QPushButton("Help")
+        self.btn_help.setFixedWidth(50)
+        self.btn_help.clicked.connect(self.show_help)
+        top_layout.addWidget(self.btn_help)
 
         main_layout.addLayout(top_layout)
 
@@ -868,6 +876,43 @@ class ImportWizardDialog(QWidget):
     def update_conflict_mode(self):
         self.conflict_mode = self.conflict_combo.currentText()
 
+    def show_help(self):
+        """Shows a dialog with some basic help for the importer"""
+        importer_help = """Select the .xlsx file to import and identify the sheet with U-Pb data, if any."""
+        importer_help += """\nDouble click row headers (numbers) to toggle rows as accepted or rejected."""
+        importer_help += """\nDouble click column headers (numbers) in the right table to map them to database fields. Use the dropdown or type."""
+        importer_help += """\nRight click on row and column headers or cells for more features."""
+        importer_help += """\nSelections from all dropdowns in the upper right apply to all rows."""
+        importer_help += """\nSave and load column mappings with the buttons at the bottom."""
+        importer_help += """\nFor U-Pb data, the left table must have at least Sample or Aliquot name and Grain, Spot, or U-Pb Analysis name."""
+        importer_help += """\nNames must be unique. Set an import conflict strategy at the bottom."""
+        importer_help += """\nData must be validated before importing."""
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Import Wizard Help")
+        dlg_layout = QVBoxLayout()
+        button_box = QDialogButtonBox()
+        ok_button = button_box.addButton("OK", QDialogButtonBox.ButtonRole.AcceptRole)
+        more_button = button_box.addButton("More", QDialogButtonBox.ButtonRole.HelpRole)
+        text_label = QLabel(importer_help)
+        dlg_layout.addWidget(text_label)
+        dlg_layout.addWidget(button_box)
+        dlg.setLayout(dlg_layout)
+
+        clicked_button = None
+
+        def on_button_clicked(button):
+            nonlocal clicked_button
+            clicked_button = button
+            if button == more_button:
+                webbrowser.open('https://github.com/kathrynmetcalf/GeoCORK')
+            if button == ok_button:
+                dlg.accept()
+
+        button_box.clicked.connect(on_button_clicked)
+
+        dlg.exec()
+
     def create_table_item(self, row, column, name, id, header_name, table_name):
         """Creates a QTableWidgetItem with stored data."""
         field_to_column = {
@@ -950,11 +995,10 @@ class ImportWizardDialog(QWidget):
 
         row_count = self.left_table.rowCount()
         if row_count == 0:
-            dlg = QMessageBox.question(self, "No U-Pb Data",
-                                       "There is no U-Pb data selected." "Continue without U-Pb data?",
+            response = QMessageBox.question(self, "No U-Pb Data",
+                                       "There is no U-Pb data selected.\nContinue without U-Pb data?",
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            dlg.exec_()
-            if dlg.result() != QMessageBox.StandardButton.Yes:
+            if response != QMessageBox.StandardButton.Yes:
                 return False
             else:
                 upb_data = False
@@ -996,6 +1040,9 @@ class ImportWizardDialog(QWidget):
             self.btn_import.setDisabled(True)
             return False
         if not self.check_unmapped_samples_columns():
+            self.btn_import.setDisabled(True)
+            return False
+        if not self.check_new_items_no_upb():
             self.btn_import.setDisabled(True)
             return False
 
@@ -1370,10 +1417,10 @@ class ImportWizardDialog(QWidget):
             # Set the current sheet to the U-Pb data sheet
             self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[self.upb_sheet_name]))
 
+        if column_index is None:
+            column_index = self.right_table.model().columnCount()-1
         if field is None:
-            if column_index is None:
-                column_index = self.right_table.model().columnCount()
-            dialog = ColumnMapDialog(column_index, self.sheet_mappings[self.current_sheet_name], self)
+            dialog = ColumnMapDialog(None, self.sheet_mappings[self.current_sheet_name], self)
             if dialog.exec():
                 selected_field = dialog.get_selected_value()
             else:
@@ -1393,12 +1440,8 @@ class ImportWizardDialog(QWidget):
                 return
 
         self.loading_manager.show_loading_dialog('Adding Column', f'Adding column {selected_field}...')
-        if column_index is None:
-            # Insert the new column at the end of the table
-            column_index = self.right_table.model().columnCount()
-        else:
-            if not before:
-                column_index += 1
+        if not before:
+            column_index += 1
 
         self.right_table.model().insertColumn(column_index)
 
@@ -1420,7 +1463,7 @@ class ImportWizardDialog(QWidget):
                 self.right_table.model().setHeaderData(column+1, Qt.Orientation.Horizontal, background_color,
                                                        Qt.ItemDataRole.BackgroundRole)
                 if column != column_index:
-                    self.right_table.model().setHeaderData(column_index, Qt.Orientation.Horizontal, self.transparent_brush,
+                    self.right_table.model().setHeaderData(column, Qt.Orientation.Horizontal, self.transparent_brush,
                                                        Qt.ItemDataRole.BackgroundRole)
         self.sheet_mappings[self.current_sheet_name][column_index] = selected_field
         # Update the original columns mapping
@@ -1656,7 +1699,7 @@ class ImportWizardDialog(QWidget):
             #     self.flash_fill_downward(target_table, row, column, current_value)
 
     def handle_right_cell_change(self, index):
-        if self.sender() == self.right_tables[self.upb_sheet_name].model():
+        if self.upb_sheet_name and self.sender() == self.right_tables[self.upb_sheet_name].model():
             right_table = self.right_tables[self.upb_sheet_name]
             # Get the current value of the cell
             current_value = str(right_table.model().data(index, Qt.ItemDataRole.DisplayRole)).strip()
@@ -1778,17 +1821,53 @@ class ImportWizardDialog(QWidget):
                     sheet_label = QLabel("Multiple sheets found. Please select the sheet containing U-Pb data:")
                     sheet_layout.addWidget(sheet_label)
                     sheet_layout.addWidget(combo_sheets)
-                    button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-                    button_box.accepted.connect(sheet_dialog.accept)
-                    button_box.rejected.connect(sheet_dialog.reject)
+                    button_box = QDialogButtonBox()
+                    cancel_button = button_box.addButton("Cancel", QDialogButtonBox.ButtonRole.RejectRole)
+                    skip_button = button_box.addButton("Skip", QDialogButtonBox.ButtonRole.NoRole)
+                    ok_button = button_box.addButton("Ok", QDialogButtonBox.ButtonRole.AcceptRole)
                     sheet_layout.addWidget(button_box)
                     sheet_dialog.setLayout(sheet_layout)
-                    if sheet_dialog.exec() == QDialog.DialogCode.Rejected:
+
+                    clicked_button = None
+
+                    def on_button_clicked(button):
+                        nonlocal clicked_button
+                        clicked_button = button
+                        if button == ok_button:
+                            sheet_dialog.accept()
+                        elif button == skip_button:
+                            sheet_dialog.done(0)
+                        else:
+                            sheet_dialog.reject()
+
+                    button_box.clicked.connect(on_button_clicked)
+
+                    sheet_dialog.exec()
+                    if clicked_button == ok_button:
+                        selected_sheet = combo_sheets.currentText()
+                        if selected_sheet:
+                            self.combo_sheets.setCurrentText(selected_sheet)
+                    elif clicked_button == skip_button:
+                        self.combo_sheets.setCurrentIndex(-1)
+                    else:
                         self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
+                        self.label_file.setText("No file selected.")
                         return
-                    selected_sheet = combo_sheets.currentText()
-                    if selected_sheet:
-                        self.combo_sheets.setCurrentText(selected_sheet)
+                elif len(self.sheets.values()) == 1:
+                    reply = QMessageBox.question(self, "U-Pb data",
+                                                 f"Does this file have U-Pb data?",
+                                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No |
+                                                 QMessageBox.StandardButton.Cancel, QMessageBox.StandardButton.Yes)
+                    if reply == QMessageBox.StandardButton.Yes:
+                        selected_sheet = combo_sheets.currentText()
+                        if selected_sheet:
+                            self.combo_sheets.setCurrentText(selected_sheet)
+                    elif reply == QMessageBox.StandardButton.No:
+                        self.combo_sheets.setCurrentIndex(-1)
+                    else:
+                        self.loading_manager.close_loading_dialog("Loading", f"Loading {os.path.basename(path)}...")
+                        self.label_file.setText("No file selected.")
+                        return
                 for sheet in self.sheets.values():
                     row_count = sheet.max_row
                     sheet.title = sheet.title.strip()
@@ -1859,9 +1938,9 @@ class ImportWizardDialog(QWidget):
                     self.loading_manager.close_loading_dialog(f"Loading {sheet.title}",
                                                              f"Loading sheet {sheet.title} with {row_count} rows...")
 
-                self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex())
+                self.workbook_tabs.setCurrentIndex(self.combo_sheets.currentIndex() if self.combo_sheets.currentIndex() > -1 else 0)
                 # needed to properly make sure dictionaries and other widgets are loaded
-                self.on_tab_changed(self.combo_sheets.currentIndex())
+                self.on_tab_changed(self.workbook_tabs.currentIndex())
                 wb.close()
             except Exception as e:
                 logger_setup.get_logger().critical(f"Error reading the excel file")
@@ -2728,8 +2807,10 @@ class ImportWizardDialog(QWidget):
         :return:
         List of tuples (row, col) for empty cells.
         """
-        logger_setup.get_logger().info("Checking empty cells in left table")
         empty_cells = []
+        if not self.upb_sheet_name:
+            return empty_cells
+        logger_setup.get_logger().info("Checking empty cells in left table")
         disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
         for row in range(self.left_table.rowCount()):
             if row in disabled_rows:
@@ -2863,7 +2944,9 @@ class ImportWizardDialog(QWidget):
                     self.update_left_table_background(self.left_table.item(row, grain_col), self.purple_brush)
                     self.update_left_table_background(self.left_table.item(row, spot_col), self.purple_brush)
                     self.update_left_table_background(self.left_table.item(row, upb_analysis_col), self.purple_brush)
-            spot_name = self.left_table.item(row, spot_col).text()
+            spot_name_item = self.left_table.item(row, spot_col)
+            if spot_name_item and spot_name_item.text().strip() not in ["", 'NULL', None]:
+                spot_name = spot_name_item.text().strip()
             if grain_item and self.left_table.item(row, grain_col).text() in ["", 'NULL', None] and spot_name not in ["", 'NULL', None]:
                 # If grain column is defined but Grain Name is still missing, set it equal to the spot name
                 self.left_table.blockSignals(False)
@@ -3081,7 +3164,11 @@ class ImportWizardDialog(QWidget):
             else:
                 item = self.left_table.item(row, sample_col)
                 if item:
-                    item.setBackground(self.transparent_brush)  # Reset to default
+                    if self.upb_sheet_name:
+                        item.setBackground(self.transparent_brush)  # Reset to default
+                    else:
+                        # Trying to import a sample without U-Pb data
+                        item.setBackground(self.red_brush)
 
             # Check if any has already been identified as a conflict
             if aliquot_name in aliquots_different_sample:
@@ -3656,6 +3743,100 @@ class ImportWizardDialog(QWidget):
             return False
         return True
 
+    def check_new_items_no_upb(self):
+        """
+        Checks if any Samples, Aliquots, Grains, Spots, or UPbAnalyses do not exist in the database and have no U-Pb data
+        being imported.
+        :return: False if importing new items without U-Pb data, True otherwise
+        """
+
+        # Gather all the item names to be imported from all right sheets. Gather all the item names to be imported from the left sheet.
+        # Check if the item exists in the database. If not, check if it is in the left sheet. If not, highlight and return an error.
+
+        new_upb = True
+
+        upb_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(), 'Grains': set()}
+        import_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(), 'Grains': set()}
+        new_dict = {'Samples': set(), 'Aliquots': set(), 'Spots': set(), 'UPbAnalyses': set(), 'Grains': set()}
+        left_cols = {'Sample Name': '', 'Aliquot Name': '', 'Spot Name': '', 'UPb Analysis Name': '', 'Grain Name': ''}
+        name_headers = {'Sample Name': 'Samples', 'Aliquot Name': 'Aliquots', 'Spot Name': 'Spots', 'UPb Analysis Name': 'UPbAnalyses', 'Grain Name': 'Grains'}
+        count_dict = {'Samples': 0, 'Aliquots': 0, 'Grains': 0, 'Spots': 0, 'UPbAnalyses': 0}
+
+        if self.upb_sheet_name:
+            disabled_rows = self.right_tables[self.upb_sheet_name].model().rows_for_status('disabled')
+            for column in range(self.left_table.columnCount()):
+                for header in left_cols.keys():
+                    if self.left_table.horizontalHeaderItem(column).text() == header:
+                        left_cols[header] = str(column)
+            for row_idx in range(self.left_table.rowCount()):
+                if row_idx in disabled_rows:
+                    continue
+                for name_header, table in name_headers.items():
+                    upb_items = upb_dict[table]
+                    item_col = left_cols[name_header]
+                    if item_col:
+                        upb_items.add(self.left_table.item(row_idx, int(item_col)).text().strip())
+                        upb_dict[table] = upb_items
+
+        for sheet, column_mappings in self.sheet_mappings.items():
+            if sheet == self.upb_sheet_name:
+                continue
+            if not any(column in column_mappings.values() for column in name_headers.keys()):
+                continue
+            self.workbook_tabs.setCurrentIndex(self.workbook_tabs.indexOf(self.right_tables[sheet]))
+            if self.right_table != self.right_tables[sheet]:
+                logger_setup.get_logger().critical(f"Sheet {sheet} does not match the current right table")
+                return False
+            right_cols = {'Sample Name': '', 'Aliquot Name': '', 'Spot Name': '', 'UPb Analysis Name': '',
+                          'Grain Name': ''}
+            disabled_rows = self.right_tables[sheet].model().rows_for_status('disabled')
+            for index, column_header in column_mappings.items():
+                if column_header not in name_headers.keys():
+                    continue
+                for name_header in name_headers.keys():
+                    if column_header == name_header:
+                        right_cols[name_header] = str(index)
+                        continue
+            for row_idx in range(self.right_table.model().rowCount()):
+                if row_idx in disabled_rows:
+                    continue
+                for name_header, right_col in right_cols.items():
+                    if right_col:
+                        item_name = self.right_table.model().index(row_idx, int(right_col)).data(Qt.ItemDataRole.DisplayRole)
+                        if item_name not in ['NULL', '', None]:
+                            table = name_headers[name_header]
+                            import_items = import_dict[table]
+                            if item_name not in import_items:
+                                import_items.add(item_name)
+                                import_dict[table] = import_items
+                                # Check if the item name is in the database
+                                item_id = get_id_from_name(table, item_name)
+                                if not item_id:
+                                    new_items = new_dict[table]
+                                    new_items.add(item_name)
+                                    new_dict[table] = new_items
+                            new_items = new_dict[table]
+                            upb_items = upb_dict[table]
+                            item_count = count_dict[table]
+                            if item_name in new_items and item_name not in upb_items:
+                                new_upb = False
+                                count_dict[table] = item_count + 1
+                                item_col = right_cols[name_header]
+                                right_idx = self.right_table.model().index(row_idx, int(item_col))
+                                self.right_table.model().setData(right_idx, self.red_brush, Qt.ItemDataRole.BackgroundRole)
+
+            # Stop for each sheet with issues
+            if not new_upb:
+                msg_text = f'Red cells are new items without analysis data.\n'
+                for table, count in count_dict.items():
+                    if count != 0:
+                        msg_text += f'\n{table}: {count}'
+                msg_text += '\n\nImport analysis data before other metadata files.'
+                logger_setup.get_logger().error(msg_text)
+
+        return new_upb
+
+
     def check_static_table_fields(self):
         """
         Checks if any static fields in the left table are mapped and if so, tries to match to one of the existing values.
@@ -3786,11 +3967,10 @@ class ImportWizardDialog(QWidget):
         """
         row_count = self.left_table.rowCount()
         if row_count == 0:
-            dlg = QMessageBox.question(self, "No U-Pb Data",
-                                       "There is no U-Pb data selected." "Continue without U-Pb data?",
+            response = QMessageBox.question(self, "No U-Pb Data",
+                                       "There is no U-Pb data selected.\nContinue without U-Pb data?",
                                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-            dlg.exec_()
-            if dlg.result() != QMessageBox.StandardButton.Yes:
+            if response != QMessageBox.StandardButton.Yes:
                 return
             else:
                 upb_data = False
@@ -3833,7 +4013,7 @@ class ImportWizardDialog(QWidget):
                 self.import_clicked = False
                 return
 
-        if not self.import_items_to_db(item_tables):
+        if not self.import_items_to_db(item_tables, upb_data):
             rollback_savepoint('before_import')
             logger_setup.get_logger().error('Import canceled')
             self.import_clicked = False
@@ -4318,12 +4498,13 @@ class ImportWizardDialog(QWidget):
         return True
 
 
-    def import_items_to_db(self, item_tables):
+    def import_items_to_db(self, item_tables, upb_data):
         """
         Main method to import items from the item_tables list of tables. Works whether or not there are analyses.
         Data for each table is collated from all sheets then imported in the order of item_tables, which should be in
         parent->child order.
         :param item_tables:
+        :param upb_data: True if upb_data imported, false if not
         :return:
         """
 
@@ -4952,6 +5133,8 @@ class ImportWizardDialog(QWidget):
                             logger_setup.get_logger().debug(f'Error validating data to insert for table {table}')
                             rollback_savepoint('before_import_items')
                             return False
+                    if db_table in ['Samples', 'Aliquots', 'Grains', 'Spots', 'UPbAnalyses'] and not upb_data:
+                        logger_setup.get_logger().error(f'Error inserting new Sample. New samples cannot be imported without U-Pb data')
                     insert_query = f'INSERT INTO "{db_table}" ('
                     for column, value in input_values.items():
                         insert_query += f'"{column}", '
