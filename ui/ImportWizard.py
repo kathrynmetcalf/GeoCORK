@@ -492,6 +492,7 @@ class ImportWizardDialog(QWidget):
 
         self.btn_add_column = QPushButton("Add Column")
         self.btn_add_column.setFixedWidth(150)
+        self.btn_add_column.setToolTip('Adds a blank column to the right of all existing columns')
         self.btn_add_column.clicked.connect(lambda: self.add_column(None, False))
         formats_layout2.addWidget(self.btn_add_column)
 
