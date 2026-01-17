@@ -8,7 +8,7 @@ import pandas as pd
 import qtawesome
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QPoint, QSize, QStringListModel, QRect, QVariant, QModelIndex, QAbstractTableModel, \
-    QEventLoop, QTimer
+    QEventLoop, QTimer, QStandardPaths
 from PyQt6.QtGui import QBrush, QColor, QFont, QAction, QPalette, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtWidgets import (
@@ -43,6 +43,9 @@ from ui.EditTree import EditTree
 from ui.New_reference import NewReference
 
 CONFIG_FILE = 'column_mappings.json'
+CONFIG_FILE = QStandardPaths.writableLocation(
+        QStandardPaths.StandardLocation.AppDataLocation) + f"/column_mappings.json"
+
 
 
 class ColumnMapDialog(QDialog):
@@ -2537,15 +2540,14 @@ class ImportWizardDialog(QWidget):
             return
 
         try:
-            if os.path.exists(CONFIG_FILE):
-                with open(CONFIG_FILE, 'r') as f:
-                    try:
-                        configs = json.load(f)
-                    except json.JSONDecodeError:
-                        # If the file is empty, it cannot load
-                        configs = {}
-            else:
-                configs = {}
+            # Open for read/write, create if it doesn't exist
+            with open(CONFIG_FILE, 'a+') as f:
+                f.seek(0)  # move to beginning before reading
+                try:
+                    configs = json.load(f)
+                except json.JSONDecodeError:
+                    configs = {}
+
         except Exception as e:
             logger_setup.get_logger().critical('Error loading config file')
             logger_setup.get_logger().debug(f'{e}')
